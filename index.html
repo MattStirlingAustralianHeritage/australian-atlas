@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Australian Atlas — A Network of Independent Discoveries</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --parchment: #f5f0e8;
+      --warm-white: #faf8f4;
+      --ink: #1c1a17;
+      --ink-light: #3d3a34;
+      --gold: #a07840;
+      --gold-light: #c4a060;
+      --stone: #8a8478;
+      --stone-light: #b8b2a8;
+      --fog: #e8e3d8;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--warm-white);
+      color: var(--ink);
+      font-family: 'Jost', sans-serif;
+      font-weight: 300;
+      overflow-x: hidden;
+    }
+
+    /* GRAIN OVERLAY */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 1000;
+      opacity: 0.5;
+    }
+
+    /* NAV */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      padding: 24px 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      mix-blend-mode: multiply;
+    }
+
+    .nav-logo {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 15px;
+      font-weight: 400;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--ink);
+      text-decoration: none;
+    }
+
+    .nav-tagline {
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--stone);
+    }
+
+    /* HERO */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 120px 48px 80px;
+      position: relative;
+      background: var(--warm-white);
+    }
+
+    .hero-decoration {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(160,120,64,0.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-eyebrow {
+      font-size: 11px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 32px;
+      opacity: 0;
+      animation: fadeUp 1s ease 0.2s forwards;
+    }
+
+    .hero-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(56px, 8vw, 108px);
+      font-weight: 300;
+      line-height: 0.92;
+      text-align: center;
+      color: var(--ink);
+      max-width: 900px;
+      opacity: 0;
+      animation: fadeUp 1s ease 0.4s forwards;
+    }
+
+    .hero-title em {
+      font-style: italic;
+      color: var(--gold);
+    }
+
+    .hero-rule {
+      width: 1px;
+      height: 60px;
+      background: var(--gold-light);
+      margin: 48px auto;
+      opacity: 0;
+      animation: fadeUp 1s ease 0.6s forwards;
+    }
+
+    .hero-body {
+      font-size: 16px;
+      line-height: 1.8;
+      color: var(--ink-light);
+      text-align: center;
+      max-width: 540px;
+      font-weight: 300;
+      opacity: 0;
+      animation: fadeUp 1s ease 0.8s forwards;
+    }
+
+    .hero-scroll {
+      position: absolute;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      opacity: 0;
+      animation: fadeUp 1s ease 1.2s forwards;
+    }
+
+    .hero-scroll span {
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--stone);
+    }
+
+    .scroll-line {
+      width: 1px;
+      height: 40px;
+      background: linear-gradient(to bottom, var(--stone-light), transparent);
+      animation: scrollPulse 2s ease infinite;
+    }
+
+    /* ABOUT SECTION */
+    .about {
+      padding: 120px 48px;
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      gap: 80px;
+      align-items: start;
+    }
+
+    .about-label {
+      font-size: 11px;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--gold);
+      padding-top: 8px;
+      position: sticky;
+      top: 120px;
+    }
+
+    .about-content h2 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(32px, 4vw, 52px);
+      font-weight: 300;
+      line-height: 1.2;
+      color: var(--ink);
+      margin-bottom: 32px;
+    }
+
+    .about-content h2 em {
+      font-style: italic;
+      color: var(--gold);
+    }
+
+    .about-content p {
+      font-size: 16px;
+      line-height: 1.9;
+      color: var(--ink-light);
+      margin-bottom: 20px;
+      font-weight: 300;
+    }
+
+    .about-content p:last-child { margin-bottom: 0; }
+
+    /* DIVIDER */
+    .divider {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 48px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .divider-line {
+      flex: 1;
+      height: 1px;
+      background: var(--fog);
+    }
+
+    .divider-mark {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 20px;
+      color: var(--stone-light);
+    }
+
+    /* VERTICALS */
+    .verticals {
+      padding: 100px 48px 140px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .verticals-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 64px;
+    }
+
+    .verticals-label {
+      font-size: 11px;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--gold);
+    }
+
+    .verticals-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(28px, 3.5vw, 44px);
+      font-weight: 300;
+      color: var(--ink);
+    }
+
+    .verticals-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 2px;
+    }
+
+    /* ACTIVE CARD */
+    .card {
+      position: relative;
+      aspect-ratio: 3/4;
+      overflow: hidden;
+      cursor: pointer;
+      text-decoration: none;
+      display: block;
+    }
+
+    .card-inner {
+      position: absolute;
+      inset: 0;
+      background: var(--parchment);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 32px 28px;
+      transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .card:hover .card-inner { transform: scale(1.02); }
+
+    .card-bg {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(160deg, #d4c4a0 0%, #8a7858 100%);
+      transition: opacity 0.6s ease;
+    }
+
+    .card-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(28,26,23,0.75) 0%, rgba(28,26,23,0.1) 60%, transparent 100%);
+    }
+
+    .card-number {
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      color: rgba(255,255,255,0.5);
+      margin-bottom: 8px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .card-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 28px;
+      font-weight: 300;
+      color: #fff;
+      line-height: 1.1;
+      position: relative;
+      z-index: 2;
+    }
+
+    .card-sub {
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.6);
+      margin-top: 8px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .card-arrow {
+      position: absolute;
+      top: 28px;
+      right: 28px;
+      width: 36px;
+      height: 36px;
+      border: 1px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+      transition: all 0.3s ease;
+    }
+
+    .card:hover .card-arrow {
+      background: rgba(255,255,255,0.15);
+      border-color: rgba(255,255,255,0.5);
+    }
+
+    .card-arrow svg {
+      width: 14px;
+      height: 14px;
+      stroke: rgba(255,255,255,0.8);
+      fill: none;
+    }
+
+    /* SBA specific background */
+    .card-sba .card-bg {
+      background: linear-gradient(160deg, #c8b88a 0%, #6b5840 100%);
+    }
+
+    /* COMING SOON CARDS */
+    .card-soon {
+      position: relative;
+      aspect-ratio: 3/4;
+      overflow: hidden;
+      display: block;
+    }
+
+    .card-soon-inner {
+      position: absolute;
+      inset: 0;
+      background: var(--parchment);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 32px 28px;
+      filter: blur(0px);
+    }
+
+    .card-soon-bg {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(160deg, #c8c0b0 0%, #8a8070 100%);
+      opacity: 0.35;
+    }
+
+    .card-soon-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(28,26,23,0.5) 0%, rgba(28,26,23,0.05) 60%, transparent 100%);
+    }
+
+    .card-soon-veil {
+      position: absolute;
+      inset: 0;
+      background: rgba(250,248,244,0.72);
+      backdrop-filter: blur(3px);
+      z-index: 3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .coming-soon-badge {
+      font-size: 10px;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--stone);
+      border: 1px solid var(--stone-light);
+      padding: 8px 16px;
+    }
+
+    .card-soon-number {
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      color: rgba(28,26,23,0.25);
+      margin-bottom: 8px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .card-soon-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 28px;
+      font-weight: 300;
+      color: rgba(28,26,23,0.2);
+      line-height: 1.1;
+      position: relative;
+      z-index: 2;
+    }
+
+    .card-soon-sub {
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: rgba(28,26,23,0.15);
+      margin-top: 8px;
+      position: relative;
+      z-index: 2;
+    }
+
+    /* FOOTER */
+    footer {
+      border-top: 1px solid var(--fog);
+      padding: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .footer-logo {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 18px;
+      font-weight: 400;
+      letter-spacing: 0.1em;
+      color: var(--ink);
+    }
+
+    .footer-copy {
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      color: var(--stone);
+    }
+
+    
+    .card-map-shape {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -48%);
+      width: 78%;
+      padding-top: 78%;
+      background: rgba(255, 255, 255, 0.22);
+      clip-path: polygon(48% 8%, 52% 7%, 57% 7%, 62% 8%, 66% 10%, 70% 13%, 72% 17%, 72% 21%, 74% 19%, 77% 17%, 80% 17%, 83% 18%, 85% 21%, 85% 25%, 83% 28%, 86% 27%, 89% 25%, 91% 22%, 91% 19%, 93% 22%, 93% 26%, 91% 30%, 89% 32%, 92% 32%, 95% 30%, 96% 27%, 97% 31%, 96% 35%, 93% 37%, 96% 38%, 98% 36%, 99% 33%, 99% 37%, 98% 41%, 95% 43%, 97% 45%, 99% 44%, 100% 41%, 99% 46%, 97% 50%, 94% 51%, 96% 54%, 98% 53%, 99% 50%, 98% 55%, 95% 58%, 91% 59%, 92% 62%, 94% 62%, 96% 59%, 94% 64%, 91% 67%, 87% 68%, 88% 72%, 89% 76%, 87% 80%, 83% 82%, 80% 82%, 77% 80%, 74% 77%, 71% 75%, 68% 74%, 65% 75%, 62% 78%, 59% 81%, 56% 83%, 52% 84%, 49% 83%, 46% 81%, 43% 78%, 40% 76%, 37% 75%, 34% 76%, 31% 78%, 28% 80%, 25% 81%, 22% 80%, 19% 77%, 17% 74%, 15% 70%, 13% 66%, 11% 62%, 9% 58%, 8% 54%, 7% 50%, 7% 46%, 8% 42%, 9% 38%, 11% 34%, 13% 31%, 15% 28%, 18% 25%, 21% 23%, 24% 22%, 27% 22%, 30% 23%, 32% 26%, 30% 20%, 29% 15%, 30% 10%, 34% 7%, 38% 6%, 42% 7%, 45% 9%, 47% 12%, 47% 8%);
+      z-index: 1;
+      pointer-events: none;
+      transition: opacity 0.6s ease;
+    }
+
+    .card:hover .card-map-shape {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .card-soon-map-shape {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -48%);
+      width: 78%;
+      padding-top: 78%;
+      background: rgba(160, 120, 64, 0.18);
+      clip-path: polygon(48% 8%, 52% 7%, 57% 7%, 62% 8%, 66% 10%, 70% 13%, 72% 17%, 72% 21%, 74% 19%, 77% 17%, 80% 17%, 83% 18%, 85% 21%, 85% 25%, 83% 28%, 86% 27%, 89% 25%, 91% 22%, 91% 19%, 93% 22%, 93% 26%, 91% 30%, 89% 32%, 92% 32%, 95% 30%, 96% 27%, 97% 31%, 96% 35%, 93% 37%, 96% 38%, 98% 36%, 99% 33%, 99% 37%, 98% 41%, 95% 43%, 97% 45%, 99% 44%, 100% 41%, 99% 46%, 97% 50%, 94% 51%, 96% 54%, 98% 53%, 99% 50%, 98% 55%, 95% 58%, 91% 59%, 92% 62%, 94% 62%, 96% 59%, 94% 64%, 91% 67%, 87% 68%, 88% 72%, 89% 76%, 87% 80%, 83% 82%, 80% 82%, 77% 80%, 74% 77%, 71% 75%, 68% 74%, 65% 75%, 62% 78%, 59% 81%, 56% 83%, 52% 84%, 49% 83%, 46% 81%, 43% 78%, 40% 76%, 37% 75%, 34% 76%, 31% 78%, 28% 80%, 25% 81%, 22% 80%, 19% 77%, 17% 74%, 15% 70%, 13% 66%, 11% 62%, 9% 58%, 8% 54%, 7% 50%, 7% 46%, 8% 42%, 9% 38%, 11% 34%, 13% 31%, 15% 28%, 18% 25%, 21% 23%, 24% 22%, 27% 22%, 30% 23%, 32% 26%, 30% 20%, 29% 15%, 30% 10%, 34% 7%, 38% 6%, 42% 7%, 45% 9%, 47% 12%, 47% 8%);
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    /* ANIMATIONS */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes scrollPulse {
+      0%, 100% { opacity: 0.4; transform: scaleY(1); }
+      50% { opacity: 1; transform: scaleY(1.2); }
+    }
+
+    /* Staggered card animations */
+    .card, .card-soon {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+
+    .card.visible, .card-soon.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* RESPONSIVE */
+    @media (max-width: 900px) {
+      .verticals-grid { grid-template-columns: repeat(2, 1fr); }
+      .about { grid-template-columns: 1fr; gap: 32px; }
+      .about-label { position: static; }
+      nav { padding: 20px 24px; }
+      .hero { padding: 100px 24px 80px; }
+      .about, .verticals { padding-left: 24px; padding-right: 24px; }
+      footer { padding: 32px 24px; flex-direction: column; gap: 16px; text-align: center; }
+    }
+
+    @media (max-width: 500px) {
+      .verticals-grid { grid-template-columns: 1fr 1fr; }
+      .verticals-header { flex-direction: column; gap: 8px; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="#" class="nav-logo">Australian Atlas</a>
+    <span class="nav-tagline">australianatlas.com.au</span>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-decoration"></div>
+    <p class="hero-eyebrow">australianatlas.com.au</p>
+    <h1 class="hero-title">
+      A network of<br><em>independent</em><br>discoveries
+    </h1>
+    <div class="hero-rule"></div>
+    <p class="hero-body">
+      Australia is full of makers, growers, makers, keepers and wanderers doing extraordinary things quietly. Australian Atlas exists to find them, map them, and make them impossible to miss.
+    </p>
+    <div class="hero-scroll">
+      <div class="scroll-line"></div>
+      <span>Explore</span>
+    </div>
+  </section>
+
+  <!-- ABOUT -->
+  <section class="about">
+    <div class="about-label">What we are</div>
+    <div class="about-content">
+      <h2>Not a guide.<br>Not a listing.<br><em>An atlas.</em></h2>
+      <p>
+        The best places in Australia rarely advertise. They're found by word of mouth, by taking a wrong turn on a country road, by asking the right person at the right moment. Australian Atlas is built for those places — and for the people who seek them out.
+      </p>
+      <p>
+        We are a network of curated directories, each dedicated to a different corner of independent Australian life. Craft. Flavour. Rest. Roam. Each Atlas stands alone. Together, they map something larger — a quieter, more considered version of this country that most platforms overlook.
+      </p>
+      <p>
+        We don't cover everything. We cover what matters.
+      </p>
+    </div>
+  </section>
+
+  <div class="divider">
+    <div class="divider-line"></div>
+    <div class="divider-mark">✦</div>
+    <div class="divider-line"></div>
+  </div>
+
+  <!-- VERTICALS -->
+  <section class="verticals">
+    <div class="verticals-header">
+      <span class="verticals-label">The Collection</span>
+      <h2 class="verticals-title">Seven atlases. One network.</h2>
+    </div>
+
+    <div class="verticals-grid">
+
+      <!-- LIVE: Small Batch Atlas -->
+      <a href="https://www.smallbatchatlas.com.au" class="card card-sba" target="_blank">
+        <div class="card-inner">
+          <div class="card-bg"></div>
+          <div class="card-overlay"></div>
+          
+          <div class="card-arrow">
+            <svg viewBox="0 0 24 24" stroke-width="1.5" stroke="rgba(255,255,255,0.8)" fill="none"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+          </div>
+          <span class="card-number">01</span>
+          <span class="card-name">Small Batch<br>Atlas</span>
+          <span class="card-sub">Craft Beverage</span>
+        </div>
+      </a>
+
+      <!-- COMING SOON -->
+      <div class="card-soon">
+        <div class="card-soon-inner">
+          <div class="card-soon-bg"></div>
+          <div class="card-soon-overlay"></div>
+          <div class="card-soon-map-shape"></div>
+          
+          <span class="card-soon-number">02</span>
+          <span class="card-soon-name">Fine Grounds<br>Atlas</span>
+          <span class="card-soon-sub">Specialty Coffee</span>
+        </div>
+        <div class="card-soon-veil">
+          <span class="coming-soon-badge">Coming Soon</span>
+        </div>
+      </div>
+
+      <div class="card-soon">
+        <div class="card-soon-inner">
+          <div class="card-soon-bg"></div>
+          <div class="card-soon-overlay"></div>
+          <div class="card-soon-map-shape"></div>
+          
+          <span class="card-soon-number">03</span>
+          <span class="card-soon-name">Rest<br>Atlas</span>
+          <span class="card-soon-sub">Boutique Accommodation</span>
+        </div>
+        <div class="card-soon-veil">
+          <span class="coming-soon-badge">Coming Soon</span>
+        </div>
+      </div>
+
+      <div class="card-soon">
+        <div class="card-soon-inner">
+          <div class="card-soon-bg"></div>
+          <div class="card-soon-overlay"></div>
+          <div class="card-soon-map-shape"></div>
+          
+          <span class="card-soon-number">04</span>
+          <span class="card-soon-name">Roam<br>Atlas</span>
+          <span class="card-soon-sub">Experiences & Tourism</span>
+        </div>
+        <div class="card-soon-veil">
+          <span class="coming-soon-badge">Coming Soon</span>
+        </div>
+      </div>
+
+      <div class="card-soon">
+        <div class="card-soon-inner">
+          <div class="card-soon-bg"></div>
+          <div class="card-soon-overlay"></div>
+          <div class="card-soon-map-shape"></div>
+          
+          <span class="card-soon-number">05</span>
+          <span class="card-soon-name">Table<br>Atlas</span>
+          <span class="card-soon-sub">Artisan Food</span>
+        </div>
+        <div class="card-soon-veil">
+          <span class="coming-soon-badge">Coming Soon</span>
+        </div>
+      </div>
+
+      <div class="card-soon">
+        <div class="card-soon-inner">
+          <div class="card-soon-bg"></div>
+          <div class="card-soon-overlay"></div>
+          <div class="card-soon-map-shape"></div>
+          
+          <span class="card-soon-number">06</span>
+          <span class="card-soon-name">Slow<br>Atlas</span>
+          <span class="card-soon-sub">Wellness & Retreat</span>
+        </div>
+        <div class="card-soon-veil">
+          <span class="coming-soon-badge">Coming Soon</span>
+        </div>
+      </div>
+
+      <div class="card-soon">
+        <div class="card-soon-inner">
+          <div class="card-soon-bg"></div>
+          <div class="card-soon-overlay"></div>
+          <div class="card-soon-map-shape"></div>
+          
+          <span class="card-soon-number">07</span>
+          <span class="card-soon-name">Shelf<br>Atlas</span>
+          <span class="card-soon-sub">Independent Bookshops</span>
+        </div>
+        <div class="card-soon-veil">
+          <span class="coming-soon-badge">Coming Soon</span>
+        </div>
+      </div>
+
+      <!-- Empty 8th cell for grid balance — subtle texture -->
+      <div style="background: var(--fog); opacity: 0.3;"></div>
+
+    </div>
+  </section>
+
+  <div class="divider" style="margin-bottom: 0;">
+    <div class="divider-line"></div>
+    <div class="divider-mark">✦</div>
+    <div class="divider-line"></div>
+  </div>
+
+  <footer>
+    <span class="footer-logo">Australian Atlas</span>
+    <span class="footer-copy">© 2026 — australianatlas.com.au</span>
+  </footer>
+
+  <script>
+    // Intersection observer for staggered card reveal
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry, i) => {
+        if (entry.isIntersecting) {
+          const el = entry.target;
+          const index = [...el.parentElement.children].indexOf(el);
+          setTimeout(() => {
+            el.classList.add('visible');
+          }, index * 80);
+          observer.unobserve(el);
+        }
+      });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('.card, .card-soon').forEach(el => observer.observe(el));
+  </script>
+
+</body>
+</html>
