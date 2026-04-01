@@ -11,6 +11,9 @@ export default function Nav() {
           <Link href="/explore" className="text-[var(--color-muted)] hover:text-[var(--color-ink)] transition-colors">
             Explore
           </Link>
+          <Link href="/map" className="text-[var(--color-muted)] hover:text-[var(--color-ink)] transition-colors">
+            Map
+          </Link>
           <Link href="/regions" className="text-[var(--color-muted)] hover:text-[var(--color-ink)] transition-colors">
             Regions
           </Link>

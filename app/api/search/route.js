@@ -8,14 +8,14 @@ export async function GET(request) {
   const state = searchParams.get('state') || null
   const region = searchParams.get('region') || null
   const page = parseInt(searchParams.get('page') || '1', 10)
-  const limit = Math.min(parseInt(searchParams.get('limit') || '24', 10), 100)
+  const limit = Math.min(parseInt(searchParams.get('limit') || '24', 10), 10000)
   const offset = (page - 1) * limit
 
   const sb = getSupabaseAdmin()
 
   let query = sb
     .from('listings')
-    .select('id, vertical, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, website', { count: 'exact' })
+    .select('id, vertical, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, website', { count: 'exact' })
     .eq('status', 'active')
     .order('is_featured', { ascending: false })
     .order('name')

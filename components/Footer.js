@@ -21,7 +21,7 @@ export default function Footer() {
           <div>
             <h3 className="font-[family-name:var(--font-serif)] text-lg font-bold mb-2">Australian Atlas</h3>
             <p className="text-sm text-[var(--color-muted)] leading-relaxed">
-              A family of curated directories celebrating the best of independent Australia.
+              The complete guide to independent Australia. Nine atlases, one map.
             </p>
           </div>
 
@@ -44,6 +44,7 @@ export default function Footer() {
             <h4 className="text-sm font-semibold uppercase tracking-wider text-[var(--color-muted)] mb-3">Explore</h4>
             <ul className="space-y-1.5">
               <li><Link href="/explore" className="text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] transition-colors">Browse by vertical</Link></li>
+              <li><Link href="/map" className="text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] transition-colors">Map</Link></li>
               <li><Link href="/regions" className="text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] transition-colors">Browse by region</Link></li>
               <li><Link href="/search" className="text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] transition-colors">Search all listings</Link></li>
             </ul>

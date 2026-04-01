@@ -3,20 +3,50 @@
 import { useState, useEffect, useCallback } from 'react'
 import ListingCard from '@/components/ListingCard'
 
+const VERTICAL_ACCENT = {
+  sba: '#C49A3C',
+  collection: '#7A6B8A',
+  craft: '#C1603A',
+  fine_grounds: '#8A7055',
+  rest: '#5A8A9A',
+  field: '#4A7C59',
+  corner: '#5F8A7E',
+  found: '#D4956A',
+  table: '#C4634F',
+}
+
 const VERTICALS = [
-  { key: '', label: 'All' },
-  { key: 'sba', label: 'Drink' },
-  { key: 'collection', label: 'Culture' },
-  { key: 'craft', label: 'Craft' },
-  { key: 'fine_grounds', label: 'Coffee' },
-  { key: 'rest', label: 'Stay' },
-  { key: 'field', label: 'Nature' },
-  { key: 'corner', label: 'Shop' },
-  { key: 'found', label: 'Vintage' },
-  { key: 'table', label: 'Food' },
+  { key: '', label: 'All', atlas: '' },
+  { key: 'sba', label: 'Small Batch', atlas: 'Drink' },
+  { key: 'craft', label: 'Craft', atlas: 'Makers' },
+  { key: 'collection', label: 'Collections', atlas: 'Culture' },
+  { key: 'fine_grounds', label: 'Fine Grounds', atlas: 'Coffee' },
+  { key: 'rest', label: 'Rest', atlas: 'Stay' },
+  { key: 'field', label: 'Field', atlas: 'Nature' },
+  { key: 'corner', label: 'Corner', atlas: 'Shop' },
+  { key: 'found', label: 'Found', atlas: 'Vintage' },
+  { key: 'table', label: 'Table', atlas: 'Food' },
 ]
 
+const VERTICAL_LABEL_MAP = Object.fromEntries(VERTICALS.filter(v => v.key).map(v => [v.key, v.label]))
+
 const STATES = ['', 'VIC', 'NSW', 'QLD', 'SA', 'WA', 'TAS', 'ACT', 'NT']
+
+function SkeletonCard() {
+  return (
+    <div className="bg-[var(--color-card-bg)] rounded-xl overflow-hidden border border-[var(--color-border)] animate-pulse">
+      <div className="aspect-[16/10] bg-gray-100" />
+      <div className="p-4 space-y-3">
+        <div className="h-5 bg-gray-100 rounded w-3/4" />
+        <div className="h-3 bg-gray-50 rounded w-1/2" />
+        <div className="space-y-1.5">
+          <div className="h-3 bg-gray-50 rounded w-full" />
+          <div className="h-3 bg-gray-50 rounded w-2/3" />
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function SearchPage() {
   const [query, setQuery] = useState('')
@@ -26,7 +56,17 @@ export default function SearchPage() {
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [initialLoad, setInitialLoad] = useState(true)
+
+  // Parse URL params on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const v = params.get('vertical')
+    if (v && VERTICALS.some(vert => vert.key === v)) {
+      setVertical(v)
+    }
+  }, [])
 
   const search = useCallback(async (p = 1) => {
     setLoading(true)
@@ -48,6 +88,7 @@ export default function SearchPage() {
       console.error('Search error:', e)
     } finally {
       setLoading(false)
+      setInitialLoad(false)
     }
   }, [query, vertical, state])
 
@@ -56,73 +97,179 @@ export default function SearchPage() {
     return () => clearTimeout(timer)
   }, [search])
 
+  // Build contextual results message
+  function getResultsMessage() {
+    if (loading) return 'Searching...'
+    const count = total.toLocaleString()
+    const vertLabel = VERTICAL_LABEL_MAP[vertical]
+    const stateLabel = state
+
+    if (query && vertical && stateLabel) {
+      return `${count} ${vertLabel} results for "${query}" in ${stateLabel}`
+    }
+    if (query && vertical) {
+      return `${count} ${vertLabel} results for "${query}"`
+    }
+    if (query && stateLabel) {
+      return `${count} results for "${query}" in ${stateLabel}`
+    }
+    if (query) {
+      return `${count} results for "${query}"`
+    }
+    if (vertical && stateLabel) {
+      return `${count} ${vertLabel} listings in ${stateLabel}`
+    }
+    if (vertical) {
+      return `${count} ${vertLabel} listings`
+    }
+    if (stateLabel) {
+      return `${count} listings in ${stateLabel}`
+    }
+    return `${count} listings across nine atlases`
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
       {/* Search header */}
       <div className="max-w-2xl">
-        <h1 className="font-[family-name:var(--font-serif)] text-3xl font-bold">Search</h1>
+        <h1 className="font-[family-name:var(--font-serif)] text-3xl sm:text-4xl font-bold">Search</h1>
         <p className="mt-1 text-sm text-[var(--color-muted)]">Find places across all nine atlases</p>
       </div>
 
-      {/* Search input */}
-      <div className="mt-6 flex items-center gap-3 bg-white border border-[var(--color-border)] rounded-xl px-4 py-3 max-w-xl">
-        <svg className="w-5 h-5 text-[var(--color-muted)] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      {/* Search input — prominent */}
+      <div className="mt-6 flex items-center gap-3 bg-white border-2 border-[var(--color-border)] rounded-2xl px-5 py-4 max-w-2xl shadow-sm focus-within:border-[var(--color-sage)] focus-within:shadow-md transition-all">
+        <svg className="w-6 h-6 text-[var(--color-sage)] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
         <input
           type="text"
-          placeholder="Search by name..."
+          placeholder="Search by name, place, or style..."
           value={query}
           onChange={e => setQuery(e.target.value)}
-          className="flex-1 bg-transparent outline-none text-sm placeholder:text-[var(--color-muted)]"
+          className="flex-1 bg-transparent outline-none text-base placeholder:text-[var(--color-muted)]/60"
         />
-      </div>
-
-      {/* Filters */}
-      <div className="mt-4 flex flex-wrap gap-2">
-        {VERTICALS.map(v => (
-          <button
-            key={v.key}
-            onClick={() => setVertical(v.key)}
-            className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-              vertical === v.key
-                ? 'bg-[var(--color-sage)] text-white border-[var(--color-sage)]'
-                : 'bg-white text-[var(--color-muted)] border-[var(--color-border)] hover:border-[var(--color-sage)]'
-            }`}
-          >
-            {v.label}
+        {query && (
+          <button onClick={() => setQuery('')} className="text-[var(--color-muted)] hover:text-[var(--color-ink)] transition-colors">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
-        ))}
+        )}
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2">
-        {STATES.map(s => (
-          <button
-            key={s || 'all'}
-            onClick={() => setState(s)}
-            className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-              state === s
-                ? 'bg-[var(--color-ink)] text-white border-[var(--color-ink)]'
-                : 'bg-white text-[var(--color-muted)] border-[var(--color-border)] hover:border-[var(--color-ink)]'
-            }`}
-          >
-            {s || 'All states'}
-          </button>
-        ))}
+      {/* Category filters — horizontal scroll on mobile */}
+      <div className="mt-5 -mx-4 px-4 overflow-x-auto scrollbar-hide">
+        <div className="flex gap-2 min-w-max pb-1">
+          {VERTICALS.map(v => {
+            const isActive = vertical === v.key
+            const accent = v.key ? VERTICAL_ACCENT[v.key] : null
+
+            return (
+              <button
+                key={v.key}
+                onClick={() => setVertical(v.key)}
+                className="text-sm px-4 py-2 rounded-full border font-medium transition-all whitespace-nowrap"
+                style={isActive && accent ? {
+                  backgroundColor: accent,
+                  borderColor: accent,
+                  color: '#fff',
+                } : isActive && !accent ? {
+                  backgroundColor: 'var(--color-ink)',
+                  borderColor: 'var(--color-ink)',
+                  color: '#fff',
+                } : {
+                  backgroundColor: '#fff',
+                  borderColor: 'var(--color-border)',
+                  color: 'var(--color-muted)',
+                }}
+              >
+                {v.label}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
-      {/* Results */}
+      {/* State filters */}
+      <div className="mt-3 -mx-4 px-4 overflow-x-auto scrollbar-hide">
+        <div className="flex gap-2 min-w-max pb-1">
+          {STATES.map(s => (
+            <button
+              key={s || 'all'}
+              onClick={() => setState(s)}
+              className={`text-xs px-3 py-1.5 rounded-full border transition-colors whitespace-nowrap ${
+                state === s
+                  ? 'bg-[var(--color-ink)] text-white border-[var(--color-ink)]'
+                  : 'bg-white text-[var(--color-muted)] border-[var(--color-border)] hover:border-[var(--color-ink)]'
+              }`}
+            >
+              {s || 'All states'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Results count — contextual */}
       <div className="mt-6 flex items-center justify-between">
-        <p className="text-sm text-[var(--color-muted)]">
-          {loading ? 'Searching...' : `${total.toLocaleString()} results`}
+        <p className="text-sm font-medium text-[var(--color-muted)]">
+          {getResultsMessage()}
         </p>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {results.map(listing => (
-          <ListingCard key={listing.id} listing={listing} />
-        ))}
-      </div>
+      {/* Results grid */}
+      {initialLoad ? (
+        /* Skeleton loading state */
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+      ) : results.length === 0 ? (
+        /* Empty state */
+        <div className="mt-12 text-center py-16">
+          <svg className="w-12 h-12 text-[var(--color-border)] mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <h3 className="font-[family-name:var(--font-serif)] text-xl font-bold mb-2">No results found</h3>
+          <p className="text-sm text-[var(--color-muted)] max-w-md mx-auto mb-6">
+            {query
+              ? `No results for "${query}" — try broader terms or browse by region.`
+              : 'Try adjusting your filters or searching for something specific.'}
+          </p>
+          <div className="flex items-center justify-center gap-3">
+            <a href="/map" className="text-sm font-medium text-[var(--color-sage)] hover:text-[var(--color-sage-dark)] transition-colors">
+              Explore the map
+            </a>
+            <span className="text-[var(--color-border)]">|</span>
+            <a href="/regions" className="text-sm font-medium text-[var(--color-sage)] hover:text-[var(--color-sage-dark)] transition-colors">
+              Browse regions
+            </a>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {results.map(listing => (
+              <ListingCard key={listing.id} listing={listing} />
+            ))}
+          </div>
+
+          {/* Sparse results suggestion */}
+          {results.length > 0 && results.length < 6 && vertical && (
+            <div className="mt-8 text-center py-4">
+              <p className="text-sm text-[var(--color-muted)]">
+                Showing all matching results.{' '}
+                <button
+                  onClick={() => { setVertical(''); setState(''); setQuery('') }}
+                  className="text-[var(--color-sage)] font-medium hover:text-[var(--color-sage-dark)] transition-colors"
+                >
+                  Browse all listings
+                </button>
+              </p>
+            </div>
+          )}
+        </>
+      )}
 
       {/* Pagination */}
       {totalPages > 1 && (
