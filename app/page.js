@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import HomeSearchBar from '@/components/HomeSearchBar'
 import HomeMapBackground from '@/components/HomeMapBackground'
+import MapCountRotator from '@/components/MapCountRotator'
 import { VERTICAL_STYLES } from '@/components/VerticalBadge'
 
 const verticals = [
@@ -168,9 +169,7 @@ export default async function Home() {
 
         {/* Centred content */}
         <div className="absolute inset-0 flex flex-col items-center justify-center z-10 px-4">
-          <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 'clamp(28px, 4vw, 40px)' }} className="text-[var(--color-ink)] text-center">
-            {stats.listings > 0 ? `${stats.listings.toLocaleString()} pins across Australia` : 'Every listing on one map'}
-          </h2>
+          <MapCountRotator verticalCounts={stats.verticalCounts} totalListings={stats.listings} />
           <p className="mt-3 text-center" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px', color: 'var(--color-muted)' }}>All nine atlases, filterable and explorable</p>
           <Link href="/map" className="mt-6 inline-flex items-center gap-2 bg-[var(--color-accent)] text-white px-6 py-3 rounded-full shadow-lg hover:shadow-xl transition-all" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px' }}>
             Open full map

@@ -111,14 +111,21 @@ export default function MapClient() {
   const listingsRef = useRef([])
   useEffect(() => { listingsRef.current = allListings }, [allListings])
 
-  // Lock body scroll and hide footer so the map takes full viewport
+  // Lock body scroll and hide footer + nav so the map takes full viewport
   useEffect(() => {
     document.body.style.overflow = 'hidden'
+    document.body.style.height = '100dvh'
+    // Hide footer — it's rendered by the root layout outside our control
     const footer = document.querySelector('footer')
     if (footer) footer.style.display = 'none'
+    // Hide the sticky nav — the map has its own toolbar
+    const nav = document.querySelector('nav')
+    if (nav) nav.style.display = 'none'
     return () => {
       document.body.style.overflow = ''
+      document.body.style.height = ''
       if (footer) footer.style.display = ''
+      if (nav) nav.style.display = ''
     }
   }, [])
 
@@ -308,11 +315,8 @@ export default function MapClient() {
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: '#faf8f5' }}>
-      {/* Nav bar spacer */}
-      <div style={{ height: 52 }} />
-
-      {/* ── MAP (fills remaining space) ── */}
-      <div style={{ position: 'absolute', top: 52, left: 0, right: 0, bottom: 0, overflow: 'hidden' }}>
+      {/* ── MAP (fills entire viewport, nav is hidden) ── */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' }}>
         {/* ── DESKTOP TOOLBAR (overlays map) ── */}
         <div className="map-desktop-toolbar" style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
           {/* Row 1: vertical + state filters */}
