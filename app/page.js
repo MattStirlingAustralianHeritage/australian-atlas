@@ -140,7 +140,6 @@ export default async function Home() {
                   <div className="mt-3 flex items-center gap-3">
                     <Link
                       href={`/search?vertical=${v.key}`}
-                      onClick={(e) => e.stopPropagation()}
                       className="hover:text-white/80 transition-colors relative z-10"
                       style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', color: '#fff' }}
                     >
