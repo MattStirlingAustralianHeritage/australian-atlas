@@ -1,21 +1,26 @@
 @import "tailwindcss";
 
 @theme {
+  --color-bg: #F8F6F1;
   --color-cream: #faf8f5;
-  --color-ink: #1c1a17;
+  --color-ink: #1C1A17;
   --color-sage: #5f8a7e;
   --color-sage-dark: #4a7166;
-  --color-muted: #6b6560;
-  --color-border: #e8e4df;
+  --color-muted: #6B6760;
+  --color-accent: #C4603A;
+  --color-border: rgba(28,26,23,0.12);
   --color-card-bg: #ffffff;
-  --font-serif: "Playfair Display", Georgia, serif;
-  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-display: 'Playfair Display', Georgia, serif;
+  --font-body: 'DM Sans', system-ui, sans-serif;
+  /* Keep legacy aliases so nothing breaks */
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-sans: 'DM Sans', system-ui, sans-serif;
 }
 
 /* Base */
 body {
-  font-family: var(--font-sans);
-  background: var(--color-cream);
+  font-family: var(--font-body);
+  background: var(--color-bg);
   color: var(--color-ink);
   -webkit-font-smoothing: antialiased;
 }

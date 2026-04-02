@@ -57,7 +57,7 @@ const VERTICALS = {
   rest: {
     url: process.env.REST_SUPABASE_URL,
     key: process.env.REST_SUPABASE_SERVICE_KEY,
-    table: 'venues',
+    table: 'properties',
     metaTable: 'rest_meta',
     mapMeta: (row) => ({
       accommodation_type: row.property_type || row.type,
@@ -66,7 +66,7 @@ const VERTICALS = {
   field: {
     url: process.env.FIELD_SUPABASE_URL,
     key: process.env.FIELD_SUPABASE_SERVICE_KEY,
-    table: 'venues',
+    table: 'places',
     metaTable: 'field_meta',
     mapMeta: (row) => ({
       feature_type: row.place_type || row.type,
@@ -75,7 +75,7 @@ const VERTICALS = {
   corner: {
     url: process.env.CORNER_SUPABASE_URL,
     key: process.env.CORNER_SUPABASE_SERVICE_KEY,
-    table: 'venues',
+    table: 'shops',
     metaTable: 'corner_meta',
     mapMeta: (row) => ({
       shop_type: row.category,
@@ -84,7 +84,7 @@ const VERTICALS = {
   found: {
     url: process.env.FOUND_SUPABASE_URL,
     key: process.env.FOUND_SUPABASE_SERVICE_KEY,
-    table: 'venues',
+    table: 'shops',
     metaTable: 'found_meta',
     mapMeta: (row) => ({
       shop_type: row.category,
@@ -124,14 +124,25 @@ async function processVertical(vertical) {
 
   const source = createClient(config.url, config.key)
 
-  // Get all master listings for this vertical
-  const { data: masterListings } = await master
-    .from('listings')
-    .select('id, source_id')
-    .eq('vertical', vertical)
-    .eq('status', 'active')
+  // Get all master listings for this vertical (paginated)
+  let masterListings = []
+  let mPage = 0
+  const PAGE = 1000
+  while (true) {
+    const { data, error } = await master
+      .from('listings')
+      .select('id, source_id')
+      .eq('vertical', vertical)
+      .eq('status', 'active')
+      .range(mPage * PAGE, (mPage + 1) * PAGE - 1)
+    if (error) { console.error(`  master listings fetch error:`, error.message); break }
+    if (!data || data.length === 0) break
+    masterListings = masterListings.concat(data)
+    if (data.length < PAGE) break
+    mPage++
+  }
 
-  if (!masterListings || masterListings.length === 0) {
+  if (masterListings.length === 0) {
     console.log(`  No master listings found for ${vertical}`)
     return 0
   }

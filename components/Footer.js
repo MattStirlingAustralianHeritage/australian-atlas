@@ -14,24 +14,64 @@ const verticals = [
 
 export default function Footer() {
   return (
-    <footer className="border-t border-[var(--color-border)] bg-[var(--color-cream)]">
+    <footer className="bg-[var(--color-bg)]" style={{ borderTop: '0.5px solid var(--color-border)' }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Brand */}
           <div>
-            <h3 className="font-[family-name:var(--font-serif)] text-lg font-bold mb-2">Australian Atlas</h3>
-            <p className="text-sm text-[var(--color-muted)] leading-relaxed">
+            <h3
+              className="mb-2"
+              style={{
+                fontFamily: 'var(--font-display)',
+                fontWeight: 400,
+                fontSize: '18px',
+                color: 'var(--color-ink)',
+              }}
+            >
+              Australian Atlas
+            </h3>
+            <p
+              className="leading-relaxed"
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 300,
+                fontSize: '13px',
+                color: 'var(--color-muted)',
+              }}
+            >
               The complete guide to independent Australia. Nine atlases, one map.
             </p>
           </div>
 
           {/* The Network */}
           <div>
-            <h4 className="text-sm font-semibold uppercase tracking-wider text-[var(--color-muted)] mb-3">The Network</h4>
+            <h4
+              className="mb-3 uppercase"
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 500,
+                fontSize: '11px',
+                letterSpacing: '0.1em',
+                color: 'var(--color-muted)',
+              }}
+            >
+              The Network
+            </h4>
             <ul className="space-y-1.5">
               {verticals.map(v => (
                 <li key={v.url}>
-                  <a href={v.url} target="_blank" rel="noopener noreferrer" className="text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] transition-colors">
+                  <a
+                    href={v.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-[var(--color-ink)] transition-colors"
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 300,
+                      fontSize: '13px',
+                      color: 'var(--color-muted)',
+                    }}
+                  >
                     {v.name}
                   </a>
                 </li>
@@ -41,19 +81,58 @@ export default function Footer() {
 
           {/* Links */}
           <div>
-            <h4 className="text-sm font-semibold uppercase tracking-wider text-[var(--color-muted)] mb-3">Explore</h4>
+            <h4
+              className="mb-3 uppercase"
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 500,
+                fontSize: '11px',
+                letterSpacing: '0.1em',
+                color: 'var(--color-muted)',
+              }}
+            >
+              Explore
+            </h4>
             <ul className="space-y-1.5">
-              <li><Link href="/explore" className="text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] transition-colors">Browse by vertical</Link></li>
-              <li><Link href="/map" className="text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] transition-colors">Map</Link></li>
-              <li><Link href="/regions" className="text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] transition-colors">Browse by region</Link></li>
-              <li><Link href="/search" className="text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] transition-colors">Search all listings</Link></li>
+              {[
+                { href: '/explore', label: 'Browse by vertical' },
+                { href: '/map', label: 'Map' },
+                { href: '/regions', label: 'Browse by region' },
+                { href: '/search', label: 'Search all listings' },
+              ].map(link => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    className="hover:text-[var(--color-ink)] transition-colors"
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 300,
+                      fontSize: '13px',
+                      color: 'var(--color-muted)',
+                    }}
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
         </div>
 
-        <div className="mt-10 pt-6 border-t border-[var(--color-border)] flex flex-col sm:flex-row items-center justify-between gap-2">
+        <div
+          className="mt-10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-2"
+          style={{ borderTop: '0.5px solid var(--color-border)' }}
+        >
           <p className="text-xs text-[var(--color-muted)]">
-            Part of <a href="https://australianheritage.au" target="_blank" rel="noopener noreferrer" className="text-[var(--color-sage)] underline underline-offset-2 hover:text-[var(--color-ink)]">Australian Heritage</a>
+            Part of{' '}
+            <a
+              href="https://australianheritage.au"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[var(--color-sage)] underline underline-offset-2 hover:text-[var(--color-ink)]"
+            >
+              Australian Heritage
+            </a>
           </p>
           <p className="text-xs text-[var(--color-muted)]">&copy; 2026 Australian Atlas</p>
         </div>

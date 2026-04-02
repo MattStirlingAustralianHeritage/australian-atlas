@@ -2,24 +2,45 @@ import Link from 'next/link'
 
 export default function Nav() {
   return (
-    <nav className="border-b border-[var(--color-border)] bg-[var(--color-cream)]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-        <Link href="/" className="font-[family-name:var(--font-serif)] text-xl font-bold tracking-tight">
+    <nav
+      className="sticky top-0 z-50 bg-[var(--color-bg)]"
+      style={{ borderBottom: '0.5px solid var(--color-border)' }}
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between" style={{ height: '52px' }}>
+        <Link
+          href="/"
+          className="tracking-tight"
+          style={{
+            fontFamily: 'var(--font-display)',
+            fontWeight: 400,
+            fontSize: '17px',
+            color: 'var(--color-ink)',
+          }}
+        >
           Australian Atlas
         </Link>
-        <div className="flex items-center gap-6 text-sm">
-          <Link href="/explore" className="text-[var(--color-muted)] hover:text-[var(--color-ink)] transition-colors">
-            Explore
-          </Link>
-          <Link href="/map" className="text-[var(--color-muted)] hover:text-[var(--color-ink)] transition-colors">
-            Map
-          </Link>
-          <Link href="/regions" className="text-[var(--color-muted)] hover:text-[var(--color-ink)] transition-colors">
-            Regions
-          </Link>
-          <Link href="/search" className="text-[var(--color-muted)] hover:text-[var(--color-ink)] transition-colors">
-            Search
-          </Link>
+        <div className="flex items-center gap-6">
+          {[
+            { href: '/explore', label: 'Explore' },
+            { href: '/map', label: 'Map' },
+            { href: '/events', label: 'Events' },
+            { href: '/regions', label: 'Regions' },
+            { href: '/search', label: 'Search' },
+          ].map(link => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="hover:text-[var(--color-ink)] transition-colors"
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 400,
+                fontSize: '13px',
+                color: 'var(--color-muted)',
+              }}
+            >
+              {link.label}
+            </Link>
+          ))}
         </div>
       </div>
     </nav>

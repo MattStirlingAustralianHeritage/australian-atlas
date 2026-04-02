@@ -3,17 +3,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import ListingCard from '@/components/ListingCard'
 
-const VERTICAL_ACCENT = {
-  sba: '#C49A3C',
-  collection: '#7A6B8A',
-  craft: '#C1603A',
-  fine_grounds: '#8A7055',
-  rest: '#5A8A9A',
-  field: '#4A7C59',
-  corner: '#5F8A7E',
-  found: '#D4956A',
-  table: '#C4634F',
-}
+import { VERTICAL_STYLES } from '@/components/VerticalBadge'
+
+// Use VerticalBadge text colors for pill accents
+const VERTICAL_ACCENT = Object.fromEntries(
+  Object.entries(VERTICAL_STYLES || {}).map(([k, v]) => [k, v.text])
+)
 
 const VERTICALS = [
   { key: '', label: 'All', atlas: '' },
@@ -132,13 +127,13 @@ export default function SearchPage() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
       {/* Search header */}
       <div className="max-w-2xl">
-        <h1 className="font-[family-name:var(--font-serif)] text-3xl sm:text-4xl font-bold">Search</h1>
-        <p className="mt-1 text-sm text-[var(--color-muted)]">Find places across all nine atlases</p>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 400 }} className="text-3xl sm:text-4xl text-[var(--color-ink)]">Search</h1>
+        <p className="mt-1" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px', color: 'var(--color-muted)' }}>Find places across all nine atlases</p>
       </div>
 
-      {/* Search input — prominent */}
-      <div className="mt-6 flex items-center gap-3 bg-white border-2 border-[var(--color-border)] rounded-2xl px-5 py-4 max-w-2xl shadow-sm focus-within:border-[var(--color-sage)] focus-within:shadow-md transition-all">
-        <svg className="w-6 h-6 text-[var(--color-sage)] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      {/* Search input */}
+      <div className="mt-6 flex items-center gap-3 bg-white rounded-2xl px-5 py-4 max-w-2xl shadow-sm focus-within:shadow-md transition-all" style={{ border: '0.5px solid var(--color-border)' }}>
+        <svg className="w-6 h-6 text-[var(--color-accent)] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
         <input
@@ -146,7 +141,8 @@ export default function SearchPage() {
           placeholder="Search by name, place, or style..."
           value={query}
           onChange={e => setQuery(e.target.value)}
-          className="flex-1 bg-transparent outline-none text-base placeholder:text-[var(--color-muted)]/60"
+          className="flex-1 bg-transparent outline-none placeholder:text-[var(--color-muted)]/60"
+          style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px' }}
         />
         {query && (
           <button onClick={() => setQuery('')} className="text-[var(--color-muted)] hover:text-[var(--color-ink)] transition-colors">
@@ -162,25 +158,30 @@ export default function SearchPage() {
         <div className="flex gap-2 min-w-max pb-1">
           {VERTICALS.map(v => {
             const isActive = vertical === v.key
-            const accent = v.key ? VERTICAL_ACCENT[v.key] : null
+            const vs = v.key ? VERTICAL_STYLES[v.key] : null
 
             return (
               <button
                 key={v.key}
                 onClick={() => setVertical(v.key)}
-                className="text-sm px-4 py-2 rounded-full border font-medium transition-all whitespace-nowrap"
-                style={isActive && accent ? {
-                  backgroundColor: accent,
-                  borderColor: accent,
-                  color: '#fff',
-                } : isActive && !accent ? {
-                  backgroundColor: 'var(--color-ink)',
-                  borderColor: 'var(--color-ink)',
-                  color: '#fff',
-                } : {
-                  backgroundColor: '#fff',
-                  borderColor: 'var(--color-border)',
-                  color: 'var(--color-muted)',
+                className="px-4 py-2 rounded-full transition-all whitespace-nowrap"
+                style={{
+                  fontFamily: 'var(--font-body)',
+                  fontWeight: 500,
+                  fontSize: '13px',
+                  ...(isActive && vs ? {
+                    backgroundColor: vs.bg,
+                    border: `1px solid ${vs.text}40`,
+                    color: vs.text,
+                  } : isActive && !vs ? {
+                    backgroundColor: 'var(--color-ink)',
+                    border: '1px solid var(--color-ink)',
+                    color: '#fff',
+                  } : {
+                    backgroundColor: '#fff',
+                    border: '1px solid var(--color-border)',
+                    color: 'var(--color-muted)',
+                  }),
                 }}
               >
                 {v.label}
@@ -197,11 +198,15 @@ export default function SearchPage() {
             <button
               key={s || 'all'}
               onClick={() => setState(s)}
-              className={`text-xs px-3 py-1.5 rounded-full border transition-colors whitespace-nowrap ${
-                state === s
-                  ? 'bg-[var(--color-ink)] text-white border-[var(--color-ink)]'
-                  : 'bg-white text-[var(--color-muted)] border-[var(--color-border)] hover:border-[var(--color-ink)]'
-              }`}
+              className="px-3 py-1.5 rounded-full transition-colors whitespace-nowrap"
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 400,
+                fontSize: '12px',
+                ...(state === s
+                  ? { backgroundColor: 'var(--color-ink)', color: '#fff', border: '1px solid var(--color-ink)' }
+                  : { backgroundColor: '#fff', color: 'var(--color-muted)', border: '1px solid var(--color-border)' }),
+              }}
             >
               {s || 'All states'}
             </button>
@@ -211,7 +216,7 @@ export default function SearchPage() {
 
       {/* Results count — contextual */}
       <div className="mt-6 flex items-center justify-between">
-        <p className="text-sm font-medium text-[var(--color-muted)]">
+        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '13px', color: 'var(--color-muted)' }}>
           {getResultsMessage()}
         </p>
       </div>
@@ -230,18 +235,18 @@ export default function SearchPage() {
           <svg className="w-12 h-12 text-[var(--color-border)] mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
-          <h3 className="font-[family-name:var(--font-serif)] text-xl font-bold mb-2">No results found</h3>
-          <p className="text-sm text-[var(--color-muted)] max-w-md mx-auto mb-6">
+          <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '20px' }} className="mb-2">No results found</h3>
+          <p className="max-w-md mx-auto mb-6" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px', color: 'var(--color-muted)' }}>
             {query
               ? `No results for "${query}" — try broader terms or browse by region.`
               : 'Try adjusting your filters or searching for something specific.'}
           </p>
           <div className="flex items-center justify-center gap-3">
-            <a href="/map" className="text-sm font-medium text-[var(--color-sage)] hover:text-[var(--color-sage-dark)] transition-colors">
+            <a href="/map" className="text-[var(--color-accent)] hover:opacity-80 transition-opacity" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px' }}>
               Explore the map
             </a>
             <span className="text-[var(--color-border)]">|</span>
-            <a href="/regions" className="text-sm font-medium text-[var(--color-sage)] hover:text-[var(--color-sage-dark)] transition-colors">
+            <a href="/regions" className="text-[var(--color-accent)] hover:opacity-80 transition-opacity" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px' }}>
               Browse regions
             </a>
           </div>
@@ -277,17 +282,19 @@ export default function SearchPage() {
           <button
             onClick={() => search(page - 1)}
             disabled={page <= 1}
-            className="text-sm px-4 py-2 rounded-lg border border-[var(--color-border)] disabled:opacity-40 hover:bg-white transition-colors"
+            className="px-4 py-2 rounded-lg border border-[var(--color-border)] disabled:opacity-40 hover:bg-white transition-colors"
+            style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '13px' }}
           >
             Previous
           </button>
-          <span className="text-sm text-[var(--color-muted)]">
+          <span style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '13px', color: 'var(--color-muted)' }}>
             Page {page} of {totalPages}
           </span>
           <button
             onClick={() => search(page + 1)}
             disabled={page >= totalPages}
-            className="text-sm px-4 py-2 rounded-lg border border-[var(--color-border)] disabled:opacity-40 hover:bg-white transition-colors"
+            className="px-4 py-2 rounded-lg border border-[var(--color-border)] disabled:opacity-40 hover:bg-white transition-colors"
+            style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '13px' }}
           >
             Next
           </button>

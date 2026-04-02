@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import ListingCard from '@/components/ListingCard'
 import { getVerticalBadge } from '@/lib/verticalUrl'
+import { VERTICAL_STYLES } from '@/components/VerticalBadge'
 
 async function getRegion(slug) {
   const sb = getSupabaseAdmin()
@@ -49,7 +50,7 @@ export default async function RegionPage({ params }) {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12">
       {/* Breadcrumb */}
-      <nav className="text-sm text-[var(--color-muted)] mb-6">
+      <nav className="mb-6" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '13px', color: 'var(--color-muted)' }}>
         <Link href="/regions" className="hover:text-[var(--color-ink)] transition-colors">Regions</Link>
         <span className="mx-2">/</span>
         <span className="text-[var(--color-ink)]">{region.name}</span>
@@ -57,23 +58,30 @@ export default async function RegionPage({ params }) {
 
       {/* Region header */}
       <div className="max-w-2xl">
-        <p className="text-sm font-medium text-[var(--color-sage)] uppercase tracking-wider">{region.state}</p>
-        <h1 className="font-[family-name:var(--font-serif)] text-3xl sm:text-4xl font-bold mt-1">{region.name}</h1>
+        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-accent)' }}>{region.state}</p>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontStyle: 'italic' }} className="text-3xl sm:text-4xl text-[var(--color-ink)] mt-1">{region.name}</h1>
         {region.description && (
-          <p className="mt-3 text-[var(--color-muted)] leading-relaxed">{region.description}</p>
+          <p className="mt-3 leading-relaxed" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px', color: 'var(--color-muted)' }}>{region.description}</p>
         )}
       </div>
 
-      {/* Vertical breakdown */}
+      {/* Vertical breakdown — colored pills */}
       {Object.keys(verticalCounts).length > 0 && (
         <div className="mt-6 flex flex-wrap gap-2">
           {Object.entries(verticalCounts)
             .sort((a, b) => b[1] - a[1])
-            .map(([v, count]) => (
-              <span key={v} className="text-xs bg-white border border-[var(--color-border)] px-3 py-1.5 rounded-full">
-                {getVerticalBadge(v)} <strong>{count}</strong>
-              </span>
-            ))}
+            .map(([v, count]) => {
+              const vs = VERTICAL_STYLES[v]
+              return (
+                <span
+                  key={v}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+                  style={{ backgroundColor: vs?.bg || '#F1EFE8', color: vs?.text || '#5F5E5A', fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '12px' }}
+                >
+                  {vs?.label || getVerticalBadge(v)} <strong style={{ fontWeight: 600 }}>{count}</strong>
+                </span>
+              )
+            })}
         </div>
       )}
 

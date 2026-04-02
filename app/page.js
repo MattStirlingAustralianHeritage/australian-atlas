@@ -1,25 +1,28 @@
 import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import HomeSearchBar from '@/components/HomeSearchBar'
+import HomeMapBackground from '@/components/HomeMapBackground'
+import { VERTICAL_STYLES } from '@/components/VerticalBadge'
 
 const verticals = [
-  { key: 'sba', name: 'Small Batch Atlas', desc: 'Craft breweries, wineries, distilleries, cideries and cellar doors', emoji: '🍷', color: '#C49A3C', url: 'https://smallbatchatlas.com.au' },
-  { key: 'collection', name: 'Collection Atlas', desc: 'Museums, galleries, heritage sites and cultural centres', emoji: '🏛️', color: '#7A6B8A', url: 'https://collectionatlas.com.au' },
-  { key: 'craft', name: 'Craft Atlas', desc: 'Makers, artists and studios across every discipline', emoji: '🎨', color: '#C1603A', url: 'https://craftatlas.com.au' },
-  { key: 'fine_grounds', name: 'Fine Grounds Atlas', desc: 'Specialty coffee roasters and independent cafes', emoji: '☕', color: '#8A7055', url: 'https://finegroundsatlas.com.au' },
-  { key: 'rest', name: 'Rest Atlas', desc: 'Boutique hotels, farm stays, glamping and cottages', emoji: '🏨', color: '#5A8A9A', url: 'https://restatlas.com.au' },
-  { key: 'field', name: 'Field Atlas', desc: 'Swimming holes, waterfalls, lookouts and natural places', emoji: '🌿', color: '#4A7C59', url: 'https://fieldatlas.com.au' },
-  { key: 'corner', name: 'Corner Atlas', desc: 'Bookshops, record stores, homewares and indie retail', emoji: '📚', color: '#5F8A7E', url: 'https://corneratlas.com.au' },
-  { key: 'found', name: 'Found Atlas', desc: 'Vintage stores, op shops, antique dealers and markets', emoji: '🔍', color: '#D4956A', url: 'https://foundatlas.com.au' },
-  { key: 'table', name: 'Table Atlas', desc: 'Farm gates, bakeries, food producers and providores', emoji: '🍽️', color: '#C4634F', url: 'https://tableatlas.com.au' },
+  { key: 'sba', name: 'Small Batch Atlas', desc: 'Craft breweries, wineries, distilleries, cideries and cellar doors', url: 'https://smallbatchatlas.com.au' },
+  { key: 'collection', name: 'Collection Atlas', desc: 'Museums, galleries, heritage sites and cultural centres', url: 'https://collectionatlas.com.au' },
+  { key: 'craft', name: 'Craft Atlas', desc: 'Makers, artists and studios across every discipline', url: 'https://craftatlas.com.au' },
+  { key: 'fine_grounds', name: 'Fine Grounds Atlas', desc: 'Specialty coffee roasters and independent cafes', url: 'https://finegroundsatlas.com.au' },
+  { key: 'rest', name: 'Rest Atlas', desc: 'Boutique hotels, farm stays, glamping and cottages', url: 'https://restatlas.com.au' },
+  { key: 'field', name: 'Field Atlas', desc: 'Swimming holes, waterfalls, lookouts and natural places', url: 'https://fieldatlas.com.au' },
+  { key: 'corner', name: 'Corner Atlas', desc: 'Bookshops, record stores, homewares and indie retail', url: 'https://corneratlas.com.au' },
+  { key: 'found', name: 'Found Atlas', desc: 'Vintage stores, op shops, antique dealers and markets', url: 'https://foundatlas.com.au' },
+  { key: 'table', name: 'Table Atlas', desc: 'Farm gates, bakeries, food producers and providores', url: 'https://tableatlas.com.au' },
 ]
 
 const images = {
-  sba: 'https://images.unsplash.com/photo-1558642452-9d2a7deb7f62?w=600&q=80',
+  sba: 'https://images.unsplash.com/photo-1516997121675-4c2d1684aa3e?w=600&q=80',
   collection: 'https://images.unsplash.com/photo-1554907984-15263bfd63bd?w=600&q=80',
   craft: 'https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=600&q=80',
   fine_grounds: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=600&q=80',
   rest: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=600&q=80',
-  field: 'https://images.unsplash.com/photo-1470770841497-f3375fbb6d74?w=600&q=80',
+  field: 'https://images.unsplash.com/photo-1433086966358-54859d0ed716?w=600&q=80',
   corner: 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=600&q=80',
   found: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=600&q=80',
   table: 'https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=600&q=80',
@@ -44,144 +47,148 @@ async function getStats() {
   }
 }
 
+async function getLatestArticles() {
+  try {
+    const sb = getSupabaseAdmin()
+    const { data } = await sb
+      .from('articles')
+      .select('id, title, slug, excerpt, hero_image_url, author, published_at, vertical, category')
+      .eq('status', 'published')
+      .order('published_at', { ascending: false })
+      .limit(6)
+    return data || []
+  } catch {
+    return []
+  }
+}
+
+const VERTICAL_LABELS = {
+  sba: 'Small Batch', collection: 'Collections', craft: 'Craft',
+  fine_grounds: 'Fine Grounds', rest: 'Rest', field: 'Field',
+  corner: 'Corner', found: 'Found', table: 'Table', atlas: 'Atlas',
+}
+
 export default async function Home() {
-  const stats = await getStats()
+  const [stats, articles] = await Promise.all([getStats(), getLatestArticles()])
 
   return (
     <>
       {/* Hero */}
-      <section className="relative text-center px-4 sm:px-6 pt-20 pb-16 max-w-4xl mx-auto">
-        {/* Subtle topo texture background */}
-        <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg stroke='%23000' stroke-width='0.5'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-        }} />
-
-        <h1 className="font-[family-name:var(--font-serif)] text-4xl sm:text-5xl md:text-6xl font-bold leading-[1.1] tracking-tight">
-          The complete guide to<br />independent Australia.
+      <section className="relative text-center px-4 sm:px-6 pt-24 pb-20 max-w-4xl mx-auto">
+        <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, letterSpacing: '-0.01em' }} className="text-4xl sm:text-5xl md:text-6xl leading-[1.1] text-[var(--color-ink)]">
+          The complete guide to<br /><em className="not-italic" style={{ fontStyle: 'italic' }}>independent</em> Australia.
         </h1>
 
-        {/* Stats as credentials — directly under headline */}
+        {/* Stats as credentials */}
         {stats.listings > 0 && (
-          <div className="mt-6 flex items-center justify-center gap-4 sm:gap-6 text-sm">
-            <span className="font-semibold text-[var(--color-ink)]">{stats.listings.toLocaleString()} verified listings</span>
-            <span className="text-[var(--color-border)]">·</span>
-            <span className="font-semibold text-[var(--color-ink)]">9 atlases</span>
-            <span className="text-[var(--color-border)]">·</span>
-            <span className="font-semibold text-[var(--color-ink)]">{stats.regions || '30'} regions</span>
+          <div className="mt-6 flex items-center justify-center gap-4 sm:gap-6" style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '13px', letterSpacing: '0.02em' }}>
+            <span className="text-[var(--color-ink)]">{stats.listings.toLocaleString()} verified listings</span>
+            <span className="text-[var(--color-accent)]" style={{ fontSize: '6px' }}>●</span>
+            <span className="text-[var(--color-ink)]">9 atlases</span>
+            <span className="text-[var(--color-accent)]" style={{ fontSize: '6px' }}>●</span>
+            <span className="text-[var(--color-ink)]">{stats.regions || '30'} regions</span>
           </div>
         )}
 
-        <p className="mt-5 text-base sm:text-lg text-[var(--color-muted)] leading-relaxed max-w-2xl mx-auto">
+        <p className="mt-5 max-w-2xl mx-auto leading-relaxed" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px', color: 'var(--color-muted)' }}>
           Craft producers, boutique stays, makers, galleries, natural places, specialty coffee, independent shops and food producers. Curated, mapped, and editorially grounded.
         </p>
 
         {/* Search bar */}
-        <div className="mt-8 max-w-lg mx-auto">
-          <Link href="/search" className="flex items-center gap-3 bg-white border-2 border-[var(--color-border)] rounded-2xl px-5 py-4 shadow-sm hover:shadow-md hover:border-[var(--color-sage)]/40 transition-all group">
-            <svg className="w-5 h-5 text-[var(--color-sage)] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <span className="text-[var(--color-muted)] text-sm">Try &lsquo;natural wine Barossa&rsquo; or &lsquo;boutique stays near Melbourne&rsquo;...</span>
-          </Link>
-        </div>
+        <HomeSearchBar />
       </section>
 
       {/* Atlas Grid */}
       <section className="px-4 sm:px-6 pb-20 max-w-7xl mx-auto">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {verticals.map(v => (
-            <div
-              key={v.key}
-              className="group relative rounded-xl overflow-hidden aspect-[16/9]"
-            >
-              <img
-                src={images[v.key]}
-                alt={v.name}
-                loading="lazy"
-                className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-              />
-              <div className="absolute inset-0" style={{
-                background: `linear-gradient(to top, ${v.color}cc 0%, ${v.color}40 50%, transparent 100%)`,
-              }} />
-              <div className="absolute inset-0 flex flex-col justify-end p-5">
-                <div className="flex items-end justify-between">
-                  <div>
-                    <span className="text-2xl mb-1 block">{v.emoji}</span>
-                    <h2 className="font-[family-name:var(--font-serif)] text-xl font-bold text-white leading-tight">{v.name}</h2>
-                    <p className="text-sm text-white/80 mt-0.5">{v.desc}</p>
+          {verticals.map(v => {
+            const vs = VERTICAL_STYLES[v.key]
+            return (
+              <a
+                key={v.key}
+                href={v.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group relative rounded-xl overflow-hidden aspect-[16/9] block"
+              >
+                <img
+                  src={images[v.key]}
+                  alt={v.name}
+                  loading="lazy"
+                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
+                <div className="absolute inset-0 flex flex-col justify-end p-5">
+                  <div className="flex items-end justify-between">
+                    <div>
+                      {/* Vertical badge pill */}
+                      <span
+                        className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium mb-2"
+                        style={{ backgroundColor: vs?.bg || '#F1EFE8', color: vs?.text || '#5F5E5A' }}
+                      >
+                        {vs?.label || v.name.replace(' Atlas', '')}
+                      </span>
+                      <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '20px' }} className="text-white leading-tight">{v.name}</h2>
+                      <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '13px' }} className="text-white/80 mt-0.5">{v.desc}</p>
+                    </div>
+                    {stats.verticalCounts[v.key] > 0 && (
+                      <span className="text-xs font-medium text-white/90 bg-white/20 backdrop-blur-sm px-2.5 py-1 rounded-full whitespace-nowrap" style={{ fontFamily: 'var(--font-body)' }}>
+                        {stats.verticalCounts[v.key].toLocaleString()}
+                      </span>
+                    )}
                   </div>
-                  {stats.verticalCounts[v.key] > 0 && (
-                    <span className="text-xs font-semibold text-white/90 bg-white/20 backdrop-blur-sm px-2.5 py-1 rounded-full whitespace-nowrap">
-                      {stats.verticalCounts[v.key].toLocaleString()}
+                  <div className="mt-3 flex items-center gap-3">
+                    <Link
+                      href={`/search?vertical=${v.key}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="hover:text-white/80 transition-colors relative z-10"
+                      style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', color: '#fff' }}
+                    >
+                      Browse listings &rarr;
+                    </Link>
+                    <span style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '13px' }} className="text-white/60 group-hover:text-white transition-colors">
+                      Visit atlas ↗
                     </span>
-                  )}
+                  </div>
                 </div>
-                <div className="mt-3 flex items-center gap-3">
-                  <Link
-                    href={`/search?vertical=${v.key}`}
-                    className="text-sm font-medium text-white hover:text-white/80 transition-colors"
-                  >
-                    Browse listings &rarr;
-                  </Link>
-                  <a
-                    href={v.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-white/70 hover:text-white transition-colors"
-                  >
-                    Visit atlas &nearr;
-                  </a>
-                </div>
-              </div>
-            </div>
-          ))}
+              </a>
+            )
+          })}
         </div>
       </section>
 
       {/* Map Section */}
-      <section className="bg-white border-y border-[var(--color-border)] py-16 px-4 sm:px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-8">
-            <h2 className="font-[family-name:var(--font-serif)] text-3xl sm:text-4xl font-bold">
-              {stats.listings > 0 ? `${stats.listings.toLocaleString()} listings on one map` : 'Every listing on one map'}
-            </h2>
-            <p className="mt-3 text-[var(--color-muted)] max-w-xl mx-auto">
-              Craft producers, boutique stays, galleries, makers and more — all plotted across Australia.
-            </p>
-          </div>
+      <section className="relative border-y border-[var(--color-border)] overflow-hidden" style={{ height: '520px' }}>
+        {/* Real Mapbox map as background */}
+        <HomeMapBackground />
 
-          {/* Map preview teaser */}
-          <Link href="/map" className="block relative rounded-2xl overflow-hidden border border-[var(--color-border)] shadow-sm hover:shadow-lg transition-shadow group" style={{ height: '420px', background: 'linear-gradient(135deg, #e8e4df 0%, #d4cfc8 30%, #c8c0b6 60%, #e0dbd5 100%)' }}>
-            {/* Stylised map dots pattern */}
-            <div className="absolute inset-0 opacity-20" style={{
-              backgroundImage: `radial-gradient(circle, var(--color-sage) 1px, transparent 1px)`,
-              backgroundSize: '24px 24px',
-            }} />
+        {/* Subtle vignette overlay for text readability */}
+        <div className="absolute inset-0 pointer-events-none" style={{
+          background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.6) 70%, rgba(255,255,255,0.85) 100%)',
+        }} />
 
-            {/* Centre content */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <svg className="w-16 h-16 text-[var(--color-sage)] opacity-40 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-              </svg>
-              <p className="text-lg font-[family-name:var(--font-serif)] font-bold text-[var(--color-ink)] mb-1">
-                {stats.listings > 0 ? `${stats.listings.toLocaleString()} pins across Australia` : 'Every listing on one map'}
-              </p>
-              <p className="text-sm text-[var(--color-muted)] mb-6">All nine atlases, filterable and explorable</p>
-              <span className="inline-flex items-center gap-2 bg-[var(--color-sage)] text-white px-6 py-3 rounded-full text-sm font-medium shadow-lg group-hover:shadow-xl group-hover:bg-[var(--color-sage-dark)] transition-all">
-                Open full map
-                <svg className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-              </span>
-            </div>
+        {/* Centred content */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center z-10 px-4">
+          <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 'clamp(28px, 4vw, 40px)' }} className="text-[var(--color-ink)] text-center">
+            {stats.listings > 0 ? `${stats.listings.toLocaleString()} pins across Australia` : 'Every listing on one map'}
+          </h2>
+          <p className="mt-3 text-center" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px', color: 'var(--color-muted)' }}>All nine atlases, filterable and explorable</p>
+          <Link href="/map" className="mt-6 inline-flex items-center gap-2 bg-[var(--color-accent)] text-white px-6 py-3 rounded-full shadow-lg hover:shadow-xl transition-all" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px' }}>
+            Open full map
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
           </Link>
 
-          {/* Vertical legend pills */}
+          {/* Vertical legend pills — using VerticalBadge colors */}
           <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-            {verticals.map(v => (
-              <span key={v.key} className="inline-flex items-center gap-1.5 text-xs text-[var(--color-muted)] px-2.5 py-1 rounded-full bg-gray-50 border border-[var(--color-border)]">
-                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: v.color }} />
-                {v.name.replace(' Atlas', '')}
-              </span>
-            ))}
+            {verticals.map(v => {
+              const vs = VERTICAL_STYLES[v.key]
+              return (
+                <span key={v.key} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/80 backdrop-blur-sm border border-[var(--color-border)]" style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '11px', color: vs?.text || 'var(--color-muted)' }}>
+                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: vs?.text || '#6B6760' }} />
+                  {vs?.label || v.name.replace(' Atlas', '')}
+                </span>
+              )
+            })}
           </div>
         </div>
       </section>
@@ -190,8 +197,8 @@ export default async function Home() {
       <section className="py-16 px-4 sm:px-6">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-10">
-            <h2 className="font-[family-name:var(--font-serif)] text-3xl sm:text-4xl font-bold">Explore by region</h2>
-            <p className="mt-3 text-[var(--color-muted)] max-w-xl mx-auto">
+            <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400 }} className="text-3xl sm:text-4xl text-[var(--color-ink)]">Explore by region</h2>
+            <p className="mt-3 max-w-xl mx-auto" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px', color: 'var(--color-muted)' }}>
               Every listing in every region, across all nine atlases.
             </p>
           </div>
@@ -213,15 +220,15 @@ export default async function Home() {
                 <img src={r.img} alt={r.name} loading="lazy" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                 <div className="absolute bottom-4 left-4">
-                  <h3 className="font-[family-name:var(--font-serif)] text-lg font-bold text-white">{r.name}</h3>
-                  <p className="text-sm text-white/70">{r.state}</p>
+                  <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '18px' }} className="text-white">{r.name}</h3>
+                  <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '12px' }} className="text-white/70">{r.state}</p>
                 </div>
               </Link>
             ))}
           </div>
 
           <div className="mt-8 text-center">
-            <Link href="/regions" className="inline-flex items-center gap-2 text-sm font-medium text-[var(--color-sage)] hover:text-[var(--color-sage-dark)] transition-colors">
+            <Link href="/regions" className="inline-flex items-center gap-2 text-[var(--color-accent)] hover:opacity-80 transition-opacity" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px' }}>
               Browse all regions
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
             </Link>
@@ -229,19 +236,93 @@ export default async function Home() {
         </div>
       </section>
 
+      {/* Journal */}
+      {articles.length > 0 && (
+        <section className="py-16 px-4 sm:px-6 bg-white border-y border-[var(--color-border)]">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-10">
+              <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400 }} className="text-3xl sm:text-4xl text-[var(--color-ink)]">Journal</h2>
+              <p className="mt-3 max-w-xl mx-auto" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px', color: 'var(--color-muted)' }}>
+                Stories, guides and profiles from across the network.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {articles.map(article => (
+                <Link
+                  key={article.id}
+                  href={`/journal/${article.slug}`}
+                  className="group block rounded-xl overflow-hidden border border-[var(--color-border)] bg-white hover:shadow-lg transition-shadow"
+                >
+                  {article.hero_image_url ? (
+                    <div className="aspect-[16/9] overflow-hidden">
+                      <img
+                        src={article.hero_image_url}
+                        alt={article.title}
+                        loading="lazy"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    </div>
+                  ) : (
+                    <div className="aspect-[16/9] bg-gradient-to-br from-[var(--color-sage)]/10 to-[var(--color-sage)]/5 flex items-center justify-center">
+                      <svg className="w-10 h-10 text-[var(--color-sage)] opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                      </svg>
+                    </div>
+                  )}
+                  <div className="p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      {article.vertical && (
+                        <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '11px', color: VERTICAL_STYLES[article.vertical]?.text || 'var(--color-accent)' }}>
+                          {VERTICAL_LABELS[article.vertical] || article.vertical}
+                        </span>
+                      )}
+                      {article.category && (
+                        <>
+                          <span className="text-[var(--color-border)]">·</span>
+                          <span style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '11px', color: 'var(--color-muted)' }}>{article.category}</span>
+                        </>
+                      )}
+                    </div>
+                    <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '18px' }} className="leading-tight group-hover:text-[var(--color-accent)] transition-colors">
+                      {article.title}
+                    </h3>
+                    {article.excerpt && (
+                      <p className="mt-2 line-clamp-2 leading-relaxed" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '13px', color: 'var(--color-muted)' }}>{article.excerpt}</p>
+                    )}
+                    {article.published_at && (
+                      <p className="mt-3" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '11px', color: 'var(--color-muted)' }}>
+                        {new Date(article.published_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      </p>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+
+            <div className="mt-8 text-center">
+              <Link href="/journal" className="inline-flex items-center gap-2 text-[var(--color-accent)] hover:opacity-80 transition-opacity" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px' }}>
+                Read all articles
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* For Partners */}
-      <section className="bg-[var(--color-ink)] text-white py-16 px-4 sm:px-6">
+      <section className="bg-[var(--color-ink)] text-white py-20 px-4 sm:px-6">
         <div className="max-w-3xl mx-auto">
-          <h2 className="font-[family-name:var(--font-serif)] text-2xl sm:text-3xl font-bold">For tourism partners and regional councils</h2>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400 }} className="text-2xl sm:text-3xl">For tourism partners and regional councils</h2>
 
           <div className="mt-8 space-y-5">
-            <p className="text-white/80 leading-relaxed">
+            <p className="text-white/70 leading-relaxed" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px' }}>
               Australian Atlas covers every region in the country with verified, editorially curated listings across nine categories.
             </p>
-            <p className="text-white/80 leading-relaxed">
+            <p className="text-white/70 leading-relaxed" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px' }}>
               Regional councils and tourism bodies can co-create regional content and access network data for their area.
             </p>
-            <p className="text-white/80 leading-relaxed">
+            <p className="text-white/70 leading-relaxed" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px' }}>
               If you represent a region, a council, or a tourism body, we&apos;d like to talk.
             </p>
           </div>
@@ -249,7 +330,8 @@ export default async function Home() {
           <div className="mt-8">
             <a
               href="mailto:hello@australianatlas.com.au"
-              className="inline-flex items-center gap-2 bg-white text-[var(--color-ink)] px-6 py-3 rounded-full text-sm font-medium hover:bg-white/90 transition-colors"
+              className="inline-flex items-center gap-2 bg-[var(--color-accent)] text-white px-6 py-3 rounded-full hover:opacity-90 transition-opacity"
+              style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px' }}
             >
               Get in touch
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>

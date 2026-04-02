@@ -159,7 +159,7 @@ export default function MapClient() {
 
       popup.current = new mapboxgl.default.Popup({
         closeButton: true,
-        closeOnClick: true,
+        closeOnClick: false,
         maxWidth: '280px',
         offset: 12,
       })
@@ -302,66 +302,66 @@ export default function MapClient() {
   const hasSubTypes = Object.keys(currentSubTypes).length > 0
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', flexDirection: 'column', background: '#faf8f5' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: '#faf8f5' }}>
       {/* Nav bar spacer */}
-      <div style={{ height: 64, flexShrink: 0 }} />
+      <div style={{ height: 64 }} />
 
-      {/* ── DESKTOP TOOLBAR ── */}
-      <div className="map-desktop-toolbar">
-        {/* Row 1: vertical + state filters */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px 8px', borderBottom: hasSubTypes ? 'none' : '1px solid var(--color-border)', background: '#faf8f5', flexWrap: 'wrap', flexShrink: 0, zIndex: 10 }}>
-          <input
-            value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search by name…"
-            style={{ padding: '6px 12px', background: '#fff', border: '1px solid var(--color-border)', color: 'var(--color-ink)', fontSize: 12, outline: 'none', borderRadius: 2, width: 170, fontFamily: 'var(--font-sans)' }}
-          />
-          <div style={{ width: 1, height: 18, background: 'var(--color-border)' }} />
-          {VERTICAL_FILTERS.map(v => (
-            <button key={v.key} onClick={() => setVerticalFilter(v.key)} style={{
-              padding: '5px 12px', borderRadius: 2, border: 'none', cursor: 'pointer',
-              fontSize: 11, fontWeight: verticalFilter === v.key ? 600 : 500, fontFamily: 'var(--font-sans)',
-              background: verticalFilter === v.key ? (VERTICAL_COLORS[v.key] || PRIMARY) : 'rgba(95,138,126,0.1)',
-              color: verticalFilter === v.key ? '#fff' : 'var(--color-muted)', transition: 'all 0.15s',
-            }}>{v.label}</button>
-          ))}
-          <div style={{ width: 1, height: 18, background: 'var(--color-border)' }} />
-          {STATES.map(s => (
-            <button key={s} onClick={() => setStateFilter(s)} style={{
-              padding: '5px 9px', borderRadius: 2, border: 'none', cursor: 'pointer',
-              fontSize: 11, fontWeight: 500, fontFamily: 'var(--font-sans)',
-              background: stateFilter === s ? 'rgba(95,138,126,0.15)' : 'transparent',
-              color: stateFilter === s ? 'var(--color-ink)' : 'var(--color-muted)', transition: 'all 0.15s',
-            }}>{s}</button>
-          ))}
-          <div style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--color-muted)' }}>
-            {loading ? 'Loading…' : `${count.toLocaleString()} listings`}
-          </div>
-        </div>
-
-        {/* Row 2: sub-type pills (only visible when a vertical is selected) */}
-        {hasSubTypes && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 20px 10px', borderBottom: '1px solid var(--color-border)', background: '#faf8f5', flexWrap: 'wrap', flexShrink: 0, zIndex: 10 }}>
-            <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', fontFamily: 'var(--font-sans)', marginRight: 4 }}>Type</span>
-            <button onClick={() => setSubTypeFilter('all')} style={{
-              padding: '4px 10px', borderRadius: 12, border: `1px solid ${subTypeFilter === 'all' ? (VERTICAL_COLORS[verticalFilter] || PRIMARY) : 'var(--color-border)'}`,
-              cursor: 'pointer', fontSize: 10, fontWeight: 500, fontFamily: 'var(--font-sans)',
-              background: subTypeFilter === 'all' ? (VERTICAL_COLORS[verticalFilter] || PRIMARY) : 'transparent',
-              color: subTypeFilter === 'all' ? '#fff' : 'var(--color-muted)', transition: 'all 0.15s',
-            }}>All</button>
-            {Object.entries(currentSubTypes).map(([key, label]) => (
-              <button key={key} onClick={() => setSubTypeFilter(key)} style={{
-                padding: '4px 10px', borderRadius: 12, border: `1px solid ${subTypeFilter === key ? (VERTICAL_COLORS[verticalFilter] || PRIMARY) : 'var(--color-border)'}`,
-                cursor: 'pointer', fontSize: 10, fontWeight: 500, fontFamily: 'var(--font-sans)',
-                background: subTypeFilter === key ? (VERTICAL_COLORS[verticalFilter] || PRIMARY) : 'transparent',
-                color: subTypeFilter === key ? '#fff' : 'var(--color-muted)', transition: 'all 0.15s',
-              }}>{label}</button>
+      {/* ── MAP (fills remaining space) ── */}
+      <div style={{ position: 'absolute', top: 64, left: 0, right: 0, bottom: 0, overflow: 'hidden' }}>
+        {/* ── DESKTOP TOOLBAR (overlays map) ── */}
+        <div className="map-desktop-toolbar" style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
+          {/* Row 1: vertical + state filters */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px 8px', borderBottom: hasSubTypes ? 'none' : '1px solid var(--color-border)', background: 'rgba(250,248,245,0.97)', backdropFilter: 'blur(8px)', flexWrap: 'wrap' }}>
+            <input
+              value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Search by name…"
+              style={{ padding: '6px 12px', background: '#fff', border: '1px solid var(--color-border)', color: 'var(--color-ink)', fontSize: 12, outline: 'none', borderRadius: 2, width: 170, fontFamily: 'var(--font-sans)' }}
+            />
+            <div style={{ width: 1, height: 18, background: 'var(--color-border)' }} />
+            {VERTICAL_FILTERS.map(v => (
+              <button key={v.key} onClick={() => setVerticalFilter(v.key)} style={{
+                padding: '5px 12px', borderRadius: 2, border: 'none', cursor: 'pointer',
+                fontSize: 11, fontWeight: verticalFilter === v.key ? 600 : 500, fontFamily: 'var(--font-sans)',
+                background: verticalFilter === v.key ? (VERTICAL_COLORS[v.key] || PRIMARY) : 'rgba(95,138,126,0.1)',
+                color: verticalFilter === v.key ? '#fff' : 'var(--color-muted)', transition: 'all 0.15s',
+              }}>{v.label}</button>
             ))}
+            <div style={{ width: 1, height: 18, background: 'var(--color-border)' }} />
+            {STATES.map(s => (
+              <button key={s} onClick={() => setStateFilter(s)} style={{
+                padding: '5px 9px', borderRadius: 2, border: 'none', cursor: 'pointer',
+                fontSize: 11, fontWeight: 500, fontFamily: 'var(--font-sans)',
+                background: stateFilter === s ? 'rgba(95,138,126,0.15)' : 'transparent',
+                color: stateFilter === s ? 'var(--color-ink)' : 'var(--color-muted)', transition: 'all 0.15s',
+              }}>{s}</button>
+            ))}
+            <div style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--color-muted)' }}>
+              {loading ? 'Loading…' : `${count.toLocaleString()} listings`}
+            </div>
           </div>
-        )}
-      </div>
 
-      {/* ── MAP ── */}
-      <div style={{ flex: 1, position: 'relative', minHeight: 0, overflow: 'hidden' }}>
+          {/* Row 2: sub-type pills (only visible when a vertical is selected) */}
+          {hasSubTypes && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 20px 10px', borderBottom: '1px solid var(--color-border)', background: 'rgba(250,248,245,0.97)', backdropFilter: 'blur(8px)', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', fontFamily: 'var(--font-sans)', marginRight: 4 }}>Type</span>
+              <button onClick={() => setSubTypeFilter('all')} style={{
+                padding: '4px 10px', borderRadius: 12, border: `1px solid ${subTypeFilter === 'all' ? (VERTICAL_COLORS[verticalFilter] || PRIMARY) : 'var(--color-border)'}`,
+                cursor: 'pointer', fontSize: 10, fontWeight: 500, fontFamily: 'var(--font-sans)',
+                background: subTypeFilter === 'all' ? (VERTICAL_COLORS[verticalFilter] || PRIMARY) : 'transparent',
+                color: subTypeFilter === 'all' ? '#fff' : 'var(--color-muted)', transition: 'all 0.15s',
+              }}>All</button>
+              {Object.entries(currentSubTypes).map(([key, label]) => (
+                <button key={key} onClick={() => setSubTypeFilter(key)} style={{
+                  padding: '4px 10px', borderRadius: 12, border: `1px solid ${subTypeFilter === key ? (VERTICAL_COLORS[verticalFilter] || PRIMARY) : 'var(--color-border)'}`,
+                  cursor: 'pointer', fontSize: 10, fontWeight: 500, fontFamily: 'var(--font-sans)',
+                  background: subTypeFilter === key ? (VERTICAL_COLORS[verticalFilter] || PRIMARY) : 'transparent',
+                  color: subTypeFilter === key ? '#fff' : 'var(--color-muted)', transition: 'all 0.15s',
+                }}>{label}</button>
+              ))}
+            </div>
+          )}
+        </div>
+        {/* Map canvas */}
         <div ref={mapContainer} style={{ position: 'absolute', inset: 0 }} />
 
         {/* Desktop legend */}

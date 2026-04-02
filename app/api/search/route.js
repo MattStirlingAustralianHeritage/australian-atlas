@@ -1,31 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 
-let openai = null
-function getOpenAI() {
-  if (!process.env.OPENAI_API_KEY) return null
-  if (!openai) {
-    const OpenAI = require('openai').default
-    openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  }
-  return openai
-}
-
-async function generateQueryEmbedding(query) {
-  const client = getOpenAI()
-  if (!client) return null
-  try {
-    const res = await client.embeddings.create({
-      model: 'text-embedding-3-small',
-      input: query,
-    })
-    return res.data[0].embedding
-  } catch (e) {
-    console.error('[search] embedding generation error:', e.message)
-    return null
-  }
-}
-
 export async function GET(request) {
   const { searchParams } = new URL(request.url)
   const q = searchParams.get('q') || ''
@@ -39,66 +14,33 @@ export async function GET(request) {
   const sb = getSupabaseAdmin()
 
   try {
-    // If there's a text query, use full-text search (+ optional semantic)
+    // If there's a text query, use full-text search
     if (q && q.trim()) {
       const query = q.trim()
 
-      // Always run FTS
-      const ftsPromise = Promise.all([
-        sb.rpc('search_listings', {
-          query,
-          vertical_filter: vertical || null,
-          state_filter: state || null,
-          result_limit: limit,
-          result_offset: offset,
-        }),
-        sb.rpc('search_listings_count', {
-          query,
-          vertical_filter: vertical || null,
-          state_filter: state || null,
-        }),
-      ])
-
-      // Optionally run semantic search in parallel (only on page 1)
-      let semanticPromise = Promise.resolve(null)
-      if (page === 1 && process.env.OPENAI_API_KEY) {
-        semanticPromise = (async () => {
-          const embedding = await generateQueryEmbedding(query)
-          if (!embedding) return null
-          const { data, error } = await sb.rpc('search_listings_semantic', {
-            query_embedding: JSON.stringify(embedding),
+      const [{ data: ftsData, error: ftsError }, { data: countData, error: countError }] =
+        await Promise.all([
+          sb.rpc('search_listings', {
+            query,
             vertical_filter: vertical || null,
             state_filter: state || null,
-            match_threshold: 0.3,
-            limit_count: limit,
-          })
-          if (error) {
-            console.error('[search] semantic error:', error.message)
-            return null
-          }
-          return data
-        })()
-      }
-
-      const [[{ data: ftsData, error: ftsError }, { data: countData, error: countError }], semanticData] =
-        await Promise.all([ftsPromise, semanticPromise])
+            result_limit: limit,
+            result_offset: offset,
+          }),
+          sb.rpc('search_listings_count', {
+            query,
+            vertical_filter: vertical || null,
+            state_filter: state || null,
+          }),
+        ])
 
       if (ftsError) {
         console.error('[search] FTS error:', ftsError.message)
         return NextResponse.json({ error: ftsError.message }, { status: 500 })
       }
 
-      let listings = ftsData || []
+      const listings = ftsData || []
       const total = countError ? listings.length : (countData ?? 0)
-
-      // Merge semantic results if available (deduplicate, append new ones)
-      if (semanticData && semanticData.length > 0 && page === 1) {
-        const ftsIds = new Set(listings.map(l => l.id))
-        const newSemantic = semanticData.filter(l => !ftsIds.has(l.id))
-        if (newSemantic.length > 0) {
-          listings = [...listings, ...newSemantic.slice(0, Math.max(0, limit - listings.length))]
-        }
-      }
 
       return NextResponse.json({
         listings,
