@@ -1,3 +1,5 @@
+'use client'
+
 import { getVerticalUrl } from '@/lib/verticalUrl'
 import VerticalBadge, { VERTICAL_STYLES } from '@/components/VerticalBadge'
 
