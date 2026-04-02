@@ -111,10 +111,15 @@ export default function MapClient() {
   const listingsRef = useRef([])
   useEffect(() => { listingsRef.current = allListings }, [allListings])
 
-  // Lock body scroll so the page doesn't scroll past the map
+  // Lock body scroll and hide footer so the map takes full viewport
   useEffect(() => {
     document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = '' }
+    const footer = document.querySelector('footer')
+    if (footer) footer.style.display = 'none'
+    return () => {
+      document.body.style.overflow = ''
+      if (footer) footer.style.display = ''
+    }
   }, [])
 
   // Fetch all listings from dedicated map API (paginated server-side)
@@ -304,10 +309,10 @@ export default function MapClient() {
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: '#faf8f5' }}>
       {/* Nav bar spacer */}
-      <div style={{ height: 64 }} />
+      <div style={{ height: 52 }} />
 
       {/* ── MAP (fills remaining space) ── */}
-      <div style={{ position: 'absolute', top: 64, left: 0, right: 0, bottom: 0, overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', top: 52, left: 0, right: 0, bottom: 0, overflow: 'hidden' }}>
         {/* ── DESKTOP TOOLBAR (overlays map) ── */}
         <div className="map-desktop-toolbar" style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
           {/* Row 1: vertical + state filters */}
