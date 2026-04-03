@@ -95,10 +95,10 @@ Each vertical has its own Supabase project. See `VERTICAL_CONFIG` for table name
 - `regions` table: ~46 Australian regions with slug, state, description, hero image, editorial content
 - **Hero images**: Mapbox Static Images API (interim — visually consistent, geographically accurate)
   - Card images: `hero_image_card_url` at 600×400 @2x
-  - Detail hero: `hero_image_url` at 1400×500 @2x
+  - Detail hero: `hero_image_url` at 1280×500 @2x (Mapbox API max width is 1280)
   - `hero_image_source` = 'mapbox_static' (will change to 'operator' when claimed listings provide real photography)
   - URL pattern: `https://api.mapbox.com/styles/v1/{MAPBOX_STYLE}/static/{lng},{lat},{zoom},0/{width}x{height}@2x?access_token={token}`
-  - Style: `mattstirlingaustralianheritage/cmn32b0iz003401swccb7d21k` (custom Atlas style)
+  - Style: `mapbox/outdoors-v12`
   - Zoom levels: 7–10 depending on region size (stored in `map_zoom` column)
   - Coordinates stored in `center_lat`, `center_lng` columns
 - **Editorial content**: Generated via Anthropic Claude, stored in `generated_intro` / `long_description`
