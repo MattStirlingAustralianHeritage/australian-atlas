@@ -3,7 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 
 // Map natural-language category hints to vertical keys
 const CATEGORY_KEYWORDS = {
-  sba: ['wine', 'winery', 'wineries', 'brewery', 'breweries', 'distillery', 'distilleries', 'cellar door', 'gin', 'whisky', 'cider', 'craft beer', 'natural wine', 'spirits', 'drink', 'drinks', 'small batch'],
+  sba: ['wine', 'winery', 'wineries', 'vineyard', 'vineyards', 'brewery', 'breweries', 'distillery', 'distilleries', 'cellar door', 'gin', 'whisky', 'cider', 'craft beer', 'natural wine', 'spirits', 'drink', 'drinks', 'small batch', 'tasting'],
   fine_grounds: ['coffee', 'cafe', 'cafes', 'roaster', 'espresso'],
   rest: ['accommodation', 'stay', 'stays', 'hotel', 'hotels', 'glamping', 'farmstay', 'cottage', 'boutique stay', 'bnb', 'b&b', 'bed and breakfast', 'sleep'],
   collection: ['art', 'gallery', 'galleries', 'museum', 'museums', 'heritage', 'cultural', 'exhibition'],
@@ -133,8 +133,6 @@ export async function GET(request) {
     }
 
     // For single-day trips with specific verticals, filter tightly.
-    // For multi-day trips, fetch all verticals so Claude can build a full itinerary
-    // with variety — the prompt tells Claude which verticals to prioritise.
     if (verticals.length > 0 && duration.days <= 1) {
       const allVerticals = [...new Set([...verticals, 'rest'])]
       query = query.in('vertical', allVerticals)
@@ -142,7 +140,47 @@ export async function GET(request) {
 
     query = query.limit(80)
 
-    const { data: candidates, error } = await query
+    let candidates
+    let error
+
+    // For multi-day trips with focus verticals, fetch focus venues first then supplement
+    if (verticals.length > 0 && duration.days > 1) {
+      // First: fetch focus vertical venues (+ rest for accommodation)
+      const focusVerticals = [...new Set([...verticals, 'rest'])]
+      let focusQuery = sb
+        .from('listings')
+        .select('id, name, vertical, lat, lng, region, state, description, hero_image_url, slug')
+        .eq('status', 'active')
+        .not('lat', 'is', null)
+        .not('lng', 'is', null)
+        .in('vertical', focusVerticals)
+
+      if (region) {
+        if (region.length <= 3 && region === region.toUpperCase()) {
+          focusQuery = focusQuery.eq('state', region)
+        } else {
+          focusQuery = focusQuery.or(`region.ilike.%${region}%,name.ilike.%${region}%,state.ilike.%${region}%`)
+        }
+      }
+
+      const { data: focusData, error: focusErr } = await focusQuery.limit(50)
+      if (focusErr) {
+        error = focusErr
+      } else {
+        const focusIds = new Set((focusData || []).map(v => v.id))
+
+        // Second: fetch supplementary venues from other verticals
+        const { data: suppData } = await query
+        const suppVenues = (suppData || []).filter(v => !focusIds.has(v.id))
+
+        // Combine: focus venues first, then supplements (cap total)
+        candidates = [...(focusData || []), ...suppVenues].slice(0, 80)
+      }
+    } else {
+      const result = await query
+      candidates = result.data
+      error = result.error
+    }
 
     if (error) {
       console.error('[itinerary] DB query error:', error.message)
@@ -218,8 +256,17 @@ HARD CONSTRAINTS:
 
 Respond with valid JSON only. No markdown, no code fences, just the JSON object.`
 
+    // Count focus-vertical venues in the candidate pool
+    const focusCount = verticals.length > 0
+      ? venueData.filter(v => verticals.includes(v.vertical)).length
+      : 0
+    const totalStopsNeeded = duration.days * 4 // ~4 stops per day target
+
     const focusNote = verticals.length > 0
-      ? `\nThe user is particularly interested in: ${verticals.map(v => VERTICAL_LABELS[v] || v).join(', ')}. Prioritise these verticals but supplement with others (food, nature, art, shops, stays) to fill ${duration.days} full days.`
+      ? `\nThe user is specifically interested in: ${verticals.map(v => VERTICAL_LABELS[v] || v).join(', ')}.
+VENUE TYPE PRIORITY: At least 60% of all stops MUST be from the requested vertical(s): ${verticals.join(', ')}. These are the user's primary interest — do not dilute with unrelated categories.
+${focusCount < totalStopsNeeded ? `\nNOTE: There are only ${focusCount} venues matching the focus vertical(s) in this region. Use ALL of them. Fill remaining slots with complementary verticals (food, stays, nature) but add a note in the intro acknowledging that coverage for ${verticals.map(v => VERTICAL_LABELS[v] || v).join(' / ')} is still growing in this area.` : ''}
+Supplementary stops (food, nature, art, shops, stays) should complement the theme, not dominate it.`
       : ''
 
     const userPrompt = `Build a ${duration.days}-day itinerary for this request: "${q}"
@@ -232,7 +279,7 @@ ${JSON.stringify(venueData, null, 2)}
 Return this exact JSON structure:
 {
   "title": "string — catchy itinerary title",
-  "intro": "string — 2-3 sentence editorial intro",
+  "intro": "string — 2-3 sentence editorial intro. If focus venues are limited, acknowledge this warmly.",
   "days": [
     {
       "day_number": 1,
@@ -259,7 +306,7 @@ Return this exact JSON structure:
   ]
 }
 
-Aim for 3-5 stops per day. Make it flow geographically. Mix verticals for variety. You MUST have exactly ${duration.days} entries in the "days" array.`
+Aim for 3-5 stops per day. Make it flow geographically. Favour the requested vertical(s) heavily. You MUST have exactly ${duration.days} entries in the "days" array.`
 
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
@@ -327,14 +374,37 @@ Aim for 3-5 stops per day. Make it flow geographically. Mix verticals for variet
       console.warn('[itinerary] Some venue IDs did not match candidates — returning anyway with available data')
     }
 
-    // Build recommendations from unused candidates
+    // Build recommendations from unused candidates, constrained by geographic proximity
     const usedIds = new Set()
+    const usedCoords = []
     for (const day of enrichedDays) {
       for (const stop of (day.stops || [])) {
         if (stop.listing_id) usedIds.add(stop.listing_id)
+        if (stop.lat && stop.lng) usedCoords.push({ lat: stop.lat, lng: stop.lng })
       }
-      if (day.overnight?.listing_id) usedIds.add(day.overnight.listing_id)
+      if (day.overnight?.listing_id) {
+        usedIds.add(day.overnight.listing_id)
+        if (day.overnight.lat && day.overnight.lng) usedCoords.push({ lat: day.overnight.lat, lng: day.overnight.lng })
+      }
     }
+
+    // Calculate centroid of itinerary stops for proximity filtering
+    let centroidLat = null, centroidLng = null
+    if (usedCoords.length > 0) {
+      centroidLat = usedCoords.reduce((s, c) => s + c.lat, 0) / usedCoords.length
+      centroidLng = usedCoords.reduce((s, c) => s + c.lng, 0) / usedCoords.length
+    }
+
+    // Haversine distance in km
+    function distKm(lat1, lng1, lat2, lng2) {
+      const R = 6371
+      const dLat = (lat2 - lat1) * Math.PI / 180
+      const dLng = (lng2 - lng1) * Math.PI / 180
+      const a = Math.sin(dLat/2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng/2) ** 2
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    }
+
+    const RECOMMENDATION_RADIUS_KM = 50
 
     // Check if itinerary is missing accommodation for multi-day trips
     const hasOvernight = enrichedDays.some(d => d.overnight?.listing_id)
@@ -342,6 +412,11 @@ Aim for 3-5 stops per day. Make it flow geographically. Mix verticals for variet
 
     const recommendations = venueData
       .filter(v => !usedIds.has(v.id))
+      // Filter by geographic proximity to itinerary centroid
+      .filter(v => {
+        if (!centroidLat || !v.lat || !v.lng) return false
+        return distKm(centroidLat, centroidLng, v.lat, v.lng) <= RECOMMENDATION_RADIUS_KM
+      })
       .map(v => ({
         id: v.id,
         name: v.name,
@@ -353,16 +428,23 @@ Aim for 3-5 stops per day. Make it flow geographically. Mix verticals for variet
         slug: v.slug,
         hero_image_url: v.hero_image_url,
         description: v.description,
+        distance_km: centroidLat ? Math.round(distKm(centroidLat, centroidLng, v.lat, v.lng)) : null,
       }))
-      // Sort: accommodation first if needed, then by vertical variety
+      // Sort: accommodation first if needed, then by distance
       .sort((a, b) => {
         if (needsAccommodation) {
           if (a.vertical === 'rest' && b.vertical !== 'rest') return -1
           if (b.vertical === 'rest' && a.vertical !== 'rest') return 1
         }
-        return 0
+        return (a.distance_km || 0) - (b.distance_km || 0)
       })
       .slice(0, 12)
+
+    // Flag thin corpus so frontend can show a note
+    const focusVerticalCount = verticals.length > 0
+      ? venueData.filter(v => verticals.includes(v.vertical)).length
+      : venueData.length
+    const thinCorpus = verticals.length > 0 && focusVerticalCount < totalStopsNeeded
 
     return NextResponse.json({
       title: itinerary.title,
@@ -370,6 +452,9 @@ Aim for 3-5 stops per day. Make it flow geographically. Mix verticals for variet
       days: enrichedDays,
       recommendations,
       needs_accommodation: needsAccommodation,
+      thin_corpus: thinCorpus,
+      focus_verticals: verticals.length > 0 ? verticals.map(v => VERTICAL_LABELS[v] || v) : null,
+      focus_venue_count: focusVerticalCount,
       query: q,
       region: region || null,
       duration,

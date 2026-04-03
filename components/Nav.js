@@ -36,6 +36,7 @@ export default function Nav() {
   const navLinks = [
     { href: '/explore', label: 'Explore' },
     { href: '/map', label: 'Map' },
+    { href: '/trails', label: 'Trails' },
     { href: '/events', label: 'Events' },
     { href: '/regions', label: 'Regions' },
     { href: '/search', label: 'Search' },

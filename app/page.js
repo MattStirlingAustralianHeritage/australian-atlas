@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import HomeSearchBar from '@/components/HomeSearchBar'
+import TrailPromptInput from '@/components/TrailPromptInput'
 import HomeMapBackground from '@/components/HomeMapBackground'
 import MapCountRotator from '@/components/MapCountRotator'
 import { VERTICAL_STYLES } from '@/components/VerticalBadge'
@@ -154,6 +155,59 @@ export default async function Home() {
               </a>
             )
           })}
+        </div>
+      </section>
+
+      {/* Trail Builder Section */}
+      <section className="py-20 px-4 sm:px-6 bg-white border-t border-[var(--color-border)]">
+        <div className="max-w-4xl mx-auto text-center">
+          <p style={{ fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--color-sage)', marginBottom: 12, fontFamily: 'var(--font-body)', fontWeight: 600 }}>Discovery Trails</p>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400 }} className="text-3xl sm:text-4xl text-[var(--color-ink)]">
+            Plan a trip in plain English
+          </h2>
+          <p className="mt-4 max-w-xl mx-auto leading-relaxed" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px', color: 'var(--color-muted)' }}>
+            Tell us where you want to go and what you&apos;re into. We&apos;ll build a day-by-day itinerary from real, verified venues across all nine atlases.
+          </p>
+
+          {/* Trail prompt input */}
+          <TrailPromptInput />
+
+          {/* Example trails */}
+          <div className="mt-14 grid grid-cols-1 sm:grid-cols-3 gap-5 text-left">
+            {[
+              { query: 'Weekend wine trail through the Barossa', region: 'Barossa Valley, SA', days: '2 days', stops: '8 stops', verticals: ['Small Batch', 'Table', 'Rest'] },
+              { query: 'Three day art and makers tour of Hobart', region: 'Hobart, TAS', days: '3 days', stops: '12 stops', verticals: ['Collection', 'Craft', 'Fine Grounds'] },
+              { query: 'Day trip to Mornington Peninsula wineries', region: 'Mornington Peninsula, VIC', days: '1 day', stops: '5 stops', verticals: ['Small Batch', 'Table'] },
+            ].map((example, i) => (
+              <Link
+                key={i}
+                href={`/itinerary?q=${encodeURIComponent(example.query)}`}
+                className="group block rounded-xl border border-[var(--color-border)] p-5 hover:border-[var(--color-sage)] hover:shadow-sm transition-all"
+                style={{ background: 'var(--color-bg)' }}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '11px', color: 'var(--color-sage)' }}>{example.region}</span>
+                  <span style={{ color: 'var(--color-border)', fontSize: 10 }}>&middot;</span>
+                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '11px', color: 'var(--color-muted)' }}>{example.days}</span>
+                </div>
+                <p style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '17px', color: 'var(--color-ink)', lineHeight: 1.35, marginBottom: 10 }}>
+                  {example.query}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {example.verticals.map(v => (
+                    <span key={v} style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '10px', color: 'var(--color-muted)', background: 'var(--color-cream)', padding: '2px 8px', borderRadius: 100 }}>{v}</span>
+                  ))}
+                </div>
+              </Link>
+            ))}
+          </div>
+
+          <div className="mt-8">
+            <Link href="/trails" className="inline-flex items-center gap-2 text-[var(--color-accent)] hover:opacity-80 transition-opacity" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px' }}>
+              Browse all trails
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+            </Link>
+          </div>
         </div>
       </section>
 

@@ -640,6 +640,18 @@ function ItineraryPageInner() {
             </span>
           )}
         </div>
+
+        {/* Thin corpus notice */}
+        {itinerary.thin_corpus && itinerary.focus_verticals && (
+          <div style={{
+            marginTop: 16, padding: '12px 16px', borderRadius: 8,
+            background: 'rgba(95,138,126,0.06)', border: '1px solid rgba(95,138,126,0.15)',
+          }}>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, color: 'var(--color-muted)', lineHeight: 1.5, margin: 0 }}>
+              We found {itinerary.focus_venue_count || 'limited'} {itinerary.focus_verticals.join(' / ')} {itinerary.focus_venue_count === 1 ? 'venue' : 'venues'} in this area — we&apos;ve included {itinerary.focus_venue_count === 1 ? 'it' : 'them all'} and supplemented with complementary stops. Our coverage here is growing.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Map */}
