@@ -113,7 +113,7 @@ export default function RegionMapCard({ region, isOrphanLast }) {
         position: 'relative',
         aspectRatio: isOrphanLast ? undefined : '3 / 2',
         minHeight: isOrphanLast ? '180px' : undefined,
-        backgroundColor: '#1c1a17',
+        backgroundColor: '#2d2a24',
         textDecoration: 'none',
         gridColumn: isOrphanLast ? '1 / -1' : undefined,
         transition: 'transform 200ms ease, border-color 200ms ease',
@@ -177,7 +177,7 @@ export default function RegionMapCard({ region, isOrphanLast }) {
               fontWeight: 600,
               fontSize: '10px',
               letterSpacing: '0.04em',
-              color: '#1c1a17',
+              color: '#2d2a24',
               background: '#b8862b',
               padding: '0.2rem 0.55rem',
               borderRadius: '100px',
@@ -187,6 +187,20 @@ export default function RegionMapCard({ region, isOrphanLast }) {
           </span>
         </div>
       )}
+
+      {/* Gradient overlay for text legibility */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: '60%',
+          background: 'linear-gradient(to top, rgba(20,18,14,0.85) 0%, rgba(20,18,14,0) 100%)',
+          zIndex: 1,
+          pointerEvents: 'none',
+        }}
+      />
 
       {/* Text — bottom-left: state label + region name */}
       <div
@@ -199,7 +213,7 @@ export default function RegionMapCard({ region, isOrphanLast }) {
           zIndex: 2,
         }}
       >
-        {/* State — amber small caps */}
+        {/* State — muted warm grey small caps */}
         <span
           style={{
             fontFamily: 'var(--font-body)',
@@ -207,7 +221,7 @@ export default function RegionMapCard({ region, isOrphanLast }) {
             fontSize: '9.5px',
             letterSpacing: '0.14em',
             textTransform: 'uppercase',
-            color: '#b8862b',
+            color: '#8a7a5a',
             display: 'block',
             marginBottom: '0.25rem',
           }}

@@ -137,6 +137,7 @@ export default async function RegionsPage() {
                   display: 'grid',
                   gridTemplateColumns: 'repeat(3, 1fr)',
                   gap: '1.25rem',
+                  paddingTop: '16px',
                 }}
                 className="regions-grid"
               >

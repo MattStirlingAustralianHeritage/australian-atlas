@@ -95,12 +95,13 @@ Each vertical has its own Supabase project. See `VERTICAL_CONFIG` for table name
 - `regions` table: ~46 Australian regions with slug, state, description, hero image, editorial content
 - **Region card maps**: Inline Mapbox GL JS instances with custom dark cartographic style
   - Style defined in `lib/atlas-map-style.js` (code object, not Mapbox Studio hosted)
-  - Palette: land `#1c1a17`, water `#2a3a4a`, roads `#b8862b` 40%, parks `#252320`, boundaries `#3a3530`, railways `#b8862b` 20% dashed, all labels hidden
+  - Palette: land `#2d2a24`, water `#3d5a6e`, motorways/primary `#b8862b` (amber, 1.5px max), secondary/tertiary `#8a6520`, minor roads `#4a3a1a` (texture only), parks `#352f24`, railways `#6b5218` dashed, no boundaries, no labels
   - Component: `components/RegionMapCard.js` (client component, IntersectionObserver for lazy init/destroy)
   - `interactive: false` — cards are links, not pannable maps
-  - Card text: white serif italic region name (bottom-left), amber small-caps state label, amber listing count pill (top-right)
+  - Card text: white serif italic region name (bottom-left), muted warm grey `#8a7a5a` small-caps state label, amber listing count pill (top-right)
+  - Bottom gradient overlay: `rgba(20,18,14,0.85)` → transparent for text legibility
   - Hover: `scale(1.02)` + amber border `rgba(184, 134, 43, 0.4)`
-  - Fallback (no coords): dark background `#1c1a17` with centered amber serif italic region name
+  - Fallback (no coords): dark background `#2d2a24` with centered amber serif italic region name
 - **Detail hero images**: Mapbox Static Images API
   - `hero_image_url` at 1280×500 @2x (Mapbox API max width is 1280)
   - `hero_image_source` = 'mapbox_static' (will change to 'operator' when claimed listings provide real photography)
