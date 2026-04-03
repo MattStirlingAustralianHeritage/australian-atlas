@@ -63,7 +63,7 @@ async function getRegionListings(region) {
     const radius = zoomToRadiusDeg(region.map_zoom || 9)
     const { data } = await sb
       .from('listings')
-      .select('id, vertical, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, website')
+      .select('id, vertical, source_id, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, website')
       .eq('status', 'active')
       .not('lat', 'is', null)
       .not('lng', 'is', null)
@@ -81,7 +81,7 @@ async function getRegionListings(region) {
   const regionName = region.name
   let query = sb
     .from('listings')
-    .select('id, vertical, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, website')
+    .select('id, vertical, source_id, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, website')
     .eq('status', 'active')
 
   if (region.state) {
