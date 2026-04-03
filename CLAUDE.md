@@ -98,7 +98,7 @@ Each vertical has its own Supabase project. See `VERTICAL_CONFIG` for table name
   - Detail hero: `hero_image_url` at 1280×500 @2x (Mapbox API max width is 1280)
   - `hero_image_source` = 'mapbox_static' (will change to 'operator' when claimed listings provide real photography)
   - URL pattern: `https://api.mapbox.com/styles/v1/{MAPBOX_STYLE}/static/{lng},{lat},{zoom},0/{width}x{height}@2x?access_token={token}`
-  - Style: `mapbox/outdoors-v12`
+  - Style: `mapbox/light-v11` (muted greiges, pale greys, soft blues — consistent with Atlas cream palette)
   - Zoom levels: 7–10 depending on region size (stored in `map_zoom` column)
   - Coordinates stored in `center_lat`, `center_lng` columns
 - **Editorial content**: Generated via Anthropic Claude, stored in `generated_intro` / `long_description`

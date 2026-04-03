@@ -40,7 +40,7 @@ const STATE_LABELS = {
   WA: 'Western Australia', TAS: 'Tasmania', ACT: 'Australian Capital Territory', NT: 'Northern Territory',
 }
 
-const MAPBOX_STYLE = 'mapbox/outdoors-v12'
+const MAPBOX_STYLE = 'mapbox/light-v11'
 const MAX_EDITORIAL_WORDS = 250
 
 async function getRegion(slug) {

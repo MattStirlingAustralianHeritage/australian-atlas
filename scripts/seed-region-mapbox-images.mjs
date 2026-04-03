@@ -26,7 +26,7 @@ const supabase = createClient(
 )
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
-const MAPBOX_STYLE = 'mapbox/outdoors-v12'
+const MAPBOX_STYLE = 'mapbox/light-v11'
 
 const args = process.argv.slice(2)
 const force = args.includes('--force')
