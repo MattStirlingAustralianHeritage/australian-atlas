@@ -18,7 +18,7 @@ function isItineraryIntent(query) {
   const phrases = [
     'day trip', 'road trip', 'weekend away', 'weekend in', 'weekend trip',
     'long weekend', '2 nights', '3 nights', '2 days', '3 days', '4 days', '5 days',
-    'build me', 'plan a', 'plan my', 'plan me', 'build a trail', 'create a trail',
+    'build me', 'build a', 'plan a', 'plan my', 'plan me', 'build a trail', 'create a trail',
     'overnight in', 'overnight trip', 'nights in', 'days in',
   ]
   for (const p of phrases) {
@@ -27,7 +27,7 @@ function isItineraryIntent(query) {
 
   // Single keywords that strongly signal itinerary intent
   const keywords = [
-    'itinerary', 'trail', 'route', 'overnight',
+    'itinerary', 'trail', 'route', 'overnight', 'tour',
   ]
   for (const kw of keywords) {
     if (q.includes(kw)) return true
@@ -35,6 +35,9 @@ function isItineraryIntent(query) {
 
   // Pattern: number + duration word (e.g. "2 night", "3 day")
   if (/\d+\s*(night|day|nights|days)/.test(q)) return true
+
+  // Pattern: word numbers + duration (e.g. "three day", "two nights")
+  if (/\b(one|two|three|four|five|six|seven)\s*(night|day|nights|days)\b/.test(q)) return true
 
   return false
 }

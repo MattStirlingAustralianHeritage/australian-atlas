@@ -49,13 +49,49 @@ async function getRegion(slug) {
   return data
 }
 
-async function getRegionListings(regionName) {
+// Approximate bounding box size (in degrees) from map zoom level
+function zoomToRadiusDeg(zoom) {
+  const lookup = { 6: 3.0, 7: 1.5, 8: 0.75, 9: 0.5, 10: 0.3, 11: 0.15, 12: 0.08 }
+  return lookup[zoom] || 0.5
+}
+
+async function getRegionListings(region) {
   const sb = getSupabaseAdmin()
-  const { data } = await sb
+
+  // Primary: geographic bounding box from region center coordinates
+  if (region.center_lat && region.center_lng) {
+    const radius = zoomToRadiusDeg(region.map_zoom || 9)
+    const { data } = await sb
+      .from('listings')
+      .select('id, vertical, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, website')
+      .eq('status', 'active')
+      .not('lat', 'is', null)
+      .not('lng', 'is', null)
+      .gte('lat', region.center_lat - radius)
+      .lte('lat', region.center_lat + radius)
+      .gte('lng', region.center_lng - radius)
+      .lte('lng', region.center_lng + radius)
+      .order('is_featured', { ascending: false })
+      .order('name')
+      .limit(200)
+    if (data && data.length > 0) return data
+  }
+
+  // Fallback: text match on region name + state (for regions without coordinates)
+  const regionName = region.name
+  let query = sb
     .from('listings')
     .select('id, vertical, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, website')
     .eq('status', 'active')
-    .ilike('region', `%${regionName}%`)
+
+  if (region.state) {
+    query = query.eq('state', region.state)
+  }
+
+  // Try matching on region column or address
+  query = query.or(`region.ilike.%${regionName}%,address.ilike.%${regionName}%`)
+
+  const { data } = await query
     .order('is_featured', { ascending: false })
     .order('name')
     .limit(200)
@@ -100,7 +136,7 @@ export default async function RegionPage({ params }) {
   const region = await getRegion(slug)
   if (!region) notFound()
 
-  const listings = await getRegionListings(region.name)
+  const listings = await getRegionListings(region)
 
   // Group by vertical
   const grouped = {}

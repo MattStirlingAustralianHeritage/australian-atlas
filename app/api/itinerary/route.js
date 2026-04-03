@@ -37,10 +37,18 @@ const REGION_KEYWORDS = {
   'north coast': 'North Coast', 'mid north coast': 'Mid North Coast',
 }
 
+// Word-number to digit conversion
+const WORD_NUMBERS = {
+  one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7,
+  eight: 8, nine: 9, ten: 10,
+}
+
 // Duration extraction from query
 const DURATION_PATTERNS = [
   { pattern: /(\d+)\s*nights?/i, extract: m => ({ nights: parseInt(m[1]) }) },
   { pattern: /(\d+)\s*days?/i, extract: m => ({ days: parseInt(m[1]) }) },
+  { pattern: /\b(one|two|three|four|five|six|seven|eight|nine|ten)\s*nights?\b/i, extract: m => ({ nights: WORD_NUMBERS[m[1].toLowerCase()] }) },
+  { pattern: /\b(one|two|three|four|five|six|seven|eight|nine|ten)\s*days?\b/i, extract: m => ({ days: WORD_NUMBERS[m[1].toLowerCase()] }) },
   { pattern: /weekend/i, extract: () => ({ days: 2 }) },
   { pattern: /long\s*weekend/i, extract: () => ({ days: 3 }) },
   { pattern: /day\s*trip/i, extract: () => ({ days: 1 }) },

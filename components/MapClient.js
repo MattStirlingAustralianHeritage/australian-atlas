@@ -107,6 +107,7 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
   const [legendCollapsed, setLegendCollapsed] = useState(false)
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
   const [mobileLegendOpen, setMobileLegendOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState('map') // 'map' | 'builder'
 
   // Geocoding place search state
   const [placeQuery, setPlaceQuery] = useState('')
@@ -356,12 +357,48 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: '#faf8f5' }}>
+      {/* ── TAB TOGGLE: Map / Build a trail ── */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, zIndex: 60,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '8px 0 0',
+        pointerEvents: 'none',
+      }}>
+        <div style={{
+          display: 'inline-flex', background: 'rgba(250,248,245,0.97)', backdropFilter: 'blur(8px)',
+          border: '1px solid var(--color-border)', borderRadius: 6, overflow: 'hidden',
+          pointerEvents: 'auto', boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+        }}>
+          {[{ key: 'map', label: 'Map' }, { key: 'builder', label: 'Build a trail' }].map(tab => (
+            <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
+              padding: '7px 18px', border: 'none', cursor: 'pointer',
+              fontSize: 12, fontWeight: activeTab === tab.key ? 600 : 400,
+              fontFamily: 'var(--font-sans)',
+              background: activeTab === tab.key ? PRIMARY : 'transparent',
+              color: activeTab === tab.key ? '#fff' : 'var(--color-muted)',
+              transition: 'all 0.15s',
+            }}>{tab.label}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── BUILDER TAB (iframe) ── */}
+      {activeTab === 'builder' && (
+        <div style={{ position: 'absolute', inset: 0, paddingTop: 42 }}>
+          <iframe
+            src="/trails/builder?embed=1&tab=builder"
+            style={{ width: '100%', height: '100%', border: 'none' }}
+            title="Trail Builder"
+          />
+        </div>
+      )}
+
       {/* ── MAP (fills entire viewport, nav is hidden) ── */}
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden', display: activeTab === 'map' ? 'block' : 'none' }}>
         {/* ── DESKTOP TOOLBAR (overlays map) ── */}
         <div className="map-desktop-toolbar" style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
           {/* Row 1: vertical + state filters */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px 8px', borderBottom: hasSubTypes ? 'none' : '1px solid var(--color-border)', background: 'rgba(250,248,245,0.97)', backdropFilter: 'blur(8px)', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '42px 20px 8px', borderBottom: hasSubTypes ? 'none' : '1px solid var(--color-border)', background: 'rgba(250,248,245,0.97)', backdropFilter: 'blur(8px)', flexWrap: 'wrap' }}>
             <input
               value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Search by name…"
