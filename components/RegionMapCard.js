@@ -231,6 +231,13 @@ export default function RegionMapCard({ region, isOrphanLast }) {
           {region.name}
         </h3>
       </div>
+      {/* Hide Mapbox logo on card thumbnails — non-interactive decorative maps */}
+      <style>{`
+        .region-map-card .mapboxgl-ctrl-logo,
+        .region-map-card .mapboxgl-ctrl-attrib {
+          display: none !important;
+        }
+      `}</style>
     </Link>
   )
 }
