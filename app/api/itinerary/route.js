@@ -124,19 +124,45 @@ export async function GET(request) {
       }
     }
 
-    // If specific verticals detected, filter to those + rest (for accommodation)
-    if (verticals.length > 0) {
+    // For single-day trips with specific verticals, filter tightly.
+    // For multi-day trips, fetch all verticals so Claude can build a full itinerary
+    // with variety — the prompt tells Claude which verticals to prioritise.
+    if (verticals.length > 0 && duration.days <= 1) {
       const allVerticals = [...new Set([...verticals, 'rest'])]
       query = query.in('vertical', allVerticals)
     }
 
-    query = query.limit(50)
+    query = query.limit(80)
 
     const { data: candidates, error } = await query
 
     if (error) {
       console.error('[itinerary] DB query error:', error.message)
       return NextResponse.json({ error: 'Failed to fetch venues' }, { status: 500 })
+    }
+
+    // If we got very few results with vertical filtering on a day trip, retry without filter
+    if (verticals.length > 0 && duration.days <= 1 && (!candidates || candidates.length < 4)) {
+      const broadQuery = sb
+        .from('listings')
+        .select('id, name, vertical, lat, lng, region, state, description, hero_image_url, slug')
+        .eq('status', 'active')
+        .not('lat', 'is', null)
+        .not('lng', 'is', null)
+
+      if (region) {
+        if (region.length <= 3 && region === region.toUpperCase()) {
+          broadQuery.eq('state', region)
+        } else {
+          broadQuery.or(`region.ilike.%${region}%,name.ilike.%${region}%,state.ilike.%${region}%`)
+        }
+      }
+
+      const { data: broadCandidates } = await broadQuery.limit(80)
+      if (broadCandidates && broadCandidates.length >= 4) {
+        candidates.length = 0
+        candidates.push(...broadCandidates)
+      }
     }
 
     if (!candidates || candidates.length < 4) {
@@ -147,8 +173,9 @@ export async function GET(request) {
       }, { status: 200 })
     }
 
-    // Prepare venue data for Claude (trim descriptions, limit to 30)
-    const venueData = candidates.slice(0, 30).map(v => ({
+    // Prepare venue data for Claude — more candidates for multi-day trips
+    const maxVenues = duration.days > 1 ? 50 : 30
+    const venueData = candidates.slice(0, maxVenues).map(v => ({
       id: v.id,
       name: v.name,
       vertical: v.vertical,
@@ -174,14 +201,22 @@ HARD CONSTRAINTS:
 - You may ONLY include venues from the provided candidate list. Never invent venues.
 - Every listing_id in your response MUST exist in the candidate list.
 - Each stop must reference a real venue by its exact id, name, vertical, lat, and lng from the candidates.
-- For multi-day trips, include at least one "rest" vertical venue as overnight accommodation per night.
+- For multi-day trips, include at least one "rest" vertical venue as overnight accommodation per night (except the final night).
+- You MUST produce EXACTLY the number of days requested. If asked for 3 days, your "days" array must have 3 entries. Never compress into fewer days.
+- For multi-day trips, fill each day with 3-5 stops. If the focus category has limited venues, supplement with other verticals (food, nature, art, shops) to create a rich experience.
 - Keep notes concise (1-2 sentences) — evocative but practical.
 - Title should be catchy and specific to the region/theme.
 - Intro should be 2-3 sentences setting the scene.
 
 Respond with valid JSON only. No markdown, no code fences, just the JSON object.`
 
+    const focusNote = verticals.length > 0
+      ? `\nThe user is particularly interested in: ${verticals.map(v => VERTICAL_LABELS[v] || v).join(', ')}. Prioritise these verticals but supplement with others (food, nature, art, shops, stays) to fill ${duration.days} full days.`
+      : ''
+
     const userPrompt = `Build a ${duration.days}-day itinerary for this request: "${q}"
+${focusNote}
+IMPORTANT: You MUST produce exactly ${duration.days} day(s) with 3-5 stops each. Do not compress into fewer days.
 
 Here are the candidate venues (JSON array). You MUST only use venues from this list:
 ${JSON.stringify(venueData, null, 2)}
@@ -216,7 +251,7 @@ Return this exact JSON structure:
   ]
 }
 
-Aim for 3-5 stops per day. Make it flow geographically. Mix verticals where possible for variety.`
+Aim for 3-5 stops per day. Make it flow geographically. Mix verticals for variety. You MUST have exactly ${duration.days} entries in the "days" array.`
 
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
