@@ -109,7 +109,7 @@ export async function GET(request) {
 
     let query = sb
       .from('listings')
-      .select('id, name, vertical, sub_type, lat, lng, region, state, description, hero_image_url, slug')
+      .select('id, name, vertical, lat, lng, region, state, description, hero_image_url, slug')
       .eq('status', 'active')
       .not('lat', 'is', null)
       .not('lng', 'is', null)
@@ -153,7 +153,6 @@ export async function GET(request) {
       name: v.name,
       vertical: v.vertical,
       vertical_label: VERTICAL_LABELS[v.vertical] || v.vertical,
-      sub_type: v.sub_type || null,
       lat: v.lat,
       lng: v.lng,
       region: v.region,
