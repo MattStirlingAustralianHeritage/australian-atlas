@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import Nav from '@/components/Nav'
 import { VERTICAL_STYLES } from '@/components/VerticalBadge'
 import { getVerticalUrl } from '@/lib/verticalUrl'
 

@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import Nav from '@/components/Nav'
 import { getAuthSupabase } from '@/lib/supabase/auth-clients'
 
 export default function AccountPage() {
@@ -45,12 +44,9 @@ export default function AccountPage() {
 
   if (loading) {
     return (
-      <>
-        <Nav />
-        <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-cream)' }}>
-          <p style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)' }}>Loading...</p>
-        </div>
-      </>
+      <div style={{ minHeight: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-cream)' }}>
+        <p style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)' }}>Loading...</p>
+      </div>
     )
   }
 
@@ -61,13 +57,11 @@ export default function AccountPage() {
   const isCouncil = role === 'council'
 
   return (
-    <>
-      <Nav />
-      <div style={{
-        minHeight: '80vh',
-        background: 'var(--color-cream)',
-        padding: '3rem 1.5rem',
-      }}>
+    <div style={{
+      minHeight: '80vh',
+      background: 'var(--color-cream)',
+      padding: '3rem 1.5rem',
+    }}>
         <div style={{ maxWidth: '720px', margin: '0 auto' }}>
           {/* Header */}
           <div style={{ marginBottom: '2.5rem' }}>
@@ -196,8 +190,7 @@ export default function AccountPage() {
             </button>
           </div>
         </div>
-      </div>
-    </>
+    </div>
   )
 }
 

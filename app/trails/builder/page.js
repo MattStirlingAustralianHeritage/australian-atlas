@@ -3,7 +3,6 @@
 import { Suspense, useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import Nav from '@/components/Nav'
 import { getAuthSupabase } from '@/lib/supabase/auth-clients'
 import { getVerticalUrl, getVerticalBadge } from '@/lib/verticalUrl'
 
@@ -387,7 +386,6 @@ function TrailBuilderInner() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100svh', overflow: 'hidden', background: 'var(--color-cream)' }}>
-      <Nav />
 
       {/* Mobile tab toggle */}
       <div style={{ display: 'none' }} className="trail-mobile-tabs">
