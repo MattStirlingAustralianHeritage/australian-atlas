@@ -92,17 +92,26 @@ Each vertical has its own Supabase project. See `VERTICAL_CONFIG` for table name
 
 ## Regions
 
-- `regions` table: ~47 Australian regions with slug, state, description, hero image, editorial content
-- **Hero images**: Sourced via Unsplash API, stored in `hero_image_url` + `hero_image_credit`
+- `regions` table: ~46 Australian regions with slug, state, description, hero image, editorial content
+- **Hero images**: Mapbox Static Images API (interim — visually consistent, geographically accurate)
+  - Card images: `hero_image_card_url` at 600×400 @2x
+  - Detail hero: `hero_image_url` at 1400×500 @2x
+  - `hero_image_source` = 'mapbox_static' (will change to 'operator' when claimed listings provide real photography)
+  - URL pattern: `https://api.mapbox.com/styles/v1/{MAPBOX_STYLE}/static/{lng},{lat},{zoom},0/{width}x{height}@2x?access_token={token}`
+  - Style: `mattstirlingaustralianheritage/cmn32b0iz003401swccb7d21k` (custom Atlas style)
+  - Zoom levels: 7–10 depending on region size (stored in `map_zoom` column)
+  - Coordinates stored in `center_lat`, `center_lng` columns
 - **Editorial content**: Generated via Anthropic Claude, stored in `generated_intro` / `long_description`
   - Voice: Monocle-adjacent, place-grounded, anti-chain, non-promotional
+  - Detail page renders max 250 words (truncated in render layer as safety net)
   - `reviewed` boolean for human QA workflow
 - **Listing counts**: Denormalized `listing_count` updated by cron sync
 - **Region matching**: Text-based `ilike` on `listings.region` with alias map in `updateRegionCounts.js`
   - Aliases handle multi-name regions (e.g. "Hobart" → "Hobart & Southern Tasmania")
-  - GeoJSON polygons exist in schema but are not yet populated
-- **Scripts**: `seed-region-images.mjs` (Unsplash), `generate-region-editorial.mjs` (Claude)
-- **Pages**: `/regions` (index, SSR), `/regions/[slug]` (detail with hero, editorial, map, listings)
+- **Index page design**: Clean header (no dark banner), 3-column grid, cards show name + state + listing count only (no description)
+- **Detail page design**: Mapbox hero → breadcrumb + description + vertical pills → editorial (250 words max) → venue listings by vertical → interactive map
+- **Scripts**: `seed-region-mapbox-images.mjs` (Mapbox static), `generate-region-editorial.mjs` (Claude)
+- **Pages**: `/regions` (index, SSR), `/regions/[slug]` (detail with hero, editorial, listings, map)
 
 ## Trails
 

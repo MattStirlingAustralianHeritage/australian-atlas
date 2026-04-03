@@ -37,6 +37,9 @@ const STATE_LABELS = {
   WA: 'Western Australia', TAS: 'Tasmania', ACT: 'Australian Capital Territory', NT: 'Northern Territory',
 }
 
+const MAPBOX_STYLE = 'mattstirlingaustralianheritage/cmn32b0iz003401swccb7d21k'
+const MAX_EDITORIAL_WORDS = 250
+
 async function getRegion(slug) {
   const sb = getSupabaseAdmin()
   const { data } = await sb.from('regions').select('*').eq('slug', slug).single()
@@ -54,6 +57,29 @@ async function getRegionListings(regionName) {
     .order('name')
     .limit(200)
   return data || []
+}
+
+// Truncate editorial text to MAX_EDITORIAL_WORDS as a safety net
+function truncateEditorial(text) {
+  if (!text) return null
+  const words = text.split(/\s+/)
+  if (words.length <= MAX_EDITORIAL_WORDS) return text
+  // Find the end of the last complete sentence within the limit
+  const truncated = words.slice(0, MAX_EDITORIAL_WORDS).join(' ')
+  const lastPeriod = truncated.lastIndexOf('.')
+  if (lastPeriod > truncated.length * 0.5) {
+    return truncated.substring(0, lastPeriod + 1)
+  }
+  return truncated + '…'
+}
+
+// Generate hero Mapbox static URL from stored coordinates
+function getHeroMapUrl(region) {
+  if (region.hero_image_url) return region.hero_image_url
+  if (!region.center_lat || !region.center_lng) return null
+  const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
+  const zoom = (region.map_zoom || 9) - 1
+  return `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/static/${region.center_lng},${region.center_lat},${zoom},0/1400x500@2x?access_token=${token}`
 }
 
 export async function generateMetadata({ params }) {
@@ -92,130 +118,132 @@ export default async function RegionPage({ params }) {
     .filter(l => l.lat && l.lng)
     .map(l => ({ lat: l.lat, lng: l.lng, name: l.name, vertical: l.vertical }))
 
-  // Get editorial content (prefer long_description, fall back to generated_intro)
-  const editorial = region.long_description || region.generated_intro
+  // Get editorial content — truncated to 250 words
+  const rawEditorial = region.long_description || region.generated_intro
+  const editorial = truncateEditorial(rawEditorial)
+
+  const heroUrl = getHeroMapUrl(region)
 
   return (
-    <div style={{ minHeight: '100vh' }}>
-      {/* Hero section — full-width image */}
-      {region.hero_image_url ? (
-        <div
-          style={{
-            position: 'relative',
-            width: '100%',
-            height: 'clamp(320px, 50vh, 520px)',
-            backgroundColor: region.hero_color || '#2D2A26',
-            overflow: 'hidden',
-          }}
-        >
+    <div style={{ minHeight: '100vh', background: 'var(--color-bg)' }}>
+      {/* Hero — full-width Mapbox static map */}
+      <div
+        style={{
+          position: 'relative',
+          width: '100%',
+          height: 'clamp(280px, 40vh, 420px)',
+          backgroundColor: region.hero_color || '#2D2A26',
+          overflow: 'hidden',
+        }}
+      >
+        {heroUrl && (
           <img
-            src={region.hero_image_url}
-            alt={region.name}
+            src={heroUrl}
+            alt={`Map of ${region.name}`}
             style={{
               width: '100%',
               height: '100%',
               objectFit: 'cover',
-              objectPosition: 'center 40%',
+              objectPosition: 'center',
             }}
           />
-          {/* Gradient overlay */}
-          <div
+        )}
+
+        {/* Subtle bottom gradient for text legibility */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'linear-gradient(to top, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.05) 40%, transparent 70%)',
+          }}
+        />
+
+        {/* Region name + state pill */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            padding: 'clamp(1.25rem, 3vw, 2.5rem)',
+            maxWidth: '72rem',
+            margin: '0 auto',
+          }}
+        >
+          <span
             style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.1) 40%, transparent 70%)',
-            }}
-          />
-          {/* Region name over image */}
-          <div
-            style={{
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              padding: 'clamp(1.5rem, 4vw, 3rem)',
-              maxWidth: '72rem',
-              margin: '0 auto',
+              display: 'inline-block',
+              fontFamily: 'var(--font-body)',
+              fontWeight: 500,
+              fontSize: '10.5px',
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              color: '#fff',
+              background: 'rgba(255,255,255,0.15)',
+              backdropFilter: 'blur(8px)',
+              padding: '0.25rem 0.625rem',
+              borderRadius: '100px',
+              marginBottom: '0.625rem',
             }}
           >
+            {STATE_LABELS[region.state] || region.state}
+          </span>
+          <h1
+            style={{
+              fontFamily: 'var(--font-display)',
+              fontWeight: 400,
+              fontSize: 'clamp(1.75rem, 4.5vw, 2.75rem)',
+              color: '#fff',
+              lineHeight: 1.1,
+              margin: 0,
+            }}
+          >
+            {region.name}
+          </h1>
+        </div>
+      </div>
+
+      {/* Region header section — description + vertical pills */}
+      <div style={{ maxWidth: '72rem', margin: '0 auto', padding: '0 1.5rem' }}>
+        <div
+          style={{
+            padding: '1.5rem 0 1.75rem',
+            borderBottom: '1px solid var(--color-border)',
+          }}
+        >
+          {/* Breadcrumb */}
+          <nav
+            style={{
+              fontFamily: 'var(--font-body)',
+              fontWeight: 300,
+              fontSize: '12px',
+              color: 'var(--color-muted)',
+              marginBottom: '1rem',
+            }}
+          >
+            <Link href="/regions" style={{ color: 'var(--color-muted)', textDecoration: 'none' }}>Regions</Link>
+            <span style={{ margin: '0 0.5rem' }}>/</span>
+            <span style={{ color: 'var(--color-ink)' }}>{region.name}</span>
+          </nav>
+
+          {/* Description */}
+          {region.description && (
             <p
               style={{
                 fontFamily: 'var(--font-body)',
-                fontWeight: 500,
-                fontSize: '11px',
-                letterSpacing: '0.12em',
-                textTransform: 'uppercase',
-                color: 'var(--color-accent)',
-                marginBottom: '0.5rem',
-              }}
-            >
-              {STATE_LABELS[region.state] || region.state}
-            </p>
-            <h1
-              style={{
-                fontFamily: 'var(--font-display)',
                 fontWeight: 400,
-                fontStyle: 'italic',
-                fontSize: 'clamp(2rem, 5vw, 3.25rem)',
-                color: '#fff',
-                lineHeight: 1.1,
-                margin: 0,
+                fontSize: '1rem',
+                color: 'var(--color-ink)',
+                lineHeight: 1.6,
+                margin: '0 0 1.25rem',
+                maxWidth: '42rem',
               }}
             >
-              {region.name}
-            </h1>
-          </div>
-          {/* Image credit */}
-          {region.hero_image_credit && (
-            <span
-              style={{
-                position: 'absolute',
-                bottom: '0.75rem',
-                right: '1rem',
-                fontSize: '10px',
-                color: 'rgba(255,255,255,0.4)',
-                fontFamily: 'var(--font-body)',
-              }}
-            >
-              {region.hero_image_credit}
-            </span>
-          )}
-        </div>
-      ) : (
-        /* Fallback: no hero image — typographic header */
-        <div style={{ background: 'var(--color-ink)', padding: '4rem 1.5rem 3rem' }}>
-          <div style={{ maxWidth: '72rem', margin: '0 auto' }}>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '11px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-accent)', marginBottom: '0.5rem' }}>
-              {STATE_LABELS[region.state] || region.state}
-            </p>
-            <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontStyle: 'italic', fontSize: 'clamp(2rem, 5vw, 3.25rem)', color: '#fff', margin: 0 }}>
-              {region.name}
-            </h1>
-          </div>
-        </div>
-      )}
-
-      {/* Content area */}
-      <div style={{ maxWidth: '72rem', margin: '0 auto', padding: '0 1.5rem' }}>
-
-        {/* Breadcrumb */}
-        <nav style={{ padding: '1.25rem 0', fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '12px', color: 'var(--color-muted)' }}>
-          <Link href="/regions" style={{ color: 'var(--color-muted)', textDecoration: 'none' }}>Regions</Link>
-          <span style={{ margin: '0 0.5rem' }}>/</span>
-          <Link href={`/regions?state=${region.state}`} style={{ color: 'var(--color-muted)', textDecoration: 'none' }}>{STATE_LABELS[region.state]}</Link>
-          <span style={{ margin: '0 0.5rem' }}>/</span>
-          <span style={{ color: 'var(--color-ink)' }}>{region.name}</span>
-        </nav>
-
-        {/* Tagline + vertical pills */}
-        <div style={{ maxWidth: '40rem', paddingBottom: '2rem', borderBottom: '1px solid var(--color-border)' }}>
-          {region.description && (
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '1.05rem', color: 'var(--color-ink)', lineHeight: 1.6, margin: '0 0 1.25rem' }}>
               {region.description}
             </p>
           )}
 
-          {/* Vertical breakdown pills */}
+          {/* Vertical breakdown pills — clickable filters */}
           {Object.keys(verticalCounts).length > 0 && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
               {Object.entries(verticalCounts)
@@ -223,8 +251,9 @@ export default async function RegionPage({ params }) {
                 .map(([v, count]) => {
                   const vs = VERTICAL_STYLES[v]
                   return (
-                    <span
+                    <a
                       key={v}
+                      href={`#vertical-${v}`}
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -236,22 +265,24 @@ export default async function RegionPage({ params }) {
                         fontFamily: 'var(--font-body)',
                         fontWeight: 400,
                         fontSize: '12px',
+                        textDecoration: 'none',
+                        transition: 'opacity 0.15s',
                       }}
                     >
                       {vs?.label || getVerticalBadge(v)} <strong style={{ fontWeight: 600 }}>{count}</strong>
-                    </span>
+                    </a>
                   )
                 })}
             </div>
           )}
         </div>
 
-        {/* Editorial prose */}
+        {/* Editorial prose — capped at 250 words */}
         {editorial && (
           <div
             style={{
               maxWidth: '38rem',
-              padding: '2.5rem 0 2rem',
+              padding: '2rem 0 1.75rem',
               borderBottom: '1px solid var(--color-border)',
             }}
           >
@@ -264,7 +295,7 @@ export default async function RegionPage({ params }) {
                   fontSize: '15px',
                   lineHeight: 1.75,
                   color: 'var(--color-ink)',
-                  marginBottom: '1.25rem',
+                  marginBottom: '1rem',
                 }}
               >
                 {paragraph}
@@ -273,14 +304,7 @@ export default async function RegionPage({ params }) {
           </div>
         )}
 
-        {/* Map */}
-        {mapPoints.length > 0 && (
-          <div style={{ margin: '2.5rem 0', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
-            <RegionMap points={mapPoints} regionName={region.name} />
-          </div>
-        )}
-
-        {/* Listings grouped by vertical */}
+        {/* Listings grouped by vertical — the product */}
         {listings.length > 0 ? (
           <div style={{ paddingBottom: '4rem' }}>
             {activeVerticals.map((vertical, idx) => {
@@ -289,12 +313,12 @@ export default async function RegionPage({ params }) {
               const color = VERTICAL_COLORS[vertical] || 'var(--color-muted)'
 
               return (
-                <section key={vertical} style={{ marginTop: idx === 0 ? '2rem' : '2.5rem' }}>
+                <section key={vertical} id={`vertical-${vertical}`} style={{ marginTop: idx === 0 ? '1.75rem' : '2.5rem' }}>
                   {/* Section header */}
                   <div
                     style={{
                       borderTop: '1px solid var(--color-border)',
-                      paddingTop: '1.5rem',
+                      paddingTop: '1.25rem',
                       marginBottom: '1.25rem',
                       display: 'flex',
                       alignItems: 'baseline',
@@ -350,6 +374,13 @@ export default async function RegionPage({ params }) {
             <p style={{ color: 'var(--color-muted)', fontFamily: 'var(--font-body)', fontSize: '13px', marginTop: '0.5rem' }}>
               Listings will appear here once the next sync completes.
             </p>
+          </div>
+        )}
+
+        {/* Map — after listings for regions with points */}
+        {mapPoints.length > 0 && (
+          <div style={{ margin: '0 0 4rem', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
+            <RegionMap points={mapPoints} regionName={region.name} />
           </div>
         )}
       </div>
