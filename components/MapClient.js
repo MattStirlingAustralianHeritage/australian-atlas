@@ -91,15 +91,15 @@ const STATE_BOUNDS = {
   'ACT':  [148.76, -35.92, 149.40, -35.12],
 }
 
-export default function MapClient() {
+export default function MapClient({ initialVertical = '', initialState = '' }) {
   const mapContainer = useRef(null)
   const map = useRef(null)
   const popup = useRef(null)
 
   const [allListings, setAllListings] = useState([])
-  const [verticalFilter, setVerticalFilter] = useState('all')
+  const [verticalFilter, setVerticalFilter] = useState(initialVertical || 'all')
   const [subTypeFilter, setSubTypeFilter] = useState('all')
-  const [stateFilter, setStateFilter] = useState('All States')
+  const [stateFilter, setStateFilter] = useState(initialState || 'All States')
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [count, setCount] = useState(0)
@@ -108,8 +108,49 @@ export default function MapClient() {
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
   const [mobileLegendOpen, setMobileLegendOpen] = useState(false)
 
+  // Geocoding place search state
+  const [placeQuery, setPlaceQuery] = useState('')
+  const [placeResults, setPlaceResults] = useState([])
+  const [showPlaceDropdown, setShowPlaceDropdown] = useState(false)
+  const placeSearchRef = useRef(null)
+
   const listingsRef = useRef([])
   useEffect(() => { listingsRef.current = allListings }, [allListings])
+
+  // Debounced geocoding search
+  useEffect(() => {
+    if (!placeQuery || placeQuery.length < 2) { setPlaceResults([]); return }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(placeQuery)}.json?country=AU&types=country,region,postcode,district,place,locality,neighborhood,address&access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`)
+        const data = await res.json()
+        setPlaceResults(data.features || [])
+        setShowPlaceDropdown(true)
+      } catch (e) { console.error('Geocoding error:', e) }
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [placeQuery])
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (placeSearchRef.current && !placeSearchRef.current.contains(e.target)) setShowPlaceDropdown(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  function getZoomForPlaceType(placeType) {
+    const zooms = { country: 4, region: 6, postcode: 9, district: 9, place: 11, locality: 13, neighborhood: 13, address: 15 }
+    return zooms[placeType] || 11
+  }
+
+  function handlePlaceSelect(feature) {
+    const [lng, lat] = feature.center
+    const placeType = feature.place_type?.[0] || 'place'
+    map.current?.flyTo({ center: [lng, lat], zoom: getZoomForPlaceType(placeType), duration: 1500 })
+    setPlaceQuery(feature.place_name)
+    setShowPlaceDropdown(false)
+  }
 
   // Lock body scroll and hide footer + nav so the map takes full viewport
   useEffect(() => {
@@ -326,6 +367,23 @@ export default function MapClient() {
               placeholder="Search by name…"
               style={{ padding: '6px 12px', background: '#fff', border: '1px solid var(--color-border)', color: 'var(--color-ink)', fontSize: 12, outline: 'none', borderRadius: 2, width: 170, fontFamily: 'var(--font-sans)' }}
             />
+            {/* Geocoding place search */}
+            <div ref={placeSearchRef} style={{ position: 'relative', minWidth: 150, maxWidth: 200 }}>
+              <input type="text" placeholder="Search a location..." value={placeQuery}
+                onChange={e => { setPlaceQuery(e.target.value); if (!e.target.value) setShowPlaceDropdown(false) }}
+                onFocus={() => { if (placeResults.length) setShowPlaceDropdown(true) }}
+                style={{ padding: '6px 12px', background: '#fff', border: '1px solid var(--color-border)', color: 'var(--color-ink)', fontSize: 12, outline: 'none', borderRadius: 2, width: '100%', fontFamily: 'var(--font-sans)' }} />
+              {showPlaceDropdown && placeResults.length > 0 && (
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 2, background: '#fff', border: '1px solid var(--color-border)', borderRadius: 4, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', zIndex: 1000, maxHeight: 260, overflowY: 'auto' }}>
+                  {placeResults.map(f => (
+                    <button key={f.id} onClick={() => handlePlaceSelect(f)} style={{ display: 'block', width: '100%', padding: '8px 10px', background: 'none', border: 'none', borderBottom: '1px solid var(--color-border)', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-sans)' }}>
+                      <div style={{ fontSize: 12, color: 'var(--color-ink)', fontWeight: 500, lineHeight: 1.3 }}>{f.text}</div>
+                      <div style={{ fontSize: 10, color: 'var(--color-muted)', marginTop: 1 }}>{f.place_name.replace(f.text + ', ', '')}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <div style={{ width: 1, height: 18, background: 'var(--color-border)' }} />
             {VERTICAL_FILTERS.map(v => (
               <button key={v.key} onClick={() => setVerticalFilter(v.key)} style={{

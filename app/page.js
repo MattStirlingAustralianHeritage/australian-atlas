@@ -180,11 +180,12 @@ export default async function Home() {
           <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
             {verticals.map(v => {
               const vs = VERTICAL_STYLES[v.key]
+              const slug = { sba: 'small-batch', collection: 'collections', craft: 'craft', fine_grounds: 'fine-grounds', rest: 'rest', field: 'field', corner: 'corner', found: 'found', table: 'table' }[v.key]
               return (
-                <span key={v.key} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/80 backdrop-blur-sm border border-[var(--color-border)]" style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '11px', color: vs?.text || 'var(--color-muted)' }}>
+                <Link key={v.key} href={`/map?vertical=${slug}`} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/80 backdrop-blur-sm border border-[var(--color-border)] hover:underline hover:underline-offset-2 cursor-pointer transition-all" style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '11px', color: vs?.text || 'var(--color-muted)', textDecorationColor: vs?.text || 'var(--color-muted)' }}>
                   <span className="w-2 h-2 rounded-full" style={{ backgroundColor: vs?.text || '#6B6760' }} />
                   {vs?.label || v.name.replace(' Atlas', '')}
-                </span>
+                </Link>
               )
             })}
           </div>
@@ -325,14 +326,21 @@ export default async function Home() {
             </p>
           </div>
 
-          <div className="mt-8">
+          <div className="mt-8 flex flex-wrap gap-4">
             <a
-              href="mailto:hello@australianatlas.com.au"
+              href="/pricing"
               className="inline-flex items-center gap-2 bg-[var(--color-accent)] text-white px-6 py-3 rounded-full hover:opacity-90 transition-opacity"
               style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px' }}
             >
-              Get in touch
+              View plans
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+            </a>
+            <a
+              href="/council/login"
+              className="inline-flex items-center gap-2 text-white/70 hover:text-white px-6 py-3 rounded-full border border-white/20 transition-colors"
+              style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px' }}
+            >
+              Council login
             </a>
           </div>
         </div>

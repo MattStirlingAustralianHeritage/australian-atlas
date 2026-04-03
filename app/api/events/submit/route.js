@@ -19,7 +19,7 @@ async function geocode(address, suburb, state) {
     const query = `${address}, ${suburb}, ${state}, Australia`
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1&countrycodes=au`
     const res = await fetch(url, {
-      headers: { 'User-Agent': 'AustralianAtlas/1.0 (hello@australianatlas.com.au)' },
+      headers: { 'User-Agent': 'AustralianAtlas/1.0 (info@australianatlas.com.au)' },
     })
     const data = await res.json()
     if (data && data.length > 0) {
@@ -55,7 +55,7 @@ async function sendEmail(to, subject, html) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'Australian Atlas <hello@australianatlas.com.au>',
+        from: 'Australian Atlas <noreply@australianatlas.com.au>',
         to: [to],
         subject,
         html,

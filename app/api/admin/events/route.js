@@ -71,7 +71,7 @@ export async function POST(request) {
       if (event.submitter_email && process.env.RESEND_API_KEY) {
         const resend = new Resend(process.env.RESEND_API_KEY)
         await resend.emails.send({
-          from: 'events@australianatlas.com.au',
+          from: 'noreply@australianatlas.com.au',
           to: event.submitter_email,
           subject: `Your event "${event.name}" has been approved`,
           html: `
@@ -113,7 +113,7 @@ export async function POST(request) {
       if (event.submitter_email && process.env.RESEND_API_KEY) {
         const resend = new Resend(process.env.RESEND_API_KEY)
         await resend.emails.send({
-          from: 'events@australianatlas.com.au',
+          from: 'noreply@australianatlas.com.au',
           to: event.submitter_email,
           subject: `Update on your event "${event.name}"`,
           html: `

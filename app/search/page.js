@@ -1,9 +1,43 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import ListingCard from '@/components/ListingCard'
 
 import { VERTICAL_STYLES } from '@/components/VerticalBadge'
+
+/**
+ * Heuristic intent classifier: does the query look like an itinerary request?
+ * Returns true if the query matches itinerary-like patterns.
+ */
+function isItineraryIntent(query) {
+  if (!query || query.trim().length < 5) return false
+  const q = query.toLowerCase().trim()
+
+  // Multi-word phrases (check first, most specific)
+  const phrases = [
+    'day trip', 'road trip', 'weekend away', 'weekend in', 'weekend trip',
+    'long weekend', '2 nights', '3 nights', '2 days', '3 days', '4 days', '5 days',
+    'build me', 'plan a', 'plan my', 'plan me', 'build a trail', 'create a trail',
+    'overnight in', 'overnight trip', 'nights in', 'days in',
+  ]
+  for (const p of phrases) {
+    if (q.includes(p)) return true
+  }
+
+  // Single keywords that strongly signal itinerary intent
+  const keywords = [
+    'itinerary', 'trail', 'route', 'overnight',
+  ]
+  for (const kw of keywords) {
+    if (q.includes(kw)) return true
+  }
+
+  // Pattern: number + duration word (e.g. "2 night", "3 day")
+  if (/\d+\s*(night|day|nights|days)/.test(q)) return true
+
+  return false
+}
 
 // Use VerticalBadge text colors for pill accents
 const VERTICAL_ACCENT = Object.fromEntries(
@@ -43,10 +77,13 @@ function SkeletonCard() {
   )
 }
 
-export default function SearchPage() {
-  const [query, setQuery] = useState('')
-  const [vertical, setVertical] = useState('')
-  const [state, setState] = useState('')
+function SearchPageInner() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+
+  const [query, setQuery] = useState(searchParams.get('q') || '')
+  const [vertical, setVertical] = useState(searchParams.get('vertical') || '')
+  const [state, setState] = useState(searchParams.get('state') || '')
   const [results, setResults] = useState([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -54,14 +91,15 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(true)
   const [initialLoad, setInitialLoad] = useState(true)
 
-  // Parse URL params on mount
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const v = params.get('vertical')
-    if (v && VERTICALS.some(vert => vert.key === v)) {
-      setVertical(v)
-    }
-  }, [])
+  // Sync URL when filters change (debounced alongside search)
+  const updateUrl = useCallback((q, v, s) => {
+    const params = new URLSearchParams()
+    if (q) params.set('q', q)
+    if (v) params.set('vertical', v)
+    if (s) params.set('state', s)
+    const qs = params.toString()
+    router.replace(qs ? `/search?${qs}` : '/search', { scroll: false })
+  }, [router])
 
   const search = useCallback(async (p = 1) => {
     setLoading(true)
@@ -87,10 +125,31 @@ export default function SearchPage() {
     }
   }, [query, vertical, state])
 
+  // Check for itinerary intent on initial load (from homepage submission)
   useEffect(() => {
-    const timer = setTimeout(() => search(1), 300)
+    const initialQ = searchParams.get('q')
+    if (initialQ && isItineraryIntent(initialQ)) {
+      router.replace(`/itinerary?q=${encodeURIComponent(initialQ)}`)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Only run once on mount
+
+  // Debounced search + URL sync when query/vertical/state change
+  useEffect(() => {
+    // If itinerary intent detected mid-session, redirect
+    if (query && isItineraryIntent(query)) {
+      const timer = setTimeout(() => {
+        router.push(`/itinerary?q=${encodeURIComponent(query)}`)
+      }, 800) // Slightly longer debounce for redirect
+      return () => clearTimeout(timer)
+    }
+
+    const timer = setTimeout(() => {
+      updateUrl(query, vertical, state)
+      search(1)
+    }, 300)
     return () => clearTimeout(timer)
-  }, [search])
+  }, [search, updateUrl, query, vertical, state, router])
 
   // Build contextual results message
   function getResultsMessage() {
@@ -100,16 +159,16 @@ export default function SearchPage() {
     const stateLabel = state
 
     if (query && vertical && stateLabel) {
-      return `${count} ${vertLabel} results for "${query}" in ${stateLabel}`
+      return `${count} ${vertLabel} results for \u201c${query}\u201d in ${stateLabel}`
     }
     if (query && vertical) {
-      return `${count} ${vertLabel} results for "${query}"`
+      return `${count} ${vertLabel} results for \u201c${query}\u201d`
     }
     if (query && stateLabel) {
-      return `${count} results for "${query}" in ${stateLabel}`
+      return `${count} results for \u201c${query}\u201d in ${stateLabel}`
     }
     if (query) {
-      return `${count} results for "${query}"`
+      return `${count} results for \u201c${query}\u201d`
     }
     if (vertical && stateLabel) {
       return `${count} ${vertLabel} listings in ${stateLabel}`
@@ -153,7 +212,7 @@ export default function SearchPage() {
         )}
       </div>
 
-      {/* Category filters — horizontal scroll on mobile */}
+      {/* Category filters -- horizontal scroll on mobile */}
       <div className="mt-5 -mx-4 px-4 overflow-x-auto scrollbar-hide">
         <div className="flex gap-2 min-w-max pb-1">
           {VERTICALS.map(v => {
@@ -214,7 +273,7 @@ export default function SearchPage() {
         </div>
       </div>
 
-      {/* Results count — contextual */}
+      {/* Results count -- contextual */}
       <div className="mt-6 flex items-center justify-between">
         <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '13px', color: 'var(--color-muted)' }}>
           {getResultsMessage()}
@@ -238,7 +297,7 @@ export default function SearchPage() {
           <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '20px' }} className="mb-2">No results found</h3>
           <p className="max-w-md mx-auto mb-6" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px', color: 'var(--color-muted)' }}>
             {query
-              ? `No results for "${query}" — try broader terms or browse by region.`
+              ? `No results for \u201c${query}\u201d \u2014 try broader terms or browse by region.`
               : 'Try adjusting your filters or searching for something specific.'}
           </p>
           <div className="flex items-center justify-center gap-3">
@@ -301,5 +360,25 @@ export default function SearchPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+        <div className="max-w-2xl">
+          <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 400 }} className="text-3xl sm:text-4xl text-[var(--color-ink)]">Search</h1>
+          <p className="mt-1" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px', color: 'var(--color-muted)' }}>Find places across all nine atlases</p>
+        </div>
+        <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+      </div>
+    }>
+      <SearchPageInner />
+    </Suspense>
   )
 }
