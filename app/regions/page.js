@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 
+export const dynamic = 'force-dynamic'
+
 const STATE_ORDER = ['VIC', 'NSW', 'QLD', 'SA', 'WA', 'TAS', 'ACT', 'NT']
 
 const STATE_LABELS = {

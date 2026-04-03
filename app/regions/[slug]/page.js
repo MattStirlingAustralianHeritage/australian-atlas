@@ -6,6 +6,8 @@ import RegionMap from '@/components/RegionMap'
 import { getVerticalBadge } from '@/lib/verticalUrl'
 import { VERTICAL_STYLES } from '@/components/VerticalBadge'
 
+export const dynamic = 'force-dynamic'
+
 const VERTICAL_ORDER = ['sba', 'fine_grounds', 'collection', 'craft', 'rest', 'field', 'corner', 'found', 'table']
 
 const VERTICAL_LABELS = {
