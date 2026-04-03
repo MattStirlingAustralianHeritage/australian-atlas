@@ -7,6 +7,7 @@ import { getVerticalBadge } from '@/lib/verticalUrl'
 import { VERTICAL_STYLES } from '@/components/VerticalBadge'
 
 export const dynamic = 'force-dynamic'
+export const fetchCache = 'force-no-store'
 
 const VERTICAL_ORDER = ['sba', 'fine_grounds', 'collection', 'craft', 'rest', 'field', 'corner', 'found', 'table']
 
