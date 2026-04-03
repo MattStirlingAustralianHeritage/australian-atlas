@@ -93,12 +93,19 @@ Each vertical has its own Supabase project. See `VERTICAL_CONFIG` for table name
 ## Regions
 
 - `regions` table: ~46 Australian regions with slug, state, description, hero image, editorial content
-- **Hero images**: Mapbox Static Images API (interim — visually consistent, geographically accurate)
-  - Card images: `hero_image_card_url` at 600×400 @2x
-  - Detail hero: `hero_image_url` at 1280×500 @2x (Mapbox API max width is 1280)
+- **Region card maps**: Inline Mapbox GL JS instances with custom dark cartographic style
+  - Style defined in `lib/atlas-map-style.js` (code object, not Mapbox Studio hosted)
+  - Palette: land `#1c1a17`, water `#2a3a4a`, roads `#b8862b` 40%, parks `#252320`, boundaries `#3a3530`, railways `#b8862b` 20% dashed, all labels hidden
+  - Component: `components/RegionMapCard.js` (client component, IntersectionObserver for lazy init/destroy)
+  - `interactive: false` — cards are links, not pannable maps
+  - Card text: white serif italic region name (bottom-left), amber small-caps state label, amber listing count pill (top-right)
+  - Hover: `scale(1.02)` + amber border `rgba(184, 134, 43, 0.4)`
+  - Fallback (no coords): dark background `#1c1a17` with centered amber serif italic region name
+- **Detail hero images**: Mapbox Static Images API
+  - `hero_image_url` at 1280×500 @2x (Mapbox API max width is 1280)
   - `hero_image_source` = 'mapbox_static' (will change to 'operator' when claimed listings provide real photography)
   - URL pattern: `https://api.mapbox.com/styles/v1/{MAPBOX_STYLE}/static/{lng},{lat},{zoom},0/{width}x{height}@2x?access_token={token}`
-  - Style: `mapbox/light-v11` (muted greiges, pale greys, soft blues — consistent with Atlas cream palette)
+  - Detail page style: `mapbox/light-v11`
   - Zoom levels: 7–10 depending on region size (stored in `map_zoom` column)
   - Coordinates stored in `center_lat`, `center_lng` columns
 - **Editorial content**: Generated via Anthropic Claude, stored in `generated_intro` / `long_description`
@@ -108,7 +115,7 @@ Each vertical has its own Supabase project. See `VERTICAL_CONFIG` for table name
 - **Listing counts**: Denormalized `listing_count` updated by cron sync
 - **Region matching**: Text-based `ilike` on `listings.region` with alias map in `updateRegionCounts.js`
   - Aliases handle multi-name regions (e.g. "Hobart" → "Hobart & Southern Tasmania")
-- **Index page design**: Clean header (no dark banner), 3-column grid, cards show name + state + listing count only (no description)
+- **Index page design**: Cream header (contrasts dark cards), 3-column grid, each card is a live Mapbox GL map with dark cartographic style
 - **Detail page design**: Mapbox hero → breadcrumb + description + vertical pills → editorial (250 words max) → venue listings by vertical → interactive map
 - **Scripts**: `seed-region-mapbox-images.mjs` (Mapbox static), `generate-region-editorial.mjs` (Claude)
 - **Pages**: `/regions` (index, SSR), `/regions/[slug]` (detail with hero, editorial, listings, map)

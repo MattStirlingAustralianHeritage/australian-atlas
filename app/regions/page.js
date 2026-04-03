@@ -1,5 +1,5 @@
-import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import RegionMapCard from '@/components/RegionMapCard'
 
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
@@ -27,7 +27,7 @@ async function getRegions() {
     const sb = getSupabaseAdmin()
     const { data } = await sb
       .from('regions')
-      .select('id, name, slug, state, listing_count, hero_image_url, hero_image_card_url, hero_color')
+      .select('id, name, slug, state, listing_count, center_lat, center_lng, map_zoom')
       .order('state')
       .order('name')
     return data || []
@@ -48,7 +48,7 @@ export default async function RegionsPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--color-bg)' }}>
-      {/* Page header */}
+      {/* Page header — cream, contrasts with dark cards */}
       <div style={{ maxWidth: '72rem', margin: '0 auto', padding: '3rem 1.5rem 0' }}>
         <p
           style={{
@@ -141,10 +141,9 @@ export default async function RegionsPage() {
                 className="regions-grid"
               >
                 {stateRegions.map((region, idx) => (
-                  <RegionCard
+                  <RegionMapCard
                     key={region.id}
                     region={region}
-                    isFirst={idx === 0}
                     isOrphanLast={isOrphan && idx === stateRegions.length - 1}
                   />
                 ))}
@@ -155,6 +154,10 @@ export default async function RegionsPage() {
       </div>
 
       <style>{`
+        .region-map-card:hover {
+          transform: scale(1.02);
+          border-color: rgba(184, 134, 43, 0.4) !important;
+        }
         @media (max-width: 768px) {
           .regions-grid {
             grid-template-columns: repeat(2, 1fr) !important;
@@ -167,169 +170,5 @@ export default async function RegionsPage() {
         }
       `}</style>
     </div>
-  )
-}
-
-function RegionCard({ region, isFirst, isOrphanLast }) {
-  const imgUrl = region.hero_image_card_url || region.hero_image_url
-  const bgColor = region.hero_color || '#e8e4de'
-  const count = region.listing_count || 0
-
-  return (
-    <Link
-      href={`/regions/${region.slug}`}
-      className="region-card"
-      style={{
-        display: 'block',
-        borderRadius: '10px',
-        overflow: 'hidden',
-        position: 'relative',
-        aspectRatio: isOrphanLast ? undefined : '3 / 2',
-        height: isOrphanLast ? undefined : (isFirst ? 'calc(100% + 20px)' : undefined),
-        minHeight: isOrphanLast ? '180px' : undefined,
-        backgroundColor: bgColor,
-        textDecoration: 'none',
-        gridColumn: isOrphanLast ? '1 / -1' : undefined,
-        transition: 'transform 200ms ease',
-      }}
-    >
-      {/* Image */}
-      {imgUrl && (
-        <img
-          src={imgUrl}
-          alt={region.name}
-          loading="lazy"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            transition: 'transform 0.5s ease',
-          }}
-        />
-      )}
-
-      {/* Gradient overlay */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.08) 50%, transparent 100%)',
-          transition: 'background 0.3s ease',
-        }}
-        className="region-card-overlay"
-      />
-
-      {/* Content — name + state */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          padding: '1rem 1.125rem',
-        }}
-      >
-        <h3
-          style={{
-            fontFamily: 'var(--font-display)',
-            fontWeight: 400,
-            fontSize: '1.125rem',
-            color: '#fff',
-            lineHeight: 1.2,
-            margin: 0,
-          }}
-        >
-          {region.name}
-        </h3>
-
-        <span
-          style={{
-            fontFamily: 'var(--font-body)',
-            fontWeight: 400,
-            fontSize: '11.5px',
-            color: 'rgba(255,255,255,0.65)',
-            letterSpacing: '0.02em',
-            display: 'block',
-            marginTop: '0.3rem',
-          }}
-        >
-          {STATE_LABELS[region.state]?.split(' ')[0] || region.state}
-        </span>
-      </div>
-
-      {/* Listing count badge — bottom-right */}
-      {count > 0 && (
-        <div
-          style={{
-            position: 'absolute',
-            bottom: '0.75rem',
-            right: '0.75rem',
-          }}
-        >
-          <span
-            style={{
-              fontFamily: 'var(--font-body)',
-              fontWeight: 500,
-              fontSize: '10.5px',
-              color: 'rgba(255,255,255,0.9)',
-              background: 'rgba(0,0,0,0.4)',
-              backdropFilter: 'blur(6px)',
-              padding: '0.2rem 0.55rem',
-              borderRadius: '100px',
-              letterSpacing: '0.01em',
-            }}
-          >
-            {count} {count === 1 ? 'listing' : 'listings'}
-          </span>
-        </div>
-      )}
-
-      {/* Hover explore arrow */}
-      <div
-        className="region-card-explore"
-        style={{
-          position: 'absolute',
-          top: '0.75rem',
-          right: '0.75rem',
-          opacity: 0,
-          transition: 'opacity 0.2s ease',
-        }}
-      >
-        <span
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.25rem',
-            fontFamily: 'var(--font-body)',
-            fontWeight: 500,
-            fontSize: '11px',
-            color: '#fff',
-            background: 'rgba(0,0,0,0.45)',
-            backdropFilter: 'blur(8px)',
-            padding: '0.3rem 0.625rem',
-            borderRadius: '100px',
-          }}
-        >
-          Explore →
-        </span>
-      </div>
-
-      <style>{`
-        .region-card:hover {
-          transform: scale(1.02);
-        }
-        .region-card:hover img {
-          transform: scale(1.04);
-        }
-        .region-card:hover .region-card-explore {
-          opacity: 1 !important;
-        }
-        .region-card:hover .region-card-overlay {
-          background: linear-gradient(to top, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0.15) 50%, rgba(0,0,0,0.04) 100%) !important;
-        }
-      `}</style>
-    </Link>
   )
 }
