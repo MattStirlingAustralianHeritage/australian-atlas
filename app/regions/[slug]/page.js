@@ -79,7 +79,7 @@ function getHeroMapUrl(region) {
   if (!region.center_lat || !region.center_lng) return null
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
   const zoom = (region.map_zoom || 9) - 1
-  return `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/static/${region.center_lng},${region.center_lat},${zoom},0/1400x500@2x?access_token=${token}`
+  return `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/static/${region.center_lng},${region.center_lat},${zoom},0/1280x500@2x?access_token=${token}`
 }
 
 export async function generateMetadata({ params }) {

@@ -149,7 +149,7 @@ async function main() {
 
     // Generate URLs for card (600x400) and hero (1400x500)
     const cardUrl = mapboxStaticUrl(coords.lng, coords.lat, coords.zoom, 600, 400)
-    const heroUrl = mapboxStaticUrl(coords.lng, coords.lat, coords.zoom - 1, 1400, 500)
+    const heroUrl = mapboxStaticUrl(coords.lng, coords.lat, coords.zoom - 1, 1280, 500)
 
     if (dryRun) {
       console.log(`  → ${region.slug}: card=${cardUrl.substring(0, 80)}...`)
