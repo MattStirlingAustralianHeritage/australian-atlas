@@ -269,6 +269,79 @@ function StopCard({ stop, index, isOvernight }) {
   )
 }
 
+function RecommendationCard({ rec, onAdd, added }) {
+  const style = VERTICAL_STYLES[rec.vertical]
+  const color = VERTICAL_COLORS[rec.vertical] || '#5f8a7e'
+  const label = VERTICAL_LABELS[rec.vertical] || rec.vertical
+  const isAccommodation = rec.vertical === 'rest'
+
+  return (
+    <div
+      style={{
+        background: isAccommodation ? 'linear-gradient(135deg, #f0f7fa 0%, #e8f4f8 100%)' : 'var(--color-card-bg)',
+        border: isAccommodation ? '1.5px solid #5A8A9A40' : '1px solid var(--color-border)',
+        borderRadius: 12,
+        padding: '14px 16px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        transition: 'border-color 0.15s, box-shadow 0.15s',
+      }}
+    >
+      {/* Info */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <span style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 14, color: 'var(--color-ink)' }}>
+            {rec.name}
+          </span>
+          {style && (
+            <span style={{
+              backgroundColor: style.bg, color: style.text,
+              padding: '1px 7px', borderRadius: 99, fontSize: 9,
+              fontWeight: 600, fontFamily: 'var(--font-body)',
+              letterSpacing: '0.02em',
+            }}>
+              {label}
+            </span>
+          )}
+        </div>
+        {rec.description && (
+          <p style={{
+            fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 11.5,
+            color: 'var(--color-muted)', marginTop: 3, lineHeight: 1.4,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {rec.description}
+          </p>
+        )}
+      </div>
+
+      {/* Add button */}
+      <button
+        onClick={() => onAdd(rec)}
+        disabled={added}
+        style={{
+          flexShrink: 0,
+          width: 32, height: 32,
+          borderRadius: '50%',
+          border: added ? 'none' : `1.5px solid ${isAccommodation ? '#5A8A9A' : color}`,
+          background: added ? '#4A7C59' : 'transparent',
+          color: added ? 'white' : (isAccommodation ? '#5A8A9A' : color),
+          cursor: added ? 'default' : 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transition: 'all 0.2s ease',
+          fontSize: 18,
+          fontWeight: 300,
+          lineHeight: 1,
+        }}
+        title={added ? 'Added' : 'Add to itinerary'}
+      >
+        {added ? '✓' : '+'}
+      </button>
+    </div>
+  )
+}
+
 function ItineraryPageInner() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -281,6 +354,7 @@ function ItineraryPageInner() {
   const [copied, setCopied] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [addedRecs, setAddedRecs] = useState(new Set())
 
   const destination = extractDestination(q)
 
@@ -406,6 +480,49 @@ function ItineraryPageInner() {
       setSaving(false)
     }
   }, [itinerary, saving, saved, router])
+
+  // Add recommendation to last day
+  const handleAddRec = useCallback((rec) => {
+    if (!itinerary || addedRecs.has(rec.id)) return
+
+    const isAccommodation = rec.vertical === 'rest'
+    const lastDayIndex = itinerary.days.length - 1
+
+    // Find the best day to add to: for accommodation, add to a day without overnight
+    let targetDayIndex = lastDayIndex
+    if (isAccommodation) {
+      const dayWithoutOvernight = itinerary.days.findIndex((d, i) => !d.overnight && i < lastDayIndex)
+      if (dayWithoutOvernight >= 0) targetDayIndex = dayWithoutOvernight
+    }
+
+    const newStop = {
+      listing_id: rec.id,
+      venue_name: rec.name,
+      vertical: rec.vertical,
+      lat: rec.lat,
+      lng: rec.lng,
+      note: '',
+      slug: rec.slug,
+      hero_image_url: rec.hero_image_url,
+      region: rec.region,
+    }
+
+    const updatedDays = [...itinerary.days]
+    if (isAccommodation && !updatedDays[targetDayIndex].overnight) {
+      updatedDays[targetDayIndex] = {
+        ...updatedDays[targetDayIndex],
+        overnight: newStop,
+      }
+    } else {
+      updatedDays[targetDayIndex] = {
+        ...updatedDays[targetDayIndex],
+        stops: [...(updatedDays[targetDayIndex].stops || []), newStop],
+      }
+    }
+
+    setItinerary({ ...itinerary, days: updatedDays })
+    setAddedRecs(prev => new Set([...prev, rec.id]))
+  }, [itinerary, addedRecs])
 
   // Share
   const handleShare = useCallback(() => {
@@ -576,6 +693,32 @@ function ItineraryPageInner() {
           )
         })}
       </div>
+
+      {/* Recommendations */}
+      {itinerary.recommendations?.length > 0 && (
+        <div className="mt-10 pt-8" style={{ borderTop: '1px solid var(--color-border)' }}>
+          <div className="flex items-center gap-3 mb-1">
+            <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 20, color: 'var(--color-ink)', margin: 0 }}>
+              {itinerary.needs_accommodation ? 'Add accommodation & more' : 'You might also add'}
+            </h2>
+          </div>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 13, color: 'var(--color-muted)', marginBottom: 16 }}>
+            {itinerary.needs_accommodation
+              ? 'This multi-day trip needs somewhere to stay. Tap + to add venues to your itinerary.'
+              : 'Nearby venues that complement your trail. Tap + to add.'}
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 10 }}>
+            {itinerary.recommendations.map(rec => (
+              <RecommendationCard
+                key={rec.id}
+                rec={rec}
+                onAdd={handleAddRec}
+                added={addedRecs.has(rec.id)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Action buttons */}
       <div className="mt-10 pt-8 flex items-center gap-3 flex-wrap" style={{ borderTop: '1px solid var(--color-border)' }}>

@@ -319,10 +319,49 @@ Aim for 3-5 stops per day. Make it flow geographically. Mix verticals for variet
       console.warn('[itinerary] Some venue IDs did not match candidates — returning anyway with available data')
     }
 
+    // Build recommendations from unused candidates
+    const usedIds = new Set()
+    for (const day of enrichedDays) {
+      for (const stop of (day.stops || [])) {
+        if (stop.listing_id) usedIds.add(stop.listing_id)
+      }
+      if (day.overnight?.listing_id) usedIds.add(day.overnight.listing_id)
+    }
+
+    // Check if itinerary is missing accommodation for multi-day trips
+    const hasOvernight = enrichedDays.some(d => d.overnight?.listing_id)
+    const needsAccommodation = duration.days > 1 && !hasOvernight
+
+    const recommendations = venueData
+      .filter(v => !usedIds.has(v.id))
+      .map(v => ({
+        id: v.id,
+        name: v.name,
+        vertical: v.vertical,
+        vertical_label: v.vertical_label,
+        lat: v.lat,
+        lng: v.lng,
+        region: v.region,
+        slug: v.slug,
+        hero_image_url: v.hero_image_url,
+        description: v.description,
+      }))
+      // Sort: accommodation first if needed, then by vertical variety
+      .sort((a, b) => {
+        if (needsAccommodation) {
+          if (a.vertical === 'rest' && b.vertical !== 'rest') return -1
+          if (b.vertical === 'rest' && a.vertical !== 'rest') return 1
+        }
+        return 0
+      })
+      .slice(0, 12)
+
     return NextResponse.json({
       title: itinerary.title,
       intro: itinerary.intro,
       days: enrichedDays,
+      recommendations,
+      needs_accommodation: needsAccommodation,
       query: q,
       region: region || null,
       duration,
