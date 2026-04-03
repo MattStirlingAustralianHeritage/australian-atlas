@@ -481,19 +481,11 @@ function ItineraryPageInner() {
     }
   }, [itinerary, saving, saved, router])
 
-  // Add recommendation to last day
+  // Add recommendation — accommodation triggers overnight + new day if needed
   const handleAddRec = useCallback((rec) => {
     if (!itinerary || addedRecs.has(rec.id)) return
 
     const isAccommodation = rec.vertical === 'rest'
-    const lastDayIndex = itinerary.days.length - 1
-
-    // Find the best day to add to: for accommodation, add to a day without overnight
-    let targetDayIndex = lastDayIndex
-    if (isAccommodation) {
-      const dayWithoutOvernight = itinerary.days.findIndex((d, i) => !d.overnight && i < lastDayIndex)
-      if (dayWithoutOvernight >= 0) targetDayIndex = dayWithoutOvernight
-    }
 
     const newStop = {
       listing_id: rec.id,
@@ -508,15 +500,37 @@ function ItineraryPageInner() {
     }
 
     const updatedDays = [...itinerary.days]
-    if (isAccommodation && !updatedDays[targetDayIndex].overnight) {
+
+    if (isAccommodation) {
+      // Find a day without overnight to slot this into
+      const dayWithoutOvernight = updatedDays.findIndex(d => !d.overnight)
+      const targetDayIndex = dayWithoutOvernight >= 0 ? dayWithoutOvernight : updatedDays.length - 1
+
+      // Set as overnight on that day
       updatedDays[targetDayIndex] = {
         ...updatedDays[targetDayIndex],
         overnight: newStop,
       }
+
+      // If this is the last day (or only day) and there's no next day yet, create one
+      const isLastDay = targetDayIndex === updatedDays.length - 1
+      if (isLastDay) {
+        // Derive a day label from the venue region
+        const regionLabel = rec.region || itinerary.region || ''
+        const newDayNumber = updatedDays.length + 1
+        updatedDays.push({
+          day_number: newDayNumber,
+          label: regionLabel ? `Day ${newDayNumber} — ${regionLabel}` : `Day ${newDayNumber}`,
+          stops: [],
+          overnight: null,
+        })
+      }
     } else {
-      updatedDays[targetDayIndex] = {
-        ...updatedDays[targetDayIndex],
-        stops: [...(updatedDays[targetDayIndex].stops || []), newStop],
+      // Non-accommodation: add to the last day's stops
+      const lastDayIndex = updatedDays.length - 1
+      updatedDays[lastDayIndex] = {
+        ...updatedDays[lastDayIndex],
+        stops: [...(updatedDays[lastDayIndex].stops || []), newStop],
       }
     }
 
@@ -701,6 +715,13 @@ function ItineraryPageInner() {
                   </>
                 )}
               </div>
+
+              {/* Night transition — visual connector between days */}
+              {day.overnight && dayIndex < itinerary.days.length - 1 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 0 0 1px', padding: '0 0 0 14px' }}>
+                  <div style={{ width: 1, height: 24, background: 'var(--color-border)', opacity: 0.5 }} />
+                </div>
+              )}
             </div>
           )
         })}
