@@ -400,30 +400,33 @@ export default async function Home() {
 
           <div className="mt-8 space-y-5">
             <p className="text-white/70 leading-relaxed" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px' }}>
-              Australian Atlas covers every region in the country.
+              Nine curated atlases. {stats.listings > 0 ? stats.listings.toLocaleString() : '6,881'} verified listings. {stats.regions || 46} regions. Australian Atlas maps the independent businesses and cultural spaces that make regions worth visiting &mdash; the layer that ATDW and council tourism sites typically don&apos;t cover.
             </p>
             <p className="text-white/70 leading-relaxed" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px' }}>
-              Nine curated atlases. {stats.listings > 0 ? stats.listings.toLocaleString() : '6,881'} verified listings. {stats.regions || 46} regions. We work with regional councils and tourism bodies to co-create destination content, surface verified local listings, and provide network data for your area.
-            </p>
-            <p className="text-white/70 leading-relaxed" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px' }}>
-              If you represent a region, a council, or a tourism body &mdash;{' '}
-              <a href="mailto:hello@australianatlas.com.au" className="text-white underline underline-offset-2 hover:text-[var(--color-accent)] transition-colors">get in touch &rarr;</a>
+              Council partnerships start with understanding what&apos;s already in your region on the network, then extend into content co-creation, editorial trails, regional analytics, and verified data access. Plans run annually from $249.
             </p>
           </div>
 
-          <div className="mt-8 flex flex-wrap gap-4">
-            <a
-              href="/pricing"
+          <div className="mt-8 flex flex-wrap items-center gap-4">
+            <Link
+              href="/for-councils"
               className="inline-flex items-center gap-2 bg-[var(--color-accent)] text-white px-6 py-3 rounded-full hover:opacity-90 transition-opacity"
               style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px' }}
             >
-              View plans
+              Learn more
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+            </Link>
+            <a
+              href="mailto:councils@australianatlas.com.au"
+              className="inline-flex items-center gap-2 text-white/70 hover:text-white px-6 py-3 rounded-full border border-white/20 transition-colors"
+              style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px' }}
+            >
+              councils@australianatlas.com.au
             </a>
             <a
               href="/council/login"
-              className="inline-flex items-center gap-2 text-white/70 hover:text-white px-6 py-3 rounded-full border border-white/20 transition-colors"
-              style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px' }}
+              className="text-white/50 hover:text-white/80 transition-colors"
+              style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '13px', textDecoration: 'underline', textUnderlineOffset: '3px' }}
             >
               Council login
             </a>
