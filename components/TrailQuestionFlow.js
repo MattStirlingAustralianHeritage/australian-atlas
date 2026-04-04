@@ -18,36 +18,36 @@ const QUESTIONS = [
     key: 'accommodation',
     label: 'Accommodation',
     options: [
-      { value: 'need', label: "I'll need somewhere to stay", icon: '🏠' },
-      { value: 'sorted', label: 'Already sorted', icon: '✓' },
-      { value: 'daytrip', label: 'Day trip / live here', icon: '☀' },
+      { value: 'need', label: 'I\u2019ll need somewhere to stay' },
+      { value: 'sorted', label: 'Already sorted' },
+      { value: 'daytrip', label: 'Day trip' },
     ],
   },
   {
     key: 'transport',
     label: 'Getting around',
     options: [
-      { value: 'driving', label: 'Driving', icon: '🚗' },
-      { value: 'public', label: 'Public transport', icon: '🚌' },
-      { value: 'walking', label: 'Walking or cycling', icon: '🚶' },
+      { value: 'driving', label: 'Driving' },
+      { value: 'public', label: 'Public transport' },
+      { value: 'walking', label: 'Walking or cycling' },
     ],
   },
   {
     key: 'group',
-    label: "Who's coming",
+    label: 'Travelling with',
     options: [
-      { value: 'solo', label: 'Solo', icon: '🧑' },
-      { value: 'couple', label: 'Couple', icon: '💛' },
-      { value: 'friends', label: 'Friends', icon: '👥' },
-      { value: 'family', label: 'Family with kids', icon: '👨‍👩‍👧' },
+      { value: 'solo', label: 'Solo' },
+      { value: 'couple', label: 'Couple' },
+      { value: 'friends', label: 'Friends' },
+      { value: 'family', label: 'Family with kids' },
     ],
   },
   {
     key: 'pace',
     label: 'Pace',
     options: [
-      { value: 'relaxed', label: 'Relaxed', icon: '🌿' },
-      { value: 'packed', label: 'Packed', icon: '⚡' },
+      { value: 'relaxed', label: 'Relaxed' },
+      { value: 'packed', label: 'Packed' },
     ],
   },
 ]
@@ -73,7 +73,7 @@ export default function TrailQuestionFlow({ query, onClose }) {
   function handleSelect(key, value) {
     setAnswers(prev => ({
       ...prev,
-      [key]: prev[key] === value ? null : value, // toggle on re-click
+      [key]: prev[key] === value ? null : value,
     }))
   }
 
@@ -96,67 +96,74 @@ export default function TrailQuestionFlow({ query, onClose }) {
     <div
       style={{
         position: 'fixed', inset: 0, zIndex: 9999,
-        background: 'rgba(0,0,0,0.35)',
+        background: 'rgba(42, 34, 24, 0.4)',
+        backdropFilter: 'blur(2px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 16,
+        padding: 24,
       }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
         style={{
-          background: 'var(--color-bg)',
-          borderRadius: 16,
+          background: '#fff',
+          borderRadius: 12,
           width: '100%',
-          maxWidth: 480,
+          maxWidth: 520,
           maxHeight: '90vh',
           overflow: 'auto',
-          boxShadow: '0 16px 48px rgba(0,0,0,0.15)',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)',
+          border: '1px solid rgba(0,0,0,0.04)',
         }}
       >
         {/* Header */}
         <div style={{
-          padding: '20px 24px 0',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '32px 32px 0',
+          display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
         }}>
           <div>
             <p style={{
-              fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11,
+              fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 10,
               color: 'var(--color-sage)', textTransform: 'uppercase',
-              letterSpacing: '0.1em', marginBottom: 4,
+              letterSpacing: '0.18em', marginBottom: 8, lineHeight: 1,
             }}>
-              Quick setup
+              Tailor your trail
             </p>
             <p style={{
-              fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 20,
-              color: 'var(--color-ink)', lineHeight: 1.3,
+              fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22,
+              color: 'var(--color-ink)', lineHeight: 1.25, margin: 0,
             }}>
-              A few details for a better trail
+              A few details to shape<br />your itinerary
             </p>
           </div>
           <button
             onClick={onClose}
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
-              color: 'var(--color-muted)', fontSize: 20, padding: 4,
+              color: 'var(--color-muted)', padding: 4, marginTop: 2,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
             aria-label="Close"
           >
-            &times;
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
           </button>
         </div>
 
         {/* Questions */}
-        <div style={{ padding: '20px 24px' }}>
+        <div style={{ padding: '28px 32px 8px' }}>
           {QUESTIONS.map(({ key, label, options }) => (
-            <div key={key} style={{ marginBottom: 20 }}>
+            <div key={key} style={{ marginBottom: 24 }}>
               <p style={{
-                fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12,
-                color: 'var(--color-muted)', marginBottom: 8,
-                textTransform: 'uppercase', letterSpacing: '0.06em',
+                fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 10,
+                color: 'var(--color-muted)', marginBottom: 10,
+                textTransform: 'uppercase', letterSpacing: '0.14em', lineHeight: 1,
               }}>
                 {label}
               </p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: options.length <= 3 ? `repeat(${options.length}, 1fr)` : 'repeat(2, 1fr)',
+                gap: 8,
+              }}>
                 {options.map(opt => {
                   const selected = answers[key] === opt.value
                   return (
@@ -166,17 +173,29 @@ export default function TrailQuestionFlow({ query, onClose }) {
                       style={{
                         fontFamily: 'var(--font-body)', fontWeight: selected ? 500 : 400,
                         fontSize: 13,
-                        color: selected ? 'white' : 'var(--color-ink)',
-                        background: selected ? 'var(--color-sage)' : 'var(--color-cream)',
-                        border: selected ? '1.5px solid var(--color-sage)' : '1.5px solid var(--color-border)',
-                        borderRadius: 99,
-                        padding: '7px 14px',
+                        lineHeight: 1.4,
+                        color: selected ? 'var(--color-ink)' : 'var(--color-text, #5a5347)',
+                        background: selected ? 'var(--color-cream, #faf7f2)' : '#fff',
+                        border: selected ? '1.5px solid var(--color-sage)' : '1px solid var(--color-border, #e8e3da)',
+                        borderRadius: 8,
+                        padding: '12px 14px',
                         cursor: 'pointer',
-                        transition: 'all 0.15s',
-                        display: 'inline-flex', alignItems: 'center', gap: 5,
+                        transition: 'all 0.15s ease',
+                        textAlign: 'left',
+                      }}
+                      onMouseEnter={e => {
+                        if (!selected) {
+                          e.currentTarget.style.borderColor = 'var(--color-sage, #5F8A7E)'
+                          e.currentTarget.style.background = 'var(--color-cream, #faf7f2)'
+                        }
+                      }}
+                      onMouseLeave={e => {
+                        if (!selected) {
+                          e.currentTarget.style.borderColor = 'var(--color-border, #e8e3da)'
+                          e.currentTarget.style.background = '#fff'
+                        }
                       }}
                     >
-                      <span style={{ fontSize: 13 }}>{opt.icon}</span>
                       {opt.label}
                     </button>
                   )
@@ -186,9 +205,12 @@ export default function TrailQuestionFlow({ query, onClose }) {
           ))}
         </div>
 
+        {/* Divider */}
+        <div style={{ margin: '0 32px', borderTop: '1px solid var(--color-border, #e8e3da)' }} />
+
         {/* Actions */}
         <div style={{
-          padding: '0 24px 20px',
+          padding: '20px 32px 28px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           gap: 12,
         }}>
@@ -198,24 +220,25 @@ export default function TrailQuestionFlow({ query, onClose }) {
               fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13,
               color: 'var(--color-muted)', background: 'none', border: 'none',
               cursor: 'pointer', padding: '8px 0',
-              textDecoration: 'underline', textUnderlineOffset: 3,
+              letterSpacing: '0.01em',
             }}
           >
-            Skip, just build it
+            Skip
           </button>
           <button
             onClick={handleSubmit}
             style={{
               fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13,
-              color: 'white', background: 'var(--color-sage)',
-              border: 'none', borderRadius: 99,
-              padding: '10px 24px',
+              color: '#fff', background: 'var(--color-ink, #2a2218)',
+              border: 'none', borderRadius: 6,
+              padding: '12px 28px',
               cursor: 'pointer',
               transition: 'opacity 0.15s',
-              opacity: answeredCount > 0 ? 1 : 0.7,
+              opacity: answeredCount > 0 ? 1 : 0.6,
+              letterSpacing: '0.02em',
             }}
           >
-            Build trail{answeredCount > 0 ? ` (${answeredCount}/4)` : ''}
+            Build trail{answeredCount > 0 ? ` \u00b7 ${answeredCount}/4` : ''}
           </button>
         </div>
       </div>
