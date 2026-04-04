@@ -472,7 +472,7 @@ export async function GET(request) {
 
     // Query candidate venues from master listings
     const sb = getSupabaseAdmin()
-    const LISTING_COLS = 'id, name, vertical, lat, lng, region, state, description, hero_image_url, slug'
+    const LISTING_COLS = 'id, name, vertical, lat, lng, region, state, description, hero_image_url, slug, is_claimed, is_featured, editors_pick'
 
     // Helper: build a base query with status + coordinate filters + geo bounds
     function baseQuery() {
@@ -545,18 +545,18 @@ export async function GET(request) {
       }
     }
 
-    // Sort candidates: boost preferred verticals and group-appropriate verticals to the top
-    if (preferredVerticals.size > 0 || groupWeights.boost.length > 0) {
-      candidates.sort((a, b) => {
-        const aScore = (preferredVerticals.has(a.vertical) ? 2 : 0)
-          + (groupWeights.boost.includes(a.vertical) ? 1 : 0)
-          - (groupWeights.deprioritise.includes(a.vertical) ? 1 : 0)
-        const bScore = (preferredVerticals.has(b.vertical) ? 2 : 0)
-          + (groupWeights.boost.includes(b.vertical) ? 1 : 0)
-          - (groupWeights.deprioritise.includes(b.vertical) ? 1 : 0)
-        return bScore - aScore
-      })
-    }
+    // Sort candidates: boost claimed/featured venues, preferred verticals, and group-appropriate verticals
+    candidates.sort((a, b) => {
+      const aScore = (a.is_claimed ? 3 : 0) + (a.editors_pick ? 2 : 0) + (a.is_featured ? 1 : 0)
+        + (preferredVerticals.has(a.vertical) ? 2 : 0)
+        + (groupWeights.boost.includes(a.vertical) ? 1 : 0)
+        - (groupWeights.deprioritise.includes(a.vertical) ? 1 : 0)
+      const bScore = (b.is_claimed ? 3 : 0) + (b.editors_pick ? 2 : 0) + (b.is_featured ? 1 : 0)
+        + (preferredVerticals.has(b.vertical) ? 2 : 0)
+        + (groupWeights.boost.includes(b.vertical) ? 1 : 0)
+        - (groupWeights.deprioritise.includes(b.vertical) ? 1 : 0)
+      return bScore - aScore
+    })
 
     if (!candidates || candidates.length < 4) {
       return NextResponse.json({
@@ -582,6 +582,9 @@ export async function GET(request) {
       description: v.description ? v.description.slice(0, 200) : null,
       slug: v.slug,
       hero_image_url: v.hero_image_url || null,
+      is_claimed: v.is_claimed || false,
+      is_featured: v.is_featured || false,
+      editors_pick: v.editors_pick || false,
     }))
 
     const candidateIds = new Set(venueData.map(v => v.id))
@@ -668,6 +671,7 @@ HARD CONSTRAINTS:
 - Keep notes concise (1-2 sentences) — evocative but practical.
 - Title should be catchy and specific to the region/theme.
 - Intro should be 2-3 sentences setting the scene.
+- TIER WEIGHTING: Venues with "is_claimed": true or "is_featured": true are verified, operator-managed listings. When building the itinerary, PREFER these venues over unclaimed listings of similar relevance and location. They represent higher-quality, actively maintained listings.
 ${accommodationInstruction}${transportInstruction}${groupInstruction}${paceInstruction}${preferencesPrompt}
 
 Respond with valid JSON only. No markdown, no code fences, just the JSON object.`
@@ -756,7 +760,7 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
     let strippedCount = 0
     const enrichedDays = (itinerary.days || []).map(day => {
       const enrichedStops = (day.stops || []).reduce((acc, stop) => {
-        const candidate = venueData.find(v => v.id === stop.listing_id)
+        const candidate = venueData.find(v => String(v.id) === String(stop.listing_id))
         if (!candidate) {
           console.warn(`[itinerary] STRIPPED hallucinated stop: listing_id ${stop.listing_id} ("${stop.venue_name}") not in candidate pool`)
           strippedCount++
@@ -773,7 +777,7 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
 
       let enrichedOvernight = day.overnight
       if (enrichedOvernight?.listing_id) {
-        const candidate = venueData.find(v => v.id === enrichedOvernight.listing_id)
+        const candidate = venueData.find(v => String(v.id) === String(enrichedOvernight.listing_id))
         if (!candidate) {
           console.warn(`[itinerary] STRIPPED hallucinated overnight: listing_id ${enrichedOvernight.listing_id} ("${enrichedOvernight.venue_name}") not in candidate pool`)
           strippedCount++
