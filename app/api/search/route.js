@@ -1,7 +1,28 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { createHash } from 'crypto'
 
 const SELECT_FIELDS = 'id, vertical, name, slug, description, region, state, sub_type, lat, lng, hero_image_url, is_featured, is_claimed, website'
+
+/** Generate an anonymous session id from user-agent + date (no PII) */
+function getSessionId(request) {
+  const ua = request.headers.get('user-agent') || 'unknown'
+  const day = new Date().toISOString().slice(0, 10)
+  return createHash('sha256').update(`${ua}:${day}`).digest('hex').slice(0, 16)
+}
+
+/** Fire-and-forget search log — must never break search */
+function logSearch(request, { queryText, verticalFilter, resultCount }) {
+  try {
+    const sb = getSupabaseAdmin()
+    sb.from('search_logs').insert({
+      query_text: queryText,
+      vertical_filter: verticalFilter || null,
+      result_count: resultCount,
+      session_id: getSessionId(request),
+    }).then(() => {}).catch(() => {})
+  } catch { /* silent */ }
+}
 
 // Map natural-language keywords to vertical keys
 const VERTICAL_KEYWORDS = {
@@ -169,6 +190,8 @@ export async function GET(request) {
       const listings = data || []
       const total = count || 0
 
+      logSearch(request, { queryText: q, verticalFilter: vertical, resultCount: listings.length })
+
       return NextResponse.json({
         listings,
         total,
@@ -189,6 +212,11 @@ export async function GET(request) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // Only log filter-based browsing when explicit filters are present (skip empty browses)
+    if (vertical || state || region) {
+      logSearch(request, { queryText: vertical || state || region || '', verticalFilter: vertical, resultCount: (data || []).length })
     }
 
     return NextResponse.json({

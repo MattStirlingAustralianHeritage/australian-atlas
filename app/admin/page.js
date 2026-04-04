@@ -62,6 +62,21 @@ export default function AdminPage() {
             href="/admin/trails"
           />
           <AdminCard
+            label="Search Insights"
+            description="Top queries, trail prompts, zero-result searches"
+            href="/admin/insights"
+          />
+          <AdminCard
+            label="Completeness"
+            description="Listing quality scores, missing fields, improvement tips"
+            href="/admin/completeness"
+          />
+          <AdminCard
+            label="Staleness"
+            description="Listing freshness, dead URLs, verification tiers"
+            href="/admin/staleness"
+          />
+          <AdminCard
             label="Regions"
             description="View and manage regions"
             href="/regions"

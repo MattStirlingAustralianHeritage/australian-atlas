@@ -49,6 +49,17 @@ async function getRegion(slug) {
   return data
 }
 
+async function getRegionNarrative(regionId) {
+  if (!regionId) return null
+  const sb = getSupabaseAdmin()
+  const { data } = await sb
+    .from('region_narratives')
+    .select('*')
+    .eq('region_id', regionId)
+    .single()
+  return data
+}
+
 // Approximate bounding box size (in degrees) from map zoom level
 function zoomToRadiusDeg(zoom) {
   const lookup = { 6: 3.0, 7: 1.5, 8: 0.75, 9: 0.5, 10: 0.3, 11: 0.15, 12: 0.08 }
@@ -138,7 +149,10 @@ export default async function RegionPage({ params }) {
   const region = await getRegion(slug)
   if (!region) notFound()
 
-  const listings = await getRegionListings(region)
+  const [listings, narrative] = await Promise.all([
+    getRegionListings(region),
+    getRegionNarrative(region.id),
+  ])
 
   // Group by vertical
   const grouped = {}
@@ -342,6 +356,193 @@ export default async function RegionPage({ params }) {
                 {paragraph}
               </p>
             ))}
+          </div>
+        )}
+
+        {/* AI-generated narrative blocks — additional enrichment */}
+        {narrative && (
+          <div
+            style={{
+              maxWidth: '42rem',
+              padding: '2rem 0 1.75rem',
+              borderBottom: '1px solid var(--color-border)',
+            }}
+          >
+            {/* Editorial overview */}
+            {narrative.editorial_overview && (
+              <div style={{ marginBottom: '2rem' }}>
+                <h2
+                  style={{
+                    fontFamily: 'var(--font-body)',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    letterSpacing: '0.1em',
+                    textTransform: 'uppercase',
+                    color: 'var(--color-muted)',
+                    marginBottom: '0.75rem',
+                  }}
+                >
+                  Overview
+                </h2>
+                <p
+                  style={{
+                    fontFamily: 'var(--font-body)',
+                    fontWeight: 300,
+                    fontSize: '15px',
+                    lineHeight: 1.75,
+                    color: 'var(--color-ink)',
+                    margin: 0,
+                  }}
+                >
+                  {narrative.editorial_overview}
+                </p>
+              </div>
+            )}
+
+            {/* Best time to visit + What makes distinct — side by side on desktop */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                gap: '2rem',
+                marginBottom: '2rem',
+              }}
+            >
+              {narrative.best_time_to_visit && (
+                <div>
+                  <h2
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      letterSpacing: '0.1em',
+                      textTransform: 'uppercase',
+                      color: 'var(--color-muted)',
+                      marginBottom: '0.75rem',
+                    }}
+                  >
+                    Best time to visit
+                  </h2>
+                  <p
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 300,
+                      fontSize: '14px',
+                      lineHeight: 1.7,
+                      color: 'var(--color-ink)',
+                      margin: 0,
+                    }}
+                  >
+                    {narrative.best_time_to_visit}
+                  </p>
+                </div>
+              )}
+
+              {narrative.what_makes_distinct && (
+                <div>
+                  <h2
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      letterSpacing: '0.1em',
+                      textTransform: 'uppercase',
+                      color: 'var(--color-muted)',
+                      marginBottom: '0.75rem',
+                    }}
+                  >
+                    What sets it apart
+                  </h2>
+                  <p
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 300,
+                      fontSize: '14px',
+                      lineHeight: 1.7,
+                      color: 'var(--color-ink)',
+                      margin: 0,
+                    }}
+                  >
+                    {narrative.what_makes_distinct}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Vertical highlights */}
+            {narrative.vertical_highlights && narrative.vertical_highlights.length > 0 && (
+              <div style={{ marginBottom: '1rem' }}>
+                <h2
+                  style={{
+                    fontFamily: 'var(--font-body)',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    letterSpacing: '0.1em',
+                    textTransform: 'uppercase',
+                    color: 'var(--color-muted)',
+                    marginBottom: '0.75rem',
+                  }}
+                >
+                  Highlights
+                </h2>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+                  {narrative.vertical_highlights.map((highlight, i) => {
+                    const color = VERTICAL_COLORS[highlight.vertical] || 'var(--color-muted)'
+                    const label = VERTICAL_LABELS[highlight.vertical] || highlight.vertical
+                    return (
+                      <div
+                        key={i}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'baseline',
+                          gap: '0.5rem',
+                          fontFamily: 'var(--font-body)',
+                          fontSize: '14px',
+                          lineHeight: 1.6,
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: '10px',
+                            fontWeight: 600,
+                            letterSpacing: '0.08em',
+                            textTransform: 'uppercase',
+                            color: color,
+                            flexShrink: 0,
+                          }}
+                        >
+                          {label}
+                        </span>
+                        <span style={{ color: 'var(--color-ink)', fontWeight: 400 }}>
+                          {highlight.listing_name}
+                        </span>
+                        {highlight.note && (
+                          <span style={{ color: 'var(--color-muted)', fontWeight: 300 }}>
+                            — {highlight.note}
+                          </span>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Provenance badge */}
+            <p
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontSize: '11px',
+                fontWeight: 400,
+                color: 'var(--color-muted)',
+                marginTop: '1.25rem',
+                paddingTop: '0.75rem',
+                borderTop: '1px solid var(--color-border)',
+              }}
+            >
+              Generated from {narrative.listing_count_at_generation} verified listing{narrative.listing_count_at_generation !== 1 ? 's' : ''}
+              {' '}&middot; Last updated {new Date(narrative.generated_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}
+            </p>
           </div>
         )}
 

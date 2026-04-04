@@ -22,13 +22,31 @@ export const metadata = {
   title: "Australian Atlas — Discover Australia's best independent places",
   description:
     "The complete guide to independent Australia. Nine atlases covering craft producers, boutique stays, makers, galleries, natural places, specialty coffee, independent shops and food producers — verified, curated, and mapped.",
+  metadataBase: new URL("https://australianatlas.com.au"),
   openGraph: {
-    title: "Australian Atlas",
-    description: "Discover Australia's best independent places",
+    title: "Australian Atlas — Discover Australia's best independent places",
+    description:
+      "The complete guide to independent Australia. Nine atlases covering craft producers, boutique stays, makers, galleries, natural places, specialty coffee, independent shops and food producers — verified, curated, and mapped.",
     url: "https://australianatlas.com.au",
     siteName: "Australian Atlas",
     locale: "en_AU",
     type: "website",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Australian Atlas — Discover Australia's best independent places",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Australian Atlas — Discover Australia's best independent places",
+    description:
+      "The complete guide to independent Australia. Nine atlases covering craft producers, boutique stays, makers, galleries, natural places, specialty coffee, independent shops and food producers.",
+    site: "@australianatlas",
+    images: ["/og-image.png"],
   },
   icons: {
     icon: [

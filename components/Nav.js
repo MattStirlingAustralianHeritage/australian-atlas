@@ -38,6 +38,7 @@ export default function Nav() {
     { href: '/map', label: 'Map' },
     { href: '/trails', label: 'Trails' },
     { href: '/regions', label: 'Regions' },
+    { href: '/events', label: 'Events' },
     { href: '/search', label: 'Search' },
   ]
 

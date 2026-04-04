@@ -1,5 +1,27 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { createHash } from 'crypto'
+
+/** Generate an anonymous session id from user-agent + date (no PII) */
+function getSessionId(request) {
+  const ua = request.headers.get('user-agent') || 'unknown'
+  const day = new Date().toISOString().slice(0, 10)
+  return createHash('sha256').update(`${ua}:${day}`).digest('hex').slice(0, 16)
+}
+
+/** Fire-and-forget trail log — must never break itinerary generation */
+function logTrail(request, { promptText, regionDetected, verticalsIncluded, daysGenerated }) {
+  try {
+    const sb = getSupabaseAdmin()
+    sb.from('trail_logs').insert({
+      prompt_text: promptText,
+      region_detected: regionDetected || null,
+      verticals_included: verticalsIncluded || [],
+      days_generated: daysGenerated || 0,
+      session_id: getSessionId(request),
+    }).then(() => {}).catch(() => {})
+  } catch { /* silent */ }
+}
 
 // Map natural-language category hints to vertical keys
 const CATEGORY_KEYWORDS = {
@@ -879,6 +901,18 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
       ? venueData.filter(v => effectiveVerticals.includes(v.vertical)).length
       : venueData.length
     const thinCorpus = effectiveVerticals.length > 0 && focusVerticalCount < totalStopsNeeded
+
+    // Collect unique verticals present in the generated itinerary
+    const itineraryVerticals = [...new Set(
+      enrichedDays.flatMap(d => (d.stops || []).map(s => s.vertical)).filter(Boolean)
+    )]
+
+    logTrail(request, {
+      promptText: q,
+      regionDetected: geoBounds?.label || region || null,
+      verticalsIncluded: itineraryVerticals,
+      daysGenerated: enrichedDays.length,
+    })
 
     return NextResponse.json({
       title: itinerary.title,
