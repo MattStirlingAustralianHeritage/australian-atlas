@@ -336,6 +336,20 @@ export async function GET(request) {
   try {
     const { region, geoBounds, verticals, duration } = parseItineraryQuery(q)
 
+    console.log('[itinerary] Parsed query:', { region, geoBounds: geoBounds ? `${geoBounds.label || 'custom'} (${geoBounds.latMin.toFixed(2)}–${geoBounds.latMax.toFixed(2)}, ${geoBounds.lngMin.toFixed(2)}–${geoBounds.lngMax.toFixed(2)})` : 'NONE', verticals, duration })
+
+    // STEP 1: Region must be detected. If the user's query names a place we can't
+    // resolve, return an honest error rather than silently serving random venues.
+    if (!geoBounds) {
+      console.warn('[itinerary] No geographic anchor resolved from query:', q)
+      return NextResponse.json({
+        error: 'no_region',
+        message: `We couldn't identify a specific region in your request. Try naming a region, city, or state — like "Barossa Valley", "Hobart", or "Eastern Victoria".`,
+        query: q,
+        region: null,
+      }, { status: 200 })
+    }
+
     // Check for user preferences to weight recommendations
     let userInterests = null
     try {
@@ -429,8 +443,10 @@ export async function GET(request) {
     if (!candidates || candidates.length < 4) {
       return NextResponse.json({
         error: 'insufficient_venues',
-        message: `Not enough venues found${region ? ` in ${region}` : ''}. Try a different region or broader search.`,
+        message: `We only found ${candidates?.length || 0} venues${region ? ` in ${region}` : ''} — not quite enough to build a trail. Try a broader area or a nearby region.`,
         venue_count: candidates?.length || 0,
+        region: region || null,
+        region_label: geoBounds?.label || region || null,
       }, { status: 200 })
     }
 
@@ -550,43 +566,50 @@ Aim for 3-5 stops per day. Make it flow geographically. Favour the requested ver
       return NextResponse.json({ error: 'Failed to parse itinerary response' }, { status: 500 })
     }
 
-    // Validate: ensure every listing_id exists in candidates
-    let valid = true
+    // Validate & strip: remove any stops whose listing_id doesn't exist in candidates.
+    // The LLM is instructed to only use candidate venues, but occasionally hallucinates.
+    let strippedCount = 0
     const enrichedDays = (itinerary.days || []).map(day => {
-      const enrichedStops = (day.stops || []).map(stop => {
+      const enrichedStops = (day.stops || []).reduce((acc, stop) => {
         const candidate = venueData.find(v => v.id === stop.listing_id)
         if (!candidate) {
-          console.warn(`[itinerary] listing_id ${stop.listing_id} not found in candidates`)
-          valid = false
+          console.warn(`[itinerary] STRIPPED hallucinated stop: listing_id ${stop.listing_id} ("${stop.venue_name}") not in candidate pool`)
+          strippedCount++
+          return acc // skip this stop entirely
         }
-        return {
+        acc.push({
           ...stop,
-          slug: candidate?.slug || null,
-          hero_image_url: candidate?.hero_image_url || null,
-          region: candidate?.region || null,
-        }
-      })
+          slug: candidate.slug || null,
+          hero_image_url: candidate.hero_image_url || null,
+          region: candidate.region || null,
+        })
+        return acc
+      }, [])
 
       let enrichedOvernight = day.overnight
       if (enrichedOvernight?.listing_id) {
         const candidate = venueData.find(v => v.id === enrichedOvernight.listing_id)
         if (!candidate) {
-          console.warn(`[itinerary] overnight listing_id ${enrichedOvernight.listing_id} not found`)
-          valid = false
-        }
-        enrichedOvernight = {
-          ...enrichedOvernight,
-          slug: candidate?.slug || null,
-          hero_image_url: candidate?.hero_image_url || null,
-          region: candidate?.region || null,
+          console.warn(`[itinerary] STRIPPED hallucinated overnight: listing_id ${enrichedOvernight.listing_id} ("${enrichedOvernight.venue_name}") not in candidate pool`)
+          strippedCount++
+          enrichedOvernight = null // remove invalid overnight
+        } else {
+          enrichedOvernight = {
+            ...enrichedOvernight,
+            slug: candidate.slug || null,
+            hero_image_url: candidate.hero_image_url || null,
+            region: candidate.region || null,
+          }
         }
       }
 
       return { ...day, stops: enrichedStops, overnight: enrichedOvernight }
     })
+    // Remove any days that ended up completely empty after stripping
+    .filter(day => (day.stops?.length || 0) > 0 || day.overnight)
 
-    if (!valid) {
-      console.warn('[itinerary] Some venue IDs did not match candidates — returning anyway with available data')
+    if (strippedCount > 0) {
+      console.warn(`[itinerary] Stripped ${strippedCount} hallucinated venue(s) from LLM output`)
     }
 
     // Build recommendations from unused candidates, constrained by geographic proximity
@@ -699,8 +722,10 @@ Aim for 3-5 stops per day. Make it flow geographically. Favour the requested ver
       personalised: interestVerticals.size > 0,
       query: q,
       region: region || null,
+      region_label: geoBounds?.label || region || null,
       duration,
       venue_count: venueData.length,
+      stripped_count: strippedCount,
     })
   } catch (err) {
     console.error('[itinerary] Fatal error:', err)

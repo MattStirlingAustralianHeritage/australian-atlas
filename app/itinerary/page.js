@@ -402,14 +402,14 @@ function ItineraryPageInner() {
 
         if (cancelled) return
 
-        if (data.error === 'insufficient_venues') {
-          setError(data.message)
+        if (data.error === 'no_region' || data.error === 'insufficient_venues') {
+          setError(data)
           setLoading(false)
           return
         }
 
         if (data.error) {
-          setError(data.error)
+          setError({ error: data.error, message: data.message || data.error })
           setLoading(false)
           return
         }
@@ -595,25 +595,83 @@ function ItineraryPageInner() {
 
   // --- Error state ---
   if (error) {
+    const isNoRegion = error.error === 'no_region'
+    const isInsufficient = error.error === 'insufficient_venues'
+    const errorRegion = error.region_label || error.region
+
     return (
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-16 text-center">
         <svg className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--color-border)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+          {isNoRegion ? (
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+          ) : (
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+          )}
         </svg>
         <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)', marginBottom: 8 }}>
-          Could not build this itinerary
+          {isNoRegion
+            ? 'Which region did you have in mind?'
+            : isInsufficient
+            ? `Not enough listings${errorRegion ? ` in ${errorRegion}` : ''} yet`
+            : 'Could not build this itinerary'}
         </h2>
-        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 14, color: 'var(--color-muted)', maxWidth: 400, margin: '0 auto 24px' }}>
-          {error}
+        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 14, color: 'var(--color-muted)', maxWidth: 440, margin: '0 auto 24px', lineHeight: 1.6 }}>
+          {error.message || 'Something went wrong. Please try again.'}
         </p>
+
+        {/* Suggested regions for no_region error */}
+        {isNoRegion && (
+          <div style={{ maxWidth: 440, margin: '0 auto 24px' }}>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, color: 'var(--color-muted)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              Try one of these
+            </p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {['Barossa Valley wineries', 'Weekend in Hobart', 'Yarra Valley day trip', 'Byron Bay 3 days', 'Eastern Victoria food trail'].map(suggestion => (
+                <Link
+                  key={suggestion}
+                  href={`/itinerary?q=${encodeURIComponent(suggestion)}`}
+                  style={{
+                    fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13,
+                    color: 'var(--color-ink)', background: '#f5f5f0',
+                    padding: '6px 14px', borderRadius: 99, textDecoration: 'none',
+                    border: '1px solid var(--color-border)',
+                    transition: 'background 0.15s',
+                  }}
+                  className="hover:bg-[var(--color-cream)]"
+                >
+                  {suggestion}
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-center gap-4">
-          <Link href="/search" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--color-accent)' }}>
-            Try searching instead
-          </Link>
-          <span style={{ color: 'var(--color-border)' }}>|</span>
-          <Link href="/regions" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--color-accent)' }}>
-            Browse regions
-          </Link>
+          {isInsufficient && errorRegion ? (
+            <>
+              <Link href={`/search?q=${encodeURIComponent(errorRegion)}`} style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--color-accent)' }}>
+                Search {errorRegion}
+              </Link>
+              <span style={{ color: 'var(--color-border)' }}>|</span>
+              <Link href="/regions" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--color-accent)' }}>
+                Browse all regions
+              </Link>
+              <span style={{ color: 'var(--color-border)' }}>|</span>
+              <Link href="/map" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--color-accent)' }}>
+                Explore the map
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link href="/search" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--color-accent)' }}>
+                Try searching instead
+              </Link>
+              <span style={{ color: 'var(--color-border)' }}>|</span>
+              <Link href="/regions" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--color-accent)' }}>
+                Browse regions
+              </Link>
+            </>
+          )}
         </div>
       </div>
     )
@@ -640,6 +698,17 @@ function ItineraryPageInner() {
           Back to search
         </Link>
 
+        {/* Region label — prominent so user can immediately confirm correct area */}
+        {(itinerary.region_label || itinerary.region) && (
+          <p style={{
+            fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12,
+            color: 'var(--color-sage)', letterSpacing: '0.08em', textTransform: 'uppercase',
+            marginBottom: 6,
+          }}>
+            {itinerary.region_label || itinerary.region}
+          </p>
+        )}
+
         <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 32, color: 'var(--color-ink)', lineHeight: 1.2 }}>
           {itinerary.title}
         </h1>
@@ -662,13 +731,13 @@ function ItineraryPageInner() {
           }}>
             {totalStops} stops
           </span>
-          {itinerary.region && (
+          {itinerary.personalised && (
             <span style={{
               fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11,
-              background: '#f5f5f0', color: 'var(--color-muted)',
+              background: 'rgba(95,138,126,0.1)', color: 'var(--color-sage)',
               padding: '3px 10px', borderRadius: 99,
             }}>
-              {itinerary.region}
+              Personalised
             </span>
           )}
         </div>
