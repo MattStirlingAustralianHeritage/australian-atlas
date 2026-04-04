@@ -412,11 +412,20 @@ export async function GET(request) {
     // resolve, return an honest error rather than silently serving random venues.
     if (!geoBounds) {
       console.warn('[itinerary] No geographic anchor resolved from query:', q)
+
+      // Suggest well-covered regions the user might mean
+      const topRegions = ['Melbourne', 'Sydney', 'Barossa', 'Hobart', 'Blue Mountains', 'Mornington Peninsula', 'Byron', 'Adelaide Hills']
+      const suggestedTrails = topRegions.slice(0, 3).map(r => ({
+        query: `Day trip to ${r}`,
+        region: r,
+      }))
+
       return NextResponse.json({
         error: 'no_region',
-        message: `We couldn't identify a specific region in your request. Try naming a region, city, or state — like "Barossa Valley", "Hobart", or "Eastern Victoria".`,
+        message: `We couldn't identify a specific region in your request. Try naming a place — like "Barossa Valley", "Hobart", or "Eastern Victoria".`,
         query: q,
         region: null,
+        suggested_trails: suggestedTrails,
       }, { status: 200 })
     }
 
@@ -581,12 +590,68 @@ export async function GET(request) {
     })
 
     if (!candidates || candidates.length < 4) {
+      // Find nearby regions with better coverage to suggest alternatives
+      const centerLat = (geoBounds.latMin + geoBounds.latMax) / 2
+      const centerLng = (geoBounds.lngMin + geoBounds.lngMax) / 2
+      const nearbyRegions = []
+
+      for (const [name, anchor] of Object.entries(GEO_ANCHORS)) {
+        if (name === region || name === geoBounds?.label) continue
+        const dist = Math.sqrt(Math.pow(anchor.lat - centerLat, 2) + Math.pow(anchor.lng - centerLng, 2))
+        if (dist < 2.5) { // ~275km radius
+          nearbyRegions.push({ name, dist })
+        }
+      }
+      nearbyRegions.sort((a, b) => a.dist - b.dist)
+
+      // Check which nearby regions have decent coverage
+      const suggestedAlternatives = []
+      for (const nr of nearbyRegions.slice(0, 8)) {
+        const nrAnchor = GEO_ANCHORS[nr.name]
+        if (!nrAnchor) continue
+        const { count } = await sb
+          .from('listings')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'active')
+          .not('lat', 'is', null)
+          .gte('lat', nrAnchor.lat - nrAnchor.r)
+          .lte('lat', nrAnchor.lat + nrAnchor.r)
+          .gte('lng', nrAnchor.lng - nrAnchor.r)
+          .lte('lng', nrAnchor.lng + nrAnchor.r)
+        if (count >= 5) {
+          suggestedAlternatives.push({ region: nr.name, listing_count: count })
+          if (suggestedAlternatives.length >= 3) break
+        }
+      }
+
+      // Build suggested trail queries
+      const suggestedTrails = suggestedAlternatives.map(alt => ({
+        query: `${duration.days > 1 ? duration.days + ' day' : 'Day'} trip to ${alt.region}`,
+        region: alt.region,
+        listing_count: alt.listing_count,
+      }))
+
+      // Log thin coverage to candidates queue for acquisition prioritisation
+      try {
+        await sb.from('listing_candidates').upsert({
+          name: `[Coverage gap] ${region || geoBounds?.label}`,
+          region: region || geoBounds?.label,
+          vertical: effectiveVerticals[0] || null,
+          source: 'coverage_gap',
+          source_detail: `Trail query "${q}" returned only ${candidates?.length || 0} venues. Region needs more listings.`,
+          confidence: 0.1,
+          status: 'pending',
+        }, { onConflict: 'name,region', ignoreDuplicates: true }).catch(() => {})
+      } catch { /* non-blocking */ }
+
       return NextResponse.json({
         error: 'insufficient_venues',
-        message: `We only found ${candidates?.length || 0} venues${region ? ` in ${region}` : ''} — not quite enough to build a trail. Try a broader area or a nearby region.`,
+        message: `We found ${candidates?.length || 0} verified listing${(candidates?.length || 0) !== 1 ? 's' : ''} in ${region || geoBounds?.label || 'this area'} — not quite enough to build a full trail yet. ${suggestedAlternatives.length > 0 ? 'These nearby regions have stronger coverage:' : 'Try a larger city or popular region like Melbourne, Barossa, or Blue Mountains.'}`,
         venue_count: candidates?.length || 0,
         region: region || null,
         region_label: geoBounds?.label || region || null,
+        suggested_alternatives: suggestedAlternatives,
+        suggested_trails: suggestedTrails,
       }, { status: 200 })
     }
 
