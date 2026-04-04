@@ -30,6 +30,16 @@ const images = {
   table: 'https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=600&q=80',
 }
 
+// Bounding box coordinates for homepage region cards (center + radius in degrees)
+const REGION_GEO = {
+  'Barossa Valley':        { lat: -34.56, lng: 138.95, r: 0.35 },
+  'Mornington Peninsula':  { lat: -38.37, lng: 145.03, r: 0.30 },
+  'Yarra Valley':          { lat: -37.73, lng: 145.51, r: 0.35 },
+  'Byron Hinterland':      { lat: -28.64, lng: 153.50, r: 0.35 },
+  'Blue Mountains':        { lat: -33.72, lng: 150.31, r: 0.35 },
+  'Adelaide Hills':        { lat: -35.02, lng: 138.72, r: 0.35 },
+}
+
 async function getStats() {
   try {
     const sb = getSupabaseAdmin()
@@ -43,9 +53,24 @@ async function getStats() {
       const { count: c } = await sb.from('listings').select('*', { count: 'exact', head: true }).eq('vertical', v.key).eq('status', 'active')
       verticalCounts[v.key] = c || 0
     }
-    return { listings: count || 0, regions: regionCount || 0, verticalCounts }
+
+    // Get listing counts for homepage region cards (bounding box queries)
+    const regionCounts = {}
+    for (const [name, geo] of Object.entries(REGION_GEO)) {
+      const { count: rc } = await sb
+        .from('listings')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'active')
+        .gte('lat', geo.lat - geo.r)
+        .lte('lat', geo.lat + geo.r)
+        .gte('lng', geo.lng - geo.r)
+        .lte('lng', geo.lng + geo.r)
+      regionCounts[name] = rc || 0
+    }
+
+    return { listings: count || 0, regions: regionCount || 0, verticalCounts, regionCounts }
   } catch {
-    return { listings: 0, regions: 0, verticalCounts: {} }
+    return { listings: 0, regions: 0, verticalCounts: {}, regionCounts: {} }
   }
 }
 
@@ -92,16 +117,65 @@ export default async function Home() {
           </div>
         )}
 
-        <p className="mt-5 max-w-2xl mx-auto leading-relaxed" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px', color: 'var(--color-muted)' }}>
-          Craft producers, boutique stays, makers, galleries, natural places, specialty coffee, independent shops and food producers. Curated, mapped, and editorially grounded.
-        </p>
-
         {/* Search bar */}
         <HomeSearchBar />
       </section>
 
+      {/* Trail Builder Section */}
+      <section className="py-20 px-4 sm:px-6 bg-white border-t border-[var(--color-border)]">
+        <div className="max-w-4xl mx-auto text-center">
+          <p style={{ fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--color-sage)', marginBottom: 12, fontFamily: 'var(--font-body)', fontWeight: 600 }}>Discovery Trails</p>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400 }} className="text-3xl sm:text-4xl text-[var(--color-ink)]">
+            Plan a trip in plain English
+          </h2>
+          <p className="mt-4 max-w-xl mx-auto leading-relaxed" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px', color: 'var(--color-muted)' }}>
+            Tell us where you want to go and what you&apos;re into. We&apos;ll build a day-by-day itinerary from real, verified venues across all nine atlases.
+          </p>
+
+          {/* Trail prompt input */}
+          <TrailPromptInput />
+
+          {/* Example trails */}
+          <div className="mt-14 grid grid-cols-1 sm:grid-cols-3 gap-5 text-left">
+            {[
+              { query: 'Weekend wine trail through the Barossa', region: 'Barossa Valley, SA', days: '2 days', stops: '8 stops', verticals: ['Small Batch', 'Table', 'Rest'] },
+              { query: 'Three day art and makers tour of Hobart', region: 'Hobart, TAS', days: '3 days', stops: '12 stops', verticals: ['Collection', 'Craft', 'Fine Grounds'] },
+              { query: 'Day trip to Mornington Peninsula wineries', region: 'Mornington Peninsula, VIC', days: '1 day', stops: '5 stops', verticals: ['Small Batch', 'Table'] },
+            ].map((example, i) => (
+              <Link
+                key={i}
+                href={`/itinerary?q=${encodeURIComponent(example.query)}`}
+                className="group block rounded-xl border border-[var(--color-border)] p-5 hover:border-[var(--color-sage)] hover:shadow-sm transition-all"
+                style={{ background: 'var(--color-bg)' }}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '11px', color: 'var(--color-sage)' }}>{example.region}</span>
+                  <span style={{ color: 'var(--color-border)', fontSize: 10 }}>&middot;</span>
+                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '11px', color: 'var(--color-muted)' }}>{example.days}</span>
+                </div>
+                <p style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '17px', color: 'var(--color-ink)', lineHeight: 1.35, marginBottom: 10 }}>
+                  {example.query}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {example.verticals.map(v => (
+                    <span key={v} style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '10px', color: 'var(--color-muted)', background: 'var(--color-cream)', padding: '2px 8px', borderRadius: 100 }}>{v}</span>
+                  ))}
+                </div>
+              </Link>
+            ))}
+          </div>
+
+          <div className="mt-8">
+            <Link href="/trails" className="inline-flex items-center gap-2 text-[var(--color-accent)] hover:opacity-80 transition-opacity" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px' }}>
+              Browse all trails
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* Atlas Grid */}
-      <section className="px-4 sm:px-6 pb-20 max-w-7xl mx-auto">
+      <section className="px-4 sm:px-6 py-20 max-w-7xl mx-auto">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {verticals.map(v => {
             const vs = VERTICAL_STYLES[v.key]
@@ -158,59 +232,6 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Trail Builder Section */}
-      <section className="py-20 px-4 sm:px-6 bg-white border-t border-[var(--color-border)]">
-        <div className="max-w-4xl mx-auto text-center">
-          <p style={{ fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--color-sage)', marginBottom: 12, fontFamily: 'var(--font-body)', fontWeight: 600 }}>Discovery Trails</p>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400 }} className="text-3xl sm:text-4xl text-[var(--color-ink)]">
-            Plan a trip in plain English
-          </h2>
-          <p className="mt-4 max-w-xl mx-auto leading-relaxed" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px', color: 'var(--color-muted)' }}>
-            Tell us where you want to go and what you&apos;re into. We&apos;ll build a day-by-day itinerary from real, verified venues across all nine atlases.
-          </p>
-
-          {/* Trail prompt input */}
-          <TrailPromptInput />
-
-          {/* Example trails */}
-          <div className="mt-14 grid grid-cols-1 sm:grid-cols-3 gap-5 text-left">
-            {[
-              { query: 'Weekend wine trail through the Barossa', region: 'Barossa Valley, SA', days: '2 days', stops: '8 stops', verticals: ['Small Batch', 'Table', 'Rest'] },
-              { query: 'Three day art and makers tour of Hobart', region: 'Hobart, TAS', days: '3 days', stops: '12 stops', verticals: ['Collection', 'Craft', 'Fine Grounds'] },
-              { query: 'Day trip to Mornington Peninsula wineries', region: 'Mornington Peninsula, VIC', days: '1 day', stops: '5 stops', verticals: ['Small Batch', 'Table'] },
-            ].map((example, i) => (
-              <Link
-                key={i}
-                href={`/itinerary?q=${encodeURIComponent(example.query)}`}
-                className="group block rounded-xl border border-[var(--color-border)] p-5 hover:border-[var(--color-sage)] hover:shadow-sm transition-all"
-                style={{ background: 'var(--color-bg)' }}
-              >
-                <div className="flex items-center gap-2 mb-3">
-                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '11px', color: 'var(--color-sage)' }}>{example.region}</span>
-                  <span style={{ color: 'var(--color-border)', fontSize: 10 }}>&middot;</span>
-                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '11px', color: 'var(--color-muted)' }}>{example.days}</span>
-                </div>
-                <p style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '17px', color: 'var(--color-ink)', lineHeight: 1.35, marginBottom: 10 }}>
-                  {example.query}
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {example.verticals.map(v => (
-                    <span key={v} style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '10px', color: 'var(--color-muted)', background: 'var(--color-cream)', padding: '2px 8px', borderRadius: 100 }}>{v}</span>
-                  ))}
-                </div>
-              </Link>
-            ))}
-          </div>
-
-          <div className="mt-8">
-            <Link href="/trails" className="inline-flex items-center gap-2 text-[var(--color-accent)] hover:opacity-80 transition-opacity" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px' }}>
-              Browse all trails
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-            </Link>
-          </div>
-        </div>
-      </section>
-
       {/* Map Section */}
       <section className="relative border-y border-[var(--color-border)] overflow-hidden" style={{ height: '520px' }}>
         {/* Real Mapbox map as background */}
@@ -264,20 +285,29 @@ export default async function Home() {
               { name: 'Byron Hinterland', state: 'NSW', img: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&q=80' },
               { name: 'Blue Mountains', state: 'NSW', img: 'https://images.unsplash.com/photo-1506197603052-3cc9c3a201bd?w=400&q=80' },
               { name: 'Adelaide Hills', state: 'SA', img: 'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=400&q=80' },
-            ].map(r => (
-              <Link
-                key={r.name}
-                href={`/regions/${r.name.toLowerCase().replace(/\s+/g, '-')}`}
-                className="group relative rounded-xl overflow-hidden aspect-[3/2]"
-              >
-                <img src={r.img} alt={r.name} loading="lazy" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                <div className="absolute bottom-4 left-4">
-                  <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '18px' }} className="text-white">{r.name}</h3>
-                  <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '12px' }} className="text-white/70">{r.state}</p>
-                </div>
-              </Link>
-            ))}
+            ].map(r => {
+              const count = stats.regionCounts[r.name]
+              return (
+                <Link
+                  key={r.name}
+                  href={`/regions/${r.name.toLowerCase().replace(/\s+/g, '-')}`}
+                  className="group relative rounded-xl overflow-hidden aspect-[3/2]"
+                >
+                  <img src={r.img} alt={r.name} loading="lazy" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                  {/* Listing count badge */}
+                  {count > 0 && (
+                    <span className="absolute top-3 right-3 text-xs font-medium text-white/90 bg-white/20 backdrop-blur-sm px-2.5 py-1 rounded-full" style={{ fontFamily: 'var(--font-body)' }}>
+                      {count} places
+                    </span>
+                  )}
+                  <div className="absolute bottom-4 left-4">
+                    <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '18px' }} className="text-white">{r.name}</h3>
+                    <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '12px' }} className="text-white/70">{r.state}</p>
+                  </div>
+                </Link>
+              )
+            })}
           </div>
 
           <div className="mt-8 text-center">
@@ -370,13 +400,14 @@ export default async function Home() {
 
           <div className="mt-8 space-y-5">
             <p className="text-white/70 leading-relaxed" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px' }}>
-              Australian Atlas covers every region in the country with verified, editorially curated listings across nine categories.
+              Australian Atlas covers every region in the country.
             </p>
             <p className="text-white/70 leading-relaxed" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px' }}>
-              Regional councils and tourism bodies can co-create regional content and access network data for their area.
+              Nine curated atlases. {stats.listings > 0 ? stats.listings.toLocaleString() : '6,881'} verified listings. {stats.regions || 46} regions. We work with regional councils and tourism bodies to co-create destination content, surface verified local listings, and provide network data for your area.
             </p>
             <p className="text-white/70 leading-relaxed" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px' }}>
-              If you represent a region, a council, or a tourism body, we&apos;d like to talk.
+              If you represent a region, a council, or a tourism body &mdash;{' '}
+              <a href="mailto:hello@australianatlas.com.au" className="text-white underline underline-offset-2 hover:text-[var(--color-accent)] transition-colors">get in touch &rarr;</a>
             </p>
           </div>
 

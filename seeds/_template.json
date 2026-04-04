@@ -1,0 +1,32 @@
+{
+  "seed_meta": {
+    "vertical": "VERTICAL_KEY",
+    "region": "Region Name",
+    "state": "STATE",
+    "author": "",
+    "date": "",
+    "sources": [],
+    "notes": ""
+  },
+  "venues": [
+    {
+      "name": "",
+      "slug": "",
+      "vertical": "VERTICAL_KEY",
+      "source_id": "VERTICAL_slug",
+      "state": "STATE",
+      "region": "",
+      "lat": null,
+      "lng": null,
+      "description": "",
+      "website": null,
+      "phone": null,
+      "address": "",
+      "hero_image_url": null,
+      "data_source": "manually_curated",
+      "needs_review": false,
+      "verification_sources": [],
+      "meta": {}
+    }
+  ]
+}

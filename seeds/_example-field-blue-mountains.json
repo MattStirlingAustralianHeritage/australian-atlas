@@ -1,0 +1,82 @@
+{
+  "seed_meta": {
+    "vertical": "field",
+    "region": "Blue Mountains",
+    "state": "NSW",
+    "author": "matt",
+    "date": "2026-04-03",
+    "sources": ["National Parks NSW", "Google Places API", "Blue Mountains Tourism"],
+    "notes": "Initial Field Atlas expansion for Blue Mountains region"
+  },
+  "venues": [
+    {
+      "name": "Three Sisters Lookout",
+      "slug": "three-sisters-lookout",
+      "vertical": "field",
+      "source_id": "field_three-sisters-lookout",
+      "state": "NSW",
+      "region": "Blue Mountains",
+      "lat": -33.7321,
+      "lng": 150.3125,
+      "description": "One of Australia's most recognisable rock formations, the Three Sisters tower above the Jamison Valley. The main lookout at Echo Point offers sweeping views across the valley, with accessible pathways and an information centre.",
+      "website": "https://www.nationalparks.nsw.gov.au/things-to-do/lookouts/echo-point-lookout",
+      "phone": null,
+      "address": "Echo Point Rd, Katoomba NSW 2780",
+      "hero_image_url": null,
+      "data_source": "manually_curated",
+      "needs_review": false,
+      "verification_sources": ["National Parks NSW website", "Google Places"],
+      "meta": {
+        "feature_type": "lookout",
+        "entry_fee": "free",
+        "difficulty": "easy"
+      }
+    },
+    {
+      "name": "Wentworth Falls",
+      "slug": "wentworth-falls",
+      "vertical": "field",
+      "source_id": "field_wentworth-falls",
+      "state": "NSW",
+      "region": "Blue Mountains",
+      "lat": -33.7269,
+      "lng": 150.3771,
+      "description": "A dramatic 187-metre cascading waterfall in the heart of Blue Mountains National Park. Multiple walking tracks from easy lookout paths to the challenging National Pass offer different perspectives of the falls.",
+      "website": "https://www.nationalparks.nsw.gov.au/things-to-do/walking-tracks/wentworth-falls-track",
+      "phone": null,
+      "address": "Falls Rd, Wentworth Falls NSW 2782",
+      "hero_image_url": null,
+      "data_source": "manually_curated",
+      "needs_review": false,
+      "verification_sources": ["National Parks NSW website", "Google Places"],
+      "meta": {
+        "feature_type": "waterfall",
+        "entry_fee": "free",
+        "difficulty": "moderate"
+      }
+    },
+    {
+      "name": "Grand Canyon Walking Track",
+      "slug": "grand-canyon-walking-track",
+      "vertical": "field",
+      "source_id": "field_grand-canyon-walking-track",
+      "state": "NSW",
+      "region": "Blue Mountains",
+      "lat": -33.6339,
+      "lng": 150.3633,
+      "description": "A 6.3km loop track descending into a lush rainforest canyon with overhanging rock formations, ferns and moss-covered walls. The track passes through a tunnel and along creek beds before climbing back to the ridgetop.",
+      "website": "https://www.nationalparks.nsw.gov.au/things-to-do/walking-tracks/grand-canyon-track",
+      "phone": null,
+      "address": "Evans Lookout Rd, Blackheath NSW 2785",
+      "hero_image_url": null,
+      "data_source": "manually_curated",
+      "needs_review": false,
+      "verification_sources": ["National Parks NSW website", "AllTrails"],
+      "meta": {
+        "feature_type": "gorge",
+        "entry_fee": "free",
+        "difficulty": "moderate"
+      }
+    }
+  ]
+}

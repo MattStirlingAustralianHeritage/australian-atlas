@@ -99,6 +99,7 @@ export default function Footer() {
                 { href: '/map', label: 'Map' },
                 { href: '/regions', label: 'Browse by region' },
                 { href: '/search', label: 'Search all listings' },
+                { href: '/pricing', label: 'For Councils' },
               ].map(link => (
                 <li key={link.href}>
                   <Link

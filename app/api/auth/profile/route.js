@@ -33,7 +33,7 @@ export async function GET(request) {
     const admin = getSupabaseAdmin()
     const { data: profile, error: profileError } = await admin
       .from('profiles')
-      .select('id, email, full_name, avatar_url, role, vendor_verticals, council_id, created_at')
+      .select('id, email, full_name, avatar_url, role, vendor_verticals, council_id, interests, created_at')
       .eq('id', user.id)
       .single()
 
