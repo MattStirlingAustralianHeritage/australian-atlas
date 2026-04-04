@@ -62,6 +62,11 @@ export default function AdminPage() {
             href="/admin/trails"
           />
           <AdminCard
+            label="Claims"
+            description="Review and approve vendor claim requests"
+            href="/admin/claims"
+          />
+          <AdminCard
             label="Search Insights"
             description="Top queries, trail prompts, zero-result searches"
             href="/admin/insights"
