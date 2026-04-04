@@ -325,9 +325,49 @@ const VERTICAL_LABELS = {
   corner: 'Corner Atlas', found: 'Found Atlas', table: 'Table Atlas',
 }
 
+// Activity-to-vertical mapping — shared between candidate selection and recommendation weighting
+const ACTIVITY_TO_VERTICAL = {
+  wine_tasting: 'sba', craft_beer: 'sba', distillery_tours: 'sba',
+  coffee: 'fine_grounds',
+  hiking: 'field', swimming: 'field', lookouts: 'field', national_parks: 'field',
+  galleries: 'collection', museums: 'collection', heritage: 'collection',
+  makers_studios: 'craft', ceramics: 'craft', woodwork: 'craft',
+  farm_gate: 'table', markets: 'table', bakeries: 'table', providores: 'table',
+  boutique_stays: 'rest', glamping: 'rest', farm_stays: 'rest',
+  bookshops: 'corner', record_stores: 'corner', homewares: 'corner',
+  vintage: 'found', op_shops: 'found', antiques: 'found',
+}
+
+// Readable labels for activities (for LLM prompt)
+const ACTIVITY_LABELS = {
+  wine_tasting: 'Wine tasting', craft_beer: 'Craft beer', distillery_tours: 'Distillery tours',
+  coffee: 'Specialty coffee',
+  hiking: 'Hiking & walks', swimming: 'Swimming holes', lookouts: 'Lookouts', national_parks: 'National parks',
+  galleries: 'Galleries', museums: 'Museums', heritage: 'Heritage sites',
+  makers_studios: 'Makers & studios', ceramics: 'Ceramics & pottery', woodwork: 'Woodwork',
+  farm_gate: 'Farm gates', markets: 'Markets', bakeries: 'Bakeries', providores: 'Providores',
+  boutique_stays: 'Boutique stays', glamping: 'Glamping', farm_stays: 'Farm stays',
+  bookshops: 'Bookshops', record_stores: 'Record stores', homewares: 'Homewares',
+  vintage: 'Vintage', op_shops: 'Op shops', antiques: 'Antiques',
+}
+
+// Group type → vertical weighting adjustments
+const GROUP_VERTICAL_WEIGHTS = {
+  family: { boost: ['field', 'table', 'collection'], deprioritise: [] },
+  friends: { boost: ['sba', 'table', 'found'], deprioritise: [] },
+  solo: { boost: [], deprioritise: [] },
+  couple: { boost: [], deprioritise: [] },
+}
+
 export async function GET(request) {
   const { searchParams } = new URL(request.url)
   const q = searchParams.get('q')
+
+  // Question flow params
+  const accommodation = searchParams.get('accommodation') // 'need' | 'sorted' | 'daytrip'
+  const transport = searchParams.get('transport')           // 'driving' | 'public' | 'walking'
+  const group = searchParams.get('group')                   // 'family' | 'friends' | 'solo' | 'couple'
+  const pace = searchParams.get('pace')                     // 'packed' | 'relaxed'
 
   if (!q || q.trim().length < 3) {
     return NextResponse.json({ error: 'Query parameter "q" is required (min 3 characters)' }, { status: 400 })
@@ -336,7 +376,15 @@ export async function GET(request) {
   try {
     const { region, geoBounds, verticals, duration } = parseItineraryQuery(q)
 
-    console.log('[itinerary] Parsed query:', { region, geoBounds: geoBounds ? `${geoBounds.label || 'custom'} (${geoBounds.latMin.toFixed(2)}–${geoBounds.latMax.toFixed(2)}, ${geoBounds.lngMin.toFixed(2)}–${geoBounds.lngMax.toFixed(2)})` : 'NONE', verticals, duration })
+    // Pace overrides stops-per-day target
+    const stopsPerDay = pace === 'packed' ? 6 : pace === 'relaxed' ? 3 : 4
+
+    console.log('[itinerary] Parsed query:', {
+      region,
+      geoBounds: geoBounds ? `${geoBounds.label || 'custom'} (${geoBounds.latMin.toFixed(2)}–${geoBounds.latMax.toFixed(2)}, ${geoBounds.lngMin.toFixed(2)}–${geoBounds.lngMax.toFixed(2)})` : 'NONE',
+      verticals, duration,
+      flow: { accommodation, transport, group, pace, stopsPerDay },
+    })
 
     // STEP 1: Region must be detected. If the user's query names a place we can't
     // resolve, return an honest error rather than silently serving random venues.
@@ -350,13 +398,15 @@ export async function GET(request) {
       }, { status: 200 })
     }
 
-    // Check for user preferences to weight recommendations
+    // Fetch user preferences if authenticated
     let userInterests = null
+    let isAuthenticated = false
     try {
       const { createAuthServerClient } = await import('@/lib/supabase/auth-clients')
       const authSb = await createAuthServerClient()
       const { data: { user } } = await authSb.auth.getUser()
       if (user) {
+        isAuthenticated = true
         const adminSb = getSupabaseAdmin()
         const { data: profile } = await adminSb
           .from('profiles')
@@ -371,6 +421,55 @@ export async function GET(request) {
       // Auth not available or no preferences — that's fine, continue without
     }
 
+    // Derive preferred verticals from user interests
+    const preferredVerticals = new Set()
+    const preferenceLabels = []
+    if (userInterests?.verticals) {
+      userInterests.verticals.forEach(v => preferredVerticals.add(v))
+    }
+    if (userInterests?.activities) {
+      userInterests.activities.forEach(a => {
+        if (ACTIVITY_TO_VERTICAL[a]) preferredVerticals.add(ACTIVITY_TO_VERTICAL[a])
+        if (ACTIVITY_LABELS[a]) preferenceLabels.push(ACTIVITY_LABELS[a])
+      })
+    }
+
+    // Apply group-type vertical weighting
+    const groupWeights = GROUP_VERTICAL_WEIGHTS[group] || { boost: [], deprioritise: [] }
+
+    // Merge: query verticals + user preference verticals (query takes priority)
+    const effectiveVerticals = verticals.length > 0
+      ? verticals
+      : preferredVerticals.size > 0
+        ? [...preferredVerticals]
+        : []
+
+    // Transport mode → tighter geo bounds for walking/cycling
+    let effectiveGeoBounds = geoBounds
+    if (transport === 'walking') {
+      // Constrain to ~5km radius from center
+      const centerLat = (geoBounds.latMin + geoBounds.latMax) / 2
+      const centerLng = (geoBounds.lngMin + geoBounds.lngMax) / 2
+      effectiveGeoBounds = {
+        ...geoBounds,
+        latMin: centerLat - 0.045, latMax: centerLat + 0.045,
+        lngMin: centerLng - 0.055, lngMax: centerLng + 0.055,
+      }
+    } else if (transport === 'public') {
+      // Slightly tighter — ~15km radius (town center focused)
+      const centerLat = (geoBounds.latMin + geoBounds.latMax) / 2
+      const centerLng = (geoBounds.lngMin + geoBounds.lngMax) / 2
+      const latRange = (geoBounds.latMax - geoBounds.latMin) * 0.5
+      const lngRange = (geoBounds.lngMax - geoBounds.lngMin) * 0.5
+      effectiveGeoBounds = {
+        ...geoBounds,
+        latMin: centerLat - Math.min(latRange, 0.14),
+        latMax: centerLat + Math.min(latRange, 0.14),
+        lngMin: centerLng - Math.min(lngRange, 0.17),
+        lngMax: centerLng + Math.min(lngRange, 0.17),
+      }
+    }
+
     // Query candidate venues from master listings
     const sb = getSupabaseAdmin()
     const LISTING_COLS = 'id, name, vertical, lat, lng, region, state, description, hero_image_url, slug'
@@ -383,14 +482,19 @@ export async function GET(request) {
         .eq('status', 'active')
         .not('lat', 'is', null)
         .not('lng', 'is', null)
-      return applyGeoFilter(q, geoBounds)
+      return applyGeoFilter(q, effectiveGeoBounds)
     }
+
+    // Accommodation handling: exclude rest from candidates if daytrip
+    const includeRest = accommodation !== 'daytrip'
 
     let query = baseQuery()
 
-    // For single-day trips with specific verticals, filter tightly.
-    if (verticals.length > 0 && duration.days <= 1) {
-      const allVerticals = [...new Set([...verticals, 'rest'])]
+    // For single-day trips with specific verticals, filter tightly
+    if (effectiveVerticals.length > 0 && duration.days <= 1) {
+      const allVerticals = includeRest
+        ? [...new Set([...effectiveVerticals, 'rest'])]
+        : [...new Set(effectiveVerticals)].filter(v => v !== 'rest')
       query = query.in('vertical', allVerticals)
     }
 
@@ -400,9 +504,10 @@ export async function GET(request) {
     let error
 
     // For multi-day trips with focus verticals, fetch focus venues first then supplement
-    if (verticals.length > 0 && duration.days > 1) {
-      // First: fetch focus vertical venues (+ rest for accommodation)
-      const focusVerticals = [...new Set([...verticals, 'rest'])]
+    if (effectiveVerticals.length > 0 && duration.days > 1) {
+      const focusVerticals = includeRest
+        ? [...new Set([...effectiveVerticals, 'rest'])]
+        : [...new Set(effectiveVerticals)].filter(v => v !== 'rest')
       let focusQuery = baseQuery().in('vertical', focusVerticals)
 
       const { data: focusData, error: focusErr } = await focusQuery.limit(50)
@@ -431,13 +536,26 @@ export async function GET(request) {
 
     // If we got very few results with vertical filtering on a day trip, retry without vertical filter
     // but KEEP the geo bounds — never return venues outside the requested geography
-    if (verticals.length > 0 && duration.days <= 1 && (!candidates || candidates.length < 4)) {
+    if (effectiveVerticals.length > 0 && duration.days <= 1 && (!candidates || candidates.length < 4)) {
       const broadQuery = baseQuery()
       const { data: broadCandidates } = await broadQuery.limit(80)
       if (broadCandidates && broadCandidates.length >= 4) {
         candidates.length = 0
         candidates.push(...broadCandidates)
       }
+    }
+
+    // Sort candidates: boost preferred verticals and group-appropriate verticals to the top
+    if (preferredVerticals.size > 0 || groupWeights.boost.length > 0) {
+      candidates.sort((a, b) => {
+        const aScore = (preferredVerticals.has(a.vertical) ? 2 : 0)
+          + (groupWeights.boost.includes(a.vertical) ? 1 : 0)
+          - (groupWeights.deprioritise.includes(a.vertical) ? 1 : 0)
+        const bScore = (preferredVerticals.has(b.vertical) ? 2 : 0)
+          + (groupWeights.boost.includes(b.vertical) ? 1 : 0)
+          - (groupWeights.deprioritise.includes(b.vertical) ? 1 : 0)
+        return bScore - aScore
+      })
     }
 
     if (!candidates || candidates.length < 4) {
@@ -472,37 +590,104 @@ export async function GET(request) {
     const { default: Anthropic } = await import('@anthropic-ai/sdk')
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
+    // Build accommodation instruction for LLM
+    let accommodationInstruction = ''
+    if (accommodation === 'sorted') {
+      accommodationInstruction = `\nACCOMMODATION: The user has their own accommodation sorted. Do NOT include overnight stays as itinerary stops. Set "overnight" to null for all days. If you see "rest" vertical venues in the candidate list, you may mention them as optional suggestions in notes but do not make them stops.`
+    } else if (accommodation === 'daytrip') {
+      accommodationInstruction = `\nACCOMMODATION: This is a day trip — no overnight stays needed. Set "overnight" to null.`
+    } else if (accommodation === 'need' || duration.days > 1) {
+      accommodationInstruction = `\nACCOMMODATION: The user needs accommodation. For multi-day trips, include at least one "rest" vertical venue as overnight accommodation per night (except the final night).`
+    }
+
+    // Build transport instruction
+    let transportInstruction = ''
+    if (transport === 'public') {
+      transportInstruction = `\nTRANSPORT: The user is using public transport. Prefer venues in or near town centres. If a venue requires driving, mention this in the note (e.g. "you'll need a taxi for this one"). Keep stops geographically tight.`
+    } else if (transport === 'walking') {
+      transportInstruction = `\nTRANSPORT: The user is walking or cycling. Only include venues within easy walking/cycling distance of each other. All stops should be very close together geographically. Flag any venue that would require other transport.`
+    } else {
+      transportInstruction = `\nTRANSPORT: The user is driving. Venues can be spread across the region.`
+    }
+
+    // Build group instruction
+    let groupInstruction = ''
+    if (group === 'family') {
+      groupInstruction = `\nGROUP: Family with kids. Avoid scheduling three alcohol-focused stops in a row. Weight toward nature, food, cultural experiences, and venues with family-friendly appeal. Mix in breaks and lunch stops.`
+    } else if (group === 'friends') {
+      groupInstruction = `\nGROUP: Group of friends. Weight toward social, shared experiences — tastings, markets, lively venues. Food and drink stops work well.`
+    } else if (group === 'couple') {
+      groupInstruction = `\nGROUP: Couple. Use preferences as the primary signal. No special constraints.`
+    }
+
+    // Build pace instruction
+    const paceInstruction = pace === 'packed'
+      ? `\nPACE: Packed schedule — aim for ${stopsPerDay} stops per day. Tight scheduling, minimal downtime.`
+      : pace === 'relaxed'
+      ? `\nPACE: Relaxed pace — aim for ${stopsPerDay} stops per day. Include breathing room between stops. Suggest a coffee break or long lunch. Keep it unhurried.`
+      : `\nPACE: Moderate pace — aim for ${stopsPerDay} stops per day.`
+
+    // Build user preferences section for LLM
+    let preferencesPrompt = ''
+    if (userInterests) {
+      const parts = []
+      if (preferenceLabels.length > 0) parts.push(`Favourite activities: ${preferenceLabels.join(', ')}`)
+      if (userInterests.verticals?.length > 0) {
+        parts.push(`Preferred verticals: ${userInterests.verticals.map(v => VERTICAL_LABELS[v] || v).join(', ')}`)
+      }
+      if (userInterests.regions?.length > 0) {
+        parts.push(`Preferred states: ${userInterests.regions.join(', ')}`)
+      }
+      if (parts.length > 0) {
+        preferencesPrompt = `\n\nUSER PREFERENCES (authenticated user):
+${parts.join('\n')}
+Weight the itinerary toward these preferences. Prioritise venues that match the user's interests. Where the candidate pool includes multiple venue types, favour those aligned with the preferences listed above.`
+      }
+    }
+
+    // Build trip context summary for LLM
+    const tripParts = [`${duration.days}-day trip`, geoBounds?.label || region || 'Australia']
+    if (accommodation === 'need') tripParts.push('needs accommodation')
+    else if (accommodation === 'sorted') tripParts.push('accommodation sorted')
+    else if (accommodation === 'daytrip') tripParts.push('day trip')
+    if (transport) tripParts.push(transport === 'public' ? 'public transport' : transport)
+    if (group) tripParts.push(group === 'family' ? "family with kids" : group)
+    if (pace) tripParts.push(`${pace} pace`)
+
     const systemPrompt = `You are the Australian Atlas editorial voice — warm, knowledgeable, and passionate about independent Australian makers, producers, and cultural spaces. You build travel itineraries that feel like recommendations from a well-connected local friend.
+
+TRIP CONTEXT: ${tripParts.join(' · ')}
 
 HARD CONSTRAINTS:
 - You may ONLY include venues from the provided candidate list. Never invent venues.
 - Every listing_id in your response MUST exist in the candidate list.
 - Each stop must reference a real venue by its exact id, name, vertical, lat, and lng from the candidates.
-- For multi-day trips, include at least one "rest" vertical venue as overnight accommodation per night (except the final night).
-- You MUST produce EXACTLY the number of days requested. If asked for 3 days, your "days" array must have 3 entries. Never compress into fewer days.
-- For multi-day trips, fill each day with 3-5 stops. If the focus category has limited venues, supplement with other verticals (food, nature, art, shops) to create a rich experience.
+- You MUST produce EXACTLY the number of days requested. If asked for ${duration.days} days, your "days" array must have ${duration.days} entries. Never compress into fewer days.
+- For multi-day trips, fill each day with ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops.
+- If the focus category has limited venues, supplement with other verticals to create a rich experience.
 - Keep notes concise (1-2 sentences) — evocative but practical.
 - Title should be catchy and specific to the region/theme.
 - Intro should be 2-3 sentences setting the scene.
+${accommodationInstruction}${transportInstruction}${groupInstruction}${paceInstruction}${preferencesPrompt}
 
 Respond with valid JSON only. No markdown, no code fences, just the JSON object.`
 
     // Count focus-vertical venues in the candidate pool
-    const focusCount = verticals.length > 0
-      ? venueData.filter(v => verticals.includes(v.vertical)).length
+    const focusCount = effectiveVerticals.length > 0
+      ? venueData.filter(v => effectiveVerticals.includes(v.vertical)).length
       : 0
-    const totalStopsNeeded = duration.days * 4 // ~4 stops per day target
+    const totalStopsNeeded = duration.days * stopsPerDay
 
-    const focusNote = verticals.length > 0
-      ? `\nThe user is specifically interested in: ${verticals.map(v => VERTICAL_LABELS[v] || v).join(', ')}.
-VENUE TYPE PRIORITY: At least 60% of all stops MUST be from the requested vertical(s): ${verticals.join(', ')}. These are the user's primary interest — do not dilute with unrelated categories.
-${focusCount < totalStopsNeeded ? `\nNOTE: There are only ${focusCount} venues matching the focus vertical(s) in this region. Use ALL of them. Fill remaining slots with complementary verticals (food, stays, nature) but add a note in the intro acknowledging that coverage for ${verticals.map(v => VERTICAL_LABELS[v] || v).join(' / ')} is still growing in this area.` : ''}
+    const focusNote = effectiveVerticals.length > 0
+      ? `\nThe user is specifically interested in: ${effectiveVerticals.map(v => VERTICAL_LABELS[v] || v).join(', ')}.
+VENUE TYPE PRIORITY: At least 60% of all stops MUST be from the requested vertical(s): ${effectiveVerticals.join(', ')}. These are the user's primary interest — do not dilute with unrelated categories.
+${focusCount < totalStopsNeeded ? `\nNOTE: There are only ${focusCount} venues matching the focus vertical(s) in this region. Use ALL of them. Fill remaining slots with complementary verticals (food, stays, nature) but add a note in the intro acknowledging that coverage for ${effectiveVerticals.map(v => VERTICAL_LABELS[v] || v).join(' / ')} is still growing in this area.` : ''}
 Supplementary stops (food, nature, art, shops, stays) should complement the theme, not dominate it.`
       : ''
 
     const userPrompt = `Build a ${duration.days}-day itinerary for this request: "${q}"
 ${focusNote}
-IMPORTANT: You MUST produce exactly ${duration.days} day(s) with 3-5 stops each. Do not compress into fewer days.
+IMPORTANT: You MUST produce exactly ${duration.days} day(s) with ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops each. Do not compress into fewer days.
 
 Here are the candidate venues (JSON array). You MUST only use venues from this list:
 ${JSON.stringify(venueData, null, 2)}
@@ -537,7 +722,7 @@ Return this exact JSON structure:
   ]
 }
 
-Aim for 3-5 stops per day. Make it flow geographically. Favour the requested vertical(s) heavily. You MUST have exactly ${duration.days} entries in the "days" array.`
+Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per day. Make it flow geographically. Favour the requested vertical(s) heavily. You MUST have exactly ${duration.days} entries in the "days" array.`
 
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
@@ -648,27 +833,8 @@ Aim for 3-5 stops per day. Make it flow geographically. Favour the requested ver
     const hasOvernight = enrichedDays.some(d => d.overnight?.listing_id)
     const needsAccommodation = duration.days > 1 && !hasOvernight
 
-    // Map user activity interests to verticals for weighting
-    const interestVerticals = new Set()
-    if (userInterests?.verticals) {
-      userInterests.verticals.forEach(v => interestVerticals.add(v))
-    }
-    if (userInterests?.activities) {
-      const activityToVertical = {
-        wine_tasting: 'sba', craft_beer: 'sba', distillery_tours: 'sba',
-        coffee: 'fine_grounds',
-        hiking: 'field', swimming: 'field', lookouts: 'field', national_parks: 'field',
-        galleries: 'collection', museums: 'collection', heritage: 'collection',
-        makers_studios: 'craft', ceramics: 'craft', woodwork: 'craft',
-        farm_gate: 'table', markets: 'table', bakeries: 'table', providores: 'table',
-        boutique_stays: 'rest', glamping: 'rest', farm_stays: 'rest',
-        bookshops: 'corner', record_stores: 'corner', homewares: 'corner',
-        vintage: 'found', op_shops: 'found', antiques: 'found',
-      }
-      userInterests.activities.forEach(a => {
-        if (activityToVertical[a]) interestVerticals.add(activityToVertical[a])
-      })
-    }
+    // Use preferredVerticals (already computed earlier) for recommendation weighting
+    const interestVerticals = preferredVerticals
 
     const recommendations = venueData
       .filter(v => !usedIds.has(v.id))
@@ -705,27 +871,36 @@ Aim for 3-5 stops per day. Make it flow geographically. Favour the requested ver
       .slice(0, 12)
 
     // Flag thin corpus so frontend can show a note
-    const focusVerticalCount = verticals.length > 0
-      ? venueData.filter(v => verticals.includes(v.vertical)).length
+    const focusVerticalCount = effectiveVerticals.length > 0
+      ? venueData.filter(v => effectiveVerticals.includes(v.vertical)).length
       : venueData.length
-    const thinCorpus = verticals.length > 0 && focusVerticalCount < totalStopsNeeded
+    const thinCorpus = effectiveVerticals.length > 0 && focusVerticalCount < totalStopsNeeded
 
     return NextResponse.json({
       title: itinerary.title,
       intro: itinerary.intro,
       days: enrichedDays,
       recommendations,
-      needs_accommodation: needsAccommodation,
+      needs_accommodation: needsAccommodation && accommodation !== 'sorted',
       thin_corpus: thinCorpus,
-      focus_verticals: verticals.length > 0 ? verticals.map(v => VERTICAL_LABELS[v] || v) : null,
+      focus_verticals: effectiveVerticals.length > 0 ? effectiveVerticals.map(v => VERTICAL_LABELS[v] || v) : null,
       focus_venue_count: focusVerticalCount,
       personalised: interestVerticals.size > 0,
+      preference_labels: preferenceLabels.length > 0 ? preferenceLabels : null,
+      authenticated: isAuthenticated,
       query: q,
       region: region || null,
       region_label: geoBounds?.label || region || null,
       duration,
       venue_count: venueData.length,
       stripped_count: strippedCount,
+      // Echo question flow params for frontend display
+      flow: (accommodation || transport || group || pace) ? {
+        accommodation: accommodation || null,
+        transport: transport || null,
+        group: group || null,
+        pace: pace || null,
+      } : null,
     })
   } catch (err) {
     console.error('[itinerary] Fatal error:', err)

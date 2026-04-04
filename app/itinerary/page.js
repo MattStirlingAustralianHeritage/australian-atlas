@@ -360,10 +360,24 @@ function RecommendationCard({ rec, onAdd, added }) {
   )
 }
 
+// Labels for flow chips
+const FLOW_LABELS = {
+  accommodation: { need: 'Accommodation included', sorted: 'Own accommodation', daytrip: 'Day trip' },
+  transport: { driving: 'Driving', public: 'Public transport', walking: 'Walking / cycling' },
+  group: { solo: 'Solo', couple: 'Couple', friends: 'Friends', family: 'Family with kids' },
+  pace: { relaxed: 'Relaxed', packed: 'Packed' },
+}
+
 function ItineraryPageInner() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const q = searchParams.get('q') || ''
+
+  // Read question flow params from URL
+  const flowAccommodation = searchParams.get('accommodation')
+  const flowTransport = searchParams.get('transport')
+  const flowGroup = searchParams.get('group')
+  const flowPace = searchParams.get('pace')
 
   const [itinerary, setItinerary] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -385,7 +399,7 @@ function ItineraryPageInner() {
     return () => clearInterval(interval)
   }, [loading])
 
-  // Fetch itinerary
+  // Fetch itinerary — pass all URL params to API
   useEffect(() => {
     if (!q) {
       setError('No query provided')
@@ -397,7 +411,13 @@ function ItineraryPageInner() {
 
     async function fetchItinerary() {
       try {
-        const res = await fetch(`/api/itinerary?q=${encodeURIComponent(q)}`)
+        const params = new URLSearchParams({ q })
+        if (flowAccommodation) params.set('accommodation', flowAccommodation)
+        if (flowTransport) params.set('transport', flowTransport)
+        if (flowGroup) params.set('group', flowGroup)
+        if (flowPace) params.set('pace', flowPace)
+
+        const res = await fetch(`/api/itinerary?${params.toString()}`)
         const data = await res.json()
 
         if (cancelled) return
@@ -426,7 +446,7 @@ function ItineraryPageInner() {
 
     fetchItinerary()
     return () => { cancelled = true }
-  }, [q])
+  }, [q, flowAccommodation, flowTransport, flowGroup, flowPace])
 
   // Save as trail
   const handleSave = useCallback(async () => {
@@ -716,6 +736,7 @@ function ItineraryPageInner() {
           {itinerary.intro}
         </p>
 
+        {/* Summary chips: days, stops, flow answers */}
         <div className="flex items-center gap-2 mt-4 flex-wrap">
           <span style={{
             fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11,
@@ -731,6 +752,19 @@ function ItineraryPageInner() {
           }}>
             {totalStops} stops
           </span>
+          {/* Flow answer chips */}
+          {itinerary.flow && Object.entries(itinerary.flow).map(([key, val]) => {
+            if (!val || !FLOW_LABELS[key]?.[val]) return null
+            return (
+              <span key={key} style={{
+                fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11,
+                background: '#f5f5f0', color: 'var(--color-muted)',
+                padding: '3px 10px', borderRadius: 99,
+              }}>
+                {FLOW_LABELS[key][val]}
+              </span>
+            )
+          })}
           {itinerary.personalised && (
             <span style={{
               fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11,
@@ -741,6 +775,32 @@ function ItineraryPageInner() {
             </span>
           )}
         </div>
+
+        {/* Preferences applied line */}
+        {itinerary.preference_labels && itinerary.preference_labels.length > 0 && (
+          <p style={{
+            fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 12,
+            color: 'var(--color-sage)', marginTop: 8, lineHeight: 1.5,
+          }}>
+            Personalised for: {itinerary.preference_labels.join(' \u00B7 ')}
+          </p>
+        )}
+
+        {/* Sign-in prompt for unauthenticated users */}
+        {itinerary.authenticated === false && (
+          <p style={{
+            fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 12,
+            color: 'var(--color-muted)', marginTop: 6, lineHeight: 1.5,
+          }}>
+            <Link
+              href={`/login?redirect=${encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname + window.location.search : '/trails')}`}
+              style={{ color: 'var(--color-sage)', textDecoration: 'underline', textUnderlineOffset: 2 }}
+            >
+              Sign in
+            </Link>
+            {' '}to personalise trails based on your saved preferences.
+          </p>
+        )}
 
         {/* Thin corpus notice */}
         {itinerary.thin_corpus && itinerary.focus_verticals && (
