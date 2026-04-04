@@ -666,6 +666,59 @@ function ItineraryPageInner() {
           </div>
         )}
 
+        {/* Alternative trail suggestions for insufficient coverage */}
+        {isInsufficient && error.suggested_trails?.length > 0 && (
+          <div style={{ maxWidth: 480, margin: '0 auto 28px' }}>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11, color: 'var(--color-muted)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              Try a nearby region instead
+            </p>
+            <div className="grid gap-2" style={{ textAlign: 'left' }}>
+              {error.suggested_trails.map(trail => (
+                <Link
+                  key={trail.query}
+                  href={`/itinerary?q=${encodeURIComponent(trail.query)}`}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--color-ink)',
+                    background: '#fff', padding: '12px 16px', borderRadius: 8,
+                    textDecoration: 'none', border: '1px solid var(--color-border)',
+                    transition: 'border-color 0.15s',
+                  }}
+                  className="hover:border-[var(--color-sage)]"
+                >
+                  <span style={{ fontWeight: 400 }}>{trail.query}</span>
+                  <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-muted)' }}>
+                    {trail.listing_count} listings
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Suggested trail queries for no_region with suggested_trails from API */}
+        {isNoRegion && error.suggested_trails?.length > 0 && (
+          <div style={{ maxWidth: 440, margin: '0 auto 24px' }}>
+            <div className="flex flex-wrap justify-center gap-2">
+              {error.suggested_trails.map(trail => (
+                <Link
+                  key={trail.query}
+                  href={`/itinerary?q=${encodeURIComponent(trail.query)}`}
+                  style={{
+                    fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13,
+                    color: 'var(--color-ink)', background: '#f5f5f0',
+                    padding: '6px 14px', borderRadius: 99, textDecoration: 'none',
+                    border: '1px solid var(--color-border)',
+                  }}
+                  className="hover:bg-[var(--color-cream)]"
+                >
+                  {trail.query}
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-center gap-4">
           {isInsufficient && errorRegion ? (
             <>
