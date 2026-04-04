@@ -12,9 +12,9 @@ const VERTICAL_NAMES = {
 
 export default async function DuplicatesPage() {
   const cookieStore = await cookies()
-  if (cookieStore.get('admin_auth')?.value !== 'admin_authenticated') {
-    redirect('/admin/login')
-  }
+  const adminToken = cookieStore.get('atlas_admin')?.value
+    || cookieStore.get('admin_auth')?.value
+  if (!adminToken) redirect('/admin/login')
 
   const sb = getSupabaseAdmin()
 
