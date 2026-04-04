@@ -82,10 +82,47 @@ async function getLatestArticles() {
       .select('id, title, slug, excerpt, hero_image_url, author, published_at, vertical, category')
       .eq('status', 'published')
       .order('published_at', { ascending: false })
-      .limit(6)
+      .limit(3)
     return data || []
   } catch {
     return []
+  }
+}
+
+// Fallback article when DB has no published articles
+const FALLBACK_ARTICLES = [
+  {
+    id: 'fallback-furneaux',
+    title: 'The Hebrides in the Antipodes',
+    slug: 'furneaux-distillery',
+    excerpt: 'On Furneaux Distillery, Flinders Island, and the quiet art of making spirits at the edge of the world.',
+    hero_image_url: 'https://images.unsplash.com/photo-1569529465841-dfecdab7503b?w=600&q=80',
+    author: 'Australian Heritage',
+    published_at: '2025-11-01',
+    vertical: 'sba',
+    category: 'Profile',
+    external_url: 'https://australianheritage.au',
+  },
+]
+
+async function getFeaturedByVertical() {
+  try {
+    const sb = getSupabaseAdmin()
+    const { data } = await sb
+      .from('listings')
+      .select('name, vertical')
+      .eq('status', 'active')
+      .eq('is_featured', true)
+      .limit(30)
+    // Group by vertical: { sba: ['Name 1', 'Name 2'], ... }
+    const grouped = {}
+    for (const row of (data || [])) {
+      if (!grouped[row.vertical]) grouped[row.vertical] = []
+      if (grouped[row.vertical].length < 2) grouped[row.vertical].push(row.name)
+    }
+    return grouped
+  } catch {
+    return {}
   }
 }
 
@@ -96,7 +133,8 @@ const VERTICAL_LABELS = {
 }
 
 export default async function Home() {
-  const [stats, articles] = await Promise.all([getStats(), getLatestArticles()])
+  const [stats, articlesRaw, featuredByVertical] = await Promise.all([getStats(), getLatestArticles(), getFeaturedByVertical()])
+  const articles = articlesRaw.length > 0 ? articlesRaw : FALLBACK_ARTICLES
 
   return (
     <>
@@ -174,6 +212,82 @@ export default async function Home() {
         </div>
       </section>
 
+      {/* From the Journal */}
+      <section className="py-20 px-4 sm:px-6" style={{ background: 'var(--color-cream)' }}>
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-10">
+            <p style={{ fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--color-sage)', marginBottom: 8, fontFamily: 'var(--font-body)', fontWeight: 600 }}>
+              From the Journal
+            </p>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400 }} className="text-3xl sm:text-4xl text-[var(--color-ink)]">
+              Dispatches from the network
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            {articles.map(article => (
+              <a
+                key={article.id}
+                href={article.external_url || `https://australianheritage.au/journal/${article.slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group block rounded-xl overflow-hidden"
+                style={{ background: '#fff', border: '1px solid var(--color-border)' }}
+              >
+                {article.hero_image_url && (
+                  <div className="aspect-[16/10] overflow-hidden">
+                    <img
+                      src={article.hero_image_url}
+                      alt={article.title}
+                      loading="lazy"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                  </div>
+                )}
+                <div className="p-5">
+                  <div className="flex items-center gap-2 mb-2">
+                    {article.vertical && (
+                      <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '10px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-sage)' }}>
+                        {VERTICAL_LABELS[article.vertical] || article.vertical}
+                      </span>
+                    )}
+                    {article.category && (
+                      <>
+                        <span style={{ color: 'var(--color-border)', fontSize: 8 }}>&#9679;</span>
+                        <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '10px', letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--color-muted)' }}>
+                          {article.category}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '18px', lineHeight: 1.3, color: 'var(--color-ink)', marginBottom: 6 }}>
+                    {article.title}
+                  </h3>
+                  {article.excerpt && (
+                    <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '13px', color: 'var(--color-muted)', lineHeight: 1.5, margin: 0 }}>
+                      {article.excerpt}
+                    </p>
+                  )}
+                </div>
+              </a>
+            ))}
+          </div>
+
+          <div className="mt-8 text-center">
+            <a
+              href="https://australianheritage.au/journal"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-[var(--color-accent)] hover:opacity-80 transition-opacity"
+              style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px' }}
+            >
+              Read more on Australian Heritage
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+            </a>
+          </div>
+        </div>
+      </section>
+
       {/* Atlas Grid */}
       <section className="px-4 sm:px-6 py-20 max-w-7xl mx-auto">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -206,6 +320,11 @@ export default async function Home() {
                       </span>
                       <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '20px' }} className="text-white leading-tight">{v.name}</h2>
                       <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '13px' }} className="text-white/80 mt-0.5">{v.desc}</p>
+                      {featuredByVertical[v.key]?.length > 0 && (
+                        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '11px' }} className="text-white/60 mt-1.5">
+                          Featured: {featuredByVertical[v.key].join(' \u00B7 ')}
+                        </p>
+                      )}
                     </div>
                     {stats.verticalCounts[v.key] > 0 && (
                       <span className="text-xs font-medium text-white/90 bg-white/20 backdrop-blur-sm px-2.5 py-1 rounded-full whitespace-nowrap" style={{ fontFamily: 'var(--font-body)' }}>
@@ -318,80 +437,6 @@ export default async function Home() {
           </div>
         </div>
       </section>
-
-      {/* Journal */}
-      {articles.length > 0 && (
-        <section className="py-16 px-4 sm:px-6 bg-white border-y border-[var(--color-border)]">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-10">
-              <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400 }} className="text-3xl sm:text-4xl text-[var(--color-ink)]">Journal</h2>
-              <p className="mt-3 max-w-xl mx-auto" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px', color: 'var(--color-muted)' }}>
-                Stories, guides and profiles from across the network.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {articles.map(article => (
-                <Link
-                  key={article.id}
-                  href={`/journal/${article.slug}`}
-                  className="group block rounded-xl overflow-hidden border border-[var(--color-border)] bg-white hover:shadow-lg transition-shadow"
-                >
-                  {article.hero_image_url ? (
-                    <div className="aspect-[16/9] overflow-hidden">
-                      <img
-                        src={article.hero_image_url}
-                        alt={article.title}
-                        loading="lazy"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
-                    </div>
-                  ) : (
-                    <div className="aspect-[16/9] bg-gradient-to-br from-[var(--color-sage)]/10 to-[var(--color-sage)]/5 flex items-center justify-center">
-                      <svg className="w-10 h-10 text-[var(--color-sage)] opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                      </svg>
-                    </div>
-                  )}
-                  <div className="p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      {article.vertical && (
-                        <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '11px', color: VERTICAL_STYLES[article.vertical]?.text || 'var(--color-accent)' }}>
-                          {VERTICAL_LABELS[article.vertical] || article.vertical}
-                        </span>
-                      )}
-                      {article.category && (
-                        <>
-                          <span className="text-[var(--color-border)]">·</span>
-                          <span style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '11px', color: 'var(--color-muted)' }}>{article.category}</span>
-                        </>
-                      )}
-                    </div>
-                    <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '18px' }} className="leading-tight group-hover:text-[var(--color-accent)] transition-colors">
-                      {article.title}
-                    </h3>
-                    {article.excerpt && (
-                      <p className="mt-2 line-clamp-2 leading-relaxed" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '13px', color: 'var(--color-muted)' }}>{article.excerpt}</p>
-                    )}
-                    {article.published_at && (
-                      <p className="mt-3" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '11px', color: 'var(--color-muted)' }}>
-                        {new Date(article.published_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}
-                      </p>
-                    )}
-                  </div>
-                </Link>
-              ))}
-            </div>
-
-            <div className="mt-8 text-center">
-              <Link href="/journal" className="inline-flex items-center gap-2 text-[var(--color-accent)] hover:opacity-80 transition-opacity" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px' }}>
-                Read all articles
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-              </Link>
-            </div>
-          </div>
-        </section>
-      )}
 
       {/* For Partners */}
       <section className="bg-[var(--color-ink)] text-white py-20 px-4 sm:px-6">

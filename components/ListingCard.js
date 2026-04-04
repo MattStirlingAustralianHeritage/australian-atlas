@@ -17,8 +17,9 @@ export default function ListingCard({ listing, meta }) {
   const url = getVerticalUrl(listing.vertical, listing.slug, derivedMeta)
   const vertStyle = VERTICAL_STYLES[listing.vertical]
 
-  // Only show Featured badge if genuinely featured AND claimed
-  const showFeatured = listing.is_featured && listing.is_claimed
+  // Badge hierarchy: Atlas Select (editors_pick) > Featured (is_featured + is_claimed)
+  const isAtlasSelect = listing.editors_pick
+  const showFeatured = !isAtlasSelect && listing.is_featured && listing.is_claimed
 
   const showImage = listing.hero_image_url && !imgError
 
@@ -77,7 +78,12 @@ export default function ListingCard({ listing, meta }) {
           <VerticalBadge vertical={listing.vertical} />
         </div>
 
-        {/* Featured badge — top-right, only for genuinely featured+claimed */}
+        {/* Curation badge — top-right: Atlas Select > Featured */}
+        {isAtlasSelect && (
+          <span className="absolute top-3 right-3 text-xs font-medium px-2.5 py-1 rounded-full text-white backdrop-blur-sm" style={{ background: 'var(--color-ink)' }}>
+            Atlas Select
+          </span>
+        )}
         {showFeatured && (
           <span className="absolute top-3 right-3 text-xs font-medium px-2.5 py-1 rounded-full bg-[var(--color-accent)] text-white backdrop-blur-sm">
             Featured

@@ -168,6 +168,181 @@ export default async function ForCouncilsPage() {
         </div>
       </section>
 
+      {/* GEO/SEO Discovery Landscape */}
+      <section style={{ maxWidth: 900, margin: '0 auto', padding: '4rem 1.5rem' }}>
+        <div style={{ textAlign: 'center', marginBottom: 40 }}>
+          <p style={{
+            fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600,
+            letterSpacing: '0.15em', textTransform: 'uppercase',
+            color: 'var(--color-sage)', marginBottom: 12,
+          }}>
+            Discovery Infrastructure
+          </p>
+          <h2 style={{
+            fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 400,
+            color: 'var(--color-ink)', lineHeight: 1.25, marginBottom: 12,
+          }}>
+            How people find your region is changing
+          </h2>
+          <p style={{
+            fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 300,
+            color: 'var(--color-muted)', lineHeight: 1.65, maxWidth: 560, margin: '0 auto',
+          }}>
+            Search engine optimisation (SEO) is still essential. But a new category &mdash; generative engine optimisation (GEO) &mdash; is emerging fast. Councils that understand both will have a structural advantage.
+          </p>
+        </div>
+
+        <div style={{
+          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 24,
+        }}>
+          {/* SEO Column */}
+          <div style={{
+            padding: '28px 24px', borderRadius: 12,
+            border: '1px solid var(--color-border)', background: 'white',
+          }}>
+            <p style={{
+              fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 600,
+              letterSpacing: '0.1em', textTransform: 'uppercase',
+              color: 'var(--color-muted)', marginBottom: 10,
+            }}>
+              Search &middot; SEO
+            </p>
+            <h3 style={{
+              fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 400,
+              color: 'var(--color-ink)', marginBottom: 10,
+            }}>
+              Traditional search
+            </h3>
+            <p style={{
+              fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 300,
+              color: 'var(--color-muted)', lineHeight: 1.6, margin: '0 0 16px',
+            }}>
+              Google ranks pages based on relevance, authority, and structure. When someone searches
+              &ldquo;best wineries Barossa Valley,&rdquo; pages with verified, well-structured listing
+              data outperform thin directory pages and generic tourism copy.
+            </p>
+            <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+              {[
+                'Structured data (schema.org) on every listing',
+                'Canonical URLs per venue, per vertical',
+                'Regional pages with geographic anchoring',
+                'Internal linking across 9 vertical sites',
+              ].map((f, i) => (
+                <li key={i} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 8,
+                  fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 400,
+                  color: 'var(--color-ink)', marginBottom: 6, lineHeight: 1.4,
+                }}>
+                  <span style={{ color: 'var(--color-sage)', flexShrink: 0, marginTop: 1 }}>&#10003;</span>
+                  {f}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* GEO Column */}
+          <div style={{
+            padding: '28px 24px', borderRadius: 12,
+            border: '2px solid var(--color-sage)', background: 'white',
+            position: 'relative',
+          }}>
+            <span style={{
+              position: 'absolute', top: -11, left: 20,
+              background: 'var(--color-sage)', color: 'white',
+              fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 600,
+              letterSpacing: '0.08em', textTransform: 'uppercase',
+              padding: '3px 10px', borderRadius: 99,
+            }}>
+              Emerging
+            </span>
+            <p style={{
+              fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 600,
+              letterSpacing: '0.1em', textTransform: 'uppercase',
+              color: 'var(--color-sage)', marginBottom: 10,
+            }}>
+              AI Discovery &middot; GEO
+            </p>
+            <h3 style={{
+              fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 400,
+              color: 'var(--color-ink)', marginBottom: 10,
+            }}>
+              Generative search
+            </h3>
+            <p style={{
+              fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 300,
+              color: 'var(--color-muted)', lineHeight: 1.6, margin: '0 0 16px',
+            }}>
+              AI tools like ChatGPT, Perplexity, and Google AI Overviews now answer travel
+              questions directly. When someone asks &ldquo;plan a weekend in the Adelaide Hills,&rdquo;
+              the AI assembles an answer from structured, authoritative sources it can cite.
+            </p>
+            <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+              {[
+                'Cited-source architecture (AI can reference)',
+                'Entity-level data: name, location, category, description',
+                'Cross-vertical linking increases citation surface',
+                'Verified data preferred over unstructured pages',
+              ].map((f, i) => (
+                <li key={i} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 8,
+                  fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 400,
+                  color: 'var(--color-ink)', marginBottom: 6, lineHeight: 1.4,
+                }}>
+                  <span style={{ color: 'var(--color-sage)', flexShrink: 0, marginTop: 1 }}>&#10003;</span>
+                  {f}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Why Early Presence Matters */}
+          <div style={{
+            padding: '28px 24px', borderRadius: 12,
+            border: '1px solid var(--color-border)', background: 'var(--color-cream)',
+          }}>
+            <p style={{
+              fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 600,
+              letterSpacing: '0.1em', textTransform: 'uppercase',
+              color: 'var(--color-muted)', marginBottom: 10,
+            }}>
+              Strategic
+            </p>
+            <h3 style={{
+              fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 400,
+              color: 'var(--color-ink)', marginBottom: 10,
+            }}>
+              Why early presence matters
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <p style={{
+                fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 300,
+                color: 'var(--color-muted)', lineHeight: 1.6, margin: 0,
+              }}>
+                AI models build knowledge from the structured data they can access today.
+                Regions with well-organised, verified, consistently cited listing data will
+                be recommended more reliably than regions without it.
+              </p>
+              <p style={{
+                fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 300,
+                color: 'var(--color-muted)', lineHeight: 1.6, margin: 0,
+              }}>
+                Australian Atlas provides this infrastructure: verified entities, structured
+                metadata, canonical URLs, and cross-linked editorial content across nine
+                specialist verticals. Your region&apos;s independent businesses become
+                discoverable in both traditional and generative search.
+              </p>
+              <p style={{
+                fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500,
+                color: 'var(--color-ink)', lineHeight: 1.6, margin: 0,
+              }}>
+                The councils that move early will define how their regions are described
+                by AI for years to come.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* What a partnership looks like */}
       <section style={{ maxWidth: 900, margin: '0 auto', padding: '4rem 1.5rem' }}>
         <div style={{ textAlign: 'center', marginBottom: 40 }}>

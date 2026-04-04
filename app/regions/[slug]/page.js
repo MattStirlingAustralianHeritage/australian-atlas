@@ -63,7 +63,7 @@ async function getRegionListings(region) {
     const radius = zoomToRadiusDeg(region.map_zoom || 9)
     const { data } = await sb
       .from('listings')
-      .select('id, vertical, source_id, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, website')
+      .select('id, vertical, source_id, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website')
       .eq('status', 'active')
       .not('lat', 'is', null)
       .not('lng', 'is', null)
@@ -71,6 +71,7 @@ async function getRegionListings(region) {
       .lte('lat', region.center_lat + radius)
       .gte('lng', region.center_lng - radius)
       .lte('lng', region.center_lng + radius)
+      .order('editors_pick', { ascending: false })
       .order('is_featured', { ascending: false })
       .order('name')
       .limit(200)
@@ -81,7 +82,7 @@ async function getRegionListings(region) {
   const regionName = region.name
   let query = sb
     .from('listings')
-    .select('id, vertical, source_id, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, website')
+    .select('id, vertical, source_id, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website')
     .eq('status', 'active')
 
   if (region.state) {
@@ -92,6 +93,7 @@ async function getRegionListings(region) {
   query = query.or(`region.ilike.%${regionName}%,address.ilike.%${regionName}%`)
 
   const { data } = await query
+    .order('editors_pick', { ascending: false })
     .order('is_featured', { ascending: false })
     .order('name')
     .limit(200)
