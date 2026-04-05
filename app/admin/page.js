@@ -82,6 +82,21 @@ export default function AdminPage() {
             href="/admin/staleness"
           />
           <AdminCard
+            label="Candidates"
+            description="Listing acquisition pipeline and coverage gaps"
+            href="/admin/candidates"
+          />
+          <AdminCard
+            label="Duplicates"
+            description="Semantic deduplication review and merge"
+            href="/admin/duplicates"
+          />
+          <AdminCard
+            label="Editorial"
+            description="Story ideas queue and interview pipeline"
+            href="/admin/editorial"
+          />
+          <AdminCard
             label="Regions"
             description="View and manage regions"
             href="/regions"
