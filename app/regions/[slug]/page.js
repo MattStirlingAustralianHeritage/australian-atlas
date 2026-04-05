@@ -1,10 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
-import ListingCard from '@/components/ListingCard'
-import RegionMap from '@/components/RegionMap'
-import { getVerticalBadge } from '@/lib/verticalUrl'
-import { VERTICAL_STYLES } from '@/components/VerticalBadge'
+import RegionMapHero from '@/components/RegionMapHero'
 
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
@@ -35,13 +32,37 @@ const VERTICAL_COLORS = {
   table: '#C4634F',
 }
 
+const VERTICAL_DESCRIPTIONS = {
+  sba: 'Distilleries, wineries, and artisan producers',
+  collection: 'Galleries, museums, and cultural collections',
+  craft: 'Makers, studios, and artisan workshops',
+  fine_grounds: 'Specialty coffee roasters',
+  rest: 'Boutique stays and unique accommodation',
+  field: 'Nature experiences and outdoor places',
+  corner: 'Independent shops and curated retail',
+  found: 'Vintage, antique, and secondhand finds',
+  table: 'Independent dining and food producers',
+}
+
+const VERTICAL_URLS = {
+  sba: 'https://smallbatchatlas.com.au/venue',
+  collection: 'https://collectionatlas.com.au/venue',
+  craft: 'https://craftatlas.com.au/venue',
+  fine_grounds: 'https://finegroundsatlas.com.au/roasters',
+  rest: 'https://restatlas.com.au/stay',
+  field: 'https://fieldatlas.com.au/places',
+  corner: 'https://corneratlas.com.au/shops',
+  found: 'https://foundatlas.com.au/shops',
+  table: 'https://tableatlas.com.au/listings',
+}
+
 const STATE_LABELS = {
   VIC: 'Victoria', NSW: 'New South Wales', QLD: 'Queensland', SA: 'South Australia',
   WA: 'Western Australia', TAS: 'Tasmania', ACT: 'Australian Capital Territory', NT: 'Northern Territory',
 }
 
-const MAPBOX_STYLE = 'mapbox/light-v11'
 const MAX_EDITORIAL_WORDS = 250
+const MAX_PER_SECTION = 6
 
 async function getRegion(slug) {
   const sb = getSupabaseAdmin()
@@ -52,15 +73,10 @@ async function getRegion(slug) {
 async function getRegionNarrative(regionId) {
   if (!regionId) return null
   const sb = getSupabaseAdmin()
-  const { data } = await sb
-    .from('region_narratives')
-    .select('*')
-    .eq('region_id', regionId)
-    .single()
+  const { data } = await sb.from('region_narratives').select('*').eq('region_id', regionId).single()
   return data
 }
 
-// Approximate bounding box size (in degrees) from map zoom level
 function zoomToRadiusDeg(zoom) {
   const lookup = { 6: 3.0, 7: 1.5, 8: 0.75, 9: 0.5, 10: 0.3, 11: 0.15, 12: 0.08 }
   return lookup[zoom] || 0.5
@@ -69,7 +85,6 @@ function zoomToRadiusDeg(zoom) {
 async function getRegionListings(region) {
   const sb = getSupabaseAdmin()
 
-  // Primary: geographic bounding box from region center coordinates
   if (region.center_lat && region.center_lng) {
     const radius = zoomToRadiusDeg(region.map_zoom || 9)
     const { data } = await sb
@@ -89,18 +104,13 @@ async function getRegionListings(region) {
     if (data && data.length > 0) return data
   }
 
-  // Fallback: text match on region name + state (for regions without coordinates)
   const regionName = region.name
   let query = sb
     .from('listings')
     .select('id, vertical, source_id, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website')
     .eq('status', 'active')
 
-  if (region.state) {
-    query = query.eq('state', region.state)
-  }
-
-  // Try matching on region column or address
+  if (region.state) query = query.eq('state', region.state)
   query = query.or(`region.ilike.%${regionName}%,address.ilike.%${regionName}%`)
 
   const { data } = await query
@@ -111,27 +121,22 @@ async function getRegionListings(region) {
   return data || []
 }
 
-// Truncate editorial text to MAX_EDITORIAL_WORDS as a safety net
 function truncateEditorial(text) {
   if (!text) return null
   const words = text.split(/\s+/)
   if (words.length <= MAX_EDITORIAL_WORDS) return text
-  // Find the end of the last complete sentence within the limit
   const truncated = words.slice(0, MAX_EDITORIAL_WORDS).join(' ')
   const lastPeriod = truncated.lastIndexOf('.')
-  if (lastPeriod > truncated.length * 0.5) {
-    return truncated.substring(0, lastPeriod + 1)
-  }
-  return truncated + '…'
+  if (lastPeriod > truncated.length * 0.5) return truncated.substring(0, lastPeriod + 1)
+  return truncated + '\u2026'
 }
 
-// Generate hero Mapbox static URL from stored coordinates
-function getHeroMapUrl(region) {
-  if (region.hero_image_url) return region.hero_image_url
-  if (!region.center_lat || !region.center_lng) return null
-  const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
-  const zoom = (region.map_zoom || 9) - 1
-  return `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/static/${region.center_lng},${region.center_lat},${zoom},0/1280x500@2x?access_token=${token}`
+function truncateDescription(text, max = 100) {
+  if (!text) return null
+  if (text.length <= max) return text
+  const cut = text.substring(0, max)
+  const lastSpace = cut.lastIndexOf(' ')
+  return (lastSpace > max * 0.5 ? cut.substring(0, lastSpace) : cut) + '\u2026'
 }
 
 export async function generateMetadata({ params }) {
@@ -139,7 +144,7 @@ export async function generateMetadata({ params }) {
   const region = await getRegion(slug)
   if (!region) return { title: 'Region not found' }
   return {
-    title: `${region.name}, ${STATE_LABELS[region.state] || region.state} — Australian Atlas`,
+    title: `${region.name}, ${STATE_LABELS[region.state] || region.state} \u2014 Australian Atlas`,
     description: region.description || `Discover independent places in ${region.name}`,
   }
 }
@@ -156,454 +161,362 @@ export default async function RegionPage({ params }) {
 
   // Group by vertical
   const grouped = {}
+  const verticalCounts = {}
   for (const l of listings) {
     if (!grouped[l.vertical]) grouped[l.vertical] = []
     grouped[l.vertical].push(l)
-  }
-
-  const verticalCounts = {}
-  for (const l of listings) {
     verticalCounts[l.vertical] = (verticalCounts[l.vertical] || 0) + 1
   }
 
   const activeVerticals = VERTICAL_ORDER.filter(v => grouped[v]?.length > 0)
 
-  // Collect map points
+  // Map points — include slug for popup links
   const mapPoints = listings
     .filter(l => l.lat && l.lng)
-    .map(l => ({ lat: l.lat, lng: l.lng, name: l.name, vertical: l.vertical }))
+    .map(l => ({ lat: l.lat, lng: l.lng, name: l.name, vertical: l.vertical, slug: l.slug }))
 
-  // Get editorial content — truncated to 250 words
   const rawEditorial = region.long_description || region.generated_intro
   const editorial = truncateEditorial(rawEditorial)
 
-  const heroUrl = getHeroMapUrl(region)
-
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--color-bg)' }}>
-      {/* Hero — full-width Mapbox static map */}
-      <div
-        style={{
-          position: 'relative',
-          width: '100%',
-          height: 'clamp(280px, 40vh, 420px)',
-          backgroundColor: region.hero_color || '#2D2A26',
-          overflow: 'hidden',
-        }}
-      >
-        {heroUrl && (
-          <img
-            src={heroUrl}
-            alt={`Map of ${region.name}`}
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              objectPosition: 'center',
-            }}
-          />
-        )}
+    <div style={{ minHeight: '100vh', background: 'var(--color-bg, #fff)' }}>
 
-        {/* Subtle bottom gradient for text legibility */}
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            background: 'linear-gradient(to top, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.05) 40%, transparent 70%)',
-          }}
-        />
+      {/* ── 1. INTERACTIVE MAP HERO ────────────────────── */}
+      <RegionMapHero
+        points={mapPoints}
+        regionName={region.name}
+        stateName={STATE_LABELS[region.state] || region.state}
+        centerLat={region.center_lat}
+        centerLng={region.center_lng}
+        zoom={region.map_zoom}
+      />
 
-        {/* Region name + state pill */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            padding: 'clamp(1.25rem, 3vw, 2.5rem)',
-            maxWidth: '72rem',
-            margin: '0 auto',
-          }}
-        >
-          <span
-            style={{
-              display: 'inline-block',
-              fontFamily: 'var(--font-body)',
-              fontWeight: 500,
-              fontSize: '10.5px',
-              letterSpacing: '0.1em',
-              textTransform: 'uppercase',
-              color: '#fff',
-              background: 'rgba(255,255,255,0.15)',
-              backdropFilter: 'blur(8px)',
-              padding: '0.25rem 0.625rem',
-              borderRadius: '100px',
-              marginBottom: '0.625rem',
-            }}
-          >
-            {STATE_LABELS[region.state] || region.state}
-          </span>
-          <h1
-            style={{
-              fontFamily: 'var(--font-display)',
-              fontWeight: 400,
-              fontSize: 'clamp(1.75rem, 4.5vw, 2.75rem)',
-              color: '#fff',
-              lineHeight: 1.1,
-              margin: 0,
-            }}
-          >
-            {region.name}
-          </h1>
-        </div>
-      </div>
-
-      {/* Region header section — description + vertical pills */}
       <div style={{ maxWidth: '72rem', margin: '0 auto', padding: '0 1.5rem' }}>
-        <div
+
+        {/* Breadcrumb */}
+        <nav
           style={{
-            padding: '1.5rem 0 1.75rem',
-            borderBottom: '1px solid var(--color-border)',
+            fontFamily: 'var(--font-body)',
+            fontWeight: 300,
+            fontSize: '12px',
+            color: 'var(--color-muted)',
+            padding: '1.25rem 0',
           }}
         >
-          {/* Breadcrumb */}
-          <nav
-            style={{
-              fontFamily: 'var(--font-body)',
-              fontWeight: 300,
-              fontSize: '12px',
-              color: 'var(--color-muted)',
-              marginBottom: '1rem',
-            }}
-          >
-            <Link href="/regions" style={{ color: 'var(--color-muted)', textDecoration: 'none' }}>Regions</Link>
-            <span style={{ margin: '0 0.5rem' }}>/</span>
-            <span style={{ color: 'var(--color-ink)' }}>{region.name}</span>
-          </nav>
+          <Link href="/regions" style={{ color: 'var(--color-muted)', textDecoration: 'none' }}>Regions</Link>
+          <span style={{ margin: '0 0.5rem' }}>/</span>
+          <span style={{ color: 'var(--color-ink)' }}>{region.name}</span>
+        </nav>
 
-          {/* Description */}
-          {region.description && (
-            <p
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 400,
-                fontSize: '1rem',
-                color: 'var(--color-ink)',
-                lineHeight: 1.6,
-                margin: '0 0 1.25rem',
-                maxWidth: '42rem',
-              }}
-            >
-              {region.description}
-            </p>
-          )}
-
-          {/* Vertical breakdown pills — clickable filters */}
-          {Object.keys(verticalCounts).length > 0 && (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-              {Object.entries(verticalCounts)
-                .sort((a, b) => b[1] - a[1])
-                .map(([v, count]) => {
-                  const vs = VERTICAL_STYLES[v]
-                  return (
-                    <a
-                      key={v}
-                      href={`#vertical-${v}`}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.375rem',
-                        padding: '0.375rem 0.75rem',
-                        borderRadius: '100px',
-                        backgroundColor: vs?.bg || '#F1EFE8',
-                        color: vs?.text || '#5F5E5A',
-                        fontFamily: 'var(--font-body)',
-                        fontWeight: 400,
-                        fontSize: '12px',
-                        textDecoration: 'none',
-                        transition: 'opacity 0.15s',
-                      }}
-                    >
-                      {vs?.label || getVerticalBadge(v)} <strong style={{ fontWeight: 600 }}>{count}</strong>
-                    </a>
-                  )
-                })}
-            </div>
-          )}
-        </div>
-
-        {/* Editorial prose — capped at 250 words */}
-        {editorial && (
-          <div
-            style={{
-              maxWidth: '38rem',
-              padding: '2rem 0 1.75rem',
-              borderBottom: '1px solid var(--color-border)',
-            }}
-          >
-            {editorial.split('\n\n').map((paragraph, i) => (
-              <p
-                key={i}
-                style={{
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 300,
-                  fontSize: '15px',
-                  lineHeight: 1.75,
-                  color: 'var(--color-ink)',
-                  marginBottom: '1rem',
-                }}
-              >
-                {paragraph}
-              </p>
-            ))}
+        {/* ── 3. VERTICAL ANCHOR PILLS ──────────────────── */}
+        {Object.keys(verticalCounts).length > 0 && (
+          <div style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '0.5rem',
+            paddingBottom: '1.5rem',
+            borderBottom: '1px solid var(--color-border)',
+          }}>
+            {activeVerticals.map(v => {
+              const color = VERTICAL_COLORS[v] || '#888'
+              return (
+                <a
+                  key={v}
+                  href={`#vertical-${v}`}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.375rem',
+                    padding: '0.375rem 0.75rem',
+                    borderRadius: '100px',
+                    backgroundColor: `${color}14`,
+                    color: color,
+                    fontFamily: 'var(--font-body)',
+                    fontWeight: 500,
+                    fontSize: '12px',
+                    textDecoration: 'none',
+                    transition: 'opacity 0.15s',
+                  }}
+                >
+                  {VERTICAL_LABELS[v] || v} <strong style={{ fontWeight: 700 }}>{verticalCounts[v]}</strong>
+                </a>
+              )
+            })}
           </div>
         )}
 
-        {/* AI-generated narrative blocks — additional enrichment */}
-        {narrative && (
+        {/* ── 2. EDITORIAL NARRATIVE SECTION ─────────────── */}
+        {(editorial || narrative) && (
           <div
             style={{
-              maxWidth: '42rem',
-              padding: '2rem 0 1.75rem',
-              borderBottom: '1px solid var(--color-border)',
+              maxWidth: '720px',
+              padding: '3.5rem 0 3rem',
+              margin: '0 auto',
             }}
           >
-            {/* Editorial overview */}
-            {narrative.editorial_overview && (
-              <div style={{ marginBottom: '2rem' }}>
-                <h2
+            {/* Main editorial text */}
+            {editorial && (
+              <div style={{ marginBottom: narrative ? '2.5rem' : 0 }}>
+                {editorial.split('\n\n').map((paragraph, i) => (
+                  <p
+                    key={i}
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 300,
+                      fontSize: '18px',
+                      lineHeight: 1.8,
+                      color: 'var(--color-ink)',
+                      marginBottom: '1rem',
+                    }}
+                  >
+                    {paragraph}
+                  </p>
+                ))}
+              </div>
+            )}
+
+            {/* Narrative enrichment */}
+            {narrative && (
+              <>
+                {narrative.editorial_overview && !editorial && (
+                  <p
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 300,
+                      fontSize: '18px',
+                      lineHeight: 1.8,
+                      color: 'var(--color-ink)',
+                      marginBottom: '2.5rem',
+                    }}
+                  >
+                    {narrative.editorial_overview}
+                  </p>
+                )}
+
+                {/* Best time + What sets it apart */}
+                <div
                   style={{
-                    fontFamily: 'var(--font-body)',
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    letterSpacing: '0.1em',
-                    textTransform: 'uppercase',
-                    color: 'var(--color-muted)',
-                    marginBottom: '0.75rem',
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+                    gap: '2rem',
+                    marginBottom: '2rem',
                   }}
                 >
-                  Overview
-                </h2>
-                <p
-                  style={{
-                    fontFamily: 'var(--font-body)',
-                    fontWeight: 300,
-                    fontSize: '15px',
-                    lineHeight: 1.75,
-                    color: 'var(--color-ink)',
-                    margin: 0,
-                  }}
-                >
-                  {narrative.editorial_overview}
+                  {narrative.best_time_to_visit && (
+                    <div>
+                      <h2 style={{
+                        fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
+                        letterSpacing: '0.1em', textTransform: 'uppercase',
+                        color: 'var(--color-muted)', marginBottom: '0.75rem',
+                      }}>
+                        Best time to visit
+                      </h2>
+                      <p style={{
+                        fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px',
+                        lineHeight: 1.7, color: 'var(--color-ink)', margin: 0,
+                      }}>
+                        {narrative.best_time_to_visit}
+                      </p>
+                    </div>
+                  )}
+                  {narrative.what_makes_distinct && (
+                    <div>
+                      <h2 style={{
+                        fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
+                        letterSpacing: '0.1em', textTransform: 'uppercase',
+                        color: 'var(--color-muted)', marginBottom: '0.75rem',
+                      }}>
+                        What sets it apart
+                      </h2>
+                      <p style={{
+                        fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px',
+                        lineHeight: 1.7, color: 'var(--color-ink)', margin: 0,
+                      }}>
+                        {narrative.what_makes_distinct}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Vertical highlights */}
+                {narrative.vertical_highlights && narrative.vertical_highlights.length > 0 && (
+                  <div style={{ marginBottom: '1.5rem' }}>
+                    <h2 style={{
+                      fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
+                      letterSpacing: '0.1em', textTransform: 'uppercase',
+                      color: 'var(--color-muted)', marginBottom: '0.75rem',
+                    }}>
+                      Highlights
+                    </h2>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+                      {narrative.vertical_highlights.map((h, i) => {
+                        const color = VERTICAL_COLORS[h.vertical] || 'var(--color-muted)'
+                        return (
+                          <div key={i} style={{
+                            display: 'flex', alignItems: 'baseline', gap: '0.5rem',
+                            fontFamily: 'var(--font-body)', fontSize: '14px', lineHeight: 1.6,
+                          }}>
+                            <span style={{
+                              fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em',
+                              textTransform: 'uppercase', color: color, flexShrink: 0,
+                            }}>
+                              {VERTICAL_LABELS[h.vertical] || h.vertical}
+                            </span>
+                            <span style={{ color: 'var(--color-ink)', fontWeight: 400 }}>{h.listing_name}</span>
+                            {h.note && <span style={{ color: 'var(--color-muted)', fontWeight: 300 }}>&mdash; {h.note}</span>}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Provenance */}
+                <p style={{
+                  fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 400,
+                  color: 'var(--color-muted)', marginTop: '1.5rem',
+                  paddingTop: '1rem', borderTop: '1px solid var(--color-border)',
+                }}>
+                  Generated from {narrative.listing_count_at_generation || listings.length} verified listing{(narrative.listing_count_at_generation || listings.length) !== 1 ? 's' : ''}
+                  {narrative.generated_at && (
+                    <> &middot; Last updated {new Date(narrative.generated_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}</>
+                  )}
                 </p>
-              </div>
+              </>
             )}
 
-            {/* Best time to visit + What makes distinct — side by side on desktop */}
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-                gap: '2rem',
-                marginBottom: '2rem',
-              }}
-            >
-              {narrative.best_time_to_visit && (
-                <div>
-                  <h2
-                    style={{
-                      fontFamily: 'var(--font-body)',
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      letterSpacing: '0.1em',
-                      textTransform: 'uppercase',
-                      color: 'var(--color-muted)',
-                      marginBottom: '0.75rem',
-                    }}
-                  >
-                    Best time to visit
-                  </h2>
-                  <p
-                    style={{
-                      fontFamily: 'var(--font-body)',
-                      fontWeight: 300,
-                      fontSize: '14px',
-                      lineHeight: 1.7,
-                      color: 'var(--color-ink)',
-                      margin: 0,
-                    }}
-                  >
-                    {narrative.best_time_to_visit}
-                  </p>
-                </div>
-              )}
-
-              {narrative.what_makes_distinct && (
-                <div>
-                  <h2
-                    style={{
-                      fontFamily: 'var(--font-body)',
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      letterSpacing: '0.1em',
-                      textTransform: 'uppercase',
-                      color: 'var(--color-muted)',
-                      marginBottom: '0.75rem',
-                    }}
-                  >
-                    What sets it apart
-                  </h2>
-                  <p
-                    style={{
-                      fontFamily: 'var(--font-body)',
-                      fontWeight: 300,
-                      fontSize: '14px',
-                      lineHeight: 1.7,
-                      color: 'var(--color-ink)',
-                      margin: 0,
-                    }}
-                  >
-                    {narrative.what_makes_distinct}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Vertical highlights */}
-            {narrative.vertical_highlights && narrative.vertical_highlights.length > 0 && (
-              <div style={{ marginBottom: '1rem' }}>
-                <h2
-                  style={{
-                    fontFamily: 'var(--font-body)',
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    letterSpacing: '0.1em',
-                    textTransform: 'uppercase',
-                    color: 'var(--color-muted)',
-                    marginBottom: '0.75rem',
-                  }}
-                >
-                  Highlights
-                </h2>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-                  {narrative.vertical_highlights.map((highlight, i) => {
-                    const color = VERTICAL_COLORS[highlight.vertical] || 'var(--color-muted)'
-                    const label = VERTICAL_LABELS[highlight.vertical] || highlight.vertical
-                    return (
-                      <div
-                        key={i}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'baseline',
-                          gap: '0.5rem',
-                          fontFamily: 'var(--font-body)',
-                          fontSize: '14px',
-                          lineHeight: 1.6,
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: '10px',
-                            fontWeight: 600,
-                            letterSpacing: '0.08em',
-                            textTransform: 'uppercase',
-                            color: color,
-                            flexShrink: 0,
-                          }}
-                        >
-                          {label}
-                        </span>
-                        <span style={{ color: 'var(--color-ink)', fontWeight: 400 }}>
-                          {highlight.listing_name}
-                        </span>
-                        {highlight.note && (
-                          <span style={{ color: 'var(--color-muted)', fontWeight: 300 }}>
-                            — {highlight.note}
-                          </span>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
+            {/* Provenance if no narrative but has editorial */}
+            {editorial && !narrative && (
+              <p style={{
+                fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 400,
+                color: 'var(--color-muted)', marginTop: '0.5rem',
+              }}>
+                Generated from {listings.length} verified listing{listings.length !== 1 ? 's' : ''}
+              </p>
             )}
-
-            {/* Provenance badge */}
-            <p
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontSize: '11px',
-                fontWeight: 400,
-                color: 'var(--color-muted)',
-                marginTop: '1.25rem',
-                paddingTop: '0.75rem',
-                borderTop: '1px solid var(--color-border)',
-              }}
-            >
-              Generated from {narrative.listing_count_at_generation} verified listing{narrative.listing_count_at_generation !== 1 ? 's' : ''}
-              {' '}&middot; Last updated {new Date(narrative.generated_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}
-            </p>
           </div>
         )}
 
-        {/* Listings grouped by vertical — the product */}
+        {/* ── 3 + 4. VERTICAL SECTIONS WITH LISTING CARDS ── */}
         {listings.length > 0 ? (
-          <div style={{ paddingBottom: '4rem' }}>
+          <div style={{ paddingBottom: '3rem' }}>
             {activeVerticals.map((vertical, idx) => {
               const items = grouped[vertical]
               const label = VERTICAL_LABELS[vertical] || vertical
-              const color = VERTICAL_COLORS[vertical] || 'var(--color-muted)'
+              const color = VERTICAL_COLORS[vertical] || '#888'
+              const desc = VERTICAL_DESCRIPTIONS[vertical] || ''
+              const shown = items.slice(0, MAX_PER_SECTION)
+              const hasMore = items.length > MAX_PER_SECTION
 
               return (
-                <section key={vertical} id={`vertical-${vertical}`} style={{ marginTop: idx === 0 ? '1.75rem' : '2.5rem' }}>
+                <section key={vertical} id={`vertical-${vertical}`} style={{ marginTop: idx === 0 ? '1rem' : '3rem' }}>
                   {/* Section header */}
-                  <div
-                    style={{
-                      borderTop: '1px solid var(--color-border)',
-                      paddingTop: '1.25rem',
-                      marginBottom: '1.25rem',
-                      display: 'flex',
-                      alignItems: 'baseline',
-                      gap: '0.5rem',
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontFamily: 'var(--font-body)',
-                        fontSize: '11px',
-                        fontWeight: 600,
-                        letterSpacing: '0.1em',
-                        textTransform: 'uppercase',
-                        color: color,
-                      }}
-                    >
+                  <div style={{ marginBottom: '1.25rem' }}>
+                    <h2 style={{
+                      fontFamily: 'var(--font-display)',
+                      fontWeight: 400,
+                      fontSize: '1.5rem',
+                      color: 'var(--color-ink)',
+                      margin: '0 0 0.25rem',
+                    }}>
                       {label}
-                    </span>
-                    <span
-                      style={{
-                        fontFamily: 'var(--font-body)',
-                        fontSize: '11px',
-                        fontWeight: 400,
-                        color: color,
-                        opacity: 0.7,
-                      }}
-                    >
-                      &middot; {items.length} {items.length === 1 ? 'listing' : 'listings'}
-                    </span>
+                    </h2>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.75rem' }}>
+                      <span style={{
+                        fontFamily: 'var(--font-body)', fontSize: '13px',
+                        fontWeight: 400, color: 'var(--color-muted)',
+                      }}>
+                        {desc}
+                      </span>
+                      <span style={{
+                        fontFamily: 'var(--font-body)', fontSize: '12px',
+                        fontWeight: 500, color: color,
+                      }}>
+                        {items.length} listing{items.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Grid */}
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                      gap: '1.25rem',
-                    }}
-                  >
-                    {items.map(listing => (
-                      <ListingCard key={listing.id} listing={listing} />
-                    ))}
+                  {/* Card grid */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                    gap: '1rem',
+                  }}>
+                    {shown.map(listing => {
+                      const baseUrl = VERTICAL_URLS[vertical] || '#'
+                      const href = listing.slug ? `${baseUrl}/${listing.slug}` : '#'
+                      const desc = truncateDescription(listing.description)
+
+                      return (
+                        <a
+                          key={listing.id}
+                          href={href}
+                          target="_blank"
+                          rel="noopener"
+                          style={{
+                            display: 'block',
+                            padding: '1.25rem 1.5rem',
+                            borderRadius: '10px',
+                            background: color,
+                            textDecoration: 'none',
+                            transition: 'transform 0.15s, box-shadow 0.15s',
+                            minHeight: '120px',
+                          }}
+                        >
+                          <h3 style={{
+                            fontFamily: 'var(--font-display)',
+                            fontWeight: 400,
+                            fontSize: '1.125rem',
+                            color: '#fff',
+                            margin: '0 0 0.375rem',
+                            lineHeight: 1.3,
+                          }}>
+                            {listing.name}
+                          </h3>
+                          <p style={{
+                            fontFamily: 'var(--font-body)',
+                            fontSize: '12px',
+                            fontWeight: 400,
+                            color: 'rgba(255,255,255,0.7)',
+                            margin: '0 0 0.5rem',
+                          }}>
+                            {[listing.region, listing.state].filter(Boolean).join(', ')}
+                          </p>
+                          {desc && (
+                            <p style={{
+                              fontFamily: 'var(--font-body)',
+                              fontSize: '13px',
+                              fontWeight: 300,
+                              color: 'rgba(255,255,255,0.85)',
+                              lineHeight: 1.5,
+                              margin: 0,
+                            }}>
+                              {desc}
+                            </p>
+                          )}
+                        </a>
+                      )
+                    })}
                   </div>
+
+                  {/* View all link */}
+                  {hasMore && (
+                    <p style={{ marginTop: '0.875rem' }}>
+                      <a
+                        href={`/map?vertical=${vertical}&region=${encodeURIComponent(region.name)}`}
+                        style={{
+                          fontFamily: 'var(--font-body)',
+                          fontSize: '13px',
+                          fontWeight: 500,
+                          color: color,
+                          textDecoration: 'none',
+                        }}
+                      >
+                        View all {items.length} listings &rarr;
+                      </a>
+                    </p>
+                  )}
                 </section>
               )
             })}
@@ -619,12 +532,55 @@ export default async function RegionPage({ params }) {
           </div>
         )}
 
-        {/* Map — after listings for regions with points */}
-        {mapPoints.length > 0 && (
-          <div style={{ margin: '0 0 4rem', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
-            <RegionMap points={mapPoints} regionName={region.name} />
-          </div>
-        )}
+        {/* ── 5. TRAIL PROMPT ──────────────────────────── */}
+        <div
+          style={{
+            margin: '1rem 0 4rem',
+            padding: '2.5rem',
+            borderRadius: '14px',
+            background: '#FAF8F5',
+            border: '1px solid var(--color-border)',
+            textAlign: 'center',
+          }}
+        >
+          <h2 style={{
+            fontFamily: 'var(--font-display)',
+            fontWeight: 400,
+            fontSize: 'clamp(1.25rem, 3vw, 1.75rem)',
+            color: 'var(--color-ink)',
+            margin: '0 0 0.5rem',
+          }}>
+            Planning a trip to {region.name}?
+          </h2>
+          <p style={{
+            fontFamily: 'var(--font-body)',
+            fontWeight: 300,
+            fontSize: '15px',
+            color: 'var(--color-muted)',
+            maxWidth: '480px',
+            margin: '0 auto 1.5rem',
+            lineHeight: 1.6,
+          }}>
+            Build a day-by-day itinerary from verified venues across all nine atlases.
+          </p>
+          <a
+            href={`/itinerary?q=${encodeURIComponent(`Day trip to ${region.name}`)}`}
+            style={{
+              display: 'inline-block',
+              fontFamily: 'var(--font-body)',
+              fontWeight: 500,
+              fontSize: '14px',
+              padding: '0.75rem 2rem',
+              borderRadius: '8px',
+              background: 'var(--color-ink, #2D2A26)',
+              color: '#fff',
+              textDecoration: 'none',
+              transition: 'opacity 0.15s',
+            }}
+          >
+            Build trail &rarr;
+          </a>
+        </div>
       </div>
     </div>
   )
