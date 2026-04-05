@@ -11,6 +11,24 @@ const VERTICAL_COLORS = {
   rest: '#5A8A9A', field: '#4A7C59', corner: '#5F8A7E', found: '#D4956A', table: '#C4634F',
 }
 
+const DAY_COLORS = [
+  '#4A7C59', // Day 1 — sage green
+  '#C49A3C', // Day 2 — gold
+  '#5A8A9A', // Day 3 — teal
+  '#C1603A', // Day 4 — terracotta
+  '#7A6B8A', // Day 5 — purple
+  '#8A7055', // Day 6+ — brown
+]
+
+function getDayColor(dayNumber) {
+  if (dayNumber <= 0) return DAY_COLORS[0]
+  if (dayNumber <= DAY_COLORS.length) return DAY_COLORS[dayNumber - 1]
+  return DAY_COLORS[DAY_COLORS.length - 1]
+}
+
+// Chronological flow order for daily suggestions
+const VERTICAL_FLOW_ORDER = ['fine_grounds', 'table', 'field', 'collection', 'craft', 'corner', 'found', 'sba', 'rest']
+
 const VERTICAL_LABELS = {
   sba: 'Small Batch', collection: 'Collections', craft: 'Craft', fine_grounds: 'Fine Grounds',
   rest: 'Rest', field: 'Field', corner: 'Corner', found: 'Found', table: 'Table',
@@ -58,18 +76,36 @@ async function fetchRouteGeometry(coordinates, token) {
 function ItineraryMap({ days }) {
   const mapContainer = useRef(null)
   const mapRef = useRef(null)
+  const [mapExpanded, setMapExpanded] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
 
-  // Collect all stops with coordinates
+  // Detect mobile on mount and resize
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
+  // Collect all stops with coordinates AND day number
   const allStops = []
   let stopIndex = 0
+  const dayStopGroups = [] // array of { dayNumber, coordinates }
   for (const day of days) {
+    const dayNum = day.day_number || (days.indexOf(day) + 1)
+    const dayCoords = []
     for (const stop of (day.stops || [])) {
       if (stop.lat && stop.lng) {
-        allStops.push({ ...stop, globalIndex: ++stopIndex, isOvernight: false })
+        allStops.push({ ...stop, globalIndex: ++stopIndex, isOvernight: false, dayNumber: dayNum })
+        dayCoords.push([parseFloat(stop.lng), parseFloat(stop.lat)])
       }
     }
     if (day.overnight?.lat && day.overnight?.lng) {
-      allStops.push({ ...day.overnight, globalIndex: ++stopIndex, isOvernight: true })
+      allStops.push({ ...day.overnight, globalIndex: ++stopIndex, isOvernight: true, dayNumber: dayNum })
+      dayCoords.push([parseFloat(day.overnight.lng), parseFloat(day.overnight.lat)])
+    }
+    if (dayCoords.length >= 2) {
+      dayStopGroups.push({ dayNumber: dayNum, coordinates: dayCoords })
     }
   }
 
@@ -78,6 +114,7 @@ function ItineraryMap({ days }) {
   useEffect(() => {
     if (!coordinates || coordinates.length === 0) return
     if (mapRef.current) return
+    if (isMobile && !mapExpanded) return
     const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
     if (!token) return
 
@@ -102,37 +139,41 @@ function ItineraryMap({ days }) {
       map.addControl(new mapboxgl.NavigationControl(), 'top-right')
 
       map.on('load', async () => {
-        // Route line
-        let routeGeometry = null
-        if (coordinates.length >= 2) {
-          routeGeometry = await fetchRouteGeometry(coordinates, token)
+        // Per-day route lines
+        for (const group of dayStopGroups) {
+          const dayColor = getDayColor(group.dayNumber)
+          let routeGeometry = null
+          if (group.coordinates.length >= 2) {
+            routeGeometry = await fetchRouteGeometry(group.coordinates, token)
+          }
+
+          const geojsonData = routeGeometry
+            ? { type: 'Feature', geometry: routeGeometry }
+            : { type: 'Feature', geometry: { type: 'LineString', coordinates: group.coordinates } }
+
+          const sourceId = `route-day-${group.dayNumber}`
+          map.addSource(sourceId, { type: 'geojson', data: geojsonData })
+
+          map.addLayer({
+            id: `${sourceId}-glow`,
+            type: 'line',
+            source: sourceId,
+            layout: { 'line-join': 'round', 'line-cap': 'round' },
+            paint: { 'line-color': dayColor, 'line-width': 8, 'line-opacity': 0.15 },
+          })
+
+          map.addLayer({
+            id: `${sourceId}-line`,
+            type: 'line',
+            source: sourceId,
+            layout: { 'line-join': 'round', 'line-cap': 'round' },
+            paint: { 'line-color': dayColor, 'line-width': 2.5, 'line-dasharray': [2, 1.5] },
+          })
         }
 
-        const geojsonData = routeGeometry
-          ? { type: 'Feature', geometry: routeGeometry }
-          : { type: 'Feature', geometry: { type: 'LineString', coordinates } }
-
-        map.addSource('itinerary-route', { type: 'geojson', data: geojsonData })
-
-        map.addLayer({
-          id: 'itinerary-route-glow',
-          type: 'line',
-          source: 'itinerary-route',
-          layout: { 'line-join': 'round', 'line-cap': 'round' },
-          paint: { 'line-color': '#5f8a7e', 'line-width': 8, 'line-opacity': 0.15 },
-        })
-
-        map.addLayer({
-          id: 'itinerary-route-line',
-          type: 'line',
-          source: 'itinerary-route',
-          layout: { 'line-join': 'round', 'line-cap': 'round' },
-          paint: { 'line-color': '#4a7166', 'line-width': 2.5, 'line-dasharray': [2, 1.5] },
-        })
-
-        // Numbered markers
+        // Numbered markers colored by day
         allStops.forEach((stop) => {
-          const color = stop.isOvernight ? '#5A8A9A' : (VERTICAL_COLORS[stop.vertical] || '#5f8a7e')
+          const color = getDayColor(stop.dayNumber)
           const label = VERTICAL_LABELS[stop.vertical] || stop.vertical || ''
 
           const el = document.createElement('div')
@@ -147,7 +188,7 @@ function ItineraryMap({ days }) {
             .setHTML(`
               <div style="font-family:system-ui,sans-serif;padding:6px 4px;">
                 <p style="font-weight:600;margin:0 0 2px;font-size:13px;">${stop.venue_name || ''}</p>
-                ${label ? `<p style="margin:0;color:${color};font-size:10px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;">${label}</p>` : ''}
+                <p style="margin:0;color:${color};font-size:10px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;">Day ${stop.dayNumber}${label ? ` \u00B7 ${label}` : ''}</p>
                 ${stop.note ? `<p style="margin:4px 0 0;font-size:11px;color:#666;line-height:1.3;">${stop.note}</p>` : ''}
               </div>
             `)
@@ -166,17 +207,55 @@ function ItineraryMap({ days }) {
         mapRef.current = null
       }
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mapExpanded]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (coordinates.length === 0) return null
 
+  // Mobile collapsed state: show a button instead of the map
+  if (isMobile && !mapExpanded) {
+    return (
+      <button
+        onClick={() => setMapExpanded(true)}
+        style={{
+          width: '100%',
+          padding: '14px 20px',
+          borderRadius: 12,
+          border: '1px solid var(--color-border)',
+          background: 'var(--color-card-bg)',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
+          fontFamily: 'var(--font-body)',
+          fontWeight: 500,
+          fontSize: 13,
+          color: 'var(--color-ink)',
+        }}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+        </svg>
+        View map &middot; {allStops.length} stops across {days.length} {days.length === 1 ? 'day' : 'days'}
+      </button>
+    )
+  }
+
   return (
     <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid var(--color-border)', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-      <div ref={mapContainer} style={{ height: 480, width: '100%' }} />
-      <div style={{ background: 'var(--color-card-bg)', padding: '10px 16px', borderTop: '1px solid var(--color-border)', textAlign: 'center' }}>
+      <div ref={mapContainer} style={{ height: isMobile ? 320 : 480, width: '100%' }} />
+      <div style={{ background: 'var(--color-card-bg)', padding: '10px 16px', borderTop: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
         <p style={{ fontSize: 11, color: 'var(--color-muted)', fontFamily: 'var(--font-body)', margin: 0 }}>
           {allStops.length} stops across {days.length} {days.length === 1 ? 'day' : 'days'} &middot; Click markers for details
         </p>
+        {isMobile && (
+          <button
+            onClick={() => { setMapExpanded(false); if (mapRef.current) { mapRef.current.remove(); mapRef.current = null } }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-muted)', textDecoration: 'underline', padding: 0 }}
+          >
+            Hide map
+          </button>
+        )}
       </div>
     </div>
   )
@@ -288,7 +367,6 @@ function StopCard({ stop, index, isOvernight }) {
 }
 
 function RecommendationCard({ rec, onAdd, added }) {
-  const style = VERTICAL_STYLES[rec.vertical]
   const color = VERTICAL_COLORS[rec.vertical] || '#5f8a7e'
   const label = VERTICAL_LABELS[rec.vertical] || rec.vertical
   const isAccommodation = rec.vertical === 'rest'
@@ -303,6 +381,7 @@ function RecommendationCard({ rec, onAdd, added }) {
         display: 'flex',
         alignItems: 'center',
         gap: 12,
+        minHeight: 80,
         transition: 'border-color 0.15s, box-shadow 0.15s',
       }}
     >
@@ -312,22 +391,24 @@ function RecommendationCard({ rec, onAdd, added }) {
           <span style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 14, color: 'var(--color-ink)' }}>
             {rec.name}
           </span>
-          {style && (
-            <span style={{
-              backgroundColor: style.bg, color: style.text,
-              padding: '1px 7px', borderRadius: 99, fontSize: 9,
-              fontWeight: 600, fontFamily: 'var(--font-body)',
-              letterSpacing: '0.02em',
-            }}>
-              {label}
-            </span>
-          )}
+          <span style={{
+            backgroundColor: color, color: 'white',
+            padding: '1px 7px', borderRadius: 99, fontSize: 10,
+            fontWeight: 600, fontFamily: 'var(--font-body)',
+            letterSpacing: '0.02em',
+          }}>
+            {label}
+          </span>
         </div>
         {rec.description && (
           <p style={{
             fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 11.5,
             color: 'var(--color-muted)', marginTop: 3, lineHeight: 1.4,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            whiteSpace: 'normal',
           }}>
             {rec.description}
           </p>
@@ -387,6 +468,7 @@ function ItineraryPageInner() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [addedRecs, setAddedRecs] = useState(new Set())
+  const originalRecsRef = useRef(null)
 
   const destination = extractDestination(q)
 
@@ -434,6 +516,14 @@ function ItineraryPageInner() {
           return
         }
 
+        // Store original recommendations for later re-filtering
+        if (data.recommendations?.length > 0) {
+          originalRecsRef.current = [...data.recommendations]
+        }
+        // Sort initial recommendations by chronological flow order
+        if (data.recommendations) {
+          data.recommendations = sortRecsByFlowOrder(data.recommendations)
+        }
         setItinerary(data)
         setLoading(false)
       } catch (err) {
@@ -447,6 +537,81 @@ function ItineraryPageInner() {
     fetchItinerary()
     return () => { cancelled = true }
   }, [q, flowAccommodation, flowTransport, flowGroup, flowPace])
+
+  // Sort recommendations by chronological daily flow order
+  function sortRecsByFlowOrder(recs) {
+    return [...recs].sort((a, b) => {
+      const aIdx = VERTICAL_FLOW_ORDER.indexOf(a.vertical)
+      const bIdx = VERTICAL_FLOW_ORDER.indexOf(b.vertical)
+      return (aIdx === -1 ? 999 : aIdx) - (bIdx === -1 ? 999 : bIdx)
+    })
+  }
+
+  // Client-side refresh: re-filter and re-sort original recs when 3+ have been added
+  function refreshRecommendations(currentDays, newAddedRecs) {
+    const originals = originalRecsRef.current
+    if (!originals || originals.length === 0) return null
+
+    // Count verticals currently in the itinerary days
+    const verticalCounts = {}
+    for (const day of currentDays) {
+      for (const stop of (day.stops || [])) {
+        verticalCounts[stop.vertical] = (verticalCounts[stop.vertical] || 0) + 1
+      }
+      if (day.overnight) {
+        verticalCounts[day.overnight.vertical] = (verticalCounts[day.overnight.vertical] || 0) + 1
+      }
+    }
+
+    // Compute centroid of all itinerary stops for proximity sorting
+    let centroidLat = 0, centroidLng = 0, centroidCount = 0
+    for (const day of currentDays) {
+      for (const stop of (day.stops || [])) {
+        if (stop.lat && stop.lng) {
+          centroidLat += parseFloat(stop.lat)
+          centroidLng += parseFloat(stop.lng)
+          centroidCount++
+        }
+      }
+      if (day.overnight?.lat && day.overnight?.lng) {
+        centroidLat += parseFloat(day.overnight.lat)
+        centroidLng += parseFloat(day.overnight.lng)
+        centroidCount++
+      }
+    }
+    if (centroidCount > 0) {
+      centroidLat /= centroidCount
+      centroidLng /= centroidCount
+    }
+
+    // Filter out already-added recs
+    const available = originals.filter(r => !newAddedRecs.has(r.id))
+
+    // Score each rec: under-represented verticals get lower score (sorted ascending)
+    const maxCount = Math.max(1, ...Object.values(verticalCounts))
+    const scored = available.map(r => {
+      const vertRepresentation = (verticalCounts[r.vertical] || 0) / maxCount
+      const flowIdx = VERTICAL_FLOW_ORDER.indexOf(r.vertical)
+      const flowScore = flowIdx === -1 ? 999 : flowIdx
+      // Distance from centroid (rough, no need for haversine at this scale)
+      let dist = 0
+      if (r.lat && r.lng && centroidCount > 0) {
+        const dLat = parseFloat(r.lat) - centroidLat
+        const dLng = parseFloat(r.lng) - centroidLng
+        dist = Math.sqrt(dLat * dLat + dLng * dLng)
+      }
+      return { rec: r, vertRepresentation, flowScore, dist }
+    })
+
+    // Sort: under-represented verticals first, then by flow order, then proximity
+    scored.sort((a, b) => {
+      if (a.vertRepresentation !== b.vertRepresentation) return a.vertRepresentation - b.vertRepresentation
+      if (a.flowScore !== b.flowScore) return a.flowScore - b.flowScore
+      return a.dist - b.dist
+    })
+
+    return scored.slice(0, 12).map(s => s.rec)
+  }
 
   // Save as trail
   const handleSave = useCallback(async () => {
@@ -572,8 +737,20 @@ function ItineraryPageInner() {
       }
     }
 
-    setItinerary({ ...itinerary, days: updatedDays })
-    setAddedRecs(prev => new Set([...prev, rec.id]))
+    const newAddedRecs = new Set([...addedRecs, rec.id])
+    const newAddedCount = newAddedRecs.size
+
+    // Refresh suggestions when 3+ recs have been added (and on every multiple of 3 after)
+    let updatedRecs = itinerary.recommendations
+    if (newAddedCount >= 3 && newAddedCount % 3 === 0) {
+      const refreshed = refreshRecommendations(updatedDays, newAddedRecs)
+      if (refreshed) {
+        updatedRecs = refreshed
+      }
+    }
+
+    setItinerary({ ...itinerary, days: updatedDays, recommendations: updatedRecs })
+    setAddedRecs(newAddedRecs)
   }, [itinerary, addedRecs])
 
   // Share

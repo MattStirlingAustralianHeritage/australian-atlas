@@ -96,6 +96,30 @@ const GEO_ANCHORS = {
   'Hepburn':                { lat: -37.32, lng: 144.14, r: 0.20 },
   'Launceston':             { lat: -41.45, lng: 147.14, r: 0.30 },
   'Canberra':               { lat: -35.28, lng: 149.13, r: 0.35 },
+  // Additional regions referenced by CITY_TO_REGION
+  'Bellarine Peninsula':    { lat: -38.25, lng: 144.55, r: 0.25 },
+  'Far North Queensland':   { lat: -16.92, lng: 145.77, r: 0.80 },
+  'Top End':                { lat: -12.46, lng: 130.84, r: 1.20 },
+  'North Queensland':       { lat: -19.25, lng: 146.80, r: 0.80 },
+  'Darling Downs':          { lat: -27.56, lng: 151.95, r: 0.60 },
+  'Central Queensland':     { lat: -23.38, lng: 150.51, r: 0.80 },
+  'ACT':                    { lat: -35.28, lng: 149.13, r: 0.35 },
+  'North East Victoria':    { lat: -36.36, lng: 146.69, r: 0.60 },
+  'Riverina':               { lat: -35.12, lng: 147.37, r: 0.80 },
+  'Northern Rivers':        { lat: -28.81, lng: 153.28, r: 0.50 },
+  'Murray River':           { lat: -35.75, lng: 144.25, r: 0.80 },
+  'Goulburn Valley':        { lat: -36.38, lng: 145.40, r: 0.50 },
+  'New England':            { lat: -30.50, lng: 151.65, r: 0.60 },
+  'Central West NSW':       { lat: -32.25, lng: 148.60, r: 0.80 },
+  'Eurobodalla':            { lat: -35.71, lng: 150.18, r: 0.35 },
+  'Sapphire Coast':         { lat: -36.89, lng: 149.91, r: 0.40 },
+  'Wimmera':                { lat: -36.72, lng: 142.20, r: 0.60 },
+  'West Gippsland':         { lat: -38.13, lng: 145.95, r: 0.40 },
+  'Surf Coast':             { lat: -38.33, lng: 144.32, r: 0.25 },
+  'Western Victoria':       { lat: -37.83, lng: 142.02, r: 0.60 },
+  'North West Tasmania':    { lat: -41.18, lng: 145.87, r: 0.50 },
+  'Red Centre':             { lat: -23.70, lng: 133.87, r: 1.50 },
+  'Kimberley':              { lat: -17.96, lng: 122.24, r: 1.50 },
 }
 
 // State bounding boxes for directional queries ("eastern victoria", "north queensland")
@@ -134,6 +158,92 @@ const REGION_KEYWORDS = {
   'shoalhaven': 'Shoalhaven', 'tamar valley': 'Tamar Valley', 'tamar': 'Tamar Valley',
   'riverland': 'Riverland', 'limestone coast': 'Limestone Coast',
   'scenic rim': 'Scenic Rim', 'flinders ranges': 'Flinders Ranges', 'flinders': 'Flinders Ranges',
+}
+
+// City-to-region mapping: maps common Australian cities/towns to their nearest
+// covered Atlas region. Checked BEFORE REGION_KEYWORDS so that e.g. "Geelong"
+// resolves to Bellarine Peninsula rather than failing or matching a broad area.
+const CITY_TO_REGION = {
+  'geelong':        { region: 'Bellarine Peninsula', label: 'Showing results for Bellarine Peninsula near Geelong' },
+  'ballarat':       { region: 'Goldfields', label: 'Showing results for Goldfields near Ballarat' },
+  'bendigo':        { region: 'Goldfields', label: 'Showing results for Goldfields near Bendigo' },
+  'newcastle':      { region: 'Hunter Valley', label: 'Showing results for Hunter Valley near Newcastle' },
+  'wollongong':     { region: 'Southern Highlands', label: 'Showing results for Southern Highlands near Wollongong' },
+  'cairns':         { region: 'Far North Queensland', label: 'Showing results for Far North Queensland near Cairns' },
+  'darwin':         { region: 'Top End', label: 'Showing results for Top End near Darwin' },
+  'townsville':     { region: 'North Queensland', label: 'Showing results for North Queensland near Townsville' },
+  'toowoomba':      { region: 'Darling Downs', label: 'Showing results for Darling Downs near Toowoomba' },
+  'rockhampton':    { region: 'Central Queensland', label: 'Showing results for Central Queensland near Rockhampton' },
+  'canberra':       { region: 'ACT', label: 'Showing results for ACT near Canberra' },
+  'albury':         { region: 'North East Victoria', label: 'Showing results for North East Victoria near Albury' },
+  'wagga wagga':    { region: 'Riverina', label: 'Showing results for Riverina near Wagga Wagga' },
+  'bunbury':        { region: 'Margaret River', label: 'Showing results for Margaret River near Bunbury' },
+  'geraldton':      { region: 'WA', label: 'Showing results for Western Australia near Geraldton' },
+  'bathurst':       { region: 'Orange', label: 'Showing results for Orange near Bathurst' },
+  'tamworth':       { region: 'New England', label: 'Showing results for New England near Tamworth' },
+  'dubbo':          { region: 'Central West NSW', label: 'Showing results for Central West NSW near Dubbo' },
+  'lismore':        { region: 'Northern Rivers', label: 'Showing results for Northern Rivers near Lismore' },
+  'coffs harbour':  { region: 'Mid North Coast', label: 'Showing results for Mid-North Coast near Coffs Harbour' },
+  'port macquarie': { region: 'Mid North Coast', label: 'Showing results for Mid-North Coast near Port Macquarie' },
+  'mildura':        { region: 'Murray River', label: 'Showing results for Murray River near Mildura' },
+  'shepparton':     { region: 'Goulburn Valley', label: 'Showing results for Goulburn Valley near Shepparton' },
+  'warrnambool':    { region: 'Great Ocean Road', label: 'Showing results for Great Ocean Road near Warrnambool' },
+  'mount gambier':  { region: 'Limestone Coast', label: 'Showing results for Limestone Coast near Mount Gambier' },
+  'burnie':         { region: 'North West Tasmania', label: 'Showing results for North West Tasmania near Burnie' },
+  'devonport':      { region: 'North West Tasmania', label: 'Showing results for North West Tasmania near Devonport' },
+  'alice springs':  { region: 'Red Centre', label: 'Showing results for Red Centre near Alice Springs' },
+  'broome':         { region: 'Kimberley', label: 'Showing results for Kimberley near Broome' },
+  'mandurah':       { region: 'Perth', label: 'Showing results for Perth near Mandurah' },
+  'gosford':        { region: 'Central Coast', label: 'Showing results for Central Coast near Gosford' },
+  'wangaratta':     { region: 'North East Victoria', label: 'Showing results for North East Victoria near Wangaratta' },
+  'echuca':         { region: 'Murray River', label: 'Showing results for Murray River near Echuca' },
+  'swan hill':      { region: 'Murray River', label: 'Showing results for Murray River near Swan Hill' },
+  'armidale':       { region: 'New England', label: 'Showing results for New England near Armidale' },
+  'nowra':          { region: 'Shoalhaven', label: 'Showing results for Shoalhaven near Nowra' },
+  'batemans bay':   { region: 'Eurobodalla', label: 'Showing results for Eurobodalla near Batemans Bay' },
+  'ulladulla':      { region: 'Shoalhaven', label: 'Showing results for Shoalhaven near Ulladulla' },
+  'merimbula':      { region: 'Sapphire Coast', label: 'Showing results for Sapphire Coast near Merimbula' },
+  'horsham':        { region: 'Wimmera', label: 'Showing results for Wimmera near Horsham' },
+  'sale':           { region: 'Gippsland', label: 'Showing results for Gippsland near Sale' },
+  'traralgon':      { region: 'Gippsland', label: 'Showing results for Gippsland near Traralgon' },
+  'warragul':       { region: 'West Gippsland', label: 'Showing results for West Gippsland near Warragul' },
+  'torquay':        { region: 'Surf Coast', label: 'Showing results for Surf Coast near Torquay' },
+  'lorne':          { region: 'Great Ocean Road', label: 'Showing results for Great Ocean Road near Lorne' },
+  'apollo bay':     { region: 'Great Ocean Road', label: 'Showing results for Great Ocean Road near Apollo Bay' },
+  'port fairy':     { region: 'Western Victoria', label: 'Showing results for Western Victoria near Port Fairy' },
+  'hamilton':       { region: 'Western Victoria', label: 'Showing results for Western Victoria near Hamilton' },
+  'colac':          { region: 'Western Victoria', label: 'Showing results for Western Victoria near Colac' },
+  'castlemaine':    { region: 'Goldfields', label: 'Showing results for Goldfields near Castlemaine' },
+  // Additional cities for broader coverage
+  'wodonga':        { region: 'North East Victoria', label: 'Showing results for North East Victoria near Wodonga' },
+  'maitland':       { region: 'Hunter Valley', label: 'Showing results for Hunter Valley near Maitland' },
+  'cessnock':       { region: 'Hunter Valley', label: 'Showing results for Hunter Valley near Cessnock' },
+  'katoomba':       { region: 'Blue Mountains', label: 'Showing results for Blue Mountains near Katoomba' },
+  'leura':          { region: 'Blue Mountains', label: 'Showing results for Blue Mountains near Leura' },
+  'victor harbor':  { region: 'McLaren Vale', label: 'Showing results for McLaren Vale near Victor Harbor' },
+  'goolwa':         { region: 'McLaren Vale', label: 'Showing results for McLaren Vale near Goolwa' },
+  'port douglas':   { region: 'Far North Queensland', label: 'Showing results for Far North Queensland near Port Douglas' },
+  'mission beach':  { region: 'North Queensland', label: 'Showing results for North Queensland near Mission Beach' },
+  'gladstone':      { region: 'Central Queensland', label: 'Showing results for Central Queensland near Gladstone' },
+  'mackay':         { region: 'Central Queensland', label: 'Showing results for Central Queensland near Mackay' },
+  'caloundra':      { region: 'Sunshine Coast', label: 'Showing results for Sunshine Coast near Caloundra' },
+  'maroochydore':   { region: 'Sunshine Coast', label: 'Showing results for Sunshine Coast near Maroochydore' },
+  'coolangatta':    { region: 'Gold Coast', label: 'Showing results for Gold Coast near Coolangatta' },
+  'warwick':        { region: 'Darling Downs', label: 'Showing results for Darling Downs near Warwick' },
+  'grafton':        { region: 'Northern Rivers', label: 'Showing results for Northern Rivers near Grafton' },
+  'kempsey':        { region: 'Mid North Coast', label: 'Showing results for Mid-North Coast near Kempsey' },
+  'orange':         { region: 'Orange', label: 'Showing results for Orange region' },
+  'mudgee':         { region: 'Central West NSW', label: 'Showing results for Central West NSW near Mudgee' },
+  'benalla':        { region: 'North East Victoria', label: 'Showing results for North East Victoria near Benalla' },
+  'seymour':        { region: 'Goulburn Valley', label: 'Showing results for Goulburn Valley near Seymour' },
+  'korumburra':     { region: 'West Gippsland', label: 'Showing results for West Gippsland near Korumburra' },
+  'bairnsdale':     { region: 'Gippsland', label: 'Showing results for Gippsland near Bairnsdale' },
+  'lakes entrance':  { region: 'Gippsland', label: 'Showing results for Gippsland near Lakes Entrance' },
+  'margaret river': { region: 'Margaret River', label: 'Showing results for Margaret River region' },
+  'dunsborough':    { region: 'Margaret River', label: 'Showing results for Margaret River near Dunsborough' },
+  'busselton':      { region: 'Margaret River', label: 'Showing results for Margaret River near Busselton' },
+  'kalgoorlie':     { region: 'WA', label: 'Showing results for Western Australia near Kalgoorlie' },
+  'albany':         { region: 'WA', label: 'Showing results for Western Australia near Albany' },
 }
 
 // State name variants for directional parsing
@@ -275,6 +385,7 @@ function parseItineraryQuery(rawQuery) {
   const q = rawQuery.toLowerCase().trim()
   let region = null
   let geoBounds = null
+  let city_note = null
   let verticals = []
   let duration = { days: 1 }
 
@@ -286,7 +397,21 @@ function parseItineraryQuery(rawQuery) {
     region = directional.label
   }
 
-  // 2. Try known region keywords (longest match first)
+  // 2. Try CITY_TO_REGION mapping — redirects cities to their nearest covered region
+  if (!geoBounds) {
+    const cityEntries = Object.entries(CITY_TO_REGION).sort((a, b) => b[0].length - a[0].length)
+    for (const [cityName, mapping] of cityEntries) {
+      const re = new RegExp(`\\b${cityName.replace(/\s+/g, '\\s+')}\\b`)
+      if (re.test(q)) {
+        region = mapping.region
+        city_note = mapping.label
+        geoBounds = resolveGeoBounds(mapping.region, q)
+        break
+      }
+    }
+  }
+
+  // 3. Try known region keywords (longest match first)
   if (!geoBounds) {
     const regionEntries = Object.entries(REGION_KEYWORDS).sort((a, b) => b[0].length - a[0].length)
     for (const [kw, regionValue] of regionEntries) {
@@ -302,7 +427,7 @@ function parseItineraryQuery(rawQuery) {
     }
   }
 
-  // 3. Last resort: check for bare state names not caught by REGION_KEYWORDS
+  // 4. Last resort: check for bare state names not caught by REGION_KEYWORDS
   if (!geoBounds && !region) {
     const stateEntries = Object.entries(STATE_NAMES).sort((a, b) => b[0].length - a[0].length)
     for (const [name, code] of stateEntries) {
@@ -338,7 +463,7 @@ function parseItineraryQuery(rawQuery) {
     }
   }
 
-  return { region, geoBounds, verticals, duration }
+  return { region, geoBounds, verticals, duration, city_note }
 }
 
 const VERTICAL_LABELS = {
@@ -373,6 +498,21 @@ const ACTIVITY_LABELS = {
   vintage: 'Vintage', op_shops: 'Op shops', antiques: 'Antiques',
 }
 
+// Chronological day ordering: the ideal sequence for stops within a single day.
+// Coffee/food first, nature and culture through the day, browsing and craft in
+// the afternoon, tastings and drinks in the evening, accommodation last.
+const VERTICAL_ORDER = [
+  'fine_grounds', // coffee first thing
+  'table',        // farm gates, bakeries, providores — morning food stops
+  'field',        // nature, hiking, lookouts — active mid-morning
+  'collection',   // galleries, museums, heritage — midday culture
+  'craft',        // makers, studios — afternoon browsing
+  'corner',       // bookshops, homewares — afternoon shopping
+  'found',        // vintage, op shops — late afternoon
+  'sba',          // wine, brewery, distillery — evening tastings
+  'rest',         // accommodation — end of day
+]
+
 // Group type → vertical weighting adjustments
 const GROUP_VERTICAL_WEIGHTS = {
   family: { boost: ['field', 'table', 'collection'], deprioritise: [] },
@@ -396,7 +536,7 @@ export async function GET(request) {
   }
 
   try {
-    const { region, geoBounds, verticals, duration } = parseItineraryQuery(q)
+    const { region, geoBounds, verticals, duration, city_note } = parseItineraryQuery(q)
 
     // Pace overrides stops-per-day target
     const stopsPerDay = pace === 'packed' ? 6 : pace === 'relaxed' ? 3 : 4
@@ -759,6 +899,16 @@ HARD CONSTRAINTS:
 - Title should be catchy and specific to the region/theme.
 - Intro should be 2-3 sentences setting the scene.
 - TIER WEIGHTING: Venues with "is_claimed": true or "is_featured": true are verified, operator-managed listings. When building the itinerary, PREFER these venues over unclaimed listings of similar relevance and location. They represent higher-quality, actively maintained listings.
+
+DAY SEQUENCING: Order venues within each day to follow a natural chronological flow:
+1. Coffee and breakfast spots first (fine_grounds, table)
+2. Nature, walks, and outdoor experiences mid-morning (field)
+3. Galleries, museums, and cultural spaces around midday (collection)
+4. Makers, studios, and craft workshops in the afternoon (craft)
+5. Bookshops, homewares, and indie retail for afternoon browsing (corner, found)
+6. Wine, beer, and spirit tastings in the late afternoon/evening (sba)
+7. Accommodation as the final stop of the day (rest)
+The ideal vertical order within a day is: ${VERTICAL_ORDER.join(' → ')}. This isn't rigid — geographic proximity should still inform grouping — but prefer this flow when venues are in similar locations.
 ${accommodationInstruction}${transportInstruction}${groupInstruction}${paceInstruction}${preferencesPrompt}
 
 Respond with valid JSON only. No markdown, no code fences, just the JSON object.`
@@ -994,6 +1144,7 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
       query: q,
       region: region || null,
       region_label: geoBounds?.label || region || null,
+      city_note: city_note || null,
       duration,
       venue_count: venueData.length,
       stripped_count: strippedCount,
