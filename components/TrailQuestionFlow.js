@@ -52,7 +52,7 @@ const QUESTIONS = [
   },
 ]
 
-export default function TrailQuestionFlow({ query, onClose }) {
+export default function TrailQuestionFlow({ query, regionName, onClose }) {
   const router = useRouter()
   const [answers, setAnswers] = useState({
     accommodation: null,
@@ -147,6 +147,29 @@ export default function TrailQuestionFlow({ query, onClose }) {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
           </button>
         </div>
+
+        {/* Region destination label (when launched from a region page) */}
+        {regionName && (
+          <div style={{ padding: '24px 32px 0' }}>
+            <p style={{
+              fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 10,
+              color: 'var(--color-muted)', marginBottom: 10,
+              textTransform: 'uppercase', letterSpacing: '0.14em', lineHeight: 1,
+            }}>
+              Destination
+            </p>
+            <div style={{
+              fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 16,
+              color: 'var(--color-ink)',
+              background: 'var(--color-cream, #faf7f2)',
+              border: '1px solid var(--color-border, #e8e3da)',
+              borderRadius: 8,
+              padding: '12px 14px',
+            }}>
+              {regionName}
+            </div>
+          </div>
+        )}
 
         {/* Questions */}
         <div style={{ padding: '28px 32px 8px' }}>

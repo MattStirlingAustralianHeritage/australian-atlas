@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import RegionMapHero from '@/components/RegionMapHero'
+import RegionTrailCTA from '@/components/RegionTrailCTA'
 
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
@@ -533,54 +534,7 @@ export default async function RegionPage({ params }) {
         )}
 
         {/* ── 5. TRAIL PROMPT ──────────────────────────── */}
-        <div
-          style={{
-            margin: '1rem 0 4rem',
-            padding: '2.5rem',
-            borderRadius: '14px',
-            background: '#FAF8F5',
-            border: '1px solid var(--color-border)',
-            textAlign: 'center',
-          }}
-        >
-          <h2 style={{
-            fontFamily: 'var(--font-display)',
-            fontWeight: 400,
-            fontSize: 'clamp(1.25rem, 3vw, 1.75rem)',
-            color: 'var(--color-ink)',
-            margin: '0 0 0.5rem',
-          }}>
-            Planning a trip to {region.name}?
-          </h2>
-          <p style={{
-            fontFamily: 'var(--font-body)',
-            fontWeight: 300,
-            fontSize: '15px',
-            color: 'var(--color-muted)',
-            maxWidth: '480px',
-            margin: '0 auto 1.5rem',
-            lineHeight: 1.6,
-          }}>
-            Build a day-by-day itinerary from verified venues across all nine atlases.
-          </p>
-          <a
-            href={`/itinerary?q=${encodeURIComponent(`Day trip to ${region.name}`)}`}
-            style={{
-              display: 'inline-block',
-              fontFamily: 'var(--font-body)',
-              fontWeight: 500,
-              fontSize: '14px',
-              padding: '0.75rem 2rem',
-              borderRadius: '8px',
-              background: 'var(--color-ink, #2D2A26)',
-              color: '#fff',
-              textDecoration: 'none',
-              transition: 'opacity 0.15s',
-            }}
-          >
-            Build trail &rarr;
-          </a>
-        </div>
+        <RegionTrailCTA regionName={region.name} />
       </div>
     </div>
   )
