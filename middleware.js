@@ -3,6 +3,46 @@ import { NextResponse } from 'next/server'
 import { jwtVerify } from 'jose'
 
 export async function middleware(request) {
+  const { pathname } = request.nextUrl
+
+  // ── Admin routes: check FIRST, before Supabase touches cookies ──
+  if (pathname.startsWith('/admin') && !pathname.startsWith('/admin/login')) {
+    const adminToken = request.cookies.get('atlas_admin')?.value
+      || request.cookies.get('admin_auth')?.value
+
+    if (!adminToken) {
+      return NextResponse.redirect(new URL('/admin/login', request.url))
+    }
+
+    try {
+      const secret = new TextEncoder().encode(
+        process.env.ADMIN_SESSION_SECRET || process.env.ADMIN_PASSWORD
+      )
+      await jwtVerify(adminToken, secret)
+      // Valid JWT — let the request through
+      return NextResponse.next()
+    } catch (err) {
+      // Legacy raw-password cookie — allow
+      if (adminToken === process.env.ADMIN_PASSWORD) {
+        return NextResponse.next()
+      }
+      // Invalid token — clear and redirect
+      const res = NextResponse.redirect(new URL('/admin/login', request.url))
+      res.cookies.delete('atlas_admin')
+      res.cookies.delete('admin_auth')
+      return res
+    }
+  }
+
+  // ── Council routes: cookie-based magic link auth ──
+  if (pathname.startsWith('/council') && !pathname.startsWith('/council/login') && !pathname.startsWith('/council/enquire')) {
+    const councilCookie = request.cookies.get('council_session')
+    if (!councilCookie?.value) {
+      return NextResponse.redirect(new URL('/council/login', request.url))
+    }
+  }
+
+  // ── Supabase auth: only for non-admin routes that need it ──
   let response = NextResponse.next({ request: { headers: request.headers } })
 
   const supabase = createServerClient(
@@ -23,45 +63,8 @@ export async function middleware(request) {
   const { data: { user } } = await supabase.auth.getUser()
 
   // Protect authenticated routes (account + dashboard)
-  if ((request.nextUrl.pathname.startsWith('/dashboard') || request.nextUrl.pathname.startsWith('/account')) && !user) {
+  if ((pathname.startsWith('/dashboard') || pathname.startsWith('/account')) && !user) {
     return NextResponse.redirect(new URL('/login', request.url))
-  }
-
-  // Protect council routes (cookie-based magic link auth)
-  if (request.nextUrl.pathname.startsWith('/council') && !request.nextUrl.pathname.startsWith('/council/login') && !request.nextUrl.pathname.startsWith('/council/enquire')) {
-    const councilCookie = request.cookies.get('council_session')
-    if (!councilCookie?.value) {
-      return NextResponse.redirect(new URL('/council/login', request.url))
-    }
-  }
-
-  // Protect admin routes (signed JWT session)
-  if (request.nextUrl.pathname.startsWith('/admin') && !request.nextUrl.pathname.startsWith('/admin/login')) {
-    const adminToken = request.cookies.get('atlas_admin')?.value
-      || request.cookies.get('admin_auth')?.value // backward compat with old cookie name
-
-    if (!adminToken) {
-      return NextResponse.redirect(new URL('/admin/login', request.url))
-    }
-
-    // Verify the JWT token
-    try {
-      const secret = new TextEncoder().encode(
-        process.env.ADMIN_SESSION_SECRET || process.env.ADMIN_PASSWORD
-      )
-      await jwtVerify(adminToken, secret)
-    } catch (err) {
-      // Token invalid or expired — also handle legacy raw-password cookie
-      if (adminToken === process.env.ADMIN_PASSWORD) {
-        // Legacy cookie with raw password — allow but it will be replaced on next login
-      } else {
-        // Clear invalid cookies and redirect
-        const redirectResponse = NextResponse.redirect(new URL('/admin/login', request.url))
-        redirectResponse.cookies.delete('atlas_admin')
-        redirectResponse.cookies.delete('admin_auth')
-        return redirectResponse
-      }
-    }
   }
 
   return response
