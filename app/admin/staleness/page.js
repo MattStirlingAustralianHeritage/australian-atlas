@@ -1,5 +1,12 @@
 import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import StalenessTable from './StalenessTable'
+
+export const dynamic = 'force-dynamic'
+
+export const metadata = {
+  title: 'Listing Staleness | Admin | Australian Atlas',
+}
 
 const VERTICALS = [
   { key: 'sba', label: 'Small Batch' },
@@ -13,38 +20,7 @@ const VERTICALS = [
   { key: 'table', label: 'Table' },
 ]
 
-function getVerticalLabel(key) {
-  return VERTICALS.find(v => v.key === key)?.label || key
-}
-
-function formatDate(dateStr) {
-  if (!dateStr) return '\u2014'
-  const d = new Date(dateStr)
-  return d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
-}
-
-function getStalenessLabel(lastVerifiedAt) {
-  if (!lastVerifiedAt) return 'Unverified'
-  const months = (Date.now() - new Date(lastVerifiedAt).getTime()) / (1000 * 60 * 60 * 24 * 30)
-  if (months < 6) return 'Fresh'
-  if (months < 12) return 'Ageing'
-  return 'Stale'
-}
-
-function getStatusBadge(status) {
-  const colors = {
-    live: { bg: '#f0fff4', color: '#276749', border: '#c6e9c6' },
-    dead: { bg: '#fef2f2', color: '#c53030', border: '#f5c6c6' },
-    redirect: { bg: '#fffbeb', color: '#92400e', border: '#fde68a' },
-    timeout: { bg: '#fefce8', color: '#854d0e', border: '#fef08a' },
-    unchecked: { bg: '#f7f7f7', color: '#888', border: '#e5e5e5' },
-  }
-  const c = colors[status] || colors.unchecked
-  return { ...c, label: status || 'unchecked' }
-}
-
 export default async function StalenessPage({ searchParams }) {
-  // Auth handled by middleware — no page-level check needed
   const params = await searchParams
   const filterVertical = params?.vertical || null
   const filterRegion = params?.region || null
@@ -54,7 +30,7 @@ export default async function StalenessPage({ searchParams }) {
 
   let allListings = []
   let listings = []
-  const tiers = { fresh: 0, ageing: 0, stale: 0, dead: 0 }
+  const tiers = { claimedStale: 0, fresh: 0, ageing: 0, stale: 0, dead: 0 }
 
   const now = Date.now()
   const sixMonths = 6 * 30 * 24 * 60 * 60 * 1000
@@ -64,13 +40,21 @@ export default async function StalenessPage({ searchParams }) {
     // Fetch all active listings for summary computation
     const { data: summaryData } = await sb
       .from('listings')
-      .select('id, last_verified_at, website_status')
+      .select('id, last_verified_at, website_status, is_claimed')
       .eq('status', 'active')
 
     allListings = summaryData || []
 
     // Compute tier counts
     for (const l of allListings) {
+      // Check if this is a claimed listing that is stale or unverified
+      const isStaleOrUnverified = !l.last_verified_at ||
+        (now - new Date(l.last_verified_at).getTime()) >= twelveMonths
+
+      if (l.is_claimed && isStaleOrUnverified) {
+        tiers.claimedStale++
+      }
+
       if (l.website_status === 'dead') {
         tiers.dead++
         continue
@@ -86,10 +70,13 @@ export default async function StalenessPage({ searchParams }) {
     }
 
     // Build filtered query for the table
+    // Sort: claimed first, then featured, then least-recently-verified first
     let query = sb
       .from('listings')
-      .select('id, name, vertical, region, last_verified_at, website_status, website, website_checked_at')
+      .select('id, name, vertical, region, last_verified_at, website_status, website, website_checked_at, is_claimed, is_featured, website_status_code, removal_flagged, removal_flagged_at')
       .eq('status', 'active')
+      .order('is_claimed', { ascending: false })
+      .order('is_featured', { ascending: false })
       .order('last_verified_at', { ascending: true, nullsFirst: true })
       .limit(200)
 
@@ -108,26 +95,28 @@ export default async function StalenessPage({ searchParams }) {
       query = query.gte('last_verified_at', new Date(now - twelveMonths).toISOString())
     } else if (filterStatus === 'stale') {
       query = query.or('last_verified_at.is.null,last_verified_at.lt.' + new Date(now - twelveMonths).toISOString())
+    } else if (filterStatus === 'claimed_stale') {
+      query = query.eq('is_claimed', true)
+      query = query.or('last_verified_at.is.null,last_verified_at.lt.' + new Date(now - twelveMonths).toISOString())
     }
 
     const { data: filteredData } = await query
     listings = filteredData || []
   } catch (err) {
     console.error('[admin/staleness] Query error:', err.message)
-    // Continue with empty state rather than crashing
   }
 
   const total = allListings.length
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--color-cream, #F5F1EB)', fontFamily: 'var(--font-sans, system-ui)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--color-cream, #F5F1EB)', fontFamily: 'var(--font-body, system-ui)' }}>
       {/* Header */}
       <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--color-border, #E5E0D8)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <Link href="/admin" style={{ textDecoration: 'none', color: 'var(--color-muted, #8B8578)', fontSize: '0.75rem', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
             Admin
           </Link>
-          <h1 style={{ fontFamily: 'var(--font-serif, Georgia)', fontSize: '1.75rem', fontWeight: 600, color: 'var(--color-ink, #2D2A26)', margin: '0.25rem 0 0' }}>
+          <h1 style={{ fontFamily: 'var(--font-display, Georgia)', fontSize: '1.75rem', fontWeight: 600, color: 'var(--color-ink, #2D2A26)', margin: '0.25rem 0 0' }}>
             Listing Staleness
           </h1>
         </div>
@@ -138,7 +127,17 @@ export default async function StalenessPage({ searchParams }) {
 
       <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
         {/* Summary Cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+          <TierCard
+            label="Claimed/Stale"
+            sublabel="Claimed but stale or unverified"
+            count={tiers.claimedStale}
+            color="#c53030"
+            bg="#fef2f2"
+            border="#f5c6c6"
+            href="/admin/staleness?status=claimed_stale"
+            active={filterStatus === 'claimed_stale'}
+          />
           <TierCard
             label="Fresh"
             sublabel="Verified < 6 months"
@@ -246,6 +245,7 @@ export default async function StalenessPage({ searchParams }) {
                 }}
               >
                 <option value="">All statuses</option>
+                <option value="claimed_stale">Claimed/Stale</option>
                 <option value="fresh">Fresh (&lt; 6mo)</option>
                 <option value="ageing">Ageing (6-12mo)</option>
                 <option value="stale">Stale (&gt; 12mo)</option>
@@ -299,127 +299,12 @@ export default async function StalenessPage({ searchParams }) {
             </span>
           </div>
 
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--color-border, #E5E0D8)' }}>
-                  <Th>Name</Th>
-                  <Th>Vertical</Th>
-                  <Th>Region</Th>
-                  <Th>Last Verified</Th>
-                  <Th>URL Status</Th>
-                  <Th>Website</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {(listings || []).length === 0 ? (
-                  <tr>
-                    <td colSpan={6} style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-muted, #8B8578)' }}>
-                      No listings match the current filters.
-                    </td>
-                  </tr>
-                ) : (
-                  (listings || []).map(listing => {
-                    const staleness = getStalenessLabel(listing.last_verified_at)
-                    const badge = getStatusBadge(listing.website_status)
-                    const stalenessColors = {
-                      Fresh: { bg: '#f0fff4', color: '#276749' },
-                      Ageing: { bg: '#fffbeb', color: '#92400e' },
-                      Stale: { bg: '#fef2f2', color: '#9B1C1C' },
-                      Unverified: { bg: '#f7f7f7', color: '#888' },
-                    }
-                    const sc = stalenessColors[staleness] || stalenessColors.Unverified
-
-                    return (
-                      <tr key={listing.id} style={{ borderBottom: '1px solid var(--color-border, #E5E0D8)' }}>
-                        <td style={{ padding: '0.75rem 1rem', fontWeight: 500, color: 'var(--color-ink, #2D2A26)', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {listing.name}
-                        </td>
-                        <td style={{ padding: '0.75rem 0.5rem', color: 'var(--color-muted, #8B8578)' }}>
-                          <span style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                            {getVerticalLabel(listing.vertical)}
-                          </span>
-                        </td>
-                        <td style={{ padding: '0.75rem 0.5rem', color: 'var(--color-muted, #8B8578)' }}>
-                          {listing.region || '\u2014'}
-                        </td>
-                        <td style={{ padding: '0.75rem 0.5rem' }}>
-                          <span style={{
-                            display: 'inline-block',
-                            padding: '0.15rem 0.5rem',
-                            borderRadius: '999px',
-                            fontSize: '0.7rem',
-                            fontWeight: 600,
-                            background: sc.bg,
-                            color: sc.color,
-                          }}>
-                            {staleness}
-                          </span>
-                          <span style={{ display: 'block', fontSize: '0.7rem', color: 'var(--color-muted, #8B8578)', marginTop: '0.15rem' }}>
-                            {formatDate(listing.last_verified_at)}
-                          </span>
-                        </td>
-                        <td style={{ padding: '0.75rem 0.5rem' }}>
-                          {listing.website ? (
-                            <span style={{
-                              display: 'inline-block',
-                              padding: '0.15rem 0.5rem',
-                              borderRadius: '999px',
-                              fontSize: '0.7rem',
-                              fontWeight: 600,
-                              background: badge.bg,
-                              color: badge.color,
-                              border: `1px solid ${badge.border}`,
-                            }}>
-                              {badge.label}
-                            </span>
-                          ) : (
-                            <span style={{ fontSize: '0.75rem', color: 'var(--color-muted, #8B8578)' }}>
-                              No URL
-                            </span>
-                          )}
-                        </td>
-                        <td style={{ padding: '0.75rem 0.5rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {listing.website ? (
-                            <a
-                              href={listing.website.startsWith('http') ? listing.website : `https://${listing.website}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{ color: 'var(--color-muted, #8B8578)', fontSize: '0.8rem', textDecoration: 'underline' }}
-                            >
-                              {listing.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}
-                            </a>
-                          ) : (
-                            <span style={{ color: 'var(--color-muted, #8B8578)' }}>{'\u2014'}</span>
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })
-                )}
-              </tbody>
-            </table>
+          <div style={{ padding: '0 0.5rem 0.5rem' }}>
+            <StalenessTable initialListings={listings} />
           </div>
         </div>
       </div>
     </div>
-  )
-}
-
-function Th({ children }) {
-  return (
-    <th style={{
-      padding: '0.75rem 1rem',
-      textAlign: 'left',
-      fontWeight: 600,
-      color: 'var(--color-muted, #8B8578)',
-      textTransform: 'uppercase',
-      letterSpacing: '0.08em',
-      fontSize: '0.7rem',
-      whiteSpace: 'nowrap',
-    }}>
-      {children}
-    </th>
   )
 }
 
@@ -440,7 +325,7 @@ function TierCard({ label, sublabel, count, color, bg, border, href, active }) {
       <p style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted, #8B8578)', margin: '0 0 0.375rem' }}>
         {label}
       </p>
-      <p style={{ fontSize: '2rem', fontWeight: 600, color, margin: '0 0 0.25rem', fontVariantNumeric: 'tabular-nums', fontFamily: 'var(--font-serif, Georgia)' }}>
+      <p style={{ fontSize: '2rem', fontWeight: 600, color, margin: '0 0 0.25rem', fontVariantNumeric: 'tabular-nums', fontFamily: 'var(--font-display, Georgia)' }}>
         {count}
       </p>
       <p style={{ fontSize: '0.7rem', color: 'var(--color-muted, #8B8578)', margin: 0 }}>
