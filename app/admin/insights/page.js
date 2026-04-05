@@ -1,16 +1,10 @@
-import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 
 export const dynamic = 'force-dynamic'
 
 export default async function InsightsPage() {
-  // ── Auth check ─────────────────────────────────────────────────────
-  const cookieStore = await cookies()
-  const adminToken = cookieStore.get('atlas_admin')?.value
-    || cookieStore.get('admin_auth')?.value
-  if (!adminToken) redirect('/admin/login')
+  // Auth handled by middleware — no page-level check needed
 
   // ── Queries ────────────────────────────────────────────────────────
   const sb = getSupabaseAdmin()

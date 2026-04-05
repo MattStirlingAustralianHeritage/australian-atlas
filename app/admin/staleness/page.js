@@ -1,5 +1,3 @@
-import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 
@@ -46,11 +44,7 @@ function getStatusBadge(status) {
 }
 
 export default async function StalenessPage({ searchParams }) {
-  const cookieStore = await cookies()
-  const adminToken = cookieStore.get('atlas_admin')?.value
-    || cookieStore.get('admin_auth')?.value
-  if (!adminToken) redirect('/admin/login')
-
+  // Auth handled by middleware — no page-level check needed
   const params = await searchParams
   const filterVertical = params?.vertical || null
   const filterRegion = params?.region || null

@@ -1,7 +1,6 @@
-import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 
+export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Listing Candidates — Admin' }
 
 const VERTICAL_NAMES = {
@@ -11,11 +10,7 @@ const VERTICAL_NAMES = {
 }
 
 export default async function CandidatesPage({ searchParams }) {
-  const cookieStore = await cookies()
-  const adminToken = cookieStore.get('atlas_admin')?.value
-    || cookieStore.get('admin_auth')?.value
-  if (!adminToken) redirect('/admin/login')
-
+  // Auth handled by middleware — no page-level check needed
   const params = await searchParams
   const filterVertical = params?.vertical || null
   const filterRegion = params?.region || null

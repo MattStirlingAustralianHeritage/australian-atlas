@@ -1,5 +1,3 @@
-import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
 import { getSupabaseAdmin, getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
 import ClaimsActions from './ClaimsActions'
 
@@ -7,10 +5,7 @@ export const metadata = { title: 'Claims Review — Admin' }
 export const dynamic = 'force-dynamic'
 
 export default async function ClaimsPage() {
-  const cookieStore = await cookies()
-  const adminToken = cookieStore.get('atlas_admin')?.value
-    || cookieStore.get('admin_auth')?.value
-  if (!adminToken) redirect('/admin/login')
+  // Auth handled by middleware — no page-level check needed
 
   // Try portal claims_review table first; fall back to querying verticals directly
   let claims = []
