@@ -2,10 +2,8 @@ import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import HomeSearchBar from '@/components/HomeSearchBar'
 import TrailPromptInput from '@/components/TrailPromptInput'
-import HomeMapBackground from '@/components/HomeMapBackground'
-import MapCountRotator from '@/components/MapCountRotator'
+import HomeMapSection from '@/components/HomeMapSection'
 import { getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
-import { VERTICAL_STYLES } from '@/components/VerticalBadge'
 
 const verticals = [
   { key: 'sba', name: 'Small Batch Atlas', tag: 'Small Batch', desc: 'Craft breweries, wineries, distilleries, cideries and cellar doors', url: 'https://smallbatchatlas.com.au' },
@@ -146,7 +144,7 @@ export default async function Home() {
   return (
     <>
       {/* Hero */}
-      <section className="relative text-center px-4 sm:px-6 pt-24 pb-20 max-w-4xl mx-auto">
+      <section className="relative text-center px-4 sm:px-6 pt-24 pb-8 max-w-4xl mx-auto">
         <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, letterSpacing: '-0.01em' }} className="text-4xl sm:text-5xl md:text-6xl leading-[1.1] text-[var(--color-ink)]">
           The complete guide to<br /><em className="not-italic" style={{ fontStyle: 'italic' }}>independent</em> Australia.
         </h1>
@@ -164,6 +162,85 @@ export default async function Home() {
 
         {/* Search bar */}
         <HomeSearchBar />
+      </section>
+
+      {/* Interactive Map — centrepiece */}
+      <HomeMapSection listingCount={stats.listings} />
+
+      {/* Atlas Grid */}
+      <section className="px-4 sm:px-6 py-16 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {verticals.map(v => {
+            const colors = VERTICAL_CARD_COLORS[v.key]
+            return (
+              <a
+                key={v.key}
+                href={v.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group relative block rounded-xl overflow-hidden"
+                style={{ background: colors.bg }}
+              >
+                {/* Dot-grid texture overlay */}
+                <div className="absolute inset-0 pointer-events-none" style={{
+                  opacity: 0.06,
+                  backgroundImage: 'radial-gradient(circle, currentColor 1px, transparent 1px)',
+                  backgroundSize: '16px 16px',
+                  color: colors.text,
+                }} />
+                <div className="relative p-6 flex flex-col" style={{ minHeight: 200 }}>
+                  {/* Tag */}
+                  <p style={{
+                    fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 10,
+                    letterSpacing: '0.16em', textTransform: 'uppercase',
+                    color: colors.text, opacity: 0.5, marginBottom: 16, lineHeight: 1,
+                  }}>
+                    {v.tag}
+                  </p>
+                  {/* Name */}
+                  <h2 style={{
+                    fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22,
+                    color: colors.text, lineHeight: 1.2, marginBottom: 6,
+                  }}>
+                    {v.name}
+                  </h2>
+                  {/* Description */}
+                  <p style={{
+                    fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 13,
+                    color: colors.text, opacity: 0.65, lineHeight: 1.5, marginBottom: 0,
+                  }}>
+                    {v.desc}
+                  </p>
+                  {/* Spacer */}
+                  <div style={{ flex: 1, minHeight: 20 }} />
+                  {/* Footer: count + links */}
+                  <div className="flex items-end justify-between">
+                    {stats.verticalCounts[v.key] > 0 && (
+                      <span style={{
+                        fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12,
+                        color: colors.text, opacity: 0.4,
+                      }}>
+                        {stats.verticalCounts[v.key].toLocaleString()} listings
+                      </span>
+                    )}
+                    <div className="flex items-center gap-4">
+                      <Link
+                        href={`/search?vertical=${v.key}`}
+                        className="relative z-10 transition-opacity hover:opacity-70"
+                        style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, color: colors.text }}
+                      >
+                        Browse
+                      </Link>
+                      <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, color: colors.text, opacity: 0.5 }} className="group-hover:opacity-80 transition-opacity">
+                        Visit &nearr;
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </a>
+            )
+          })}
+        </div>
       </section>
 
       {/* Trail Builder Section */}
@@ -320,117 +397,6 @@ export default async function Home() {
         </div>
       </section>
       )}
-
-      {/* Atlas Grid */}
-      <section className="px-4 sm:px-6 py-20 max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {verticals.map(v => {
-            const colors = VERTICAL_CARD_COLORS[v.key]
-            return (
-              <a
-                key={v.key}
-                href={v.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group relative block rounded-xl overflow-hidden"
-                style={{ background: colors.bg }}
-              >
-                {/* Dot-grid texture overlay */}
-                <div className="absolute inset-0 pointer-events-none" style={{
-                  opacity: 0.06,
-                  backgroundImage: 'radial-gradient(circle, currentColor 1px, transparent 1px)',
-                  backgroundSize: '16px 16px',
-                  color: colors.text,
-                }} />
-                <div className="relative p-6 flex flex-col" style={{ minHeight: 200 }}>
-                  {/* Tag */}
-                  <p style={{
-                    fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 10,
-                    letterSpacing: '0.16em', textTransform: 'uppercase',
-                    color: colors.text, opacity: 0.5, marginBottom: 16, lineHeight: 1,
-                  }}>
-                    {v.tag}
-                  </p>
-                  {/* Name */}
-                  <h2 style={{
-                    fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22,
-                    color: colors.text, lineHeight: 1.2, marginBottom: 6,
-                  }}>
-                    {v.name}
-                  </h2>
-                  {/* Description */}
-                  <p style={{
-                    fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 13,
-                    color: colors.text, opacity: 0.65, lineHeight: 1.5, marginBottom: 0,
-                  }}>
-                    {v.desc}
-                  </p>
-                  {/* Spacer */}
-                  <div style={{ flex: 1, minHeight: 20 }} />
-                  {/* Footer: count + links */}
-                  <div className="flex items-end justify-between">
-                    {stats.verticalCounts[v.key] > 0 && (
-                      <span style={{
-                        fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12,
-                        color: colors.text, opacity: 0.4,
-                      }}>
-                        {stats.verticalCounts[v.key].toLocaleString()} listings
-                      </span>
-                    )}
-                    <div className="flex items-center gap-4">
-                      <Link
-                        href={`/search?vertical=${v.key}`}
-                        className="relative z-10 transition-opacity hover:opacity-70"
-                        style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, color: colors.text }}
-                      >
-                        Browse
-                      </Link>
-                      <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, color: colors.text, opacity: 0.5 }} className="group-hover:opacity-80 transition-opacity">
-                        Visit &nearr;
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </a>
-            )
-          })}
-        </div>
-      </section>
-
-      {/* Map Section */}
-      <section className="relative border-y border-[var(--color-border)] overflow-hidden" style={{ height: '520px' }}>
-        {/* Real Mapbox map as background */}
-        <HomeMapBackground />
-
-        {/* Subtle vignette overlay for text readability */}
-        <div className="absolute inset-0 pointer-events-none" style={{
-          background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.6) 70%, rgba(255,255,255,0.85) 100%)',
-        }} />
-
-        {/* Centred content */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center z-10 px-4">
-          <MapCountRotator verticalCounts={stats.verticalCounts} totalListings={stats.listings} />
-          <p className="mt-3 text-center" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px', color: 'var(--color-muted)' }}>All nine atlases, filterable and explorable</p>
-          <Link href="/map" className="mt-6 inline-flex items-center gap-2 bg-[var(--color-accent)] text-white px-6 py-3 rounded-full shadow-lg hover:shadow-xl transition-all" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px' }}>
-            Open full map
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-          </Link>
-
-          {/* Vertical legend pills — using VerticalBadge colors */}
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-            {verticals.map(v => {
-              const vs = VERTICAL_STYLES[v.key]
-              const slug = { sba: 'small-batch', collection: 'collections', craft: 'craft', fine_grounds: 'fine-grounds', rest: 'rest', field: 'field', corner: 'corner', found: 'found', table: 'table' }[v.key]
-              return (
-                <Link key={v.key} href={`/map?vertical=${slug}`} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/80 backdrop-blur-sm border border-[var(--color-border)] hover:underline hover:underline-offset-2 cursor-pointer transition-all" style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '11px', color: vs?.text || 'var(--color-muted)', textDecorationColor: vs?.text || 'var(--color-muted)' }}>
-                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: vs?.text || '#6B6760' }} />
-                  {vs?.label || v.name.replace(' Atlas', '')}
-                </Link>
-              )
-            })}
-          </div>
-        </div>
-      </section>
 
       {/* Explore by Region */}
       <section className="py-16 px-4 sm:px-6">
