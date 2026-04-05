@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { VERTICAL_STYLES } from '@/components/VerticalBadge'
 import { getVerticalUrl } from '@/lib/verticalUrl'
+import TrailQuestionFlow from '@/components/TrailQuestionFlow'
 
 const VERTICAL_COLORS = {
   sba: '#C49A3C', collection: '#7A6B8A', craft: '#C1603A', fine_grounds: '#8A7055',
@@ -460,8 +461,12 @@ function ItineraryPageInner() {
   const flowGroup = searchParams.get('group')
   const flowPace = searchParams.get('pace')
 
+  // Gate: preferences modal must be completed before generation starts
+  const prefsConfirmed = searchParams.has('_prefs')
+  const needsPrefsModal = !!q && !prefsConfirmed
+
   const [itinerary, setItinerary] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!needsPrefsModal)
   const [error, setError] = useState(null)
   const [loadingMsgIndex, setLoadingMsgIndex] = useState(0)
   const [copied, setCopied] = useState(false)
@@ -481,13 +486,16 @@ function ItineraryPageInner() {
     return () => clearInterval(interval)
   }, [loading])
 
-  // Fetch itinerary — pass all URL params to API
+  // Fetch itinerary — pass all URL params to API (only after prefs modal)
   useEffect(() => {
     if (!q) {
       setError('No query provided')
       setLoading(false)
       return
     }
+
+    // Wait for preferences modal before generating
+    if (needsPrefsModal) return
 
     let cancelled = false
 
@@ -536,7 +544,7 @@ function ItineraryPageInner() {
 
     fetchItinerary()
     return () => { cancelled = true }
-  }, [q, flowAccommodation, flowTransport, flowGroup, flowPace])
+  }, [q, flowAccommodation, flowTransport, flowGroup, flowPace, needsPrefsModal])
 
   // Sort recommendations by chronological daily flow order
   function sortRecsByFlowOrder(recs) {
@@ -759,6 +767,24 @@ function ItineraryPageInner() {
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }, [])
+
+  // --- Preferences modal gate ---
+  if (needsPrefsModal) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-16 text-center">
+        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)', marginBottom: 8 }}>
+          Almost there...
+        </h2>
+        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 14, color: 'var(--color-muted)' }}>
+          A few quick preferences to shape your trail.
+        </p>
+        <TrailQuestionFlow
+          query={q}
+          onClose={() => router.back()}
+        />
+      </div>
+    )
+  }
 
   // --- Loading state ---
   if (loading) {

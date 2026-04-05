@@ -78,16 +78,16 @@ export default function TrailQuestionFlow({ query, regionName, onClose }) {
   }
 
   function handleSubmit() {
-    const params = new URLSearchParams({ q: query })
+    const params = new URLSearchParams({ q: query, _prefs: '1' })
     if (answers.accommodation) params.set('accommodation', answers.accommodation)
     if (answers.transport) params.set('transport', answers.transport)
     if (answers.group) params.set('group', answers.group)
     if (answers.pace) params.set('pace', answers.pace)
-    router.push(`/itinerary?${params.toString()}`)
+    router.replace(`/itinerary?${params.toString()}`)
   }
 
   function handleSkip() {
-    router.push(`/itinerary?q=${encodeURIComponent(query)}`)
+    router.replace(`/itinerary?q=${encodeURIComponent(query)}&_prefs=1`)
   }
 
   const answeredCount = Object.values(answers).filter(Boolean).length
@@ -148,28 +148,26 @@ export default function TrailQuestionFlow({ query, regionName, onClose }) {
           </button>
         </div>
 
-        {/* Region destination label (when launched from a region page) */}
-        {regionName && (
-          <div style={{ padding: '24px 32px 0' }}>
-            <p style={{
-              fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 10,
-              color: 'var(--color-muted)', marginBottom: 10,
-              textTransform: 'uppercase', letterSpacing: '0.14em', lineHeight: 1,
-            }}>
-              Destination
-            </p>
-            <div style={{
-              fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 16,
-              color: 'var(--color-ink)',
-              background: 'var(--color-cream, #faf7f2)',
-              border: '1px solid var(--color-border, #e8e3da)',
-              borderRadius: 8,
-              padding: '12px 14px',
-            }}>
-              {regionName}
-            </div>
+        {/* Destination / query label — always shown as fixed context */}
+        <div style={{ padding: '24px 32px 0' }}>
+          <p style={{
+            fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 10,
+            color: 'var(--color-muted)', marginBottom: 10,
+            textTransform: 'uppercase', letterSpacing: '0.14em', lineHeight: 1,
+          }}>
+            {regionName ? 'Destination' : 'Your trail'}
+          </p>
+          <div style={{
+            fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 16,
+            color: 'var(--color-ink)',
+            background: 'var(--color-cream, #faf7f2)',
+            border: '1px solid var(--color-border, #e8e3da)',
+            borderRadius: 8,
+            padding: '12px 14px',
+          }}>
+            {regionName || query}
           </div>
-        )}
+        </div>
 
         {/* Questions */}
         <div style={{ padding: '28px 32px 8px' }}>
@@ -246,7 +244,7 @@ export default function TrailQuestionFlow({ query, regionName, onClose }) {
               letterSpacing: '0.01em',
             }}
           >
-            Skip
+            Skip, just build it
           </button>
           <button
             onClick={handleSubmit}
