@@ -67,6 +67,7 @@ const VERTICAL_SCHEMAS = {
       { name: 'producer_type', weight: 5,  label: 'Producer type' },
       { name: 'features',      weight: 5,  label: 'Features' },
       { name: 'google_rating', weight: 5,  label: 'Google rating' },
+      { name: 'opening_hours', weight: 5,  label: 'Opening hours', customCheck: 'hours' },
     ],
   },
 
@@ -90,6 +91,7 @@ const VERTICAL_SCHEMAS = {
       { name: 'beans_origin',     weight: 5,  label: 'Bean origins' },
       { name: 'roaster_master_id',weight: 5,  label: 'Roaster relationship' },
       { name: 'google_rating',    weight: 5,  label: 'Google rating' },
+      { name: 'opening_hours',    weight: 8,  label: 'Opening hours', customCheck: 'hours' },
     ],
   },
 
@@ -196,9 +198,10 @@ const VERTICAL_SCHEMAS = {
     ],
     metaTable: 'corner_meta',
     metaFields: [
-      { name: 'shop_type',   weight: 5,  label: 'Shop type' },
-      { name: 'story',       weight: 5,  label: 'Shop story' },
-      { name: 'known_for',   weight: 5,  label: 'Known for' },
+      { name: 'shop_type',      weight: 5,  label: 'Shop type' },
+      { name: 'story',          weight: 5,  label: 'Shop story' },
+      { name: 'known_for',      weight: 5,  label: 'Known for' },
+      { name: 'opening_hours',  weight: 10, label: 'Opening hours', customCheck: 'hours' },
     ],
   },
 
@@ -217,9 +220,10 @@ const VERTICAL_SCHEMAS = {
     ],
     metaTable: 'found_meta',
     metaFields: [
-      { name: 'shop_type',   weight: 5,  label: 'Shop type' },
-      { name: 'story',       weight: 5,  label: 'Shop story' },
-      { name: 'known_for',   weight: 5,  label: 'Known for' },
+      { name: 'shop_type',      weight: 5,  label: 'Shop type' },
+      { name: 'story',          weight: 5,  label: 'Shop story' },
+      { name: 'known_for',      weight: 5,  label: 'Known for' },
+      { name: 'opening_hours',  weight: 10, label: 'Opening hours', customCheck: 'hours' },
     ],
   },
 
@@ -238,10 +242,11 @@ const VERTICAL_SCHEMAS = {
     ],
     metaTable: 'table_meta',
     metaFields: [
-      { name: 'food_type',   weight: 5,  label: 'Food type' },
-      { name: 'cuisine',     weight: 5,  label: 'Cuisine' },
-      { name: 'story',       weight: 5,  label: 'Story' },
-      { name: 'known_for',   weight: 5,  label: 'Known for' },
+      { name: 'food_type',      weight: 5,  label: 'Food type' },
+      { name: 'cuisine',        weight: 5,  label: 'Cuisine' },
+      { name: 'story',          weight: 5,  label: 'Story' },
+      { name: 'known_for',      weight: 5,  label: 'Known for' },
+      { name: 'opening_hours',  weight: 8,  label: 'Opening hours', customCheck: 'hours' },
     ],
   },
 }
@@ -259,6 +264,14 @@ function isFilled(value) {
   if (typeof value === 'string' && value.trim() === '') return false
   if (Array.isArray(value) && value.length === 0) return false
   return true
+}
+
+// Opening hours needs a special check — JSONB with day keys, must have at least
+// one day with real hours data (not null, not empty, not just "Closed")
+function isHoursFilled(hours) {
+  if (!hours || typeof hours !== 'object') return false
+  const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+  return days.some(d => hours[d] && hours[d] !== '' && hours[d] !== 'Closed')
 }
 
 function scoreListing(listing, metaRow, schema) {
@@ -280,7 +293,8 @@ function scoreListing(listing, metaRow, schema) {
   if (schema.metaFields && metaRow) {
     for (const field of schema.metaFields) {
       const value = metaRow[field.name]
-      if (isFilled(value)) {
+      const filled = field.customCheck === 'hours' ? isHoursFilled(value) : isFilled(value)
+      if (filled) {
         earnedWeight += field.weight
       } else {
         missing.push(field.label)
