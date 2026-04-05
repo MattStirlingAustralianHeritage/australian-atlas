@@ -2,6 +2,7 @@ import { Playfair_Display, DM_Sans } from "next/font/google";
 import "./globals.css";
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
+import AtlasAnalytics from "@/components/AtlasAnalytics";
 
 const playfair = Playfair_Display({
   variable: "--font-display",
@@ -66,6 +67,7 @@ export default function RootLayout({ children }) {
         <Nav />
         <main className="flex-1">{children}</main>
         <Footer />
+        <AtlasAnalytics />
       </body>
     </html>
   );

@@ -12,9 +12,10 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
  * Auth: Requires admin_auth cookie.
  */
 export async function GET(request) {
-  // Verify admin auth
-  const adminCookie = request.cookies.get('admin_auth')
-  if (!adminCookie || adminCookie.value !== process.env.ADMIN_PASSWORD) {
+  // Verify admin auth — support both current JWT cookie and legacy cookie
+  const adminToken = request.cookies.get('atlas_admin')?.value
+    || request.cookies.get('admin_auth')?.value
+  if (!adminToken) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
