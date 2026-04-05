@@ -39,9 +39,13 @@ export default function AnalyticsDashboard() {
       const res = await fetch(`/api/analytics/dashboard?${params}`)
       if (res.ok) {
         setData(await res.json())
+      } else {
+        console.error('Analytics dashboard returned', res.status, await res.text().catch(() => ''))
+        setData({ traffic: [], geo: [], timeline: [], topPages: [] })
       }
     } catch (err) {
       console.error('Failed to fetch analytics:', err)
+      setData({ traffic: [], geo: [], timeline: [], topPages: [] })
     }
     setLoading(false)
   }, [range, vertical])

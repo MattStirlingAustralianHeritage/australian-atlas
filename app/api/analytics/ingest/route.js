@@ -39,7 +39,7 @@ export async function POST(request) {
     const geo = resolveGeo(request)
 
     const supabase = getSupabaseAdmin()
-    await supabase.from('site_analytics').insert({
+    const { error } = await supabase.from('site_analytics').insert({
       vertical,
       page_path,
       event_type,
@@ -52,9 +52,14 @@ export async function POST(request) {
       device_type: device_type || null,
     })
 
+    if (error) {
+      console.error('Analytics ingest insert error:', error.message, error.details)
+    }
+
     return NextResponse.json({ ok: true }, { headers: CORS_HEADERS })
-  } catch {
-    // Analytics should never break the user experience — fail silently
+  } catch (err) {
+    // Analytics should never break the user experience — log and fail silently
+    console.error('Analytics ingest error:', err)
     return NextResponse.json({ ok: true }, { headers: CORS_HEADERS })
   }
 }
