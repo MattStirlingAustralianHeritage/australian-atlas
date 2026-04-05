@@ -33,12 +33,15 @@ export default function Nav() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [menuOpen])
 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
   const navLinks = [
     { href: '/explore', label: 'Explore' },
     { href: '/map', label: 'Map' },
     { href: '/trails', label: 'Trails' },
     { href: '/regions', label: 'Regions' },
     { href: '/events', label: 'Events' },
+    { href: '/for-councils', label: 'For Councils' },
     { href: '/search', label: 'Search' },
   ]
 
@@ -85,6 +88,30 @@ export default function Nav() {
               {link.label}
             </Link>
           ))}
+
+          {/* Mobile hamburger */}
+          <button
+            className="sm:hidden"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label="Toggle menu"
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '4px',
+              color: 'var(--color-ink)',
+            }}
+          >
+            {mobileMenuOpen ? (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 6L6 18" /><path d="M6 6l12 12" />
+              </svg>
+            ) : (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 12h18" /><path d="M3 6h18" /><path d="M3 18h18" />
+              </svg>
+            )}
+          </button>
 
           {/* Auth state */}
           {user ? (
@@ -204,6 +231,57 @@ export default function Nav() {
           )}
         </div>
       </div>
+
+      {/* Mobile menu */}
+      {mobileMenuOpen && (
+        <div
+          className="sm:hidden"
+          style={{
+            borderTop: '1px solid var(--color-border)',
+            background: 'var(--color-bg)',
+            padding: '0.5rem 0',
+          }}
+        >
+          {navLinks.map(link => (
+            <Link
+              key={link.href}
+              href={link.href}
+              onClick={() => setMobileMenuOpen(false)}
+              style={{
+                display: 'block',
+                padding: '0.625rem 1.5rem',
+                fontFamily: 'var(--font-body)',
+                fontWeight: 400,
+                fontSize: '14px',
+                color: 'var(--color-ink)',
+                textDecoration: 'none',
+              }}
+            >
+              {link.label}
+            </Link>
+          ))}
+          {!user && (
+            <Link
+              href="/login"
+              onClick={() => setMobileMenuOpen(false)}
+              style={{
+                display: 'block',
+                padding: '0.625rem 1.5rem',
+                fontFamily: 'var(--font-body)',
+                fontWeight: 400,
+                fontSize: '14px',
+                color: 'var(--color-muted)',
+                textDecoration: 'none',
+                borderTop: '1px solid var(--color-border)',
+                marginTop: '0.25rem',
+                paddingTop: '0.75rem',
+              }}
+            >
+              Sign In
+            </Link>
+          )}
+        </div>
+      )}
     </nav>
   )
 }
