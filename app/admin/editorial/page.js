@@ -12,12 +12,18 @@ export default async function EditorialPage() {
 
   const sb = getSupabaseAdmin()
 
-  // Fetch story ideas
-  const { data: ideas } = await sb
-    .from('story_ideas')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(50)
+  let ideas = []
+  try {
+    const { data, error } = await sb
+      .from('story_ideas')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50)
+    if (!error && data) ideas = data
+  } catch (err) {
+    console.error('[admin/editorial] Query error:', err.message)
+    // Continue with empty state rather than crashing
+  }
 
   const statusColors = {
     idea: '#E8E3DA',

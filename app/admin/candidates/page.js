@@ -23,22 +23,35 @@ export default async function CandidatesPage({ searchParams }) {
 
   const sb = getSupabaseAdmin()
 
-  let query = sb
-    .from('listing_candidates')
-    .select('*')
-    .order('confidence', { ascending: false })
-    .limit(100)
+  let candidates = []
+  let pending = 0, reviewing = 0, converted = 0
 
-  if (filterStatus) query = query.eq('status', filterStatus)
-  if (filterVertical) query = query.eq('vertical', filterVertical)
-  if (filterRegion) query = query.ilike('region', `%${filterRegion}%`)
+  try {
+    let query = sb
+      .from('listing_candidates')
+      .select('*')
+      .order('confidence', { ascending: false })
+      .limit(100)
 
-  const { data: candidates } = await query
+    if (filterStatus) query = query.eq('status', filterStatus)
+    if (filterVertical) query = query.eq('vertical', filterVertical)
+    if (filterRegion) query = query.ilike('region', `%${filterRegion}%`)
 
-  // Stats
-  const { count: pending } = await sb.from('listing_candidates').select('*', { count: 'exact', head: true }).eq('status', 'pending')
-  const { count: reviewing } = await sb.from('listing_candidates').select('*', { count: 'exact', head: true }).eq('status', 'reviewing')
-  const { count: converted } = await sb.from('listing_candidates').select('*', { count: 'exact', head: true }).eq('status', 'converted')
+    const { data, error } = await query
+    if (!error && data) candidates = data
+
+    const [p, r, c] = await Promise.all([
+      sb.from('listing_candidates').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+      sb.from('listing_candidates').select('*', { count: 'exact', head: true }).eq('status', 'reviewing'),
+      sb.from('listing_candidates').select('*', { count: 'exact', head: true }).eq('status', 'converted'),
+    ])
+    pending = p.count || 0
+    reviewing = r.count || 0
+    converted = c.count || 0
+  } catch (err) {
+    console.error('[admin/candidates] Query error:', err.message)
+    // Continue with empty state rather than crashing
+  }
 
   return (
     <div style={{ padding: '2rem', maxWidth: 1000, margin: '0 auto' }}>

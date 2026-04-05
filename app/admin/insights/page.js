@@ -16,20 +16,21 @@ export default async function InsightsPage() {
   const sb = getSupabaseAdmin()
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
-  // Supabase JS doesn't support GROUP BY, so we fetch raw rows and aggregate in JS
-  const { data: searchRows } = await sb
-    .from('search_logs')
-    .select('query_text, result_count')
-    .gte('created_at', sevenDaysAgo)
-    .order('created_at', { ascending: false })
-    .limit(5000)
+  let searchRows = []
+  let trailRows = []
 
-  const { data: trailRows } = await sb
-    .from('trail_logs')
-    .select('prompt_text, region_detected')
-    .gte('created_at', sevenDaysAgo)
-    .order('created_at', { ascending: false })
-    .limit(5000)
+  try {
+    // Supabase JS doesn't support GROUP BY, so we fetch raw rows and aggregate in JS
+    const [searchRes, trailRes] = await Promise.all([
+      sb.from('search_logs').select('query_text, result_count').gte('created_at', sevenDaysAgo).order('created_at', { ascending: false }).limit(5000),
+      sb.from('trail_logs').select('prompt_text, region_detected').gte('created_at', sevenDaysAgo).order('created_at', { ascending: false }).limit(5000),
+    ])
+    if (!searchRes.error && searchRes.data) searchRows = searchRes.data
+    if (!trailRes.error && trailRes.data) trailRows = trailRes.data
+  } catch (err) {
+    console.error('[admin/insights] Query error:', err.message)
+    // Continue with empty state rather than crashing
+  }
 
   // ── Aggregate search data ──────────────────────────────────────────
   const searchCounts = {}

@@ -18,24 +18,37 @@ export default async function DuplicatesPage() {
 
   const sb = getSupabaseAdmin()
 
-  // Fetch pending dedup flags with listing details
-  const { data: flags } = await sb
-    .from('dedup_flags')
-    .select(`
-      id, similarity_score, ai_assessment, ai_reasoning, status, created_at,
-      listing_a:listing_id_a (id, name, vertical, suburb, state, region, slug),
-      listing_b:listing_id_b (id, name, vertical, suburb, state, region, slug)
-    `)
-    .eq('status', 'pending')
-    .order('similarity_score', { ascending: false })
-    .limit(50)
+  let pending = []
+  let totalPending = 0, totalDismissed = 0, totalMerged = 0
 
-  const pending = (flags || []).filter(f => f.listing_a && f.listing_b)
+  try {
+    // Fetch pending dedup flags with listing details
+    const { data: flags } = await sb
+      .from('dedup_flags')
+      .select(`
+        id, similarity_score, ai_assessment, ai_reasoning, status, created_at,
+        listing_a:listing_id_a (id, name, vertical, suburb, state, region, slug),
+        listing_b:listing_id_b (id, name, vertical, suburb, state, region, slug)
+      `)
+      .eq('status', 'pending')
+      .order('similarity_score', { ascending: false })
+      .limit(50)
 
-  // Stats
-  const { count: totalPending } = await sb.from('dedup_flags').select('*', { count: 'exact', head: true }).eq('status', 'pending')
-  const { count: totalDismissed } = await sb.from('dedup_flags').select('*', { count: 'exact', head: true }).eq('status', 'dismissed')
-  const { count: totalMerged } = await sb.from('dedup_flags').select('*', { count: 'exact', head: true }).eq('status', 'merged')
+    pending = (flags || []).filter(f => f.listing_a && f.listing_b)
+
+    // Stats
+    const [pRes, dRes, mRes] = await Promise.all([
+      sb.from('dedup_flags').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+      sb.from('dedup_flags').select('*', { count: 'exact', head: true }).eq('status', 'dismissed'),
+      sb.from('dedup_flags').select('*', { count: 'exact', head: true }).eq('status', 'merged'),
+    ])
+    totalPending = pRes.count || 0
+    totalDismissed = dRes.count || 0
+    totalMerged = mRes.count || 0
+  } catch (err) {
+    console.error('[admin/duplicates] Query error:', err.message)
+    // Continue with empty state rather than crashing
+  }
 
   return (
     <div style={{ padding: '2rem', maxWidth: 1000, margin: '0 auto' }}>

@@ -1,3 +1,5 @@
+import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 
@@ -44,6 +46,11 @@ function getStatusBadge(status) {
 }
 
 export default async function StalenessPage({ searchParams }) {
+  const cookieStore = await cookies()
+  const adminToken = cookieStore.get('atlas_admin')?.value
+    || cookieStore.get('admin_auth')?.value
+  if (!adminToken) redirect('/admin/login')
+
   const params = await searchParams
   const filterVertical = params?.vertical || null
   const filterRegion = params?.region || null
@@ -51,64 +58,72 @@ export default async function StalenessPage({ searchParams }) {
 
   const sb = getSupabaseAdmin()
 
-  // Fetch all active listings for summary computation
-  let summaryQuery = sb
-    .from('listings')
-    .select('id, last_verified_at, website_status')
-    .eq('status', 'active')
+  let allListings = []
+  let listings = []
+  const tiers = { fresh: 0, ageing: 0, stale: 0, dead: 0 }
 
-  const { data: allListings } = await summaryQuery
-
-  // Compute tier counts
   const now = Date.now()
   const sixMonths = 6 * 30 * 24 * 60 * 60 * 1000
   const twelveMonths = 12 * 30 * 24 * 60 * 60 * 1000
 
-  const tiers = { fresh: 0, ageing: 0, stale: 0, dead: 0 }
+  try {
+    // Fetch all active listings for summary computation
+    const { data: summaryData } = await sb
+      .from('listings')
+      .select('id, last_verified_at, website_status')
+      .eq('status', 'active')
 
-  for (const l of allListings || []) {
-    if (l.website_status === 'dead') {
-      tiers.dead++
-      continue
+    allListings = summaryData || []
+
+    // Compute tier counts
+    for (const l of allListings) {
+      if (l.website_status === 'dead') {
+        tiers.dead++
+        continue
+      }
+      if (!l.last_verified_at) {
+        tiers.stale++
+        continue
+      }
+      const age = now - new Date(l.last_verified_at).getTime()
+      if (age < sixMonths) tiers.fresh++
+      else if (age < twelveMonths) tiers.ageing++
+      else tiers.stale++
     }
-    if (!l.last_verified_at) {
-      tiers.stale++
-      continue
+
+    // Build filtered query for the table
+    let query = sb
+      .from('listings')
+      .select('id, name, vertical, region, last_verified_at, website_status, website, website_checked_at')
+      .eq('status', 'active')
+      .order('last_verified_at', { ascending: true, nullsFirst: true })
+      .limit(200)
+
+    if (filterVertical) {
+      query = query.eq('vertical', filterVertical)
     }
-    const age = now - new Date(l.last_verified_at).getTime()
-    if (age < sixMonths) tiers.fresh++
-    else if (age < twelveMonths) tiers.ageing++
-    else tiers.stale++
+    if (filterRegion) {
+      query = query.ilike('region', `%${filterRegion}%`)
+    }
+    if (filterStatus === 'dead') {
+      query = query.eq('website_status', 'dead')
+    } else if (filterStatus === 'fresh') {
+      query = query.gte('last_verified_at', new Date(now - sixMonths).toISOString())
+    } else if (filterStatus === 'ageing') {
+      query = query.lt('last_verified_at', new Date(now - sixMonths).toISOString())
+      query = query.gte('last_verified_at', new Date(now - twelveMonths).toISOString())
+    } else if (filterStatus === 'stale') {
+      query = query.or('last_verified_at.is.null,last_verified_at.lt.' + new Date(now - twelveMonths).toISOString())
+    }
+
+    const { data: filteredData } = await query
+    listings = filteredData || []
+  } catch (err) {
+    console.error('[admin/staleness] Query error:', err.message)
+    // Continue with empty state rather than crashing
   }
 
-  // Build filtered query for the table
-  let query = sb
-    .from('listings')
-    .select('id, name, vertical, region, last_verified_at, website_status, website, website_checked_at')
-    .eq('status', 'active')
-    .order('last_verified_at', { ascending: true, nullsFirst: true })
-    .limit(200)
-
-  if (filterVertical) {
-    query = query.eq('vertical', filterVertical)
-  }
-  if (filterRegion) {
-    query = query.ilike('region', `%${filterRegion}%`)
-  }
-  if (filterStatus === 'dead') {
-    query = query.eq('website_status', 'dead')
-  } else if (filterStatus === 'fresh') {
-    query = query.gte('last_verified_at', new Date(now - sixMonths).toISOString())
-  } else if (filterStatus === 'ageing') {
-    query = query.lt('last_verified_at', new Date(now - sixMonths).toISOString())
-    query = query.gte('last_verified_at', new Date(now - twelveMonths).toISOString())
-  } else if (filterStatus === 'stale') {
-    query = query.or('last_verified_at.is.null,last_verified_at.lt.' + new Date(now - twelveMonths).toISOString())
-  }
-
-  const { data: listings } = await query
-
-  const total = (allListings || []).length
+  const total = allListings.length
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--color-cream, #F5F1EB)', fontFamily: 'var(--font-sans, system-ui)' }}>
