@@ -92,6 +92,19 @@ async function apiCall(body) {
   return res.json()
 }
 
+async function visibilityApiCall(body) {
+  const res = await fetch('/api/admin/listing-visibility', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new Error(data.error || 'Request failed')
+  }
+  return data
+}
+
 // ─── Icons (inline SVGs) ─────────────────────────────────
 
 function RefreshIcon() {
@@ -126,6 +139,15 @@ function SpinnerIcon() {
   return (
     <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ animation: 'staleness-spin 0.8s linear infinite' }}>
       <path d="M8 1a7 7 0 0 1 7 7" />
+    </svg>
+  )
+}
+
+function ReinstateIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 1v5h5" />
+      <path d="M2.5 10A6.5 6.5 0 1 0 3.8 4.5L1 1" />
     </svg>
   )
 }
@@ -168,8 +190,9 @@ function ActionBtn({ onClick, disabled, loading, color, borderColor, title, chil
 export default function StalenessTable({ initialListings }) {
   const [listings, setListings] = useState(initialListings || [])
   const [selected, setSelected] = useState(new Set())
-  const [loadingRows, setLoadingRows] = useState({}) // { [id]: 'check' | 'verify' | 'flag' }
+  const [loadingRows, setLoadingRows] = useState({}) // { [id]: 'check' | 'verify' | 'flag' | 'reinstate' }
   const [batchProgress, setBatchProgress] = useState(null) // { current, total, action }
+  const [reinstateErrors, setReinstateErrors] = useState({}) // { [id]: 'error message' }
   const abortRef = useRef(false)
 
   // ── Selection ──
@@ -233,6 +256,22 @@ export default function StalenessTable({ initialListings }) {
       updateListing(id, { removal_flagged: true, removal_flagged_at: new Date().toISOString() })
     } catch (err) {
       console.error('Flag failed:', err)
+    }
+    setLoadingRows(prev => { const n = { ...prev }; delete n[id]; return n })
+  }, [updateListing])
+
+  // ── Reinstate hidden listing ──
+
+  const handleReinstate = useCallback(async (id) => {
+    setLoadingRows(prev => ({ ...prev, [id]: 'reinstate' }))
+    setReinstateErrors(prev => { const n = { ...prev }; delete n[id]; return n })
+    try {
+      await visibilityApiCall({ action: 'reinstate', id })
+      // On success: update the listing in state
+      updateListing(id, { status: 'active', hidden_reason: null })
+    } catch (err) {
+      console.error('Reinstate failed:', err)
+      setReinstateErrors(prev => ({ ...prev, [id]: err.message }))
     }
     setLoadingRows(prev => { const n = { ...prev }; delete n[id]; return n })
   }, [updateListing])
@@ -529,6 +568,8 @@ export default function StalenessTable({ initialListings }) {
                   onCheck={handleCheck}
                   onVerify={handleVerify}
                   onFlag={handleFlag}
+                  onReinstate={handleReinstate}
+                  reinstateError={reinstateErrors[listing.id] || null}
                 />
               ))
             )}
@@ -541,7 +582,7 @@ export default function StalenessTable({ initialListings }) {
 
 // ─── ListingRow ──────────────────────────────────────────
 
-function ListingRow({ listing, isSelected, onToggleSelect, loading, onCheck, onVerify, onFlag }) {
+function ListingRow({ listing, isSelected, onToggleSelect, loading, onCheck, onVerify, onFlag, onReinstate, reinstateError }) {
   const staleness = getStalenessLabel(listing.last_verified_at)
   const sc = STALENESS_COLORS[staleness] || STALENESS_COLORS.Unverified
   const priority = getPriority(listing)
@@ -676,7 +717,20 @@ function ListingRow({ listing, isSelected, onToggleSelect, loading, onCheck, onV
 
       {/* Actions */}
       <td style={{ padding: '0.6rem 0.75rem', textAlign: 'right', whiteSpace: 'nowrap' }}>
-        <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', flexWrap: 'wrap', alignItems: 'center' }}>
+          {listing.hidden_reason && (
+            <ActionBtn
+              onClick={() => onReinstate(listing.id)}
+              disabled={false}
+              loading={loading === 'reinstate'}
+              color="#2563eb"
+              borderColor="#2563eb"
+              title="Reinstate listing (checks URL first)"
+            >
+              <ReinstateIcon /> Reinstate
+            </ActionBtn>
+          )}
+
           <ActionBtn
             onClick={() => onCheck(listing.id)}
             disabled={isFlagged || !listing.website}
@@ -710,6 +764,22 @@ function ListingRow({ listing, isSelected, onToggleSelect, loading, onCheck, onV
             <FlagIcon /> Flag
           </ActionBtn>
         </div>
+        {reinstateError && (
+          <div style={{
+            marginTop: '4px',
+            fontSize: '0.68rem',
+            color: '#c53030',
+            background: '#fef2f2',
+            border: '1px solid #f5c6c6',
+            borderRadius: '4px',
+            padding: '3px 8px',
+            textAlign: 'left',
+            maxWidth: '280px',
+            marginLeft: 'auto',
+          }}>
+            {reinstateError}
+          </div>
+        )}
       </td>
     </tr>
   )

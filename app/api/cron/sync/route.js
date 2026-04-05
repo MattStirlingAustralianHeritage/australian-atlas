@@ -4,12 +4,16 @@ import { syncArticles } from '../../../../lib/sync/syncArticles.js'
 import { generateEmbeddings } from '../../../../lib/sync/syncEmbeddings.js'
 import { updateRegionCounts } from '../../../../lib/sync/updateRegionCounts.js'
 import { sendSyncAlert } from '../../../../lib/sync/alerts.js'
+import { getSupabaseAdmin } from '../../../../lib/supabase/clients.js'
 
 // Standard verticals (single source table)
 const STANDARD_VERTICALS = [
   'sba', 'collection', 'craft', 'rest',
   'field', 'corner', 'found', 'table',
 ]
+
+// Verticals exempt from website requirement (natural places, heritage sites)
+const WEBSITE_EXEMPT_VERTICALS = ['field', 'collection']
 
 export async function GET(request) {
   // Verify cron secret
@@ -65,7 +69,75 @@ export async function GET(request) {
     console.error('[cron] Region count update error:', err.message)
   }
 
-  // 6. Send alert if any failures
+  // 6. Post-sync website enforcement
+  // Hide newly synced listings without a website (for non-exempt verticals)
+  // Also reinstate listings that gained a website via sync
+  let hiddenCount = 0
+  let reinstatedCount = 0
+  try {
+    const master = getSupabaseAdmin()
+
+    // Hide active listings with no website in non-exempt verticals
+    for (const vertical of [...STANDARD_VERTICALS, 'fine_grounds']) {
+      if (WEBSITE_EXEMPT_VERTICALS.includes(vertical)) continue
+
+      const { data: toHide } = await master
+        .from('listings')
+        .select('id')
+        .eq('vertical', vertical)
+        .eq('status', 'active')
+        .or('website.is.null,website.eq.')
+
+      if (toHide && toHide.length > 0) {
+        const { error } = await master
+          .from('listings')
+          .update({
+            status: 'inactive',
+            hidden_reason: 'no_website',
+            updated_at: new Date().toISOString(),
+          })
+          .in('id', toHide.map(l => l.id))
+
+        if (!error) {
+          hiddenCount += toHide.length
+          console.log(`[cron] ${vertical}: hid ${toHide.length} listings (no website)`)
+        }
+      }
+    }
+
+    // Reinstate listings that now have a website (were hidden for no_website)
+    const { data: toReinstate } = await master
+      .from('listings')
+      .select('id, vertical')
+      .eq('status', 'inactive')
+      .eq('hidden_reason', 'no_website')
+      .not('website', 'is', null)
+      .neq('website', '')
+
+    if (toReinstate && toReinstate.length > 0) {
+      const { error } = await master
+        .from('listings')
+        .update({
+          status: 'active',
+          hidden_reason: null,
+          updated_at: new Date().toISOString(),
+        })
+        .in('id', toReinstate.map(l => l.id))
+
+      if (!error) {
+        reinstatedCount = toReinstate.length
+        console.log(`[cron] Reinstated ${reinstatedCount} listings (website added)`)
+      }
+    }
+
+    if (hiddenCount > 0 || reinstatedCount > 0) {
+      console.log(`[cron] Website enforcement: ${hiddenCount} hidden, ${reinstatedCount} reinstated`)
+    }
+  } catch (err) {
+    console.error('[cron] Website enforcement error:', err.message)
+  }
+
+  // 7. Send alert if any failures
   try {
     await sendSyncAlert(results)
   } catch (err) {
@@ -77,13 +149,14 @@ export async function GET(request) {
   const totalDeactivated = results.reduce((sum, r) => sum + (r.deactivated || 0), 0)
   const totalErrors = results.filter(r => r.error).length
 
-  console.log(`[cron] Sync complete in ${duration}s: ${totalSynced} listings synced, ${totalDeactivated} deactivated, ${totalErrors} vertical errors, ${articleResult.synced} articles synced`)
+  console.log(`[cron] Sync complete in ${duration}s: ${totalSynced} listings synced, ${totalDeactivated} deactivated, ${totalErrors} vertical errors, ${articleResult.synced} articles synced, ${hiddenCount} hidden (no website), ${reinstatedCount} reinstated`)
 
   return NextResponse.json({
     ok: true,
     duration: `${duration}s`,
     listings: { synced: totalSynced, deactivated: totalDeactivated },
     articles: { synced: articleResult.synced },
+    websiteEnforcement: { hidden: hiddenCount, reinstated: reinstatedCount },
     verticals: results,
     errors: totalErrors,
   })

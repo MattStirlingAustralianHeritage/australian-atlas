@@ -30,7 +30,7 @@ export default async function StalenessPage({ searchParams }) {
 
   let allListings = []
   let listings = []
-  const tiers = { claimedStale: 0, fresh: 0, ageing: 0, stale: 0, dead: 0 }
+  const tiers = { claimedStale: 0, fresh: 0, ageing: 0, stale: 0, dead: 0, hidden: 0 }
 
   const now = Date.now()
   const sixMonths = 6 * 30 * 24 * 60 * 60 * 1000
@@ -69,16 +69,31 @@ export default async function StalenessPage({ searchParams }) {
       else tiers.stale++
     }
 
+    // Count hidden listings
+    const { count: hiddenCount } = await sb
+      .from('listings')
+      .select('*', { count: 'exact', head: true })
+      .eq('hidden_reason', 'no_website')
+      .eq('status', 'inactive')
+
+    tiers.hidden = hiddenCount || 0
+
     // Build filtered query for the table
     // Sort: claimed first, then featured, then least-recently-verified first
     let query = sb
       .from('listings')
-      .select('id, name, vertical, region, last_verified_at, website_status, website, website_checked_at, is_claimed, is_featured, website_status_code, removal_flagged, removal_flagged_at')
-      .eq('status', 'active')
+      .select('id, name, vertical, region, last_verified_at, website_status, website, website_checked_at, is_claimed, is_featured, website_status_code, removal_flagged, removal_flagged_at, hidden_reason')
       .order('is_claimed', { ascending: false })
       .order('is_featured', { ascending: false })
       .order('last_verified_at', { ascending: true, nullsFirst: true })
       .limit(200)
+
+    // Only filter to active listings when NOT viewing hidden
+    if (filterStatus === 'hidden') {
+      query = query.eq('hidden_reason', 'no_website').eq('status', 'inactive')
+    } else {
+      query = query.eq('status', 'active')
+    }
 
     if (filterVertical) {
       query = query.eq('vertical', filterVertical)
@@ -178,6 +193,16 @@ export default async function StalenessPage({ searchParams }) {
             href="/admin/staleness?status=dead"
             active={filterStatus === 'dead'}
           />
+          <TierCard
+            label="Hidden"
+            sublabel="No website URL"
+            count={tiers.hidden}
+            color="#666"
+            bg="#f7f7f7"
+            border="#e5e5e5"
+            href="/admin/staleness?status=hidden"
+            active={filterStatus === 'hidden'}
+          />
         </div>
 
         {/* Filters */}
@@ -250,6 +275,7 @@ export default async function StalenessPage({ searchParams }) {
                 <option value="ageing">Ageing (6-12mo)</option>
                 <option value="stale">Stale (&gt; 12mo)</option>
                 <option value="dead">Dead URL</option>
+                <option value="hidden">Hidden (no website)</option>
               </select>
             </div>
             <button
