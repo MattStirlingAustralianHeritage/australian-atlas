@@ -17,6 +17,21 @@
  */
 
 import { createClient } from '@supabase/supabase-js'
+import { readFileSync } from 'fs'
+
+// Parse .env.local manually — dotenv v17 auto-inject skips some keys
+try {
+  const envText = readFileSync('.env.local', 'utf-8')
+  for (const line of envText.split('\n')) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith('#')) continue
+    const eqIdx = trimmed.indexOf('=')
+    if (eqIdx === -1) continue
+    const key = trimmed.substring(0, eqIdx)
+    const val = trimmed.substring(eqIdx + 1)
+    if (!process.env[key]) process.env[key] = val
+  }
+} catch { /* .env.local may not exist in production */ }
 
 const MASTER_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 const MASTER_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -292,7 +307,7 @@ Respond with a JSON array of exactly 10 objects. No other text, just the JSON ar
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-haiku-4-5-20250414',
+      model: 'claude-3-haiku-20240307',
       max_tokens: 4000,
       messages: [{ role: 'user', content: prompt }],
     }),
