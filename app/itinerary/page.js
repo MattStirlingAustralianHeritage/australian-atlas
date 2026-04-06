@@ -1,11 +1,14 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
+import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { VERTICAL_STYLES } from '@/components/VerticalBadge'
 import { getVerticalUrl } from '@/lib/verticalUrl'
 import TrailQuestionFlow from '@/components/TrailQuestionFlow'
+// TrailLoadingOverlay imported lazily to avoid blocking render
+import dynamic from 'next/dynamic'
+const TrailLoadingOverlay = dynamic(() => import('@/components/TrailLoadingOverlay'), { ssr: false })
 
 const VERTICAL_COLORS = {
   sba: '#C49A3C', collection: '#7A6B8A', craft: '#C1603A', fine_grounds: '#8A7055',
@@ -462,7 +465,10 @@ function ItineraryPageInner() {
   const flowPace = searchParams.get('pace')
 
   // Gate: preferences modal must be completed before generation starts
-  const prefsConfirmed = searchParams.has('_prefs')
+  // Accept _prefs (from TrailQuestionFlow), rest_prefs (from Rest Atlas redirect),
+  // or detect that all 4 pref params are already present in the URL
+  const prefsConfirmed = searchParams.has('_prefs') || searchParams.has('rest_prefs') ||
+    (flowAccommodation && flowTransport && flowGroup && flowPace)
   const needsPrefsModal = !!q && !prefsConfirmed
 
   const [itinerary, setItinerary] = useState(null)
@@ -496,6 +502,12 @@ function ItineraryPageInner() {
 
     // Wait for preferences modal before generating
     if (needsPrefsModal) return
+
+    // Ensure loading overlay shows — critical for client-side transitions
+    // from TrailQuestionFlow (router.replace keeps component mounted,
+    // so useState(false) retains its initial value without this)
+    setLoading(true)
+    setError(null)
 
     let cancelled = false
 
@@ -789,30 +801,59 @@ function ItineraryPageInner() {
   // --- Loading state ---
   if (loading) {
     return (
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-16 text-center">
-        <div style={{ width: 48, height: 48, margin: '0 auto 24px', position: 'relative' }}>
-          <div style={{
-            width: 48, height: 48, borderRadius: '50%',
-            border: '3px solid var(--color-border)',
-            borderTopColor: 'var(--color-sage)',
-            animation: 'spin 1s linear infinite',
-          }} />
-        </div>
-        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)', marginBottom: 8 }}>
-          Planning {destination !== 'your' ? `your ${destination}` : 'your'} trail...
-        </h2>
-        <p style={{
-          fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 14, color: 'var(--color-muted)',
-          transition: 'opacity 0.3s ease',
+      <>
+        {/* Inline fallback that renders immediately — no external dependency */}
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9998,
+          background: 'var(--color-bg)',
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center',
+          gap: 16,
         }}>
-          {LOADING_MESSAGES[loadingMsgIndex]}
-        </p>
-        <style jsx>{`
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
-      </div>
+          <div style={{
+            fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase',
+            color: 'var(--color-muted)', fontFamily: 'var(--font-sans)', fontWeight: 600,
+          }}>
+            Australian Atlas
+          </div>
+          <h2 style={{
+            fontFamily: 'var(--font-display)', fontWeight: 400,
+            fontSize: 'clamp(18px, 3vw, 26px)', color: 'var(--color-ink)',
+          }}>
+            {LOADING_MESSAGES[loadingMsgIndex]}
+          </h2>
+          <p style={{
+            fontSize: 12, color: 'var(--color-muted)',
+            fontFamily: 'var(--font-sans)', letterSpacing: '0.02em',
+          }}>
+            Building from verified venues only
+          </p>
+          {/* Progress bar */}
+          <div style={{
+            position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+            background: 'var(--color-border)',
+          }}>
+            <div style={{
+              height: '100%', width: '60%',
+              background: 'linear-gradient(90deg, var(--color-sage-dark), var(--color-sage))',
+              animation: 'trailProgress 3s ease-in-out infinite',
+            }} />
+          </div>
+          <style>{`
+            @keyframes trailProgress {
+              0% { width: 0%; }
+              50% { width: 75%; }
+              100% { width: 92%; }
+            }
+          `}</style>
+        </div>
+        {/* Layer the rich map overlay on top once it loads */}
+        <TrailLoadingOverlay
+          visible={true}
+          regionLabel={destination !== 'your' ? destination : null}
+          trailReady={false}
+        />
+      </>
     )
   }
 
@@ -953,7 +994,31 @@ function ItineraryPageInner() {
     )
   }
 
-  if (!itinerary) return null
+  // Safety net — should never reach here, but avoid blank page if state is unexpected
+  if (!itinerary) {
+    return (
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 9998,
+        background: 'var(--color-bg)',
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        gap: 16,
+      }}>
+        <div style={{
+          fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase',
+          color: 'var(--color-muted)', fontFamily: 'var(--font-sans)', fontWeight: 600,
+        }}>
+          Australian Atlas
+        </div>
+        <h2 style={{
+          fontFamily: 'var(--font-display)', fontWeight: 400,
+          fontSize: 'clamp(18px, 3vw, 26px)', color: 'var(--color-ink)',
+        }}>
+          Building your trail...
+        </h2>
+      </div>
+    )
+  }
 
   // Count total stops
   const totalStops = itinerary.days.reduce((sum, d) => sum + (d.stops?.length || 0) + (d.overnight ? 1 : 0), 0)
@@ -1230,29 +1295,99 @@ function ItineraryPageInner() {
   )
 }
 
+class ItineraryErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false, error: null }
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error }
+  }
+  componentDidCatch(error, info) {
+    console.error('[Itinerary] Client error:', error, info)
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-16 text-center">
+          <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)', marginBottom: 8 }}>
+            Something went wrong
+          </h2>
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 14, color: 'var(--color-muted)', marginBottom: 16 }}>
+            We hit a snag building your trail. Please try again.
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14,
+              color: 'white', background: 'var(--color-sage)', border: 'none',
+              padding: '10px 24px', borderRadius: 8, cursor: 'pointer',
+            }}
+          >
+            Reload page
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
+// Visible loading fallback — renders in static HTML, visible immediately
+function LoadingFallback() {
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9998,
+      background: 'var(--color-bg)',
+      display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      gap: 16,
+    }}>
+      <div style={{
+        fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase',
+        color: 'var(--color-muted)', fontFamily: 'var(--font-sans)', fontWeight: 600,
+      }}>
+        Australian Atlas
+      </div>
+      <h2 style={{
+        fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22,
+        color: 'var(--color-ink)',
+      }}>
+        Building your trail...
+      </h2>
+      <p style={{
+        fontSize: 12, color: 'var(--color-muted)',
+        fontFamily: 'var(--font-sans)', letterSpacing: '0.02em',
+      }}>
+        Building from verified venues only
+      </p>
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+        background: 'var(--color-border)',
+        overflow: 'hidden',
+      }}>
+        <div style={{
+          height: '100%', width: '40%',
+          background: 'linear-gradient(90deg, var(--color-sage-dark), var(--color-sage))',
+          animation: 'trailShimmer 1.5s ease-in-out infinite alternate',
+        }} />
+      </div>
+      <style>{`
+        @keyframes trailShimmer {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(250%); }
+        }
+      `}</style>
+    </div>
+  )
+}
+
 export default function ItineraryPage() {
   return (
-    <Suspense fallback={
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-16 text-center">
-        <div style={{ width: 48, height: 48, margin: '0 auto 24px', position: 'relative' }}>
-          <div style={{
-            width: 48, height: 48, borderRadius: '50%',
-            border: '3px solid var(--color-border)',
-            borderTopColor: 'var(--color-sage)',
-            animation: 'spin 1s linear infinite',
-          }} />
-        </div>
-        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)' }}>
-          Building your trail...
-        </h2>
-        <style jsx>{`
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
-      </div>
-    }>
-      <ItineraryPageInner />
-    </Suspense>
+    <ItineraryErrorBoundary>
+      <Suspense fallback={<LoadingFallback />}>
+        <ItineraryPageInner />
+      </Suspense>
+    </ItineraryErrorBoundary>
   )
 }
