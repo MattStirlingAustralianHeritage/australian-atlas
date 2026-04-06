@@ -1,5 +1,3 @@
-import Link from 'next/link'
-
 export default function AdminPage() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--color-cream)', padding: '3rem 1.5rem' }}>
@@ -24,7 +22,7 @@ export default function AdminPage() {
               Australian Atlas Network
             </p>
           </div>
-          <Link
+          <a
             href="/admin/logout"
             style={{
               padding: '0.5rem 1rem',
@@ -38,7 +36,7 @@ export default function AdminPage() {
             }}
           >
             Sign out
-          </Link>
+          </a>
         </div>
 
         <div style={{
@@ -114,7 +112,7 @@ export default function AdminPage() {
 
 function AdminCard({ label, description, href }) {
   return (
-    <Link
+    <a
       href={href}
       style={{
         display: 'block',
@@ -143,6 +141,6 @@ function AdminCard({ label, description, href }) {
       }}>
         {description}
       </p>
-    </Link>
+    </a>
   )
 }

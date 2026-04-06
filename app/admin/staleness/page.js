@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import StalenessTable from './StalenessTable'
 
@@ -128,9 +127,9 @@ export default async function StalenessPage({ searchParams }) {
       {/* Header */}
       <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--color-border, #E5E0D8)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <Link href="/admin" style={{ textDecoration: 'none', color: 'var(--color-muted, #8B8578)', fontSize: '0.75rem', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+          <a href="/admin" style={{ textDecoration: 'none', color: 'var(--color-muted, #8B8578)', fontSize: '0.75rem', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
             Admin
-          </Link>
+          </a>
           <h1 style={{ fontFamily: 'var(--font-display, Georgia)', fontSize: '1.75rem', fontWeight: 600, color: 'var(--color-ink, #2D2A26)', margin: '0.25rem 0 0' }}>
             Listing Staleness
           </h1>
@@ -295,7 +294,7 @@ export default async function StalenessPage({ searchParams }) {
               Filter
             </button>
             {(filterVertical || filterRegion || filterStatus) && (
-              <Link
+              <a
                 href="/admin/staleness"
                 style={{
                   padding: '0.5rem 1rem',
@@ -309,7 +308,7 @@ export default async function StalenessPage({ searchParams }) {
                 }}
               >
                 Clear
-              </Link>
+              </a>
             )}
           </form>
         </div>
@@ -336,7 +335,7 @@ export default async function StalenessPage({ searchParams }) {
 
 function TierCard({ label, sublabel, count, color, bg, border, href, active }) {
   return (
-    <Link
+    <a
       href={href}
       style={{
         display: 'block',
@@ -357,6 +356,6 @@ function TierCard({ label, sublabel, count, color, bg, border, href, active }) {
       <p style={{ fontSize: '0.7rem', color: 'var(--color-muted, #8B8578)', margin: 0 }}>
         {sublabel}
       </p>
-    </Link>
+    </a>
   )
 }

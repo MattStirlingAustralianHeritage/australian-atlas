@@ -1,8 +1,6 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import Link from 'next/link'
-
 const VERTICALS = [
   { key: 'sba', label: 'Small Batch', color: '#C49A3C' },
   { key: 'collection', label: 'Collection', color: '#8B6F47' },
@@ -179,9 +177,9 @@ export default function AnalyticsDashboard() {
       {/* Header */}
       <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--color-border, #E5E0D8)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <Link href="/admin" style={{ textDecoration: 'none', color: 'var(--color-muted, #8B8578)', fontSize: '0.75rem', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+          <a href="/admin" style={{ textDecoration: 'none', color: 'var(--color-muted, #8B8578)', fontSize: '0.75rem', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
             Admin
-          </Link>
+          </a>
           <h1 style={{ fontFamily: 'var(--font-serif, Georgia)', fontSize: '1.75rem', fontWeight: 600, color: 'var(--color-ink, #2D2A26)', margin: '0.25rem 0 0' }}>
             Network Analytics
           </h1>
