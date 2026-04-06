@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { createHash } from 'crypto'
 
-const SELECT_FIELDS = 'id, vertical, name, slug, description, region, state, sub_type, lat, lng, hero_image_url, is_featured, is_claimed, website'
+const SELECT_FIELDS = 'id, vertical, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, website'
 
 /** Generate an anonymous session id from user-agent + date (no PII) */
 function getSessionId(request) {
