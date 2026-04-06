@@ -1,15 +1,23 @@
 #!/usr/bin/env node
 /**
- * Daily Listing Prospector
+ * Daily Listing Prospector (with Quality Gates)
  *
- * Generates 10 listing candidate recommendations per vertical per day.
- * Uses gap analysis data + Claude to identify real Australian businesses
- * that would be strong additions to each Atlas vertical.
+ * Generates candidate recommendations per vertical, then runs each
+ * through the 5-gate verification pipeline before entering the queue.
+ *
+ * Pipeline:
+ *   Claude generates candidates -> Gate 0 (dedup) -> Gate 1 (web)
+ *   -> Gate 2 (address) -> Gate 3 (activity) -> Gate 4 (vertical fit)
+ *   -> Score -> Queue
+ *
+ * Failure at any gate writes to candidates_disqualified. Only verified
+ * candidates with passing scores enter the review queue.
  *
  * Usage:
  *   node --env-file=.env.local scripts/prospect-candidates.mjs
  *   node --env-file=.env.local scripts/prospect-candidates.mjs --dry-run
  *   node --env-file=.env.local scripts/prospect-candidates.mjs --vertical=sba
+ *   node --env-file=.env.local scripts/prospect-candidates.mjs --skip-gates
  *
  * Scheduling:
  *   Run daily at 5:30am AEST via cron or scheduled task.
@@ -18,6 +26,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { readFileSync } from 'fs'
+import { runPipeline } from '../lib/prospector/pipeline.js'
 
 // Parse .env.local manually — dotenv v17 auto-inject skips some keys
 try {
@@ -48,6 +57,7 @@ if (!ANTHROPIC_KEY) {
 
 const sb = createClient(MASTER_URL, MASTER_KEY)
 const dryRun = process.argv.includes('--dry-run')
+const skipGates = false // --skip-gates disabled permanently — all candidates must pass quality gates
 const onlyVertical = process.argv.find(a => a.startsWith('--vertical='))?.split('=')[1] || null
 
 const VERTICALS = {
@@ -104,21 +114,23 @@ const STATES = ['VIC', 'NSW', 'QLD', 'SA', 'WA', 'TAS', 'ACT', 'NT']
 
 async function main() {
   console.log('\n══════════════════════════════════════════')
-  console.log('  DAILY LISTING PROSPECTOR')
+  console.log('  DAILY LISTING PROSPECTOR (with Quality Gates)')
   console.log(`  ${new Date().toLocaleDateString('en-AU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`)
   console.log('══════════════════════════════════════════\n')
 
-  if (dryRun) console.log('  ⚠  DRY RUN — no database writes\n')
+  if (dryRun) console.log('  [dry-run] No database writes\n')
+  if (skipGates) console.log('  [skip-gates] Quality gates disabled — inserting raw candidates\n')
 
   // 1. Build coverage context
   const coverage = await buildCoverageContext()
 
-  // 2. Get existing candidates and listings to avoid duplicates
+  // 2. Get existing names for Claude's dedup prompt (basic — gates do the real dedup)
   const existingNames = await getExistingNames()
 
-  // 3. Generate candidates per vertical
+  // 3. Generate and gate candidates per vertical
   const verticalsToProcess = onlyVertical ? [onlyVertical] : Object.keys(VERTICALS)
-  let totalInserted = 0
+  let totalQueued = 0
+  let totalDisqualified = 0
 
   for (const vertical of verticalsToProcess) {
     if (!VERTICALS[vertical]) {
@@ -129,24 +141,44 @@ async function main() {
     console.log(`\n── ${VERTICALS[vertical].label} ──`)
 
     try {
-      const candidates = await generateCandidates(vertical, coverage, existingNames)
-      console.log(`  Generated ${candidates.length} candidates`)
+      // Generate raw candidates from Claude
+      const rawCandidates = await generateCandidates(vertical, coverage, existingNames)
+      console.log(`  Generated ${rawCandidates.length} raw candidates`)
 
-      if (!dryRun && candidates.length > 0) {
-        const inserted = await insertCandidates(candidates)
-        totalInserted += inserted
-        console.log(`  Inserted ${inserted} new candidates`)
-
-        // Add new names to the exclusion set
-        for (const c of candidates) {
-          existingNames.add(c.name.toLowerCase().trim())
+      if (skipGates) {
+        // Legacy mode — insert without gates
+        if (!dryRun && rawCandidates.length > 0) {
+          const inserted = await insertCandidatesLegacy(rawCandidates)
+          totalQueued += inserted
+          console.log(`  Inserted ${inserted} candidates (no gates)`)
         }
-      } else if (dryRun) {
-        for (const c of candidates) {
-          console.log(`    → ${c.name} (${c.region || 'no region'}, ${c.state || 'no state'}) — ${(c.confidence * 100).toFixed(0)}%`)
-          if (c.notes) console.log(`      ${c.notes}`)
-        }
+        continue
       }
+
+      // Run each candidate through the quality gate pipeline
+      let passed = 0
+      let failed = 0
+
+      for (const candidate of rawCandidates) {
+        const result = await runPipeline(candidate, sb, { dryRun, verbose: true })
+
+        if (result.passed) {
+          passed++
+          console.log(`    QUEUED: ${candidate.name} — score ${result.score}/100`)
+          existingNames.add(candidate.name.toLowerCase().trim())
+        } else {
+          failed++
+          console.log(`    DROPPED: ${candidate.name} — Gate ${result.failedGate} (${result.failReason})`)
+        }
+
+        // Rate limit between candidates (web fetches + API calls)
+        await sleep(1500)
+      }
+
+      totalQueued += passed
+      totalDisqualified += failed
+      console.log(`  Result: ${passed} queued, ${failed} disqualified`)
+
     } catch (err) {
       console.error(`  Error processing ${vertical}:`, err.message)
     }
@@ -158,7 +190,7 @@ async function main() {
   }
 
   console.log('\n══════════════════════════════════════════')
-  console.log(`  Done. ${dryRun ? 'Would insert' : 'Inserted'} ${totalInserted} candidates.`)
+  console.log(`  Done. ${dryRun ? 'Would queue' : 'Queued'} ${totalQueued} candidates, ${totalDisqualified} disqualified.`)
   console.log('══════════════════════════════════════════\n')
 }
 
@@ -337,23 +369,24 @@ Respond with a JSON array of exactly 10 objects. No other text, just the JSON ar
     return []
   }
 
-  // Filter out duplicates against existing names
+  // Basic dedup against names Claude already knows about
+  // (the real dedup happens in Gate 0)
   const filtered = candidates.filter(c => {
     if (!c.name) return false
     const normalised = c.name.toLowerCase().trim()
     if (existingNames.has(normalised)) {
-      console.log(`    Skipping duplicate: ${c.name}`)
+      console.log(`    Skipping known duplicate: ${c.name}`)
       return false
     }
     return true
   })
 
-  // Normalise and validate
+  // Return raw candidate objects for the pipeline to process
   return filtered.slice(0, 10).map(c => ({
     name: c.name.trim(),
     region: c.region || null,
     vertical,
-    website_url: null, // never trust AI-generated URLs
+    website_url: c.website_url || null, // Pipeline will verify this
     confidence: Math.min(1, Math.max(0, parseFloat(c.confidence) || 0.5)),
     source: 'ai_prospector',
     source_detail: `Daily prospector — ${new Date().toISOString().split('T')[0]}`,
@@ -362,16 +395,14 @@ Respond with a JSON array of exactly 10 objects. No other text, just the JSON ar
   }))
 }
 
-// ─── Database Insert ─────────────────────────────────────────
+// ─── Legacy Insert (when --skip-gates) ───────────────────────
 
-async function insertCandidates(candidates) {
+async function insertCandidatesLegacy(candidates) {
   let inserted = 0
-
   for (const candidate of candidates) {
-    const { error } = await sb
-      .from('listing_candidates')
-      .insert(candidate)
-
+    // Never trust AI-generated URLs in legacy mode
+    const row = { ...candidate, website_url: null }
+    const { error } = await sb.from('listing_candidates').insert(row)
     if (!error) {
       inserted++
     } else if (error.code === '23505') {
@@ -380,7 +411,6 @@ async function insertCandidates(candidates) {
       console.error(`    Insert error for ${candidate.name}:`, error.message)
     }
   }
-
   return inserted
 }
 
