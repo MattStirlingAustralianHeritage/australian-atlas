@@ -155,7 +155,7 @@ export async function POST(request, { params }) {
         description,
         region: candidate.region || null,
         website: candidate.website_url || null,
-        status: 'pending', // draft — needs further enrichment
+        status: 'active',
         is_claimed: false,
         is_featured: false,
       }
