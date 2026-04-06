@@ -2,59 +2,18 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSupabaseAdmin, getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
+import { pushToVertical } from '@/lib/sync/pushToVertical'
 
 /**
- * One-time backfill: push candidate-sourced master listings to their vertical DBs.
- * GET /api/admin/backfill-verticals
+ * Retroactive fix: push orphaned candidate-sourced master listings to their vertical DBs.
+ * POST /api/admin/backfill-verticals
  *
- * Finds all listings with source_id starting with 'candidate-',
- * inserts them into the appropriate vertical database,
+ * Finds all active listings with source_id starting with 'candidate-',
+ * pushes them to the appropriate vertical database via the shared utility,
  * then updates the master source_id to match the vertical row ID.
  */
 
-function slugify(text) {
-  return text
-    .toLowerCase()
-    .replace(/['']/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-}
-
-function mapToVerticalSchema(vertical, listing) {
-  const base = {
-    name: listing.name,
-    slug: listing.slug || slugify(listing.name),
-    description: listing.description || null,
-    state: listing.state || null,
-    phone: listing.phone || null,
-    address: listing.address || null,
-  }
-
-  switch (vertical) {
-    case 'sba':
-      return { ...base, sub_region: listing.region, latitude: listing.lat, longitude: listing.lng, website: listing.website, type: 'winery', status: 'active' }
-    case 'collection':
-      return { ...base, sub_region: listing.region, latitude: listing.lat, longitude: listing.lng, website: listing.website, type: 'museum', status: 'active' }
-    case 'craft':
-      return { ...base, sub_region: listing.region, latitude: listing.lat, longitude: listing.lng, website: listing.website, type: 'ceramics_clay', status: 'active' }
-    case 'fine_grounds':
-      return { ...base, sub_region: listing.region, latitude: listing.lat, longitude: listing.lng, website: listing.website, status: 'published' }
-    case 'rest':
-      return { ...base, sub_region: listing.region, latitude: listing.lat, longitude: listing.lng, website: listing.website, type: 'boutique_hotel', status: 'published' }
-    case 'field':
-      return { ...base, region: listing.region, latitude: listing.lat, longitude: listing.lng, place_type: 'lookout', published: true }
-    case 'corner':
-      return { ...base, suburb: listing.region, lat: listing.lat, lng: listing.lng, website_url: listing.website, category: 'lifestyle', published: true }
-    case 'found':
-      return { ...base, suburb: listing.region, lat: listing.lat, lng: listing.lng, website: listing.website, category: 'vintage_clothing', published: true }
-    case 'table':
-      return { ...base, suburb: listing.region, lat: listing.lat, lng: listing.lng, website_url: listing.website, category: 'specialty_retail', published: true }
-    default:
-      return base
-  }
-}
-
-export async function GET() {
+export async function POST() {
   const cookieStore = await cookies()
   if (!(await checkAdmin(cookieStore))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -64,7 +23,7 @@ export async function GET() {
   const results = []
 
   try {
-    // Find all candidate-sourced listings
+    // Find all candidate-sourced listings that haven't been synced
     const { data: listings, error } = await sb
       .from('listings')
       .select('*')
@@ -73,90 +32,125 @@ export async function GET() {
 
     if (error) throw error
     if (!listings || listings.length === 0) {
-      return NextResponse.json({ message: 'No candidate-sourced listings found', results: [] })
+      return NextResponse.json({ message: 'No orphaned listings found', count: 0, results: [] })
     }
 
     for (const listing of listings) {
       const vertical = listing.vertical
-      const result = { id: listing.id, name: listing.name, vertical, status: 'pending' }
+      const entry = { id: listing.id, name: listing.name, vertical, status: 'pending' }
 
       try {
         const config = VERTICAL_CONFIG[vertical]
         if (!config) {
-          result.status = 'skipped'
-          result.reason = 'Unknown vertical'
-          results.push(result)
+          entry.status = 'skipped'
+          entry.reason = 'Unknown vertical'
+          results.push(entry)
           continue
         }
 
+        // Check if already exists in vertical by slug
         const client = getVerticalClient(vertical)
-        const verticalRow = mapToVerticalSchema(vertical, listing)
-
-        // Determine target table
         let table = config.table
-        if (vertical === 'fine_grounds') {
-          table = 'roasters' // default
-        }
+        if (vertical === 'fine_grounds') table = 'roasters'
 
-        // Check if a listing with this slug already exists in the vertical DB
         const { data: existing } = await client
           .from(table)
           .select('id')
-          .eq('slug', verticalRow.slug)
+          .eq('slug', listing.slug)
           .maybeSingle()
 
         let verticalRowId
 
         if (existing) {
-          // Already exists — use its ID
           verticalRowId = String(existing.id)
-          result.status = 'already_exists'
+          entry.status = 'already_exists'
         } else {
-          // Insert new row
-          const { data: inserted, error: insertError } = await client
-            .from(table)
-            .insert(verticalRow)
-            .select('id')
-            .single()
+          // Push via shared utility
+          const data = {
+            name: listing.name,
+            slug: listing.slug,
+            description: listing.description,
+            region: listing.region,
+            state: listing.state,
+            lat: listing.lat,
+            lng: listing.lng,
+            website: listing.website,
+            phone: listing.phone,
+            address: listing.address,
+            suburb: listing.region,
+            category: null,
+          }
 
-          if (insertError) {
-            result.status = 'insert_failed'
-            result.reason = insertError.message
-            results.push(result)
+          const pushResult = await pushToVertical(vertical, data)
+
+          if (!pushResult.success) {
+            entry.status = 'insert_failed'
+            entry.reason = pushResult.error
+            results.push(entry)
             continue
           }
 
-          verticalRowId = String(inserted.id)
-          result.status = 'inserted'
+          verticalRowId = pushResult.id
+          entry.status = 'inserted'
         }
 
-        // Update master listing source_id to match vertical row
+        // Update master source_id to match vertical row
         const { error: updateError } = await sb
           .from('listings')
           .update({ source_id: verticalRowId })
           .eq('id', listing.id)
 
         if (updateError) {
-          result.status = 'source_id_update_failed'
-          result.reason = updateError.message
+          entry.status = 'source_id_update_failed'
+          entry.reason = updateError.message
         } else {
-          result.verticalRowId = verticalRowId
-          if (result.status !== 'already_exists') result.status = 'success'
+          entry.verticalRowId = verticalRowId
+          if (entry.status !== 'already_exists') entry.status = 'success'
         }
       } catch (err) {
-        result.status = 'error'
-        result.reason = err.message
+        entry.status = 'error'
+        entry.reason = err.message
       }
 
-      results.push(result)
+      results.push(entry)
     }
 
+    const succeeded = results.filter(r => r.status === 'success' || r.status === 'already_exists').length
+    const failed = results.filter(r => ['insert_failed', 'error', 'source_id_update_failed'].includes(r.status)).length
+
     return NextResponse.json({
-      message: `Processed ${listings.length} candidate-sourced listings`,
+      message: `Processed ${listings.length} orphaned listings: ${succeeded} synced, ${failed} failed`,
+      count: listings.length,
+      succeeded,
+      failed,
       results,
     })
   } catch (err) {
     console.error('[backfill-verticals] Error:', err.message)
+    return NextResponse.json({ error: err.message }, { status: 500 })
+  }
+}
+
+// Also support GET for checking orphan count without fixing
+export async function GET() {
+  const cookieStore = await cookies()
+  if (!(await checkAdmin(cookieStore))) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const sb = getSupabaseAdmin()
+
+  try {
+    const { count, error } = await sb
+      .from('listings')
+      .select('id', { count: 'exact', head: true })
+      .like('source_id', 'candidate-%')
+      .eq('status', 'active')
+
+    if (error) throw error
+
+    return NextResponse.json({ orphanedCount: count || 0 })
+  } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }

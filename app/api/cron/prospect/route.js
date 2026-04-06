@@ -1,11 +1,16 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { runPipeline } from '@/lib/prospector/pipeline'
 
 /**
  * GET /api/cron/prospect
  *
- * Daily listing prospector — generates 10 candidate recommendations per vertical.
- * Triggered by Vercel Cron at 5:30am AEST (19:30 UTC previous day).
+ * Daily listing prospector — generates candidate recommendations per vertical,
+ * then runs each through the 5-gate quality verification pipeline.
+ *
+ * Pipeline:
+ *   Claude generates -> Gate 0 (dedup) -> Gate 1 (web) -> Gate 2 (address)
+ *   -> Gate 3 (activity) -> Gate 4 (vertical fit) -> Score -> Queue
  *
  * Auth: Bearer CRON_SECRET
  */
@@ -71,9 +76,10 @@ export async function GET(request) {
   const sb = getSupabaseAdmin()
   const startTime = Date.now()
   const results = []
-  let totalInserted = 0
+  let totalQueued = 0
+  let totalDisqualified = 0
 
-  // Get all existing names for dedup
+  // Get all existing names for Claude's generation prompt (basic dedup)
   const existingNames = new Set()
   const { data: existingListings } = await sb
     .from('listings').select('name').eq('status', 'active').limit(10000)
@@ -107,26 +113,46 @@ export async function GET(request) {
         .sort((a, b) => a.count - b.count)
         .slice(0, 4)
 
-      // Generate candidates via Claude
-      const candidates = await generateWithClaude(vertical, config, coverage, thinStates, sampleNames, existingNames)
+      // Generate raw candidates via Claude
+      const rawCandidates = await generateWithClaude(vertical, config, coverage, thinStates, sampleNames, existingNames)
 
-      if (candidates.length > 0) {
-        let inserted = 0
-        for (const candidate of candidates) {
-          const { error } = await sb.from('listing_candidates').insert(candidate)
-          if (!error) {
-            inserted++
-            existingNames.add(candidate.name.toLowerCase().trim())
-          }
-        }
-        totalInserted += inserted
-        results.push({ vertical, generated: candidates.length, inserted, status: 'ok' })
-      } else {
-        results.push({ vertical, generated: 0, inserted: 0, status: 'no_candidates' })
+      if (rawCandidates.length === 0) {
+        results.push({ vertical, generated: 0, queued: 0, disqualified: 0, status: 'no_candidates' })
+        continue
       }
+
+      // Run each candidate through the quality gate pipeline
+      let queued = 0
+      let disqualified = 0
+
+      for (const candidate of rawCandidates) {
+        const result = await runPipeline(candidate, sb, { verbose: false })
+
+        if (result.passed) {
+          queued++
+          existingNames.add(candidate.name.toLowerCase().trim())
+        } else {
+          disqualified++
+          console.log(`[prospect] ${vertical}: DROPPED "${candidate.name}" — Gate ${result.failedGate}: ${result.failReason}`)
+        }
+
+        // Rate limit between pipeline runs
+        await new Promise(r => setTimeout(r, 1000))
+      }
+
+      totalQueued += queued
+      totalDisqualified += disqualified
+      results.push({
+        vertical,
+        generated: rawCandidates.length,
+        queued,
+        disqualified,
+        status: 'ok',
+      })
+
     } catch (err) {
       console.error(`[prospect] ${vertical} error:`, err.message)
-      results.push({ vertical, generated: 0, inserted: 0, status: 'error', error: err.message })
+      results.push({ vertical, generated: 0, queued: 0, disqualified: 0, status: 'error', error: err.message })
     }
 
     // Rate limit between API calls
@@ -135,13 +161,14 @@ export async function GET(request) {
 
   const duration = ((Date.now() - startTime) / 1000).toFixed(1)
 
-  console.log(`[prospect] Done in ${duration}s — ${totalInserted} candidates inserted`)
+  console.log(`[prospect] Done in ${duration}s — ${totalQueued} queued, ${totalDisqualified} disqualified`)
 
   return NextResponse.json({
     success: true,
     date: new Date().toISOString().split('T')[0],
     duration_seconds: parseFloat(duration),
-    total_inserted: totalInserted,
+    total_queued: totalQueued,
+    total_disqualified: totalDisqualified,
     results,
   })
 }
@@ -217,6 +244,7 @@ Respond with a JSON array of exactly 10 objects. No other text.`
 
   if (!Array.isArray(candidates)) return []
 
+  // Basic pre-filter (Gate 0 does the thorough dedup)
   return candidates
     .filter(c => c.name && !existingNames.has(c.name.toLowerCase().trim()))
     .slice(0, 10)
@@ -224,7 +252,7 @@ Respond with a JSON array of exactly 10 objects. No other text.`
       name: c.name.trim(),
       region: c.region || null,
       vertical,
-      website_url: null, // never trust AI-generated URLs
+      website_url: c.website_url || null,
       confidence: Math.min(1, Math.max(0, parseFloat(c.confidence) || 0.5)),
       source: 'ai_prospector',
       source_detail: `Daily prospector — ${new Date().toISOString().split('T')[0]}`,

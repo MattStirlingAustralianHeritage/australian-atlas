@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { getSupabaseAdmin, getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
+import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
+import { pushToVertical, getVerticalListingUrl, VERTICAL_DISPLAY_NAMES } from '@/lib/sync/pushToVertical'
 
 const VERTICAL_LABELS = {
   sba: 'artisan food & drink producer', collection: 'museum, gallery, or collection',
@@ -129,171 +130,6 @@ async function geocodeAddress(address, state) {
     if (!feature) return null
     return { lat: feature.center[1], lng: feature.center[0] }
   } catch {
-    return null
-  }
-}
-
-// ─── Push to Vertical DB ───────────────────────────────────
-
-/** Map enriched listing data to a vertical's native table schema */
-function mapToVerticalSchema(vertical, data) {
-  const base = {
-    name: data.name,
-    slug: data.slug,
-    description: data.description || null,
-    state: data.state || null,
-    phone: data.phone || null,
-    address: data.address || null,
-  }
-
-  switch (vertical) {
-    case 'sba':
-      return {
-        ...base,
-        sub_region: data.region || null,
-        latitude: data.lat || null,
-        longitude: data.lng || null,
-        website: data.website || null,
-        type: data.category || 'winery',
-        status: 'active',
-        email: data.email || null,
-        opening_hours: data.opening_hours || null,
-      }
-
-    case 'collection':
-      return {
-        ...base,
-        sub_region: data.region || null,
-        latitude: data.lat || null,
-        longitude: data.lng || null,
-        website: data.website || null,
-        type: data.category || 'museum',
-        status: 'active',
-        email: data.email || null,
-      }
-
-    case 'craft':
-      return {
-        ...base,
-        sub_region: data.region || null,
-        latitude: data.lat || null,
-        longitude: data.lng || null,
-        website: data.website || null,
-        type: data.category || 'ceramics_clay',
-        status: 'active',
-        email: data.email || null,
-      }
-
-    case 'fine_grounds':
-      return {
-        ...base,
-        sub_region: data.region || null,
-        latitude: data.lat || null,
-        longitude: data.lng || null,
-        website: data.website || null,
-        status: 'published',
-        email: data.email || null,
-        opening_hours: data.opening_hours || null,
-      }
-
-    case 'rest':
-      return {
-        ...base,
-        sub_region: data.region || null,
-        latitude: data.lat || null,
-        longitude: data.lng || null,
-        website: data.website || null,
-        type: data.category || 'boutique_hotel',
-        status: 'published',
-        email: data.email || null,
-      }
-
-    case 'field':
-      return {
-        ...base,
-        region: data.region || null,
-        latitude: data.lat || null,
-        longitude: data.lng || null,
-        place_type: data.category || 'lookout',
-        published: true,
-      }
-
-    case 'corner':
-      return {
-        ...base,
-        suburb: data.suburb || data.region || null,
-        lat: data.lat || null,
-        lng: data.lng || null,
-        website_url: data.website || null,
-        category: data.category || 'lifestyle',
-        published: true,
-        email: data.email || null,
-        instagram_handle: data.instagram_handle || null,
-        opening_hours: data.opening_hours || null,
-        postcode: data.postcode || null,
-      }
-
-    case 'found':
-      return {
-        ...base,
-        suburb: data.suburb || data.region || null,
-        lat: data.lat || null,
-        lng: data.lng || null,
-        website: data.website || null,
-        category: data.category || 'vintage_clothing',
-        published: true,
-        email: data.email || null,
-        opening_hours: data.opening_hours || null,
-      }
-
-    case 'table':
-      return {
-        ...base,
-        suburb: data.suburb || data.region || null,
-        lat: data.lat || null,
-        lng: data.lng || null,
-        website_url: data.website || null,
-        category: data.category || 'specialty_retail',
-        published: true,
-        email: data.email || null,
-        opening_hours: data.opening_hours || null,
-        postcode: data.postcode || null,
-      }
-
-    default:
-      return base
-  }
-}
-
-/** Insert a listing into the vertical's own database. Returns the new row ID or null. */
-async function pushToVertical(vertical, data) {
-  try {
-    const config = VERTICAL_CONFIG[vertical]
-    if (!config || (!config.url && !config.table)) return null
-
-    const client = getVerticalClient(vertical)
-    const verticalRow = mapToVerticalSchema(vertical, data)
-
-    // Determine target table (Fine Grounds has two)
-    let table = config.table
-    if (vertical === 'fine_grounds') {
-      table = data.category === 'cafe' ? 'cafes' : 'roasters'
-    }
-
-    const { data: inserted, error } = await client
-      .from(table)
-      .insert(verticalRow)
-      .select('id')
-      .single()
-
-    if (error) {
-      console.error(`[pushToVertical] ${vertical}/${table} insert error:`, error.message)
-      return null
-    }
-
-    return inserted?.id ? String(inserted.id) : null
-  } catch (err) {
-    console.error(`[pushToVertical] ${vertical} error:`, err.message)
     return null
   }
 }
@@ -483,14 +319,15 @@ export async function POST(request, { params }) {
 
       // 6. Push to the vertical's own database
       console.log(`[approve] Pushing to ${vertical} vertical DB...`)
-      const verticalRowId = await pushToVertical(vertical, fullData)
+      const pushResult = await pushToVertical(vertical, fullData)
+      const verticalRowId = pushResult.success ? pushResult.id : null
       if (verticalRowId) {
         console.log(`[approve] Created in ${vertical} DB with id: ${verticalRowId}`)
       } else {
-        console.warn(`[approve] Push to ${vertical} failed — listing will only exist in master DB`)
+        console.warn(`[approve] Push to ${vertical} failed: ${pushResult.error}`)
       }
 
-      // 7. Create master listing (source_id matches vertical row so sync won't duplicate)
+      // 7. Create master listing — idempotent so retry works after partial failure
       const sourceId = verticalRowId || `candidate-${candidate.id}`
 
       const listingData = {
@@ -512,17 +349,34 @@ export async function POST(request, { params }) {
         is_featured: false,
       }
 
-      const { data: listing, error: insertError } = await sb
+      // Check if listing already exists (retry case — previous attempt may have written master but not vertical)
+      const { data: existingListing } = await sb
         .from('listings')
-        .insert(listingData)
         .select('id')
-        .single()
+        .eq('vertical', vertical)
+        .eq('slug', slug)
+        .maybeSingle()
 
-      if (insertError) {
-        if (insertError.code === '23505') {
-          return NextResponse.json({ error: 'A listing with this name already exists for this vertical' }, { status: 409 })
+      let listingId
+      if (existingListing) {
+        // Retry — update existing listing with latest data (including new source_id if vertical push now succeeded)
+        listingId = existingListing.id
+        await sb.from('listings').update({ source_id: sourceId, description, region: fullData.region, state: fullData.state, lat: fullData.lat, lng: fullData.lng, website: fullData.website, phone: fullData.phone, address: fullData.address }).eq('id', listingId)
+        console.log(`[approve] Updated existing master listing ${listingId} (retry)`)
+      } else {
+        const { data: listing, error: insertError } = await sb
+          .from('listings')
+          .insert(listingData)
+          .select('id')
+          .single()
+
+        if (insertError) {
+          if (insertError.code === '23505') {
+            return NextResponse.json({ error: 'A listing with this name already exists for this vertical' }, { status: 409 })
+          }
+          throw insertError
         }
-        throw insertError
+        listingId = listing.id
       }
 
       // 8. Mark candidate as converted
@@ -538,12 +392,32 @@ export async function POST(request, { params }) {
         console.error('[approve] Failed to update candidate status:', updateError.message)
       }
 
+      const verticalName = VERTICAL_DISPLAY_NAMES[vertical] || vertical
+      const listingUrl = getVerticalListingUrl(vertical, slug, fullData.category)
+
       return NextResponse.json({
         success: true,
         action: 'approved',
-        listingId: listing.id,
-        verticalRowId,
-        enriched: Object.keys(enriched).length > 0,
+        listing: {
+          id: listingId,
+          name: fullData.name,
+          region: fullData.region,
+          vertical,
+          verticalName,
+          slug,
+          url: listingUrl,
+        },
+        verticalSync: {
+          success: !!verticalRowId,
+          rowId: verticalRowId,
+          warning: verticalRowId
+            ? null
+            : `Push to ${verticalName} failed: ${pushResult.error || 'unknown'}. Will sync on next cron run.`,
+        },
+        enrichment: {
+          attempted: !!candidate.website_url,
+          fieldsExtracted: Object.keys(enriched).filter(k => enriched[k] != null),
+        },
       })
     }
   } catch (err) {

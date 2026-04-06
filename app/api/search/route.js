@@ -119,6 +119,74 @@ function parseQueryHints(rawQuery) {
   return { vertical: detectedVertical, region: detectedRegion, cleanedTerms }
 }
 
+// ─── Relevance Scoring ────────────────────────────────────
+
+/** Normalize a string for comparison: lowercase, & → and, collapse whitespace */
+function normalize(str) {
+  return (str || '')
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[''`]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
+ * Score a listing's relevance to the query.
+ *
+ * Tier 1 (300): Exact name match — full query matches the listing name
+ * Tier 2 (200): Partial name match — query appears within the name or vice versa
+ * Tier 2b (150): All search terms appear in the name
+ * Tier 3 (50+): Some terms match the name (scaled by how many match)
+ * Tier 4 (10): Description/region match only
+ *
+ * Returns a score ≥ 0. Higher = more relevant.
+ */
+function scoreRelevance(listing, rawQuery, cleanedTerms) {
+  const name = normalize(listing.name)
+  const fullQuery = normalize(rawQuery)
+
+  // Tier 1: Exact match (full query matches name exactly)
+  if (name === fullQuery) return 300
+
+  // Also check cleaned-terms joined (e.g., "lark" after stripping "distillery")
+  const cleanedJoined = cleanedTerms.join(' ')
+  if (cleanedJoined && name === cleanedJoined) return 300
+
+  // Tier 2: One string contains the other as a substring
+  if (fullQuery.length >= 3 && name.includes(fullQuery)) return 200
+  if (name.length >= 3 && fullQuery.includes(name)) return 200
+  if (cleanedJoined && cleanedJoined.length >= 3 && name.includes(cleanedJoined)) return 200
+  if (cleanedJoined && name.length >= 3 && cleanedJoined.includes(name)) return 200
+
+  // Tier 2b: All cleaned search terms appear in the name
+  if (cleanedTerms.length > 0 && cleanedTerms.every(t => name.includes(t))) return 150
+
+  // Tier 3: Some terms match the name (scored by match count)
+  if (cleanedTerms.length > 0) {
+    const nameMatchCount = cleanedTerms.filter(t => name.includes(t)).length
+    if (nameMatchCount > 0) {
+      return 50 + (nameMatchCount * 25)
+    }
+  }
+
+  // Tier 4: Matched on description/region/state only
+  return 10
+}
+
+/**
+ * Secondary commercial boost (applied within relevance tiers).
+ * Max 3 — never enough to jump a relevance tier (tiers are 50+ apart).
+ */
+function commercialBoost(listing) {
+  return (listing.is_claimed ? 2 : 0) + (listing.is_featured ? 1 : 0)
+}
+
+/** Minimum score to include — description-only matches with no name relevance */
+const MIN_SCORE_THRESHOLD = 10
+
+// ─── Route Handler ────────────────────────────────────────
+
 export async function GET(request) {
   const { searchParams } = new URL(request.url)
   const q = searchParams.get('q') || ''
@@ -127,7 +195,6 @@ export async function GET(request) {
   const region = searchParams.get('region') || null
   const page = parseInt(searchParams.get('page') || '1', 10)
   const limit = Math.min(parseInt(searchParams.get('limit') || '24', 10), 100)
-  const offset = (page - 1) * limit
 
   const sb = getSupabaseAdmin()
 
@@ -142,7 +209,7 @@ export async function GET(request) {
     if (state) baseQuery = baseQuery.eq('state', state)
     if (region) baseQuery = baseQuery.eq('region', region)
 
-    // If there's a text query, parse for hints and filter
+    // If there's a text query, parse for hints, filter, score, and rank
     if (q && q.trim()) {
       const { vertical: hintVertical, region: hintRegion, cleanedTerms } = parseQueryHints(q)
 
@@ -153,7 +220,6 @@ export async function GET(request) {
 
       // Apply region hint as ilike filter if no explicit region filter
       if (hintRegion && !region) {
-        // Could be a state abbreviation or a region name
         if (hintRegion.length <= 3 && hintRegion === hintRegion.toUpperCase()) {
           baseQuery = baseQuery.eq('state', hintRegion)
         } else {
@@ -163,7 +229,8 @@ export async function GET(request) {
         }
       }
 
-      // Apply remaining search terms as ilike filters (AND across terms, OR across fields per term)
+      // Apply remaining search terms as ilike filters
+      // Each term must appear in at least one field (AND across terms, OR across fields)
       if (cleanedTerms.length > 0) {
         for (const term of cleanedTerms) {
           const pattern = `%${term}%`
@@ -173,24 +240,44 @@ export async function GET(request) {
         }
       }
 
-      // Order by relevance: featured first, then claimed, then name
-      baseQuery = baseQuery
-        .order('is_featured', { ascending: false })
-        .order('is_claimed', { ascending: false })
-        .order('name')
-        .range(offset, offset + limit - 1)
+      // ── Fetch a generous pool for JS-side scoring (no DB pagination) ──
+      // Cap at 500 to keep response snappy; far more than most queries return
+      baseQuery = baseQuery.limit(500)
 
-      const { data, error, count } = await baseQuery
+      const { data, error } = await baseQuery
 
       if (error) {
         console.error('[search] Query error:', error.message)
         return NextResponse.json({ error: error.message }, { status: 500 })
       }
 
-      const listings = data || []
-      const total = count || 0
+      const rawResults = data || []
 
-      logSearch(request, { queryText: q, verticalFilter: vertical, resultCount: listings.length })
+      // ── Score and rank ───────────────────────────────────
+      const scored = rawResults
+        .map(listing => ({
+          ...listing,
+          _score: scoreRelevance(listing, q, cleanedTerms),
+          _boost: commercialBoost(listing),
+        }))
+        .filter(r => r._score >= MIN_SCORE_THRESHOLD)
+        .sort((a, b) => {
+          // Primary: relevance score descending
+          const scoreDiff = (b._score + b._boost) - (a._score + a._boost)
+          if (scoreDiff !== 0) return scoreDiff
+          // Tiebreaker: name alphabetical
+          return a.name.localeCompare(b.name)
+        })
+
+      // ── Paginate the scored results ──────────────────────
+      const total = scored.length
+      const offset = (page - 1) * limit
+      const paged = scored.slice(offset, offset + limit)
+
+      // Strip internal scoring fields before returning
+      const listings = paged.map(({ _score, _boost, ...rest }) => rest)
+
+      logSearch(request, { queryText: q, verticalFilter: vertical, resultCount: total })
 
       return NextResponse.json({
         listings,
@@ -201,7 +288,8 @@ export async function GET(request) {
       })
     }
 
-    // No text query -- standard listing fetch with filters
+    // No text query — standard listing fetch with filters
+    const offset = (page - 1) * limit
     baseQuery = baseQuery
       .order('is_claimed', { ascending: false })
       .order('is_featured', { ascending: false })
@@ -214,7 +302,7 @@ export async function GET(request) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Only log filter-based browsing when explicit filters are present (skip empty browses)
+    // Only log filter-based browsing when explicit filters are present
     if (vertical || state || region) {
       logSearch(request, { queryText: vertical || state || region || '', verticalFilter: vertical, resultCount: (data || []).length })
     }
