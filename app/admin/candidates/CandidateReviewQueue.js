@@ -101,6 +101,53 @@ function Kbd({ children }) {
   )
 }
 
+function VerticalSelect({ value, candidateId, onSaved }) {
+  const [saving, setSaving] = useState(false)
+  const color = VERTICAL_COLORS[value] || 'var(--color-muted)'
+
+  const handleChange = async (e) => {
+    const newVertical = e.target.value
+    if (newVertical === value) return
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/admin/candidates/${candidateId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vertical: newVertical }),
+      })
+      if (res.ok) {
+        const { candidate } = await res.json()
+        onSaved?.(candidate)
+      }
+    } catch (err) {
+      console.error('Vertical update failed:', err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <select value={value || ''} onChange={handleChange} disabled={saving}
+      style={{
+        fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 10,
+        letterSpacing: '0.08em', textTransform: 'uppercase',
+        color: '#fff', background: color,
+        padding: '3px 10px', borderRadius: 100,
+        border: 'none', cursor: 'pointer', outline: 'none',
+        appearance: 'none', WebkitAppearance: 'none',
+        paddingRight: 20,
+        backgroundImage: `url("data:image/svg+xml,%3Csvg width='8' height='5' viewBox='0 0 8 5' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L4 4L7 1' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'right 6px center',
+        opacity: saving ? 0.6 : 1,
+      }}>
+      {Object.entries(VERTICAL_NAMES).map(([key, label]) => (
+        <option key={key} value={key} style={{ background: '#fff', color: '#333', textTransform: 'none' }}>{label}</option>
+      ))}
+    </select>
+  )
+}
+
 function CandidateCard({ candidate, isFocused, index, onApprove, onReject, onUpdate, focusDescRefs }) {
   const [flash, setFlash] = useState(null)
   const [exiting, setExiting] = useState(false)
@@ -168,16 +215,7 @@ function CandidateCard({ candidate, isFocused, index, onApprove, onReject, onUpd
       <div style={{ padding: '20px 24px', position: 'relative', zIndex: 2 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            {candidate.vertical && (
-              <span style={{
-                fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 10,
-                letterSpacing: '0.08em', textTransform: 'uppercase',
-                color: '#fff', background: verticalColor,
-                padding: '3px 10px', borderRadius: 100,
-              }}>
-                {VERTICAL_NAMES[candidate.vertical] || candidate.vertical}
-              </span>
-            )}
+            <VerticalSelect value={candidate.vertical} candidateId={candidate.id} onSaved={onUpdate} />
             {candidate.region && (
               <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, color: 'var(--color-muted)' }}>
                 {candidate.region}
