@@ -224,7 +224,7 @@ Respond with a JSON array of exactly 10 objects. No other text.`
       name: c.name.trim(),
       region: c.region || null,
       vertical,
-      website_url: c.website_url || null,
+      website_url: null, // never trust AI-generated URLs
       confidence: Math.min(1, Math.max(0, parseFloat(c.confidence) || 0.5)),
       source: 'ai_prospector',
       source_detail: `Daily prospector — ${new Date().toISOString().split('T')[0]}`,
