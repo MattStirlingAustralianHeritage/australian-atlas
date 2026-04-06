@@ -1,13 +1,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
-
-function checkAdmin(cookieStore) {
-  const token = cookieStore.get('atlas_admin')?.value
-    || cookieStore.get('admin_auth')?.value
-  if (!token) return false
-  return token === 'admin_authenticated' || token === process.env.ADMIN_PASSWORD
-}
+import { checkAdmin } from '@/lib/admin-auth'
 
 // ─── URL health check ────────────────────────────────────
 
@@ -54,7 +48,7 @@ async function checkUrl(url) {
 
 export async function POST(request) {
   const cookieStore = await cookies()
-  if (!checkAdmin(cookieStore)) {
+  if (!(await checkAdmin(cookieStore))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

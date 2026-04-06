@@ -1,17 +1,11 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
-
-function checkAdmin(cookieStore) {
-  // Support both cookie names used across the codebase
-  const token = cookieStore.get('atlas_admin')?.value
-    || cookieStore.get('admin_auth')?.value
-  return !!token
-}
+import { checkAdmin } from '@/lib/admin-auth'
 
 export async function GET(request) {
   const cookieStore = await cookies()
-  if (!checkAdmin(cookieStore)) {
+  if (!(await checkAdmin(cookieStore))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

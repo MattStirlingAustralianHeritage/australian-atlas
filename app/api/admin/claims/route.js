@@ -1,21 +1,14 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSupabaseAdmin, getVerticalClient } from '@/lib/supabase/clients'
+import { checkAdmin } from '@/lib/admin-auth'
 
 const ATLAS_AUTH_URL = process.env.NEXT_PUBLIC_ATLAS_AUTH_URL || 'https://www.australianatlas.com.au'
-
-function checkAdmin(cookieStore) {
-  const token = cookieStore.get('atlas_admin')?.value
-    || cookieStore.get('admin_auth')?.value
-  if (!token) return false
-  // Support both the legacy static string and env-based password
-  return token === 'admin_authenticated' || token === process.env.ADMIN_PASSWORD
-}
 
 // GET — return pending claims (for potential future API consumers)
 export async function GET() {
   const cookieStore = await cookies()
-  if (!checkAdmin(cookieStore)) {
+  if (!(await checkAdmin(cookieStore))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -39,7 +32,7 @@ export async function GET() {
 // POST — approve or reject a claim
 export async function POST(request) {
   const cookieStore = await cookies()
-  if (!checkAdmin(cookieStore)) {
+  if (!(await checkAdmin(cookieStore))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

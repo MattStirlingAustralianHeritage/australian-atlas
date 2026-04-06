@@ -1,17 +1,13 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { checkAdmin } from '@/lib/admin-auth'
 import { Resend } from 'resend'
 // Stripe is loaded lazily to avoid build errors when STRIPE_SECRET_KEY is not set
 
-function checkAdmin(cookieStore) {
-  const adminCookie = cookieStore.get('admin_auth')
-  return adminCookie && adminCookie.value === process.env.ADMIN_PASSWORD
-}
-
 export async function GET() {
   const cookieStore = await cookies()
-  if (!checkAdmin(cookieStore)) {
+  if (!(await checkAdmin(cookieStore))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -34,7 +30,7 @@ export async function GET() {
 
 export async function POST(request) {
   const cookieStore = await cookies()
-  if (!checkAdmin(cookieStore)) {
+  if (!(await checkAdmin(cookieStore))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
