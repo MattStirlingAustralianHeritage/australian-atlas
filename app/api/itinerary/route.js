@@ -715,7 +715,7 @@ export async function GET(request) {
 
     // Query candidate venues from master listings
     const sb = getSupabaseAdmin()
-    const LISTING_COLS = 'id, name, vertical, lat, lng, region, state, description, hero_image_url, slug, is_claimed, is_featured, editors_pick'
+    const LISTING_COLS = 'id, name, vertical, lat, lng, region, state, description, hero_image_url, slug, source_id, is_claimed, is_featured, editors_pick'
 
     // Helper: build a base query with status + coordinate filters + geo bounds
     function baseQuery() {
@@ -1078,6 +1078,7 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
         acc.push({
           ...stop,
           slug: candidate.slug || null,
+          source_id: candidate.source_id || null,
           hero_image_url: candidate.hero_image_url || null,
           region: candidate.region || null,
         })
@@ -1095,6 +1096,7 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
           enrichedOvernight = {
             ...enrichedOvernight,
             slug: candidate.slug || null,
+            source_id: candidate.source_id || null,
             hero_image_url: candidate.hero_image_url || null,
             region: candidate.region || null,
           }
