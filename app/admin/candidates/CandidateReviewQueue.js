@@ -289,18 +289,11 @@ function CandidateCard({ candidate, isFocused, index, onApprove, onReject, onUpd
 
 export default function CandidateReviewQueue({ initialCandidates = [] }) {
   const [candidates, setCandidates] = useState(initialCandidates)
-  const [focusIndex, setFocusIndex] = useState(0)
   const [approved, setApproved] = useState(0)
   const [rejected, setRejected] = useState(0)
   const focusDescRefs = useRef({})
   const totalReviewed = approved + rejected
   const totalQueue = candidates.length + totalReviewed
-
-  useEffect(() => {
-    if (focusIndex >= candidates.length && candidates.length > 0) {
-      setFocusIndex(candidates.length - 1)
-    }
-  }, [candidates.length, focusIndex])
 
   useEffect(() => {
     const handleKey = (e) => {
@@ -309,33 +302,26 @@ export default function CandidateReviewQueue({ initialCandidates = [] }) {
       switch (e.key) {
         case 'ArrowRight': case 'y': case 'Y': {
           e.preventDefault()
-          const btn = document.querySelector('[data-candidate-index="' + focusIndex + '"] [data-action="approve"]')
+          const btn = document.querySelector('[data-candidate-index="0"] [data-action="approve"]')
           if (btn) btn.click()
           break
         }
         case 'ArrowLeft': case 'n': case 'N': {
           e.preventDefault()
-          const btn = document.querySelector('[data-candidate-index="' + focusIndex + '"] [data-action="reject"]')
+          const btn = document.querySelector('[data-candidate-index="0"] [data-action="reject"]')
           if (btn) btn.click()
           break
         }
-        case 'ArrowUp': { e.preventDefault(); setFocusIndex(i => Math.max(0, i - 1)); break }
-        case 'ArrowDown': { e.preventDefault(); setFocusIndex(i => Math.min(candidates.length - 1, i + 1)); break }
         case 'e': case 'E': {
           e.preventDefault()
-          if (focusDescRefs.current[focusIndex]) focusDescRefs.current[focusIndex]()
+          if (focusDescRefs.current[0]) focusDescRefs.current[0]()
           break
         }
       }
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [focusIndex, candidates.length])
-
-  useEffect(() => {
-    const el = document.querySelector('[data-candidate-index="' + focusIndex + '"]')
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-  }, [focusIndex])
+  }, [candidates.length])
 
   const handleApprove = useCallback((id) => {
     setCandidates(prev => prev.filter(c => c.id !== id))
@@ -366,8 +352,6 @@ export default function CandidateReviewQueue({ initialCandidates = [] }) {
         <span><Kbd>N</Kbd> / <Kbd>{'\u2190'}</Kbd> reject</span>
         <span style={{ opacity: 0.3 }}>|</span>
         <span><Kbd>E</Kbd> edit</span>
-        <span style={{ opacity: 0.3 }}>|</span>
-        <span><Kbd>{'\u2191'}</Kbd> <Kbd>{'\u2193'}</Kbd> navigate</span>
       </div>
 
       {/* Progress bar */}
@@ -391,16 +375,19 @@ export default function CandidateReviewQueue({ initialCandidates = [] }) {
         </div>
       </div>
 
-      {/* Card queue */}
+      {/* Single card view */}
       {candidates.length > 0 ? (
         <div>
-          {candidates.map((candidate, i) => (
-            <div key={candidate.id} data-candidate-index={i} onClick={() => setFocusIndex(i)}>
-              <CandidateCard candidate={candidate} isFocused={i === focusIndex} index={i}
-                onApprove={handleApprove} onReject={handleReject} onUpdate={handleUpdate}
-                focusDescRefs={focusDescRefs} />
-            </div>
-          ))}
+          <div key={candidates[0].id} data-candidate-index={0}>
+            <CandidateCard candidate={candidates[0]} isFocused={true} index={0}
+              onApprove={handleApprove} onReject={handleReject} onUpdate={handleUpdate}
+              focusDescRefs={focusDescRefs} />
+          </div>
+          {candidates.length > 1 && (
+            <p style={{ textAlign: 'center', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', marginTop: 8 }}>
+              {candidates.length - 1} more candidate{candidates.length - 1 !== 1 ? 's' : ''} remaining
+            </p>
+          )}
         </div>
       ) : (
         <div style={{ textAlign: 'center', padding: '4rem 2rem', background: 'var(--color-cream)', borderRadius: 12 }}>
