@@ -1,5 +1,7 @@
 'use client'
 
+import { useState, useEffect } from 'react'
+
 export default function AdminPage() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--color-cream)', padding: '3rem 1.5rem' }}>
@@ -104,14 +106,37 @@ export default function AdminPage() {
             href="/admin/editorial"
           />
           <AdminCard
+            label="Approval Health"
+            description="Pipeline status, sync integrity, orphan fixer"
+            href="/admin/health"
+          />
+          <AdminCard
             label="Regions"
             description="View and manage regions"
             href="/regions"
           />
+          <HumanatorCard />
         </div>
       </div>
     </div>
   )
+}
+
+function HumanatorCard() {
+  const [count, setCount] = useState(null)
+
+  useEffect(() => {
+    fetch('/api/admin/humanator')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.stats) setCount(d.stats.humanised_count) })
+      .catch(() => {})
+  }, [])
+
+  const desc = count !== null
+    ? `${count.toLocaleString()} listings humanised so far`
+    : 'Review every listing with a human eye'
+
+  return <AdminCard label="The Humanator" description={desc} href="/admin/humanator" />
 }
 
 function AdminCard({ label, description, href }) {

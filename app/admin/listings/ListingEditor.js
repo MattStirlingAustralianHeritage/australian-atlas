@@ -63,6 +63,7 @@ function StatusBadge({ status }) {
     active: { color: '#fff', bg: '#4A7C59' },
     inactive: { color: '#fff', bg: '#999' },
     pending: { color: '#fff', bg: '#C49A3C' },
+    hidden: { color: '#fff', bg: '#6B2028' },
   }
   const c = colors[status] || colors.inactive
   return <Badge label={status || 'unknown'} color={c.color} bg={c.bg} />
@@ -274,10 +275,15 @@ function GeocodePicker({ address, region, state, currentLat, currentLng, onSelec
 
 // ─── Listing Card ───────────────────────────────────────────
 
-function ListingCard({ listing, isExpanded, onToggle, onUpdate, regions }) {
+function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, regions }) {
   const [draft, setDraft] = useState(null)
   const [saving, setSaving] = useState(false)
   const [flash, setFlash] = useState(null)
+  const [hideConfirm, setHideConfirm] = useState(false)
+  const [hiding, setHiding] = useState(false)
+  const [deleteStep, setDeleteStep] = useState(0) // 0=none, 1=warning, 2=type-name
+  const [deleteInput, setDeleteInput] = useState('')
+  const [deleting, setDeleting] = useState(false)
   const verticalColor = VERTICAL_COLORS[listing.vertical] || '#999'
 
   useEffect(() => {
@@ -315,6 +321,52 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, regions }) {
       setTimeout(() => setFlash(null), 2000)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleHide = async () => {
+    setHiding(true)
+    try {
+      const newStatus = listing.status === 'hidden' ? 'active' : 'hidden'
+      const res = await fetch(`/api/admin/listings/${listing.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      })
+      if (!res.ok) {
+        setFlash('error')
+        setTimeout(() => setFlash(null), 2000)
+        return
+      }
+      const { listing: updated } = await res.json()
+      onUpdate(updated)
+      if (draft) setDraft({ ...updated })
+      setHideConfirm(false)
+      setFlash(newStatus === 'hidden' ? 'hidden' : 'unhidden')
+      setTimeout(() => setFlash(null), 2500)
+    } catch {
+      setFlash('error')
+      setTimeout(() => setFlash(null), 2000)
+    } finally {
+      setHiding(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/admin/listings/${listing.id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        setFlash('error')
+        setTimeout(() => setFlash(null), 2000)
+        return
+      }
+      onRemove(listing.id)
+    } catch {
+      setFlash('error')
+      setTimeout(() => setFlash(null), 2000)
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -391,11 +443,14 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, regions }) {
             <div style={{
               padding: '8px 12px', borderRadius: 6, marginBottom: 12,
               fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500,
-              background: flash === 'saved' ? '#e8f5e9' : '#fef2f2',
-              color: flash === 'saved' ? '#2e7d32' : '#c62828',
-              border: `1px solid ${flash === 'saved' ? '#c8e6c9' : '#ffcdd2'}`,
+              background: flash === 'error' ? '#fef2f2' : '#e8f5e9',
+              color: flash === 'error' ? '#c62828' : '#2e7d32',
+              border: `1px solid ${flash === 'error' ? '#ffcdd2' : '#c8e6c9'}`,
             }}>
-              {flash === 'saved' ? 'Changes saved.' : 'Save failed — please try again.'}
+              {flash === 'saved' && 'Changes saved.'}
+              {flash === 'hidden' && 'Listing hidden from public view.'}
+              {flash === 'unhidden' && 'Listing restored to public view.'}
+              {flash === 'error' && 'Action failed \u2014 please try again.'}
             </div>
           )}
 
@@ -420,7 +475,7 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, regions }) {
             <Field label="Vertical" value={draft.vertical} onChange={v => updateDraft('vertical', v)}
               options={Object.entries(VERTICAL_NAMES).map(([k, v]) => ({ value: k, label: v }))} />
             <Field label="Status" value={draft.status} onChange={v => updateDraft('status', v)}
-              options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }, { value: 'pending', label: 'Pending' }]} />
+              options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }, { value: 'pending', label: 'Pending' }, { value: 'hidden', label: 'Hidden' }]} />
           </div>
 
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 4, marginBottom: 16 }}>
@@ -449,6 +504,52 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, regions }) {
               }}>
               Cancel
             </button>
+
+            {/* Hide / Unhide */}
+            {!hideConfirm ? (
+              <button onClick={() => {
+                if (listing.status === 'hidden') { handleHide() } else { setHideConfirm(true) }
+              }}
+                disabled={hiding}
+                style={{
+                  fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600,
+                  padding: '6px 14px', borderRadius: 6,
+                  border: '1px solid var(--color-sage)', background: '#fff',
+                  color: 'var(--color-sage)', cursor: hiding ? 'wait' : 'pointer',
+                  letterSpacing: '0.03em',
+                }}>
+                {hiding ? (listing.status === 'hidden' ? 'Unhiding...' : 'Hiding...') :
+                  listing.status === 'hidden' ? 'Unhide listing' : 'Hide listing'}
+              </button>
+            ) : (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px',
+                background: '#fef9ee', border: '1px solid #ecd5a0', borderRadius: 6,
+              }}>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: '#8B6914' }}>
+                  Hide this listing? It will be removed from public view but not deleted.
+                </span>
+                <button onClick={handleHide} disabled={hiding}
+                  style={{
+                    fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 600,
+                    padding: '4px 10px', borderRadius: 4, border: 'none',
+                    background: '#C49A3C', color: '#fff', cursor: hiding ? 'wait' : 'pointer',
+                    letterSpacing: '0.04em', textTransform: 'uppercase', whiteSpace: 'nowrap',
+                  }}>
+                  {hiding ? 'Hiding...' : 'Confirm'}
+                </button>
+                <button onClick={() => setHideConfirm(false)}
+                  style={{
+                    fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 500,
+                    padding: '4px 8px', borderRadius: 4,
+                    border: '1px solid var(--color-border)', background: '#fff',
+                    color: 'var(--color-muted)', cursor: 'pointer', whiteSpace: 'nowrap',
+                  }}>
+                  Cancel
+                </button>
+              </div>
+            )}
+
             {viewUrl && (
               <a href={viewUrl} target="_blank" rel="noopener noreferrer"
                 onClick={e => e.stopPropagation()}
@@ -458,6 +559,105 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, regions }) {
                 }}>
                 View listing ↗
               </a>
+            )}
+          </div>
+
+          {/* Delete — separate row, visually distinct */}
+          <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 10, marginTop: 10 }}>
+            {deleteStep === 0 && (
+              <button onClick={() => setDeleteStep(1)}
+                style={{
+                  fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 500,
+                  color: '#c53030', background: 'none', border: 'none',
+                  cursor: 'pointer', padding: 0, textDecoration: 'underline',
+                  textDecorationColor: 'rgba(197,48,48,0.3)',
+                }}>
+                Delete listing permanently
+              </button>
+            )}
+
+            {deleteStep === 1 && (
+              <div style={{
+                padding: '10px 14px', background: '#fef2f2', border: '1px solid #fca5a5',
+                borderRadius: 6,
+              }}>
+                <p style={{
+                  fontFamily: 'var(--font-body)', fontSize: 12, color: '#991b1b',
+                  margin: '0 0 8px', lineHeight: 1.5,
+                }}>
+                  This will permanently delete <strong>{listing.name}</strong> from the Atlas Network. This cannot be undone.
+                </p>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button onClick={() => setDeleteStep(2)}
+                    style={{
+                      fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 600,
+                      padding: '5px 12px', borderRadius: 4, border: 'none',
+                      background: '#c53030', color: '#fff', cursor: 'pointer',
+                      letterSpacing: '0.04em', textTransform: 'uppercase',
+                    }}>
+                    Continue
+                  </button>
+                  <button onClick={() => { setDeleteStep(0); setDeleteInput('') }}
+                    style={{
+                      fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 500,
+                      padding: '5px 10px', borderRadius: 4,
+                      border: '1px solid var(--color-border)', background: '#fff',
+                      color: 'var(--color-muted)', cursor: 'pointer',
+                    }}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {deleteStep === 2 && (
+              <div style={{
+                padding: '10px 14px', background: '#fef2f2', border: '1px solid #fca5a5',
+                borderRadius: 6,
+              }}>
+                <p style={{
+                  fontFamily: 'var(--font-body)', fontSize: 12, color: '#991b1b',
+                  margin: '0 0 8px', lineHeight: 1.5,
+                }}>
+                  Type <strong>{listing.name}</strong> to confirm deletion:
+                </p>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    value={deleteInput}
+                    onChange={e => setDeleteInput(e.target.value)}
+                    placeholder={listing.name}
+                    style={{
+                      fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-ink)',
+                      border: '1px solid #fca5a5', borderRadius: 4,
+                      padding: '5px 10px', background: '#fff', outline: 'none',
+                      flex: 1, maxWidth: 300,
+                    }}
+                  />
+                  <button onClick={handleDelete}
+                    disabled={deleteInput !== listing.name || deleting}
+                    style={{
+                      fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 600,
+                      padding: '5px 12px', borderRadius: 4, border: 'none',
+                      background: deleteInput === listing.name ? '#c53030' : '#e5a0a0',
+                      color: '#fff',
+                      cursor: deleteInput === listing.name && !deleting ? 'pointer' : 'not-allowed',
+                      letterSpacing: '0.04em', textTransform: 'uppercase',
+                      opacity: deleteInput === listing.name ? 1 : 0.5,
+                    }}>
+                    {deleting ? 'Deleting...' : 'Delete'}
+                  </button>
+                  <button onClick={() => { setDeleteStep(0); setDeleteInput('') }}
+                    style={{
+                      fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 500,
+                      padding: '5px 10px', borderRadius: 4,
+                      border: '1px solid var(--color-border)', background: '#fff',
+                      color: 'var(--color-muted)', cursor: 'pointer',
+                    }}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </div>
@@ -528,6 +728,12 @@ export default function ListingEditor({ initialListings = [], initialTotal = 0, 
     setListings(prev => prev.map(l => l.id === updated.id ? { ...l, ...updated } : l))
   }
 
+  const handleRemove = (deletedId) => {
+    setListings(prev => prev.filter(l => l.id !== deletedId))
+    setTotal(prev => prev - 1)
+    setExpandedId(null)
+  }
+
   const hasFilters = filters.vertical || filters.region || filters.status || filters.search || filters.sort !== 'updated_at_desc'
   const totalPages = Math.ceil(total / limit)
   const showFrom = page * limit + 1
@@ -559,6 +765,7 @@ export default function ListingEditor({ initialListings = [], initialTotal = 0, 
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
           <option value="pending">Pending</option>
+          <option value="hidden">Hidden</option>
           <option value="claimed">Claimed</option>
           <option value="unclaimed">Unclaimed</option>
           <option value="misplaced">📍 Potentially misplaced</option>
@@ -608,6 +815,7 @@ export default function ListingEditor({ initialListings = [], initialTotal = 0, 
             isExpanded={expandedId === listing.id}
             onToggle={() => setExpandedId(expandedId === listing.id ? null : listing.id)}
             onUpdate={handleUpdate}
+            onRemove={handleRemove}
             regions={regions} />
         ))}
       </div>
