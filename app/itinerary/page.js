@@ -1,14 +1,11 @@
 'use client'
 
-import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { VERTICAL_STYLES } from '@/components/VerticalBadge'
 import { getVerticalUrl } from '@/lib/verticalUrl'
 import TrailQuestionFlow from '@/components/TrailQuestionFlow'
-// TrailLoadingOverlay imported lazily to avoid blocking render
-import dynamic from 'next/dynamic'
-const TrailLoadingOverlay = dynamic(() => import('@/components/TrailLoadingOverlay'), { ssr: false })
 
 const VERTICAL_COLORS = {
   sba: '#C49A3C', collection: '#7A6B8A', craft: '#C1603A', fine_grounds: '#8A7055',
@@ -799,61 +796,63 @@ function ItineraryPageInner() {
   }
 
   // --- Loading state ---
+  // Uses hardcoded fallback colors alongside CSS vars for maximum resilience.
+  // No dynamic imports or external components — pure inline rendering.
   if (loading) {
     return (
-      <>
-        {/* Inline fallback that renders immediately — no external dependency */}
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 9998,
+        background: '#F8F6F1',
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        gap: 16,
+      }}>
         <div style={{
-          position: 'fixed', inset: 0, zIndex: 9998,
-          background: 'var(--color-bg)',
-          display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center',
-          gap: 16,
+          fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase',
+          color: '#6B6760', fontFamily: "'DM Sans', system-ui, sans-serif", fontWeight: 600,
+        }}>
+          Australian Atlas
+        </div>
+        <h2 style={{
+          fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 400,
+          fontSize: 'clamp(18px, 3vw, 26px)', color: '#1C1A17',
+        }}>
+          {LOADING_MESSAGES[loadingMsgIndex]}
+        </h2>
+        <p style={{
+          fontSize: 12, color: '#6B6760',
+          fontFamily: "'DM Sans', system-ui, sans-serif", letterSpacing: '0.02em',
+        }}>
+          Building from verified venues only
+        </p>
+        {destination !== 'your' && (
+          <p style={{
+            fontSize: 11, color: '#5f8a7e', marginTop: 4,
+            fontFamily: "'DM Sans', system-ui, sans-serif", fontWeight: 500,
+            letterSpacing: '0.06em', textTransform: 'uppercase',
+          }}>
+            {destination}
+          </p>
+        )}
+        {/* Progress bar */}
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, height: 3,
+          background: 'rgba(28,26,23,0.12)',
         }}>
           <div style={{
-            fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase',
-            color: 'var(--color-muted)', fontFamily: 'var(--font-sans)', fontWeight: 600,
-          }}>
-            Australian Atlas
-          </div>
-          <h2 style={{
-            fontFamily: 'var(--font-display)', fontWeight: 400,
-            fontSize: 'clamp(18px, 3vw, 26px)', color: 'var(--color-ink)',
-          }}>
-            {LOADING_MESSAGES[loadingMsgIndex]}
-          </h2>
-          <p style={{
-            fontSize: 12, color: 'var(--color-muted)',
-            fontFamily: 'var(--font-sans)', letterSpacing: '0.02em',
-          }}>
-            Building from verified venues only
-          </p>
-          {/* Progress bar */}
-          <div style={{
-            position: 'absolute', top: 0, left: 0, right: 0, height: 3,
-            background: 'var(--color-border)',
-          }}>
-            <div style={{
-              height: '100%', width: '60%',
-              background: 'linear-gradient(90deg, var(--color-sage-dark), var(--color-sage))',
-              animation: 'trailProgress 3s ease-in-out infinite',
-            }} />
-          </div>
-          <style>{`
-            @keyframes trailProgress {
-              0% { width: 0%; }
-              50% { width: 75%; }
-              100% { width: 92%; }
-            }
-          `}</style>
+            height: '100%', width: '60%',
+            background: 'linear-gradient(90deg, #4a7166, #5f8a7e)',
+            animation: 'trailProgress 3s ease-in-out infinite',
+          }} />
         </div>
-        {/* Layer the rich map overlay on top once it loads */}
-        <TrailLoadingOverlay
-          visible={true}
-          regionLabel={destination !== 'your' ? destination : null}
-          trailReady={false}
-        />
-      </>
+        <style>{`
+          @keyframes trailProgress {
+            0% { width: 0%; }
+            50% { width: 75%; }
+            100% { width: 92%; }
+          }
+        `}</style>
+      </div>
     )
   }
 
@@ -1295,99 +1294,8 @@ function ItineraryPageInner() {
   )
 }
 
-class ItineraryErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props)
-    this.state = { hasError: false, error: null }
-  }
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error }
-  }
-  componentDidCatch(error, info) {
-    console.error('[Itinerary] Client error:', error, info)
-  }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-16 text-center">
-          <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)', marginBottom: 8 }}>
-            Something went wrong
-          </h2>
-          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 14, color: 'var(--color-muted)', marginBottom: 16 }}>
-            We hit a snag building your trail. Please try again.
-          </p>
-          <button
-            onClick={() => window.location.reload()}
-            style={{
-              fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14,
-              color: 'white', background: 'var(--color-sage)', border: 'none',
-              padding: '10px 24px', borderRadius: 8, cursor: 'pointer',
-            }}
-          >
-            Reload page
-          </button>
-        </div>
-      )
-    }
-    return this.props.children
-  }
-}
-
-// Visible loading fallback — renders in static HTML, visible immediately
-function LoadingFallback() {
-  return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 9998,
-      background: 'var(--color-bg)',
-      display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
-      gap: 16,
-    }}>
-      <div style={{
-        fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase',
-        color: 'var(--color-muted)', fontFamily: 'var(--font-sans)', fontWeight: 600,
-      }}>
-        Australian Atlas
-      </div>
-      <h2 style={{
-        fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22,
-        color: 'var(--color-ink)',
-      }}>
-        Building your trail...
-      </h2>
-      <p style={{
-        fontSize: 12, color: 'var(--color-muted)',
-        fontFamily: 'var(--font-sans)', letterSpacing: '0.02em',
-      }}>
-        Building from verified venues only
-      </p>
-      <div style={{
-        position: 'absolute', top: 0, left: 0, right: 0, height: 3,
-        background: 'var(--color-border)',
-        overflow: 'hidden',
-      }}>
-        <div style={{
-          height: '100%', width: '40%',
-          background: 'linear-gradient(90deg, var(--color-sage-dark), var(--color-sage))',
-          animation: 'trailShimmer 1.5s ease-in-out infinite alternate',
-        }} />
-      </div>
-      <style>{`
-        @keyframes trailShimmer {
-          0% { transform: translateX(-100%); }
-          100% { transform: translateX(250%); }
-        }
-      `}</style>
-    </div>
-  )
-}
-
+// Default export — route-level error.js and loading.js handle
+// error boundaries and Suspense, so no internal wrappers needed.
 export default function ItineraryPage() {
-  return (
-    <ItineraryErrorBoundary>
-      <Suspense fallback={<LoadingFallback />}>
-        <ItineraryPageInner />
-      </Suspense>
-    </ItineraryErrorBoundary>
-  )
+  return <ItineraryPageInner />
 }
