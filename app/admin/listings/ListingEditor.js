@@ -118,6 +118,160 @@ function Field({ label, value, onChange, type = 'text', options, toggle, style }
   )
 }
 
+// ─── State Bounding Boxes (for misplaced detection) ────────
+
+const STATE_BOUNDS = {
+  NSW: { minLat: -37.5, maxLat: -28.2, minLng: 141.0, maxLng: 153.6 },
+  VIC: { minLat: -39.2, maxLat: -34.0, minLng: 140.9, maxLng: 150.0 },
+  QLD: { minLat: -29.2, maxLat: -10.7, minLng: 138.0, maxLng: 153.5 },
+  SA:  { minLat: -38.1, maxLat: -26.0, minLng: 129.0, maxLng: 141.0 },
+  WA:  { minLat: -35.2, maxLat: -13.7, minLng: 112.9, maxLng: 129.0 },
+  TAS: { minLat: -43.7, maxLat: -39.6, minLng: 143.8, maxLng: 148.4 },
+  ACT: { minLat: -35.9, maxLat: -35.1, minLng: 148.7, maxLng: 149.4 },
+  NT:  { minLat: -26.0, maxLat: -10.9, minLng: 129.0, maxLng: 138.0 },
+}
+
+function isOutsideStateBounds(lat, lng, state) {
+  if (!lat || !lng || !state) return false
+  const b = STATE_BOUNDS[state]
+  if (!b) return false
+  return lat < b.minLat || lat > b.maxLat || lng < b.minLng || lng > b.maxLng
+}
+
+// ─── Geocode Picker ────────────────────────────────────────
+
+function GeocodePicker({ address, region, state, currentLat, currentLng, onSelect }) {
+  const [candidates, setCandidates] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  const mapboxToken = typeof window !== 'undefined'
+    ? (process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '')
+    : ''
+
+  const geocode = async () => {
+    const parts = [address, region, state, 'Australia'].filter(Boolean)
+    if (parts.length < 2) {
+      setError('Add an address or region first')
+      return
+    }
+    setLoading(true)
+    setError(null)
+    setCandidates(null)
+    try {
+      const query = parts.join(', ')
+      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?country=au&limit=3&access_token=${mapboxToken}`
+      const res = await fetch(url)
+      if (!res.ok) throw new Error('Geocoding failed')
+      const data = await res.json()
+      if (!data.features?.length) {
+        setError('No results found')
+      } else {
+        setCandidates(data.features)
+      }
+    } catch {
+      setError('Geocoding request failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const staticMapUrl = (lng, lat) =>
+    `https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/pin-s+c49a3c(${lng},${lat})/${lng},${lat},13,0/200x140@2x?access_token=${mapboxToken}`
+
+  const mismatch = isOutsideStateBounds(currentLat, currentLng, state)
+
+  return (
+    <div style={{ gridColumn: '1 / -1', marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <button onClick={geocode} disabled={loading}
+          style={{
+            fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600,
+            padding: '6px 14px', borderRadius: 6,
+            border: '1px solid var(--color-sage)', background: '#fff',
+            color: 'var(--color-sage)', cursor: loading ? 'wait' : 'pointer',
+            letterSpacing: '0.03em',
+          }}>
+          {loading ? 'Geocoding...' : '📍 Re-geocode from address'}
+        </button>
+
+        {mismatch && (
+          <span style={{
+            fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600,
+            color: '#c53030', background: '#fef2f2', padding: '4px 10px',
+            borderRadius: 6, border: '1px solid #fca5a5',
+          }}>
+            ⚠ Pin outside {state} bounds
+          </span>
+        )}
+
+        {currentLat && currentLng && (
+          <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-muted)' }}>
+            Current: {Number(currentLat).toFixed(4)}, {Number(currentLng).toFixed(4)}
+          </span>
+        )}
+      </div>
+
+      {error && (
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: '#c53030', margin: '0 0 8px' }}>
+          {error}
+        </p>
+      )}
+
+      {candidates && (
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          {candidates.map((feature, i) => {
+            const [fLng, fLat] = feature.center
+            return (
+              <div key={feature.id || i} style={{
+                flex: '1 1 180px', maxWidth: 220,
+                border: '1px solid var(--color-border)', borderRadius: 8,
+                overflow: 'hidden', background: '#fff',
+              }}>
+                {mapboxToken && (
+                  <img
+                    src={staticMapUrl(fLng, fLat)}
+                    alt={`Map for ${feature.place_name}`}
+                    style={{ width: '100%', height: 100, objectFit: 'cover', display: 'block' }}
+                    loading="lazy"
+                  />
+                )}
+                <div style={{ padding: '8px 10px' }}>
+                  <p style={{
+                    fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-ink)',
+                    margin: '0 0 4px', lineHeight: 1.4,
+                    display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                  }}>
+                    {feature.place_name}
+                  </p>
+                  <p style={{
+                    fontFamily: 'var(--font-body)', fontSize: 10, color: 'var(--color-muted)',
+                    margin: '0 0 6px', fontVariantNumeric: 'tabular-nums',
+                  }}>
+                    {fLat.toFixed(6)}, {fLng.toFixed(6)}
+                  </p>
+                  <button onClick={() => {
+                    onSelect(fLat, fLng)
+                    setCandidates(null)
+                  }}
+                    style={{
+                      fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 600,
+                      padding: '4px 12px', borderRadius: 4,
+                      border: 'none', background: 'var(--color-sage)', color: '#fff',
+                      cursor: 'pointer', letterSpacing: '0.04em', textTransform: 'uppercase',
+                    }}>
+                    Use this
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Listing Card ───────────────────────────────────────────
 
 function ListingCard({ listing, isExpanded, onToggle, onUpdate, regions }) {
@@ -255,6 +409,14 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, regions }) {
             <Field label="Address" value={draft.address} onChange={v => updateDraft('address', v)} style={{ gridColumn: '1 / -1' }} />
             <Field label="Latitude" value={draft.lat} onChange={v => updateDraft('lat', v)} type="number" />
             <Field label="Longitude" value={draft.lng} onChange={v => updateDraft('lng', v)} type="number" />
+            <GeocodePicker
+              address={draft.address}
+              region={draft.region}
+              state={draft.state}
+              currentLat={draft.lat}
+              currentLng={draft.lng}
+              onSelect={(lat, lng) => { updateDraft('lat', lat); updateDraft('lng', lng) }}
+            />
             <Field label="Vertical" value={draft.vertical} onChange={v => updateDraft('vertical', v)}
               options={Object.entries(VERTICAL_NAMES).map(([k, v]) => ({ value: k, label: v }))} />
             <Field label="Status" value={draft.status} onChange={v => updateDraft('status', v)}
@@ -399,6 +561,7 @@ export default function ListingEditor({ initialListings = [], initialTotal = 0, 
           <option value="pending">Pending</option>
           <option value="claimed">Claimed</option>
           <option value="unclaimed">Unclaimed</option>
+          <option value="misplaced">📍 Potentially misplaced</option>
         </select>
 
         <select value={filters.sort} onChange={e => updateFilter('sort', e.target.value)}
