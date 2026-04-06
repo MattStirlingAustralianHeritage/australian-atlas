@@ -73,6 +73,10 @@ export async function GET(request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  // Support single-vertical mode via ?vertical=sba to avoid function timeout
+  const { searchParams } = new URL(request.url)
+  const onlyVertical = searchParams.get('vertical')
+
   const sb = getSupabaseAdmin()
   const startTime = Date.now()
   const results = []
@@ -89,7 +93,12 @@ export async function GET(request) {
     .from('listing_candidates').select('name').in('status', ['pending', 'reviewing'])
   if (existingCandidates) existingCandidates.forEach(c => existingNames.add(c.name.toLowerCase().trim()))
 
-  for (const [vertical, config] of Object.entries(VERTICALS)) {
+  // Filter to single vertical if specified, otherwise run all
+  const verticalsToRun = onlyVertical && VERTICALS[onlyVertical]
+    ? { [onlyVertical]: VERTICALS[onlyVertical] }
+    : VERTICALS
+
+  for (const [vertical, config] of Object.entries(verticalsToRun)) {
     try {
       // Get coverage for this vertical
       const coverage = { total: 0, byState: {} }

@@ -9,8 +9,40 @@
       "schedule": "0 3 * * *"
     },
     {
-      "path": "/api/cron/prospect",
+      "path": "/api/cron/prospect?vertical=sba",
+      "schedule": "0 19 * * *"
+    },
+    {
+      "path": "/api/cron/prospect?vertical=collection",
+      "schedule": "5 19 * * *"
+    },
+    {
+      "path": "/api/cron/prospect?vertical=craft",
+      "schedule": "10 19 * * *"
+    },
+    {
+      "path": "/api/cron/prospect?vertical=fine_grounds",
+      "schedule": "15 19 * * *"
+    },
+    {
+      "path": "/api/cron/prospect?vertical=rest",
+      "schedule": "20 19 * * *"
+    },
+    {
+      "path": "/api/cron/prospect?vertical=field",
+      "schedule": "25 19 * * *"
+    },
+    {
+      "path": "/api/cron/prospect?vertical=corner",
       "schedule": "30 19 * * *"
+    },
+    {
+      "path": "/api/cron/prospect?vertical=found",
+      "schedule": "35 19 * * *"
+    },
+    {
+      "path": "/api/cron/prospect?vertical=table",
+      "schedule": "40 19 * * *"
     }
   ]
 }
