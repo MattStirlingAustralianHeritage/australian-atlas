@@ -9,27 +9,19 @@ export default async function CandidatesPage() {
   const sb = getSupabaseAdmin()
 
   let candidates = []
-  let debugInfo = null
 
   try {
-    const { data, error, count } = await sb
+    const { data, error } = await sb
       .from('listing_candidates')
-      .select('*', { count: 'exact' })
+      .select('*')
       .eq('status', 'pending')
       .order('vertical', { ascending: true })
       .order('confidence', { ascending: false })
       .limit(100)
 
-    if (error) {
-      console.error('[admin/candidates] Supabase error:', error)
-      debugInfo = `Query error: ${error.message}`
-    } else {
-      candidates = data || []
-      debugInfo = `Found ${candidates.length} candidates (total: ${count})`
-    }
+    if (!error && data) candidates = data
   } catch (err) {
     console.error('[admin/candidates] Query error:', err.message)
-    debugInfo = `Exception: ${err.message}`
   }
 
   return (
@@ -42,12 +34,6 @@ export default async function CandidatesPage() {
           Review and curate venues for the Atlas Network. Approve to create a draft listing, reject to dismiss.
         </p>
       </div>
-
-      {debugInfo && (
-        <p style={{ fontFamily: 'monospace', fontSize: 11, color: '#999', textAlign: 'center', marginBottom: 16 }}>
-          {debugInfo}
-        </p>
-      )}
 
       <CandidateReviewQueue initialCandidates={candidates} />
     </div>
