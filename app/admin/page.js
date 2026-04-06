@@ -82,6 +82,11 @@ export default function AdminPage() {
             href="/admin/staleness"
           />
           <AdminCard
+            label="Listings"
+            description="Browse, search, and edit all listings across verticals"
+            href="/admin/listings"
+          />
+          <AdminCard
             label="Candidates"
             description="Listing acquisition pipeline and coverage gaps"
             href="/admin/candidates"
