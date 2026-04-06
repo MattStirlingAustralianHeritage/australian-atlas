@@ -3,6 +3,42 @@ import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
 
+const VERTICAL_LABELS = {
+  sba: 'artisan food & drink producer', collection: 'museum, gallery, or collection',
+  craft: 'maker or artisan studio', fine_grounds: 'specialty coffee roaster',
+  rest: 'boutique accommodation', field: 'outdoor or nature destination',
+  corner: 'independent retail shop', found: 'vintage, antique, or secondhand shop',
+  table: 'independent restaurant or cafe',
+}
+
+async function generateDescription(candidate) {
+  const type = VERTICAL_LABELS[candidate.vertical] || 'venue'
+  const prompt = `Write a 2–3 sentence editorial description for "${candidate.name}", a ${type} in ${candidate.region || 'Australia'}. ${candidate.notes ? `Context: ${candidate.notes}` : ''}
+
+Tone: warm, concise, editorial — like a curated travel guide. Focus on what makes the place distinctive. Do not invent specific details you don't know. Do not include the venue name in the description. Return only the description text, nothing else.`
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 300,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    })
+    if (!res.ok) return null
+    const result = await res.json()
+    return result.content?.[0]?.text?.trim() || null
+  } catch {
+    return null
+  }
+}
+
 function slugify(text) {
   return text
     .toLowerCase()
@@ -101,7 +137,13 @@ export async function POST(request, { params }) {
         return NextResponse.json({ error: 'Candidate not found' }, { status: 404 })
       }
 
-      // 2. Create a draft listing in the listings table
+      // 2. Generate description if missing
+      let description = candidate.description || null
+      if (!description) {
+        description = await generateDescription(candidate)
+      }
+
+      // 3. Create a draft listing in the listings table
       const slug = slugify(candidate.name)
       const sourceId = `candidate-${candidate.id}`
 
@@ -110,7 +152,7 @@ export async function POST(request, { params }) {
         source_id: sourceId,
         name: candidate.name,
         slug,
-        description: candidate.description || null,
+        description,
         region: candidate.region || null,
         website: candidate.website_url || null,
         status: 'pending', // draft — needs further enrichment
@@ -132,7 +174,7 @@ export async function POST(request, { params }) {
         throw insertError
       }
 
-      // 3. Mark candidate as converted
+      // 4. Mark candidate as converted
       const { error: updateError } = await sb
         .from('listing_candidates')
         .update({
