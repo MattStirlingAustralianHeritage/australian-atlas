@@ -44,7 +44,7 @@ export default function RegionMap({ points, regionName }) {
 
       const map = new mapboxgl.Map({
         container: mapRef.current,
-        style: 'mapbox://styles/mapbox/light-v11',
+        style: 'mapbox://styles/mattstirlingaustralianheritage/cmn32b0iz003401swccb7d21k',
         bounds: bounds,
         fitBoundsOptions: { padding: 50, maxZoom: 12 },
         attributionControl: false,

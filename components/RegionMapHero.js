@@ -63,7 +63,7 @@ export default function RegionMapHero({ points, regionName, stateName, centerLat
       // Calculate bounds from points or use center
       let mapOptions = {
         container: mapRef.current,
-        style: 'mapbox://styles/mapbox/light-v11',
+        style: 'mapbox://styles/mattstirlingaustralianheritage/cmn32b0iz003401swccb7d21k',
         attributionControl: false,
         interactive: true,
       }

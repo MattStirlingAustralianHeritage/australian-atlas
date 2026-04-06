@@ -81,7 +81,7 @@ function ListingCard({ listing }) {
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''
 
   const staticMapUrl = listing.lat && listing.lng && mapboxToken
-    ? `https://api.mapbox.com/styles/v1/mapbox/light-v11/static/pin-s+5f8a7e(${listing.lng},${listing.lat})/${listing.lng},${listing.lat},12,0/320x180@2x?access_token=${mapboxToken}`
+    ? `https://api.mapbox.com/styles/v1/mattstirlingaustralianheritage/cmn32b0iz003401swccb7d21k/static/pin-s+5f8a7e(${listing.lng},${listing.lat})/${listing.lng},${listing.lat},12,0/320x180@2x?access_token=${mapboxToken}`
     : null
 
   return (

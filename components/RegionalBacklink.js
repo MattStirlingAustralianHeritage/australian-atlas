@@ -1,7 +1,20 @@
 'use client'
 
+import { useState, useEffect } from 'react'
+
 export default function RegionalBacklink({ regionName, regionSlug, regionDescription, venueName }) {
-  if (!regionName || !regionSlug) return null
+  const [regionValid, setRegionValid] = useState(false)
+
+  useEffect(() => {
+    if (!regionName || !regionSlug) return
+
+    fetch(`/api/regions/validate?slug=${regionSlug}`)
+      .then(r => r.ok ? r.json() : { exists: false })
+      .then(data => setRegionValid(data.exists === true))
+      .catch(() => setRegionValid(false))
+  }, [regionSlug, regionName])
+
+  if (!regionName || !regionSlug || !regionValid) return null
 
   // Take just the first sentence of the region description
   const snippet = regionDescription

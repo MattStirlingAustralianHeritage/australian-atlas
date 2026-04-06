@@ -307,7 +307,7 @@ Respond with a JSON array of exactly 10 objects. No other text, just the JSON ar
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-3-5-haiku-20241022',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 4000,
       messages: [{ role: 'user', content: prompt }],
     }),
@@ -352,13 +352,12 @@ Respond with a JSON array of exactly 10 objects. No other text, just the JSON ar
   return filtered.slice(0, 10).map(c => ({
     name: c.name.trim(),
     region: c.region || null,
-    state: c.state || null,
     vertical,
     website_url: c.website_url || null,
     confidence: Math.min(1, Math.max(0, parseFloat(c.confidence) || 0.5)),
     source: 'ai_prospector',
     source_detail: `Daily prospector — ${new Date().toISOString().split('T')[0]}`,
-    notes: c.notes || null,
+    notes: c.state ? `[${c.state}] ${c.notes || ''}`.trim() : (c.notes || null),
     status: 'pending',
   }))
 }
@@ -369,32 +368,16 @@ async function insertCandidates(candidates) {
   let inserted = 0
 
   for (const candidate of candidates) {
-    try {
-      const { error } = await sb
-        .from('listing_candidates')
-        .upsert(candidate, {
-          onConflict: 'name,vertical',
-          ignoreDuplicates: true,
-        })
+    const { error } = await sb
+      .from('listing_candidates')
+      .insert(candidate)
 
-      if (!error) {
-        inserted++
-      } else if (error.code === '23505') {
-        // Unique constraint violation — already exists, skip silently
-      } else {
-        console.error(`    Insert error for ${candidate.name}:`, error.message)
-      }
-    } catch (err) {
-      // If upsert fails due to no unique constraint, fall back to insert
-      try {
-        const { error } = await sb
-          .from('listing_candidates')
-          .insert(candidate)
-
-        if (!error) inserted++
-      } catch (insertErr) {
-        console.error(`    Insert fallback error for ${candidate.name}:`, insertErr.message)
-      }
+    if (!error) {
+      inserted++
+    } else if (error.code === '23505') {
+      // Duplicate — skip silently
+    } else {
+      console.error(`    Insert error for ${candidate.name}:`, error.message)
     }
   }
 

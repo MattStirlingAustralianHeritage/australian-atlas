@@ -196,7 +196,7 @@ export default async function EventDetailPage({ params }) {
         {event.lat && event.lng && (
           <div className="mt-8">
             <img
-              src={`https://api.mapbox.com/styles/v1/mapbox/light-v11/static/pin-s+5f8a7e(${event.lng},${event.lat})/${event.lng},${event.lat},12,0/600x300@2x?access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''}`}
+              src={`https://api.mapbox.com/styles/v1/mattstirlingaustralianheritage/cmn32b0iz003401swccb7d21k/static/pin-s+5f8a7e(${event.lng},${event.lat})/${event.lng},${event.lat},12,0/600x300@2x?access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''}`}
               alt={`Map of ${event.location_name || event.name}`}
               className="w-full rounded-xl border border-[var(--color-border)]"
               loading="lazy"
