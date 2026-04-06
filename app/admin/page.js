@@ -1,3 +1,5 @@
+'use client'
+
 export default function AdminPage() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--color-cream)', padding: '3rem 1.5rem' }}>
@@ -24,6 +26,7 @@ export default function AdminPage() {
           </div>
           <a
             href="/admin/logout"
+            onClick={e => { e.preventDefault(); window.location.href = '/admin/logout' }}
             style={{
               padding: '0.5rem 1rem',
               borderRadius: '8px',
@@ -33,6 +36,7 @@ export default function AdminPage() {
               fontSize: '0.825rem',
               color: 'var(--color-muted, #888)',
               textDecoration: 'none',
+              cursor: 'pointer',
             }}
           >
             Sign out
@@ -111,9 +115,15 @@ export default function AdminPage() {
 }
 
 function AdminCard({ label, description, href }) {
+  const navigate = (e) => {
+    e.preventDefault()
+    window.location.href = href
+  }
+
   return (
     <a
       href={href}
+      onClick={navigate}
       style={{
         display: 'block',
         background: '#fff',
@@ -121,6 +131,7 @@ function AdminCard({ label, description, href }) {
         border: '1px solid var(--color-border, #e5e5e5)',
         padding: '1.25rem',
         textDecoration: 'none',
+        cursor: 'pointer',
       }}
     >
       <p style={{
