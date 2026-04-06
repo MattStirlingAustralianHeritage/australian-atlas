@@ -1297,5 +1297,18 @@ function ItineraryPageInner() {
 // Default export — route-level error.js and loading.js handle
 // error boundaries and Suspense, so no internal wrappers needed.
 export default function ItineraryPage() {
-  return <ItineraryPageInner />
+  return (
+    <div>
+      {/* Debug marker — if this renders, the module loaded. Remove once confirmed. */}
+      <div id="itinerary-debug" style={{
+        position: 'fixed', top: 0, left: 0, right: 0,
+        zIndex: 99999, background: '#c53030', color: '#fff',
+        padding: '8px 16px', fontSize: 12, fontFamily: 'monospace',
+        textAlign: 'center',
+      }}>
+        Page module loaded. If you see this but blank below, ItineraryPageInner is failing silently.
+      </div>
+      <ItineraryPageInner />
+    </div>
+  )
 }
