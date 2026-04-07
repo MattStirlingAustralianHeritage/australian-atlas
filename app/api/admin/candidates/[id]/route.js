@@ -282,6 +282,25 @@ export async function POST(request, { params }) {
       const vertical = candidate.vertical || 'sba'
       const slug = slugify(candidate.name)
 
+      // ── Quality gate: no website = no listing ──────────
+      // Hard editorial standard across the network.
+      // Exception: Field Atlas (natural places may not have websites).
+      const WEBSITE_EXEMPT_VERTICALS = ['field']
+      if (!candidate.website_url?.trim() && !WEBSITE_EXEMPT_VERTICALS.includes(vertical)) {
+        // Auto-reject — no website, no listing
+        await sb.from('listing_candidates').update({
+          status: 'rejected',
+          reviewed_at: new Date().toISOString(),
+          notes: (candidate.notes ? candidate.notes + '\n' : '') + '[Auto-rejected: no website URL]',
+        }).eq('id', id)
+
+        return NextResponse.json({
+          success: true,
+          action: 'rejected',
+          reason: 'No website URL — hard editorial gate. All listings (except Field Atlas) require a verified website.',
+        })
+      }
+
       // 2. Enrich from website if available
       let enriched = {}
       if (candidate.website_url) {

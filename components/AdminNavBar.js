@@ -18,6 +18,7 @@ const PAGE_TITLES = {
   insights: 'Search Insights',
   staleness: 'Staleness',
   trails: 'Trails',
+  'audit-review': 'Data Audit',
 }
 
 export default function AdminNavBar() {

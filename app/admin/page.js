@@ -111,6 +111,11 @@ export default function AdminPage() {
             href="/admin/health"
           />
           <AdminCard
+            label="Data Audit"
+            description="Review flagged listings from data integrity audits"
+            href="/admin/audit-review"
+          />
+          <AdminCard
             label="Regions"
             description="View and manage regions"
             href="/regions"
