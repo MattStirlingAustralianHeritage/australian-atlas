@@ -25,13 +25,16 @@ const VERTICAL_URLS = {
   table: 'https://tableatlas.com.au/listings',
 }
 
+// IMPORTANT: select option values MUST match the CHECK constraints in
+// supabase/migrations/003_extension_tables.sql — mismatches cause silent
+// save failures (Postgres rejects the value).
 const VERTICAL_FIELDS = {
   sba: [
     { key: 'producer_type', label: 'Producer Type', type: 'select', options: [
-      { value: 'distillery', label: 'Distillery' }, { value: 'brewery', label: 'Brewery' },
-      { value: 'cidery', label: 'Cidery' }, { value: 'winery', label: 'Winery' },
-      { value: 'bottle_shop', label: 'Bottle Shop' }, { value: 'meadery', label: 'Meadery' },
-      { value: 'sake_brewery', label: 'Sake Brewery' }, { value: 'non_alcoholic', label: 'Non-Alcoholic' },
+      { value: 'brewery', label: 'Brewery' }, { value: 'winery', label: 'Winery' },
+      { value: 'distillery', label: 'Distillery' }, { value: 'cidery', label: 'Cidery' },
+      { value: 'meadery', label: 'Meadery' }, { value: 'cellar_door', label: 'Cellar Door' },
+      { value: 'sour_brewery', label: 'Sour Brewery' }, { value: 'non_alcoholic', label: 'Non-Alcoholic' },
     ]},
     { key: 'has_tasting_room', label: 'Tasting Room', type: 'toggle' },
     { key: 'has_tours', label: 'Tours Available', type: 'toggle' },
@@ -40,16 +43,16 @@ const VERTICAL_FIELDS = {
     { key: 'institution_type', label: 'Institution Type', type: 'select', options: [
       { value: 'museum', label: 'Museum' }, { value: 'gallery', label: 'Gallery' },
       { value: 'heritage_site', label: 'Heritage Site' }, { value: 'cultural_centre', label: 'Cultural Centre' },
-      { value: 'botanical_garden', label: 'Botanical Garden' }, { value: 'archive', label: 'Archive' },
+      { value: 'botanical_garden', label: 'Botanical Garden' },
     ]},
     { key: 'is_free_admission', label: 'Free Admission', type: 'toggle' },
   ],
   craft: [
     { key: 'discipline', label: 'Discipline', type: 'select', options: [
       { value: 'ceramics_clay', label: 'Ceramics & Clay' }, { value: 'visual_art', label: 'Visual Art' },
-      { value: 'jewellery', label: 'Jewellery' }, { value: 'textiles', label: 'Textiles' },
-      { value: 'woodwork', label: 'Woodwork' }, { value: 'glass', label: 'Glass' },
-      { value: 'printmaking', label: 'Printmaking' }, { value: 'mixed_media', label: 'Mixed Media' },
+      { value: 'jewellery_metalwork', label: 'Jewellery & Metalwork' }, { value: 'textile_fibre', label: 'Textile & Fibre' },
+      { value: 'wood_furniture', label: 'Wood & Furniture' }, { value: 'glass', label: 'Glass' },
+      { value: 'printmaking', label: 'Printmaking' },
     ]},
     { key: 'commission_available', label: 'Commission Available', type: 'toggle' },
     { key: 'is_open_to_public', label: 'Studio Visits', type: 'toggle' },
@@ -62,9 +65,10 @@ const VERTICAL_FIELDS = {
   ],
   rest: [
     { key: 'accommodation_type', label: 'Accommodation Type', type: 'select', options: [
-      { value: 'boutique_hotel', label: 'Boutique Hotel' }, { value: 'motel', label: 'Motel' },
-      { value: 'farm_stay', label: 'Farm Stay' }, { value: 'glamping', label: 'Glamping' },
-      { value: 'cottage', label: 'Cottage' }, { value: 'bnb', label: 'B&B' },
+      { value: 'boutique_hotel', label: 'Boutique Hotel' }, { value: 'farm_stay', label: 'Farm Stay' },
+      { value: 'glamping', label: 'Glamping' }, { value: 'self_contained', label: 'Self-Contained' },
+      { value: 'bnb', label: 'B&B' }, { value: 'guesthouse', label: 'Guesthouse' },
+      { value: 'cottage', label: 'Cottage' },
     ]},
     { key: 'min_price_per_night', label: 'Min Price/Night ($)', type: 'number' },
     { key: 'pet_friendly', label: 'Pet Friendly', type: 'toggle' },
@@ -72,8 +76,9 @@ const VERTICAL_FIELDS = {
   field: [
     { key: 'feature_type', label: 'Place Type', type: 'select', options: [
       { value: 'swimming_hole', label: 'Swimming Hole' }, { value: 'waterfall', label: 'Waterfall' },
-      { value: 'lookout', label: 'Lookout' }, { value: 'natural_area', label: 'Natural Area' },
-      { value: 'national_park', label: 'National Park' },
+      { value: 'lookout', label: 'Lookout' }, { value: 'gorge', label: 'Gorge' },
+      { value: 'coastal_walk', label: 'Coastal Walk' }, { value: 'hot_spring', label: 'Hot Spring' },
+      { value: 'cave', label: 'Cave' }, { value: 'national_park', label: 'National Park' },
     ]},
     { key: 'dogs_allowed', label: 'Dog Friendly', type: 'toggle' },
     { key: 'is_entry_free', label: 'Free Entry', type: 'toggle' },
@@ -81,26 +86,32 @@ const VERTICAL_FIELDS = {
   ],
   found: [
     { key: 'shop_type', label: 'Shop Type', type: 'select', options: [
-      { value: 'antique', label: 'Antique' }, { value: 'vintage_clothing', label: 'Vintage' },
-      { value: 'second_hand', label: 'Second Hand' }, { value: 'market', label: 'Market' },
-      { value: 'dealer', label: 'Dealer' }, { value: 'op_shop', label: 'Op Shop' },
+      { value: 'vintage_clothing', label: 'Vintage Clothing' }, { value: 'vintage_furniture', label: 'Vintage Furniture' },
+      { value: 'antiques', label: 'Antiques' }, { value: 'op_shop', label: 'Op Shop' },
+      { value: 'books_ephemera', label: 'Books & Ephemera' }, { value: 'art_objects', label: 'Art & Objects' },
+      { value: 'market', label: 'Market' },
     ]},
   ],
   corner: [
     { key: 'shop_type', label: 'Shop Type', type: 'select', options: [
-      { value: 'bookshop', label: 'Bookshop' }, { value: 'record_store', label: 'Record Store' },
-      { value: 'vinyl', label: 'Vinyl' }, { value: 'newsagent', label: 'Newsagent' },
-      { value: 'stationery', label: 'Stationery' }, { value: 'lifestyle', label: 'Lifestyle' },
+      { value: 'bookshop', label: 'Bookshop' }, { value: 'records', label: 'Records' },
+      { value: 'homewares', label: 'Homewares' }, { value: 'stationery', label: 'Stationery' },
+      { value: 'jewellery', label: 'Jewellery' }, { value: 'toys', label: 'Toys' },
+      { value: 'general', label: 'General' }, { value: 'clothing', label: 'Clothing' },
+      { value: 'food_drink', label: 'Food & Drink' }, { value: 'plants', label: 'Plants' },
+      { value: 'art_supplies', label: 'Art Supplies' }, { value: 'other', label: 'Other' },
     ]},
-    { key: 'has_online_store', label: 'Buys Second Hand', type: 'toggle' },
+    { key: 'has_online_store', label: 'Online Store', type: 'toggle' },
   ],
   table: [
-    { key: 'food_type', label: 'Producer Type', type: 'select', options: [
-      { value: 'farm_gate', label: 'Farm Gate' }, { value: 'food_producer', label: 'Food Producer' },
-      { value: 'providore', label: 'Providore' }, { value: 'farmers_market', label: 'Farmers Market' },
-      { value: 'butcher', label: 'Butcher' }, { value: 'bakery', label: 'Bakery' },
+    { key: 'food_type', label: 'Food Type', type: 'select', options: [
+      { value: 'restaurant', label: 'Restaurant' }, { value: 'bakery', label: 'Bakery' },
+      { value: 'market', label: 'Market' }, { value: 'farm_gate', label: 'Farm Gate' },
+      { value: 'artisan_producer', label: 'Artisan Producer' }, { value: 'specialty_retail', label: 'Specialty Retail' },
+      { value: 'destination', label: 'Destination' }, { value: 'cooking_school', label: 'Cooking School' },
+      { value: 'providore', label: 'Providore' }, { value: 'food_trail', label: 'Food Trail' },
     ]},
-    { key: 'cafe_on_site', label: 'Cellar Door', type: 'toggle' },
+    { key: 'cafe_on_site', label: 'Cafe On Site', type: 'toggle' },
   ],
 }
 

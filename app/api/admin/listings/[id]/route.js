@@ -61,10 +61,31 @@ export async function DELETE(request, { params }) {
         if (config?.url) {
           const verticalClient = getVerticalClient(listing.vertical)
           let table = config.table
+
+          // Fine Grounds has two tables (roasters + cafes) — check entity_type
+          // to target the correct one, falling back to trying both if unknown
           if (listing.vertical === 'fine_grounds') {
-            table = 'roasters' // default
+            const { data: metaRow } = await sb
+              .from('fine_grounds_meta')
+              .select('entity_type')
+              .eq('listing_id', id)
+              .maybeSingle()
+
+            if (metaRow?.entity_type === 'cafe') {
+              table = 'cafes'
+            } else if (metaRow?.entity_type === 'roaster') {
+              table = 'roasters'
+            } else {
+              // Unknown entity_type — try both tables
+              await verticalClient.from('roasters').delete().eq('id', listing.source_id)
+              await verticalClient.from('cafes').delete().eq('id', listing.source_id)
+              table = null // skip the single delete below
+            }
           }
-          await verticalClient.from(table).delete().eq('id', listing.source_id)
+
+          if (table) {
+            await verticalClient.from(table).delete().eq('id', listing.source_id)
+          }
         }
       } catch (syncErr) {
         console.warn('[admin/listings/DELETE] Vertical delete warning:', syncErr.message)

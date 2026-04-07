@@ -17,12 +17,16 @@ const VERTICAL_COLORS = {
 
 async function getListing(slug) {
   const sb = getSupabaseAdmin()
+  // slug is NOT unique across verticals — use limit(1) instead of .single()
+  // to avoid PGRST116 if two verticals share a slug
   const { data, error } = await sb
     .from('listings')
     .select('id, name, slug, vertical, region, state, description, is_claimed')
     .eq('slug', slug)
     .eq('status', 'active')
-    .single()
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
 
   if (error || !data) return null
   return data

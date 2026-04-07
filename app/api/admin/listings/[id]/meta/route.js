@@ -1,5 +1,7 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
+import { checkAdmin } from '@/lib/admin-auth'
 
 const EXTENSION_TABLES = {
   sba: 'sba_meta', collection: 'collection_meta', craft: 'craft_meta',
@@ -8,6 +10,11 @@ const EXTENSION_TABLES = {
 }
 
 export async function GET(request, { params }) {
+  const cookieStore = await cookies()
+  if (!(await checkAdmin(cookieStore))) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const { id } = await params
   const sb = getSupabaseAdmin()
 
@@ -23,6 +30,11 @@ export async function GET(request, { params }) {
 }
 
 export async function PATCH(request, { params }) {
+  const cookieStore = await cookies()
+  if (!(await checkAdmin(cookieStore))) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const { id } = await params
   const updates = await request.json()
   const sb = getSupabaseAdmin()
