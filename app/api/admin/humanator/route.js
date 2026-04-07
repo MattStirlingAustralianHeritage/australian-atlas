@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSupabaseAdmin, getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
-import { mapToVerticalSchema, VERTICAL_DISPLAY_NAMES } from '@/lib/sync/pushToVertical'
+import { mapToVerticalSchema, updateInVertical, VERTICAL_DISPLAY_NAMES } from '@/lib/sync/pushToVertical'
 
 const SELECT_COLS = 'id, vertical, source_id, name, slug, description, region, state, lat, lng, website, phone, address, hero_image_url, is_claimed, is_featured, is_market, status, editors_pick, humanised, humanised_at, created_at, updated_at'
 
@@ -242,6 +242,13 @@ export async function PATCH(request) {
         }
       }
     } else if (action === 'hide') {
+      // Fetch listing first to get vertical + source_id for sync
+      const { data: hideListing } = await sb
+        .from('listings')
+        .select('vertical, source_id, name, slug, description, region, state, lat, lng, website, phone, address')
+        .eq('id', id)
+        .single()
+
       const { error } = await sb
         .from('listings')
         .update({
@@ -251,6 +258,21 @@ export async function PATCH(request) {
         .eq('id', id)
 
       if (error) throw error
+
+      // Sync the hide to the vertical DB so it's removed from the live site
+      if (hideListing?.vertical && hideListing?.source_id) {
+        const hideResult = await updateInVertical(hideListing.vertical, hideListing.source_id, {
+          ...hideListing,
+          _hidden: true,
+        })
+        const vName = VERTICAL_DISPLAY_NAMES[hideListing.vertical] || hideListing.vertical
+        sync_status = hideResult.success
+          ? { synced: true, verticalName: vName, error: null }
+          : { synced: false, verticalName: vName, error: hideResult.error }
+        if (!hideResult.success) {
+          console.warn(`[admin/humanator] Hide sync to ${vName} failed:`, hideResult.error)
+        }
+      }
     }
     // 'skip' — no DB changes needed
 
