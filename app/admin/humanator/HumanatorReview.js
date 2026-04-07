@@ -127,7 +127,8 @@ export default function HumanatorReview({ initialListing, initialStats }) {
   const [stats, setStats] = useState(initialStats)
   const [draft, setDraft] = useState(initialListing ? { ...initialListing } : null)
   const [loading, setLoading] = useState(false)
-  const [flash, setFlash] = useState(null) // 'saved' | 'skipped' | 'hidden' | 'error'
+  const [flash, setFlash] = useState(null) // 'saved' | 'saved_synced' | 'saved_sync_failed' | 'skipped' | 'hidden' | 'error'
+  const [syncDetail, setSyncDetail] = useState(null) // vertical name for display
   const [milestone, setMilestone] = useState(null)
 
   // Session tracking
@@ -200,7 +201,16 @@ export default function HumanatorReview({ initialListing, initialStats }) {
       // Track action
       if (action === 'humanise') {
         setSessionHumanised(prev => prev + 1)
-        setFlash('saved')
+        if (data.sync_status?.synced) {
+          setFlash('saved_synced')
+          setSyncDetail(data.sync_status.verticalName)
+        } else if (data.sync_status && !data.sync_status.synced) {
+          setFlash('saved_sync_failed')
+          setSyncDetail(data.sync_status.verticalName)
+        } else {
+          setFlash('saved')
+          setSyncDetail(null)
+        }
         checkMilestone(data.stats?.humanised_count)
       } else if (action === 'skip') {
         setSessionSkipped(prev => prev + 1)
@@ -217,7 +227,8 @@ export default function HumanatorReview({ initialListing, initialStats }) {
         setListing(null)
       }
 
-      setTimeout(() => setFlash(null), 1500)
+      const syncFailed = action === 'humanise' && data.sync_status && !data.sync_status.synced
+      setTimeout(() => setFlash(null), syncFailed ? 3000 : 1500)
     } catch (err) {
       console.error('Humanator error:', err)
       setFlash('error')
@@ -301,11 +312,13 @@ export default function HumanatorReview({ initialListing, initialStats }) {
         <div style={{
           padding: '8px 12px', borderRadius: 6, marginBottom: 16,
           fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500, textAlign: 'center',
-          background: flash === 'saved' ? '#e8f5e9' : flash === 'error' ? '#fef2f2' : flash === 'hidden' ? '#fef2f2' : '#f5f5f5',
-          color: flash === 'saved' ? '#2e7d32' : flash === 'error' ? '#c62828' : flash === 'hidden' ? '#c62828' : 'var(--color-muted)',
-          border: `1px solid ${flash === 'saved' ? '#c8e6c9' : flash === 'error' ? '#ffcdd2' : flash === 'hidden' ? '#ffcdd2' : 'var(--color-border)'}`,
+          background: flash === 'saved_synced' || flash === 'saved' ? '#e8f5e9' : flash === 'saved_sync_failed' ? '#fff8e1' : flash === 'error' ? '#fef2f2' : flash === 'hidden' ? '#fef2f2' : '#f5f5f5',
+          color: flash === 'saved_synced' || flash === 'saved' ? '#2e7d32' : flash === 'saved_sync_failed' ? '#e65100' : flash === 'error' ? '#c62828' : flash === 'hidden' ? '#c62828' : 'var(--color-muted)',
+          border: `1px solid ${flash === 'saved_synced' || flash === 'saved' ? '#c8e6c9' : flash === 'saved_sync_failed' ? '#ffe0b2' : flash === 'error' ? '#ffcdd2' : flash === 'hidden' ? '#ffcdd2' : 'var(--color-border)'}`,
           transition: 'opacity 0.3s',
         }}>
+          {flash === 'saved_synced' && `Humanised + synced to ${syncDetail}. Next listing loaded.`}
+          {flash === 'saved_sync_failed' && `Humanised, but sync to ${syncDetail} failed. Next listing loaded.`}
           {flash === 'saved' && 'Humanised. Next listing loaded.'}
           {flash === 'skipped' && 'Skipped. Loading next...'}
           {flash === 'hidden' && 'Listing hidden. Loading next...'}

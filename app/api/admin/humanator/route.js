@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { getSupabaseAdmin, getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
+import { mapToVerticalSchema, VERTICAL_DISPLAY_NAMES } from '@/lib/sync/pushToVertical'
 
 const SELECT_COLS = 'id, vertical, source_id, name, slug, description, region, state, lat, lng, website, phone, address, hero_image_url, is_claimed, is_featured, is_market, status, editors_pick, humanised, humanised_at, created_at, updated_at'
 
@@ -10,6 +11,75 @@ const ALLOWED_FIELDS = [
   'lat', 'lng', 'phone', 'is_claimed', 'is_featured', 'is_market',
   'editors_pick', 'hero_image_url',
 ]
+
+// ─── Sync listing to vertical DB ────────────────────────────
+
+async function syncToVertical(sb, listingId, vertical) {
+  const verticalName = VERTICAL_DISPLAY_NAMES[vertical] || vertical
+
+  try {
+    const config = VERTICAL_CONFIG[vertical]
+    if (!config || !config.url) {
+      return { synced: false, verticalName, error: `No config for vertical: ${vertical}` }
+    }
+
+    // Re-fetch the full listing from master (need all fields for the schema mapper)
+    const { data: listing, error: readError } = await sb
+      .from('listings')
+      .select('*')
+      .eq('id', listingId)
+      .single()
+
+    if (readError || !listing) {
+      return { synced: false, verticalName, error: `Master listing not found: ${readError?.message || 'no data'}` }
+    }
+
+    const client = getVerticalClient(vertical)
+    const verticalRow = mapToVerticalSchema(vertical, listing)
+
+    // Determine target table
+    let table = config.table
+    if (vertical === 'fine_grounds') {
+      table = listing.category === 'cafe' ? 'cafes' : 'roasters'
+    }
+
+    // If listing already has a source_id, update the existing vertical row
+    if (listing.source_id) {
+      const { error: updateError } = await client
+        .from(table)
+        .update(verticalRow)
+        .eq('id', listing.source_id)
+
+      if (updateError) {
+        return { synced: false, verticalName, error: updateError.message }
+      }
+      return { synced: true, verticalName, error: null }
+    }
+
+    // No source_id — insert a new row and link it back to master
+    const { data: inserted, error: insertError } = await client
+      .from(table)
+      .insert(verticalRow)
+      .select('id')
+      .single()
+
+    if (insertError) {
+      return { synced: false, verticalName, error: insertError.message }
+    }
+
+    // Update master source_id so future syncs won't duplicate
+    if (inserted?.id) {
+      await sb
+        .from('listings')
+        .update({ source_id: String(inserted.id) })
+        .eq('id', listingId)
+    }
+
+    return { synced: true, verticalName, error: null }
+  } catch (err) {
+    return { synced: false, verticalName, error: err.message }
+  }
+}
 
 // ─── Fetch stats ────────────────────────────────────────────
 
@@ -128,6 +198,8 @@ export async function PATCH(request) {
 
     const sb = getSupabaseAdmin()
 
+    let sync_status = null
+
     if (action === 'humanise') {
       // Build update payload from allowed fields
       const patch = {}
@@ -155,6 +227,20 @@ export async function PATCH(request) {
         .eq('id', id)
 
       if (error) throw error
+
+      // Fetch the listing's vertical so we know where to sync
+      const { data: saved } = await sb
+        .from('listings')
+        .select('vertical')
+        .eq('id', id)
+        .single()
+
+      if (saved?.vertical) {
+        sync_status = await syncToVertical(sb, id, saved.vertical)
+        if (!sync_status.synced) {
+          console.warn(`[admin/humanator] Vertical sync failed for ${id}:`, sync_status.error)
+        }
+      }
     } else if (action === 'hide') {
       const { error } = await sb
         .from('listings')
@@ -175,7 +261,7 @@ export async function PATCH(request) {
       fetchStats(sb),
     ])
 
-    return NextResponse.json({ success: true, next_listing, stats })
+    return NextResponse.json({ success: true, next_listing, stats, sync_status })
   } catch (err) {
     console.error('[admin/humanator/PATCH] Error:', err.message)
     return NextResponse.json({ error: 'Action failed' }, { status: 500 })
