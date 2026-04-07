@@ -9,7 +9,7 @@ export const metadata = {
 
 const VERTICALS = [
   { key: 'sba', label: 'Small Batch' },
-  { key: 'collection', label: 'Collection' },
+  { key: 'collection', label: 'Culture' },
   { key: 'craft', label: 'Craft' },
   { key: 'fine_grounds', label: 'Fine Grounds' },
   { key: 'rest', label: 'Rest' },

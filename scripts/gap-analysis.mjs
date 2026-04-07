@@ -24,7 +24,7 @@ const jsonMode = process.argv.includes('--json')
 
 const VERTICALS = ['sba', 'collection', 'craft', 'fine_grounds', 'rest', 'field', 'corner', 'found', 'table']
 const VERTICAL_LABELS = {
-  sba: 'Small Batch', collection: 'Collection', craft: 'Craft',
+  sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
   fine_grounds: 'Fine Grounds', rest: 'Rest', field: 'Field',
   corner: 'Corner', found: 'Found', table: 'Table',
 }

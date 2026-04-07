@@ -6,7 +6,7 @@ import { useState, useCallback, useRef } from 'react'
 
 const VERTICALS = {
   sba: 'Small Batch',
-  collection: 'Collection',
+  collection: 'Culture',
   craft: 'Craft',
   fine_grounds: 'Fine Grounds',
   rest: 'Rest',

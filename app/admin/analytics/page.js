@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 const VERTICALS = [
   { key: 'sba', label: 'Small Batch', color: '#C49A3C' },
-  { key: 'collection', label: 'Collection', color: '#8B6F47' },
+  { key: 'collection', label: 'Culture', color: '#8B6F47' },
   { key: 'craft', label: 'Craft', color: '#6B7F5E' },
   { key: 'fine_grounds', label: 'Fine Grounds', color: '#7A5C3E' },
   { key: 'rest', label: 'Rest', color: '#5B7B8A' },

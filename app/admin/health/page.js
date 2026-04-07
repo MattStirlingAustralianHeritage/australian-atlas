@@ -4,7 +4,7 @@ import HealthActions from './HealthActions'
 export const dynamic = 'force-dynamic'
 
 const VERTICAL_DISPLAY = {
-  sba: 'Small Batch', collection: 'Collection', craft: 'Craft',
+  sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
   fine_grounds: 'Fine Grounds', rest: 'Rest', field: 'Field',
   corner: 'Corner', found: 'Found', table: 'Table',
 }
