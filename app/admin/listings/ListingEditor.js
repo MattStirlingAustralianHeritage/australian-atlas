@@ -315,9 +315,9 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
       onUpdate(updated)
       setDraft({ ...updated })
       if (verticalSync && !verticalSync.success) {
-        setFlash({ type: 'saved-warn', msg: verticalSync.warning })
+        setFlash({ type: 'saved-warn', msg: verticalSync.warning, vertical: verticalSync.vertical })
       } else {
-        setFlash({ type: 'saved' })
+        setFlash({ type: 'saved', vertical: verticalSync?.vertical })
       }
       setTimeout(() => setFlash(null), 4000)
     } catch (err) {
@@ -457,8 +457,8 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
               display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
             }}>
               <span>
-                {flash.type === 'saved' && 'Saved and synced to vertical.'}
-                {flash.type === 'saved-warn' && `Saved to master \u2014 vertical sync warning: ${flash.msg || 'will retry on cron'}`}
+                {flash.type === 'saved' && `Saved \u2014 master + ${flash.vertical || 'vertical'} updated.`}
+                {flash.type === 'saved-warn' && `Saved to master \u2014 ${flash.vertical || 'vertical'} sync failed: ${flash.msg || 'unknown error'}. Cron will retry.`}
                 {flash.type === 'hidden' && 'Listing hidden from public view.'}
                 {flash.type === 'unhidden' && 'Listing restored to public view.'}
                 {flash.type === 'error' && `Error: ${flash.msg || 'Action failed'}`}
