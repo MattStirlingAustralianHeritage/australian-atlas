@@ -139,139 +139,64 @@ function ItineraryMap({ days }) {
       mapRef.current = map
       map.addControl(new mapboxgl.NavigationControl(), 'top-right')
 
-      map.on('load', async () => {
-        // ─── Animated route reveal ─────────────────────────
-        // Fetch all route geometries first, then animate sequentially
-        const routeData = []
-        for (const group of dayStopGroups) {
-          let routeGeometry = null
-          if (group.coordinates.length >= 2) {
-            routeGeometry = await fetchRouteGeometry(group.coordinates, token)
+      // Helper: add a marker to the map (no animation)
+      function addStaticMarker(stop, mapboxgl, map) {
+        try {
+          const color = getDayColor(stop.dayNumber)
+          const label = VERTICAL_LABELS[stop.vertical] || stop.vertical || ''
+
+          const el = document.createElement('div')
+          el.style.cssText = `width:30px;height:30px;border-radius:50%;background:${color};border:2px solid white;color:white;font-weight:bold;font-size:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.3);cursor:pointer;font-family:system-ui,sans-serif;`
+          if (stop.isOvernight) {
+            el.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>'
+          } else {
+            el.innerText = stop.globalIndex
           }
-          const coords = routeGeometry
-            ? routeGeometry.coordinates
-            : group.coordinates
-          routeData.push({ dayNumber: group.dayNumber, coordinates: coords })
-        }
 
-        // Group stops by day for sequential pin drops
-        const stopsByDay = {}
-        allStops.forEach(stop => {
-          if (!stopsByDay[stop.dayNumber]) stopsByDay[stop.dayNumber] = []
-          stopsByDay[stop.dayNumber].push(stop)
-        })
+          const popup = new mapboxgl.Popup({ offset: 20, closeButton: false })
+            .setHTML(`
+              <div style="font-family:system-ui,sans-serif;padding:6px 4px;">
+                <p style="font-weight:600;margin:0 0 2px;font-size:13px;">${stop.venue_name || ''}</p>
+                <p style="margin:0;color:${color};font-size:10px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;">Day ${stop.dayNumber}${label ? ` \u00B7 ${label}` : ''}</p>
+                ${stop.note ? `<p style="margin:4px 0 0;font-size:11px;color:#666;line-height:1.3;">${stop.note}</p>` : ''}
+              </div>
+            `)
 
-        // Helper: animate a single day's route drawing
-        function animateRoute(dayData, dayColor, durationMs) {
-          return new Promise(resolve => {
-            const sourceId = `route-day-${dayData.dayNumber}`
-            const coords = dayData.coordinates
+          new mapboxgl.Marker({ element: el })
+            .setLngLat([parseFloat(stop.lng), parseFloat(stop.lat)])
+            .setPopup(popup)
+            .addTo(map)
+        } catch (e) { /* marker failed, continue */ }
+      }
 
-            // Add source with empty line
-            map.addSource(sourceId, {
-              type: 'geojson',
-              data: { type: 'Feature', geometry: { type: 'LineString', coordinates: [coords[0]] } },
-            })
+      // Helper: add a static route line (no animation)
+      function addStaticRoute(map, dayData, dayColor) {
+        try {
+          const sourceId = `route-day-${dayData.dayNumber}`
+          if (!dayData.coordinates || dayData.coordinates.length < 2) return
 
-            // Glow layer
-            map.addLayer({
-              id: `${sourceId}-glow`,
-              type: 'line',
-              source: sourceId,
-              layout: { 'line-join': 'round', 'line-cap': 'round' },
-              paint: { 'line-color': dayColor, 'line-width': 8, 'line-opacity': 0.15 },
-            })
-
-            // Main dashed line
-            map.addLayer({
-              id: `${sourceId}-line`,
-              type: 'line',
-              source: sourceId,
-              layout: { 'line-join': 'round', 'line-cap': 'round' },
-              paint: { 'line-color': dayColor, 'line-width': 2.5, 'line-dasharray': [2, 1.5] },
-            })
-
-            const totalSegments = coords.length - 1
-            if (totalSegments <= 0) { resolve(); return }
-            const startTime = performance.now()
-
-            function animate(now) {
-              if (!mapRef.current) { resolve(); return }
-              const elapsed = now - startTime
-              const t = Math.min(elapsed / durationMs, 1)
-              // Ease-out curve for smooth deceleration
-              const easedT = 1 - Math.pow(1 - t, 2.5)
-
-              const currentFloat = easedT * totalSegments
-              const currentIndex = Math.floor(currentFloat)
-              const segFraction = currentFloat - currentIndex
-
-              const drawnCoords = coords.slice(0, currentIndex + 1)
-              if (currentIndex < totalSegments) {
-                const from = coords[currentIndex]
-                const to = coords[currentIndex + 1]
-                drawnCoords.push([
-                  from[0] + (to[0] - from[0]) * segFraction,
-                  from[1] + (to[1] - from[1]) * segFraction,
-                ])
-              }
-
-              try {
-                const src = map.getSource(sourceId)
-                if (src) {
-                  src.setData({
-                    type: 'Feature',
-                    geometry: { type: 'LineString', coordinates: drawnCoords },
-                  })
-                }
-              } catch (e) { /* map might be removed */ }
-
-              if (t < 1) {
-                requestAnimationFrame(animate)
-              } else {
-                resolve()
-              }
-            }
-            requestAnimationFrame(animate)
+          map.addSource(sourceId, {
+            type: 'geojson',
+            data: { type: 'Feature', geometry: { type: 'LineString', coordinates: dayData.coordinates } },
           })
-        }
-
-        // Helper: drop a marker with bounce animation
-        function dropMarker(stop, mapboxgl, delay) {
-          return new Promise(resolve => {
-            setTimeout(() => {
-              if (!mapRef.current) { resolve(); return }
-
-              const color = getDayColor(stop.dayNumber)
-              const label = VERTICAL_LABELS[stop.vertical] || stop.vertical || ''
-
-              const el = document.createElement('div')
-              el.style.cssText = `width:30px;height:30px;border-radius:50%;background:${color};border:2px solid white;color:white;font-weight:bold;font-size:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.3);cursor:pointer;font-family:system-ui,sans-serif;opacity:0;transform:scale(0) translateY(-16px);animation:mapPinDrop 0.45s cubic-bezier(0.34,1.56,0.64,1) forwards;`
-              if (stop.isOvernight) {
-                el.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>'
-              } else {
-                el.innerText = stop.globalIndex
-              }
-
-              const popup = new mapboxgl.Popup({ offset: 20, closeButton: false })
-                .setHTML(`
-                  <div style="font-family:system-ui,sans-serif;padding:6px 4px;">
-                    <p style="font-weight:600;margin:0 0 2px;font-size:13px;">${stop.venue_name || ''}</p>
-                    <p style="margin:0;color:${color};font-size:10px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;">Day ${stop.dayNumber}${label ? ` \u00B7 ${label}` : ''}</p>
-                    ${stop.note ? `<p style="margin:4px 0 0;font-size:11px;color:#666;line-height:1.3;">${stop.note}</p>` : ''}
-                  </div>
-                `)
-
-              new mapboxgl.Marker({ element: el })
-                .setLngLat([parseFloat(stop.lng), parseFloat(stop.lat)])
-                .setPopup(popup)
-                .addTo(map)
-
-              resolve()
-            }, delay)
+          map.addLayer({
+            id: `${sourceId}-glow`,
+            type: 'line',
+            source: sourceId,
+            layout: { 'line-join': 'round', 'line-cap': 'round' },
+            paint: { 'line-color': dayColor, 'line-width': 8, 'line-opacity': 0.15 },
           })
-        }
+          map.addLayer({
+            id: `${sourceId}-line`,
+            type: 'line',
+            source: sourceId,
+            layout: { 'line-join': 'round', 'line-cap': 'round' },
+            paint: { 'line-color': dayColor, 'line-width': 2.5, 'line-dasharray': [2, 1.5] },
+          })
+        } catch (e) { /* route failed, continue */ }
+      }
 
+      map.on('load', async () => {
         // Inject pin-drop keyframe animation
         if (!document.getElementById('map-pin-drop-style')) {
           const styleEl = document.createElement('style')
@@ -287,40 +212,184 @@ function ItineraryMap({ days }) {
           document.head.appendChild(styleEl)
         }
 
-        // ─── Sequential animation: route draws, then pins drop ───
-        const ROUTE_DURATION = 1800  // ms per day's route
-        const PIN_STAGGER = 180     // ms between each pin drop
-        const DAY_PAUSE = 400       // ms pause between days
-
-        // Initial pause before animation starts
-        await new Promise(r => setTimeout(r, 500))
-
-        for (const dayRoute of routeData) {
-          if (!mapRef.current) break
-          const dayColor = getDayColor(dayRoute.dayNumber)
-
-          // Animate this day's route line
-          await animateRoute(dayRoute, dayColor, ROUTE_DURATION)
-
-          // Drop this day's pins in sequence
-          const dayStops = stopsByDay[dayRoute.dayNumber] || []
-          const pinPromises = dayStops.map((stop, i) =>
-            dropMarker(stop, mapboxgl, i * PIN_STAGGER)
-          )
-          await Promise.all(pinPromises)
-
-          // Pause between days
-          if (dayRoute !== routeData[routeData.length - 1]) {
-            await new Promise(r => setTimeout(r, DAY_PAUSE))
+        try {
+          // ─── Animated route reveal ─────────────────────────
+          const routeData = []
+          for (const group of dayStopGroups) {
+            let routeGeometry = null
+            if (group.coordinates.length >= 2) {
+              routeGeometry = await fetchRouteGeometry(group.coordinates, token)
+            }
+            const coords = routeGeometry
+              ? routeGeometry.coordinates
+              : group.coordinates
+            if (coords && coords.length >= 2) {
+              routeData.push({ dayNumber: group.dayNumber, coordinates: coords })
+            }
           }
-        }
 
-        // Drop any remaining stops that weren't part of a route group
-        // (e.g., single-stop days)
-        const routeDayNumbers = new Set(routeData.map(r => r.dayNumber))
-        const orphanStops = allStops.filter(s => !routeDayNumbers.has(s.dayNumber))
-        for (const stop of orphanStops) {
-          await dropMarker(stop, mapboxgl, 0)
+          // Group stops by day for sequential pin drops
+          const stopsByDay = {}
+          allStops.forEach(stop => {
+            if (!stopsByDay[stop.dayNumber]) stopsByDay[stop.dayNumber] = []
+            stopsByDay[stop.dayNumber].push(stop)
+          })
+
+          // Helper: animate a single day's route drawing
+          function animateRoute(dayData, dayColor, durationMs) {
+            return new Promise(resolve => {
+              try {
+                const sourceId = `route-day-${dayData.dayNumber}`
+                const coords = dayData.coordinates
+
+                map.addSource(sourceId, {
+                  type: 'geojson',
+                  data: { type: 'Feature', geometry: { type: 'LineString', coordinates: [coords[0]] } },
+                })
+                map.addLayer({
+                  id: `${sourceId}-glow`,
+                  type: 'line',
+                  source: sourceId,
+                  layout: { 'line-join': 'round', 'line-cap': 'round' },
+                  paint: { 'line-color': dayColor, 'line-width': 8, 'line-opacity': 0.15 },
+                })
+                map.addLayer({
+                  id: `${sourceId}-line`,
+                  type: 'line',
+                  source: sourceId,
+                  layout: { 'line-join': 'round', 'line-cap': 'round' },
+                  paint: { 'line-color': dayColor, 'line-width': 2.5, 'line-dasharray': [2, 1.5] },
+                })
+
+                const totalSegments = coords.length - 1
+                if (totalSegments <= 0) { resolve(); return }
+                const startTime = performance.now()
+
+                function animate(now) {
+                  if (!mapRef.current) { resolve(); return }
+                  const elapsed = now - startTime
+                  const t = Math.min(elapsed / durationMs, 1)
+                  const easedT = 1 - Math.pow(1 - t, 2.5)
+
+                  const currentFloat = easedT * totalSegments
+                  const currentIndex = Math.floor(currentFloat)
+                  const segFraction = currentFloat - currentIndex
+
+                  const drawnCoords = coords.slice(0, currentIndex + 1)
+                  if (currentIndex < totalSegments) {
+                    const from = coords[currentIndex]
+                    const to = coords[currentIndex + 1]
+                    drawnCoords.push([
+                      from[0] + (to[0] - from[0]) * segFraction,
+                      from[1] + (to[1] - from[1]) * segFraction,
+                    ])
+                  }
+
+                  try {
+                    const src = map.getSource(sourceId)
+                    if (src) {
+                      src.setData({
+                        type: 'Feature',
+                        geometry: { type: 'LineString', coordinates: drawnCoords },
+                      })
+                    }
+                  } catch (e) { /* map might be removed */ }
+
+                  if (t < 1) {
+                    requestAnimationFrame(animate)
+                  } else {
+                    resolve()
+                  }
+                }
+                requestAnimationFrame(animate)
+              } catch (e) {
+                console.warn('[trail-map] Route animation failed:', e.message)
+                resolve() // don't block the chain
+              }
+            })
+          }
+
+          // Helper: drop a marker with bounce animation
+          function dropMarker(stop, mapboxgl, delay) {
+            return new Promise(resolve => {
+              setTimeout(() => {
+                if (!mapRef.current) { resolve(); return }
+                try {
+                  const color = getDayColor(stop.dayNumber)
+                  const label = VERTICAL_LABELS[stop.vertical] || stop.vertical || ''
+
+                  const el = document.createElement('div')
+                  el.style.cssText = `width:30px;height:30px;border-radius:50%;background:${color};border:2px solid white;color:white;font-weight:bold;font-size:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.3);cursor:pointer;font-family:system-ui,sans-serif;opacity:0;transform:scale(0) translateY(-16px);animation:mapPinDrop 0.45s cubic-bezier(0.34,1.56,0.64,1) forwards;`
+                  if (stop.isOvernight) {
+                    el.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>'
+                  } else {
+                    el.innerText = stop.globalIndex
+                  }
+
+                  const popup = new mapboxgl.Popup({ offset: 20, closeButton: false })
+                    .setHTML(`
+                      <div style="font-family:system-ui,sans-serif;padding:6px 4px;">
+                        <p style="font-weight:600;margin:0 0 2px;font-size:13px;">${stop.venue_name || ''}</p>
+                        <p style="margin:0;color:${color};font-size:10px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;">Day ${stop.dayNumber}${label ? ` \u00B7 ${label}` : ''}</p>
+                        ${stop.note ? `<p style="margin:4px 0 0;font-size:11px;color:#666;line-height:1.3;">${stop.note}</p>` : ''}
+                      </div>
+                    `)
+
+                  new mapboxgl.Marker({ element: el })
+                    .setLngLat([parseFloat(stop.lng), parseFloat(stop.lat)])
+                    .setPopup(popup)
+                    .addTo(map)
+                } catch (e) { /* marker failed, continue */ }
+                resolve()
+              }, delay)
+            })
+          }
+
+          // ─── Sequential animation: route draws, then pins drop ───
+          const ROUTE_DURATION = 1800
+          const PIN_STAGGER = 180
+          const DAY_PAUSE = 400
+
+          await new Promise(r => setTimeout(r, 500))
+
+          for (const dayRoute of routeData) {
+            if (!mapRef.current) break
+            const dayColor = getDayColor(dayRoute.dayNumber)
+
+            await animateRoute(dayRoute, dayColor, ROUTE_DURATION)
+
+            const dayStops = stopsByDay[dayRoute.dayNumber] || []
+            const pinPromises = dayStops.map((stop, i) =>
+              dropMarker(stop, mapboxgl, i * PIN_STAGGER)
+            )
+            await Promise.all(pinPromises)
+
+            if (dayRoute !== routeData[routeData.length - 1]) {
+              await new Promise(r => setTimeout(r, DAY_PAUSE))
+            }
+          }
+
+          // Drop any remaining stops that weren't part of a route group
+          const routeDayNumbers = new Set(routeData.map(r => r.dayNumber))
+          const orphanStops = allStops.filter(s => !routeDayNumbers.has(s.dayNumber))
+          for (const stop of orphanStops) {
+            await dropMarker(stop, mapboxgl, 0)
+          }
+
+        } catch (err) {
+          // ─── Fallback: static markers + static routes if animation fails ───
+          console.warn('[trail-map] Animation failed, falling back to static markers:', err.message)
+
+          // Draw static route lines
+          for (const group of dayStopGroups) {
+            const dayColor = getDayColor(group.dayNumber)
+            addStaticRoute(map, { dayNumber: group.dayNumber, coordinates: group.coordinates }, dayColor)
+          }
+
+          // Place static markers for all stops
+          for (const stop of allStops) {
+            addStaticMarker(stop, mapboxgl, map)
+          }
         }
       })
     })
