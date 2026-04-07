@@ -310,11 +310,15 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
         setTimeout(() => setFlash(null), 2000)
         return
       }
-      const { listing: updated } = await res.json()
+      const { listing: updated, verticalSync } = await res.json()
       onUpdate(updated)
       setDraft({ ...updated })
-      setFlash('saved')
-      setTimeout(() => setFlash(null), 2000)
+      if (verticalSync && !verticalSync.success) {
+        setFlash('saved-warn')
+      } else {
+        setFlash('saved')
+      }
+      setTimeout(() => setFlash(null), 3000)
     } catch (err) {
       console.error('Save error:', err)
       setFlash('error')
@@ -443,11 +447,12 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
             <div style={{
               padding: '8px 12px', borderRadius: 6, marginBottom: 12,
               fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500,
-              background: flash === 'error' ? '#fef2f2' : '#e8f5e9',
-              color: flash === 'error' ? '#c62828' : '#2e7d32',
-              border: `1px solid ${flash === 'error' ? '#ffcdd2' : '#c8e6c9'}`,
+              background: flash === 'error' ? '#fef2f2' : flash === 'saved-warn' ? '#fff8e1' : '#e8f5e9',
+              color: flash === 'error' ? '#c62828' : flash === 'saved-warn' ? '#f57f17' : '#2e7d32',
+              border: `1px solid ${flash === 'error' ? '#ffcdd2' : flash === 'saved-warn' ? '#fff0b2' : '#c8e6c9'}`,
             }}>
-              {flash === 'saved' && 'Changes saved.'}
+              {flash === 'saved' && 'Saved and synced to vertical.'}
+              {flash === 'saved-warn' && 'Saved to master — vertical sync will retry on cron.'}
               {flash === 'hidden' && 'Listing hidden from public view.'}
               {flash === 'unhidden' && 'Listing restored to public view.'}
               {flash === 'error' && 'Action failed \u2014 please try again.'}

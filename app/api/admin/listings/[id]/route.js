@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSupabaseAdmin, getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
+import { updateInVertical, VERTICAL_DISPLAY_NAMES } from '@/lib/sync/pushToVertical'
 
 const ALLOWED_FIELDS = [
   'name', 'description', 'website', 'region', 'state', 'address',
@@ -54,38 +55,39 @@ export async function PATCH(request, { params }) {
 
     if (error) throw error
 
-    // If status changed to hidden or active, sync to vertical DB
-    if ('status' in updates && data.source_id && data.vertical) {
-      try {
-        const config = VERTICAL_CONFIG[data.vertical]
-        if (config?.url) {
-          const verticalClient = getVerticalClient(data.vertical)
-          let table = config.table
-          if (data.vertical === 'fine_grounds') {
-            table = 'roasters' // default; category not tracked in master
-          }
+    // Sync ALL field changes to the vertical DB (not just status changes).
+    // Uses shared updateInVertical which maps fields to the vertical's schema.
+    let verticalSync = null
+    if (data.vertical && data.source_id) {
+      const syncData = {
+        name: data.name,
+        slug: data.slug,
+        description: data.description,
+        region: data.region,
+        state: data.state,
+        lat: data.lat,
+        lng: data.lng,
+        website: data.website,
+        phone: data.phone,
+        address: data.address,
+        suburb: data.region,
+        category: null, // not tracked in master
+        _hidden: data.status === 'hidden',
+      }
 
-          if (updates.status === 'hidden') {
-            // Hide in vertical: set status/published to inactive/false
-            const hideUpdate = table === 'places' || table === 'shops' || table === 'listings'
-              ? { published: false }
-              : { status: 'inactive' }
-            await verticalClient.from(table).update(hideUpdate).eq('id', data.source_id)
-          } else if (updates.status === 'active') {
-            // Unhide in vertical: set status/published to active/true
-            const unhideUpdate = table === 'places' || table === 'shops' || table === 'listings'
-              ? { published: true }
-              : { status: 'active' }
-            await verticalClient.from(table).update(unhideUpdate).eq('id', data.source_id)
-          }
-        }
-      } catch (syncErr) {
-        console.warn('[admin/listings/PATCH] Vertical sync warning:', syncErr.message)
-        // Non-fatal — master update already succeeded
+      const result = await updateInVertical(data.vertical, data.source_id, syncData)
+      const verticalName = VERTICAL_DISPLAY_NAMES[data.vertical] || data.vertical
+
+      if (result.success) {
+        console.log(`[admin/listings/PATCH] Synced to ${verticalName} (table: ${result.table})`)
+        verticalSync = { success: true, vertical: verticalName }
+      } else {
+        console.warn(`[admin/listings/PATCH] Vertical sync failed: ${result.error}`)
+        verticalSync = { success: false, vertical: verticalName, warning: result.error }
       }
     }
 
-    return NextResponse.json({ listing: data })
+    return NextResponse.json({ listing: data, verticalSync })
   } catch (err) {
     console.error('[admin/listings/PATCH] Error:', err.message)
     return NextResponse.json({ error: 'Update failed' }, { status: 500 })
