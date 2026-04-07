@@ -281,12 +281,26 @@ export async function POST(request, { params }) {
         }
       }
 
-      // 3. Geocode if we got an address
+      // 3. Geocode — try enriched address first, then fall back to name + region
       let coords = null
       if (enriched.address) {
         coords = await geocodeAddress(enriched.address, enriched.state)
         if (coords) {
-          console.log(`[approve] Geocoded: ${coords.lat}, ${coords.lng}`)
+          console.log(`[approve] Geocoded from address: ${coords.lat}, ${coords.lng}`)
+        }
+      }
+      // Fallback: geocode from business name + region (less precise but usually gets the right town)
+      if (!coords && candidate.region) {
+        coords = await geocodeAddress(`${candidate.name}, ${candidate.region}`, enriched.state || null)
+        if (coords) {
+          console.log(`[approve] Geocoded from name+region fallback: ${coords.lat}, ${coords.lng}`)
+        }
+      }
+      // Last resort: geocode from just the region name
+      if (!coords && candidate.region) {
+        coords = await geocodeAddress(candidate.region, enriched.state || null)
+        if (coords) {
+          console.log(`[approve] Geocoded from region fallback: ${coords.lat}, ${coords.lng}`)
         }
       }
 
@@ -422,6 +436,6 @@ export async function POST(request, { params }) {
     }
   } catch (err) {
     console.error('[admin/candidates/POST] Error:', err.message)
-    return NextResponse.json({ error: 'Action failed' }, { status: 500 })
+    return NextResponse.json({ error: err.message || 'Action failed' }, { status: 500 })
   }
 }

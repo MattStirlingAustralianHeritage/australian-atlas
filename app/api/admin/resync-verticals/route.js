@@ -63,6 +63,7 @@ export async function POST(request) {
         website: listing.website,
         phone: listing.phone,
         address: listing.address,
+        hero_image_url: listing.hero_image_url,
         suburb: listing.region,
         category: null,
       }

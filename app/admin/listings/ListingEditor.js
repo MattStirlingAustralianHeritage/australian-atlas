@@ -278,7 +278,7 @@ function GeocodePicker({ address, region, state, currentLat, currentLng, onSelec
 function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, regions }) {
   const [draft, setDraft] = useState(null)
   const [saving, setSaving] = useState(false)
-  const [flash, setFlash] = useState(null)
+  const [flash, setFlash] = useState(null) // { type: 'saved'|'saved-warn'|'error'|'hidden'|'unhidden', msg?: string }
   const [hideConfirm, setHideConfirm] = useState(false)
   const [hiding, setHiding] = useState(false)
   const [deleteStep, setDeleteStep] = useState(0) // 0=none, 1=warning, 2=type-name
@@ -297,32 +297,33 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
   const handleSave = async () => {
     if (!draft || saving) return
     setSaving(true)
+    setFlash(null)
     try {
       const res = await fetch(`/api/admin/listings/${listing.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(draft),
       })
+      const data = await res.json()
       if (!res.ok) {
-        const d = await res.json()
-        console.error('Save failed:', d.error)
-        setFlash('error')
-        setTimeout(() => setFlash(null), 2000)
+        console.error('Save failed:', data.error)
+        setFlash({ type: 'error', msg: data.error || 'Save failed' })
+        setTimeout(() => setFlash(null), 6000)
         return
       }
-      const { listing: updated, verticalSync } = await res.json()
+      const { listing: updated, verticalSync } = data
       onUpdate(updated)
       setDraft({ ...updated })
       if (verticalSync && !verticalSync.success) {
-        setFlash('saved-warn')
+        setFlash({ type: 'saved-warn', msg: verticalSync.warning })
       } else {
-        setFlash('saved')
+        setFlash({ type: 'saved' })
       }
-      setTimeout(() => setFlash(null), 3000)
+      setTimeout(() => setFlash(null), 4000)
     } catch (err) {
       console.error('Save error:', err)
-      setFlash('error')
-      setTimeout(() => setFlash(null), 2000)
+      setFlash({ type: 'error', msg: err.message || 'Network error' })
+      setTimeout(() => setFlash(null), 6000)
     } finally {
       setSaving(false)
     }
@@ -330,6 +331,7 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
 
   const handleHide = async () => {
     setHiding(true)
+    setFlash(null)
     try {
       const newStatus = listing.status === 'hidden' ? 'active' : 'hidden'
       const res = await fetch(`/api/admin/listings/${listing.id}`, {
@@ -337,20 +339,21 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
       })
+      const data = await res.json()
       if (!res.ok) {
-        setFlash('error')
-        setTimeout(() => setFlash(null), 2000)
+        setFlash({ type: 'error', msg: data.error || 'Hide/unhide failed' })
+        setTimeout(() => setFlash(null), 6000)
         return
       }
-      const { listing: updated } = await res.json()
+      const { listing: updated } = data
       onUpdate(updated)
       if (draft) setDraft({ ...updated })
       setHideConfirm(false)
-      setFlash(newStatus === 'hidden' ? 'hidden' : 'unhidden')
-      setTimeout(() => setFlash(null), 2500)
-    } catch {
-      setFlash('error')
-      setTimeout(() => setFlash(null), 2000)
+      setFlash({ type: newStatus === 'hidden' ? 'hidden' : 'unhidden' })
+      setTimeout(() => setFlash(null), 3000)
+    } catch (err) {
+      setFlash({ type: 'error', msg: err.message || 'Network error' })
+      setTimeout(() => setFlash(null), 6000)
     } finally {
       setHiding(false)
     }
@@ -361,14 +364,15 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
     try {
       const res = await fetch(`/api/admin/listings/${listing.id}`, { method: 'DELETE' })
       if (!res.ok) {
-        setFlash('error')
-        setTimeout(() => setFlash(null), 2000)
+        const d = await res.json().catch(() => ({}))
+        setFlash({ type: 'error', msg: d.error || 'Delete failed' })
+        setTimeout(() => setFlash(null), 6000)
         return
       }
       onRemove(listing.id)
-    } catch {
-      setFlash('error')
-      setTimeout(() => setFlash(null), 2000)
+    } catch (err) {
+      setFlash({ type: 'error', msg: err.message || 'Delete failed' })
+      setTimeout(() => setFlash(null), 6000)
     } finally {
       setDeleting(false)
     }
@@ -447,15 +451,22 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
             <div style={{
               padding: '8px 12px', borderRadius: 6, marginBottom: 12,
               fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500,
-              background: flash === 'error' ? '#fef2f2' : flash === 'saved-warn' ? '#fff8e1' : '#e8f5e9',
-              color: flash === 'error' ? '#c62828' : flash === 'saved-warn' ? '#f57f17' : '#2e7d32',
-              border: `1px solid ${flash === 'error' ? '#ffcdd2' : flash === 'saved-warn' ? '#fff0b2' : '#c8e6c9'}`,
+              background: flash.type === 'error' ? '#fef2f2' : flash.type === 'saved-warn' ? '#fff8e1' : '#e8f5e9',
+              color: flash.type === 'error' ? '#c62828' : flash.type === 'saved-warn' ? '#f57f17' : '#2e7d32',
+              border: `1px solid ${flash.type === 'error' ? '#ffcdd2' : flash.type === 'saved-warn' ? '#fff0b2' : '#c8e6c9'}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
             }}>
-              {flash === 'saved' && 'Saved and synced to vertical.'}
-              {flash === 'saved-warn' && 'Saved to master — vertical sync will retry on cron.'}
-              {flash === 'hidden' && 'Listing hidden from public view.'}
-              {flash === 'unhidden' && 'Listing restored to public view.'}
-              {flash === 'error' && 'Action failed \u2014 please try again.'}
+              <span>
+                {flash.type === 'saved' && 'Saved and synced to vertical.'}
+                {flash.type === 'saved-warn' && `Saved to master \u2014 vertical sync warning: ${flash.msg || 'will retry on cron'}`}
+                {flash.type === 'hidden' && 'Listing hidden from public view.'}
+                {flash.type === 'unhidden' && 'Listing restored to public view.'}
+                {flash.type === 'error' && `Error: ${flash.msg || 'Action failed'}`}
+              </span>
+              <button onClick={() => setFlash(null)} style={{
+                background: 'none', border: 'none', cursor: 'pointer', fontSize: 14,
+                color: 'inherit', opacity: 0.6, padding: '0 2px', lineHeight: 1, flexShrink: 0,
+              }}>&times;</button>
             </div>
           )}
 

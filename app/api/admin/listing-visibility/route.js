@@ -209,6 +209,6 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
   } catch (err) {
     console.error('[admin/listing-visibility] POST error:', err.message)
-    return NextResponse.json({ error: 'Action failed' }, { status: 500 })
+    return NextResponse.json({ error: err.message || 'Action failed' }, { status: 500 })
   }
 }
