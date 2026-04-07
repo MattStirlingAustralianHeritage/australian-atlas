@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice">
+  <rect width="800" height="600" fill="#F5F0E8"/>
+  <circle cx="400" cy="280" r="180" fill="#E8E2D6" opacity="0.7"/>
+  <g transform="translate(400,255)" opacity="0.3" fill="none" stroke="#5F8A7E" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Compass outer circle -->
+    <circle cx="0" cy="0" r="60"/>
+    <circle cx="0" cy="0" r="50" opacity="0.4"/>
+    <!-- Cardinal points -->
+    <!-- N -->
+    <line x1="0" y1="-60" x2="0" y2="-68"/>
+    <text x="0" y="-72" text-anchor="middle" font-family="Georgia, serif" font-size="12" fill="#5F8A7E" stroke="none" opacity="0.5">N</text>
+    <!-- S -->
+    <line x1="0" y1="60" x2="0" y2="68"/>
+    <!-- E -->
+    <line x1="60" y1="0" x2="68" y2="0"/>
+    <!-- W -->
+    <line x1="-60" y1="0" x2="-68" y2="0"/>
+    <!-- Compass needle north -->
+    <polygon points="0,-45 -8,0 0,-10 8,0" opacity="0.5"/>
+    <!-- Compass needle south -->
+    <polygon points="0,45 -8,0 0,10 8,0" opacity="0.3"/>
+    <!-- Inner ticks -->
+    <line x1="42" y1="-42" x2="46" y2="-46" opacity="0.3"/>
+    <line x1="42" y1="42" x2="46" y2="46" opacity="0.3"/>
+    <line x1="-42" y1="-42" x2="-46" y2="-46" opacity="0.3"/>
+    <line x1="-42" y1="42" x2="-46" y2="46" opacity="0.3"/>
+    <!-- Center dot -->
+    <circle cx="0" cy="0" r="3" fill="#5F8A7E" opacity="0.4"/>
+  </g>
+  <text x="400" y="540" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="18" font-variant="small-caps" letter-spacing="3" fill="#5F8A7E" opacity="0.6">Australian Atlas</text>
+</svg>

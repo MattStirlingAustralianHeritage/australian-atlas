@@ -499,7 +499,7 @@ function TrailEditor({ trail, onBack }) {
               style={styles.input}
               value={form.cover_image_url}
               onChange={e => set('cover_image_url', e.target.value)}
-              placeholder="https://images.unsplash.com/..."
+              placeholder="https://example.com/image.jpg"
             />
             {form.cover_image_url && (
               <img

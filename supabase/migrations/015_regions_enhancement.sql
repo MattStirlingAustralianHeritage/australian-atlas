@@ -3,7 +3,7 @@
 -- Migration 015: Regions enhancement — hero images, editorial, new regions
 -- ============================================================
 
--- Add hero image credit for Unsplash attribution
+-- Add hero image credit for image attribution
 ALTER TABLE regions ADD COLUMN IF NOT EXISTS hero_image_credit text;
 
 -- Add long-form editorial description (separate from the short tagline)

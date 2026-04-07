@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 
 /**
- * Seed region hero images from the curated Unsplash URLs that were
- * previously hardcoded in the regions index page.
+ * Seed region hero images using local SVG placeholders.
  *
- * This is the zero-API-key fallback. For new regions without a curated
- * image, it uses a high-quality Australian landscape fallback.
+ * Unsplash URLs have been removed. Regions that lack a hero image
+ * will receive the local atlas-placeholder SVG.
  *
  * Usage:
  *   node --env-file=.env.local scripts/seed-region-images-fallback.mjs
@@ -23,68 +22,12 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-// Curated Unsplash images — these were previously hardcoded in app/regions/page.js
-// Using the full URL format for reliable rendering
-const CURATED_IMAGES = {
-  // Victoria
-  'bellarine-peninsula':         { url: 'https://images.unsplash.com/photo-1583683684573-YADNaktouBs?w=1600&q=80', credit: 'Unsplash' },
-  'central-victoria':            { url: 'https://images.unsplash.com/photo-1584267385494-9fdd9a71ad75?w=1600&q=80', credit: 'Unsplash' },
-  'daylesford':                  { url: 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=1600&q=80', credit: 'Unsplash' },
-  'grampians':                   { url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1600&q=80', credit: 'Unsplash' },
-  'great-ocean-road':            { url: 'https://images.unsplash.com/photo-1529108190281-9a4f620bc2d8?w=1600&q=80', credit: 'Unsplash' },
-  'macedon-ranges':              { url: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1600&q=80', credit: 'Unsplash' },
-  'mornington-peninsula':        { url: 'https://images.unsplash.com/photo-1507699622108-4be3abd695ad?w=1600&q=80', credit: 'Unsplash' },
-  'yarra-valley':                { url: 'https://images.unsplash.com/photo-1474487548417-781cb71495f3?w=1600&q=80', credit: 'Unsplash' },
-  'gippsland':                   { url: 'https://images.unsplash.com/photo-1530569673472-307dc017a82d?w=1600&q=80', credit: 'Unsplash' },
-  'murray-river':                { url: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1600&q=80', credit: 'Unsplash' },
-  // NSW
-  'blue-mountains':              { url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1600&q=80', credit: 'Unsplash' },
-  'byron-hinterland':            { url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1600&q=80', credit: 'Unsplash' },
-  'hunter-valley':               { url: 'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?w=1600&q=80', credit: 'Unsplash' },
-  'northern-rivers':             { url: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1600&q=80', credit: 'Unsplash' },
-  'shoalhaven':                  { url: 'https://images.unsplash.com/photo-1520942702018-0862200e6873?w=1600&q=80', credit: 'Unsplash' },
-  'southern-highlands':          { url: 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=1600&q=80', credit: 'Unsplash' },
-  'central-coast':               { url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1600&q=80', credit: 'Unsplash' },
-  'orange-central-west':         { url: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1600&q=80', credit: 'Unsplash' },
-  'south-coast-nsw':             { url: 'https://images.unsplash.com/photo-1520942702018-0862200e6873?w=1600&q=80', credit: 'Unsplash' },
-  // Queensland
-  'gold-coast-hinterland':       { url: 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=1600&q=80', credit: 'Unsplash' },
-  'noosa-hinterland':            { url: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1600&q=80', credit: 'Unsplash' },
-  'sunshine-coast-hinterland':   { url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1600&q=80', credit: 'Unsplash' },
-  'cairns-tropical-north':       { url: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=1600&q=80', credit: 'Unsplash' },
-  'scenic-rim':                  { url: 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=1600&q=80', credit: 'Unsplash' },
-  'toowoomba-darling-downs':     { url: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1600&q=80', credit: 'Unsplash' },
-  // South Australia
-  'adelaide-hills':              { url: 'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?w=1600&q=80', credit: 'Unsplash' },
-  'barossa-valley':              { url: 'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?w=1600&q=80', credit: 'Unsplash' },
-  'clare-valley':                { url: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1600&q=80', credit: 'Unsplash' },
-  'flinders-ranges':             { url: 'https://images.unsplash.com/photo-1462275646964-a0e3c11f18a6?w=1600&q=80', credit: 'Unsplash' },
-  'kangaroo-island':             { url: 'https://images.unsplash.com/photo-1530569673472-307dc017a82d?w=1600&q=80', credit: 'Unsplash' },
-  'mclaren-vale':                { url: 'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?w=1600&q=80', credit: 'Unsplash' },
-  'limestone-coast':             { url: 'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?w=1600&q=80', credit: 'Unsplash' },
-  'riverland':                   { url: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1600&q=80', credit: 'Unsplash' },
-  // Western Australia
-  'fremantle-swan-valley':       { url: 'https://images.unsplash.com/photo-1514395462725-fb4566210144?w=1600&q=80', credit: 'Unsplash' },
-  'margaret-river':              { url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1600&q=80', credit: 'Unsplash' },
-  'great-southern':              { url: 'https://images.unsplash.com/photo-1530569673472-307dc017a82d?w=1600&q=80', credit: 'Unsplash' },
-  'broome-kimberley':            { url: 'https://images.unsplash.com/photo-1462275646964-a0e3c11f18a6?w=1600&q=80', credit: 'Unsplash' },
-  // Tasmania
-  'bruny-island':                { url: 'https://images.unsplash.com/photo-1530569673472-307dc017a82d?w=1600&q=80', credit: 'Unsplash' },
-  'cradle-country':              { url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1600&q=80', credit: 'Unsplash' },
-  'hobart':                      { url: 'https://images.unsplash.com/photo-1514395462725-fb4566210144?w=1600&q=80', credit: 'Unsplash' },
-  'tamar-valley':                { url: 'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?w=1600&q=80', credit: 'Unsplash' },
-  'east-coast-tasmania':         { url: 'https://images.unsplash.com/photo-1530569673472-307dc017a82d?w=1600&q=80', credit: 'Unsplash' },
-  'launceston-tamar-valley':     { url: 'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?w=1600&q=80', credit: 'Unsplash' },
-  // ACT
-  'canberra-district':           { url: 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=1600&q=80', credit: 'Unsplash' },
-  // NT
-  'darwin-top-end':              { url: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=1600&q=80', credit: 'Unsplash' },
-  'alice-springs-red-centre':    { url: 'https://images.unsplash.com/photo-1462275646964-a0e3c11f18a6?w=1600&q=80', credit: 'Unsplash' },
-}
+// Local SVG placeholder — used for all regions that lack a hero image
+const CURATED_IMAGES = {}
 
 const FALLBACK = {
-  url: 'https://images.unsplash.com/photo-1506197603052-3cc9c3a201bd?w=1600&q=80',
-  credit: 'Unsplash',
+  url: '/placeholders/atlas-placeholder.svg',
+  credit: 'Australian Atlas',
 }
 
 async function main() {

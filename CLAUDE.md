@@ -182,7 +182,7 @@ scripts/        — data sync, seeding, editorial generation
 - CSS uses custom properties (--color-cream, --color-accent, --color-ink, etc.)
 - Fonts: `--font-display` (Playfair Display), `--font-body` (DM Sans)
 - Editorial content is generated once and stored — never generated at runtime
-- Region hero images use Unsplash with proper attribution (`hero_image_credit`)
+- Region hero images use local SVG placeholders or uploaded images with attribution (`hero_image_credit`)
 
 ## AI Itinerary Builder
 
