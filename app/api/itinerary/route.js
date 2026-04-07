@@ -513,16 +513,55 @@ function parseItineraryQuery(rawQuery) {
     }
   }
 
-  // Extract category/vertical hints
+  // Extract category/vertical hints with preference weighting.
+  // Classify each detected vertical based on surrounding context signals:
+  //   primary   — the thing they came for (anchors every day)
+  //   secondary — "also include..." / explicit supporting interests (1-2 per day)
+  //   soft      — "if possible" / "maybe" / hedged (only where it naturally fits)
+  const preferences = { primary: [], secondary: [], soft: [] }
+
+  const softCtx = [
+    /if\s+(?:there(?:'?s)?|you\s+can|possible)/i,
+    /maybe\s+(?:some|a\s+few)/i,
+    /wouldn'?t\s+mind/i,
+  ]
+  const secondaryCtx = [
+    /also\s+(?:include|add|visit|see|check)/i,
+    /throw\s+in/i,
+    /plus\s+(?:some|a\s+few)/i,
+  ]
+
   for (const [vKey, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
     const sorted = [...keywords].sort((a, b) => b.length - a.length)
     for (const kw of sorted) {
-      if (q.includes(kw)) {
-        if (!verticals.includes(vKey)) verticals.push(vKey)
-        break
+      const kwIdx = q.indexOf(kw)
+      if (kwIdx === -1) continue
+      if (!verticals.includes(vKey)) verticals.push(vKey)
+
+      // Classify weight from surrounding context (60 chars lookback)
+      const before = q.slice(Math.max(0, kwIdx - 60), kwIdx)
+      const around = q.slice(Math.max(0, kwIdx - 60), kwIdx + kw.length + 30)
+
+      if (softCtx.some(p => p.test(around))) {
+        if (!preferences.soft.includes(vKey)) preferences.soft.push(vKey)
+      } else if (secondaryCtx.some(p => p.test(before))) {
+        if (!preferences.secondary.includes(vKey)) preferences.secondary.push(vKey)
+      } else {
+        if (!preferences.primary.includes(vKey)) preferences.primary.push(vKey)
       }
+      break
     }
   }
+
+  // If no explicit primary was found, promote the first detected vertical
+  if (preferences.primary.length === 0 && verticals.length > 0) {
+    preferences.primary.push(verticals[0])
+    preferences.secondary = preferences.secondary.filter(v => v !== verticals[0])
+    preferences.soft = preferences.soft.filter(v => v !== verticals[0])
+  }
+  // Dedupe across tiers — higher tier wins
+  preferences.secondary = preferences.secondary.filter(v => !preferences.primary.includes(v))
+  preferences.soft = preferences.soft.filter(v => !preferences.primary.includes(v) && !preferences.secondary.includes(v))
 
   // Extract duration
   for (const { pattern, extract } of DURATION_PATTERNS) {
@@ -535,7 +574,7 @@ function parseItineraryQuery(rawQuery) {
     }
   }
 
-  return { region, geoBounds, verticals, duration, city_note }
+  return { region, geoBounds, verticals, duration, city_note, preferences }
 }
 
 const VERTICAL_LABELS = {
@@ -608,7 +647,7 @@ export async function GET(request) {
   }
 
   try {
-    const { region, geoBounds, verticals, duration, city_note } = parseItineraryQuery(q)
+    const { region, geoBounds, verticals, duration, city_note, preferences } = parseItineraryQuery(q)
 
     // Pace overrides stops-per-day target
     const stopsPerDay = pace === 'packed' ? 6 : pace === 'relaxed' ? 3 : 4
@@ -616,7 +655,7 @@ export async function GET(request) {
     console.log('[itinerary] Parsed query:', {
       region,
       geoBounds: geoBounds ? `${geoBounds.label || 'custom'} (${geoBounds.latMin.toFixed(2)}–${geoBounds.latMax.toFixed(2)}, ${geoBounds.lngMin.toFixed(2)}–${geoBounds.lngMax.toFixed(2)})` : 'NONE',
-      verticals, duration,
+      verticals, duration, preferences,
       flow: { accommodation, transport, group, pace, stopsPerDay },
     })
 
@@ -899,7 +938,11 @@ export async function GET(request) {
     } else if (accommodation === 'daytrip') {
       accommodationInstruction = `\nACCOMMODATION: This is a day trip — no overnight stays needed. Set "overnight" to null.`
     } else if (accommodation === 'need' || duration.days > 1) {
-      accommodationInstruction = `\nACCOMMODATION: The user needs accommodation. For multi-day trips, include at least one "rest" vertical venue as overnight accommodation per night (except the final night).`
+      accommodationInstruction = `\nACCOMMODATION: The user needs accommodation. REQUIRED for multi-day trips:
+- Include a "rest" vertical venue as the overnight stop at the END of each day (except the last day if it's a drive-home day)
+- The accommodation MUST be in or near that day's geographic cluster — never across the state
+- If no "rest" venue exists near a day's stops, note the general area to stay in that day's label
+- Accommodation is non-negotiable when nights are specified — every night needs a place to stay`
     }
 
     // Build transport instruction
@@ -909,7 +952,12 @@ export async function GET(request) {
     } else if (transport === 'walking') {
       transportInstruction = `\nTRANSPORT: The user is walking or cycling. Only include venues within easy walking/cycling distance of each other. All stops should be very close together geographically. Flag any venue that would require other transport.`
     } else {
-      transportInstruction = `\nTRANSPORT: The user is driving. Venues can be spread across the region.`
+      transportInstruction = `\nTRANSPORT: The user is driving. Plan a geographically coherent road trip:
+- Day 1 stops should cluster around a logical starting point
+- Each subsequent day should progress in a sensible direction — no jumping back and forth across the map
+- The overall trail must have a clear arc: start point → journey → end point
+- Do not include stops that require significant backtracking
+- Sort stops within each day by proximity to minimise drive time between them`
     }
 
     // Build group instruction
@@ -991,12 +1039,37 @@ Respond with valid JSON only. No markdown, no code fences, just the JSON object.
       : 0
     const totalStopsNeeded = duration.days * stopsPerDay
 
-    const focusNote = effectiveVerticals.length > 0
-      ? `\nThe user is specifically interested in: ${effectiveVerticals.map(v => VERTICAL_LABELS[v] || v).join(', ')}.
-VENUE TYPE PRIORITY: At least 60% of all stops MUST be from the requested vertical(s): ${effectiveVerticals.join(', ')}. These are the user's primary interest — do not dilute with unrelated categories.
-${focusCount < totalStopsNeeded ? `\nNOTE: There are only ${focusCount} venues matching the focus vertical(s) in this region. Use ALL of them. Fill remaining slots with complementary verticals (food, stays, nature) but add a note in the intro acknowledging that coverage for ${effectiveVerticals.map(v => VERTICAL_LABELS[v] || v).join(' / ')} is still growing in this area.` : ''}
-Supplementary stops (food, nature, art, shops, stays) should complement the theme, not dominate it.`
-      : ''
+    // Build preference hierarchy for the LLM — primary anchors the trip, secondary supports, soft fills gaps
+    let focusNote = ''
+    if (preferences.primary.length > 0 || preferences.secondary.length > 0 || preferences.soft.length > 0) {
+      const parts = []
+
+      if (preferences.primary.length > 0) {
+        const primaryLabels = preferences.primary.map(v => VERTICAL_LABELS[v] || v).join(', ')
+        const primaryCount = venueData.filter(v => preferences.primary.includes(v.vertical)).length
+        parts.push(`PRIMARY INTEREST (must anchor every day): ${primaryLabels}
+At least 60% of all stops MUST be from the primary vertical(s): ${preferences.primary.join(', ')}. Every day must contain at least one primary-interest stop. This is what the user came for — it dominates the itinerary.${primaryCount < totalStopsNeeded ? `\nNOTE: Only ${primaryCount} primary-interest venues available. Use ALL of them. Fill remaining slots with complementary verticals. Acknowledge in the intro that ${primaryLabels} coverage is still growing in this area.` : ''}`)
+      }
+
+      if (preferences.secondary.length > 0) {
+        const secondaryLabels = preferences.secondary.map(v => VERTICAL_LABELS[v] || v).join(', ')
+        parts.push(`SECONDARY INTERESTS (supporting, 1-2 per day max): ${secondaryLabels}
+These complement the primary interest. Include where they fit geographically but never let them outweigh the primary stops.`)
+      }
+
+      if (preferences.soft.length > 0) {
+        const softLabels = preferences.soft.map(v => VERTICAL_LABELS[v] || v).join(', ')
+        parts.push(`SOFT PREFERENCES (low priority, max 1-2 across entire trip): ${softLabels}
+Include only where they genuinely fit the route without displacing primary or secondary stops. Even if there are hundreds of venues in this category, it was a casual "if possible" request — it must NOT dominate the itinerary.`)
+      }
+
+      focusNote = '\n\nPREFERENCE HIERARCHY:\n' + parts.join('\n\n')
+      focusNote += '\n\nCRITICAL: Never let the size of a category\'s dataset influence its share of stops. A soft preference with 200 available venues gets FEWER stops than a primary interest with 10 venues.'
+    } else if (effectiveVerticals.length > 0) {
+      focusNote = `\nThe user is interested in: ${effectiveVerticals.map(v => VERTICAL_LABELS[v] || v).join(', ')}.
+VENUE TYPE PRIORITY: At least 60% of all stops MUST be from these verticals.
+Supplementary stops should complement the theme, not dominate it.`
+    }
 
     const userPrompt = `Build a ${duration.days}-day itinerary for this request: "${q}"
 ${focusNote}
@@ -1210,6 +1283,11 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
       recommendations,
       needs_accommodation: needsAccommodation && accommodation !== 'sorted',
       thin_corpus: thinCorpus,
+      parsed_preferences: {
+        primary: preferences.primary.map(v => VERTICAL_LABELS[v] || v),
+        secondary: preferences.secondary.map(v => VERTICAL_LABELS[v] || v),
+        soft: preferences.soft.map(v => VERTICAL_LABELS[v] || v),
+      },
       focus_verticals: effectiveVerticals.length > 0 ? effectiveVerticals.map(v => VERTICAL_LABELS[v] || v) : null,
       focus_venue_count: focusVerticalCount,
       personalised: interestVerticals.size > 0,
