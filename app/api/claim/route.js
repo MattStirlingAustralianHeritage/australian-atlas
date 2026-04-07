@@ -4,7 +4,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { listingId, slug, name, email, role, websiteDomain } = body
+    const { listingId, slug, name, email, role, tier, websiteDomain } = body
 
     // ── Validate required fields ──────────────────────────────
     if (!listingId || !name?.trim() || !email?.trim()) {
@@ -70,9 +70,9 @@ export async function POST(request) {
         vertical: listing.vertical,
         claimant_name: name.trim(),
         claimant_email: email.trim(),
-        tier: 'free',
+        tier: ['free', 'standard'].includes(tier) ? tier : 'free',
         status: 'pending',
-        admin_notes: `Role: ${role || 'not specified'}. Domain: ${websiteDomain?.trim() || 'not provided'}`,
+        admin_notes: `Role: ${role || 'not specified'}. Tier: ${tier || 'free'}. Domain: ${websiteDomain?.trim() || 'not provided'}`,
       })
 
     if (insertError) {

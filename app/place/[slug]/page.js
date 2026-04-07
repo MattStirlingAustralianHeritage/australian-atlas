@@ -308,13 +308,28 @@ export default async function PlacePage({ params }) {
         {/* ── Details + Map card ──────────────────────────── */}
         <div className="rounded-xl overflow-hidden mb-10" style={{ border: '1px solid var(--color-border)', background: 'var(--color-card-bg)' }}>
           {/* Map */}
-          {hasCoords && mapboxToken && (
+          {hasCoords && mapboxToken ? (
             <div className="w-full aspect-[16/7] overflow-hidden">
               <img
-                src={`https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/pin-l-${vertColor.replace('#', '')}+${vertColor.replace('#', '')}(${listing.lng},${listing.lat})/${listing.lng},${listing.lat},14,0/800x350@2x?access_token=${mapboxToken}`}
+                src={`https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/pin-l+${vertColor.replace('#', '')}(${listing.lng},${listing.lat})/${listing.lng},${listing.lat},14,0/800x350@2x?access_token=${mapboxToken}`}
                 alt={`Map showing ${listing.name}`}
                 className="w-full h-full object-cover"
               />
+            </div>
+          ) : (
+            <div
+              className="w-full aspect-[16/7] flex items-center justify-center"
+              style={{ background: 'var(--color-surface, #f5f5f0)' }}
+            >
+              <div className="text-center px-4">
+                <svg className="w-8 h-8 mx-auto mb-2" style={{ color: 'var(--color-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <p className="text-sm" style={{ color: 'var(--color-muted)', fontFamily: 'var(--font-body)' }}>
+                  Map location not yet available
+                </p>
+              </div>
             </div>
           )}
 

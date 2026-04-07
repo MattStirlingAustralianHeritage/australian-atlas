@@ -16,12 +16,16 @@ export default async function ClaimsPage() {
   try {
     const { data, error } = await sb
       .from('claims_review')
-      .select('*')
+      .select('*, listings(name)')
       .order('created_at', { ascending: false })
       .limit(100)
 
     if (!error && data) {
-      claims = data
+      // Flatten the joined listing name into the claim record
+      claims = data.map(c => ({
+        ...c,
+        listing_name: c.listings?.name || null,
+      }))
       usingPortalTable = true
     }
   } catch {

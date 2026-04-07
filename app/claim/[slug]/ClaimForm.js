@@ -2,10 +2,29 @@
 
 import { useState } from 'react'
 
+const TIERS = [
+  {
+    id: 'free',
+    name: 'Free Listing',
+    price: 0,
+    description: 'Claim and verify your listing with basic details.',
+    features: ['Verify ownership', 'Update basic info', 'Appear in search & map'],
+  },
+  {
+    id: 'standard',
+    name: 'Standard',
+    price: 99,
+    description: 'Enhanced listing with all features.',
+    features: ['Everything in Free', 'Unlimited photos', 'Booking & social links', 'Video, events & promos', 'Analytics dashboard'],
+    recommended: true,
+  },
+]
+
 export default function ClaimForm({ listingId, slug, vertColor }) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [role, setRole] = useState('owner')
+  const [tier, setTier] = useState('free')
   const [websiteDomain, setWebsiteDomain] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -26,6 +45,7 @@ export default function ClaimForm({ listingId, slug, vertColor }) {
           name: name.trim(),
           email: email.trim(),
           role,
+          tier,
           websiteDomain: websiteDomain.trim() || null,
         }),
       })
@@ -168,6 +188,92 @@ export default function ClaimForm({ listingId, slug, vertColor }) {
             style={inputStyle}
           />
         </div>
+
+        {/* Tier selection */}
+        <div>
+          <label style={labelStyle}>
+            Listing tier
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            {TIERS.map(t => (
+              <div
+                key={t.id}
+                onClick={() => setTier(t.id)}
+                style={{
+                  border: `1px solid ${tier === t.id ? vertColor : 'var(--color-border)'}`,
+                  borderRadius: '10px',
+                  padding: '16px 14px',
+                  cursor: 'pointer',
+                  background: tier === t.id ? vertColor + '08' : 'var(--color-bg)',
+                  transition: 'all 0.15s',
+                  position: 'relative',
+                }}
+              >
+                {t.recommended && (
+                  <span style={{
+                    position: 'absolute',
+                    top: -9,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: vertColor,
+                    color: '#fff',
+                    fontSize: '9px',
+                    fontWeight: 600,
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    padding: '2px 10px',
+                    borderRadius: '20px',
+                    fontFamily: 'var(--font-body)',
+                    whiteSpace: 'nowrap',
+                  }}>
+                    Recommended
+                  </span>
+                )}
+                <p style={{
+                  fontFamily: 'var(--font-display)',
+                  fontWeight: 400,
+                  fontSize: '15px',
+                  color: 'var(--color-ink)',
+                  margin: '0 0 2px',
+                }}>
+                  {t.name}
+                </p>
+                <p style={{
+                  fontFamily: 'var(--font-body)',
+                  fontWeight: 600,
+                  fontSize: '18px',
+                  color: 'var(--color-ink)',
+                  margin: '0 0 8px',
+                }}>
+                  {t.price === 0 ? 'Free' : `$${t.price}/yr`}
+                </p>
+                <p style={{
+                  fontFamily: 'var(--font-body)',
+                  fontWeight: 300,
+                  fontSize: '12px',
+                  color: 'var(--color-muted)',
+                  margin: '0 0 8px',
+                  lineHeight: 1.4,
+                }}>
+                  {t.description}
+                </p>
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                  {t.features.map(f => (
+                    <li key={f} style={{
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 300,
+                      fontSize: '11px',
+                      color: 'var(--color-muted)',
+                      padding: '1px 0',
+                    }}>
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Error */}
@@ -184,7 +290,7 @@ export default function ClaimForm({ listingId, slug, vertColor }) {
         className="mt-8 w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
         style={{ background: vertColor, fontFamily: 'var(--font-body)', cursor: submitting ? 'wait' : 'pointer' }}
       >
-        {submitting ? 'Submitting...' : 'Submit claim'}
+        {submitting ? 'Submitting...' : tier === 'standard' ? 'Submit claim ($99/yr)' : 'Submit claim (free)'}
       </button>
 
       <p className="mt-4 text-center" style={{ fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 300, color: 'var(--color-muted)' }}>
