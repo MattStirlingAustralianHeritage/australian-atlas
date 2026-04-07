@@ -132,14 +132,13 @@ export default function RegionMapHero({ points, regionName, stateName, centerLat
           const { name, vertical, slug } = e.features[0].properties
           const color = VERTICAL_COLORS[vertical] || '#888'
           const label = VERTICAL_LABELS[vertical] || vertical
-          const baseUrl = VERTICAL_URLS[vertical] || '#'
-          const url = slug ? `${baseUrl}/${slug}` : '#'
+          const url = slug ? `/place/${slug}` : '#'
 
           popup.setLngLat(e.lngLat).setHTML(`
             <div style="font-family: var(--font-body, system-ui); padding: 4px 0;">
               <div style="font-size: 14px; font-weight: 600; color: #2D2A26; margin-bottom: 3px;">${name}</div>
               <div style="font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: ${color}; margin-bottom: 6px;">${label}</div>
-              <a href="${url}" target="_blank" rel="noopener" style="font-size: 12px; color: ${color}; text-decoration: underline;">View listing</a>
+              <a href="${url}" style="font-size: 12px; color: ${color}; text-decoration: underline;">View listing</a>
             </div>
           `).addTo(map)
         })

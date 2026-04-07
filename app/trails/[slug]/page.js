@@ -43,7 +43,7 @@ export default async function TrailPage({ params }) {
 
   const { data: stops } = await sb
     .from('trail_stops')
-    .select('*')
+    .select('*, listings(slug)')
     .eq('trail_id', trail.id)
     .order('order_index', { ascending: true })
 
@@ -178,9 +178,9 @@ export default async function TrailPage({ params }) {
 
 function StopCard({ stop, index, isLast }) {
   const verticalColor = VERTICAL_COLORS[stop.vertical] || 'var(--color-sage)'
-  const venueUrl = stop.vertical && stop.listing_id
-    ? getVerticalUrl(stop.vertical, stop.venue_name?.toLowerCase().replace(/[^a-z0-9]+/g, '-'))
-    : null
+  // Use the actual listing slug from the joined listings table
+  const listingSlug = stop.listings?.slug || null
+  const venueUrl = listingSlug ? `/place/${listingSlug}` : null
 
   return (
     <div style={{ display: 'flex', gap: 16, position: 'relative' }}>
@@ -210,7 +210,7 @@ function StopCard({ stop, index, isLast }) {
         <div style={{ padding: '16px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
             {venueUrl ? (
-              <a href={venueUrl} target="_blank" rel="noopener noreferrer" style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 400, color: 'var(--color-ink)', textDecoration: 'none' }}>
+              <a href={venueUrl} style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 400, color: 'var(--color-ink)', textDecoration: 'none' }}>
                 {stop.venue_name}
               </a>
             ) : (
@@ -236,7 +236,7 @@ function StopCard({ stop, index, isLast }) {
             </p>
           )}
           {venueUrl && (
-            <a href={venueUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', marginTop: 12, fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-sage)', textDecoration: 'none', fontFamily: 'var(--font-body)' }}>
+            <a href={venueUrl} style={{ display: 'inline-block', marginTop: 12, fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-sage)', textDecoration: 'none', fontFamily: 'var(--font-body)' }}>
               View listing →
             </a>
           )}

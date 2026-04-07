@@ -43,7 +43,7 @@ export default async function SharedTrailPage({ params }) {
 
   const { data: stops } = await sb
     .from('trail_stops')
-    .select('*')
+    .select('*, listings(slug)')
     .eq('trail_id', trail.id)
     .order('order_index', { ascending: true })
 
@@ -104,9 +104,8 @@ export default async function SharedTrailPage({ params }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             {validStops.map((stop, i) => {
               const verticalColor = VERTICAL_COLORS[stop.vertical] || 'var(--color-sage)'
-              const venueUrl = stop.vertical && stop.listing_id
-                ? getVerticalUrl(stop.vertical, stop.venue_name?.toLowerCase().replace(/[^a-z0-9]+/g, '-'))
-                : null
+              const listingSlug = stop.listings?.slug || null
+              const venueUrl = listingSlug ? `/place/${listingSlug}` : null
 
               return (
                 <div key={stop.id} style={{ display: 'flex', gap: 16, position: 'relative' }}>
@@ -131,7 +130,7 @@ export default async function SharedTrailPage({ params }) {
                     <div style={{ padding: '14px 18px' }}>
                       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                         {venueUrl ? (
-                          <a href={venueUrl} target="_blank" rel="noopener noreferrer" style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--color-ink)', textDecoration: 'none' }}>
+                          <a href={venueUrl} style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--color-ink)', textDecoration: 'none' }}>
                             {stop.venue_name}
                           </a>
                         ) : (
@@ -157,7 +156,7 @@ export default async function SharedTrailPage({ params }) {
                         </p>
                       )}
                       {venueUrl && (
-                        <a href={venueUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', marginTop: 10, fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-sage)', textDecoration: 'none', fontFamily: 'var(--font-body)' }}>
+                        <a href={venueUrl} style={{ display: 'inline-block', marginTop: 10, fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-sage)', textDecoration: 'none', fontFamily: 'var(--font-body)' }}>
                           View listing →
                         </a>
                       )}

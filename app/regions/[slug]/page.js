@@ -445,16 +445,13 @@ export default async function RegionPage({ params }) {
                     gap: '1rem',
                   }}>
                     {shown.map(listing => {
-                      const baseUrl = VERTICAL_URLS[vertical] || '#'
-                      const href = listing.slug ? `${baseUrl}/${listing.slug}` : '#'
+                      const href = listing.slug ? `/place/${listing.slug}` : '#'
                       const desc = truncateDescription(listing.description)
 
                       return (
                         <a
                           key={listing.id}
                           href={href}
-                          target="_blank"
-                          rel="noopener"
                           style={{
                             display: 'block',
                             padding: '1.25rem 1.5rem',

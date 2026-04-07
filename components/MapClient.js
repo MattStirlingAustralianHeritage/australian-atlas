@@ -295,7 +295,7 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
                 <div style="font-family:Georgia,serif;font-size:17px;font-weight:400;color:#1a1614;margin-bottom:3px;letter-spacing:-0.01em;line-height:1.2;">${props.name}</div>
                 <div style="font-size:11px;color:#9a8878;margin-bottom:${desc ? 8 : 10}px;">${props.location}</div>
                 ${desc ? `<div style="font-size:12px;color:#5a4e45;line-height:1.5;margin-bottom:10px;">${desc}</div>` : ''}
-                <a href="${props.url}" target="_blank" rel="noopener noreferrer" style="display:block;margin-top:10px;padding:7px 0;text-align:center;background:${PRIMARY};color:#fff;text-decoration:none;font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;border-radius:2px;">View on ${props.verticalSite} →</a>
+                <a href="${props.url}" style="display:block;margin-top:10px;padding:7px 0;text-align:center;background:${PRIMARY};color:#fff;text-decoration:none;font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;border-radius:2px;">View listing →</a>
               </div>`
             ).addTo(map.current)
           })
@@ -679,7 +679,7 @@ function buildGeoJSON(listings) {
           featured: l.is_featured || false,
           location: [l.region, l.state].filter(Boolean).join(', '),
           description: l.description || '',
-          url: getVerticalUrl(l.vertical, l.slug),
+          url: `/place/${l.slug}`,
         },
       }
     }),

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { getVerticalUrl } from '@/lib/verticalUrl'
 import VerticalBadge, { VERTICAL_STYLES } from '@/components/VerticalBadge'
 
-export default function ListingCard({ listing, meta }) {
+export default function ListingCard({ listing, meta, linkToVertical = false }) {
   const [imgError, setImgError] = useState(false)
 
   // Derive meta from source_id when not explicitly provided (e.g. Fine Grounds cafe vs roaster)
@@ -14,7 +14,11 @@ export default function ListingCard({ listing, meta }) {
     else if (listing.source_id.startsWith('roaster_')) derivedMeta.entity_type = 'roaster'
   }
 
-  const url = getVerticalUrl(listing.vertical, listing.slug, derivedMeta)
+  // Default: link to native /place/[slug] page on the portal
+  // Pass linkToVertical={true} to link out to the canonical vertical site instead
+  const url = linkToVertical
+    ? getVerticalUrl(listing.vertical, listing.slug, derivedMeta)
+    : `/place/${listing.slug}`
   const vertStyle = VERTICAL_STYLES[listing.vertical]
 
   // Badge hierarchy: Atlas Select (editors_pick) > Featured (is_featured + is_claimed)
@@ -26,8 +30,7 @@ export default function ListingCard({ listing, meta }) {
   return (
     <a
       href={url}
-      target="_blank"
-      rel="noopener noreferrer"
+      {...(linkToVertical ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
       className="group block bg-[var(--color-card-bg)] rounded-xl overflow-hidden transition-colors duration-200"
       style={{ border: '0.5px solid var(--color-border)' }}
       onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(28,26,23,0.28)' }}

@@ -1,0 +1,387 @@
+import { notFound } from 'next/navigation'
+import Link from 'next/link'
+import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { getVerticalUrl, getVerticalLabel } from '@/lib/verticalUrl'
+import VerticalBadge from '@/components/VerticalBadge'
+import ListingCard from '@/components/ListingCard'
+
+export const revalidate = 3600
+
+// ── Vertical category labels ──────────────────────────────────
+
+const VERTICAL_CATEGORY_LABELS = {
+  sba: 'Artisan Producer',
+  collection: 'Cultural Institution',
+  craft: 'Maker & Studio',
+  fine_grounds: 'Specialty Coffee',
+  rest: 'Boutique Stay',
+  field: 'Natural Place',
+  corner: 'Independent Shop',
+  found: 'Vintage & Secondhand',
+  table: 'Independent Dining',
+}
+
+const VERTICAL_COLORS = {
+  sba: '#C49A3C', collection: '#7A6B8A', craft: '#C1603A',
+  fine_grounds: '#8A7055', rest: '#5A8A9A', field: '#4A7C59',
+  corner: '#5F8A7E', found: '#D4956A', table: '#C4634F',
+}
+
+// ── Data fetching ─────────────────────────────────────────────
+
+async function getListing(slug) {
+  const sb = getSupabaseAdmin()
+  const { data, error } = await sb
+    .from('listings')
+    .select('*')
+    .eq('slug', slug)
+    .eq('status', 'active')
+    .single()
+
+  if (error || !data) return null
+  return data
+}
+
+async function getNearbyListings(listing, limit = 4) {
+  if (!listing.lat || !listing.lng) return []
+  const sb = getSupabaseAdmin()
+
+  // Fetch nearby from same region first, fallback to state
+  const { data } = await sb
+    .from('listings')
+    .select('id, name, slug, vertical, region, state, hero_image_url, description, is_featured, is_claimed, editors_pick')
+    .eq('status', 'active')
+    .neq('id', listing.id)
+    .eq('state', listing.state)
+    .limit(50)
+
+  if (!data || data.length === 0) return []
+
+  // Score by distance (haversine) and pick the closest
+  const scored = data
+    .filter(l => l.lat || l.lng) // only those with some geo data
+    .map(l => ({ ...l, _dist: Infinity })) // distance unknown without lat/lng in the select
+
+  // Without coordinates on the nearby listings, fall back to same-region preference
+  const sameRegion = data.filter(l => l.region === listing.region && l.id !== listing.id)
+  const others = data.filter(l => l.region !== listing.region && l.id !== listing.id)
+
+  return [...sameRegion, ...others].slice(0, limit)
+}
+
+// ── Helper: clean website for display ─────────────────────────
+
+function cleanWebsite(url) {
+  if (!url) return ''
+  try {
+    const u = new URL(url.startsWith('http') ? url : `https://${url}`)
+    return u.hostname + (u.pathname !== '/' ? u.pathname.replace(/\/$/, '') : '')
+  } catch {
+    return url.replace(/^https?:\/\//, '').replace(/\/$/, '')
+  }
+}
+
+// ── Metadata ──────────────────────────────────────────────────
+
+export async function generateMetadata({ params }) {
+  const { slug } = await params
+  const listing = await getListing(slug)
+  if (!listing) return { title: 'Place not found' }
+
+  const vertLabel = VERTICAL_CATEGORY_LABELS[listing.vertical] || 'Place'
+  const location = [listing.region, listing.state].filter(Boolean).join(', ')
+  const title = location
+    ? `${listing.name} — ${vertLabel} in ${location}`
+    : `${listing.name} — ${vertLabel}`
+  const description = listing.description
+    ? listing.description.slice(0, 160)
+    : `Discover ${listing.name}${location ? ` in ${location}` : ''} on Australian Atlas.`
+
+  return {
+    title: `${title} | Australian Atlas`,
+    description,
+    openGraph: {
+      title,
+      description,
+      url: `https://australianatlas.com.au/place/${slug}`,
+      siteName: 'Australian Atlas',
+      locale: 'en_AU',
+      type: 'website',
+      ...(listing.hero_image_url ? {
+        images: [{ url: listing.hero_image_url, width: 1200, height: 630, alt: listing.name }],
+      } : {}),
+    },
+    alternates: {
+      canonical: `https://australianatlas.com.au/place/${slug}`,
+    },
+  }
+}
+
+// ── Page ──────────────────────────────────────────────────────
+
+export default async function PlacePage({ params }) {
+  const { slug } = await params
+  const listing = await getListing(slug)
+  if (!listing) notFound()
+
+  const nearby = await getNearbyListings(listing)
+  const vertLabel = getVerticalLabel(listing.vertical)
+  const vertColor = VERTICAL_COLORS[listing.vertical] || '#5F8A7E'
+  const categoryLabel = VERTICAL_CATEGORY_LABELS[listing.vertical] || 'Place'
+  const verticalUrl = getVerticalUrl(listing.vertical, listing.slug)
+  const location = [listing.region, listing.state].filter(Boolean).join(', ')
+  const hasCoords = listing.lat && listing.lng
+  const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''
+  const websiteUrl = listing.website?.startsWith('http') ? listing.website : listing.website ? `https://${listing.website}` : null
+
+  return (
+    <div className="min-h-screen" style={{ background: 'var(--color-bg)' }}>
+
+      {/* ── Hero image ────────────────────────────────────── */}
+      {listing.hero_image_url ? (
+        <div className="w-full aspect-[21/9] max-h-[420px] overflow-hidden relative">
+          <img
+            src={listing.hero_image_url}
+            alt={listing.name}
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(28,26,23,0.35) 0%, transparent 50%)' }} />
+        </div>
+      ) : (
+        <div
+          className="w-full h-32"
+          style={{ background: `linear-gradient(135deg, ${vertColor}22 0%, ${vertColor}11 100%)` }}
+        />
+      )}
+
+      {/* ── Content ───────────────────────────────────────── */}
+      <div className="max-w-3xl mx-auto px-5 pb-20" style={{ marginTop: listing.hero_image_url ? '-48px' : '0' }}>
+
+        {/* Breadcrumb */}
+        <nav className="flex items-center gap-1.5 mb-6 text-xs" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)', marginTop: listing.hero_image_url ? '0' : '32px' }}>
+          <Link href="/map" className="hover:underline">Map</Link>
+          <span>&rsaquo;</span>
+          {listing.state && (
+            <>
+              <span>{listing.state}</span>
+              <span>&rsaquo;</span>
+            </>
+          )}
+          {listing.region && (
+            <>
+              <span>{listing.region}</span>
+              <span>&rsaquo;</span>
+            </>
+          )}
+          <span style={{ color: 'var(--color-ink)' }}>{listing.name}</span>
+        </nav>
+
+        {/* Vertical badge + category */}
+        <div className="flex items-center gap-2 mb-3">
+          <VerticalBadge vertical={listing.vertical} />
+          <span className="text-xs" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)' }}>
+            {categoryLabel}
+          </span>
+        </div>
+
+        {/* Name */}
+        <h1
+          className="mb-2"
+          style={{
+            fontFamily: 'var(--font-display)',
+            fontWeight: 400,
+            fontSize: 'clamp(28px, 5vw, 40px)',
+            lineHeight: 1.15,
+            color: 'var(--color-ink)',
+          }}
+        >
+          {listing.name}
+        </h1>
+
+        {/* Location */}
+        {location && (
+          <p className="mb-6" style={{ fontFamily: 'var(--font-body)', fontSize: '15px', fontWeight: 300, color: 'var(--color-muted)' }}>
+            {location}
+          </p>
+        )}
+
+        {/* Atlas Select / Featured badges */}
+        {(listing.editors_pick || (listing.is_featured && listing.is_claimed)) && (
+          <div className="flex items-center gap-2 mb-6">
+            {listing.editors_pick && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-white" style={{ background: 'var(--color-ink)' }}>
+                Atlas Select
+              </span>
+            )}
+            {listing.is_featured && listing.is_claimed && !listing.editors_pick && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-white" style={{ background: 'var(--color-accent)' }}>
+                Featured
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Description */}
+        {listing.description && (
+          <div className="mb-8" style={{ fontFamily: 'var(--font-body)', fontSize: '15px', fontWeight: 300, lineHeight: 1.7, color: 'var(--color-ink)' }}>
+            {listing.description.split('\n').map((p, i) => (
+              p.trim() ? <p key={i} className={i > 0 ? 'mt-4' : ''}>{p}</p> : null
+            ))}
+          </div>
+        )}
+
+        {/* CTA buttons */}
+        <div className="flex flex-wrap items-center gap-3 mb-10">
+          {websiteUrl && (
+            <a
+              href={websiteUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90"
+              style={{ background: vertColor, fontFamily: 'var(--font-body)' }}
+            >
+              Visit Website
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </a>
+          )}
+          {hasCoords && (
+            <a
+              href={`https://www.google.com/maps/dir/?api=1&destination=${listing.lat},${listing.lng}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-colors"
+              style={{ fontFamily: 'var(--font-body)', border: '1px solid var(--color-border)', color: 'var(--color-ink)', background: 'var(--color-card-bg)' }}
+            >
+              Get Directions
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </a>
+          )}
+        </div>
+
+        {/* ── Details + Map card ──────────────────────────── */}
+        <div className="rounded-xl overflow-hidden mb-10" style={{ border: '1px solid var(--color-border)', background: 'var(--color-card-bg)' }}>
+          {/* Map */}
+          {hasCoords && mapboxToken && (
+            <div className="w-full aspect-[16/7] overflow-hidden">
+              <img
+                src={`https://api.mapbox.com/styles/v1/mattstirlingaustralianheritage/cmn32b0iz003401swccb7d21k/static/pin-l+${vertColor.replace('#', '')}(${listing.lng},${listing.lat})/${listing.lng},${listing.lat},13,0/800x350@2x?access_token=${mapboxToken}`}
+                alt={`Map showing ${listing.name}`}
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            </div>
+          )}
+
+          {/* Details grid */}
+          <div className="p-6">
+            <h2
+              className="mb-4 text-xs font-semibold tracking-widest uppercase"
+              style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)', letterSpacing: '0.1em' }}
+            >
+              Details
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-8">
+              {listing.address && (
+                <DetailItem label="Address" value={listing.address} />
+              )}
+              {listing.phone && (
+                <DetailItem label="Phone">
+                  <a href={`tel:${listing.phone}`} className="hover:underline" style={{ color: vertColor }}>
+                    {listing.phone}
+                  </a>
+                </DetailItem>
+              )}
+              {websiteUrl && (
+                <DetailItem label="Website">
+                  <a href={websiteUrl} target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: vertColor }}>
+                    {cleanWebsite(listing.website)}
+                  </a>
+                </DetailItem>
+              )}
+              {listing.region && (
+                <DetailItem label="Region" value={listing.region} />
+              )}
+              {listing.state && (
+                <DetailItem label="State" value={listing.state} />
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Also listed on [Vertical] ──────────────────── */}
+        <div className="flex items-center gap-3 mb-10 py-4 px-5 rounded-lg" style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}>
+          <VerticalBadge vertical={listing.vertical} />
+          <span className="text-sm" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)' }}>
+            Also listed on
+          </span>
+          <a
+            href={verticalUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm font-medium hover:underline"
+            style={{ fontFamily: 'var(--font-body)', color: vertColor }}
+          >
+            {vertLabel} &rarr;
+          </a>
+        </div>
+
+        {/* ── Claim CTA (if unclaimed) ───────────────────── */}
+        {!listing.is_claimed && (
+          <div className="text-center py-6 px-5 rounded-lg mb-10" style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}>
+            <p className="text-sm mb-2" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)' }}>
+              Own this listing?
+            </p>
+            <p className="text-sm font-medium" style={{ fontFamily: 'var(--font-body)', color: vertColor }}>
+              Claim it to update your details, add images, and connect with visitors.
+            </p>
+          </div>
+        )}
+
+        {/* ── Nearby listings ────────────────────────────── */}
+        {nearby.length > 0 && (
+          <section>
+            <h2
+              className="mb-5"
+              style={{
+                fontFamily: 'var(--font-display)',
+                fontWeight: 400,
+                fontSize: '22px',
+                color: 'var(--color-ink)',
+              }}
+            >
+              Nearby on Australian Atlas
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {nearby.map(n => (
+                <ListingCard key={n.id} listing={n} />
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Detail item component ─────────────────────────────────────
+
+function DetailItem({ label, value, children }) {
+  return (
+    <div>
+      <dt
+        className="text-xs font-semibold tracking-wider uppercase mb-0.5"
+        style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)', letterSpacing: '0.08em', fontSize: '10px' }}
+      >
+        {label}
+      </dt>
+      <dd className="text-sm" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-ink)' }}>
+        {children || value}
+      </dd>
+    </div>
+  )
+}

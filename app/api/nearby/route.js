@@ -148,7 +148,7 @@ export async function GET(request) {
     .map(item => ({
       ...item,
       distance_km: Math.round(haversineKm(lat, lng, item.lat, item.lng) * 10) / 10,
-      venue_url: `${VERTICAL_URLS[item.vertical] || ''}${VERTICAL_PATHS[item.vertical] || '/venue'}/${item.slug}`,
+      venue_url: `/place/${item.slug}`,
       image_url: item.hero_image_url,
     }))
     .sort((a, b) => {

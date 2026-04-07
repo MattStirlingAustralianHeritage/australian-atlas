@@ -4,6 +4,21 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
 import { pushToVertical, getVerticalListingUrl, VERTICAL_DISPLAY_NAMES } from '@/lib/sync/pushToVertical'
 
+/** Normalise a URL to include https:// prefix */
+function normaliseUrl(url) {
+  if (!url) return null
+  let u = url.trim()
+  u = u.replace(/^https?\/\//, 'https://')
+  u = u.replace(/^https?:\/(?=[^/])/, 'https://')
+  if (u && !u.startsWith('http://') && !u.startsWith('https://')) {
+    u = `https://${u}`
+  }
+  if (u.startsWith('http://')) {
+    u = u.replace(/^http:\/\//, 'https://')
+  }
+  return u
+}
+
 const VERTICAL_LABELS = {
   sba: 'artisan food & drink producer', collection: 'museum, gallery, or collection',
   craft: 'maker or artisan studio', fine_grounds: 'specialty coffee roaster or cafe',
@@ -319,7 +334,7 @@ export async function POST(request, { params }) {
         state: enriched.state || null,
         lat: coords?.lat || null,
         lng: coords?.lng || null,
-        website: candidate.website_url || null,
+        website: normaliseUrl(candidate.website_url) || null,
         phone: enriched.phone || null,
         address: enriched.address || null,
         email: enriched.email || null,

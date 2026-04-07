@@ -491,7 +491,7 @@ function StopCard({ stop, index, isOvernight }) {
   const color = VERTICAL_COLORS[stop.vertical] || '#5f8a7e'
   const label = VERTICAL_LABELS[stop.vertical] || stop.vertical
 
-  const venueUrl = stop.slug ? getVerticalUrl(stop.vertical, stop.slug) : null
+  const venueUrl = stop.slug ? `/place/${stop.slug}` : null
 
   return (
     <div
@@ -527,8 +527,6 @@ function StopCard({ stop, index, isOvernight }) {
           {venueUrl ? (
             <a
               href={venueUrl}
-              target="_blank"
-              rel="noopener noreferrer"
               style={{ fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 16, color: 'var(--color-ink)', textDecoration: 'none' }}
               className="hover:underline"
             >
@@ -571,8 +569,6 @@ function StopCard({ stop, index, isOvernight }) {
         {venueUrl && (
           <a
             href={venueUrl}
-            target="_blank"
-            rel="noopener noreferrer"
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 6,
               fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11,

@@ -58,5 +58,18 @@ export default async function sitemap() {
     priority: 0.6,
   }))
 
-  return [...staticPages, ...regionPages, ...trailPages, ...eventPages]
+  // Listing pages (native /place/[slug] pages)
+  const { data: listings } = await supabase
+    .from('listings')
+    .select('slug, updated_at')
+    .eq('status', 'active')
+
+  const listingPages = (listings || []).map(l => ({
+    url: `${SITE_URL}/place/${l.slug}`,
+    lastModified: l.updated_at ? new Date(l.updated_at) : new Date(),
+    changeFrequency: 'weekly',
+    priority: 0.6,
+  }))
+
+  return [...staticPages, ...regionPages, ...trailPages, ...eventPages, ...listingPages]
 }
