@@ -41,7 +41,7 @@ const VERTICAL_PATHS = {
 // Human-readable vertical names
 const VERTICAL_LABELS = {
   sba: 'Small Batch Atlas',
-  collection: 'Collection Atlas',
+  collection: 'Culture Atlas',
   craft: 'Craft Atlas',
   fine_grounds: 'Fine Grounds Atlas',
   rest: 'Rest Atlas',

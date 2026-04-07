@@ -5,7 +5,7 @@ import { VERTICAL_STYLES } from '@/components/VerticalBadge'
 
 const VERTICAL_INFO = {
   sba: { name: 'Small Batch Atlas', desc: 'Craft breweries, wineries, distilleries, cideries and cellar doors across Australia.', url: 'https://smallbatchatlas.com.au' },
-  collection: { name: 'Collection Atlas', desc: 'Museums, galleries, heritage sites and cultural centres worth visiting.', url: 'https://collectionatlas.com.au' },
+  collection: { name: 'Culture Atlas', desc: 'Museums, galleries, heritage sites and cultural centres worth visiting.', url: 'https://collectionatlas.com.au' },
   craft: { name: 'Craft Atlas', desc: 'Makers, artists and studios — ceramics, textiles, jewellery, glass and more.', url: 'https://craftatlas.com.au' },
   fine_grounds: { name: 'Fine Grounds Atlas', desc: 'Specialty coffee roasters and the best independent cafes in every state.', url: 'https://finegroundsatlas.com.au' },
   rest: { name: 'Rest Atlas', desc: 'Boutique hotels, farm stays, glamping, cottages and special places to stay.', url: 'https://restatlas.com.au' },

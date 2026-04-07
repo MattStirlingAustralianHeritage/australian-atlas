@@ -2,7 +2,7 @@ import Link from 'next/link'
 
 const verticals = [
   { name: 'Small Batch Atlas', url: 'https://smallbatchatlas.com.au' },
-  { name: 'Collection Atlas', url: 'https://collectionatlas.com.au' },
+  { name: 'Culture Atlas', url: 'https://collectionatlas.com.au' },
   { name: 'Craft Atlas', url: 'https://craftatlas.com.au' },
   { name: 'Fine Grounds Atlas', url: 'https://finegroundsatlas.com.au' },
   { name: 'Rest Atlas', url: 'https://restatlas.com.au' },

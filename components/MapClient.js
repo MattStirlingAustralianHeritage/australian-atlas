@@ -21,7 +21,7 @@ const VERTICAL_FILTERS = [
   { key: 'all', label: 'All' },
   { key: 'sba', label: 'Small Batch' },
   { key: 'craft', label: 'Craft' },
-  { key: 'collection', label: 'Collections' },
+  { key: 'collection', label: 'Culture' },
   { key: 'fine_grounds', label: 'Fine Grounds' },
   { key: 'rest', label: 'Rest' },
   { key: 'field', label: 'Field' },

@@ -578,7 +578,7 @@ function parseItineraryQuery(rawQuery) {
 }
 
 const VERTICAL_LABELS = {
-  sba: 'Small Batch Atlas', collection: 'Collection Atlas', craft: 'Craft Atlas',
+  sba: 'Small Batch Atlas', collection: 'Culture Atlas', craft: 'Craft Atlas',
   fine_grounds: 'Fine Grounds Atlas', rest: 'Rest Atlas', field: 'Field Atlas',
   corner: 'Corner Atlas', found: 'Found Atlas', table: 'Table Atlas',
 }

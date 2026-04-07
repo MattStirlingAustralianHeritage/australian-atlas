@@ -39,7 +39,7 @@ const dryRun = args.includes('--dry-run')
 const VERTICAL_LABELS = {
   sba: 'Small Batch Atlas (wineries, breweries, distilleries)',
   fine_grounds: 'Fine Grounds Atlas (specialty coffee)',
-  collection: 'Collection Atlas (museums, galleries, heritage)',
+  collection: 'Culture Atlas (museums, galleries, heritage)',
   craft: 'Craft Atlas (makers, studios, artisans)',
   rest: 'Rest Atlas (boutique accommodation)',
   field: 'Field Atlas (nature, walks, swimming holes)',

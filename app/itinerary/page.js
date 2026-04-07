@@ -31,7 +31,7 @@ function getDayColor(dayNumber) {
 const VERTICAL_FLOW_ORDER = ['fine_grounds', 'table', 'field', 'collection', 'craft', 'corner', 'found', 'sba', 'rest']
 
 const VERTICAL_LABELS = {
-  sba: 'Small Batch', collection: 'Collections', craft: 'Craft', fine_grounds: 'Fine Grounds',
+  sba: 'Small Batch', collection: 'Culture', craft: 'Craft', fine_grounds: 'Fine Grounds',
   rest: 'Rest', field: 'Field', corner: 'Corner', found: 'Found', table: 'Table',
 }
 

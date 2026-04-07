@@ -30,7 +30,7 @@ async function getNetworkStats() {
 
 const VERTICALS = [
   { key: 'sba', name: 'Small Batch Atlas', what: 'Breweries, wineries, distilleries, cideries' },
-  { key: 'collection', name: 'Collection Atlas', what: 'Galleries, museums, heritage sites' },
+  { key: 'collection', name: 'Culture Atlas', what: 'Galleries, museums, heritage sites' },
   { key: 'craft', name: 'Craft Atlas', what: 'Makers, artists, studios' },
   { key: 'fine_grounds', name: 'Fine Grounds Atlas', what: 'Specialty roasters, independent cafes' },
   { key: 'rest', name: 'Rest Atlas', what: 'Boutique stays, farm stays, glamping' },

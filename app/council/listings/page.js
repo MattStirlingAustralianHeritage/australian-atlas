@@ -4,7 +4,7 @@ import { useCouncil } from '../layout'
 import { useState, useEffect } from 'react'
 
 const VERTICAL_LABELS = {
-  sba: 'Small Batch', collection: 'Collections', craft: 'Craft',
+  sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
   fine_grounds: 'Fine Grounds', rest: 'Rest', field: 'Field',
   corner: 'Corner', found: 'Found', table: 'Table',
 }

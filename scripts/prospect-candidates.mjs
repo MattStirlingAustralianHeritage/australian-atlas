@@ -67,7 +67,7 @@ const VERTICALS = {
     searchTerms: 'craft distillery, boutique winery, microbrewery, artisan cheese, providore, olive oil producer, small-batch spirits, craft cider, specialty food maker',
   },
   collection: {
-    label: 'Collection Atlas',
+    label: 'Culture Atlas',
     description: 'Museums, galleries, private collections, heritage collections, art spaces, sculpture parks, archives, cultural institutions',
     searchTerms: 'regional gallery, private museum, heritage collection, art space, sculpture garden, cultural centre, historical society, antique collection',
   },

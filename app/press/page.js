@@ -9,7 +9,7 @@ export const metadata = {
 
 const verticals = [
   { key: 'sba', name: 'Small Batch Atlas', desc: 'Craft breweries, wineries, distilleries, cideries and cellar doors' },
-  { key: 'collection', name: 'Collection Atlas', desc: 'Museums, galleries, heritage sites and cultural centres' },
+  { key: 'collection', name: 'Culture Atlas', desc: 'Museums, galleries, heritage sites and cultural centres' },
   { key: 'craft', name: 'Craft Atlas', desc: 'Makers, artists and studios across every discipline' },
   { key: 'fine_grounds', name: 'Fine Grounds Atlas', desc: 'Specialty coffee roasters and independent cafes' },
   { key: 'rest', name: 'Rest Atlas', desc: 'Boutique hotels, farm stays, glamping and cottages' },

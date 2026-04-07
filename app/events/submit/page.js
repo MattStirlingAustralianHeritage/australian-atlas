@@ -34,7 +34,7 @@ const VERTICALS = [
   { id: 'rest', label: 'Rest Atlas', color: '#5f8a7e' },
   { id: 'fine_grounds', label: 'Fine Grounds Atlas', color: '#8b6914' },
   { id: 'craft', label: 'Craft Atlas', color: '#b87333' },
-  { id: 'collection', label: 'Collection Atlas', color: '#4a5568' },
+  { id: 'collection', label: 'Culture Atlas', color: '#4a5568' },
   { id: 'field', label: 'Field Atlas', color: '#2d6a4f' },
   { id: 'corner', label: 'Corner Atlas', color: '#6b4c8a' },
   { id: 'found', label: 'Found Atlas', color: '#c2553a' },

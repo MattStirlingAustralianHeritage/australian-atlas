@@ -7,7 +7,7 @@ const supabase = getSupabase()
 const VERTICALS = [
   { value: '', label: 'Mixed (no focus)' },
   { value: 'sba', label: 'Small Batch Atlas' },
-  { value: 'collection', label: 'Collection Atlas' },
+  { value: 'collection', label: 'Culture Atlas' },
   { value: 'craft', label: 'Craft Atlas' },
   { value: 'fine_grounds', label: 'Fine Grounds Atlas' },
   { value: 'rest', label: 'Rest Atlas' },

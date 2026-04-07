@@ -51,7 +51,7 @@ const VERTICALS = [
   { key: '', label: 'All', atlas: '' },
   { key: 'sba', label: 'Small Batch', atlas: 'Drink' },
   { key: 'craft', label: 'Craft', atlas: 'Makers' },
-  { key: 'collection', label: 'Collections', atlas: 'Culture' },
+  { key: 'collection', label: 'Culture', atlas: 'Culture' },
   { key: 'fine_grounds', label: 'Fine Grounds', atlas: 'Coffee' },
   { key: 'rest', label: 'Rest', atlas: 'Stay' },
   { key: 'field', label: 'Field', atlas: 'Nature' },

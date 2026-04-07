@@ -75,7 +75,7 @@ export default async function AboutPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
           {[
             { name: 'Small Batch Atlas', desc: 'Wineries, breweries, distilleries', url: 'https://smallbatchatlas.com.au' },
-            { name: 'Collection Atlas', desc: 'Galleries, museums, heritage', url: 'https://collectionatlas.com.au' },
+            { name: 'Culture Atlas', desc: 'Galleries, museums, heritage', url: 'https://collectionatlas.com.au' },
             { name: 'Craft Atlas', desc: 'Makers, artists, studios', url: 'https://craftatlas.com.au' },
             { name: 'Fine Grounds Atlas', desc: 'Specialty coffee, indie cafes', url: 'https://finegroundsatlas.com.au' },
             { name: 'Rest Atlas', desc: 'Boutique stays, glamping', url: 'https://restatlas.com.au' },

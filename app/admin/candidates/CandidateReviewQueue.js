@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 
 const VERTICAL_NAMES = {
-  sba: 'Small Batch', collection: 'Collections', craft: 'Craft',
+  sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
   fine_grounds: 'Fine Grounds', rest: 'Rest', field: 'Field',
   corner: 'Corner', found: 'Found', table: 'Table',
 }
@@ -20,7 +20,7 @@ const VERTICAL_TYPE_LABELS = {
 }
 
 const VERTICAL_FULL_NAMES = {
-  sba: 'Small Batch Atlas', collection: 'Collection Atlas', craft: 'Craft Atlas',
+  sba: 'Small Batch Atlas', collection: 'Culture Atlas', craft: 'Craft Atlas',
   fine_grounds: 'Fine Grounds Atlas', rest: 'Rest Atlas', field: 'Field Atlas',
   corner: 'Corner Atlas', found: 'Found Atlas', table: 'Table Atlas',
 }

@@ -14,7 +14,7 @@ const VERTICAL_COLORS = {
 const VERTICAL_FILTERS = [
   { key: 'all', label: 'All' },
   { key: 'sba', label: 'Small Batch' },
-  { key: 'collection', label: 'Collections' },
+  { key: 'collection', label: 'Culture' },
   { key: 'craft', label: 'Craft' },
   { key: 'fine_grounds', label: 'Fine Grounds' },
   { key: 'rest', label: 'Rest' },

@@ -17,7 +17,7 @@ const VERTICAL_COLORS = {
 const VERTICAL_LABELS = {
   sba: 'Small Batch',
   fine_grounds: 'Fine Grounds',
-  collection: 'Collections',
+  collection: 'Culture',
   craft: 'Craft',
   rest: 'Rest',
   field: 'Field',
