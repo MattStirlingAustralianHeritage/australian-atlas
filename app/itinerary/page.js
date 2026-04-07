@@ -196,23 +196,27 @@ function ItineraryMap({ days }) {
         } catch (e) { /* route failed, continue */ }
       }
 
-      // Run route animation once the map style is ready.
-      // Handle race condition: if style is already loaded (from cache),
-      // the event won't fire, so check immediately and also listen.
-      let animationStarted = false
-      function startAnimation() {
-        if (animationStarted) return
-        animationStarted = true
-        runMapAnimation()
-      }
+      // Render once map is fully loaded (style + tiles).
+      // map.once('load') is the reliable trigger — it fires after the Standard
+      // style, sprites, glyphs and initial tiles are all ready for addSource/addLayer.
+      // Safety timeout renders static markers if 'load' never fires (tile error, etc.).
+      const loadTimer = setTimeout(() => {
+        if (!mapRef.current) return
+        console.warn('[trail-map] Map load timed out — rendering static')
+        try {
+          for (const group of dayStopGroups) {
+            addStaticRoute(map, { dayNumber: group.dayNumber, coordinates: group.coordinates }, getDayColor(group.dayNumber))
+          }
+          for (const stop of allStops) {
+            addStaticMarker(stop, mapboxgl, map)
+          }
+        } catch (e) { /* timeout fallback failed */ }
+      }, 10000)
 
-      if (map.isStyleLoaded()) {
-        // Style already loaded (from cache) — run immediately with a microtask delay
-        // to ensure the map is fully initialised
-        setTimeout(startAnimation, 50)
-      }
-      map.on('style.load', startAnimation)
-      map.on('load', startAnimation) // fallback
+      map.once('load', () => {
+        clearTimeout(loadTimer)
+        runMapAnimation()
+      })
 
       async function runMapAnimation() {
         // Inject pin-drop keyframe animation
