@@ -196,10 +196,25 @@ function ItineraryMap({ days }) {
         } catch (e) { /* route failed, continue */ }
       }
 
-      // Use style.load instead of load — 'load' waits for tiles to fully render
-      // which may never happen if WebGL has issues or tiles load slowly.
-      // style.load fires once the style JSON is parsed and the map can accept layers.
-      map.on('style.load', async () => {
+      // Run route animation once the map style is ready.
+      // Handle race condition: if style is already loaded (from cache),
+      // the event won't fire, so check immediately and also listen.
+      let animationStarted = false
+      function startAnimation() {
+        if (animationStarted) return
+        animationStarted = true
+        runMapAnimation()
+      }
+
+      if (map.isStyleLoaded()) {
+        // Style already loaded (from cache) — run immediately with a microtask delay
+        // to ensure the map is fully initialised
+        setTimeout(startAnimation, 50)
+      }
+      map.on('style.load', startAnimation)
+      map.on('load', startAnimation) // fallback
+
+      async function runMapAnimation() {
         // Inject pin-drop keyframe animation
         if (!document.getElementById('map-pin-drop-style')) {
           const styleEl = document.createElement('style')
@@ -394,7 +409,7 @@ function ItineraryMap({ days }) {
             addStaticMarker(stop, mapboxgl, map)
           }
         }
-      })
+      }
     })
 
     return () => {
