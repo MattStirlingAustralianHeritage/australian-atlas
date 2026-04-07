@@ -127,10 +127,7 @@ export default async function StalenessPage({ searchParams }) {
       {/* Header */}
       <div style={{ padding: '1.5rem 2rem', borderBottom: '1px solid var(--color-border, #E5E0D8)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <a href="/admin" style={{ textDecoration: 'none', color: 'var(--color-muted, #8B8578)', fontSize: '0.75rem', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-            Admin
-          </a>
-          <h1 style={{ fontFamily: 'var(--font-display, Georgia)', fontSize: '1.75rem', fontWeight: 600, color: 'var(--color-ink, #2D2A26)', margin: '0.25rem 0 0' }}>
+          <h1 style={{ fontFamily: 'var(--font-display, Georgia)', fontSize: '1.75rem', fontWeight: 600, color: 'var(--color-ink, #2D2A26)', margin: '0' }}>
             Listing Staleness
           </h1>
         </div>

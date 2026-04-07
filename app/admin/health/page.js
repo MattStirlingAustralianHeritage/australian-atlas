@@ -78,8 +78,7 @@ export default async function HealthPage() {
     <div style={styles.page}>
       <div style={styles.container}>
         <div style={{ marginBottom: '2rem' }}>
-          <a href="/admin" style={styles.backLink}>Admin</a>
-          <h1 style={{ ...styles.heading, marginTop: '0.25rem' }}>Approval Health</h1>
+          <h1 style={styles.heading}>Approval Health</h1>
           <p style={styles.subtitle}>Pipeline status and sync integrity</p>
         </div>
 

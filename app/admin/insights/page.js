@@ -134,8 +134,7 @@ export default async function InsightsPage() {
       <div style={styles.container}>
         {/* Header */}
         <div style={{ marginBottom: '2rem' }}>
-          <a href="/admin" style={styles.backLink}>Admin</a>
-          <h1 style={{ ...styles.heading, marginTop: '0.25rem' }}>Search Insights</h1>
+          <h1 style={styles.heading}>Search Insights</h1>
           <p style={styles.subtitle}>Last 7 days &middot; {(searchRows || []).length} searches &middot; {(trailRows || []).length} trail prompts</p>
         </div>
 

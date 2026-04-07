@@ -197,8 +197,15 @@ export default function HumanatorReview({ initialListing, initialStats }) {
 
       const data = await res.json()
 
-      // Update stats
-      if (data.stats) setStats(data.stats)
+      // Update stats — also push to AdminNavBar via custom event
+      if (data.stats) {
+        setStats(data.stats)
+        const nextHumanised = action === 'humanise' ? sessionHumanised + 1 : sessionHumanised
+        const nextSkipped = action === 'skip' ? sessionSkipped + 1 : sessionSkipped
+        window.dispatchEvent(new CustomEvent('admin-stats-update', {
+          detail: { stats: data.stats, session: { humanised: nextHumanised, skipped: nextSkipped } },
+        }))
+      }
 
       // Track action
       if (action === 'humanise') {
@@ -290,31 +297,7 @@ export default function HumanatorReview({ initialListing, initialStats }) {
         </p>
       </div>
 
-      {/* Counter — sticky top-right */}
-      <div style={{
-        position: 'fixed', top: 24, right: 24, zIndex: 100,
-        background: '#fff', borderRadius: 10,
-        border: '1px solid var(--color-border, #e5e5e5)',
-        padding: '12px 16px', textAlign: 'right',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-      }}>
-        <div style={{
-          fontFamily: 'var(--font-body, system-ui)', fontSize: 15,
-          fontWeight: 600, color: 'var(--color-ink, #2D2A26)',
-          letterSpacing: '-0.01em',
-          animation: flash === 'saved' ? 'humanatorPulse 0.3s ease' : 'none',
-        }}>
-          <span style={{ color: 'var(--color-sage, #7A8B6F)', marginRight: 4 }}>&#10022;</span>
-          {stats.humanised_count.toLocaleString()} / {stats.total_active_count.toLocaleString()} humanised
-        </div>
-        <div style={{
-          fontFamily: 'var(--font-body, system-ui)', fontSize: 11,
-          color: 'var(--color-muted, #888)', marginTop: 2,
-        }}>
-          {sessionHumanised} this session
-          {sessionSkipped > 0 && <span> &middot; {sessionSkipped} skipped</span>}
-        </div>
-      </div>
+      {/* Stats pushed to AdminNavBar via custom event */}
 
       {/* Flash message */}
       {flash && (
@@ -581,15 +564,7 @@ export default function HumanatorReview({ initialListing, initialStats }) {
         </div>
       )}
 
-      {/* Back to admin link */}
-      <div style={{ textAlign: 'center', marginTop: 32 }}>
-        <a href="/admin" style={{
-          fontFamily: 'var(--font-body)', fontSize: 12,
-          color: 'var(--color-muted)', textDecoration: 'none',
-        }}>
-          &#8592; Back to Admin
-        </a>
-      </div>
+      {/* Back link handled by AdminNavBar in layout */}
     </div>
   )
 }

@@ -45,22 +45,7 @@ export default function AdminError({ error, reset }) {
           >
             Try again
           </button>
-          <a
-            href="/admin"
-            style={{
-              padding: '0.6rem 1.25rem',
-              borderRadius: '8px',
-              border: '1px solid var(--color-border, #e5e5e5)',
-              background: '#fff',
-              color: 'var(--color-muted, #888)',
-              fontFamily: 'var(--font-body, system-ui)',
-              fontSize: '0.85rem',
-              fontWeight: 500,
-              textDecoration: 'none',
-            }}
-          >
-            Back to Admin
-          </a>
+          {/* Back link handled by AdminNavBar in layout */}
         </div>
       </div>
     </div>
