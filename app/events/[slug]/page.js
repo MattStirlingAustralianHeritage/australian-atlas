@@ -84,15 +84,23 @@ export async function generateMetadata({ params }) {
     return { title: 'Event not found \u2014 Australian Atlas' }
   }
 
+  const description = event.description
+    ? event.description.substring(0, 160)
+    : `${event.name} in ${[event.suburb, event.state].filter(Boolean).join(', ')}`
   return {
     title: `${event.name} \u2014 Australian Atlas Events`,
-    description: event.description
-      ? event.description.substring(0, 160)
-      : `${event.name} in ${[event.suburb, event.state].filter(Boolean).join(', ')}`,
+    description,
     openGraph: {
       title: event.name,
-      description: event.description?.substring(0, 160) || '',
-      images: event.image_url ? [{ url: event.image_url }] : [],
+      description,
+      url: `https://australianatlas.com.au/events/${slug}`,
+      siteName: 'Australian Atlas',
+      locale: 'en_AU',
+      type: 'article',
+      images: event.image_url ? [{ url: event.image_url, width: 1200, height: 630 }] : [],
+    },
+    alternates: {
+      canonical: `https://australianatlas.com.au/events/${slug}`,
     },
   }
 }

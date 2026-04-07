@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { regionJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
 import RegionMapHero from '@/components/RegionMapHero'
 import RegionTrailCTA from '@/components/RegionTrailCTA'
 
@@ -144,9 +145,22 @@ export async function generateMetadata({ params }) {
   const { slug } = await params
   const region = await getRegion(slug)
   if (!region) return { title: 'Region not found' }
+  const description = region.description || `Discover independent places in ${region.name}`
+  const title = `${region.name}, ${STATE_LABELS[region.state] || region.state} \u2014 Australian Atlas`
   return {
-    title: `${region.name}, ${STATE_LABELS[region.state] || region.state} \u2014 Australian Atlas`,
-    description: region.description || `Discover independent places in ${region.name}`,
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      url: `https://australianatlas.com.au/regions/${slug}`,
+      siteName: 'Australian Atlas',
+      locale: 'en_AU',
+      type: 'website',
+    },
+    alternates: {
+      canonical: `https://australianatlas.com.au/regions/${slug}`,
+    },
   }
 }
 
@@ -181,6 +195,20 @@ export default async function RegionPage({ params }) {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--color-bg, #fff)' }}>
+
+      {/* ── Structured data ───────────────────────────── */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(regionJsonLd(region)) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd([
+          { name: 'Home', url: '/' },
+          { name: 'Regions', url: '/regions' },
+          { name: region.name },
+        ])) }}
+      />
 
       {/* ── 1. INTERACTIVE MAP HERO ────────────────────── */}
       <RegionMapHero

@@ -24,6 +24,7 @@ export default async function sitemap() {
   const { data: regions } = await supabase
     .from('regions')
     .select('slug, updated_at')
+    .eq('status', 'live')
 
   const regionPages = (regions || []).map(r => ({
     url: `${SITE_URL}/regions/${r.slug}`,

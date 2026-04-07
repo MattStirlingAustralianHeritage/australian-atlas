@@ -22,9 +22,21 @@ export async function generateMetadata({ params }) {
     .eq('published', true)
     .single()
   if (!trail) return {}
+  const description = trail.description || `A curated discovery trail — ${trail.title}.`
   return {
     title: `${trail.title} | Australian Atlas`,
-    description: trail.description || `A curated discovery trail — ${trail.title}.`,
+    description,
+    openGraph: {
+      title: trail.title,
+      description,
+      url: `https://australianatlas.com.au/trails/${slug}`,
+      siteName: 'Australian Atlas',
+      locale: 'en_AU',
+      type: 'article',
+    },
+    alternates: {
+      canonical: `https://australianatlas.com.au/trails/${slug}`,
+    },
   }
 }
 

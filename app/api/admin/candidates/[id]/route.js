@@ -378,6 +378,10 @@ export async function POST(request, { params }) {
       // 7. Create master listing — idempotent so retry works after partial failure
       const sourceId = verticalRowId || `candidate-${candidate.id}`
 
+      // Determine data source — AI prospector candidates get flagged
+      const isAiOriginated = candidate.source === 'ai_prospector' || candidate.source === 'ai_daily'
+      const dataSource = isAiOriginated ? 'ai_generated' : 'manually_curated'
+
       const listingData = {
         vertical,
         source_id: sourceId,
@@ -395,6 +399,8 @@ export async function POST(request, { params }) {
         status: 'active',
         is_claimed: false,
         is_featured: false,
+        data_source: dataSource,
+        needs_review: isAiOriginated,
       }
 
       // Check if listing already exists (retry case — previous attempt may have written master but not vertical)

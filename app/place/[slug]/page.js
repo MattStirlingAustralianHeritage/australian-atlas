@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getVerticalUrl, getVerticalLabel } from '@/lib/verticalUrl'
+import { listingJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
 import VerticalBadge from '@/components/VerticalBadge'
 import ListingCard from '@/components/ListingCard'
 
@@ -178,6 +179,20 @@ export default async function PlacePage({ params }) {
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--color-bg)' }}>
+
+      {/* ── Structured data ───────────────────────────────── */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(listingJsonLd(listing)) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd([
+          { name: 'Home', url: '/' },
+          { name: categoryLabel, url: `/explore?vertical=${listing.vertical}` },
+          { name: listing.name },
+        ])) }}
+      />
 
       {/* ── Hero image ────────────────────────────────────── */}
       {listing.hero_image_url ? (
