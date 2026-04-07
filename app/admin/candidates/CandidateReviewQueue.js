@@ -459,11 +459,10 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
         return
       }
 
-      if (!data.verticalSync?.success) {
-        setErrorMsg(`Publish failed — ${data.verticalSync?.warning || 'vertical sync did not complete'}`)
-        setStatus('error')
-        busyRef.current = false
-        return
+      // Vertical sync failure is NOT a publish failure — listing is saved to master DB.
+      // Show success with a warning note; cron will retry the vertical push.
+      if (!data.verticalSync?.success && data.verticalSync?.warning) {
+        data._syncWarning = data.verticalSync.warning
       }
 
       setResult(data)
@@ -847,8 +846,17 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
             fontFamily: 'var(--font-display, Georgia)', fontSize: 22,
             fontWeight: 400, color: '#4A7C59', margin: '0 0 4px',
           }}>
-            Live on {result.listing.verticalName}
+            {result._syncWarning ? 'Published to master' : `Live on ${result.listing.verticalName}`}
           </p>
+          {result._syncWarning && (
+            <p style={{
+              fontFamily: 'var(--font-body)', fontSize: 12,
+              color: '#C49A3C', margin: '0 0 8px', maxWidth: 300, textAlign: 'center',
+              lineHeight: 1.4,
+            }}>
+              ⚠ {result._syncWarning}
+            </p>
+          )}
           <p style={{
             fontFamily: 'var(--font-body)', fontSize: 14,
             color: 'var(--color-ink)', margin: '0 0 20px',
