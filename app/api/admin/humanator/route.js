@@ -94,43 +94,63 @@ async function fetchStats(sb) {
   }
 }
 
-// ─── Fetch one random listing (weighted) ────────────────────
+// ─── Fetch one random listing (weighted, cross-vertical) ───
 
-async function fetchRandomListing(sb, excludeIds = []) {
-  // Build the weighted random query via RPC or fallback
-  // Priority: un-humanised first, then by missing fields count, then random
-  let query = sb
-    .from('listings')
-    .select(SELECT_COLS)
-    .eq('status', 'active')
+const ALL_VERTICALS = ['sba', 'collection', 'craft', 'fine_grounds', 'rest', 'field', 'corner', 'found', 'table']
 
-  if (excludeIds.length > 0) {
-    query = query.not('id', 'in', `(${excludeIds.join(',')})`)
+async function fetchRandomListing(sb, excludeIds = [], recentVerticals = []) {
+  // Anti-clustering: if the last 5 listings were all from the same vertical,
+  // exclude that vertical this round to force diversity.
+  let skipVertical = null
+  if (recentVerticals.length >= 5) {
+    const lastFive = recentVerticals.slice(-5)
+    if (new Set(lastFive).size === 1) {
+      skipVertical = lastFive[0]
+    }
   }
 
-  // First try: un-humanised listings with most missing fields
-  const { data: unhumanised, error: err1 } = await query
-    .eq('humanised', false)
-    .limit(50)
+  // Fetch a small batch from EACH vertical in parallel.
+  // This guarantees cross-vertical diversity instead of relying on heap order.
+  const fetchVerticals = skipVertical
+    ? ALL_VERTICALS.filter(v => v !== skipVertical)
+    : ALL_VERTICALS
 
-  if (!err1 && unhumanised && unhumanised.length > 0) {
-    // Score by missing fields and pick weighted random
-    const scored = unhumanised.map(l => ({
+  const PER_VERTICAL = 6
+  const promises = fetchVerticals.map(v => {
+    let q = sb.from('listings').select(SELECT_COLS)
+      .eq('status', 'active')
+      .eq('humanised', false)
+      .eq('vertical', v)
+    if (excludeIds.length > 0) {
+      q = q.not('id', 'in', `(${excludeIds.join(',')})`)
+    }
+    return q.limit(PER_VERTICAL)
+  })
+
+  const results = await Promise.all(promises)
+  const candidates = results.flatMap(r => r.data || [])
+
+  if (candidates.length > 0) {
+    // Score by missing fields — listings needing more work are prioritised
+    const scored = candidates.map(l => ({
       ...l,
-      missing: (
+      _missing: (
         (!l.description || l.description === '' ? 1 : 0) +
         (!l.website || l.website === '' ? 1 : 0) +
         (!l.address || l.address === '' ? 1 : 0) +
         (!l.hero_image_url || l.hero_image_url === '' ? 1 : 0)
       ),
     }))
-    // Sort by most missing fields first, then randomise within same tier
-    scored.sort((a, b) => b.missing - a.missing || Math.random() - 0.5)
-    const { missing, ...listing } = scored[0]
+
+    // Pick randomly from the top missing-fields tier
+    const maxMissing = Math.max(...scored.map(s => s._missing))
+    const topTier = scored.filter(s => s._missing === maxMissing)
+    const pick = topTier[Math.floor(Math.random() * topTier.length)]
+    const { _missing, ...listing } = pick
     return listing
   }
 
-  // Second try: already humanised listings (re-review)
+  // Fallback: already-humanised listings for re-review (oldest first, pick from top 5)
   let retryQuery = sb
     .from('listings')
     .select(SELECT_COLS)
@@ -141,11 +161,11 @@ async function fetchRandomListing(sb, excludeIds = []) {
     retryQuery = retryQuery.not('id', 'in', `(${excludeIds.join(',')})`)
   }
 
-  const { data: humanised, error: err2 } = await retryQuery
+  const { data: humanised } = await retryQuery
     .order('humanised_at', { ascending: true, nullsFirst: true })
     .limit(20)
 
-  if (!err2 && humanised && humanised.length > 0) {
+  if (humanised && humanised.length > 0) {
     const idx = Math.floor(Math.random() * Math.min(5, humanised.length))
     return humanised[idx]
   }
@@ -164,11 +184,13 @@ export async function GET(request) {
   const { searchParams } = new URL(request.url)
   const excludeParam = searchParams.get('exclude') || ''
   const excludeIds = excludeParam ? excludeParam.split(',').filter(Boolean) : []
+  const recentVerticalsParam = searchParams.get('recent_verticals') || ''
+  const recentVerticals = recentVerticalsParam ? recentVerticalsParam.split(',').filter(Boolean) : []
 
   try {
     const sb = getSupabaseAdmin()
     const [listing, stats] = await Promise.all([
-      fetchRandomListing(sb, excludeIds),
+      fetchRandomListing(sb, excludeIds, recentVerticals),
       fetchStats(sb),
     ])
 
@@ -189,7 +211,7 @@ export async function PATCH(request) {
 
   try {
     const body = await request.json()
-    const { id, action, updates = {}, exclude = [] } = body
+    const { id, action, updates = {}, exclude = [], recent_verticals = [] } = body
 
     if (!id) return NextResponse.json({ error: 'Missing listing ID' }, { status: 400 })
     if (!['humanise', 'skip', 'hide'].includes(action)) {
@@ -279,7 +301,7 @@ export async function PATCH(request) {
     // Fetch next listing and updated stats
     const excludeIds = [...(exclude || []), id]
     const [next_listing, stats] = await Promise.all([
-      fetchRandomListing(sb, excludeIds),
+      fetchRandomListing(sb, excludeIds, recent_verticals),
       fetchStats(sb),
     ])
 

@@ -133,6 +133,7 @@ export default function HumanatorReview({ initialListing, initialStats }) {
 
   // Session tracking
   const excludedRef = useRef(new Set(initialListing ? [initialListing.id] : []))
+  const recentVerticalsRef = useRef(initialListing?.vertical ? [initialListing.vertical] : [])
   const [sessionHumanised, setSessionHumanised] = useState(0)
   const [sessionSkipped, setSessionSkipped] = useState(0)
 
@@ -164,6 +165,7 @@ export default function HumanatorReview({ initialListing, initialStats }) {
         id: listing.id,
         action,
         exclude: Array.from(excludedRef.current),
+        recent_verticals: recentVerticalsRef.current.slice(-10),
       }
 
       if (action === 'humanise' && draft) {
@@ -222,6 +224,13 @@ export default function HumanatorReview({ initialListing, initialStats }) {
       // Transition to next listing
       if (data.next_listing) {
         excludedRef.current.add(data.next_listing.id)
+        if (data.next_listing.vertical) {
+          recentVerticalsRef.current.push(data.next_listing.vertical)
+          // Keep only last 10 to avoid unbounded growth
+          if (recentVerticalsRef.current.length > 10) {
+            recentVerticalsRef.current = recentVerticalsRef.current.slice(-10)
+          }
+        }
         setListing(data.next_listing)
       } else {
         setListing(null)
