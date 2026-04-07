@@ -25,7 +25,7 @@ export default function AtlasAnalytics() {
         ? 'tablet'
         : 'desktop'
 
-    // Fire and forget — don't await, don't handle errors
+    // Fire and forget — log failures for debugging but don't block
     fetch(`/api/analytics/ingest`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -37,6 +37,8 @@ export default function AtlasAnalytics() {
         device_type: deviceType,
       }),
       keepalive: true,
+    }).then(res => {
+      if (!res.ok) console.warn('[AtlasAnalytics] Ingest returned', res.status)
     }).catch(() => {})
   }, [pathname])
 

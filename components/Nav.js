@@ -39,6 +39,7 @@ export default function Nav() {
     { href: '/explore', label: 'Explore' },
     { href: '/map', label: 'Map' },
     { href: '/trails', label: 'Trails' },
+    { href: '/journal', label: 'Journal' },
     { href: '/regions', label: 'Regions' },
     { href: '/events', label: 'Events' },
     { href: '/for-councils', label: 'For Councils' },

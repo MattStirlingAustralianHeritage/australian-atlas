@@ -129,6 +129,7 @@ export default function HumanatorReview({ initialListing, initialStats }) {
   const [loading, setLoading] = useState(false)
   const [flash, setFlash] = useState(null) // 'saved' | 'saved_synced' | 'saved_sync_failed' | 'skipped' | 'hidden' | 'error'
   const [syncDetail, setSyncDetail] = useState(null) // vertical name for display
+  const [errorMsg, setErrorMsg] = useState(null) // actual error text for 'error' flash
   const [milestone, setMilestone] = useState(null)
 
   // Session tracking
@@ -189,8 +190,9 @@ export default function HumanatorReview({ initialListing, initialStats }) {
       if (!res.ok) {
         const d = await res.json()
         console.error('Humanator action failed:', d.error)
+        setErrorMsg(d.error || 'Unknown error')
         setFlash('error')
-        setTimeout(() => setFlash(null), 2000)
+        setTimeout(() => { setFlash(null); setErrorMsg(null) }, 4000)
         setLoading(false)
         return
       }
@@ -247,12 +249,13 @@ export default function HumanatorReview({ initialListing, initialStats }) {
       setTimeout(() => setFlash(null), syncFailed ? 3000 : 1500)
     } catch (err) {
       console.error('Humanator error:', err)
+      setErrorMsg(err.message || 'Network error')
       setFlash('error')
-      setTimeout(() => setFlash(null), 2000)
+      setTimeout(() => { setFlash(null); setErrorMsg(null) }, 4000)
     } finally {
       setLoading(false)
     }
-  }, [listing, draft, loading, checkMilestone])
+  }, [listing, draft, loading, checkMilestone, sessionHumanised, sessionSkipped])
 
   const updateDraft = (field, value) => setDraft(prev => prev ? { ...prev, [field]: value } : null)
 
@@ -314,7 +317,7 @@ export default function HumanatorReview({ initialListing, initialStats }) {
           {flash === 'saved' && 'Humanised. Next listing loaded.'}
           {flash === 'skipped' && 'Skipped. Loading next...'}
           {flash === 'hidden' && 'Listing hidden. Loading next...'}
-          {flash === 'error' && 'Something went wrong. Try again.'}
+          {flash === 'error' && (errorMsg ? `Error: ${errorMsg}` : 'Something went wrong. Try again.')}
         </div>
       )}
 

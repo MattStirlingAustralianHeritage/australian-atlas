@@ -98,7 +98,16 @@ async function fetchStats(sb) {
 
 const ALL_VERTICALS = ['sba', 'collection', 'craft', 'fine_grounds', 'rest', 'field', 'corner', 'found', 'table']
 
+// Sanitise exclude list: remove falsy/invalid values, cap length to avoid URL limits
+function sanitiseExcludeIds(raw) {
+  if (!Array.isArray(raw)) return []
+  return raw.filter(id => id && typeof id === 'string' && id.length > 0).slice(-80)
+}
+
 async function fetchRandomListing(sb, excludeIds = [], recentVerticals = []) {
+  // Sanitise exclude list — prevents malformed PostgREST filters from null/undefined values
+  const safeExclude = sanitiseExcludeIds(excludeIds)
+
   // Anti-clustering: if the last 5 listings were all from the same vertical,
   // exclude that vertical this round to force diversity.
   let skipVertical = null
@@ -121,18 +130,26 @@ async function fetchRandomListing(sb, excludeIds = [], recentVerticals = []) {
       .eq('status', 'active')
       .eq('humanised', false)
       .eq('vertical', v)
-    if (excludeIds.length > 0) {
-      q = q.not('id', 'in', `(${excludeIds.join(',')})`)
+    if (safeExclude.length > 0) {
+      q = q.not('id', 'in', `(${safeExclude.join(',')})`)
     }
     return q.limit(PER_VERTICAL)
   })
 
-  const results = await Promise.all(promises)
-  const candidates = results.flatMap(r => r.data || [])
+  const results = await Promise.allSettled(promises)
+  const candidates = results
+    .filter(r => r.status === 'fulfilled')
+    .flatMap(r => r.value?.data || [])
 
   if (candidates.length > 0) {
+    // Filter out any listings that made it through despite the exclude filter
+    const excludeSet = new Set(safeExclude)
+    const filtered = candidates.filter(l => !excludeSet.has(String(l.id)))
+
+    const pool = filtered.length > 0 ? filtered : candidates
+
     // Score by missing fields — listings needing more work are prioritised
-    const scored = candidates.map(l => ({
+    const scored = pool.map(l => ({
       ...l,
       _missing: (
         (!l.description || l.description === '' ? 1 : 0) +
@@ -157,13 +174,17 @@ async function fetchRandomListing(sb, excludeIds = [], recentVerticals = []) {
     .eq('status', 'active')
     .eq('humanised', true)
 
-  if (excludeIds.length > 0) {
-    retryQuery = retryQuery.not('id', 'in', `(${excludeIds.join(',')})`)
+  if (safeExclude.length > 0) {
+    retryQuery = retryQuery.not('id', 'in', `(${safeExclude.join(',')})`)
   }
 
-  const { data: humanised } = await retryQuery
+  const { data: humanised, error: retryError } = await retryQuery
     .order('humanised_at', { ascending: true, nullsFirst: true })
     .limit(20)
+
+  if (retryError) {
+    console.warn('[admin/humanator] Fallback query error:', retryError.message)
+  }
 
   if (humanised && humanised.length > 0) {
     const idx = Math.floor(Math.random() * Math.min(5, humanised.length))
@@ -298,16 +319,25 @@ export async function PATCH(request) {
     }
     // 'skip' — no DB changes needed
 
-    // Fetch next listing and updated stats
-    const excludeIds = [...(exclude || []), id]
-    const [next_listing, stats] = await Promise.all([
-      fetchRandomListing(sb, excludeIds, recent_verticals),
-      fetchStats(sb),
-    ])
+    // Fetch next listing and updated stats (separate try so action success isn't masked by fetch failure)
+    const excludeIds = [...(exclude || []), id].filter(Boolean)
+    let next_listing = null
+    let stats = null
+    try {
+      const [nextRes, statsRes] = await Promise.allSettled([
+        fetchRandomListing(sb, excludeIds, recent_verticals),
+        fetchStats(sb),
+      ])
+      next_listing = nextRes.status === 'fulfilled' ? nextRes.value : null
+      stats = statsRes.status === 'fulfilled' ? statsRes.value : null
+    } catch (fetchErr) {
+      console.warn('[admin/humanator/PATCH] Next-listing fetch failed:', fetchErr.message)
+      // Action still succeeded — return success with null next_listing
+    }
 
     return NextResponse.json({ success: true, next_listing, stats, sync_status })
   } catch (err) {
     console.error('[admin/humanator/PATCH] Error:', err.message)
-    return NextResponse.json({ error: 'Action failed' }, { status: 500 })
+    return NextResponse.json({ error: err.message || 'Action failed' }, { status: 500 })
   }
 }

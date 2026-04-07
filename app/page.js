@@ -82,11 +82,48 @@ async function getStats() {
   }
 }
 
-async function getLatestArticles() {
-  // Pull journal content directly from vertical Supabase databases
-  // Starting with SBA; extend to other verticals as their Journal content grows
-  const allArticles = []
+const VERTICAL_JOURNAL_URLS = {
+  sba: 'https://smallbatchatlas.com.au/journal',
+  collection: 'https://collectionatlas.com.au/journal',
+  craft: 'https://craftatlas.com.au/journal',
+  fine_grounds: 'https://finegroundsatlas.com.au/journal',
+  rest: 'https://restatlas.com.au/journal',
+  field: 'https://fieldatlas.com.au/journal',
+  corner: 'https://corneratlas.com.au/journal',
+  found: 'https://foundatlas.com.au/journal',
+  table: 'https://tableatlas.com.au/journal',
+}
 
+async function getLatestArticles() {
+  // Pull from both master DB (CMS-synced) and SBA vertical, deduplicate
+  const allArticles = []
+  const slugSet = new Set()
+
+  // 1. Master DB articles (all verticals, synced from CMS)
+  try {
+    const sb = getSupabaseAdmin()
+    const { data: masterArticles } = await sb
+      .from('articles')
+      .select('id, vertical, title, slug, excerpt, hero_image_url, author, published_at, category')
+      .eq('status', 'published')
+      .order('published_at', { ascending: false })
+      .limit(10)
+    if (masterArticles) {
+      for (const a of masterArticles) {
+        if (!slugSet.has(a.slug)) {
+          slugSet.add(a.slug)
+          allArticles.push({
+            ...a,
+            vertical: a.vertical || 'atlas',
+            excerpt: a.excerpt || null,
+            article_url: `${VERTICAL_JOURNAL_URLS[a.vertical] || VERTICAL_JOURNAL_URLS.sba}/${a.slug}`,
+          })
+        }
+      }
+    }
+  } catch { /* master articles not available */ }
+
+  // 2. SBA vertical articles (supplement)
   try {
     const sbaClient = getVerticalClient('sba')
     const { data: sbaArticles } = await sbaClient
@@ -96,12 +133,17 @@ async function getLatestArticles() {
       .order('published_at', { ascending: false })
       .limit(6)
     if (sbaArticles) {
-      allArticles.push(...sbaArticles.map(a => ({
-        ...a,
-        vertical: 'sba',
-        excerpt: a.deck || null,
-        article_url: `https://smallbatchatlas.com.au/journal/${a.slug}`,
-      })))
+      for (const a of sbaArticles) {
+        if (!slugSet.has(a.slug)) {
+          slugSet.add(a.slug)
+          allArticles.push({
+            ...a,
+            vertical: 'sba',
+            excerpt: a.deck || null,
+            article_url: `https://smallbatchatlas.com.au/journal/${a.slug}`,
+          })
+        }
+      }
     }
   } catch { /* SBA journal not available */ }
 
@@ -313,7 +355,7 @@ export default async function Home() {
             {articles.map(article => (
               <a
                 key={article.id}
-                href={article.article_url || `https://smallbatchatlas.com.au/journal/${article.slug}`}
+                href={article.article_url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="group block rounded-xl overflow-hidden"
@@ -383,16 +425,14 @@ export default async function Home() {
           </div>
 
           <div className="mt-8 text-center">
-            <a
-              href="https://smallbatchatlas.com.au/journal"
-              target="_blank"
-              rel="noopener noreferrer"
+            <Link
+              href="/journal"
               className="inline-flex items-center gap-2 text-[var(--color-accent)] hover:opacity-80 transition-opacity"
               style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px' }}
             >
               Read the Journal
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-            </a>
+            </Link>
           </div>
         </div>
       </section>

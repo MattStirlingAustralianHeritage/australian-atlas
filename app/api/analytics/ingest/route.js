@@ -53,7 +53,9 @@ export async function POST(request) {
     })
 
     if (error) {
-      console.error('Analytics ingest insert error:', error.message, error.details)
+      // Log clearly — the most common cause is the site_analytics table not existing
+      // (migration 014_admin_analytics.sql needs to be run in Supabase Dashboard)
+      console.error('[analytics/ingest] Insert failed:', error.message, error.code, error.details)
     }
 
     return NextResponse.json({ ok: true }, { headers: CORS_HEADERS })

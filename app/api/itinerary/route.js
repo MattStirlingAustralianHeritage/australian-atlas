@@ -919,6 +919,7 @@ export async function GET(request) {
       state: v.state,
       description: v.description ? v.description.slice(0, 200) : null,
       slug: v.slug,
+      source_id: v.source_id || null,
       hero_image_url: v.hero_image_url || null,
       is_claimed: v.is_claimed || false,
       is_featured: v.is_featured || false,

@@ -491,7 +491,7 @@ function StopCard({ stop, index, isOvernight }) {
   const color = VERTICAL_COLORS[stop.vertical] || '#5f8a7e'
   const label = VERTICAL_LABELS[stop.vertical] || stop.vertical
 
-  const venueUrl = (stop.slug && stop.source_id) ? getVerticalUrl(stop.vertical, stop.slug) : null
+  const venueUrl = stop.slug ? getVerticalUrl(stop.vertical, stop.slug) : null
 
   return (
     <div
