@@ -196,13 +196,28 @@ function ItineraryMap({ days }) {
         } catch (e) { /* route failed, continue */ }
       }
 
-      // Render once map is fully loaded (style + tiles).
-      // map.once('load') is the reliable trigger — it fires after the Standard
-      // style, sprites, glyphs and initial tiles are all ready for addSource/addLayer.
-      // Safety timeout renders static markers if 'load' never fires (tile error, etc.).
-      const loadTimer = setTimeout(() => {
-        if (!mapRef.current) return
-        console.warn('[trail-map] Map load timed out — rendering static')
+      // Poll for style readiness instead of relying on events.
+      // Mapbox GL v3 Standard style can miss 'load' / 'style.load' events
+      // depending on cache state and async import timing.
+      let animStarted = false
+      function tryStart() {
+        if (animStarted) return
+        if (!mapRef.current) { clearInterval(readyPoll); return }
+        try { if (!map.isStyleLoaded()) return } catch { clearInterval(readyPoll); return }
+        animStarted = true
+        clearInterval(readyPoll)
+        runMapAnimation()
+      }
+      const readyPoll = setInterval(tryStart, 200)
+      tryStart() // immediate check
+      map.on('load', tryStart) // fast-path if event fires
+
+      // Absolute timeout: static fallback after 12s
+      setTimeout(() => {
+        if (animStarted) return
+        animStarted = true
+        clearInterval(readyPoll)
+        console.warn('[trail-map] Timed out — rendering static markers')
         try {
           for (const group of dayStopGroups) {
             addStaticRoute(map, { dayNumber: group.dayNumber, coordinates: group.coordinates }, getDayColor(group.dayNumber))
@@ -211,12 +226,7 @@ function ItineraryMap({ days }) {
             addStaticMarker(stop, mapboxgl, map)
           }
         } catch (e) { /* timeout fallback failed */ }
-      }, 10000)
-
-      map.once('load', () => {
-        clearTimeout(loadTimer)
-        runMapAnimation()
-      })
+      }, 12000)
 
       async function runMapAnimation() {
         // Inject pin-drop keyframe animation
