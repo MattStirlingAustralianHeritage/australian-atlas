@@ -55,7 +55,6 @@ export default function RegionMapHero({ points, regionName, stateName, centerLat
     }
 
     import('mapbox-gl').then(({ default: mapboxgl }) => {
-      import('mapbox-gl/dist/mapbox-gl.css')
       mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
 
       const hasPoints = points?.length > 0

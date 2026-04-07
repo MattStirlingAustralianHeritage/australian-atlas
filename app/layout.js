@@ -1,4 +1,5 @@
 import { Playfair_Display, DM_Sans } from "next/font/google";
+import "mapbox-gl/dist/mapbox-gl.css";
 import "./globals.css";
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
