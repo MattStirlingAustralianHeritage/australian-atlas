@@ -17,12 +17,91 @@ const VERTICAL_URLS = {
   sba: 'https://smallbatchatlas.com.au/venue',
   collection: 'https://collectionatlas.com.au/venue',
   craft: 'https://craftatlas.com.au/venue',
-  fine_grounds: 'https://finegroundsatlas.com.au/roaster',
+  fine_grounds: 'https://finegroundsatlas.com.au/roasters',
   rest: 'https://restatlas.com.au/stay',
   field: 'https://fieldatlas.com.au/places',
-  corner: 'https://corneratlas.com.au/shop',
-  found: 'https://foundatlas.com.au/shop',
-  table: 'https://tableatlas.com.au/listing',
+  corner: 'https://corneratlas.com.au/shops',
+  found: 'https://foundatlas.com.au/shops',
+  table: 'https://tableatlas.com.au/listings',
+}
+
+const VERTICAL_FIELDS = {
+  sba: [
+    { key: 'producer_type', label: 'Producer Type', type: 'select', options: [
+      { value: 'distillery', label: 'Distillery' }, { value: 'brewery', label: 'Brewery' },
+      { value: 'cidery', label: 'Cidery' }, { value: 'winery', label: 'Winery' },
+      { value: 'bottle_shop', label: 'Bottle Shop' }, { value: 'meadery', label: 'Meadery' },
+      { value: 'sake_brewery', label: 'Sake Brewery' }, { value: 'non_alcoholic', label: 'Non-Alcoholic' },
+    ]},
+    { key: 'has_tasting_room', label: 'Tasting Room', type: 'toggle' },
+    { key: 'has_tours', label: 'Tours Available', type: 'toggle' },
+  ],
+  collection: [
+    { key: 'institution_type', label: 'Institution Type', type: 'select', options: [
+      { value: 'museum', label: 'Museum' }, { value: 'gallery', label: 'Gallery' },
+      { value: 'heritage_site', label: 'Heritage Site' }, { value: 'cultural_centre', label: 'Cultural Centre' },
+      { value: 'botanical_garden', label: 'Botanical Garden' }, { value: 'archive', label: 'Archive' },
+    ]},
+    { key: 'is_free_admission', label: 'Free Admission', type: 'toggle' },
+  ],
+  craft: [
+    { key: 'discipline', label: 'Discipline', type: 'select', options: [
+      { value: 'ceramics_clay', label: 'Ceramics & Clay' }, { value: 'visual_art', label: 'Visual Art' },
+      { value: 'jewellery', label: 'Jewellery' }, { value: 'textiles', label: 'Textiles' },
+      { value: 'woodwork', label: 'Woodwork' }, { value: 'glass', label: 'Glass' },
+      { value: 'printmaking', label: 'Printmaking' }, { value: 'mixed_media', label: 'Mixed Media' },
+    ]},
+    { key: 'commission_available', label: 'Commission Available', type: 'toggle' },
+    { key: 'is_open_to_public', label: 'Studio Visits', type: 'toggle' },
+  ],
+  fine_grounds: [
+    { key: 'entity_type', label: 'Venue Type', type: 'select', options: [
+      { value: 'roaster', label: 'Roaster' }, { value: 'cafe', label: 'Cafe' },
+    ]},
+    { key: 'has_tasting_room', label: 'Espresso Bar', type: 'toggle' },
+  ],
+  rest: [
+    { key: 'accommodation_type', label: 'Accommodation Type', type: 'select', options: [
+      { value: 'boutique_hotel', label: 'Boutique Hotel' }, { value: 'motel', label: 'Motel' },
+      { value: 'farm_stay', label: 'Farm Stay' }, { value: 'glamping', label: 'Glamping' },
+      { value: 'cottage', label: 'Cottage' }, { value: 'bnb', label: 'B&B' },
+    ]},
+    { key: 'min_price_per_night', label: 'Min Price/Night ($)', type: 'number' },
+    { key: 'pet_friendly', label: 'Pet Friendly', type: 'toggle' },
+  ],
+  field: [
+    { key: 'feature_type', label: 'Place Type', type: 'select', options: [
+      { value: 'swimming_hole', label: 'Swimming Hole' }, { value: 'waterfall', label: 'Waterfall' },
+      { value: 'lookout', label: 'Lookout' }, { value: 'natural_area', label: 'Natural Area' },
+      { value: 'national_park', label: 'National Park' },
+    ]},
+    { key: 'dogs_allowed', label: 'Dog Friendly', type: 'toggle' },
+    { key: 'is_entry_free', label: 'Free Entry', type: 'toggle' },
+    { key: 'swimming', label: 'Swimming', type: 'toggle' },
+  ],
+  found: [
+    { key: 'shop_type', label: 'Shop Type', type: 'select', options: [
+      { value: 'antique', label: 'Antique' }, { value: 'vintage_clothing', label: 'Vintage' },
+      { value: 'second_hand', label: 'Second Hand' }, { value: 'market', label: 'Market' },
+      { value: 'dealer', label: 'Dealer' }, { value: 'op_shop', label: 'Op Shop' },
+    ]},
+  ],
+  corner: [
+    { key: 'shop_type', label: 'Shop Type', type: 'select', options: [
+      { value: 'bookshop', label: 'Bookshop' }, { value: 'record_store', label: 'Record Store' },
+      { value: 'vinyl', label: 'Vinyl' }, { value: 'newsagent', label: 'Newsagent' },
+      { value: 'stationery', label: 'Stationery' }, { value: 'lifestyle', label: 'Lifestyle' },
+    ]},
+    { key: 'has_online_store', label: 'Buys Second Hand', type: 'toggle' },
+  ],
+  table: [
+    { key: 'food_type', label: 'Producer Type', type: 'select', options: [
+      { value: 'farm_gate', label: 'Farm Gate' }, { value: 'food_producer', label: 'Food Producer' },
+      { value: 'providore', label: 'Providore' }, { value: 'farmers_market', label: 'Farmers Market' },
+      { value: 'butcher', label: 'Butcher' }, { value: 'bakery', label: 'Bakery' },
+    ]},
+    { key: 'cafe_on_site', label: 'Cellar Door', type: 'toggle' },
+  ],
 }
 
 const SORT_OPTIONS = [
@@ -284,6 +363,7 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
   const [deleteStep, setDeleteStep] = useState(0) // 0=none, 1=warning, 2=type-name
   const [deleteInput, setDeleteInput] = useState('')
   const [deleting, setDeleting] = useState(false)
+  const [meta, setMeta] = useState(null)
   const verticalColor = VERTICAL_COLORS[listing.vertical] || '#999'
 
   useEffect(() => {
@@ -291,8 +371,22 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
   }, [isExpanded, listing, draft])
 
   useEffect(() => {
-    if (!isExpanded) setDraft(null)
+    if (!isExpanded) { setDraft(null); setMeta(null) }
   }, [isExpanded])
+
+  useEffect(() => {
+    if (isExpanded && listing.vertical && !meta) {
+      fetch(`/api/admin/listings/${listing.id}/meta`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data?.meta) {
+            setMeta(data.meta)
+            setDraft(prev => prev ? { ...prev, ...data.meta } : prev)
+          }
+        })
+        .catch(() => {})
+    }
+  }, [isExpanded, listing.vertical, listing.id])
 
   const handleSave = async () => {
     if (!draft || saving) return
@@ -314,6 +408,27 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
       const { listing: updated, verticalSync } = data
       onUpdate(updated)
       setDraft({ ...updated })
+
+      // Save vertical-specific meta fields if present
+      const vertFields = VERTICAL_FIELDS[listing.vertical]
+      if (vertFields && draft) {
+        const metaUpdates = {}
+        let hasMetaChanges = false
+        for (const field of vertFields) {
+          if (draft[field.key] !== undefined) {
+            metaUpdates[field.key] = draft[field.key]
+            hasMetaChanges = true
+          }
+        }
+        if (hasMetaChanges) {
+          fetch(`/api/admin/listings/${listing.id}/meta`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(metaUpdates),
+          }).catch(() => {}) // non-blocking
+        }
+      }
+
       if (verticalSync && !verticalSync.success) {
         setFlash({ type: 'saved-warn', msg: verticalSync.warning, vertical: verticalSync.vertical })
       } else {
@@ -499,6 +614,30 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
             <Field toggle label="Featured" value={draft.is_featured} onChange={v => updateDraft('is_featured', v)} />
             <Field toggle label="Editor's Pick" value={draft.editors_pick} onChange={v => updateDraft('editors_pick', v)} />
           </div>
+
+          {/* Vertical-specific fields */}
+          {draft.vertical && VERTICAL_FIELDS[draft.vertical] && (
+            <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 12, marginTop: 8, marginBottom: 12 }}>
+              <p style={{
+                fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 600,
+                letterSpacing: '0.08em', textTransform: 'uppercase',
+                color: VERTICAL_COLORS[draft.vertical] || 'var(--color-muted)',
+                marginBottom: 10,
+              }}>
+                {VERTICAL_NAMES[draft.vertical]} Fields
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
+                {VERTICAL_FIELDS[draft.vertical].map(field => (
+                  field.type === 'toggle'
+                    ? <Field key={field.key} toggle label={field.label} value={draft[field.key]} onChange={v => updateDraft(field.key, v)} />
+                    : <Field key={field.key} label={field.label} value={draft[field.key]}
+                        onChange={v => updateDraft(field.key, v)}
+                        type={field.type === 'select' ? undefined : field.type}
+                        options={field.options} />
+                ))}
+              </div>
+            </div>
+          )}
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid var(--color-border)', paddingTop: 12 }}>
             <button onClick={handleSave} disabled={saving}

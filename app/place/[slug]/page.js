@@ -373,9 +373,13 @@ export default async function PlacePage({ params }) {
             <p className="text-sm mb-2" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)' }}>
               Own this listing?
             </p>
-            <p className="text-sm font-medium" style={{ fontFamily: 'var(--font-body)', color: vertColor }}>
-              Claim it to update your details, add images, and connect with visitors.
-            </p>
+            <Link
+              href={`/claim/${listing.slug}`}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90"
+              style={{ background: vertColor, fontFamily: 'var(--font-body)' }}
+            >
+              Claim this listing
+            </Link>
           </div>
         )}
 
