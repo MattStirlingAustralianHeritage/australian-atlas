@@ -196,7 +196,10 @@ function ItineraryMap({ days }) {
         } catch (e) { /* route failed, continue */ }
       }
 
-      map.on('load', async () => {
+      // Use style.load instead of load — 'load' waits for tiles to fully render
+      // which may never happen if WebGL has issues or tiles load slowly.
+      // style.load fires once the style JSON is parsed and the map can accept layers.
+      map.on('style.load', async () => {
         // Inject pin-drop keyframe animation
         if (!document.getElementById('map-pin-drop-style')) {
           const styleEl = document.createElement('style')
