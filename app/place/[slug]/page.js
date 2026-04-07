@@ -42,31 +42,69 @@ async function getListing(slug) {
   return data
 }
 
-async function getNearbyListings(listing, limit = 4) {
+// Haversine distance in km
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLng = (lng2 - lng1) * Math.PI / 180
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+async function getNearbyListings(listing, limit = 6) {
   if (!listing.lat || !listing.lng) return []
   const sb = getSupabaseAdmin()
 
-  // Fetch nearby from same region first, fallback to state
+  // Bounding box ~100km — cross-vertical discovery
+  const latDelta = 100 / 111
+  const lngDelta = 100 / (111 * Math.cos(listing.lat * Math.PI / 180))
+
   const { data } = await sb
     .from('listings')
-    .select('id, name, slug, vertical, region, state, hero_image_url, description, is_featured, is_claimed, editors_pick')
+    .select('id, name, slug, vertical, region, state, lat, lng, hero_image_url, description, is_featured, is_claimed, editors_pick')
     .eq('status', 'active')
     .neq('id', listing.id)
-    .eq('state', listing.state)
-    .limit(50)
+    .gte('lat', listing.lat - latDelta)
+    .lte('lat', listing.lat + latDelta)
+    .gte('lng', listing.lng - lngDelta)
+    .lte('lng', listing.lng + lngDelta)
+    .not('lat', 'is', null)
+    .not('lng', 'is', null)
+    .limit(100)
 
   if (!data || data.length === 0) return []
 
-  // Score by distance (haversine) and pick the closest
-  const scored = data
-    .filter(l => l.lat || l.lng) // only those with some geo data
-    .map(l => ({ ...l, _dist: Infinity })) // distance unknown without lat/lng in the select
+  // Score by actual distance, ensure cross-vertical variety
+  const withDist = data.map(l => ({
+    ...l,
+    _dist: haversineKm(listing.lat, listing.lng, l.lat, l.lng),
+  })).sort((a, b) => a._dist - b._dist)
 
-  // Without coordinates on the nearby listings, fall back to same-region preference
-  const sameRegion = data.filter(l => l.region === listing.region && l.id !== listing.id)
-  const others = data.filter(l => l.region !== listing.region && l.id !== listing.id)
+  // Pick closest, but cap per-vertical to ensure variety
+  const result = []
+  const verticalCounts = {}
+  const maxPerVertical = 2
 
-  return [...sameRegion, ...others].slice(0, limit)
+  for (const l of withDist) {
+    if (result.length >= limit) break
+    const vc = verticalCounts[l.vertical] || 0
+    if (vc >= maxPerVertical) continue
+    verticalCounts[l.vertical] = vc + 1
+    result.push(l)
+  }
+
+  // If we still have room, fill with remaining by distance (ignore cap)
+  if (result.length < limit) {
+    const usedIds = new Set(result.map(r => r.id))
+    for (const l of withDist) {
+      if (result.length >= limit) break
+      if (!usedIds.has(l.id)) result.push(l)
+    }
+  }
+
+  return result
 }
 
 // ── Helper: clean website for display ─────────────────────────
@@ -269,10 +307,9 @@ export default async function PlacePage({ params }) {
           {hasCoords && mapboxToken && (
             <div className="w-full aspect-[16/7] overflow-hidden">
               <img
-                src={`https://api.mapbox.com/styles/v1/mattstirlingaustralianheritage/cmn32b0iz003401swccb7d21k/static/pin-l+${vertColor.replace('#', '')}(${listing.lng},${listing.lat})/${listing.lng},${listing.lat},13,0/800x350@2x?access_token=${mapboxToken}`}
+                src={`https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/pin-l-${vertColor.replace('#', '')}+${vertColor.replace('#', '')}(${listing.lng},${listing.lat})/${listing.lng},${listing.lat},14,0/800x350@2x?access_token=${mapboxToken}`}
                 alt={`Map showing ${listing.name}`}
                 className="w-full h-full object-cover"
-                loading="lazy"
               />
             </div>
           )}
