@@ -17,7 +17,7 @@ const VERTICAL_COLORS = {
 
 const EXAMPLE_TRAILS = [
   { query: 'Weekend wine trail through the Barossa', region: 'Barossa Valley, SA', days: '2 days', stops: '8 stops', verticals: ['Small Batch', 'Table', 'Rest'] },
-  { query: 'Three day art and makers tour of Hobart', region: 'Hobart, TAS', days: '3 days', stops: '12 stops', verticals: ['Collection', 'Craft', 'Fine Grounds'] },
+  { query: 'Three day art and makers tour of Hobart', region: 'Hobart, TAS', days: '3 days', stops: '12 stops', verticals: ['Culture', 'Craft', 'Fine Grounds'] },
   { query: 'Day trip to Mornington Peninsula wineries', region: 'Mornington Peninsula, VIC', days: '1 day', stops: '5 stops', verticals: ['Small Batch', 'Table'] },
   { query: 'Byron hinterland long weekend with farm stays', region: 'Byron Hinterland, NSW', days: '3 days', stops: '10 stops', verticals: ['Rest', 'Table', 'Field'] },
   { query: 'Yarra Valley brewery and distillery day', region: 'Yarra Valley, VIC', days: '1 day', stops: '4 stops', verticals: ['Small Batch'] },

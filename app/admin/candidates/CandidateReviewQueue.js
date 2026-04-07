@@ -14,7 +14,7 @@ const VERTICAL_COLORS = {
 }
 
 const VERTICAL_TYPE_LABELS = {
-  sba: 'Artisan Producer', collection: 'Collection', craft: 'Maker Studio',
+  sba: 'Artisan Producer', collection: 'Culture', craft: 'Maker Studio',
   fine_grounds: 'Coffee', rest: 'Boutique Stay', field: 'Nature Destination',
   corner: 'Independent Shop', found: 'Vintage & Antique', table: 'Food & Produce',
 }

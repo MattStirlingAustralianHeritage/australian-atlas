@@ -303,7 +303,7 @@ export default async function Home() {
           <div className="mt-14 grid grid-cols-1 sm:grid-cols-3 gap-5 text-left">
             {[
               { query: 'Weekend wine trail through the Barossa', region: 'Barossa Valley, SA', days: '2 days', stops: '8 stops', verticals: ['Small Batch', 'Table', 'Rest'] },
-              { query: 'Three day art and makers tour of Hobart', region: 'Hobart, TAS', days: '3 days', stops: '12 stops', verticals: ['Collection', 'Craft', 'Fine Grounds'] },
+              { query: 'Three day art and makers tour of Hobart', region: 'Hobart, TAS', days: '3 days', stops: '12 stops', verticals: ['Culture', 'Craft', 'Fine Grounds'] },
               { query: 'Day trip to Mornington Peninsula wineries', region: 'Mornington Peninsula, VIC', days: '1 day', stops: '5 stops', verticals: ['Small Batch', 'Table'] },
             ].map((example, i) => (
               <Link

@@ -12,7 +12,7 @@ const CATEGORIES = [
 
 const VERTICAL_OPTIONS = [
   { value: 'sba', label: 'Small Batch' },
-  { value: 'collection', label: 'Collections' },
+  { value: 'collection', label: 'Culture' },
   { value: 'craft', label: 'Craft' },
   { value: 'fine_grounds', label: 'Fine Grounds' },
   { value: 'rest', label: 'Rest' },
