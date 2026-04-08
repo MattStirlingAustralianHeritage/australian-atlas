@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { checkAdmin } from '@/lib/admin-auth'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 
@@ -25,7 +26,8 @@ const VERTICAL_LABELS = {
  * POST: Generate or return cached brief for a pitch
  */
 export async function POST(request) {
-  const admin = await checkAdmin()
+  const cookieStore = await cookies()
+  const admin = await checkAdmin(cookieStore)
   if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { pitchId } = await request.json()
