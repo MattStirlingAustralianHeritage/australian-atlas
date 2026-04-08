@@ -8,16 +8,32 @@ const VERTICAL_COLORS = {
   portal: '#6B6760',
 }
 
+const PROGRESS_STEPS = [
+  'Generating story brief...',
+  'Researching venue...',
+  'Building interview questions...',
+  'Structuring the narrative...',
+  'Finalising editorial brief...',
+]
+
 export default function PitchBrief({ pitchId, cachedBrief, verticalColor, verticalLabel, pitchStatus }) {
   const [brief, setBrief] = useState(cachedBrief || null)
   const [loading, setLoading] = useState(!cachedBrief)
   const [error, setError] = useState(null)
   const [actionLoading, setActionLoading] = useState(null)
   const [status, setStatus] = useState(pitchStatus)
+  const [progressStep, setProgressStep] = useState(0)
 
-  useEffect(() => {
-    if (cachedBrief) return
+  const generateBrief = () => {
     setLoading(true)
+    setError(null)
+    setProgressStep(0)
+
+    // Cycle through progress messages
+    const interval = setInterval(() => {
+      setProgressStep(prev => (prev < PROGRESS_STEPS.length - 1 ? prev + 1 : prev))
+    }, 3000)
+
     fetch('/api/admin/editorial-pitches/brief', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -29,8 +45,16 @@ export default function PitchBrief({ pitchId, cachedBrief, verticalColor, vertic
         setBrief(data.brief)
       })
       .catch(err => setError(err.message))
-      .finally(() => setLoading(false))
-  }, [pitchId, cachedBrief])
+      .finally(() => {
+        clearInterval(interval)
+        setLoading(false)
+      })
+  }
+
+  useEffect(() => {
+    if (cachedBrief) return
+    generateBrief()
+  }, [pitchId, cachedBrief]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAction = async (action) => {
     setActionLoading(action)
@@ -55,11 +79,20 @@ export default function PitchBrief({ pitchId, cachedBrief, verticalColor, vertic
       <div style={{ maxWidth: 760, margin: '0 auto', padding: '0 24px 80px' }}>
         <div style={{ textAlign: 'center', padding: '64px 0' }}>
           <div style={{ display: 'inline-block', width: 32, height: 32, borderRadius: '50%', border: `3px solid ${verticalColor}`, borderTopColor: 'transparent', animation: 'pitch-spin 0.8s linear infinite' }} />
-          <p style={{ fontSize: 14, color: '#6B6760', fontFamily: 'DM Sans, system-ui, sans-serif', marginTop: 16 }}>
-            Generating editorial brief...
+          <p style={{ fontSize: 14, color: '#1C1A17', fontFamily: 'DM Sans, system-ui, sans-serif', marginTop: 16, fontWeight: 500 }}>
+            {PROGRESS_STEPS[progressStep]}
           </p>
-          <p style={{ fontSize: 12, color: 'rgba(107,103,96,0.6)', fontFamily: 'DM Sans, system-ui, sans-serif', marginTop: 4 }}>
-            This takes 10-15 seconds
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 16 }}>
+            {PROGRESS_STEPS.map((_, i) => (
+              <div key={i} style={{
+                width: 6, height: 6, borderRadius: '50%',
+                background: i <= progressStep ? verticalColor : 'rgba(107,103,96,0.2)',
+                transition: 'background 0.3s ease',
+              }} />
+            ))}
+          </div>
+          <p style={{ fontSize: 12, color: 'rgba(107,103,96,0.6)', fontFamily: 'DM Sans, system-ui, sans-serif', marginTop: 12 }}>
+            This may take 15-30 seconds
           </p>
           <style>{`@keyframes pitch-spin { to { transform: rotate(360deg); } }`}</style>
         </div>
@@ -70,13 +103,23 @@ export default function PitchBrief({ pitchId, cachedBrief, verticalColor, vertic
   if (error) {
     return (
       <div style={{ maxWidth: 760, margin: '0 auto', padding: '0 24px 80px' }}>
-        <div style={{ textAlign: 'center', padding: '48px 0', background: '#fff', borderRadius: 6, border: '1px solid rgba(220,38,38,0.2)' }}>
-          <p style={{ fontSize: 14, color: '#dc2626', fontFamily: 'DM Sans, system-ui, sans-serif' }}>
-            Failed to generate brief: {error}
+        <div style={{ textAlign: 'center', padding: '48px 32px', background: '#fff', borderRadius: 6, border: '1px solid rgba(28,26,23,0.08)' }}>
+          <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(220,38,38,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+            <span style={{ fontSize: 20 }}>!</span>
+          </div>
+          <p style={{ fontSize: 16, color: '#1C1A17', fontFamily: 'Playfair Display, Georgia, serif', marginBottom: 8 }}>
+            Brief generation failed
           </p>
-          <button onClick={() => { setError(null); setLoading(true); window.location.reload() }}
-            style={{ marginTop: 12, padding: '8px 20px', border: '1px solid rgba(28,26,23,0.2)', background: '#fff', borderRadius: 4, cursor: 'pointer', fontSize: 12, fontFamily: 'DM Sans, system-ui, sans-serif' }}>
-            Retry
+          <p style={{ fontSize: 13, color: '#6B6760', fontFamily: 'DM Sans, system-ui, sans-serif', marginBottom: 24, maxWidth: 400, margin: '0 auto 24px', lineHeight: 1.6 }}>
+            The AI model was unable to generate the editorial brief after multiple attempts. This is usually temporary.
+          </p>
+          <button onClick={generateBrief}
+            style={{
+              padding: '10px 28px', border: 'none', borderRadius: 4, cursor: 'pointer',
+              background: verticalColor, color: '#fff', fontSize: 12, fontWeight: 600,
+              letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'DM Sans, system-ui, sans-serif',
+            }}>
+            Try Again
           </button>
         </div>
       </div>

@@ -144,18 +144,42 @@ Generate 8-10 key questions. Make every element specific to THIS story — never
     const { default: Anthropic } = await import('@anthropic-ai/sdk')
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-    const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 4096,
-      messages: [{ role: 'user', content: 'Generate the full editorial brief for this pitch.' }],
-      system: systemPrompt,
-    })
+    // Retry up to 3 times
+    let brief = null
+    let lastError = null
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        const message = await anthropic.messages.create({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 6000,
+          messages: [{ role: 'user', content: 'Generate the full editorial brief for this pitch. Respond with ONLY valid JSON, no markdown fences.' }],
+          system: systemPrompt,
+        })
 
-    const text = message.content[0]?.text || ''
-    const jsonMatch = text.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) throw new Error('No JSON in response')
+        const text = message.content[0]?.text || ''
+        if (!text || text.trim().length < 10) {
+          throw new Error(`Empty or too-short response on attempt ${attempt} (${text.length} chars)`)
+        }
 
-    const brief = JSON.parse(jsonMatch[0])
+        const jsonMatch = text.match(/\{[\s\S]*\}/)
+        if (!jsonMatch) {
+          throw new Error(`No JSON object found in response on attempt ${attempt}`)
+        }
+
+        brief = JSON.parse(jsonMatch[0])
+        break // Success — exit retry loop
+      } catch (attemptErr) {
+        lastError = attemptErr
+        console.error(`Brief generation attempt ${attempt}/3 failed:`, attemptErr.message)
+        if (attempt < 3) {
+          await new Promise(r => setTimeout(r, 1000 * attempt)) // Back off: 1s, 2s
+        }
+      }
+    }
+
+    if (!brief) {
+      throw lastError || new Error('Brief generation failed after 3 attempts')
+    }
 
     // Add nearby listings to the brief
     brief.nearby_listings = nearbyListings.map(l => ({
