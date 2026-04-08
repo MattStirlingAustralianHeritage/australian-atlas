@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getVerticalUrl, getVerticalBadge } from '@/lib/verticalUrl'
-import TrailMap from './TrailMap'
+import TrailInteractive from './TrailInteractive'
 import ShareButton from './ShareButton'
 
 export const revalidate = 3600
@@ -130,9 +130,9 @@ export default async function TrailPage({ params }) {
             ))}
           </div>
 
-          {/* Right: Sticky map */}
+          {/* Right: Sticky map + suggestions */}
           <div style={{ position: 'sticky', top: 72 }}>
-            <TrailMap stops={validStops} />
+            <TrailInteractive initialStops={validStops} trailRegion={trail.region} />
           </div>
         </div>
       </div>
