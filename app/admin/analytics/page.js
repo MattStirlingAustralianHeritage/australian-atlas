@@ -1,7 +1,7 @@
 'use client'
 import 'mapbox-gl/dist/mapbox-gl.css'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 const VERTICALS = [
   { key: 'sba', label: 'Small Batch', color: '#C49A3C' },
   { key: 'collection', label: 'Culture', color: '#8B6F47' },
@@ -319,12 +319,12 @@ export default function AnalyticsDashboard() {
               <div style={{ fontWeight: 600, color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '0.7rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--color-border)' }}>Country</div>
               <div style={{ fontWeight: 600, color: 'var(--color-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '0.7rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--color-border)', textAlign: 'right' }}>Visits</div>
               {data?.geo?.slice(0, 20).map((loc, i) => (
-                <>
-                  <div key={`city-${i}`} style={{ color: 'var(--color-ink)' }}>{loc.city || '—'}</div>
-                  <div key={`region-${i}`} style={{ color: 'var(--color-muted)' }}>{loc.region || '—'}</div>
-                  <div key={`country-${i}`} style={{ color: 'var(--color-muted)' }}>{loc.country || '—'}</div>
-                  <div key={`count-${i}`} style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{loc.visit_count?.toLocaleString()}</div>
-                </>
+                <React.Fragment key={`geo-${i}`}>
+                  <div style={{ color: 'var(--color-ink)' }}>{loc.city || '—'}</div>
+                  <div style={{ color: 'var(--color-muted)' }}>{loc.region || '—'}</div>
+                  <div style={{ color: 'var(--color-muted)' }}>{loc.country || '—'}</div>
+                  <div style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{loc.visit_count?.toLocaleString()}</div>
+                </React.Fragment>
               ))}
             </div>
             {(!data?.geo || data.geo.length === 0) && (
