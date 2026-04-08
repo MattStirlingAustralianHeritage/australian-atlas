@@ -3,6 +3,7 @@ import "./globals.css";
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
 import AtlasAnalytics from "@/components/AtlasAnalytics";
+import PageTracker from "@/components/PageTracker";
 import { websiteJsonLd, organizationJsonLd } from "@/lib/jsonLd";
 
 const playfair = Playfair_Display({
@@ -80,6 +81,7 @@ export default function RootLayout({ children }) {
         <main className="flex-1">{children}</main>
         <Footer />
         <AtlasAnalytics />
+        <PageTracker vertical="portal" />
       </body>
     </html>
   );
