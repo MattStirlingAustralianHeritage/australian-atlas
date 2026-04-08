@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 
 const PAGE_TITLES = {
-  humanator: 'The Humanator',
+  'listings-review': 'Listings Review',
   listings: 'Listing Editor',
   candidates: 'Candidate Review',
   analytics: 'Analytics',
@@ -41,7 +41,7 @@ export default function AdminNavBar() {
       .catch(() => {})
   }, [])
 
-  // Listen for real-time stats updates (dispatched by Humanator)
+  // Listen for real-time stats updates (dispatched by Listings Review)
   useEffect(() => {
     const handler = (e) => {
       if (e.detail?.stats) setStats(e.detail.stats)

@@ -120,28 +120,28 @@ export default function AdminPage() {
             description="View and manage regions"
             href="/regions"
           />
-          <HumanatorCard />
+          <ListingsReviewCard />
         </div>
       </div>
     </div>
   )
 }
 
-function HumanatorCard() {
+function ListingsReviewCard() {
   const [count, setCount] = useState(null)
 
   useEffect(() => {
-    fetch('/api/admin/humanator')
+    fetch('/api/admin/listings-review')
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d?.stats) setCount(d.stats.humanised_count) })
       .catch(() => {})
   }, [])
 
   const desc = count !== null
-    ? `${count.toLocaleString()} listings humanised so far`
+    ? `${count.toLocaleString()} listings reviewed so far`
     : 'Review every listing with a human eye'
 
-  return <AdminCard label="The Humanator" description={desc} href="/admin/humanator" />
+  return <AdminCard label="Listings Review" description={desc} href="/admin/listings-review" />
 }
 
 function AdminCard({ label, description, href }) {

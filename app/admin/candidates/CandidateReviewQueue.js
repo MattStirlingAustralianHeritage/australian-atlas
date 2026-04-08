@@ -304,7 +304,16 @@ function GateResultsDisplay({ gateResults }) {
   if (!gateResults?.gates) return null
   const gates = gateResults.gates
   const score = gateResults.score
+  const gp = gateResults.google_places || null
   const lines = []
+
+  // Source indicator
+  if (gateResults.source === 'google_places') {
+    const parts = ['Sourced from Google Places']
+    if (gp?.business_status === 'OPERATIONAL') parts.push('confirmed open')
+    if (gp?.rating) parts.push(`${gp.rating}\u2605 (${gp.rating_count || 0})`)
+    lines.push({ pass: true, text: parts.join(' \u2014 '), source: true })
+  }
 
   if (gates.gate0) {
     lines.push({ pass: gates.gate0.pass, text: 'Not a duplicate' })
@@ -371,10 +380,11 @@ function GateResultsDisplay({ gateResults }) {
           display: 'flex', alignItems: 'flex-start', gap: 6,
           marginBottom: i < lines.length - 1 ? 4 : 0,
           fontFamily: 'var(--font-body)', fontSize: 12, lineHeight: 1.4,
-          color: line.warning ? 'var(--color-muted)' : line.pass ? '#4A7C59' : '#CC4444',
+          color: line.source ? '#1565C0' : line.warning ? 'var(--color-muted)' : line.pass ? '#4A7C59' : '#CC4444',
+          fontWeight: line.source ? 500 : 400,
         }}>
           <span style={{ flexShrink: 0, fontSize: 13, lineHeight: '16px' }}>
-            {line.warning ? '\u2013' : line.pass ? '\u2713' : '\u2717'}
+            {line.source ? '\u2139' : line.warning ? '\u2013' : line.pass ? '\u2713' : '\u2717'}
           </span>
           <span style={{ fontWeight: 400 }}>{line.text}</span>
         </div>
@@ -725,7 +735,7 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
               />
             </div>
 
-            {candidate.source_detail && (
+            {(candidate.source_detail || candidate.source) && (
               <div style={{ padding: '16px 0', borderTop: '1px solid var(--color-border)' }}>
                 <div style={{
                   fontSize: 10, fontWeight: 600, letterSpacing: '0.1em',
@@ -734,12 +744,36 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
                 }}>
                   Source
                 </div>
-                <p style={{
-                  fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-muted)',
-                  lineHeight: 1.5, margin: 0, opacity: 0.7,
-                }}>
-                  {candidate.source_detail}
-                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  {candidate.source === 'google_places' && (
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 4,
+                      background: '#E8F5E9', color: '#2E7D32',
+                      padding: '3px 8px', borderRadius: 3,
+                      fontSize: 10, fontWeight: 600, fontFamily: 'var(--font-body)',
+                      letterSpacing: '0.05em',
+                    }}>
+                      <span style={{ fontSize: 11 }}>{'\u2713'}</span> Google Places Verified
+                    </span>
+                  )}
+                  {candidate.source === 'ai_prospector' && (
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 4,
+                      background: '#FFF3E0', color: '#E65100',
+                      padding: '3px 8px', borderRadius: 3,
+                      fontSize: 10, fontWeight: 600, fontFamily: 'var(--font-body)',
+                      letterSpacing: '0.05em',
+                    }}>
+                      AI Generated
+                    </span>
+                  )}
+                  <p style={{
+                    fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-muted)',
+                    lineHeight: 1.5, margin: 0, opacity: 0.7,
+                  }}>
+                    {candidate.source_detail || candidate.source}
+                  </p>
+                </div>
               </div>
             )}
 
