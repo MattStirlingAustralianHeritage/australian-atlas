@@ -194,14 +194,20 @@ function EditorialTrailCard({ trail }) {
   return (
     <Link href={`/trails/${trail.slug}`} style={{ textDecoration: 'none', display: 'block' }}>
       <div style={{ background: 'var(--color-card-bg)', borderRadius: 4, overflow: 'hidden', border: '1px solid var(--color-border)', transition: 'border-color 0.2s' }}>
-        <div style={{ aspectRatio: '16/9', background: 'var(--color-cream)', overflow: 'hidden' }}>
-          {trail.cover_image_url ? (
-            <img src={trail.cover_image_url} alt={trail.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          ) : (
-            <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, var(--color-cream), #e8ddd0)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ fontSize: 13, color: 'var(--color-muted)', fontFamily: 'var(--font-body)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Trail</span>
-            </div>
-          )}
+        <div style={{
+          aspectRatio: '16/9', overflow: 'hidden', position: 'relative',
+          background: '#0f0e0c', color: '#f0ece4',
+          display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
+          padding: '1.5rem 1.25rem', textAlign: 'center',
+        }}>
+          {/* Dot grid */}
+          <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle, #f0ece4 1px, transparent 1px)', backgroundSize: '16px 16px', opacity: 0.1, pointerEvents: 'none' }} />
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: 8, fontWeight: 500, letterSpacing: '0.14em', textTransform: 'uppercase', opacity: 0.55, margin: '0 0 1rem' }}>DISCOVERY TRAIL</p>
+            <div style={{ width: 20, height: 1, background: '#f0ece4', opacity: 0.35, margin: '0 auto 0.75rem' }} />
+            <p style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 400, margin: 0, lineHeight: 1.3 }}>{trail.title}</p>
+            {trail.region && <p style={{ fontFamily: 'var(--font-body)', fontSize: 9, fontWeight: 400, letterSpacing: '0.12em', textTransform: 'uppercase', opacity: 0.45, margin: '1rem 0 0' }}>{trail.region.toUpperCase()}</p>}
+          </div>
         </div>
         <div style={{ padding: '20px 22px 24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>

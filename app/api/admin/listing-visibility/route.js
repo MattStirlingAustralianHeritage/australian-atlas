@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
+import { updateListing } from '@/lib/admin/updateListing'
+import { updateInVertical } from '@/lib/sync/pushToVertical'
 
 // Verticals that do NOT require a website URL
 const WEBSITE_EXEMPT_VERTICALS = ['field', 'collection']
@@ -62,18 +64,16 @@ export async function POST(request) {
       if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
       if (!reason) return NextResponse.json({ error: 'Missing reason' }, { status: 400 })
 
-      const { error } = await sb
-        .from('listings')
-        .update({
-          status: 'inactive',
-          hidden_reason: reason,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id)
+      // Use canonical update for status change + vertical sync
+      const result = await updateListing(id, { status: 'inactive' }, { action: 'hide' })
+      if (!result.success) {
+        return NextResponse.json({ error: result.error }, { status: 400 })
+      }
 
-      if (error) throw error
+      // Write hidden_reason separately (master-only metadata, not synced to verticals)
+      await sb.from('listings').update({ hidden_reason: reason }).eq('id', id)
 
-      return NextResponse.json({ hidden: true })
+      return NextResponse.json({ hidden: true, sync: result.verticalSync })
     }
 
     // ── Reinstate a listing (with URL check) ──
@@ -108,19 +108,16 @@ export async function POST(request) {
         }, { status: 400 })
       }
 
-      // URL is valid — reinstate
-      const { error } = await sb
-        .from('listings')
-        .update({
-          status: 'active',
-          hidden_reason: null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id)
+      // URL is valid — reinstate with vertical sync
+      const result = await updateListing(id, { status: 'active' }, { action: 'reinstate' })
+      if (!result.success) {
+        return NextResponse.json({ error: result.error }, { status: 400 })
+      }
 
-      if (error) throw error
+      // Clear hidden_reason (master-only metadata)
+      await sb.from('listings').update({ hidden_reason: null }).eq('id', id)
 
-      return NextResponse.json({ reinstated: true, url_status: urlCheck.statusCode })
+      return NextResponse.json({ reinstated: true, url_status: urlCheck.statusCode, sync: result.verticalSync })
     }
 
     // ── Force reinstate (admin override, no URL check) ──
@@ -128,18 +125,16 @@ export async function POST(request) {
       const { id } = body
       if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
 
-      const { error } = await sb
-        .from('listings')
-        .update({
-          status: 'active',
-          hidden_reason: null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id)
+      // Force reinstate with vertical sync (no URL check)
+      const result = await updateListing(id, { status: 'active' }, { action: 'force_reinstate' })
+      if (!result.success) {
+        return NextResponse.json({ error: result.error }, { status: 400 })
+      }
 
-      if (error) throw error
+      // Clear hidden_reason (master-only metadata)
+      await sb.from('listings').update({ hidden_reason: null }).eq('id', id)
 
-      return NextResponse.json({ reinstated: true, forced: true })
+      return NextResponse.json({ reinstated: true, forced: true, sync: result.verticalSync })
     }
 
     // ── Audit: count listings per vertical that would be hidden ──
@@ -177,19 +172,19 @@ export async function POST(request) {
         }, { status: 400 })
       }
 
-      // Count first
-      const { count } = await sb
+      // Fetch affected listings BEFORE updating (need vertical/source_id for sync)
+      const { data: affectedListings } = await sb
         .from('listings')
-        .select('*', { count: 'exact', head: true })
+        .select('id, vertical, source_id, name, slug, description, region, state, lat, lng, website, phone, address, hero_image_url')
         .eq('vertical', vertical)
         .eq('status', 'active')
         .or('website.is.null,website.eq.')
 
-      if (!count || count === 0) {
+      if (!affectedListings || affectedListings.length === 0) {
         return NextResponse.json({ hidden: 0, message: 'No listings to hide' })
       }
 
-      // Hide them
+      // Bulk master update
       const { error } = await sb
         .from('listings')
         .update({
@@ -203,7 +198,26 @@ export async function POST(request) {
 
       if (error) throw error
 
-      return NextResponse.json({ hidden: count })
+      // Sync each affected listing to its vertical (set hidden/draft status)
+      let syncSuccess = 0
+      const syncable = affectedListings.filter(l => l.source_id && !String(l.source_id).startsWith('candidate-'))
+      await Promise.allSettled(syncable.map(async (l) => {
+        try {
+          const syncData = {
+            name: l.name, slug: l.slug, description: l.description,
+            region: l.region, state: l.state, lat: l.lat, lng: l.lng,
+            website: l.website, phone: l.phone, address: l.address,
+            hero_image_url: l.hero_image_url, suburb: l.region,
+            _hidden: true,
+          }
+          const result = await updateInVertical(l.vertical, l.source_id, syncData)
+          if (result.success) syncSuccess++
+        } catch (err) {
+          console.warn(`[listing-visibility] bulk_hide sync failed for ${l.id}:`, err.message)
+        }
+      }))
+
+      return NextResponse.json({ hidden: affectedListings.length, synced: syncSuccess })
     }
 
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 })

@@ -251,50 +251,27 @@ function ArticleCard({ article, verticalLabels, verticalColors }) {
         e.currentTarget.style.borderColor = 'var(--color-border, #E5E0D8)'
       }}
     >
-      {/* Hero image */}
-      {article.hero_image_url ? (
-        <div style={{ position: 'relative', aspectRatio: '16/10', overflow: 'hidden' }}>
-          <img
-            src={article.hero_image_url}
-            alt={article.title}
-            loading="lazy"
-            style={{
-              width: '100%', height: '100%', objectFit: 'cover',
-              transition: 'transform 0.5s',
-            }}
-            onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.04)'}
-            onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-          />
-          <div style={{
-            position: 'absolute', inset: 0,
-            background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 50%)',
-          }} />
-          {/* Vertical badge over image */}
-          <div style={{ position: 'absolute', bottom: 12, left: 14 }}>
-            <span style={{
-              fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 9,
-              letterSpacing: '0.1em', textTransform: 'uppercase',
-              background: color, color: '#fff',
-              padding: '3px 10px', borderRadius: 100,
-            }}>
-              {label}
-            </span>
-          </div>
-        </div>
-      ) : (
-        /* No image — show badge inline */
-        <div style={{ padding: '16px 18px 0' }}>
+      {/* Typographic article card */}
+      <div style={{
+        position: 'relative', aspectRatio: '16/10', overflow: 'hidden',
+        background: color, color: '#fff',
+        display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
+        padding: '1.25rem',
+      }}>
+        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.8) 1px, transparent 1px)', backgroundSize: '16px 16px', opacity: 0.08, pointerEvents: 'none' }} />
+        <div style={{ position: 'relative', zIndex: 1 }}>
           <span style={{
-            fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 9,
-            letterSpacing: '0.1em', textTransform: 'uppercase',
-            background: color, color: '#fff',
-            padding: '3px 10px', borderRadius: 100,
-            display: 'inline-block',
+            fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 8,
+            letterSpacing: '0.14em', textTransform: 'uppercase', opacity: 0.55,
           }}>
             {label}
           </span>
+          <div style={{ width: 20, height: 1, background: '#fff', opacity: 0.35, margin: '8px 0' }} />
+          <p style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 400, margin: 0, lineHeight: 1.3 }}>
+            {article.title}
+          </p>
         </div>
-      )}
+      </div>
 
       {/* Content */}
       <div style={{ padding: '14px 18px 18px' }}>

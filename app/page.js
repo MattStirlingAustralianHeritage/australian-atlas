@@ -18,15 +18,15 @@ const verticals = [
 ]
 
 const VERTICAL_CARD_COLORS = {
-  sba:          { bg: '#2D1F14', text: '#E8D5C4' },
-  collection:   { bg: '#1A2C28', text: '#C4D8D0' },
-  craft:        { bg: '#3D2318', text: '#E0C8B8' },
-  fine_grounds: { bg: '#1C1A10', text: '#D4D0B8' },
-  rest:         { bg: '#1E2535', text: '#C4CCD8' },
-  field:        { bg: '#162418', text: '#C0D4C4' },
-  corner:       { bg: '#2A1F30', text: '#D0C4D8' },
-  found:        { bg: '#2C2010', text: '#D8CCB4' },
-  table:        { bg: '#1A2410', text: '#C8D4B8' },
+  sba:          { bg: '#1a2e1f', text: '#e8f0e9' },
+  collection:   { bg: '#1e1a35', text: '#e9e7f5' },
+  craft:        { bg: '#2a1f14', text: '#f2ebe0' },
+  fine_grounds: { bg: '#141210', text: '#f0ebe3' },
+  rest:         { bg: '#162233', text: '#e4edf5' },
+  field:        { bg: '#2b2010', text: '#f5edda' },
+  corner:       { bg: '#191919', text: '#eeeeee' },
+  found:        { bg: '#2a1a1f', text: '#f5e8ec' },
+  table:        { bg: '#1c2415', text: '#eaf0e2' },
 }
 
 const REGION_ACCENT_COLORS = {
@@ -225,7 +225,7 @@ export default async function Home() {
               >
                 {/* Dot-grid texture overlay */}
                 <div className="absolute inset-0 pointer-events-none" style={{
-                  opacity: 0.06,
+                  opacity: 0.1,
                   backgroundImage: 'radial-gradient(circle, currentColor 1px, transparent 1px)',
                   backgroundSize: '16px 16px',
                   color: colors.text,
@@ -352,76 +352,69 @@ export default async function Home() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            {articles.map(article => (
-              <a
-                key={article.id}
-                href={article.article_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group block rounded-xl overflow-hidden"
-                style={{ background: '#fff', border: '1px solid var(--color-border)' }}
-              >
-                {article.hero_image_url ? (
-                  <div className="relative aspect-[16/10] overflow-hidden">
-                    <img
-                      src={article.hero_image_url}
-                      alt={article.title}
-                      loading="lazy"
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-4">
-                      <div className="flex items-center gap-2 mb-1.5">
-                        {article.vertical && (
-                          <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.85)' }}>
-                            {VERTICAL_LABELS[article.vertical] || article.vertical}
-                          </span>
-                        )}
-                        {article.category && (
-                          <>
-                            <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 6 }}>&#9679;</span>
-                            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '10px', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)' }}>
-                              {article.category}
+            {articles.map(article => {
+                const artColors = VERTICAL_CARD_COLORS[article.vertical] || { bg: '#0f0e0c', text: '#f0ece4' }
+                return (
+                  <a
+                    key={article.id}
+                    href={article.article_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group block rounded-xl overflow-hidden"
+                    style={{ background: '#fff', border: '1px solid var(--color-border)' }}
+                  >
+                    {/* Typographic article card */}
+                    <div
+                      className="relative overflow-hidden"
+                      style={{
+                        aspectRatio: '16/10',
+                        background: artColors.bg,
+                        color: artColors.text,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'flex-end',
+                        padding: '1.25rem',
+                      }}
+                    >
+                      <div style={{
+                        position: 'absolute', inset: 0,
+                        backgroundImage: `radial-gradient(circle, ${artColors.text} 1px, transparent 1px)`,
+                        backgroundSize: '16px 16px',
+                        opacity: 0.1, pointerEvents: 'none',
+                      }} />
+                      <div style={{ position: 'relative', zIndex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                          {article.vertical && (
+                            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '8px', letterSpacing: '0.14em', textTransform: 'uppercase', opacity: 0.55 }}>
+                              {VERTICAL_LABELS[article.vertical] || article.vertical}
                             </span>
-                          </>
-                        )}
+                          )}
+                          {article.category && (
+                            <>
+                              <span style={{ opacity: 0.3, fontSize: 6 }}>&middot;</span>
+                              <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '8px', letterSpacing: '0.12em', textTransform: 'uppercase', opacity: 0.45 }}>
+                                {article.category}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        <div style={{ width: 20, height: 1, background: artColors.text, opacity: 0.35, marginBottom: 8 }} />
+                        <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '17px', lineHeight: 1.3, margin: 0 }}>
+                          {article.title}
+                        </h3>
                       </div>
-                      <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '17px', lineHeight: 1.3, color: '#fff', margin: 0 }}>
-                        {article.title}
-                      </h3>
                     </div>
-                  </div>
-                ) : (
-                  <div className="p-5 pb-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      {article.vertical && (
-                        <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-sage)' }}>
-                          {VERTICAL_LABELS[article.vertical] || article.vertical}
-                        </span>
-                      )}
-                      {article.category && (
-                        <>
-                          <span style={{ color: 'var(--color-border)', fontSize: 6 }}>&#9679;</span>
-                          <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '10px', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--color-muted)' }}>
-                            {article.category}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                    <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '18px', lineHeight: 1.3, color: 'var(--color-ink)', marginBottom: 0 }}>
-                      {article.title}
-                    </h3>
-                  </div>
-                )}
-                {article.excerpt && (
-                  <div className="px-5 pb-5">
-                    <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '13px', color: 'var(--color-muted)', lineHeight: 1.5, margin: 0 }}>
-                      {article.excerpt}
-                    </p>
-                  </div>
-                )}
-              </a>
-            ))}
+
+                    {article.excerpt && (
+                      <div className="px-5 py-4">
+                        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '13px', color: 'var(--color-muted)', lineHeight: 1.5, margin: 0 }}>
+                          {article.excerpt}
+                        </p>
+                      </div>
+                    )}
+                  </a>
+                )
+              })}
           </div>
 
           <div className="mt-8 text-center">

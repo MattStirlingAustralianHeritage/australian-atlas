@@ -124,12 +124,15 @@ async function handleApprove({ claimId, vertical, sourceClaimId, usingPortalTabl
       return NextResponse.json({ error: 'Failed to update portal claim' }, { status: 500 })
     }
 
-    // Mark the master listing as claimed
+    // Mark the master listing as claimed (with vertical sync via canonical function)
     if (claimRecord?.listing_id) {
-      await sb
-        .from('listings')
-        .update({ is_claimed: true })
-        .eq('id', claimRecord.listing_id)
+      const { updateListing } = await import('@/lib/admin/updateListing')
+      const claimResult = await updateListing(claimRecord.listing_id, { is_claimed: true }, { action: 'claim-approve' })
+      if (!claimResult.success) {
+        console.warn('[admin/claims] Master is_claimed update failed:', claimResult.error)
+        // Fallback: direct write (non-fatal)
+        await sb.from('listings').update({ is_claimed: true }).eq('id', claimRecord.listing_id)
+      }
     }
   }
 

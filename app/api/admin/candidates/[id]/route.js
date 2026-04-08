@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
-import { pushToVertical, getVerticalListingUrl, VERTICAL_DISPLAY_NAMES } from '@/lib/sync/pushToVertical'
+import { pushToVertical, updateInVertical, getVerticalListingUrl, VERTICAL_DISPLAY_NAMES } from '@/lib/sync/pushToVertical'
 
 /** Normalise a URL to include https:// prefix */
 function normaliseUrl(url) {
@@ -415,8 +415,27 @@ export async function POST(request, { params }) {
       if (existingListing) {
         // Retry — update existing listing with latest data (including new source_id if vertical push now succeeded)
         listingId = existingListing.id
-        await sb.from('listings').update({ source_id: sourceId, description, region: fullData.region, state: fullData.state, lat: fullData.lat, lng: fullData.lng, website: fullData.website, phone: fullData.phone, address: fullData.address }).eq('id', listingId)
+
+        // Prefer the existing source_id if the new vertical push failed (avoids overwriting valid link with candidate- placeholder)
+        const { data: currentListing } = await sb.from('listings').select('source_id').eq('id', listingId).single()
+        const effectiveSourceId = verticalRowId || (currentListing?.source_id && !String(currentListing.source_id).startsWith('candidate-') ? currentListing.source_id : sourceId)
+
+        await sb.from('listings').update({ source_id: effectiveSourceId, description, region: fullData.region, state: fullData.state, lat: fullData.lat, lng: fullData.lng, website: fullData.website, phone: fullData.phone, address: fullData.address }).eq('id', listingId)
         console.log(`[approve] Updated existing master listing ${listingId} (retry)`)
+
+        // Sync to vertical — use the effective source_id for the update
+        if (effectiveSourceId && !String(effectiveSourceId).startsWith('candidate-')) {
+          try {
+            const syncResult = await updateInVertical(vertical, effectiveSourceId, fullData)
+            if (syncResult.success) {
+              console.log(`[approve] Synced retry update to ${vertical} vertical (source_id: ${effectiveSourceId})`)
+            } else {
+              console.warn(`[approve] Vertical sync failed on retry:`, syncResult.error)
+            }
+          } catch (syncErr) {
+            console.warn(`[approve] Vertical sync error on retry:`, syncErr.message)
+          }
+        }
       } else {
         const { data: listing, error: insertError } = await sb
           .from('listings')

@@ -9,7 +9,7 @@ import { websiteJsonLd, organizationJsonLd } from "@/lib/jsonLd";
 const playfair = Playfair_Display({
   variable: "--font-display",
   subsets: ["latin"],
-  weight: ["400", "500"],
+  weight: ["400", "700"],
   style: ["normal", "italic"],
   display: "swap",
 });

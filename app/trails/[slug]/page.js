@@ -65,12 +65,9 @@ export default async function TrailPage({ params }) {
     <div style={{ background: 'var(--color-bg)', minHeight: '100vh' }}>
 
       {/* Hero */}
-      <section style={{ background: '#1c1a17', padding: '72px 24px 56px', borderBottom: '1px solid var(--color-border)', position: 'relative', overflow: 'hidden' }}>
-        {trail.cover_image_url && (
-          <div style={{ position: 'absolute', inset: 0 }}>
-            <img src={trail.cover_image_url} alt={trail.title} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.35 }} />
-          </div>
-        )}
+      <section style={{ background: '#0f0e0c', padding: '72px 24px 56px', borderBottom: '1px solid var(--color-border)', position: 'relative', overflow: 'hidden' }}>
+        {/* Dot grid texture */}
+        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle, #f0ece4 1px, transparent 1px)', backgroundSize: '16px 16px', opacity: 0.1, pointerEvents: 'none' }} />
         <div className="max-w-6xl mx-auto" style={{ position: 'relative' }}>
           <div style={{ fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--color-sage)', marginBottom: 14, fontFamily: 'var(--font-body)' }}>
             {trail.region ? `${trail.region} · ` : ''}Discovery Trail
@@ -214,9 +211,23 @@ function StopCard({ stop, index, isLast }) {
 
       {/* Card */}
       <div style={{ flex: 1, background: 'var(--color-card-bg)', border: '1px solid var(--color-border)', borderRadius: 3, overflow: 'hidden' }}>
-        {stop.venue_image_url && (
+        {/* Typographic venue card or real venue photo */}
+        {stop.venue_image_url && !stop.venue_image_url.includes('unsplash.com') ? (
           <div style={{ aspectRatio: '16/7', overflow: 'hidden' }}>
             <img src={stop.venue_image_url} alt={stop.venue_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          </div>
+        ) : (
+          <div style={{
+            aspectRatio: '16/7', overflow: 'hidden', position: 'relative',
+            background: verticalColor ? `${verticalColor}` : '#0f0e0c',
+            display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
+            padding: '1rem', textAlign: 'center',
+          }}>
+            <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.8) 1px, transparent 1px)', backgroundSize: '16px 16px', opacity: 0.08, pointerEvents: 'none' }} />
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <div style={{ width: 20, height: 1, background: '#fff', opacity: 0.35, margin: '0 auto 0.5rem' }} />
+              <p style={{ fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 400, color: '#fff', margin: 0, lineHeight: 1.3 }}>{stop.venue_name}</p>
+            </div>
           </div>
         )}
         <div style={{ padding: '16px 20px' }}>

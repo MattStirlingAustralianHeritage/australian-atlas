@@ -4,7 +4,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getVerticalUrl, getVerticalLabel } from '@/lib/verticalUrl'
 import { listingJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
 import VerticalBadge from '@/components/VerticalBadge'
-import ListingCard from '@/components/ListingCard'
+import ListingCard, { TypographicCard, VERTICAL_TOKENS } from '@/components/ListingCard'
 
 export const revalidate = 3600
 
@@ -194,8 +194,8 @@ export default async function PlacePage({ params }) {
         ])) }}
       />
 
-      {/* ── Hero image ────────────────────────────────────── */}
-      {listing.hero_image_url ? (
+      {/* ── Hero ────────────────────────────────────────── */}
+      {listing.hero_image_url && !listing.hero_image_url.includes('unsplash.com') ? (
         <div className="w-full aspect-[21/9] max-h-[420px] overflow-hidden relative">
           <img
             src={listing.hero_image_url}
@@ -205,9 +205,13 @@ export default async function PlacePage({ params }) {
           <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(28,26,23,0.35) 0%, transparent 50%)' }} />
         </div>
       ) : (
-        <div
-          className="w-full h-32"
-          style={{ background: `linear-gradient(135deg, ${vertColor}22 0%, ${vertColor}11 100%)` }}
+        <TypographicCard
+          name={listing.name}
+          vertical={listing.vertical}
+          region={listing.region}
+          state={listing.state}
+          aspectRatio="16/7"
+          showVerticalTag={true}
         />
       )}
 

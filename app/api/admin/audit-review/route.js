@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
+import { updateListing } from '@/lib/admin/updateListing'
 
 // GET — return all hidden/flagged fine_grounds listings for review
 export async function GET() {
@@ -42,14 +43,16 @@ export async function POST(request) {
   const sb = getSupabaseAdmin()
 
   if (action === 'approve') {
-    // Restore to active
-    const { error } = await sb
-      .from('listings')
-      .update({ status: 'active', updated_at: new Date().toISOString() })
-      .eq('id', id)
-
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ success: true, action: 'approved' })
+    // Restore to active — use canonical update for vertical sync
+    const result = await updateListing(id, { status: 'active' }, { action: 'audit-restore' })
+    if (!result.success) {
+      return NextResponse.json({ error: result.error }, { status: 500 })
+    }
+    return NextResponse.json({
+      success: true,
+      action: 'approved',
+      sync: result.verticalSync,
+    })
   }
 
   if (action === 'delete') {
