@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 86400
 
 export const metadata = {
   title: 'About | Australian Atlas',

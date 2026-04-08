@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
@@ -5,8 +6,7 @@ import { regionJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
 import RegionMapHero from '@/components/RegionMapHero'
 import RegionTrailCTA from '@/components/RegionTrailCTA'
 
-export const dynamic = 'force-dynamic'
-export const fetchCache = 'force-no-store'
+export const revalidate = 3600
 
 const VERTICAL_ORDER = ['sba', 'fine_grounds', 'collection', 'craft', 'rest', 'field', 'corner', 'found', 'table']
 
@@ -66,11 +66,11 @@ const STATE_LABELS = {
 const MAX_EDITORIAL_WORDS = 250
 const MAX_PER_SECTION = 6
 
-async function getRegion(slug) {
+const getRegion = cache(async function getRegion(slug) {
   const sb = getSupabaseAdmin()
   const { data } = await sb.from('regions').select('*').eq('slug', slug).single()
   return data
-}
+})
 
 async function getRegionNarrative(regionId) {
   if (!regionId) return null

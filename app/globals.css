@@ -34,6 +34,17 @@ body {
   display: none;
 }
 
+/* ListingCard hover */
+.listing-card:hover {
+  border-color: rgba(28,26,23,0.28) !important;
+}
+
+/* Example trail card hover */
+.example-trail-card:hover {
+  border-color: var(--color-sage) !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
 /* Mapbox overrides */
 .mapboxgl-popup-content {
   border-radius: 12px;

@@ -1,4 +1,5 @@
 'use client'
+import 'mapbox-gl/dist/mapbox-gl.css'
 import { useRef, useEffect } from 'react'
 
 export default function HomeMapBackground() {

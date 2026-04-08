@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
@@ -5,22 +6,27 @@ import { getVerticalUrl, getVerticalBadge } from '@/lib/verticalUrl'
 import TrailMap from './TrailMap'
 import ShareButton from './ShareButton'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 3600
 
 const VERTICAL_COLORS = {
   sba: '#C49A3C', collection: '#7A6B8A', craft: '#C1603A', fine_grounds: '#8A7055',
   rest: '#5A8A9A', field: '#4A7C59', corner: '#5F8A7E', found: '#D4956A', table: '#C4634F',
 }
 
-export async function generateMetadata({ params }) {
-  const { slug } = await params
+const getTrail = cache(async function getTrail(slug) {
   const sb = getSupabaseAdmin()
-  const { data: trail } = await sb
+  const { data } = await sb
     .from('trails')
-    .select('title, description')
+    .select('*')
     .eq('slug', slug)
     .eq('published', true)
     .single()
+  return data
+})
+
+export async function generateMetadata({ params }) {
+  const { slug } = await params
+  const trail = await getTrail(slug)
   if (!trail) return {}
   const description = trail.description || `A curated discovery trail — ${trail.title}.`
   return {
@@ -42,17 +48,11 @@ export async function generateMetadata({ params }) {
 
 export default async function TrailPage({ params }) {
   const { slug } = await params
-  const sb = getSupabaseAdmin()
 
-  const { data: trail } = await sb
-    .from('trails')
-    .select('*')
-    .eq('slug', slug)
-    .eq('published', true)
-    .single()
-
+  const trail = await getTrail(slug)
   if (!trail) notFound()
 
+  const sb = getSupabaseAdmin()
   const { data: stops } = await sb
     .from('trail_stops')
     .select('*, listings(slug)')
@@ -214,7 +214,7 @@ function StopCard({ stop, index, isLast }) {
         {/* Typographic venue card or real venue photo */}
         {stop.venue_image_url && !stop.venue_image_url.includes('unsplash.com') ? (
           <div style={{ aspectRatio: '16/7', overflow: 'hidden' }}>
-            <img src={stop.venue_image_url} alt={stop.venue_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <img src={stop.venue_image_url} alt={stop.venue_name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
         ) : (
           <div style={{

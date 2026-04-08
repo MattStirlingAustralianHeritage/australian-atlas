@@ -1,5 +1,3 @@
-'use client'
-
 import { getVerticalUrl } from '@/lib/verticalUrl'
 import VerticalBadge from '@/components/VerticalBadge'
 
@@ -280,10 +278,8 @@ export default function ListingCard({ listing, meta, linkToVertical = false }) {
     <a
       href={url}
       {...(linkToVertical ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-      className="group block rounded-xl overflow-hidden transition-all duration-200"
+      className="group listing-card block rounded-xl overflow-hidden transition-all duration-200"
       style={{ border: '0.5px solid var(--color-border)', position: 'relative' }}
-      onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(28,26,23,0.28)' }}
-      onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)' }}
     >
       {/* Card visual */}
       <div style={{ position: 'relative' }}>

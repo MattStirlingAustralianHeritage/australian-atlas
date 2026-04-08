@@ -3,7 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getVerticalBadge } from '@/lib/verticalUrl'
 import TrailPromptInput from '@/components/TrailPromptInput'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 3600
 
 export const metadata = {
   title: 'Discovery Trails | Australian Atlas',
@@ -27,22 +27,22 @@ const EXAMPLE_TRAILS = [
 export default async function TrailsPage() {
   const sb = getSupabaseAdmin()
 
-  // Editorial trails — published, pinned at top
-  const { data: editorialTrails } = await sb
-    .from('trails')
-    .select('id, title, slug, description, cover_image_url, curator_name, region, vertical_focus, stop_count')
-    .eq('type', 'editorial')
-    .eq('published', true)
-    .order('created_at', { ascending: false })
-
-  // Community trails — public user trails, newest first
-  const { data: communityTrails } = await sb
-    .from('trails')
-    .select('id, title, slug, short_code, description, region, vertical_focus, stop_count, created_at')
-    .eq('type', 'user')
-    .eq('visibility', 'public')
-    .order('created_at', { ascending: false })
-    .limit(12)
+  // Editorial + community trails in parallel
+  const [{ data: editorialTrails }, { data: communityTrails }] = await Promise.all([
+    sb
+      .from('trails')
+      .select('id, title, slug, description, cover_image_url, curator_name, region, vertical_focus, stop_count')
+      .eq('type', 'editorial')
+      .eq('published', true)
+      .order('created_at', { ascending: false }),
+    sb
+      .from('trails')
+      .select('id, title, slug, short_code, description, region, vertical_focus, stop_count, created_at')
+      .eq('type', 'user')
+      .eq('visibility', 'public')
+      .order('created_at', { ascending: false })
+      .limit(12),
+  ])
 
   return (
     <div style={{ background: 'var(--color-bg)', minHeight: '100vh' }}>
@@ -82,9 +82,8 @@ export default async function TrailsPage() {
             <Link
               key={i}
               href={`/itinerary?q=${encodeURIComponent(example.query)}`}
+              className="example-trail-card"
               style={{ textDecoration: 'none', display: 'block', background: 'var(--color-card-bg)', border: '1px solid var(--color-border)', borderRadius: 12, padding: '20px 22px', transition: 'border-color 0.2s, box-shadow 0.2s' }}
-              onMouseOver={e => { e.currentTarget.style.borderColor = 'var(--color-sage)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.04)' }}
-              onMouseOut={e => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.boxShadow = 'none' }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                 <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '11px', color: 'var(--color-sage)' }}>{example.region}</span>

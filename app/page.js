@@ -5,6 +5,8 @@ import TrailPromptInput from '@/components/TrailPromptInput'
 import HomeMapSection from '@/components/HomeMapSection'
 import { getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
 
+export const revalidate = 300
+
 const verticals = [
   { key: 'sba', name: 'Small Batch Atlas', tag: 'Small Batch', desc: 'Craft breweries, wineries, distilleries, cideries and cellar doors', url: 'https://smallbatchatlas.com.au' },
   { key: 'collection', name: 'Culture Atlas', tag: 'Culture', desc: 'Museums, galleries, heritage sites and cultural centres', url: 'https://collectionatlas.com.au' },
@@ -55,26 +57,31 @@ async function getStats() {
       sb.from('listings').select('*', { count: 'exact', head: true }).eq('status', 'active'),
       sb.from('regions').select('*', { count: 'exact', head: true }),
     ])
-    // Get per-vertical counts
-    const verticalCounts = {}
-    for (const v of verticals) {
-      const { count: c } = await sb.from('listings').select('*', { count: 'exact', head: true }).eq('vertical', v.key).eq('status', 'active')
-      verticalCounts[v.key] = c || 0
-    }
+    // Get per-vertical counts (parallel)
+    const verticalCountResults = await Promise.all(
+      verticals.map(v =>
+        sb.from('listings').select('*', { count: 'exact', head: true }).eq('vertical', v.key).eq('status', 'active')
+          .then(({ count: c }) => [v.key, c || 0])
+      )
+    )
+    const verticalCounts = Object.fromEntries(verticalCountResults)
 
-    // Get listing counts for homepage region cards (bounding box queries)
-    const regionCounts = {}
-    for (const [name, geo] of Object.entries(REGION_GEO)) {
-      const { count: rc } = await sb
-        .from('listings')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'active')
-        .gte('lat', geo.lat - geo.r)
-        .lte('lat', geo.lat + geo.r)
-        .gte('lng', geo.lng - geo.r)
-        .lte('lng', geo.lng + geo.r)
-      regionCounts[name] = rc || 0
-    }
+    // Get listing counts for homepage region cards — bounding box queries (parallel)
+    const regionEntries = Object.entries(REGION_GEO)
+    const regionCountResults = await Promise.all(
+      regionEntries.map(([name, geo]) =>
+        sb
+          .from('listings')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'active')
+          .gte('lat', geo.lat - geo.r)
+          .lte('lat', geo.lat + geo.r)
+          .gte('lng', geo.lng - geo.r)
+          .lte('lng', geo.lng + geo.r)
+          .then(({ count: rc }) => [name, rc || 0])
+      )
+    )
+    const regionCounts = Object.fromEntries(regionCountResults)
 
     return { listings: count || 0, regions: regionCount || 0, verticalCounts, regionCounts }
   } catch {
@@ -95,57 +102,64 @@ const VERTICAL_JOURNAL_URLS = {
 }
 
 async function getLatestArticles() {
-  // Pull from both master DB (CMS-synced) and SBA vertical, deduplicate
+  // Pull from both master DB (CMS-synced) and SBA vertical in parallel, then deduplicate
   const allArticles = []
   const slugSet = new Set()
 
-  // 1. Master DB articles (all verticals, synced from CMS)
-  try {
-    const sb = getSupabaseAdmin()
-    const { data: masterArticles } = await sb
-      .from('articles')
-      .select('id, vertical, title, slug, excerpt, hero_image_url, author, published_at, category')
-      .eq('status', 'published')
-      .order('published_at', { ascending: false })
-      .limit(10)
-    if (masterArticles) {
-      for (const a of masterArticles) {
-        if (!slugSet.has(a.slug)) {
-          slugSet.add(a.slug)
-          allArticles.push({
-            ...a,
-            vertical: a.vertical || 'atlas',
-            excerpt: a.excerpt || null,
-            article_url: `${VERTICAL_JOURNAL_URLS[a.vertical] || VERTICAL_JOURNAL_URLS.sba}/${a.slug}`,
-          })
-        }
-      }
-    }
-  } catch { /* master articles not available */ }
+  const [masterResult, sbaResult] = await Promise.all([
+    // 1. Master DB articles (all verticals, synced from CMS)
+    (async () => {
+      try {
+        const sb = getSupabaseAdmin()
+        const { data } = await sb
+          .from('articles')
+          .select('id, vertical, title, slug, excerpt, hero_image_url, author, published_at, category')
+          .eq('status', 'published')
+          .order('published_at', { ascending: false })
+          .limit(10)
+        return data || []
+      } catch { return [] }
+    })(),
+    // 2. SBA vertical articles (supplement)
+    (async () => {
+      try {
+        const sbaClient = getVerticalClient('sba')
+        const { data } = await sbaClient
+          .from('articles')
+          .select('id, title, slug, deck, category, author, hero_image_url, published_at, tags, is_partner_content')
+          .eq('status', 'published')
+          .order('published_at', { ascending: false })
+          .limit(6)
+        return data || []
+      } catch { return [] }
+    })(),
+  ])
 
-  // 2. SBA vertical articles (supplement)
-  try {
-    const sbaClient = getVerticalClient('sba')
-    const { data: sbaArticles } = await sbaClient
-      .from('articles')
-      .select('id, title, slug, deck, category, author, hero_image_url, published_at, tags, is_partner_content')
-      .eq('status', 'published')
-      .order('published_at', { ascending: false })
-      .limit(6)
-    if (sbaArticles) {
-      for (const a of sbaArticles) {
-        if (!slugSet.has(a.slug)) {
-          slugSet.add(a.slug)
-          allArticles.push({
-            ...a,
-            vertical: 'sba',
-            excerpt: a.deck || null,
-            article_url: `https://smallbatchatlas.com.au/journal/${a.slug}`,
-          })
-        }
-      }
+  // Merge master articles first (priority)
+  for (const a of masterResult) {
+    if (!slugSet.has(a.slug)) {
+      slugSet.add(a.slug)
+      allArticles.push({
+        ...a,
+        vertical: a.vertical || 'atlas',
+        excerpt: a.excerpt || null,
+        article_url: `${VERTICAL_JOURNAL_URLS[a.vertical] || VERTICAL_JOURNAL_URLS.sba}/${a.slug}`,
+      })
     }
-  } catch { /* SBA journal not available */ }
+  }
+
+  // Then SBA articles (supplement)
+  for (const a of sbaResult) {
+    if (!slugSet.has(a.slug)) {
+      slugSet.add(a.slug)
+      allArticles.push({
+        ...a,
+        vertical: 'sba',
+        excerpt: a.deck || null,
+        article_url: `https://smallbatchatlas.com.au/journal/${a.slug}`,
+      })
+    }
+  }
 
   // Sort all articles by published_at descending, take top 3
   allArticles.sort((a, b) => new Date(b.published_at) - new Date(a.published_at))

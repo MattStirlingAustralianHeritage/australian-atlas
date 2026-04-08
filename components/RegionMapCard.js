@@ -1,4 +1,5 @@
 'use client'
+import 'mapbox-gl/dist/mapbox-gl.css'
 
 import { useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'

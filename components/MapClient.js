@@ -1,4 +1,5 @@
 'use client'
+import 'mapbox-gl/dist/mapbox-gl.css'
 import { useRef, useEffect, useState } from 'react'
 import { getVerticalUrl, getVerticalBadge, getVerticalLabel } from '@/lib/verticalUrl'
 

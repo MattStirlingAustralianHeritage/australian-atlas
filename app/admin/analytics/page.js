@@ -1,4 +1,5 @@
 'use client'
+import 'mapbox-gl/dist/mapbox-gl.css'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 const VERTICALS = [

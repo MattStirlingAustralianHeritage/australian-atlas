@@ -1,8 +1,7 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import RegionMapCard from '@/components/RegionMapCard'
 
-export const dynamic = 'force-dynamic'
-export const fetchCache = 'force-no-store'
+export const revalidate = 3600
 
 const STATE_ORDER = ['VIC', 'NSW', 'QLD', 'SA', 'WA', 'TAS', 'ACT', 'NT']
 

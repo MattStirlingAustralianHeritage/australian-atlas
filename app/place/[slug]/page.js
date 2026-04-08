@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
@@ -30,7 +31,7 @@ const VERTICAL_COLORS = {
 
 // ── Data fetching ─────────────────────────────────────────────
 
-async function getListing(slug) {
+const getListing = cache(async function getListing(slug) {
   const sb = getSupabaseAdmin()
   // slug is NOT unique across verticals — use limit(1) instead of .single()
   // to avoid PGRST116 if two verticals share a slug
@@ -45,7 +46,7 @@ async function getListing(slug) {
 
   if (error || !data) return null
   return data
-}
+})
 
 // Haversine distance in km
 function haversineKm(lat1, lng1, lat2, lng2) {
@@ -200,6 +201,7 @@ export default async function PlacePage({ params }) {
           <img
             src={listing.hero_image_url}
             alt={listing.name}
+            loading="eager"
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(28,26,23,0.35) 0%, transparent 50%)' }} />
@@ -332,6 +334,7 @@ export default async function PlacePage({ params }) {
               <img
                 src={`https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/pin-l+${vertColor.replace('#', '')}(${listing.lng},${listing.lat})/${listing.lng},${listing.lat},14,0/800x350@2x?access_token=${mapboxToken}`}
                 alt={`Map showing ${listing.name}`}
+                loading="lazy"
                 className="w-full h-full object-cover"
               />
             </div>
