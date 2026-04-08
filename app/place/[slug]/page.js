@@ -197,7 +197,7 @@ export default async function PlacePage({ params }) {
 
       {/* ── Hero ────────────────────────────────────────── */}
       {listing.hero_image_url && !listing.hero_image_url.includes('unsplash.com') ? (
-        <div className="w-full aspect-[21/9] max-h-[420px] overflow-hidden relative">
+        <div className="w-full aspect-[21/7] overflow-hidden relative">
           <img
             src={listing.hero_image_url}
             alt={listing.name}
@@ -212,7 +212,7 @@ export default async function PlacePage({ params }) {
           vertical={listing.vertical}
           region={listing.region}
           state={listing.state}
-          aspectRatio="16/7"
+          aspectRatio="21/7"
           showVerticalTag={true}
         />
       )}
