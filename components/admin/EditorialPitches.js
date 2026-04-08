@@ -244,6 +244,24 @@ function PitchCard({ vertical, tokens, pitch, isLoading, onApprove, onReject }) 
             )}
           </div>
 
+          {/* View brief link */}
+          <a
+            href={`/admin/editorial/pitch/${pitch.id}`}
+            style={{
+              display: 'inline-block',
+              fontFamily: '"DM Sans", system-ui, sans-serif',
+              fontSize: '0.7rem',
+              fontWeight: 600,
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+              color: `${tokens.text}99`,
+              textDecoration: 'none',
+              marginTop: '0.15rem',
+            }}
+          >
+            View Full Brief &rarr;
+          </a>
+
           {/* Action buttons */}
           <div style={{
             display: 'flex',
