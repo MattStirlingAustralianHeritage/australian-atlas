@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import EditorialPitches from '@/components/admin/EditorialPitches'
 
 const VERTICAL_NAMES = {
   sba: 'Small Batch',
@@ -108,6 +109,9 @@ export default function AdminPage() {
         <DataQualityZone />
         <OperationsZone />
       </div>
+
+      {/* ── Editorial Pitches ───────────────────────────────── */}
+      <EditorialPitches />
     </div>
   )
 }
@@ -155,7 +159,7 @@ function HealthBar({ stats, loading }) {
       href: '/admin/candidates',
     },
     {
-      label: 'Humanised',
+      label: 'Reviewed',
       value: stats?.humanised ?? null,
       color: '#5f8a7e',
       href: '/admin/listings-review',

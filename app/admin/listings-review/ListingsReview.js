@@ -353,9 +353,9 @@ export default function ListingsReview({ initialListing, initialStats, verticalC
           border: `1px solid ${flash === 'saved_synced' || flash === 'saved' ? '#c8e6c9' : flash === 'saved_sync_failed' ? '#ffe0b2' : flash === 'error' ? '#ffcdd2' : flash === 'hidden' ? '#ffcdd2' : 'var(--color-border)'}`,
           transition: 'opacity 0.3s',
         }}>
-          {flash === 'saved_synced' && `Humanised + synced to ${syncDetail}. Next listing loaded.`}
-          {flash === 'saved_sync_failed' && `Humanised, but sync to ${syncDetail} failed. Next listing loaded.`}
-          {flash === 'saved' && 'Humanised. Next listing loaded.'}
+          {flash === 'saved_synced' && `Approved + synced to ${syncDetail}. Next listing loaded.`}
+          {flash === 'saved_sync_failed' && `Approved, but sync to ${syncDetail} failed. Next listing loaded.`}
+          {flash === 'saved' && 'Approved. Next listing loaded.'}
           {flash === 'skipped' && 'Skipped. Loading next...'}
           {flash === 'hidden' && 'Listing hidden. Loading next...'}
           {flash === 'error' && (errorMsg ? `Error: ${errorMsg}` : 'Something went wrong. Try again.')}
@@ -430,16 +430,32 @@ export default function ListingsReview({ initialListing, initialStats, verticalC
               {listing.name}
             </div>
 
-            {/* View link */}
-            {viewUrl && (
-              <a href={viewUrl} target="_blank" rel="noopener noreferrer"
-                style={{
-                  fontFamily: 'var(--font-body)', fontSize: 11,
-                  color: 'var(--color-sage)', textDecoration: 'none',
-                }}>
-                View on site &#8599;
-              </a>
-            )}
+            {/* View links */}
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 4 }}>
+              {listing.slug && (
+                <a href={`/place/${listing.slug}`} target="_blank" rel="noopener noreferrer"
+                  style={{
+                    fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500,
+                    color: '#fff', background: 'var(--color-sage, #7A8B6F)',
+                    padding: '5px 14px', borderRadius: 4, textDecoration: 'none',
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                  }}>
+                  View Listing &#8599;
+                </a>
+              )}
+              {viewUrl && (
+                <a href={viewUrl} target="_blank" rel="noopener noreferrer"
+                  style={{
+                    fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500,
+                    color: 'var(--color-sage, #7A8B6F)',
+                    padding: '5px 14px', borderRadius: 4, textDecoration: 'none',
+                    border: '1px solid var(--color-sage, #7A8B6F)',
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                  }}>
+                  View on Vertical &#8599;
+                </a>
+              )}
+            </div>
           </div>
 
           {/* Hero image thumbnail */}
@@ -544,7 +560,7 @@ export default function ListingsReview({ initialListing, initialStats, verticalC
               color: 'var(--color-muted, #888)', margin: '0 0 20px',
               lineHeight: 1.5, fontStyle: 'italic',
             }}>
-              No edits needed? That's fine — just hit Humanised to confirm you've reviewed it.
+              No edits needed? That's fine — just hit Approve to confirm you've reviewed it.
             </p>
 
             {/* Action buttons */}
@@ -553,7 +569,7 @@ export default function ListingsReview({ initialListing, initialStats, verticalC
               gap: 12, borderTop: '1px solid var(--color-border)',
               paddingTop: 16,
             }}>
-              {/* Humanised button */}
+              {/* Approve button */}
               <button
                 onClick={() => handleAction('humanise')}
                 disabled={loading}
@@ -567,7 +583,7 @@ export default function ListingsReview({ initialListing, initialStats, verticalC
                   transition: 'opacity 0.15s, transform 0.1s',
                 }}
               >
-                &#10003; Humanised
+                &#10003; Approve
               </button>
 
               {/* Skip button */}
