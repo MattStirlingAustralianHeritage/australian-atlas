@@ -523,6 +523,7 @@ function ListingsZone({ stats, loading }) {
 
 function ContentZone({ stats, loading }) {
   const contentLinks = [
+    { label: 'Articles', description: 'Create and publish journal articles', href: '/admin/articles' },
     { label: 'Editorial Queue', description: 'Story ideas and interview pipeline', href: '/admin/editorial' },
     { label: 'Trails', description: 'Editorial trails linking venues', href: '/admin/trails' },
     { label: 'Events', description: 'Manage community events', href: '/admin/events' },
@@ -628,7 +629,8 @@ function OperationsZone() {
   const links = [
     { label: 'Analytics', description: 'Traffic, geography, per-vertical breakdown', href: '/admin/analytics' },
     { label: 'Search Insights', description: 'Top queries, trail prompts, zero-result searches', href: '/admin/insights' },
-    { label: 'Humanator', description: 'Bulk humanisation review tool', href: '/admin/humanator' },
+    { label: 'Listings Review', description: 'Review listings with a human eye', href: '/admin/listings-review' },
+    { label: 'Notes', description: 'Bug reports, cosmetic issues, suggestions', href: '/admin/notes' },
   ]
 
   return (

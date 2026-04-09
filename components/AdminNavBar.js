@@ -18,7 +18,9 @@ const PAGE_TITLES = {
   insights: 'Search Insights',
   staleness: 'Staleness',
   trails: 'Trails',
+  articles: 'Articles',
   'audit-review': 'Data Audit',
+  notes: 'Notes',
 }
 
 export default function AdminNavBar() {
@@ -33,7 +35,7 @@ export default function AdminNavBar() {
   const [stats, setStats] = useState(null)
   const [session, setSession] = useState(null)
 
-  // Fetch humanised stats on mount
+  // Fetch review stats on mount
   useEffect(() => {
     fetch('/api/admin/stats')
       .then(r => r.ok ? r.json() : null)
@@ -94,9 +96,9 @@ export default function AdminNavBar() {
         {stats ? (
           <>
             <span style={{ color: 'var(--color-sage, #7A8B6F)', marginRight: 3 }}>&#10022;</span>
-            {stats.humanised_count.toLocaleString()} / {stats.total_active_count.toLocaleString()} humanised
-            {session?.humanised > 0 && (
-              <span> &middot; {session.humanised} this session</span>
+            {stats.humanised_count.toLocaleString()} / {stats.total_active_count.toLocaleString()} reviewed
+            {session?.reviewed > 0 && (
+              <span> &middot; {session.reviewed} this session</span>
             )}
             {session?.skipped > 0 && (
               <span> &middot; {session.skipped} skipped</span>
