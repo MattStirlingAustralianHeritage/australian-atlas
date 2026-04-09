@@ -170,11 +170,29 @@ function ItineraryMap({ days }) {
         } catch (e) { /* marker failed, continue */ }
       }
 
+      // Find insertion point for route layers — above basemap fills, below labels.
+      // Mapbox v3 Standard style may expose an empty layers array via getStyle(),
+      // so we try multiple strategies for reliable z-ordering.
+      function getRouteInsertionPoint() {
+        try {
+          const layers = map.getStyle()?.layers
+          if (!layers || layers.length === 0) return undefined
+          // Prefer first symbol (label) layer
+          const sym = layers.find(l => l.type === 'symbol')
+          if (sym) return sym.id
+          // Fallback: first line or circle layer (above fills)
+          const above = layers.find(l => l.type === 'line' || l.type === 'circle')
+          if (above) return above.id
+        } catch { /* style not ready */ }
+        return undefined
+      }
+
       // Helper: add a static route line (no animation)
       function addStaticRoute(map, dayData, dayColor) {
         try {
           const sourceId = `route-day-${dayData.dayNumber}`
           if (!dayData.coordinates || dayData.coordinates.length < 2) return
+          const beforeId = getRouteInsertionPoint()
 
           map.addSource(sourceId, {
             type: 'geojson',
@@ -186,14 +204,14 @@ function ItineraryMap({ days }) {
             source: sourceId,
             layout: { 'line-join': 'round', 'line-cap': 'round' },
             paint: { 'line-color': dayColor, 'line-width': 8, 'line-opacity': 0.15 },
-          })
+          }, beforeId)
           map.addLayer({
             id: `${sourceId}-line`,
             type: 'line',
             source: sourceId,
             layout: { 'line-join': 'round', 'line-cap': 'round' },
             paint: { 'line-color': dayColor, 'line-width': 2.5, 'line-dasharray': [2, 1.5] },
-          })
+          }, beforeId)
         } catch (e) { /* route failed, continue */ }
       }
 
@@ -274,6 +292,7 @@ function ItineraryMap({ days }) {
               try {
                 const sourceId = `route-day-${dayData.dayNumber}`
                 const coords = dayData.coordinates
+                const beforeId = getRouteInsertionPoint()
 
                 map.addSource(sourceId, {
                   type: 'geojson',
@@ -285,14 +304,14 @@ function ItineraryMap({ days }) {
                   source: sourceId,
                   layout: { 'line-join': 'round', 'line-cap': 'round' },
                   paint: { 'line-color': dayColor, 'line-width': 8, 'line-opacity': 0.15 },
-                })
+                }, beforeId)
                 map.addLayer({
                   id: `${sourceId}-line`,
                   type: 'line',
                   source: sourceId,
                   layout: { 'line-join': 'round', 'line-cap': 'round' },
                   paint: { 'line-color': dayColor, 'line-width': 2.5, 'line-dasharray': [2, 1.5] },
-                })
+                }, beforeId)
 
                 const totalSegments = coords.length - 1
                 if (totalSegments <= 0) { resolve(); return }

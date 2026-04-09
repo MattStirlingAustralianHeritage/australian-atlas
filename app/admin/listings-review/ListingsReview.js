@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import WYSIWYGEditor from '@/components/admin/WYSIWYGEditor'
 
 const VERTICAL_NAMES = {
-  sba: 'Small Batch', collection: 'Collections', craft: 'Craft',
+  sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
   fine_grounds: 'Fine Grounds', rest: 'Rest', field: 'Field',
   corner: 'Corner', found: 'Found', table: 'Table',
 }
@@ -479,13 +480,18 @@ export default function ListingsReview({ initialListing, initialStats, verticalC
             background: '#FAFAF6',
           }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
-              <Field
-                label="Description"
-                value={draft.description}
-                onChange={v => updateDraft('description', v)}
-                type="textarea"
-                style={{ gridColumn: '1 / -1' }}
-              />
+              <div style={{ gridColumn: '1 / -1', marginBottom: 12 }}>
+                <label style={{
+                  display: 'block', fontFamily: 'var(--font-body)', fontSize: 10,
+                  fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase',
+                  color: 'var(--color-muted)', marginBottom: 4,
+                }}>Description</label>
+                <WYSIWYGEditor
+                  value={draft.description}
+                  onChange={v => updateDraft('description', v)}
+                  minHeight={180}
+                />
+              </div>
               <div style={{ marginBottom: 12 }}>
                 <label style={{
                   display: 'block', fontFamily: 'var(--font-body)', fontSize: 10,

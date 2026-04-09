@@ -822,18 +822,36 @@ export async function GET(request) {
       const broadQuery = baseQuery()
       const { data: broadCandidates } = await broadQuery.limit(80)
       if (broadCandidates && broadCandidates.length >= 4) {
-        candidates.length = 0
-        candidates.push(...broadCandidates)
+        // Preserve focus-vertical candidates; supplement (not replace) with broad results
+        const focusIds = new Set((candidates || []).map(c => c.id))
+        const supplements = broadCandidates.filter(c => !focusIds.has(c.id))
+        candidates = [...(candidates || []), ...supplements].slice(0, 80)
       }
     }
 
-    // Sort candidates: boost claimed/featured venues, preferred verticals, and group-appropriate verticals
+    // Guarantee rest venues when accommodation is needed
+    if (accommodation === 'need' && duration.days > 1) {
+      const restInPool = (candidates || []).filter(c => c.vertical === 'rest').length
+      const nightsNeeded = duration.days - 1
+      if (restInPool < nightsNeeded + 1) {
+        const { data: restVenues } = await baseQuery().eq('vertical', 'rest').limit(nightsNeeded + 3)
+        if (restVenues?.length > 0) {
+          const existingIds = new Set((candidates || []).map(c => c.id))
+          const newRest = restVenues.filter(v => !existingIds.has(v.id))
+          candidates = [...(candidates || []), ...newRest]
+        }
+      }
+    }
+
+    // Sort candidates: boost query verticals, claimed/featured venues, user preferences, and group-appropriate verticals
     candidates.sort((a, b) => {
       const aScore = (a.is_claimed ? 3 : 0) + (a.editors_pick ? 2 : 0) + (a.is_featured ? 1 : 0)
+        + (effectiveVerticals.includes(a.vertical) ? 4 : 0)
         + (preferredVerticals.has(a.vertical) ? 2 : 0)
         + (groupWeights.boost.includes(a.vertical) ? 1 : 0)
         - (groupWeights.deprioritise.includes(a.vertical) ? 1 : 0)
       const bScore = (b.is_claimed ? 3 : 0) + (b.editors_pick ? 2 : 0) + (b.is_featured ? 1 : 0)
+        + (effectiveVerticals.includes(b.vertical) ? 4 : 0)
         + (preferredVerticals.has(b.vertical) ? 2 : 0)
         + (groupWeights.boost.includes(b.vertical) ? 1 : 0)
         - (groupWeights.deprioritise.includes(b.vertical) ? 1 : 0)
