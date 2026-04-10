@@ -74,8 +74,7 @@ function ItineraryMap({ days }) {
     return () => window.removeEventListener('resize', check)
   }, [])
 
-  const allStops = days.flatMap(d => (d.stops || []).filter(s => s.lat && s.lng))
-  const stopCount = allStops.length
+  const stopCount = days.reduce((n, d) => n + (d.stops || []).filter(s => s.lat && s.lng).length, 0)
 
   useEffect(() => {
     if (stopCount === 0) return
@@ -100,87 +99,135 @@ function ItineraryMap({ days }) {
       map.addControl(new mapboxgl.NavigationControl(), 'top-right')
 
       map.on('load', () => {
-        // Fit map to stops
-        const lngs = allStops.map(s => parseFloat(s.lng))
-        const lats = allStops.map(s => parseFloat(s.lat))
+        // Collect all coordinates (stops + overnights) for bounds
+        const allCoords = []
+        for (const day of days) {
+          for (const stop of (day.stops || [])) {
+            if (stop.lat && stop.lng) allCoords.push([parseFloat(stop.lng), parseFloat(stop.lat)])
+          }
+          if (day.overnight?.lat && day.overnight?.lng) allCoords.push([parseFloat(day.overnight.lng), parseFloat(day.overnight.lat)])
+        }
+        if (allCoords.length === 0) return
+
+        const lngs = allCoords.map(c => c[0])
+        const lats = allCoords.map(c => c[1])
         map.fitBounds(
           [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
-          { padding: 60, duration: 0 }
+          { padding: 80, duration: 0 }
         )
 
-        // Draw route line for each day
+        // Draw route lines per day (glow + dashed line)
         days.forEach((day, i) => {
           const stops = (day.stops || []).filter(s => s.lat && s.lng)
-          if (stops.length < 2) return
           const coords = stops.map(s => [parseFloat(s.lng), parseFloat(s.lat)])
+          if (day.overnight?.lat && day.overnight?.lng) coords.push([parseFloat(day.overnight.lng), parseFloat(day.overnight.lat)])
+          if (coords.length < 2) return
+
           const color = DAY_COLORS[i % DAY_COLORS.length]
           const sourceId = `route-${i}`
 
           map.addSource(sourceId, {
             type: 'geojson',
-            data: {
-              type: 'Feature',
-              geometry: { type: 'LineString', coordinates: coords }
-            }
+            data: { type: 'Feature', geometry: { type: 'LineString', coordinates: coords } }
           })
 
           map.addLayer({
-            id: `${sourceId}-line`,
-            type: 'line',
-            source: sourceId,
+            id: `${sourceId}-glow`, type: 'line', source: sourceId,
             layout: { 'line-join': 'round', 'line-cap': 'round' },
-            paint: {
-              'line-color': color,
-              'line-width': 2.5,
-              'line-opacity': 0,
-              'line-dasharray': [1, 0]
-            }
+            paint: { 'line-color': color, 'line-width': 8, 'line-opacity': 0 }
+          })
+          map.addLayer({
+            id: `${sourceId}-line`, type: 'line', source: sourceId,
+            layout: { 'line-join': 'round', 'line-cap': 'round' },
+            paint: { 'line-color': color, 'line-width': 2.5, 'line-opacity': 0, 'line-dasharray': [2, 1.5] }
           })
 
-          // Animate line opacity in
           let start = null
           const duration = 1200
           function animateLine(ts) {
             if (!start) start = ts
             const progress = Math.min((ts - start) / duration, 1)
-            if (map.getLayer(`${sourceId}-line`)) {
-              map.setPaintProperty(`${sourceId}-line`, 'line-opacity', progress)
-            }
+            if (map.getLayer(`${sourceId}-glow`)) map.setPaintProperty(`${sourceId}-glow`, 'line-opacity', progress * 0.15)
+            if (map.getLayer(`${sourceId}-line`)) map.setPaintProperty(`${sourceId}-line`, 'line-opacity', progress)
             if (progress < 1) requestAnimationFrame(animateLine)
           }
           requestAnimationFrame(animateLine)
         })
 
-        // Add markers with staggered transition
+        // Add markers — day-colored, with popups and overnight icons
         let markerIndex = 0
-        for (const day of days) {
+        for (let di = 0; di < days.length; di++) {
+          const day = days[di]
+          const dayNum = day.day_number || (di + 1)
+          const color = DAY_COLORS[di % DAY_COLORS.length]
+
           for (const stop of (day.stops || [])) {
             if (!stop.lat || !stop.lng) continue
             const idx = markerIndex++
+            const label = VERTICAL_LABELS[stop.vertical] || stop.vertical || ''
 
             const el = document.createElement('div')
             el.className = 'trail-marker'
             el.textContent = idx + 1
             el.style.cssText = `
-              width: 28px; height: 28px; border-radius: 50%;
-              background: #1a1a1a; color: white; font-size: 11px;
-              font-weight: 600; display: flex; align-items: center;
-              justify-content: center; cursor: pointer;
+              width: 30px; height: 30px; border-radius: 50%;
+              background: ${color}; border: 2px solid white;
+              color: white; font-size: 12px; font-weight: 700;
+              display: flex; align-items: center; justify-content: center;
+              cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+              font-family: system-ui, sans-serif;
               opacity: 0; transform: scale(0);
               transition: opacity 0.3s ease ${idx * 80}ms,
                           transform 0.3s cubic-bezier(0.34,1.56,0.64,1) ${idx * 80}ms;
             `
 
+            const popup = new mapboxgl.Popup({ offset: 20, closeButton: false })
+              .setHTML(`<div style="font-family:system-ui,sans-serif;padding:6px 4px;">
+                <p style="font-weight:600;margin:0 0 2px;font-size:13px;">${stop.venue_name || ''}</p>
+                <p style="margin:0;color:${color};font-size:10px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;">Day ${dayNum}${label ? ' \u00B7 ' + label : ''}</p>
+                ${stop.note ? `<p style="margin:4px 0 0;font-size:11px;color:#666;line-height:1.3;">${stop.note}</p>` : ''}
+              </div>`)
+
             new mapboxgl.Marker({ element: el })
               .setLngLat([parseFloat(stop.lng), parseFloat(stop.lat)])
+              .setPopup(popup)
               .addTo(map)
 
-            // Trigger transition on next frame
             requestAnimationFrame(() => {
-              requestAnimationFrame(() => {
-                el.style.opacity = '1'
-                el.style.transform = 'scale(1)'
-              })
+              requestAnimationFrame(() => { el.style.opacity = '1'; el.style.transform = 'scale(1)' })
+            })
+          }
+
+          // Overnight marker (moon icon)
+          if (day.overnight?.lat && day.overnight?.lng) {
+            const idx = markerIndex++
+            const el = document.createElement('div')
+            el.className = 'trail-marker'
+            el.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>'
+            el.style.cssText = `
+              width: 30px; height: 30px; border-radius: 50%;
+              background: ${color}; border: 2px solid white;
+              display: flex; align-items: center; justify-content: center;
+              cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+              opacity: 0; transform: scale(0);
+              transition: opacity 0.3s ease ${idx * 80}ms,
+                          transform 0.3s cubic-bezier(0.34,1.56,0.64,1) ${idx * 80}ms;
+            `
+
+            const popup = new mapboxgl.Popup({ offset: 20, closeButton: false })
+              .setHTML(`<div style="font-family:system-ui,sans-serif;padding:6px 4px;">
+                <p style="font-weight:600;margin:0 0 2px;font-size:13px;">${day.overnight.venue_name || ''}</p>
+                <p style="margin:0;color:${color};font-size:10px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;">Day ${dayNum} \u00B7 Overnight</p>
+                ${day.overnight.note ? `<p style="margin:4px 0 0;font-size:11px;color:#666;line-height:1.3;">${day.overnight.note}</p>` : ''}
+              </div>`)
+
+            new mapboxgl.Marker({ element: el })
+              .setLngLat([parseFloat(day.overnight.lng), parseFloat(day.overnight.lat)])
+              .setPopup(popup)
+              .addTo(map)
+
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => { el.style.opacity = '1'; el.style.transform = 'scale(1)' })
             })
           }
         }
