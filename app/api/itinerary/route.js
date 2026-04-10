@@ -1423,6 +1423,41 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
       }
     }
 
+    // --- Post-processing: physically remove non-focus stops if ratio still below 50% ---
+    if (ratioResult && !ratioResult.passed && primaryVerticals.length > 0) {
+      console.warn(`[itinerary] Ratio still ${(ratioResult.ratio * 100).toFixed(0)}% after LLM retry — removing non-focus stops`)
+      let removed = 0
+      let done = false
+
+      // Work backwards through days, removing from end of each day first
+      for (let di = enrichedDays.length - 1; di >= 0 && !done; di--) {
+        const stops = [...(enrichedDays[di].stops || [])]
+
+        for (let si = stops.length - 1; si >= 0 && !done; si--) {
+          const stop = stops[si]
+          // Keep focus verticals and accommodation
+          if (primaryVerticals.includes(stop.vertical) || stop.vertical === 'rest') continue
+
+          stops.splice(si, 1)
+          enrichedDays[di] = { ...enrichedDays[di], stops }
+          removed++
+          console.warn(`[itinerary] Removed "${stop.venue_name}" (${stop.vertical}) from day ${di + 1}`)
+
+          const check = enforceVerticalRatio(enrichedDays, primaryVerticals)
+          if (check.passed || check.totalStops <= 4) done = true
+        }
+      }
+
+      // Remove empty days
+      enrichedDays = enrichedDays.filter(day => (day.stops?.length || 0) > 0 || day.overnight)
+
+      if (removed > 0) {
+        ratioResult = enforceVerticalRatio(enrichedDays, primaryVerticals)
+        strippedCount += removed
+        console.log(`[itinerary] Post-processing removed ${removed} non-focus stop(s). Ratio now ${(ratioResult.ratio * 100).toFixed(0)}% (${ratioResult.primaryStops}/${ratioResult.totalStops})`)
+      }
+    }
+
     // Build recommendations from unused candidates, constrained by geographic proximity
     const usedIds = new Set()
     const usedCoords = []

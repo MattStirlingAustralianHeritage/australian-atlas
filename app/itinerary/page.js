@@ -99,21 +99,31 @@ function ItineraryMap({ days }) {
       map.addControl(new mapboxgl.NavigationControl(), 'top-right')
 
       map.on('load', () => {
-        // Collect all coordinates (stops + overnights) for bounds
+        setTimeout(() => {
+        map.resize()
+
+        // Collect all valid coordinates (stops + overnights) for bounds
         const allCoords = []
         for (const day of days) {
           for (const stop of (day.stops || [])) {
-            if (stop.lat && stop.lng) allCoords.push([parseFloat(stop.lng), parseFloat(stop.lat)])
+            if (stop.lat && stop.lng && !isNaN(parseFloat(stop.lat)) && !isNaN(parseFloat(stop.lng))) {
+              allCoords.push([parseFloat(stop.lng), parseFloat(stop.lat)])
+            }
           }
-          if (day.overnight?.lat && day.overnight?.lng) allCoords.push([parseFloat(day.overnight.lng), parseFloat(day.overnight.lat)])
+          if (day.overnight?.lat && day.overnight?.lng && !isNaN(parseFloat(day.overnight.lat)) && !isNaN(parseFloat(day.overnight.lng))) {
+            allCoords.push([parseFloat(day.overnight.lng), parseFloat(day.overnight.lat)])
+          }
         }
         if (allCoords.length === 0) return
 
         const lngs = allCoords.map(c => c[0])
         const lats = allCoords.map(c => c[1])
         map.fitBounds(
-          [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
-          { padding: 80, duration: 0 }
+          [
+            [Math.min(...lngs) - 0.02, Math.min(...lats) - 0.02],
+            [Math.max(...lngs) + 0.02, Math.max(...lats) + 0.02]
+          ],
+          { padding: { top: 60, bottom: 60, left: 80, right: 80 }, duration: 800 }
         )
 
         // Draw route lines per day (glow + dashed line)
@@ -231,6 +241,7 @@ function ItineraryMap({ days }) {
             })
           }
         }
+        }, 100)
       })
     })
 
