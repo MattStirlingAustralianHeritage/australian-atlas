@@ -43,6 +43,7 @@ export default function Nav() {
     { href: '/regions', label: 'Regions' },
     { href: '/events', label: 'Events' },
     { href: '/for-councils', label: 'For Councils' },
+    { href: '/operators', label: 'For Operators' },
     { href: '/search', label: 'Search' },
   ]
 

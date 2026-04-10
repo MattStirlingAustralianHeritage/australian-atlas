@@ -631,6 +631,7 @@ function OperationsZone() {
     { label: 'Search Insights', description: 'Top queries, trail prompts, zero-result searches', href: '/admin/insights' },
     { label: 'Listings Review', description: 'Review listings with a human eye', href: '/admin/listings-review' },
     { label: 'Notes', description: 'Bug reports, cosmetic issues, suggestions', href: '/admin/notes' },
+    { label: 'Operators', description: 'Manage operator accounts and approvals', href: '/admin/operators' },
   ]
 
   return (

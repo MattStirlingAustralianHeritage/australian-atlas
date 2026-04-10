@@ -1,0 +1,213 @@
+'use client'
+
+import { useState } from 'react'
+
+export default function OperatorActions({ operators }) {
+  const [showCreate, setShowCreate] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [message, setMessage] = useState(null)
+
+  const [form, setForm] = useState({
+    business_name: '',
+    contact_name: '',
+    contact_email: '',
+    operator_type: 'day_tour',
+    tier: 'trial',
+    status: 'trial',
+    website: '',
+  })
+
+  async function handleCreate(e) {
+    e.preventDefault()
+    setCreating(true)
+    setMessage(null)
+
+    try {
+      const res = await fetch('/api/admin/operators', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed')
+      setMessage({ type: 'success', text: `Operator "${form.business_name}" created` })
+      setForm({
+        business_name: '', contact_name: '', contact_email: '',
+        operator_type: 'day_tour', tier: 'trial', status: 'trial', website: '',
+      })
+      setShowCreate(false)
+      window.location.reload()
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message })
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  async function handleAction(operatorId, action, payload = {}) {
+    if (!confirm(`Are you sure you want to ${action} this operator?`)) return
+
+    try {
+      const res = await fetch('/api/admin/operators', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ operator_id: operatorId, action, ...payload }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed')
+      window.location.reload()
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+
+  const inputStyle = {
+    padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 4,
+    fontSize: 14, fontFamily: 'var(--font-sans)', width: '100%',
+    boxSizing: 'border-box',
+  }
+
+  return (
+    <div>
+      {message && (
+        <div style={{
+          padding: 12, borderRadius: 4, marginBottom: 16, fontSize: 13,
+          background: message.type === 'error' ? '#FEF2F2' : '#F0FDF4',
+          color: message.type === 'error' ? '#991B1B' : '#166534',
+          border: `1px solid ${message.type === 'error' ? '#FECACA' : '#BBF7D0'}`,
+        }}>
+          {message.text}
+        </div>
+      )}
+
+      <button
+        onClick={() => setShowCreate(!showCreate)}
+        style={{
+          padding: '8px 20px', background: showCreate ? 'var(--bg-2)' : 'var(--amber)',
+          color: showCreate ? 'var(--text)' : '#fff', border: 'none', borderRadius: 4,
+          fontSize: 13, cursor: 'pointer', fontFamily: 'var(--font-sans)',
+        }}
+      >
+        {showCreate ? 'Cancel' : '+ Create operator'}
+      </button>
+
+      {/* Per-operator approve/suspend toggles */}
+      {operators?.length > 0 && (
+        <div style={{ marginTop: 20, marginBottom: 16 }}>
+          <h3 style={{ fontSize: 14, fontWeight: 500, marginBottom: 8, color: 'var(--text-2)' }}>
+            Approval management
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {operators.map(op => (
+              <div key={op.id} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '8px 12px', background: '#fff', border: '1px solid var(--border)',
+                borderRadius: 4, fontSize: 13,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{
+                    width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                    background: op.approved ? '#5F8A7E' : '#C0392B',
+                  }} />
+                  <span style={{ fontWeight: 500 }}>{op.business_name}</span>
+                  <span style={{ color: 'var(--text-2)' }}>({op.contact_email})</span>
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {op.approved ? (
+                    <button
+                      onClick={() => handleAction(op.id, 'set_approved', { approved: false })}
+                      style={{
+                        padding: '4px 12px', fontSize: 11, border: '1px solid #C0392B',
+                        borderRadius: 3, background: '#FEF2F2', color: '#C0392B', cursor: 'pointer',
+                      }}
+                    >
+                      Suspend
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleAction(op.id, 'set_approved', { approved: true })}
+                      style={{
+                        padding: '4px 12px', fontSize: 11, border: '1px solid #5F8A7E',
+                        borderRadius: 3, background: '#F0FDF4', color: '#166534', cursor: 'pointer',
+                      }}
+                    >
+                      Approve
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {showCreate && (
+        <form onSubmit={handleCreate} style={{
+          marginTop: 16, padding: 24, border: '1px solid var(--border)',
+          borderRadius: 6, background: '#fff', display: 'grid',
+          gridTemplateColumns: '1fr 1fr', gap: 12,
+        }}>
+          <div>
+            <label style={{ fontSize: 12, color: 'var(--text-2)', display: 'block', marginBottom: 4 }}>Business name *</label>
+            <input required style={inputStyle} value={form.business_name}
+              onChange={e => setForm(f => ({ ...f, business_name: e.target.value }))} />
+          </div>
+          <div>
+            <label style={{ fontSize: 12, color: 'var(--text-2)', display: 'block', marginBottom: 4 }}>Contact name</label>
+            <input style={inputStyle} value={form.contact_name}
+              onChange={e => setForm(f => ({ ...f, contact_name: e.target.value }))} />
+          </div>
+          <div>
+            <label style={{ fontSize: 12, color: 'var(--text-2)', display: 'block', marginBottom: 4 }}>Contact email *</label>
+            <input required type="email" style={inputStyle} value={form.contact_email}
+              onChange={e => setForm(f => ({ ...f, contact_email: e.target.value }))} />
+          </div>
+          <div>
+            <label style={{ fontSize: 12, color: 'var(--text-2)', display: 'block', marginBottom: 4 }}>Website</label>
+            <input type="url" style={inputStyle} value={form.website}
+              onChange={e => setForm(f => ({ ...f, website: e.target.value }))} placeholder="https://" />
+          </div>
+          <div>
+            <label style={{ fontSize: 12, color: 'var(--text-2)', display: 'block', marginBottom: 4 }}>Operator type</label>
+            <select style={inputStyle} value={form.operator_type} onChange={e => setForm(f => ({ ...f, operator_type: e.target.value }))}>
+              <option value="day_tour">Day tour</option>
+              <option value="multi_day">Multi-day</option>
+              <option value="inbound_agency">Inbound agency</option>
+              <option value="travel_designer">Travel designer</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div>
+            <label style={{ fontSize: 12, color: 'var(--text-2)', display: 'block', marginBottom: 4 }}>Tier</label>
+            <select style={inputStyle} value={form.tier} onChange={e => setForm(f => ({ ...f, tier: e.target.value }))}>
+              <option value="trial">Trial</option>
+              <option value="starter">Starter</option>
+              <option value="pro">Pro</option>
+            </select>
+          </div>
+          <div>
+            <label style={{ fontSize: 12, color: 'var(--text-2)', display: 'block', marginBottom: 4 }}>Status</label>
+            <select style={inputStyle} value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
+              <option value="trial">Trial</option>
+              <option value="active">Active</option>
+              <option value="suspended">Suspended</option>
+            </select>
+          </div>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <button
+              type="submit"
+              disabled={creating}
+              style={{
+                padding: '10px 28px', background: 'var(--amber)', color: '#fff',
+                border: 'none', borderRadius: 4, fontSize: 14, cursor: 'pointer',
+                opacity: creating ? 0.6 : 1,
+              }}
+            >
+              {creating ? 'Creating...' : 'Create operator'}
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
+  )
+}

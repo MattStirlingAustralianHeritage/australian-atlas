@@ -19,6 +19,7 @@ const PAGE_TITLES = {
   staleness: 'Staleness',
   trails: 'Trails',
   articles: 'Articles',
+  operators: 'Operators',
   'audit-review': 'Data Audit',
   notes: 'Notes',
 }
