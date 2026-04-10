@@ -23,6 +23,79 @@ function logTrail(request, { promptText, regionDetected, verticalsIncluded, days
   } catch { /* silent */ }
 }
 
+/**
+ * Check whether the primary vertical(s) make up at least 50% of itinerary stops.
+ * Overnight stays are excluded — they're always 'rest' and shouldn't affect focus ratio.
+ */
+function enforceVerticalRatio(days, primaryVerticals) {
+  let totalStops = 0
+  let primaryStops = 0
+  for (const day of days) {
+    for (const stop of (day.stops || [])) {
+      totalStops++
+      if (primaryVerticals.includes(stop.vertical)) primaryStops++
+    }
+  }
+  const ratio = totalStops > 0 ? primaryStops / totalStops : 0
+  return { ratio, totalStops, primaryStops, passed: ratio >= 0.5 }
+}
+
+/** Build a deterministic cache key from the normalized query + flow params */
+function buildCacheKey(query, flow = {}) {
+  const normalized = [
+    query.toLowerCase().trim().replace(/\s+/g, ' '),
+    flow.accommodation || '',
+    flow.transport || '',
+    flow.group || '',
+    flow.pace || '',
+  ].join('|')
+  return createHash('sha256').update(normalized).digest('hex').slice(0, 32)
+}
+
+/**
+ * Call Anthropic with a 25s timeout and single retry on timeout/529.
+ * Falls through to the outer catch if both attempts fail.
+ */
+async function callAnthropicWithRetry(client, params, { timeoutMs = 25000 } = {}) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return await client.messages.create(params, { timeout: timeoutMs })
+    } catch (err) {
+      const isRetryable = err.status === 529
+        || err.name === 'APIConnectionTimeoutError'
+        || err.code === 'ETIMEDOUT'
+        || (err.message && err.message.includes('timeout'))
+
+      if (isRetryable && attempt === 0) {
+        console.warn(`[itinerary] Anthropic call failed (${err.status || err.code || err.name}), retrying once...`)
+        continue
+      }
+      throw err
+    }
+  }
+}
+
+/**
+ * Generate a query embedding using Voyage-3 (asymmetric, inputType: 'query').
+ * Returns null if VOYAGE_API_KEY is not set or the call fails — callers must handle gracefully.
+ */
+async function generateQueryEmbedding(text) {
+  if (!process.env.VOYAGE_API_KEY) return null
+  try {
+    const { VoyageAIClient } = await import('voyageai')
+    const client = new VoyageAIClient({ apiKey: process.env.VOYAGE_API_KEY })
+    const result = await client.embed({
+      model: 'voyage-3',
+      input: [text],
+      inputType: 'query',
+    })
+    return result.data?.[0]?.embedding || null
+  } catch (err) {
+    console.warn('[itinerary] Failed to generate query embedding:', err.message)
+    return null
+  }
+}
+
 // Map natural-language category hints to vertical keys
 const CATEGORY_KEYWORDS = {
   sba: ['wine', 'winery', 'wineries', 'vineyard', 'vineyards', 'brewery', 'breweries', 'distillery', 'distilleries', 'cellar door', 'gin', 'whisky', 'cider', 'craft beer', 'natural wine', 'spirits', 'drink', 'drinks', 'small batch', 'tasting'],
@@ -647,6 +720,25 @@ export async function GET(request) {
   }
 
   try {
+    // --- Response cache: return a recent cached result if available (24h TTL) ---
+    const cacheKey = buildCacheKey(q, { accommodation, transport, group, pace })
+    try {
+      const { data: cached } = await getSupabaseAdmin()
+        .from('user_trails')
+        .select('cached_response, created_at')
+        .eq('cache_key', cacheKey)
+        .eq('source', 'cache')
+        .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (cached?.cached_response) {
+        console.log(`[itinerary] Cache hit for key ${cacheKey.slice(0, 8)}...`)
+        return NextResponse.json({ ...cached.cached_response, cached: true })
+      }
+    } catch { /* no cache hit — proceed with generation */ }
+
     const { region, geoBounds, verticals, duration, city_note, preferences } = parseItineraryQuery(q)
 
     // Pace overrides stops-per-day target
@@ -767,6 +859,30 @@ export async function GET(request) {
       return applyGeoFilter(q, effectiveGeoBounds)
     }
 
+    // Start semantic search in parallel with geo queries (non-blocking).
+    // Uses Voyage-3 query embedding + geo-filtered cosine similarity via pgvector.
+    // Falls back gracefully if VOYAGE_API_KEY is missing or embeddings aren't populated.
+    const semanticPromise = (async () => {
+      const embedding = await generateQueryEmbedding(q)
+      if (!embedding) return []
+      try {
+        const { data, error: rpcErr } = await sb.rpc('search_listings_geo', {
+          query_embedding: `[${embedding.join(',')}]`,
+          lat_min: effectiveGeoBounds.latMin,
+          lat_max: effectiveGeoBounds.latMax,
+          lng_min: effectiveGeoBounds.lngMin,
+          lng_max: effectiveGeoBounds.lngMax,
+          match_threshold: 0.6,
+          match_count: 30,
+        })
+        if (rpcErr) throw rpcErr
+        return data || []
+      } catch (err) {
+        console.warn('[itinerary] Semantic search failed (non-fatal):', err.message)
+        return []
+      }
+    })()
+
     // Accommodation handling: exclude rest from candidates if daytrip
     const includeRest = accommodation !== 'daytrip'
 
@@ -829,6 +945,23 @@ export async function GET(request) {
       }
     }
 
+    // Merge semantic search results into candidate pool
+    const semanticResults = await semanticPromise
+    const semanticMatchIds = new Set()
+    if (semanticResults.length > 0) {
+      const existingIds = new Set((candidates || []).map(c => c.id))
+      let added = 0
+      for (const sr of semanticResults) {
+        semanticMatchIds.add(sr.id)
+        if (!existingIds.has(sr.id)) {
+          if (!candidates) candidates = []
+          candidates.push(sr)
+          added++
+        }
+      }
+      console.log(`[itinerary] Semantic search: ${semanticResults.length} matches, ${added} new candidates, ${semanticResults.length - added} existing boosted`)
+    }
+
     // Guarantee rest venues when accommodation is needed
     if (accommodation === 'need' && duration.days > 1) {
       const restInPool = (candidates || []).filter(c => c.vertical === 'rest').length
@@ -843,18 +976,20 @@ export async function GET(request) {
       }
     }
 
-    // Sort candidates: boost query verticals, claimed/featured venues, user preferences, and group-appropriate verticals
+    // Sort candidates: boost query verticals, claimed/featured venues, user preferences, semantic matches, and group-appropriate verticals
     candidates.sort((a, b) => {
       const aScore = (a.is_claimed ? 3 : 0) + (a.editors_pick ? 2 : 0) + (a.is_featured ? 1 : 0)
         + (effectiveVerticals.includes(a.vertical) ? 4 : 0)
         + (preferredVerticals.has(a.vertical) ? 2 : 0)
         + (groupWeights.boost.includes(a.vertical) ? 1 : 0)
         - (groupWeights.deprioritise.includes(a.vertical) ? 1 : 0)
+        + (semanticMatchIds.has(a.id) ? 3 : 0)
       const bScore = (b.is_claimed ? 3 : 0) + (b.editors_pick ? 2 : 0) + (b.is_featured ? 1 : 0)
         + (effectiveVerticals.includes(b.vertical) ? 4 : 0)
         + (preferredVerticals.has(b.vertical) ? 2 : 0)
         + (groupWeights.boost.includes(b.vertical) ? 1 : 0)
         - (groupWeights.deprioritise.includes(b.vertical) ? 1 : 0)
+        + (semanticMatchIds.has(b.id) ? 3 : 0)
       return bScore - aScore
     })
 
@@ -1129,7 +1264,7 @@ Return this exact JSON structure:
 
 Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per day. Make it flow geographically. Favour the requested vertical(s) heavily. You MUST have exactly ${duration.days} entries in the "days" array.`
 
-    const response = await anthropic.messages.create({
+    const response = await callAnthropicWithRetry(anthropic, {
       model: 'claude-sonnet-4-20250514',
       max_tokens: 4096,
       messages: [{ role: 'user', content: userPrompt }],
@@ -1159,7 +1294,7 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
     // Validate & strip: remove any stops whose listing_id doesn't exist in candidates.
     // The LLM is instructed to only use candidate venues, but occasionally hallucinates.
     let strippedCount = 0
-    const enrichedDays = (itinerary.days || []).map(day => {
+    let enrichedDays = (itinerary.days || []).map(day => {
       const enrichedStops = (day.stops || []).reduce((acc, stop) => {
         const candidate = venueData.find(v => String(v.id) === String(stop.listing_id))
         if (!candidate) {
@@ -1202,6 +1337,95 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
 
     if (strippedCount > 0) {
       console.warn(`[itinerary] Stripped ${strippedCount} hallucinated venue(s) from LLM output`)
+    }
+
+    // --- Vertical ratio enforcement ---
+    // Verify the primary vertical(s) dominate the itinerary (≥50% of stops).
+    // If below threshold, retry once with a stricter prompt.
+    const primaryVerticals = preferences.primary.length > 0 ? preferences.primary : effectiveVerticals
+    let ratioResult = primaryVerticals.length > 0
+      ? enforceVerticalRatio(enrichedDays, primaryVerticals)
+      : null
+    let ratioRetried = false
+
+    if (ratioResult && !ratioResult.passed) {
+      console.warn(`[itinerary] Vertical ratio check failed: ${(ratioResult.ratio * 100).toFixed(0)}% primary (${ratioResult.primaryStops}/${ratioResult.totalStops} stops). Retrying with stricter prompt.`)
+
+      const stricterSystem = systemPrompt + `\n\nCRITICAL RATIO OVERRIDE: Your previous attempt had only ${(ratioResult.ratio * 100).toFixed(0)}% of stops from the primary vertical(s) (${primaryVerticals.map(v => VERTICAL_LABELS[v] || v).join(', ')}). This MUST be at least 50%. Replace non-primary stops with primary-vertical venues from the candidate list. Do not pad with unrelated verticals.`
+
+      try {
+        const retryResponse = await callAnthropicWithRetry(anthropic, {
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 4096,
+          messages: [{ role: 'user', content: userPrompt }],
+          system: stricterSystem,
+        })
+
+        const retryText = retryResponse.content.find(b => b.type === 'text')
+        if (retryText) {
+          let retryRaw = retryText.text.trim()
+          if (retryRaw.startsWith('```')) {
+            retryRaw = retryRaw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
+          }
+
+          try {
+            const retryItinerary = JSON.parse(retryRaw)
+
+            // Re-run hallucination strip on retry result
+            let retryStrippedCount = 0
+            const retryDays = (retryItinerary.days || []).map(day => {
+              const stops = (day.stops || []).reduce((acc, stop) => {
+                const candidate = venueData.find(v => String(v.id) === String(stop.listing_id))
+                if (!candidate) { retryStrippedCount++; return acc }
+                acc.push({
+                  ...stop,
+                  slug: candidate.slug || null,
+                  source_id: candidate.source_id || null,
+                  hero_image_url: candidate.hero_image_url || null,
+                  region: candidate.region || null,
+                })
+                return acc
+              }, [])
+
+              let overnight = day.overnight
+              if (overnight?.listing_id) {
+                const candidate = venueData.find(v => String(v.id) === String(overnight.listing_id))
+                if (!candidate) { retryStrippedCount++; overnight = null }
+                else {
+                  overnight = {
+                    ...overnight,
+                    slug: candidate.slug || null,
+                    source_id: candidate.source_id || null,
+                    hero_image_url: candidate.hero_image_url || null,
+                    region: candidate.region || null,
+                  }
+                }
+              }
+
+              return { ...day, stops, overnight }
+            }).filter(day => (day.stops?.length || 0) > 0 || day.overnight)
+
+            const retryRatio = enforceVerticalRatio(retryDays, primaryVerticals)
+
+            // Accept retry if it improved the ratio (even if still under 50%)
+            if (retryRatio.ratio > ratioResult.ratio) {
+              enrichedDays = retryDays
+              itinerary.title = retryItinerary.title
+              itinerary.intro = retryItinerary.intro
+              strippedCount += retryStrippedCount
+              ratioResult = retryRatio
+              ratioRetried = true
+              console.log(`[itinerary] Retry improved ratio to ${(retryRatio.ratio * 100).toFixed(0)}% (${retryRatio.primaryStops}/${retryRatio.totalStops})`)
+            } else {
+              console.log(`[itinerary] Retry did not improve ratio (${(retryRatio.ratio * 100).toFixed(0)}%), keeping original`)
+            }
+          } catch (parseErr) {
+            console.warn('[itinerary] Ratio retry JSON parse failed:', parseErr.message, '— keeping original result')
+          }
+        }
+      } catch (retryErr) {
+        console.warn('[itinerary] Ratio enforcement retry failed:', retryErr.message, '— keeping original result')
+      }
     }
 
     // Build recommendations from unused candidates, constrained by geographic proximity
@@ -1295,7 +1519,8 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
       daysGenerated: enrichedDays.length,
     })
 
-    return NextResponse.json({
+    // Build response payload
+    const responsePayload = {
       title: itinerary.title,
       intro: itinerary.intro,
       days: enrichedDays,
@@ -1319,6 +1544,13 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
       duration,
       venue_count: venueData.length,
       stripped_count: strippedCount,
+      ratio_enforcement: ratioResult ? {
+        ratio: Math.round(ratioResult.ratio * 100),
+        primary_stops: ratioResult.primaryStops,
+        total_stops: ratioResult.totalStops,
+        passed: ratioResult.passed,
+        retried: ratioRetried,
+      } : null,
       // Echo question flow params for frontend display
       flow: (accommodation || transport || group || pace) ? {
         accommodation: accommodation || null,
@@ -1326,7 +1558,23 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
         group: group || null,
         pace: pace || null,
       } : null,
-    })
+    }
+
+    // --- Cache the generated response (fire-and-forget, 24h TTL enforced on read) ---
+    try {
+      getSupabaseAdmin().from('user_trails').insert({
+        cache_key: cacheKey,
+        source: 'cache',
+        title: itinerary.title,
+        prompt: q,
+        region: region || geoBounds?.label || null,
+        days: enrichedDays,
+        cached_response: responsePayload,
+      }).then(() => console.log(`[itinerary] Cached response for key ${cacheKey.slice(0, 8)}...`))
+        .catch(() => {})
+    } catch { /* cache write failure is non-blocking */ }
+
+    return NextResponse.json(responsePayload)
   } catch (err) {
     console.error('[itinerary] Fatal error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
