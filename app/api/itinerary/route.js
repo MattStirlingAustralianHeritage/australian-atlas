@@ -53,21 +53,16 @@ function buildCacheKey(query, flow = {}) {
 }
 
 /**
- * Call Anthropic with a 25s timeout and single retry on timeout/529.
- * Falls through to the outer catch if both attempts fail.
+ * Call Anthropic with a single retry on 529 (overloaded).
+ * No client-side timeout — the Vercel function timeout is the backstop.
  */
-async function callAnthropicWithRetry(client, params, { timeoutMs = 25000 } = {}) {
+async function callAnthropicWithRetry(client, params) {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      return await client.messages.create(params, { timeout: timeoutMs })
+      return await client.messages.create(params)
     } catch (err) {
-      const isRetryable = err.status === 529
-        || err.name === 'APIConnectionTimeoutError'
-        || err.code === 'ETIMEDOUT'
-        || (err.message && err.message.includes('timeout'))
-
-      if (isRetryable && attempt === 0) {
-        console.warn(`[itinerary] Anthropic call failed (${err.status || err.code || err.name}), retrying once...`)
+      if (err.status === 529 && attempt === 0) {
+        console.warn('[itinerary] Anthropic overloaded (529), retrying once...')
         continue
       }
       throw err
