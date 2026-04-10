@@ -61,15 +61,14 @@ function extractDestination(query) {
 }
 
 // Mapbox route line fetcher
-async function fetchRouteGeometry(coordinates, token) {
+async function fetchRouteGeometry(coordinates) {
   if (coordinates.length < 2 || coordinates.length > 25) return null
   const coords = coordinates.map(c => c.join(',')).join(';')
-  const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${coords}?geometries=geojson&overview=full&access_token=${token}`
   try {
-    const res = await fetch(url)
+    const res = await fetch(`/api/mapbox/route?coordinates=${encodeURIComponent(coords)}`)
     if (!res.ok) return null
     const data = await res.json()
-    return data.routes?.[0]?.geometry ?? null
+    return data.geometry ?? null
   } catch {
     return null
   }
@@ -139,6 +138,7 @@ function ItineraryMap({ days }) {
 
       mapRef.current = map
       map.addControl(new mapboxgl.NavigationControl(), 'top-right')
+      map.on('load', tryStart) // fast-path — registered early to avoid missing cached-style loads
 
       // Helper: add a marker to the map (no animation)
       function addStaticMarker(stop, mapboxgl, map) {
@@ -222,16 +222,16 @@ function ItineraryMap({ days }) {
       function tryStart() {
         if (animStarted) return
         if (!mapRef.current) { clearInterval(readyPoll); return }
-        try { if (!map.isStyleLoaded()) return } catch { clearInterval(readyPoll); return }
+        console.debug('[trail-map] tryStart tick — isStyleLoaded:', (() => { try { return map.isStyleLoaded() } catch(e) { return `threw: ${e.message}` } })())
+        try { if (!map.isStyleLoaded()) return } catch { return }
         animStarted = true
         clearInterval(readyPoll)
         runMapAnimation()
       }
       const readyPoll = setInterval(tryStart, 200)
       tryStart() // immediate check
-      map.on('load', tryStart) // fast-path if event fires
 
-      // Absolute timeout: static fallback after 12s
+      // Absolute timeout: static fallback after 5s
       setTimeout(() => {
         if (animStarted) return
         animStarted = true
@@ -245,7 +245,7 @@ function ItineraryMap({ days }) {
             addStaticMarker(stop, mapboxgl, map)
           }
         } catch (e) { /* timeout fallback failed */ }
-      }, 12000)
+      }, 5000)
 
       async function runMapAnimation() {
         // Inject pin-drop keyframe animation
@@ -269,11 +269,10 @@ function ItineraryMap({ days }) {
           for (const group of dayStopGroups) {
             let routeGeometry = null
             if (group.coordinates.length >= 2) {
-              routeGeometry = await fetchRouteGeometry(group.coordinates, token)
+              routeGeometry = await fetchRouteGeometry(group.coordinates)
             }
-            const coords = routeGeometry
-              ? routeGeometry.coordinates
-              : group.coordinates
+            // Null guard: use Directions API geometry if available, otherwise straight lines between stops
+            const coords = routeGeometry?.coordinates ?? group.coordinates
             if (coords && coords.length >= 2) {
               routeData.push({ dayNumber: group.dayNumber, coordinates: coords })
             }
