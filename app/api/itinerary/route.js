@@ -43,6 +43,15 @@ function logTrail(request, { promptText, regionDetected, verticalsIncluded, days
   } catch { /* silent */ }
 }
 
+/** Haversine distance in km between two lat/lng points */
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLng = (lng2 - lng1) * Math.PI / 180
+  const a = Math.sin(dLat/2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng/2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
 /**
  * Build a simplified fallback itinerary directly from venue data — no Claude call.
  * Used when the Claude API fails after retries. Returns a basic but functional itinerary
@@ -249,14 +258,14 @@ const GEO_ANCHORS = {
   'Limestone Coast':        { lat: -37.05, lng: 140.80, r: 0.50 },
   'Scenic Rim':             { lat: -28.10, lng: 152.80, r: 0.35 },
   'Flinders Ranges':        { lat: -32.00, lng: 138.60, r: 0.60 },
-  // Cities — slightly larger radius to capture metro + fringe
-  'Melbourne':              { lat: -37.81, lng: 144.96, r: 0.45 },
-  'Sydney':                 { lat: -33.87, lng: 151.21, r: 0.45 },
-  'Brisbane':               { lat: -27.47, lng: 153.03, r: 0.45 },
-  'Adelaide':               { lat: -34.93, lng: 138.60, r: 0.40 },
-  'Perth':                  { lat: -31.95, lng: 115.86, r: 0.45 },
-  'Hobart':                 { lat: -42.88, lng: 147.33, r: 0.40 },
-  'Darwin':                 { lat: -12.46, lng: 130.84, r: 0.40 },
+  // Cities — metro-only radius (0.25° ≈ 28km from center, covers inner + middle suburbs)
+  'Melbourne':              { lat: -37.81, lng: 144.96, r: 0.25 },
+  'Sydney':                 { lat: -33.87, lng: 151.21, r: 0.25 },
+  'Brisbane':               { lat: -27.47, lng: 153.03, r: 0.25 },
+  'Adelaide':               { lat: -34.93, lng: 138.60, r: 0.25 },
+  'Perth':                  { lat: -31.95, lng: 115.86, r: 0.30 },
+  'Hobart':                 { lat: -42.88, lng: 147.33, r: 0.25 },
+  'Darwin':                 { lat: -12.46, lng: 130.84, r: 0.25 },
   'Fremantle':              { lat: -32.05, lng: 115.75, r: 0.25 },
   'Bendigo':                { lat: -36.76, lng: 144.28, r: 0.30 },
   'Ballarat':               { lat: -37.56, lng: 143.85, r: 0.30 },
@@ -1296,6 +1305,12 @@ DAY SEQUENCING: Order venues within each day to follow a natural chronological f
 6. Wine, beer, and spirit tastings in the late afternoon/evening (sba)
 7. Accommodation as the final stop of the day (rest)
 The ideal vertical order within a day is: ${VERTICAL_ORDER.join(' → ')}. This isn't rigid — geographic proximity should still inform grouping — but prefer this flow when venues are in similar locations.
+
+GEOGRAPHIC COHERENCE: All stops in the itinerary must be geographically tight.
+- For city trips: all stops should be within ~25km of each other. Never include a venue 50+ km away.
+- For regional trips: stops should cluster within the core region. Avoid venues on the geographic fringe of the candidate list.
+- Before selecting a venue, check its lat/lng against the other stops you've chosen. If it's significantly further away than the rest, skip it and pick a closer alternative.
+- A compact, walkable/drivable itinerary is ALWAYS better than a geographically scattered one, even if it means missing a "better" venue.
 ${accommodationInstruction}${transportInstruction}${groupInstruction}${paceInstruction}${preferencesPrompt}
 
 Respond with valid JSON only. No markdown, no code fences, just the JSON object.`
@@ -1470,6 +1485,66 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
       console.warn(`[itinerary] Stripped ${strippedCount} hallucinated venue(s) from LLM output`)
     }
 
+    // --- Geographic outlier filter ---
+    // Remove stops that are geographically far from the cluster centroid.
+    // This catches venues the LLM placed from the edges of the geo bounding box
+    // that would make the itinerary impractical (e.g. a Central Coast venue on a Sydney trip).
+    {
+      // Max radius from centroid: tighter for day trips/walking, wider for multi-day driving
+      const maxRadiusKm = transport === 'walking' ? 8
+        : transport === 'public' ? 20
+        : duration.days > 1 ? 60
+        : 35
+
+      // Collect all stop coordinates to find centroid
+      const allCoords = []
+      for (const day of enrichedDays) {
+        for (const stop of (day.stops || [])) {
+          if (stop.lat && stop.lng) allCoords.push({ lat: parseFloat(stop.lat), lng: parseFloat(stop.lng) })
+        }
+        if (day.overnight?.lat && day.overnight?.lng) {
+          allCoords.push({ lat: parseFloat(day.overnight.lat), lng: parseFloat(day.overnight.lng) })
+        }
+      }
+
+      if (allCoords.length >= 3) {
+        const cLat = allCoords.reduce((s, c) => s + c.lat, 0) / allCoords.length
+        const cLng = allCoords.reduce((s, c) => s + c.lng, 0) / allCoords.length
+
+        let outlierCount = 0
+        enrichedDays = enrichedDays.map(day => {
+          const filteredStops = (day.stops || []).filter(stop => {
+            if (!stop.lat || !stop.lng) return true // keep stops without coords (rare)
+            const dist = haversineKm(cLat, cLng, parseFloat(stop.lat), parseFloat(stop.lng))
+            if (dist > maxRadiusKm) {
+              console.warn(`[itinerary] OUTLIER removed: "${stop.venue_name}" is ${Math.round(dist)}km from cluster center (max ${maxRadiusKm}km)`)
+              outlierCount++
+              return false
+            }
+            return true
+          })
+
+          // Check overnight too
+          let overnight = day.overnight
+          if (overnight?.lat && overnight?.lng) {
+            const dist = haversineKm(cLat, cLng, parseFloat(overnight.lat), parseFloat(overnight.lng))
+            if (dist > maxRadiusKm) {
+              console.warn(`[itinerary] OUTLIER removed overnight: "${overnight.venue_name}" is ${Math.round(dist)}km from center`)
+              overnight = null
+              outlierCount++
+            }
+          }
+
+          return { ...day, stops: filteredStops, overnight }
+        }).filter(day => (day.stops?.length || 0) > 0 || day.overnight)
+
+        if (outlierCount > 0) {
+          strippedCount += outlierCount
+          console.log(`[itinerary] Removed ${outlierCount} geographic outlier(s) (>${maxRadiusKm}km from centroid)`)
+        }
+      }
+    }
+
     // --- Vertical ratio enforcement ---
     // Verify the primary vertical(s) dominate the itinerary (≥50% of stops).
     // If below threshold, retry once with a stricter prompt.
@@ -1615,14 +1690,8 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
       centroidLng = usedCoords.reduce((s, c) => s + c.lng, 0) / usedCoords.length
     }
 
-    // Haversine distance in km
-    function distKm(lat1, lng1, lat2, lng2) {
-      const R = 6371
-      const dLat = (lat2 - lat1) * Math.PI / 180
-      const dLng = (lng2 - lng1) * Math.PI / 180
-      const a = Math.sin(dLat/2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng/2) ** 2
-      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-    }
+    // Alias to top-level haversine for recommendation proximity filtering
+    const distKm = haversineKm
 
     const RECOMMENDATION_RADIUS_KM = 50
 
