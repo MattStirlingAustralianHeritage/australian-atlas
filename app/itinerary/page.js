@@ -528,6 +528,18 @@ function TrailResult({ itinerary, totalStops, flow, addedRecs, onAddRec, query }
           </p>
         )}
 
+        {/* Accommodation note — shown when no Rest Atlas listings available */}
+        {itinerary.accommodation_note && (
+          <div style={{
+            fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 400,
+            color: '#744210', background: '#fefbf3',
+            border: '1px solid #f0dba8', borderRadius: 8,
+            padding: '12px 16px', marginBottom: 20, lineHeight: 1.6,
+          }}>
+            {itinerary.accommodation_note}
+          </div>
+        )}
+
         {/* Days */}
         {(() => {
           let globalIndex = 0

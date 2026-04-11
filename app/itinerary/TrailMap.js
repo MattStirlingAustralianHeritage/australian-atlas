@@ -3,7 +3,21 @@
 import { useEffect, useRef } from 'react'
 
 const DAY_COLORS = ['#B87333', '#4A6741', '#4A5568', '#744210', '#2C5282']
+const ACCOM_COLOR = '#4A6741'
+const ANIMATION_MS = 1500
 
+/**
+ * Trail itinerary map — native GL layers (no HTML markers).
+ *
+ * Sources:
+ *   trail-stops        FeatureCollection of Points (number, name, isAccom, visible)
+ *   trail-route-{i}    LineString per day (animated on load)
+ *
+ * Layers:
+ *   trail-route-line-{i}   per-day route line
+ *   trail-stops-circle      numbered dot background
+ *   trail-stops-number      stop index text
+ */
 export default function TrailMap({ days }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
@@ -12,16 +26,14 @@ export default function TrailMap({ days }) {
     if (!containerRef.current || mapRef.current) return
     if (!days || days.length === 0) return
 
-    let map
     import('mapbox-gl').then(({ default: mapboxgl }) => {
       mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
 
-      const allStops = days.flatMap(d => d.stops || [])
-        .filter(s => s.lat && s.lng && !isNaN(s.lat) && !isNaN(s.lng))
-
+      // Collect ALL stops including overnights
+      const allStops = collectStops(days)
       if (allStops.length === 0) return
 
-      map = new mapboxgl.Map({
+      const map = new mapboxgl.Map({
         container: containerRef.current,
         style: 'mapbox://styles/mapbox/light-v11',
         center: [parseFloat(allStops[0].lng), parseFloat(allStops[0].lat)],
@@ -30,13 +42,12 @@ export default function TrailMap({ days }) {
       })
 
       mapRef.current = map
-
       map.addControl(new mapboxgl.NavigationControl(), 'top-right')
       map.addControl(new mapboxgl.AttributionControl({ compact: true }))
 
       map.on('load', () => {
         map.resize()
-        addMarkersAndRoutes(map, mapboxgl, days, allStops)
+        buildLayers(map, mapboxgl, days, allStops)
       })
     })
 
@@ -49,104 +60,239 @@ export default function TrailMap({ days }) {
   }, [days])
 
   return (
-    <div
-      ref={containerRef}
-      style={{ width: '100%', height: '100%', minHeight: 400 }}
-    />
+    <div ref={containerRef} style={{ width: '100%', height: '100%', minHeight: 400 }} />
   )
 }
 
-async function addMarkersAndRoutes(map, mapboxgl, days, allStops) {
-  // 1. Fit bounds to all stops
+// ── Helpers ──────────────────────────────────────────────────
+
+/** Flatten days → ordered stop list including overnights. */
+function collectStops(days) {
+  const out = []
+  let idx = 0
+  days.forEach((day, dayIdx) => {
+    ;(day.stops || [])
+      .filter(s => s.lat && s.lng && !isNaN(s.lat) && !isNaN(s.lng))
+      .forEach(stop => {
+        idx++
+        out.push({ ...stop, _idx: idx, _day: dayIdx, _accom: stop.vertical === 'rest' })
+      })
+    if (day.overnight?.lat && day.overnight?.lng && !isNaN(day.overnight.lat) && !isNaN(day.overnight.lng)) {
+      idx++
+      out.push({ ...day.overnight, _idx: idx, _day: dayIdx, _accom: true })
+    }
+  })
+  return out
+}
+
+/** Build a GeoJSON FeatureCollection for stops. */
+function stopsGeoJSON(allStops) {
+  return {
+    type: 'FeatureCollection',
+    features: allStops.map(s => ({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [parseFloat(s.lng), parseFloat(s.lat)] },
+      properties: {
+        number: String(s._idx),
+        name: s.venue_name || s.name || '',
+        vertical: s.vertical || '',
+        isAccom: s._accom || false,
+        day: s._day,
+        visible: false,
+      },
+    })),
+  }
+}
+
+// ── Layer construction + animation ──────────────────────────
+
+async function buildLayers(map, mapboxgl, days, allStops) {
+  // 1. Fit bounds
   const lngs = allStops.map(s => parseFloat(s.lng))
   const lats = allStops.map(s => parseFloat(s.lat))
-
   map.fitBounds(
-    [
-      [Math.min(...lngs) - 0.01, Math.min(...lats) - 0.01],
-      [Math.max(...lngs) + 0.01, Math.max(...lats) + 0.01],
-    ],
+    [[Math.min(...lngs) - 0.01, Math.min(...lats) - 0.01],
+     [Math.max(...lngs) + 0.01, Math.max(...lats) + 0.01]],
     { padding: 60, duration: 1000, maxZoom: 14 }
   )
 
-  // 2. Fetch routed geometry for each day via server proxy
-  for (let i = 0; i < days.length; i++) {
-    const day = days[i]
-    const stops = (day.stops || [])
-      .filter(s => s.lat && s.lng && !isNaN(s.lat) && !isNaN(s.lng))
-
-    if (stops.length < 2) continue
-
-    const coords = stops.map(s => [parseFloat(s.lng), parseFloat(s.lat)])
-    const color = DAY_COLORS[i % DAY_COLORS.length]
-
-    // Try server proxy for real road routing
-    let routeCoords = coords
+  // 2. Fetch routed geometry per day (in parallel)
+  const routePromises = days.map(async (day, i) => {
+    const dayStops = allStops.filter(s => s._day === i)
+    if (dayStops.length < 2) {
+      return dayStops.map(s => [parseFloat(s.lng), parseFloat(s.lat)])
+    }
+    const coords = dayStops.map(s => [parseFloat(s.lng), parseFloat(s.lat)])
     try {
       const coordStr = coords.map(c => c.join(',')).join(';')
       const res = await fetch(`/api/mapbox/directions?coords=${encodeURIComponent(coordStr)}`)
       if (res.ok) {
         const data = await res.json()
-        if (data.geometry?.coordinates?.length >= 2) {
-          routeCoords = data.geometry.coordinates
-        }
+        if (data.geometry?.coordinates?.length >= 2) return data.geometry.coordinates
       }
-    } catch {
-      // silently fall back to straight lines
-    }
+    } catch { /* fall back to straight lines */ }
+    return coords
+  })
+  const dayRoutes = await Promise.all(routePromises)
 
-    map.addSource(`route-day-${i}`, {
+  // 3. Add empty route sources + line layers (drawn first so stops render on top)
+  dayRoutes.forEach((_, i) => {
+    map.addSource(`trail-route-${i}`, {
       type: 'geojson',
-      data: {
-        type: 'Feature',
-        geometry: { type: 'LineString', coordinates: routeCoords },
-      },
+      data: { type: 'Feature', geometry: { type: 'LineString', coordinates: [] } },
     })
-
     map.addLayer({
-      id: `route-day-${i}-line`,
+      id: `trail-route-line-${i}`,
       type: 'line',
-      source: `route-day-${i}`,
+      source: `trail-route-${i}`,
       layout: { 'line-join': 'round', 'line-cap': 'round' },
       paint: {
-        'line-color': color,
+        'line-color': DAY_COLORS[i % DAY_COLORS.length],
         'line-width': 3,
         'line-opacity': 0.8,
       },
     })
+  })
+
+  // 4. Add stop source + layers (on top of routes)
+  const geojson = stopsGeoJSON(allStops)
+  map.addSource('trail-stops', { type: 'geojson', data: geojson })
+
+  map.addLayer({
+    id: 'trail-stops-circle',
+    type: 'circle',
+    source: 'trail-stops',
+    filter: ['==', ['get', 'visible'], true],
+    paint: {
+      'circle-radius': 14,
+      'circle-color': ['case', ['==', ['get', 'isAccom'], true], ACCOM_COLOR, '#1a1a1a'],
+      'circle-stroke-width': 2,
+      'circle-stroke-color': '#ffffff',
+    },
+  })
+
+  map.addLayer({
+    id: 'trail-stops-number',
+    type: 'symbol',
+    source: 'trail-stops',
+    filter: ['==', ['get', 'visible'], true],
+    layout: {
+      'text-field': ['get', 'number'],
+      'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+      'text-size': 12,
+      'text-allow-overlap': true,
+      'icon-allow-overlap': true,
+    },
+    paint: { 'text-color': '#ffffff' },
+  })
+
+  // 5. Hover popup
+  const popup = new mapboxgl.Popup({
+    closeButton: false,
+    closeOnClick: false,
+    offset: 18,
+    maxWidth: '240px',
+  })
+  map.on('mouseenter', 'trail-stops-circle', (e) => {
+    map.getCanvas().style.cursor = 'pointer'
+    const props = e.features[0].properties
+    const coords = e.features[0].geometry.coordinates.slice()
+    popup
+      .setLngLat(coords)
+      .setHTML(
+        `<div style="font-family:system-ui,-apple-system,sans-serif;padding:2px 4px;">` +
+        `<div style="font-size:13px;font-weight:600;color:#1a1a1a;">${props.name}</div>` +
+        (props.isAccom === true || props.isAccom === 'true'
+          ? `<div style="font-size:10px;color:#4A6741;font-weight:600;margin-top:2px;">Accommodation</div>`
+          : '') +
+        `</div>`
+      )
+      .addTo(map)
+  })
+  map.on('mouseleave', 'trail-stops-circle', () => {
+    map.getCanvas().style.cursor = ''
+    popup.remove()
+  })
+
+  // 6. Animate route drawing + reveal stops
+  animateRoutes(map, dayRoutes, allStops, geojson)
+}
+
+// ── Route animation ─────────────────────────────────────────
+
+function animateRoutes(map, dayRoutes, allStops, geojson) {
+  // Pre-compute: for each day route, find the closest coord index for each stop
+  const segments = dayRoutes.map((coords, dayIdx) => {
+    const dayStops = allStops.filter(s => s._day === dayIdx)
+    const stopCoordMap = dayStops.map(stop => {
+      const sLng = parseFloat(stop.lng)
+      const sLat = parseFloat(stop.lat)
+      let closest = 0
+      let best = Infinity
+      for (let j = 0; j < coords.length; j++) {
+        const d = (coords[j][0] - sLng) ** 2 + (coords[j][1] - sLat) ** 2
+        if (d < best) { best = d; closest = j }
+      }
+      return { globalIdx: stop._idx, coordIdx: closest }
+    })
+    return { coords, dayIdx, stopCoordMap }
+  })
+
+  const start = performance.now()
+
+  function tick(now) {
+    const elapsed = now - start
+    const t = Math.min(elapsed / ANIMATION_MS, 1)
+    const eased = 1 - Math.pow(1 - t, 3) // ease-out cubic
+
+    let revealed = false
+
+    for (const seg of segments) {
+      const { coords, dayIdx, stopCoordMap } = seg
+      if (coords.length === 0) continue
+
+      const endIdx = Math.max(1, Math.floor(eased * coords.length))
+      const partial = coords.slice(0, endIdx)
+
+      if (partial.length >= 2) {
+        const src = map.getSource(`trail-route-${dayIdx}`)
+        if (src) {
+          src.setData({
+            type: 'Feature',
+            geometry: { type: 'LineString', coordinates: partial },
+          })
+        }
+      }
+
+      // Reveal stops as the line reaches them
+      for (const { globalIdx, coordIdx } of stopCoordMap) {
+        if (endIdx > coordIdx) {
+          const fi = geojson.features.findIndex(
+            f => f.properties.number === String(globalIdx)
+          )
+          if (fi >= 0 && !geojson.features[fi].properties.visible) {
+            geojson.features[fi].properties.visible = true
+            revealed = true
+          }
+        }
+      }
+    }
+
+    if (revealed) {
+      map.getSource('trail-stops').setData(geojson)
+    }
+
+    if (t < 1) {
+      requestAnimationFrame(tick)
+    } else {
+      // Ensure every stop is visible at the end
+      let final = false
+      geojson.features.forEach(f => {
+        if (!f.properties.visible) { f.properties.visible = true; final = true }
+      })
+      if (final) map.getSource('trail-stops').setData(geojson)
+    }
   }
 
-  // 3. Add markers (after routes so they render on top)
-  let stopIndex = 0
-  days.forEach(day => {
-    ;(day.stops || [])
-      .filter(s => s.lat && s.lng)
-      .forEach(stop => {
-        stopIndex++
-        const isAccom = stop.vertical === 'rest'
-        const el = document.createElement('div')
-        el.innerHTML = stopIndex
-        el.style.cssText = `
-          width: 28px; height: 28px; border-radius: 50%;
-          background: ${isAccom ? '#4A6741' : '#1a1a1a'};
-          color: white; font-size: 11px; font-weight: 600;
-          display: flex; align-items: center; justify-content: center;
-          cursor: pointer; border: 2px solid white;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-          opacity: 0; transform: scale(0);
-          transition: opacity 0.3s ease ${stopIndex * 60}ms,
-                      transform 0.3s cubic-bezier(0.34,1.56,0.64,1) ${stopIndex * 60}ms;
-        `
-        new mapboxgl.Marker({ element: el })
-          .setLngLat([parseFloat(stop.lng), parseFloat(stop.lat)])
-          .addTo(map)
-
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            el.style.opacity = '1'
-            el.style.transform = 'scale(1)'
-          })
-        })
-      })
-  })
+  requestAnimationFrame(tick)
 }

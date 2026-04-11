@@ -961,16 +961,20 @@ export async function GET(request) {
       console.log(`[itinerary] Semantic search: ${semanticResults.length} matches, ${added} new candidates, ${semanticResults.length - added} existing boosted`)
     }
 
-    // Guarantee rest venues when accommodation is needed
-    if (accommodation === 'need' && duration.days > 1) {
+    // Guarantee rest venues when accommodation is needed (or any multi-day trip
+    // where the user hasn't said "sorted" or "daytrip").
+    const shouldGuaranteeRest = duration.days > 1 && accommodation !== 'sorted' && accommodation !== 'daytrip'
+    if (shouldGuaranteeRest) {
       const restInPool = (candidates || []).filter(c => c.vertical === 'rest').length
       const nightsNeeded = duration.days - 1
       if (restInPool < nightsNeeded + 1) {
-        const { data: restVenues } = await baseQuery().eq('vertical', 'rest').limit(nightsNeeded + 3)
+        console.log(`[itinerary] Only ${restInPool} rest venues in pool, need ${nightsNeeded + 1}. Fetching more.`)
+        const { data: restVenues } = await baseQuery().eq('vertical', 'rest').limit(nightsNeeded + 5)
         if (restVenues?.length > 0) {
           const existingIds = new Set((candidates || []).map(c => c.id))
           const newRest = restVenues.filter(v => !existingIds.has(v.id))
           candidates = [...(candidates || []), ...newRest]
+          console.log(`[itinerary] Added ${newRest.length} rest venues to candidate pool`)
         }
       }
     }
@@ -1494,9 +1498,80 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
 
     const RECOMMENDATION_RADIUS_KM = 50
 
-    // Check if itinerary is missing accommodation for multi-day trips
+    // Check if itinerary is missing accommodation for multi-day trips.
+    // If the user asked for accommodation (or it's a multi-day trip without "sorted"),
+    // try to inject rest venues the LLM forgot.
     const hasOvernight = enrichedDays.some(d => d.overnight?.listing_id)
-    const needsAccommodation = duration.days > 1 && !hasOvernight
+    let needsAccommodation = duration.days > 1 && !hasOvernight
+    let accommodationNote = null
+
+    if (needsAccommodation && shouldGuaranteeRest) {
+      // Find available rest venues not already used
+      const usedRestIds = new Set()
+      enrichedDays.forEach(d => {
+        if (d.overnight?.listing_id) usedRestIds.add(d.overnight.listing_id)
+        ;(d.stops || []).filter(s => s.vertical === 'rest').forEach(s => usedRestIds.add(s.listing_id))
+      })
+      const availableRest = venueData.filter(v => v.vertical === 'rest' && !usedRestIds.has(v.id))
+
+      if (availableRest.length > 0) {
+        // Inject accommodation into each non-final day that's missing an overnight
+        let injected = 0
+        for (let di = 0; di < enrichedDays.length - 1; di++) {
+          const day = enrichedDays[di]
+          if (day.overnight?.listing_id) continue // already has one
+
+          // Find the rest venue closest to this day's stops
+          const dayStops = (day.stops || []).filter(s => s.lat && s.lng)
+          if (dayStops.length === 0) continue
+
+          const dayCenter = {
+            lat: dayStops.reduce((a, s) => a + parseFloat(s.lat), 0) / dayStops.length,
+            lng: dayStops.reduce((a, s) => a + parseFloat(s.lng), 0) / dayStops.length,
+          }
+
+          let bestRest = null
+          let bestDist = Infinity
+          for (const rv of availableRest) {
+            const d = distKm(dayCenter.lat, dayCenter.lng, rv.lat, rv.lng)
+            if (d < bestDist) { bestDist = d; bestRest = rv }
+          }
+
+          if (bestRest && bestDist < 80) {
+            enrichedDays[di] = {
+              ...enrichedDays[di],
+              overnight: {
+                listing_id: bestRest.id,
+                venue_name: bestRest.name,
+                vertical: 'rest',
+                lat: bestRest.lat,
+                lng: bestRest.lng,
+                slug: bestRest.slug || null,
+                source_id: bestRest.source_id || null,
+                hero_image_url: bestRest.hero_image_url || null,
+                region: bestRest.region || null,
+                note: `A place to rest for the night in ${bestRest.region || 'the area'}.`,
+              },
+            }
+            // Remove from available pool so we don't reuse
+            const idx = availableRest.indexOf(bestRest)
+            if (idx >= 0) availableRest.splice(idx, 1)
+            injected++
+          }
+        }
+
+        if (injected > 0) {
+          console.log(`[itinerary] Auto-injected ${injected} overnight accommodation stop(s)`)
+          needsAccommodation = false
+        }
+      }
+
+      // If we still have no accommodation, set a note for the frontend
+      if (needsAccommodation) {
+        accommodationNote = 'No Rest Atlas accommodation listings are currently available in this region. We recommend checking local booking sites for places to stay.'
+        console.warn('[itinerary] No rest venues available to inject for accommodation')
+      }
+    }
 
     // Use preferredVerticals (already computed earlier) for recommendation weighting
     const interestVerticals = preferredVerticals
@@ -1560,6 +1635,7 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
       days: enrichedDays,
       recommendations,
       needs_accommodation: needsAccommodation && accommodation !== 'sorted',
+      accommodation_note: accommodationNote || null,
       thin_corpus: thinCorpus,
       parsed_preferences: {
         primary: preferences.primary.map(v => VERTICAL_LABELS[v] || v),
