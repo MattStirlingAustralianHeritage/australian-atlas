@@ -98,7 +98,11 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
   const popup = useRef(null)
 
   const [allListings, setAllListings] = useState([])
-  const [verticalFilter, setVerticalFilter] = useState(initialVertical || 'all')
+  // Multi-select vertical filter — empty Set = "all"
+  const [selectedVerticals, setSelectedVerticals] = useState(() => {
+    if (initialVertical && initialVertical !== 'all') return new Set([initialVertical])
+    return new Set()
+  })
   const [subTypeFilter, setSubTypeFilter] = useState('all')
   const [stateFilter, setStateFilter] = useState(initialState || 'All States')
   const [search, setSearch] = useState('')
@@ -118,6 +122,24 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
 
   const listingsRef = useRef([])
   useEffect(() => { listingsRef.current = allListings }, [allListings])
+
+  // Multi-select vertical toggle
+  function toggleVertical(key) {
+    setSubTypeFilter('all') // reset sub-type when vertical selection changes
+    if (key === 'all') {
+      setSelectedVerticals(new Set())
+      return
+    }
+    setSelectedVerticals(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  // Derived: single-selected vertical for sub-type pills
+  const singleSelectedVertical = selectedVerticals.size === 1 ? [...selectedVerticals][0] : null
 
   // Debounced geocoding search
   useEffect(() => {
@@ -189,10 +211,7 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
     fetchData()
   }, [])
 
-  // Reset sub-type filter when vertical changes
-  useEffect(() => {
-    setSubTypeFilter('all')
-  }, [verticalFilter])
+  // Sub-type reset is handled inside toggleVertical()
 
   // Build map once listings are loaded
   useEffect(() => {
@@ -220,7 +239,7 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
       })
 
       map.current.on('load', () => {
-        const filtered = getFiltered(allListings, verticalFilter, subTypeFilter, stateFilter, search)
+        const filtered = getFiltered(allListings, selectedVerticals, subTypeFilter, stateFilter, search)
 
         map.current.addSource('listings-clustered', {
           type: 'geojson',
@@ -333,11 +352,11 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
   // Update map source when filters change
   useEffect(() => {
     if (!mapReady || !map.current) return
-    const filtered = getFiltered(allListings, verticalFilter, subTypeFilter, stateFilter, search)
+    const filtered = getFiltered(allListings, selectedVerticals, subTypeFilter, stateFilter, search)
     setCount(filtered.length)
     const source = map.current.getSource('listings-clustered')
     if (source) source.setData(buildGeoJSON(filtered))
-  }, [allListings, verticalFilter, subTypeFilter, stateFilter, search, mapReady])
+  }, [allListings, selectedVerticals, subTypeFilter, stateFilter, search, mapReady])
 
   // Zoom to state
   useEffect(() => {
@@ -350,10 +369,11 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
     }
   }, [stateFilter, mapReady])
 
-  const activeFilterCount = (verticalFilter !== 'all' ? 1 : 0) + (subTypeFilter !== 'all' ? 1 : 0) + (stateFilter !== 'All States' ? 1 : 0) + (search ? 1 : 0)
+  const isAllVerticals = selectedVerticals.size === 0
+  const activeFilterCount = (!isAllVerticals ? 1 : 0) + (subTypeFilter !== 'all' ? 1 : 0) + (stateFilter !== 'All States' ? 1 : 0) + (search ? 1 : 0)
 
-  // Get available sub-types for the current vertical filter
-  const currentSubTypes = verticalFilter !== 'all' ? SUB_TYPE_LABELS[verticalFilter] || {} : {}
+  // Sub-type pills only shown when exactly one vertical is selected
+  const currentSubTypes = singleSelectedVertical ? SUB_TYPE_LABELS[singleSelectedVertical] || {} : {}
   const hasSubTypes = Object.keys(currentSubTypes).length > 0
 
   return (
@@ -423,14 +443,17 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
               )}
             </div>
             <div style={{ width: 1, height: 18, background: 'var(--color-border)' }} />
-            {VERTICAL_FILTERS.map(v => (
-              <button key={v.key} onClick={() => setVerticalFilter(v.key)} style={{
-                padding: '5px 12px', borderRadius: 2, border: 'none', cursor: 'pointer',
-                fontSize: 11, fontWeight: verticalFilter === v.key ? 600 : 500, fontFamily: 'var(--font-sans)',
-                background: verticalFilter === v.key ? (VERTICAL_COLORS[v.key] || PRIMARY) : 'rgba(95,138,126,0.1)',
-                color: verticalFilter === v.key ? '#fff' : 'var(--color-muted)', transition: 'all 0.15s',
-              }}>{v.label}</button>
-            ))}
+            {VERTICAL_FILTERS.map(v => {
+              const active = v.key === 'all' ? isAllVerticals : selectedVerticals.has(v.key)
+              return (
+                <button key={v.key} onClick={() => toggleVertical(v.key)} style={{
+                  padding: '5px 12px', borderRadius: 2, border: 'none', cursor: 'pointer',
+                  fontSize: 11, fontWeight: active ? 600 : 500, fontFamily: 'var(--font-sans)',
+                  background: active ? (VERTICAL_COLORS[v.key] || PRIMARY) : 'rgba(95,138,126,0.1)',
+                  color: active ? '#fff' : 'var(--color-muted)', transition: 'all 0.15s',
+                }}>{v.label}</button>
+              )
+            })}
             <div style={{ width: 1, height: 18, background: 'var(--color-border)' }} />
             {STATES.map(s => (
               <button key={s} onClick={() => setStateFilter(s)} style={{
@@ -450,16 +473,16 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 20px 10px', borderBottom: '1px solid var(--color-border)', background: 'rgba(250,248,245,0.97)', backdropFilter: 'blur(8px)', flexWrap: 'wrap' }}>
               <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', fontFamily: 'var(--font-sans)', marginRight: 4 }}>Type</span>
               <button onClick={() => setSubTypeFilter('all')} style={{
-                padding: '4px 10px', borderRadius: 12, border: `1px solid ${subTypeFilter === 'all' ? (VERTICAL_COLORS[verticalFilter] || PRIMARY) : 'var(--color-border)'}`,
+                padding: '4px 10px', borderRadius: 12, border: `1px solid ${subTypeFilter === 'all' ? (VERTICAL_COLORS[singleSelectedVertical] || PRIMARY) : 'var(--color-border)'}`,
                 cursor: 'pointer', fontSize: 10, fontWeight: 500, fontFamily: 'var(--font-sans)',
-                background: subTypeFilter === 'all' ? (VERTICAL_COLORS[verticalFilter] || PRIMARY) : 'transparent',
+                background: subTypeFilter === 'all' ? (VERTICAL_COLORS[singleSelectedVertical] || PRIMARY) : 'transparent',
                 color: subTypeFilter === 'all' ? '#fff' : 'var(--color-muted)', transition: 'all 0.15s',
               }}>All</button>
               {Object.entries(currentSubTypes).map(([key, label]) => (
                 <button key={key} onClick={() => setSubTypeFilter(key)} style={{
-                  padding: '4px 10px', borderRadius: 12, border: `1px solid ${subTypeFilter === key ? (VERTICAL_COLORS[verticalFilter] || PRIMARY) : 'var(--color-border)'}`,
+                  padding: '4px 10px', borderRadius: 12, border: `1px solid ${subTypeFilter === key ? (VERTICAL_COLORS[singleSelectedVertical] || PRIMARY) : 'var(--color-border)'}`,
                   cursor: 'pointer', fontSize: 10, fontWeight: 500, fontFamily: 'var(--font-sans)',
-                  background: subTypeFilter === key ? (VERTICAL_COLORS[verticalFilter] || PRIMARY) : 'transparent',
+                  background: subTypeFilter === key ? (VERTICAL_COLORS[singleSelectedVertical] || PRIMARY) : 'transparent',
                   color: subTypeFilter === key ? '#fff' : 'var(--color-muted)', transition: 'all 0.15s',
                 }}>{label}</button>
               ))}
@@ -564,15 +587,18 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
             <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--color-border)' }}>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', marginBottom: 10, fontFamily: 'var(--font-sans)' }}>Category</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {VERTICAL_FILTERS.map(v => (
-                  <button key={v.key} onClick={() => setVerticalFilter(v.key)} style={{
-                    padding: '7px 14px', borderRadius: 20,
-                    border: `1px solid ${verticalFilter === v.key ? (VERTICAL_COLORS[v.key] || PRIMARY) : 'var(--color-border)'}`,
-                    cursor: 'pointer', fontSize: 12, fontWeight: 500, fontFamily: 'var(--font-sans)',
-                    background: verticalFilter === v.key ? (VERTICAL_COLORS[v.key] || PRIMARY) : 'transparent',
-                    color: verticalFilter === v.key ? '#fff' : 'var(--color-muted)', transition: 'all 0.15s',
-                  }}>{v.label}</button>
-                ))}
+                {VERTICAL_FILTERS.map(v => {
+                  const active = v.key === 'all' ? isAllVerticals : selectedVerticals.has(v.key)
+                  return (
+                    <button key={v.key} onClick={() => toggleVertical(v.key)} style={{
+                      padding: '7px 14px', borderRadius: 20,
+                      border: `1px solid ${active ? (VERTICAL_COLORS[v.key] || PRIMARY) : 'var(--color-border)'}`,
+                      cursor: 'pointer', fontSize: 12, fontWeight: 500, fontFamily: 'var(--font-sans)',
+                      background: active ? (VERTICAL_COLORS[v.key] || PRIMARY) : 'transparent',
+                      color: active ? '#fff' : 'var(--color-muted)', transition: 'all 0.15s',
+                    }}>{v.label}</button>
+                  )
+                })}
               </div>
             </div>
 
@@ -583,17 +609,17 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   <button onClick={() => setSubTypeFilter('all')} style={{
                     padding: '7px 14px', borderRadius: 20,
-                    border: `1px solid ${subTypeFilter === 'all' ? (VERTICAL_COLORS[verticalFilter] || PRIMARY) : 'var(--color-border)'}`,
+                    border: `1px solid ${subTypeFilter === 'all' ? (VERTICAL_COLORS[singleSelectedVertical] || PRIMARY) : 'var(--color-border)'}`,
                     cursor: 'pointer', fontSize: 12, fontWeight: 500, fontFamily: 'var(--font-sans)',
-                    background: subTypeFilter === 'all' ? (VERTICAL_COLORS[verticalFilter] || PRIMARY) : 'transparent',
+                    background: subTypeFilter === 'all' ? (VERTICAL_COLORS[singleSelectedVertical] || PRIMARY) : 'transparent',
                     color: subTypeFilter === 'all' ? '#fff' : 'var(--color-muted)', transition: 'all 0.15s',
                   }}>All</button>
                   {Object.entries(currentSubTypes).map(([key, label]) => (
                     <button key={key} onClick={() => { setSubTypeFilter(key); setMobileSheetOpen(false) }} style={{
                       padding: '7px 14px', borderRadius: 20,
-                      border: `1px solid ${subTypeFilter === key ? (VERTICAL_COLORS[verticalFilter] || PRIMARY) : 'var(--color-border)'}`,
+                      border: `1px solid ${subTypeFilter === key ? (VERTICAL_COLORS[singleSelectedVertical] || PRIMARY) : 'var(--color-border)'}`,
                       cursor: 'pointer', fontSize: 12, fontWeight: 500, fontFamily: 'var(--font-sans)',
-                      background: subTypeFilter === key ? (VERTICAL_COLORS[verticalFilter] || PRIMARY) : 'transparent',
+                      background: subTypeFilter === key ? (VERTICAL_COLORS[singleSelectedVertical] || PRIMARY) : 'transparent',
                       color: subTypeFilter === key ? '#fff' : 'var(--color-muted)', transition: 'all 0.15s',
                     }}>{label}</button>
                   ))}
@@ -623,7 +649,7 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
                 {loading ? 'Loading…' : `${count.toLocaleString()} listings`}
               </span>
               {activeFilterCount > 0 && (
-                <button onClick={() => { setVerticalFilter('all'); setSubTypeFilter('all'); setStateFilter('All States'); setSearch('') }}
+                <button onClick={() => { setSelectedVerticals(new Set()); setSubTypeFilter('all'); setStateFilter('All States'); setSearch('') }}
                   style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: PRIMARY, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
                   Clear all filters
                 </button>
@@ -649,9 +675,9 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
 
 // ── Helpers ──
 
-function getFiltered(listings, verticalFilter, subTypeFilter, stateFilter, search) {
+function getFiltered(listings, selectedVerticals, subTypeFilter, stateFilter, search) {
   return listings.filter(l => {
-    const matchVertical = verticalFilter === 'all' || l.vertical === verticalFilter
+    const matchVertical = selectedVerticals.size === 0 || selectedVerticals.has(l.vertical)
     const matchSubType = subTypeFilter === 'all' || l.sub_type === subTypeFilter
     const matchState = stateFilter === 'All States' || l.state === stateFilter
     const matchSearch = !search || l.name.toLowerCase().includes(search.toLowerCase())

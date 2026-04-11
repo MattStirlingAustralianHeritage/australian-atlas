@@ -451,8 +451,20 @@ export default async function PlacePage({ params }) {
 
       {/* Admin inline editing — renders nothing for non-admin users.
           Client component checks auth via API on mount; no admin elements
-          exist in the static ISR-cached HTML served to public users. */}
-      <InlineListingEditor listing={listing} />
+          exist in the static ISR-cached HTML served to public users.
+          Only pass the fields the editor needs — avoids serialising the
+          1536-dim embedding vector and other heavy columns to the client. */}
+      <InlineListingEditor listing={{
+        id: listing.id,
+        name: listing.name,
+        slug: listing.slug,
+        description: listing.description,
+        address: listing.address,
+        website: listing.website,
+        phone: listing.phone,
+        region: listing.region,
+        state: listing.state,
+      }} />
     </div>
   )
 }

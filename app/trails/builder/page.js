@@ -380,21 +380,28 @@ function TrailBuilderInner() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: trailName.trim(),
+          title: trailName.trim(),
           description: trailDesc.trim(),
+          type: 'user',
           visibility,
           stops: stops.map((s, i) => ({
-            venue_id: s.id,
+            listing_id: s.id,
             vertical: s.vertical,
-            position: i,
+            venue_name: s.name,
+            venue_lat: s.latitude ? parseFloat(s.latitude) : null,
+            venue_lng: s.longitude ? parseFloat(s.longitude) : null,
+            order_index: i,
             notes: stopNotes[s.id] || '',
           })),
         }),
       })
 
-      if (!res.ok) throw new Error('Save failed')
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData.error || 'Save failed')
+      }
       const data = await res.json()
-      router.push(`/trails/${data.slug}`)
+      router.push(`/trails/${data.trail?.slug || data.slug}`)
     } catch (err) {
       console.error(err)
       setSaveError('Something went wrong. Please try again.')

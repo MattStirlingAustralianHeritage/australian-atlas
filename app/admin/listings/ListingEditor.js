@@ -514,7 +514,8 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
   }
 
   const updateDraft = (field, value) => setDraft(prev => ({ ...prev, [field]: value }))
-  const viewUrl = listing.slug ? `${VERTICAL_URLS[listing.vertical] || ''}/${listing.slug}` : null
+  const portalUrl = listing.slug ? `/place/${listing.slug}` : null
+  const verticalUrl = listing.slug ? `${VERTICAL_URLS[listing.vertical] || ''}/${listing.slug}` : null
 
   return (
     <div style={{
@@ -737,14 +738,24 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
               </div>
             )}
 
-            {viewUrl && (
-              <a href={viewUrl} target="_blank" rel="noopener noreferrer"
+            {portalUrl && (
+              <a href={portalUrl} target="_blank" rel="noopener noreferrer"
                 onClick={e => e.stopPropagation()}
                 style={{
                   fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500,
                   color: 'var(--color-sage)', textDecoration: 'none', marginLeft: 'auto',
                 }}>
                 View listing ↗
+              </a>
+            )}
+            {verticalUrl && (
+              <a href={verticalUrl} target="_blank" rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                style={{
+                  fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 400,
+                  color: 'var(--text-2)', textDecoration: 'none',
+                }}>
+                View on vertical ↗
               </a>
             )}
           </div>

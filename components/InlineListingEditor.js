@@ -59,18 +59,7 @@ export default function InlineListingEditor({ listing }) {
   const [saveResult, setSaveResult] = useState(null) // 'success' | 'error'
   const [errorMsg, setErrorMsg] = useState(null)
 
-  // Gate: check admin / inline_edit_access on mount
-  useEffect(() => {
-    let cancelled = false
-    fetch('/api/admin/check')
-      .then(r => r.ok ? r.json() : null)
-      .then(data => { if (!cancelled && data?.isAdmin) setCanEdit(true) })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [])
-
-  // Render nothing for non-admin users — zero DOM presence
-  if (!canEdit) return null
+  // ── ALL hooks must be called unconditionally (React rules of hooks) ──
 
   const startEdit = useCallback(() => {
     setDraft({
@@ -132,6 +121,16 @@ export default function InlineListingEditor({ listing }) {
     }
   }, [draft, saving, listing.id])
 
+  // Gate: check admin / inline_edit_access on mount
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/admin/check')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (!cancelled && data?.isAdmin) setCanEdit(true) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
   // Escape key cancels editing
   useEffect(() => {
     if (!editing) return
@@ -139,6 +138,9 @@ export default function InlineListingEditor({ listing }) {
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
   }, [editing, cancelEdit])
+
+  // Render nothing for non-admin users — zero DOM presence
+  if (!canEdit) return null
 
   return (
     <>
