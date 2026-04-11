@@ -193,9 +193,12 @@ function ItineraryPageInner() {
   const [showFlow, setShowFlow] = useState(false)
   const [addedRecs, setAddedRecs] = useState(new Set())
 
-  // Show question flow modal
+  // Show / dismiss question flow modal.
+  // After the modal submits (adds _prefs=1 to URL), needsPrefsModal flips
+  // to false — dismiss the modal so the loading spinner is visible.
   useEffect(() => {
     if (needsPrefsModal && q) setShowFlow(true)
+    else setShowFlow(false)
   }, [needsPrefsModal, q])
 
   // Fetch itinerary when query + prefs are ready

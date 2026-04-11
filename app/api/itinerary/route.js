@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { createHash } from 'crypto'
 
+// Claude API + Voyage embedding + DB queries can take 20-40s.
+// Vercel defaults to 10s — extend to 60s to avoid silent timeouts.
+export const maxDuration = 60
+
 /** Generate an anonymous session id from user-agent + date (no PII) */
 function getSessionId(request) {
   const ua = request.headers.get('user-agent') || 'unknown'
