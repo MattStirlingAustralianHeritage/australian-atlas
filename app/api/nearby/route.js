@@ -112,9 +112,13 @@ export async function GET(request) {
   const sb = getSupabaseAdmin()
   const excludeList = excludeVertical.split(',').filter(Boolean)
 
+  // Hard cap: never return results beyond 30km regardless of requested radius
+  const HARD_CAP_KM = 30
+  const effectiveMaxRadius = Math.min(radiusParam, HARD_CAP_KM)
+
   // Calculate a bounding box for the initial query (rough filter)
   // 1 degree lat ~ 111km, 1 degree lng varies by latitude
-  const maxRadius = 100
+  const maxRadius = HARD_CAP_KM
   const latDelta = maxRadius / 111
   const lngDelta = maxRadius / (111 * Math.cos(lat * Math.PI / 180))
 
@@ -159,17 +163,18 @@ export async function GET(request) {
       return a.distance_km - b.distance_km
     })
 
-  // Try radius expansion: start with requested radius, expand to 100km if sparse
-  let radiusUsed = radiusParam
-  let filtered = results.filter(r => r.distance_km <= radiusParam)
+  // Distance filtering: start with requested radius (capped at 30km), expand to 30km if sparse
+  let radiusUsed = effectiveMaxRadius
+  let filtered = results.filter(r => r.distance_km <= effectiveMaxRadius)
 
-  if (filtered.length < 3 && radiusParam < 100) {
-    radiusUsed = 100
-    filtered = results.filter(r => r.distance_km <= 100)
+  // If fewer than 3 within requested radius, expand to hard cap (30km)
+  if (filtered.length < 3 && effectiveMaxRadius < HARD_CAP_KM) {
+    radiusUsed = HARD_CAP_KM
+    filtered = results.filter(r => r.distance_km <= HARD_CAP_KM)
   }
 
-  // If still < 3, return empty (don't show sparse blocks)
-  if (filtered.length < 3) {
+  // If zero results within 30km, return empty — don't show distant listings
+  if (filtered.length === 0) {
     const emptyResponse = groupByVertical
       ? { verticals: {}, total: 0, radius_used: radiusUsed }
       : { listings: [], total: 0, radius_used: radiusUsed }

@@ -63,7 +63,6 @@ const SUBCATEGORY_OPTIONS = {
     { value: 'bnb', label: 'B&B' },
     { value: 'farm_stay', label: 'Farm Stay' },
     { value: 'glamping', label: 'Glamping' },
-    { value: 'self_contained', label: 'Self-Contained' },
     { value: 'cottage', label: 'Cottage' },
   ],
   field: [
@@ -75,8 +74,6 @@ const SUBCATEGORY_OPTIONS = {
     { value: 'hot_spring', label: 'Hot Spring' },
     { value: 'cave', label: 'Cave' },
     { value: 'national_park', label: 'National Park' },
-    { value: 'bush_walk', label: 'Bush Walk' },
-    { value: 'wildlife_zoo', label: 'Wildlife & Zoo' },
   ],
   corner: [
     { value: 'bookshop', label: 'Bookshop' },
@@ -450,8 +447,7 @@ function GateResultsDisplay({ gateResults }) {
     if (g.details?.warning) {
       lines.push({ pass: true, text: `Address — ${g.details.warning}`, warning: true })
     } else if (place) {
-      const shortPlace = place.length > 60 ? place.slice(0, 57) + '...' : place
-      lines.push({ pass: g.pass, text: `Address geocoded — ${shortPlace}${g.geocodeConfidence ? ` (${g.geocodeConfidence})` : ''}` })
+      lines.push({ pass: g.pass, text: `Address geocoded — ${place}${g.geocodeConfidence ? ` (${g.geocodeConfidence})` : ''}` })
     } else {
       lines.push({ pass: g.pass, text: 'Address verified' })
     }
@@ -782,14 +778,59 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
           />
         </h2>
 
-        {/* Region */}
-        <div style={{ marginBottom: 20, fontFamily: 'var(--font-display, Georgia)', fontStyle: 'italic', fontSize: 15, color: 'var(--color-muted)' }}>
-          <EditableField
-            value={candidate.region} field="region" candidateId={candidate.id}
-            onSaved={onUpdate} placeholder="Region, State"
-            style={{ fontFamily: 'inherit', fontStyle: 'inherit', fontSize: 'inherit', color: 'inherit' }}
-          />
-        </div>
+        {/* Address + Region + State */}
+        {(() => {
+          const gate2 = candidate.gate_results?.gates?.gate2
+          const geocodedAddress = gate2?.placeName || gate2?.details?.placeName || null
+          const geocodeConf = gate2?.geocodeConfidence || gate2?.details?.geocodeConfidence || null
+          const detectedState = gate2?.details?.expectedState || null
+          // Parse state from region if it contains one (e.g., "Melbourne, VIC")
+          const stateMatch = (candidate.region || '').match(/\b(NSW|VIC|QLD|SA|WA|TAS|ACT|NT)\b/i)
+          const displayState = detectedState || (stateMatch ? stateMatch[1].toUpperCase() : null)
+
+          return (
+            <div style={{ marginBottom: 20 }}>
+              {/* Geocoded address — full, no truncation */}
+              {geocodedAddress && (
+                <div style={{
+                  display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4,
+                  fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-ink)',
+                  lineHeight: 1.4,
+                }}>
+                  <span>{geocodedAddress}</span>
+                  <span style={{
+                    fontSize: 9, fontWeight: 600, letterSpacing: '0.08em',
+                    textTransform: 'uppercase', color: geocodeConf === 'exact' ? '#4A7C59' : '#C49A3C',
+                    opacity: 0.8, flexShrink: 0,
+                  }}>
+                    geocoded{geocodeConf ? ` (${geocodeConf})` : ''}
+                  </span>
+                </div>
+              )}
+              {/* Region + State — scannable at a glance */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ fontFamily: 'var(--font-display, Georgia)', fontStyle: 'italic', fontSize: 15, color: 'var(--color-muted)' }}>
+                  <EditableField
+                    value={candidate.region} field="region" candidateId={candidate.id}
+                    onSaved={onUpdate} placeholder="Region, State"
+                    style={{ fontFamily: 'inherit', fontStyle: 'inherit', fontSize: 'inherit', color: 'inherit' }}
+                  />
+                </div>
+                {displayState && (
+                  <span style={{
+                    display: 'inline-block', padding: '2px 8px',
+                    background: 'var(--color-cream, #f8f5ef)', border: '1px solid var(--color-border)',
+                    borderRadius: 3, fontSize: 10, fontWeight: 700,
+                    letterSpacing: '0.1em', color: 'var(--color-ink)',
+                    fontFamily: 'var(--font-body)', flexShrink: 0,
+                  }}>
+                    {displayState}
+                  </span>
+                )}
+              </div>
+            </div>
+          )
+        })()}
 
         {/* Description — "The Story" */}
         <div style={{
@@ -1041,13 +1082,54 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
             {result._syncWarning ? 'Published to master' : `Live on ${result.listing.verticalName}`}
           </p>
           {result._syncWarning && (
-            <p style={{
-              fontFamily: 'var(--font-body)', fontSize: 12,
-              color: '#C49A3C', margin: '0 0 8px', maxWidth: 300, textAlign: 'center',
-              lineHeight: 1.4,
-            }}>
-              ⚠ {result._syncWarning}
-            </p>
+            <div style={{ margin: '0 0 8px', maxWidth: 340, textAlign: 'center' }}>
+              <p style={{
+                fontFamily: 'var(--font-body)', fontSize: 12,
+                color: '#C49A3C', margin: '0 0 6px',
+                lineHeight: 1.4,
+              }}>
+                ⚠ {result._syncWarning}
+              </p>
+              <button
+                onClick={async (e) => {
+                  e.stopPropagation()
+                  const btn = e.currentTarget
+                  btn.disabled = true
+                  btn.textContent = 'Retrying...'
+                  try {
+                    const res = await fetch(`/api/admin/listings/${result.listing.id}/retry-push`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                    })
+                    const data = await res.json()
+                    if (data.success) {
+                      btn.textContent = `Synced to ${data.verticalName}`
+                      btn.style.color = '#4A7C59'
+                      btn.style.borderColor = '#4A7C59'
+                      // Clear the warning
+                      setResult(prev => ({ ...prev, _syncWarning: null }))
+                    } else {
+                      btn.textContent = `Failed: ${data.error || 'unknown'}`
+                      btn.style.color = '#CC4444'
+                      btn.disabled = false
+                    }
+                  } catch (err) {
+                    btn.textContent = 'Retry failed'
+                    btn.style.color = '#CC4444'
+                    btn.disabled = false
+                  }
+                }}
+                style={{
+                  fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600,
+                  color: '#C49A3C', background: 'none',
+                  border: '1px solid #C49A3C', borderRadius: 6,
+                  padding: '5px 14px', cursor: 'pointer',
+                  letterSpacing: '0.03em',
+                }}
+              >
+                Retry push
+              </button>
+            </div>
           )}
           <p style={{
             fontFamily: 'var(--font-body)', fontSize: 14,

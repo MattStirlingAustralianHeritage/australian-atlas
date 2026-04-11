@@ -65,9 +65,12 @@ async function getNearbyListings(listing, limit = 6) {
   if (!listing.lat || !listing.lng) return []
   const sb = getSupabaseAdmin()
 
-  // Bounding box ~100km — cross-vertical discovery
-  const latDelta = 100 / 111
-  const lngDelta = 100 / (111 * Math.cos(listing.lat * Math.PI / 180))
+  const PRIMARY_RADIUS_KM = 15
+  const MAX_RADIUS_KM = 30
+
+  // Bounding box sized to hard cap (30km) — no results beyond this ever shown
+  const latDelta = MAX_RADIUS_KM / 111
+  const lngDelta = MAX_RADIUS_KM / (111 * Math.cos(listing.lat * Math.PI / 180))
 
   const { data } = await sb
     .from('listings')
@@ -84,18 +87,28 @@ async function getNearbyListings(listing, limit = 6) {
 
   if (!data || data.length === 0) return []
 
-  // Score by actual distance, ensure cross-vertical variety
-  const withDist = data.map(l => ({
-    ...l,
-    _dist: haversineKm(listing.lat, listing.lng, l.lat, l.lng),
-  })).sort((a, b) => a._dist - b._dist)
+  // Calculate actual Haversine distances and hard-cap at MAX_RADIUS_KM
+  const withDist = data
+    .map(l => ({ ...l, _dist: haversineKm(listing.lat, listing.lng, l.lat, l.lng) }))
+    .filter(l => l._dist <= MAX_RADIUS_KM)
+    .sort((a, b) => a._dist - b._dist)
+
+  if (withDist.length === 0) return []
+
+  // Try primary radius first (15km)
+  let pool = withDist.filter(l => l._dist <= PRIMARY_RADIUS_KM)
+
+  // Expand to 30km if fewer than 3 results within 15km
+  if (pool.length < 3) {
+    pool = withDist
+  }
 
   // Pick closest, but cap per-vertical to ensure variety
   const result = []
   const verticalCounts = {}
   const maxPerVertical = 2
 
-  for (const l of withDist) {
+  for (const l of pool) {
     if (result.length >= limit) break
     const vc = verticalCounts[l.vertical] || 0
     if (vc >= maxPerVertical) continue
@@ -106,7 +119,7 @@ async function getNearbyListings(listing, limit = 6) {
   // If we still have room, fill with remaining by distance (ignore cap)
   if (result.length < limit) {
     const usedIds = new Set(result.map(r => r.id))
-    for (const l of withDist) {
+    for (const l of pool) {
       if (result.length >= limit) break
       if (!usedIds.has(l.id)) result.push(l)
     }

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
-import { pushToVertical, updateInVertical, getVerticalListingUrl, VERTICAL_DISPLAY_NAMES } from '@/lib/sync/pushToVertical'
+import { pushToVerticalWithRetry, updateInVertical, getVerticalListingUrl, VERTICAL_DISPLAY_NAMES, VERTICAL_CATEGORIES } from '@/lib/sync/pushToVertical'
 
 /** Normalise a URL to include https:// prefix */
 function normaliseUrl(url) {
@@ -27,18 +27,7 @@ const VERTICAL_LABELS = {
   table: 'independent restaurant, cafe, or food producer',
 }
 
-// Valid categories per vertical — aligned with DB CHECK constraints on meta tables
-const VERTICAL_CATEGORIES = {
-  sba: ['brewery', 'winery', 'distillery', 'cidery', 'meadery', 'cellar_door', 'sour_brewery', 'non_alcoholic'],
-  collection: ['museum', 'gallery', 'heritage_site', 'cultural_centre', 'botanical_garden'],
-  craft: ['ceramics_clay', 'visual_art', 'jewellery_metalwork', 'textile_fibre', 'wood_furniture', 'glass', 'printmaking'],
-  fine_grounds: ['roaster', 'cafe'],
-  rest: ['boutique_hotel', 'guesthouse', 'bnb', 'farm_stay', 'glamping', 'self_contained', 'cottage'],
-  field: ['swimming_hole', 'waterfall', 'lookout', 'gorge', 'coastal_walk', 'hot_spring', 'cave', 'national_park', 'bush_walk', 'wildlife_zoo'],
-  corner: ['bookshop', 'records', 'homewares', 'stationery', 'jewellery', 'toys', 'general', 'clothing', 'food_drink', 'plants', 'art_supplies', 'other'],
-  found: ['vintage_clothing', 'vintage_furniture', 'antiques', 'op_shop', 'books_ephemera', 'art_objects', 'market'],
-  table: ['restaurant', 'bakery', 'market', 'farm_gate', 'artisan_producer', 'specialty_retail', 'destination', 'cooking_school', 'providore', 'food_trail'],
-}
+// VERTICAL_CATEGORIES imported from pushToVertical.js (single source of truth)
 
 // ─── Website Enrichment ────────────────────────────────────
 
@@ -372,14 +361,14 @@ export async function POST(request, { params }) {
         hero_image_url: null,
       }
 
-      // 6. Push to the vertical's own database
-      console.log(`[approve] Pushing to ${vertical} vertical DB...`)
-      const pushResult = await pushToVertical(vertical, fullData)
+      // 6. Push to the vertical's own database (synchronous with retries)
+      console.log(`[approve] Pushing to ${vertical} vertical DB (up to 3 attempts)...`)
+      const pushResult = await pushToVerticalWithRetry(vertical, fullData, 3)
       const verticalRowId = pushResult.success ? pushResult.id : null
       if (verticalRowId) {
-        console.log(`[approve] Created in ${vertical} DB with id: ${verticalRowId}`)
+        console.log(`[approve] Created in ${vertical} DB with id: ${verticalRowId} (attempt ${pushResult.attempts})`)
       } else {
-        console.warn(`[approve] Push to ${vertical} failed: ${pushResult.error}`)
+        console.error(`[approve] Push to ${vertical} failed after ${pushResult.attempts} attempts: ${pushResult.error}`)
       }
 
       // 7. Create master listing — idempotent so retry works after partial failure
@@ -491,9 +480,10 @@ export async function POST(request, { params }) {
         verticalSync: {
           success: !!verticalRowId,
           rowId: verticalRowId,
+          attempts: pushResult.attempts || 1,
           warning: verticalRowId
             ? null
-            : `Push to ${verticalName} failed: ${pushResult.error || 'unknown'}. Will sync on next cron run.`,
+            : `Push to ${verticalName} failed after ${pushResult.attempts || 1} attempts: ${pushResult.error || 'unknown'}. Use "Retry push" to try again.`,
         },
         enrichment: {
           attempted: !!candidate.website_url,
