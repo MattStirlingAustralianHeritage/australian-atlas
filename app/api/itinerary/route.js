@@ -1306,6 +1306,15 @@ DAY SEQUENCING: Order venues within each day to follow a natural chronological f
 7. Accommodation as the final stop of the day (rest)
 The ideal vertical order within a day is: ${VERTICAL_ORDER.join(' → ')}. This isn't rigid — geographic proximity should still inform grouping — but prefer this flow when venues are in similar locations.
 
+SCHEDULING RULES (strictly enforced):
+- Small Batch Atlas listings (breweries, distilleries, wineries, cideries — vertical "sba") must NEVER be the first stop of any day. No one visits a cellar door at 9am.
+- Schedule alcohol producers in the afternoon or as a day-ending stop — after at least 2 non-alcohol stops have appeared earlier in that day.
+- A logical day flows: morning activity or cultural/retail stop → lunch or mid-day food → afternoon tasting or cellar door → evening accommodation.
+- Cafes and food stops (Table Atlas, Fine Grounds) work well as day openers.
+- Cultural, retail, and maker stops (Culture, Craft, Corner, Found) work well as morning stops.
+- Rest Atlas accommodation is always the final item of the day, never a daytime stop.
+- Maximum 2 Small Batch Atlas (sba) stops per day — variety across verticals is the point of the Atlas Network. Even on a wine- or distillery-focused trip, balance each day with non-alcohol experiences.
+
 GEOGRAPHIC COHERENCE: All stops in the itinerary must be geographically tight.
 - For city trips: all stops should be within ~25km of each other. Never include a venue 50+ km away.
 - For regional trips: stops should cluster within the core region. Avoid venues on the geographic fringe of the candidate list.
