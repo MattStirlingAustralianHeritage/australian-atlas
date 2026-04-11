@@ -107,7 +107,8 @@ const VERTICAL_FIELDS = {
   ],
   table: [
     { key: 'food_type', label: 'Food Type', type: 'select', options: [
-      { value: 'restaurant', label: 'Restaurant' }, { value: 'bakery', label: 'Bakery' },
+      { value: 'restaurant', label: 'Restaurant' }, { value: 'cafe', label: 'Cafe' },
+      { value: 'bakery', label: 'Bakery' },
       { value: 'market', label: 'Market' }, { value: 'farm_gate', label: 'Farm Gate' },
       { value: 'artisan_producer', label: 'Artisan Producer' }, { value: 'specialty_retail', label: 'Specialty Retail' },
       { value: 'destination', label: 'Destination' }, { value: 'cooking_school', label: 'Cooking School' },

@@ -100,6 +100,7 @@ const SUBCATEGORY_OPTIONS = {
   ],
   table: [
     { value: 'restaurant', label: 'Restaurant' },
+    { value: 'cafe', label: 'Cafe' },
     { value: 'bakery', label: 'Bakery' },
     { value: 'market', label: 'Market' },
     { value: 'farm_gate', label: 'Farm Gate' },
@@ -542,6 +543,29 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
   const buttonsDisabled = status !== 'idle' && status !== 'error'
   const noSubcategory = !subcategory && (SUBCATEGORY_OPTIONS[vertical]?.length > 0)
 
+  // Cross-vertical duplicate check (e.g. Table Atlas cafe → also in Fine Grounds?)
+  const [crossMatches, setCrossMatches] = useState([])
+  useEffect(() => {
+    const CROSS_CHECK_VERTICALS = ['table', 'fine_grounds', 'sba', 'collection', 'craft']
+    if (!CROSS_CHECK_VERTICALS.includes(vertical) || !candidate.name) {
+      setCrossMatches([])
+      return
+    }
+    let cancelled = false
+    const check = async () => {
+      try {
+        const params = new URLSearchParams({ name: candidate.name, vertical })
+        const res = await fetch(`/api/admin/candidates/cross-check?${params}`)
+        if (!cancelled && res.ok) {
+          const { matches } = await res.json()
+          setCrossMatches(matches || [])
+        }
+      } catch { /* ignore */ }
+    }
+    check()
+    return () => { cancelled = true }
+  }, [vertical, candidate.name])
+
   // Reset subcategory when vertical changes (unless new vertical still has the same value)
   const prevVerticalRef = useRef(vertical)
   useEffect(() => {
@@ -687,6 +711,19 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
               color: 'var(--color-muted)', opacity: 0.7,
             }}>
               via {candidate.source.replace(/_/g, ' ')}
+            </span>
+          )}
+          {crossMatches.length > 0 && (
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              padding: '2px 8px', borderRadius: 6,
+              background: '#FFF3E0', border: '1px solid #FFB74D',
+              fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 10,
+              color: '#E65100', letterSpacing: '0.02em',
+            }}
+              title={crossMatches.map(m => `${m.name} — ${m.verticalName}`).join('\n')}
+            >
+              ⚠ Also in {crossMatches.map(m => m.verticalName).filter((v, i, a) => a.indexOf(v) === i).join(', ')}
             </span>
           )}
         </div>
