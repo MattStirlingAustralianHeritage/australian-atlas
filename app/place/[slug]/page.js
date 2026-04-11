@@ -1,9 +1,11 @@
 import { cache } from 'react'
 import { notFound } from 'next/navigation'
+import { cookies } from 'next/headers'
 import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getVerticalUrl, getVerticalLabel } from '@/lib/verticalUrl'
 import { listingJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
+import { checkAdmin } from '@/lib/admin-auth'
 import VerticalBadge from '@/components/VerticalBadge'
 import ListingCard, { TypographicCard, VERTICAL_TOKENS } from '@/components/ListingCard'
 import ListingMap from '@/components/ListingMap'
@@ -182,6 +184,14 @@ export default async function PlacePage({ params }) {
   const { slug } = await params
   const listing = await getListing(slug)
   if (!listing) notFound()
+
+  // Server-side admin check — determines whether the inline editor renders at all.
+  // Non-admin users never receive the editor component in the HTML.
+  let isAdmin = false
+  try {
+    const cookieStore = await cookies()
+    isAdmin = await checkAdmin(cookieStore)
+  } catch { /* auth check failure = not admin */ }
 
   const nearby = await getNearbyListings(listing)
   const vertLabel = getVerticalLabel(listing.vertical)
@@ -462,22 +472,30 @@ export default async function PlacePage({ params }) {
         )}
       </div>
 
-      {/* Admin inline editing — renders nothing for non-admin users.
-          Client component checks auth via API on mount; no admin elements
-          exist in the static ISR-cached HTML served to public users.
-          Only pass the fields the editor needs — avoids serialising the
+      {/* Admin inline editing — only rendered server-side when checkAdmin() passes.
+          Non-admin users never receive this component in the HTML at all.
+          Passes only the fields the editor needs — avoids serialising the
           1536-dim embedding vector and other heavy columns to the client. */}
-      <InlineListingEditor listing={{
-        id: listing.id,
-        name: listing.name,
-        slug: listing.slug,
-        description: listing.description,
-        address: listing.address,
-        website: listing.website,
-        phone: listing.phone,
-        region: listing.region,
-        state: listing.state,
-      }} />
+      {isAdmin && (
+        <InlineListingEditor listing={{
+          id: listing.id,
+          name: listing.name,
+          slug: listing.slug,
+          description: listing.description,
+          address: listing.address,
+          website: listing.website,
+          phone: listing.phone,
+          region: listing.region,
+          state: listing.state,
+          status: listing.status,
+          vertical: listing.vertical,
+          lat: listing.lat,
+          lng: listing.lng,
+          is_featured: listing.is_featured,
+          editors_pick: listing.editors_pick,
+          is_claimed: listing.is_claimed,
+        }} />
+      )}
     </div>
   )
 }
