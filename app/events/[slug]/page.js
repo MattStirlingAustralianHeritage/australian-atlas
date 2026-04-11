@@ -11,7 +11,7 @@ const VERTICAL_COLORS = {
   corner: '#5F8A7E', found: '#D4956A', table: '#C4634F',
 }
 const VERTICAL_LABELS = {
-  sba: 'Small Batch', collection: 'Collections', craft: 'Craft',
+  sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
   fine_grounds: 'Fine Grounds', rest: 'Rest', field: 'Field',
   corner: 'Corner', found: 'Found', table: 'Table',
 }

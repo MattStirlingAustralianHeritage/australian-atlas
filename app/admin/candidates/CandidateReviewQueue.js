@@ -75,6 +75,8 @@ const SUBCATEGORY_OPTIONS = {
     { value: 'hot_spring', label: 'Hot Spring' },
     { value: 'cave', label: 'Cave' },
     { value: 'national_park', label: 'National Park' },
+    { value: 'bush_walk', label: 'Bush Walk' },
+    { value: 'wildlife_zoo', label: 'Wildlife & Zoo' },
   ],
   corner: [
     { value: 'bookshop', label: 'Bookshop' },
@@ -602,7 +604,18 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
       const res = await fetch(`/api/admin/candidates/${candidate.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'approve', subcategory: subcategory || undefined }),
+        body: JSON.stringify({
+          action: 'approve',
+          subcategory: subcategory || undefined,
+          // Reviewer edits always win — send current card state so the API
+          // uses these as the authoritative values over enriched/AI data
+          reviewerOverrides: {
+            name: candidate.name || undefined,
+            description: candidate.description || undefined,
+            website_url: candidate.website_url || undefined,
+            region: candidate.region || undefined,
+          },
+        }),
       })
       const data = await res.json().catch(() => ({}))
 

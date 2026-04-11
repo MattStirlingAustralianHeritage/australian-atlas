@@ -1,32 +1,11 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
-import crypto from 'crypto'
-
-// Verify council session cookie
-function verifySession(req) {
-  const cookie = req.cookies.get('council_session')
-  if (!cookie?.value) return null
-
-  const parts = cookie.value.split(':')
-  if (parts.length !== 4) return null
-
-  const [councilId, slug, timestamp, hmac] = parts
-  const payload = `${councilId}:${slug}:${timestamp}`
-  const expected = crypto.createHmac('sha256', process.env.ADMIN_PASSWORD || 'council-secret')
-    .update(payload)
-    .digest('hex')
-
-  if (hmac !== expected) return null
-
-  // Check session age (30 days max)
-  if (Date.now() - parseInt(timestamp) > 30 * 24 * 60 * 60 * 1000) return null
-
-  return { councilId, slug }
-}
+import { validateCouncilSession } from '@/lib/council-session'
 
 // GET: Fetch council dashboard data
 export async function GET(req) {
-  const session = verifySession(req)
+  const cookie = req.cookies.get('council_session')
+  const session = validateCouncilSession(cookie?.value)
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }

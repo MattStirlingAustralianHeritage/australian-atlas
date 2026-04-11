@@ -1,6 +1,8 @@
 'use client'
 
 import { useCouncil } from './layout'
+import { useSearchParams } from 'next/navigation'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
 const VERTICAL_LABELS = {
@@ -38,6 +40,21 @@ const TIER_FEATURES = {
 
 export default function CouncilOverview() {
   const { council, regions, stats } = useCouncil()
+  const searchParams = useSearchParams()
+  const [banner, setBanner] = useState(null)
+  const [upgrading, setUpgrading] = useState(false)
+  const [upgradeError, setUpgradeError] = useState(null)
+
+  useEffect(() => {
+    const subscribed = searchParams.get('subscribed')
+    const cancelled = searchParams.get('cancelled')
+    const tier = searchParams.get('tier')
+    if (subscribed === '1') {
+      setBanner({ type: 'success', text: `Subscription activated${tier ? ` — ${tier.charAt(0).toUpperCase() + tier.slice(1)} plan` : ''}. Welcome aboard!` })
+    } else if (cancelled === '1') {
+      setBanner({ type: 'info', text: 'Checkout was cancelled. You can upgrade anytime from your plan section below.' })
+    }
+  }, [searchParams])
 
   if (!council) return null
 
@@ -45,6 +62,34 @@ export default function CouncilOverview() {
 
   return (
     <div>
+      {/* Checkout return banner */}
+      {banner && (
+        <div style={{
+          padding: '0.875rem 1.25rem',
+          borderRadius: '8px',
+          marginBottom: '1.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          background: banner.type === 'success' ? '#F0FDF4' : '#F0F4FF',
+          border: `1px solid ${banner.type === 'success' ? '#BBF7D0' : '#C7D2FE'}`,
+          color: banner.type === 'success' ? '#166534' : '#3730A3',
+          fontFamily: 'var(--font-body)',
+          fontSize: '0.875rem',
+        }}>
+          <span>{banner.text}</span>
+          <button
+            onClick={() => setBanner(null)}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: '1.1rem', color: 'inherit', padding: '0 0 0 1rem',
+            }}
+          >
+            &times;
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div style={{ marginBottom: '2rem' }}>
         <h1 style={{
@@ -257,25 +302,56 @@ export default function CouncilOverview() {
             ))}
           </ul>
           {tierInfo.upgrade && (
-            <button
-              onClick={() => {
-                // TODO: Wire to Stripe checkout
-                alert(`Upgrade to ${TIER_FEATURES[tierInfo.upgrade].name} coming soon. Contact councils@australianatlas.com.au`)
-              }}
-              style={{
-                padding: '0.6rem 1.25rem',
-                borderRadius: '8px',
-                border: 'none',
-                background: 'var(--color-sage)',
-                color: '#fff',
-                fontFamily: 'var(--font-body)',
-                fontSize: '0.875rem',
-                fontWeight: 500,
-                cursor: 'pointer',
-              }}
-            >
-              Upgrade to {TIER_FEATURES[tierInfo.upgrade].name}
-            </button>
+            <>
+              {upgradeError && (
+                <p style={{
+                  fontFamily: 'var(--font-body)',
+                  fontSize: '0.85rem',
+                  color: '#b91c1c',
+                  margin: '0 0 0.75rem',
+                }}>
+                  {upgradeError}
+                </p>
+              )}
+              <button
+                disabled={upgrading}
+                onClick={async () => {
+                  setUpgrading(true)
+                  setUpgradeError(null)
+                  try {
+                    const res = await fetch('/api/council/checkout', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ tier: tierInfo.upgrade }),
+                    })
+                    const data = await res.json()
+                    if (data.url) {
+                      window.location.href = data.url
+                    } else {
+                      setUpgradeError(data.error || 'Failed to start checkout. Contact councils@australianatlas.com.au')
+                      setUpgrading(false)
+                    }
+                  } catch {
+                    setUpgradeError('Something went wrong. Please try again or contact councils@australianatlas.com.au')
+                    setUpgrading(false)
+                  }
+                }}
+                style={{
+                  padding: '0.6rem 1.25rem',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: upgrading ? 'var(--color-muted)' : 'var(--color-sage)',
+                  color: '#fff',
+                  fontFamily: 'var(--font-body)',
+                  fontSize: '0.875rem',
+                  fontWeight: 500,
+                  cursor: upgrading ? 'wait' : 'pointer',
+                  opacity: upgrading ? 0.7 : 1,
+                }}
+              >
+                {upgrading ? 'Redirecting...' : `Upgrade to ${TIER_FEATURES[tierInfo.upgrade].name}`}
+              </button>
+            </>
           )}
           {council.billing_cycle_end && (
             <p style={{

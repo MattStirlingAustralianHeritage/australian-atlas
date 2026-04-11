@@ -377,42 +377,61 @@ export default async function Home() {
                     className="group block rounded-xl overflow-hidden"
                     style={{ background: '#fff', border: '1px solid var(--color-border)' }}
                   >
-                    {/* Typographic article card */}
+                    {/* Article card — hero image with gradient, or typographic fallback */}
                     <div
                       className="relative overflow-hidden"
                       style={{
                         aspectRatio: '16/10',
                         background: artColors.bg,
-                        color: artColors.text,
+                        color: article.hero_image_url ? '#fff' : artColors.text,
                         display: 'flex',
                         flexDirection: 'column',
                         justifyContent: 'flex-end',
                         padding: '1.25rem',
                       }}
                     >
-                      <div style={{
-                        position: 'absolute', inset: 0,
-                        backgroundImage: `radial-gradient(circle, ${artColors.text} 1px, transparent 1px)`,
-                        backgroundSize: '16px 16px',
-                        opacity: 0.1, pointerEvents: 'none',
-                      }} />
+                      {article.hero_image_url ? (
+                        <>
+                          <img
+                            src={article.hero_image_url}
+                            alt=""
+                            style={{
+                              position: 'absolute', inset: 0,
+                              width: '100%', height: '100%',
+                              objectFit: 'cover',
+                            }}
+                          />
+                          <div style={{
+                            position: 'absolute', inset: 0,
+                            background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.2) 50%, transparent 100%)',
+                            pointerEvents: 'none',
+                          }} />
+                        </>
+                      ) : (
+                        <div style={{
+                          position: 'absolute', inset: 0,
+                          backgroundImage: `radial-gradient(circle, ${artColors.text} 1px, transparent 1px)`,
+                          backgroundSize: '16px 16px',
+                          opacity: 0.1, pointerEvents: 'none',
+                        }} />
+                      )}
                       <div style={{ position: 'relative', zIndex: 1 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
                           {article.vertical && (
-                            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '8px', letterSpacing: '0.14em', textTransform: 'uppercase', opacity: 0.55 }}>
+                            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '8px', letterSpacing: '0.14em', textTransform: 'uppercase', opacity: article.hero_image_url ? 0.85 : 0.55 }}>
                               {VERTICAL_LABELS[article.vertical] || article.vertical}
                             </span>
                           )}
                           {article.category && (
                             <>
                               <span style={{ opacity: 0.3, fontSize: 6 }}>&middot;</span>
-                              <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '8px', letterSpacing: '0.12em', textTransform: 'uppercase', opacity: 0.45 }}>
+                              <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '8px', letterSpacing: '0.12em', textTransform: 'uppercase', opacity: article.hero_image_url ? 0.7 : 0.45 }}>
                                 {article.category}
                               </span>
                             </>
                           )}
                         </div>
-                        <div style={{ width: 20, height: 1, background: artColors.text, opacity: 0.35, marginBottom: 8 }} />
+                        <div style={{ width: 20, height: 1, background: article.hero_image_url ? '#fff' : artColors.text, opacity: 0.35, marginBottom: 8 }} />
                         <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '17px', lineHeight: 1.3, margin: 0 }}>
                           {article.title}
                         </h3>

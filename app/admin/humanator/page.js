@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
 
-export default function HumanatorRedirect() {
+export default function ListingsReviewRedirect() {
   redirect('/admin/listings-review')
 }

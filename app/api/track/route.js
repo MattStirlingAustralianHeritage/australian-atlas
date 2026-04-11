@@ -9,7 +9,7 @@ import { createClient } from '@supabase/supabase-js'
  */
 export async function POST(request) {
   try {
-    const { vertical, path, referrer, device } = await request.json()
+    const { vertical, path, referrer, device, visitor_id } = await request.json()
     if (!path) return NextResponse.json({ ok: true })
 
     const sb = createClient(
@@ -34,6 +34,7 @@ export async function POST(request) {
       path,
       referrer: referrer || null,
       device: device || null,
+      visitor_id: visitor_id || null,
       country,
       region,
       city,

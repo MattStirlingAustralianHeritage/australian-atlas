@@ -34,11 +34,14 @@ export async function middleware(request) {
     }
   }
 
-  // ── Council routes: cookie-based magic link auth ──
+  // ── Council routes: validate HMAC-signed session cookie ──
   if (pathname.startsWith('/council') && !pathname.startsWith('/council/login') && !pathname.startsWith('/council/enquire')) {
     const councilCookie = request.cookies.get('council_session')
-    if (!councilCookie?.value) {
-      return NextResponse.redirect(new URL('/council/login', request.url))
+    const valid = await validateCouncilHmac(councilCookie?.value)
+    if (!valid) {
+      const res = NextResponse.redirect(new URL('/council/login', request.url))
+      if (councilCookie) res.cookies.delete('council_session')
+      return res
     }
   }
 
@@ -70,6 +73,37 @@ export async function middleware(request) {
   return response
 }
 
+// Edge-compatible HMAC validation for council sessions (Web Crypto API)
+async function validateCouncilHmac(cookieValue) {
+  if (!cookieValue) return false
+
+  const parts = cookieValue.split(':')
+  if (parts.length !== 4) return false
+
+  const [, , timestamp, hmac] = parts
+  const secret = process.env.COUNCIL_SESSION_SECRET
+  if (!secret) return false
+
+  // Check session age (30 days)
+  if (Date.now() - parseInt(timestamp) > 30 * 24 * 60 * 60 * 1000) return false
+
+  const payload = parts.slice(0, 3).join(':')
+  const encoder = new TextEncoder()
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  )
+  const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(payload))
+  const expected = Array.from(new Uint8Array(sig))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')
+
+  return hmac === expected
+}
+
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/cron/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
 }

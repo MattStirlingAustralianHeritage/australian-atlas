@@ -29,10 +29,10 @@ export async function GET(request) {
   try {
     // All queries in parallel
     const [allRows, geoRows] = await Promise.all([
-      // 1. All pageviews in range (for traffic + timeline + top pages)
+      // 1. All pageviews in range (for traffic + timeline + top pages + unique visitors)
       sb
         .from('pageviews')
-        .select('ts, vertical, path')
+        .select('ts, vertical, path, visitor_id')
         .gte('ts', since)
         .then(r => r.data || []),
 
@@ -52,15 +52,26 @@ export async function GET(request) {
     // Filter by vertical if specified (for traffic/timeline/topPages)
     const filtered = vertical ? allRows.filter(r => r.vertical === vertical) : allRows
 
-    // Traffic: aggregate by vertical
+    // Traffic: aggregate by vertical (pageviews + unique visitors)
     const trafficMap = {}
+    const trafficVisitors = {} // { vertical: Set<visitor_id> }
+    const allVisitors = new Set()
     for (const row of allRows) {
       if (!trafficMap[row.vertical]) {
-        trafficMap[row.vertical] = { vertical: row.vertical, total_pageviews: 0 }
+        trafficMap[row.vertical] = { vertical: row.vertical, total_pageviews: 0, unique_visitors: 0 }
+        trafficVisitors[row.vertical] = new Set()
       }
       trafficMap[row.vertical].total_pageviews++
+      if (row.visitor_id) {
+        trafficVisitors[row.vertical].add(row.visitor_id)
+        allVisitors.add(row.visitor_id)
+      }
+    }
+    for (const [v, visitors] of Object.entries(trafficVisitors)) {
+      trafficMap[v].unique_visitors = visitors.size
     }
     const traffic = Object.values(trafficMap).sort((a, b) => b.total_pageviews - a.total_pageviews)
+    const totalUniqueVisitors = allVisitors.size
 
     // Timeline: bucket by day
     const timelineMap = {}
@@ -96,7 +107,7 @@ export async function GET(request) {
     }
     const geo = Object.values(geoMap).sort((a, b) => b.visit_count - a.visit_count).slice(0, 500)
 
-    return NextResponse.json({ traffic, geo, timeline, topPages, range, vertical })
+    return NextResponse.json({ traffic, geo, timeline, topPages, totalUniqueVisitors, range, vertical })
   } catch (err) {
     console.error('[analytics/dashboard] Error:', err.message)
     return NextResponse.json({ traffic: [], geo: [], timeline: [], topPages: [], range, vertical })

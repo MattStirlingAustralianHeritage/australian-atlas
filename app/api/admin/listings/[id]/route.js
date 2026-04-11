@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+import { revalidatePath } from 'next/cache'
 import { getSupabaseAdmin, getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
 import { updateListing } from '@/lib/admin/updateListing'
+
+const EXTENSION_TABLES = {
+  sba: 'sba_meta', collection: 'collection_meta', craft: 'craft_meta',
+  fine_grounds: 'fine_grounds_meta', rest: 'rest_meta', field: 'field_meta',
+  corner: 'corner_meta', found: 'found_meta', table: 'table_meta',
+}
 
 export async function PATCH(request, { params }) {
   const cookieStore = await cookies()
@@ -15,14 +22,55 @@ export async function PATCH(request, { params }) {
 
   try {
     const body = await request.json()
-    const result = await updateListing(id, body, { action: 'listing-editor' })
+
+    // Extract meta fields if included — save them BEFORE the main update
+    // so that updateListing reads fresh meta for the vertical sync
+    const { _meta, ...listingFields } = body
+    let metaResult = null
+
+    if (_meta && Object.keys(_meta).length > 0) {
+      // We need the vertical to know which meta table to target
+      const sb = getSupabaseAdmin()
+      const { data: row } = await sb.from('listings').select('vertical').eq('id', id).single()
+      const metaTable = row ? EXTENSION_TABLES[row.vertical] : null
+
+      if (metaTable) {
+        const { data: metaData, error: metaError } = await sb.from(metaTable).upsert(
+          { listing_id: id, ..._meta },
+          { onConflict: 'listing_id' }
+        ).select('*').single()
+
+        if (metaError) {
+          console.warn('[admin/listings/PATCH] Meta save failed:', metaError.message)
+          metaResult = { success: false, error: metaError.message }
+        } else {
+          metaResult = { success: true, meta: metaData }
+        }
+      }
+    }
+
+    // Now run the main update (reads fresh meta for vertical sync)
+    const result = await updateListing(id, listingFields, { action: 'listing-editor' })
 
     if (!result.success) {
       const status = result.error?.includes('not found') ? 404 : 400
       return NextResponse.json({ error: result.error }, { status })
     }
 
-    return NextResponse.json({ listing: result.listing, verticalSync: result.verticalSync })
+    // Bust the ISR cache for this listing's public page
+    if (result.listing?.slug) {
+      try {
+        revalidatePath(`/place/${result.listing.slug}`)
+      } catch (e) {
+        console.warn('[admin/listings/PATCH] revalidatePath failed:', e.message)
+      }
+    }
+
+    return NextResponse.json({
+      listing: result.listing,
+      verticalSync: result.verticalSync,
+      metaSync: metaResult,
+    })
   } catch (err) {
     console.error('[admin/listings/PATCH] Error:', err.message)
     return NextResponse.json({ error: err.message || 'Update failed' }, { status: 500 })
@@ -43,10 +91,10 @@ export async function DELETE(request, { params }) {
   try {
     const sb = getSupabaseAdmin()
 
-    // Fetch the listing first to get vertical + source_id
+    // Fetch the listing first to get vertical + source_id + slug for cache busting
     const { data: listing, error: fetchError } = await sb
       .from('listings')
-      .select('id, vertical, source_id, name')
+      .select('id, vertical, source_id, name, slug')
       .eq('id', id)
       .single()
 
@@ -100,6 +148,11 @@ export async function DELETE(request, { params }) {
       .eq('id', id)
 
     if (deleteError) throw deleteError
+
+    // Bust the ISR cache so the public page returns 404 immediately
+    if (listing.slug) {
+      try { revalidatePath(`/place/${listing.slug}`) } catch {}
+    }
 
     return NextResponse.json({ success: true, deleted_id: id })
   } catch (err) {

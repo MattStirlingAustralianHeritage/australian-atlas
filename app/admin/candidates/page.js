@@ -4,13 +4,18 @@ import CandidateReviewQueue from './CandidateReviewQueue'
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Listing Candidates — Admin' }
 
+const ALL_VERTICALS = ['sba', 'collection', 'craft', 'fine_grounds', 'rest', 'field', 'corner', 'found', 'table']
+
 export default async function CandidatesPage() {
   // Auth handled by middleware — no page-level check needed
   const sb = getSupabaseAdmin()
 
   let candidates = []
+  let rejectedCandidates = []
+  let queueDepth = {}
 
   try {
+    // Fetch pending candidates
     const { data, error } = await sb
       .from('listing_candidates')
       .select('*')
@@ -20,6 +25,28 @@ export default async function CandidatesPage() {
       .limit(100)
 
     if (!error && data) candidates = data
+
+    // Fetch per-vertical queue depth
+    const depthPromises = ALL_VERTICALS.map(async (v) => {
+      const { count } = await sb
+        .from('listing_candidates')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending')
+        .eq('vertical', v)
+      return [v, count || 0]
+    })
+    const depths = await Promise.all(depthPromises)
+    queueDepth = Object.fromEntries(depths)
+
+    // Fetch recently rejected/skipped candidates (last 50)
+    const { data: rejected } = await sb
+      .from('listing_candidates')
+      .select('id, name, vertical, region, website_url, confidence, notes, reviewed_at, source')
+      .eq('status', 'rejected')
+      .order('reviewed_at', { ascending: false })
+      .limit(50)
+
+    if (rejected) rejectedCandidates = rejected
   } catch (err) {
     console.error('[admin/candidates] Query error:', err.message)
   }
@@ -37,7 +64,12 @@ export default async function CandidatesPage() {
         </p>
       </div>
 
-      <CandidateReviewQueue initialCandidates={candidates} mapboxToken={mapboxToken} />
+      <CandidateReviewQueue
+        initialCandidates={candidates}
+        initialRejected={rejectedCandidates}
+        queueDepth={queueDepth}
+        mapboxToken={mapboxToken}
+      />
     </div>
   )
 }

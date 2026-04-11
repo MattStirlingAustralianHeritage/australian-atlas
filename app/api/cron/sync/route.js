@@ -12,8 +12,8 @@ const STANDARD_VERTICALS = [
   'field', 'corner', 'found', 'table',
 ]
 
-// Verticals exempt from website requirement (natural places, heritage sites)
-const WEBSITE_EXEMPT_VERTICALS = ['field', 'collection']
+// Verticals exempt from website requirement (natural places, heritage sites, discovery platforms)
+const WEBSITE_EXEMPT_VERTICALS = ['field', 'collection', 'fine_grounds']
 
 export async function GET(request) {
   // Verify cron secret

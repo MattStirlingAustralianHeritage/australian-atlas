@@ -213,6 +213,7 @@ export default function AnalyticsDashboard() {
         <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
           {/* Summary Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+            <SummaryCard label="Unique Visitors" value={(data?.totalUniqueVisitors || 0).toLocaleString()} />
             <SummaryCard label="Total Pageviews" value={totals.pageviews.toLocaleString()} />
             <SummaryCard label="Signups" value={totals.signups.toLocaleString()} />
             <SummaryCard label="Claims Completed" value={totals.claims.toLocaleString()} />
@@ -265,7 +266,7 @@ export default function AnalyticsDashboard() {
                         {config.label}
                       </button>
                       <span style={{ fontSize: '0.8rem', color: 'var(--color-muted)', fontVariantNumeric: 'tabular-nums' }}>
-                        {v.total_pageviews?.toLocaleString()}
+                        {v.unique_visitors ? `${v.unique_visitors.toLocaleString()} · ` : ''}{v.total_pageviews?.toLocaleString()}
                       </span>
                     </div>
                     <div style={{ height: 4, borderRadius: 2, background: 'var(--color-border, #E5E0D8)', overflow: 'hidden' }}>

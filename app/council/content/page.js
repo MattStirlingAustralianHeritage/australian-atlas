@@ -8,6 +8,8 @@ export default function CouncilContent() {
   const [content, setContent] = useState([])
   const [loading, setLoading] = useState(true)
   const [upgradeRequired, setUpgradeRequired] = useState(false)
+  const [upgrading, setUpgrading] = useState(false)
+  const [upgradeError, setUpgradeError] = useState(null)
 
   useEffect(() => {
     fetch('/api/council/data?view=content')
@@ -71,21 +73,53 @@ export default function CouncilContent() {
           }}>
             Upgrade your plan to create itineraries, editorial features, and curated picks for your region.
           </p>
+          {upgradeError && (
+            <p style={{
+              fontFamily: 'var(--font-body)',
+              fontSize: '0.85rem',
+              color: '#b91c1c',
+              margin: '0 0 1rem',
+            }}>
+              {upgradeError}
+            </p>
+          )}
           <button
-            onClick={() => alert('Contact councils@australianatlas.com.au to upgrade')}
+            disabled={upgrading}
+            onClick={async () => {
+              setUpgrading(true)
+              setUpgradeError(null)
+              try {
+                const res = await fetch('/api/council/checkout', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ tier: 'partner' }),
+                })
+                const data = await res.json()
+                if (data.url) {
+                  window.location.href = data.url
+                } else {
+                  setUpgradeError(data.error || 'Failed to start checkout. Contact councils@australianatlas.com.au')
+                  setUpgrading(false)
+                }
+              } catch {
+                setUpgradeError('Something went wrong. Please try again or contact councils@australianatlas.com.au')
+                setUpgrading(false)
+              }
+            }}
             style={{
               padding: '0.7rem 1.5rem',
               borderRadius: '8px',
               border: 'none',
-              background: 'var(--color-sage)',
+              background: upgrading ? 'var(--color-muted)' : 'var(--color-sage)',
               color: '#fff',
               fontFamily: 'var(--font-body)',
               fontSize: '0.9rem',
               fontWeight: 500,
-              cursor: 'pointer',
+              cursor: upgrading ? 'wait' : 'pointer',
+              opacity: upgrading ? 0.7 : 1,
             }}
           >
-            Upgrade to Partner
+            {upgrading ? 'Redirecting...' : 'Upgrade to Partner'}
           </button>
         </div>
       ) : loading ? (

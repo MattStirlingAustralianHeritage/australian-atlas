@@ -26,10 +26,13 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { userId, role, vertical, councilId } = await request.json()
+    const { userId, email, role, vertical, councilId } = await request.json()
 
-    if (!userId || !role) {
-      return NextResponse.json({ error: 'Missing userId or role' }, { status: 400 })
+    if (!userId && !email) {
+      return NextResponse.json({ error: 'Missing userId or email' }, { status: 400 })
+    }
+    if (!role) {
+      return NextResponse.json({ error: 'Missing role' }, { status: 400 })
     }
 
     const validRoles = ['user', 'vendor', 'council', 'admin']
@@ -39,12 +42,40 @@ export async function POST(request) {
 
     const supabase = getSupabaseAdmin()
 
-    // Fetch current profile
-    const { data: profile, error: fetchError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
+    // Resolve profile by UUID or email lookup
+    let resolvedUserId = userId
+    // If userId looks like an email (contains @), treat it as an email lookup
+    if (userId && userId.includes('@')) {
+      resolvedUserId = null
+    }
+
+    let profile = null
+    let fetchError = null
+
+    if (resolvedUserId) {
+      const result = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', resolvedUserId)
+        .single()
+      profile = result.data
+      fetchError = result.error
+    }
+
+    // If no profile found by UUID, try email lookup
+    if (!profile && (email || (userId && userId.includes('@')))) {
+      const lookupEmail = email || userId
+      const result = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('email', lookupEmail.toLowerCase().trim())
+        .single()
+      profile = result.data
+      fetchError = result.error
+      if (profile) {
+        resolvedUserId = profile.id
+      }
+    }
 
     if (fetchError || !profile) {
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
@@ -83,7 +114,7 @@ export async function POST(request) {
     const { error: updateError } = await supabase
       .from('profiles')
       .update(update)
-      .eq('id', userId)
+      .eq('id', resolvedUserId)
 
     if (updateError) {
       console.error('Profile update error:', updateError)
@@ -92,7 +123,7 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
-      profile: { id: userId, role, ...(vertical ? { vertical } : {}) },
+      profile: { id: resolvedUserId, role, ...(vertical ? { vertical } : {}) },
     })
   } catch (error) {
     console.error('Promote role error:', error)

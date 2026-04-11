@@ -147,7 +147,7 @@ export async function GET(request) {
 
     return NextResponse.json({ listing, stats })
   } catch (err) {
-    console.error('[admin/humanator/GET] Error:', err.message)
+    console.error('[admin/listings-review/GET] Error:', err.message)
     return NextResponse.json({ error: 'Failed to fetch listing' }, { status: 500 })
   }
 }
@@ -215,13 +215,13 @@ export async function PATCH(request) {
       next_listing = nextRes.status === 'fulfilled' ? nextRes.value : null
       stats = statsRes.status === 'fulfilled' ? statsRes.value : null
     } catch (fetchErr) {
-      console.warn('[admin/humanator/PATCH] Next-listing fetch failed:', fetchErr.message)
+      console.warn('[admin/listings-review/PATCH] Next-listing fetch failed:', fetchErr.message)
       // Action still succeeded — return success with null next_listing
     }
 
     return NextResponse.json({ success: true, next_listing, stats, sync_status })
   } catch (err) {
-    console.error('[admin/humanator/PATCH] Error:', err.message)
+    console.error('[admin/listings-review/PATCH] Error:', err.message)
     return NextResponse.json({ error: err.message || 'Action failed' }, { status: 500 })
   }
 }

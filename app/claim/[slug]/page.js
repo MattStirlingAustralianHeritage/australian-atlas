@@ -144,6 +144,7 @@ export default async function ClaimPage({ params }) {
         ) : (
           <ClaimForm
             listingId={listing.id}
+            listingName={listing.name}
             slug={listing.slug}
             vertColor={vertColor}
           />

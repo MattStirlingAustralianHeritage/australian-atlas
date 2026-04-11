@@ -7,6 +7,7 @@ import { listingJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
 import VerticalBadge from '@/components/VerticalBadge'
 import ListingCard, { TypographicCard, VERTICAL_TOKENS } from '@/components/ListingCard'
 import ListingMap from '@/components/ListingMap'
+import InlineListingEditor from '@/components/InlineListingEditor'
 
 export const revalidate = 3600
 
@@ -447,6 +448,11 @@ export default async function PlacePage({ params }) {
           </section>
         )}
       </div>
+
+      {/* Admin inline editing — renders nothing for non-admin users.
+          Client component checks auth via API on mount; no admin elements
+          exist in the static ISR-cached HTML served to public users. */}
+      <InlineListingEditor listing={listing} />
     </div>
   )
 }

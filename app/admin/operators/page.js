@@ -1,5 +1,6 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import OperatorActions from './OperatorActions'
+import EditAccessManager from './EditAccessManager'
 
 export const metadata = { title: 'Operators — Admin' }
 export const dynamic = 'force-dynamic'
@@ -152,6 +153,9 @@ export default async function AdminOperatorsPage() {
           </div>
         ))}
       </div>
+
+      {/* Edit Access Manager — grant inline edit to non-admin users */}
+      <EditAccessManager />
     </div>
   )
 }

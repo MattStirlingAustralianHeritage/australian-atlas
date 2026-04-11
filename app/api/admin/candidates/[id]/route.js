@@ -34,7 +34,7 @@ const VERTICAL_CATEGORIES = {
   craft: ['ceramics_clay', 'visual_art', 'jewellery_metalwork', 'textile_fibre', 'wood_furniture', 'glass', 'printmaking'],
   fine_grounds: ['roaster', 'cafe'],
   rest: ['boutique_hotel', 'guesthouse', 'bnb', 'farm_stay', 'glamping', 'self_contained', 'cottage'],
-  field: ['swimming_hole', 'waterfall', 'lookout', 'gorge', 'coastal_walk', 'hot_spring', 'cave', 'national_park'],
+  field: ['swimming_hole', 'waterfall', 'lookout', 'gorge', 'coastal_walk', 'hot_spring', 'cave', 'national_park', 'bush_walk', 'wildlife_zoo'],
   corner: ['bookshop', 'records', 'homewares', 'stationery', 'jewellery', 'toys', 'general', 'clothing', 'food_drink', 'plants', 'art_supplies', 'other'],
   found: ['vintage_clothing', 'vintage_furniture', 'antiques', 'op_shop', 'books_ephemera', 'art_objects', 'market'],
   table: ['restaurant', 'bakery', 'market', 'farm_gate', 'artisan_producer', 'specialty_retail', 'destination', 'cooking_school', 'providore', 'food_trail'],
@@ -245,7 +245,7 @@ export async function POST(request, { params }) {
   }
 
   try {
-    const { action, subcategory } = await request.json()
+    const { action, subcategory, reviewerOverrides } = await request.json()
 
     if (!['approve', 'reject'].includes(action)) {
       return NextResponse.json({ error: 'Invalid action — must be approve or reject' }, { status: 400 })
@@ -339,29 +339,32 @@ export async function POST(request, { params }) {
         }
       }
 
-      // 4. Generate description if still missing
-      let description = enriched.description || candidate.description || null
+      // 4. Merge data with correct priority
+      // Reviewer edits always win — never overwrite with enriched data.
+      // Priority: reviewerOverrides > candidate DB values > enriched/AI data > generated
+      const ro = reviewerOverrides || {}
+
+      let description = ro.description || candidate.description || enriched.description || null
       if (!description) {
         description = await generateDescription(candidate)
       }
 
-      // 5. Build the full enriched data object
-      // Reviewer-selected subcategory takes priority over Claude-enriched category
+      // 5. Build the full data object — reviewer > candidate > enriched
       const effectiveCategory = subcategory || enriched.category || null
 
       const fullData = {
-        name: candidate.name,
+        name: ro.name || candidate.name,
         slug,
         description,
-        region: candidate.region || enriched.suburb || null,
+        region: ro.region || candidate.region || enriched.suburb || null,
         state: enriched.state || null,
         lat: coords?.lat || null,
         lng: coords?.lng || null,
-        website: normaliseUrl(candidate.website_url) || null,
+        website: normaliseUrl(ro.website_url || candidate.website_url) || null,
         phone: enriched.phone || null,
         address: enriched.address || null,
         email: enriched.email || null,
-        suburb: enriched.suburb || candidate.region || null,
+        suburb: enriched.suburb || ro.region || candidate.region || null,
         postcode: enriched.postcode || null,
         opening_hours: enriched.opening_hours || null,
         instagram_handle: enriched.instagram_handle || null,

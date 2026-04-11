@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { isApprovedDomain } from '@/lib/council-config'
+import { createSessionValue } from '@/lib/council-session'
 import crypto from 'crypto'
 
 // Log auth attempt (silently fails if table doesn't exist)
@@ -23,8 +24,32 @@ function getClientIp(req) {
     || null
 }
 
+// ── Rate limiter for magic links (3 requests per 15 minutes per IP) ──────────
+const _rateMagic = new Map()
+function _checkMagicRate(req) {
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const now = Date.now()
+  const windowMs = 900_000 // 15 minutes
+  let entry = _rateMagic.get(ip)
+  if (!entry || now - entry.start > windowMs) {
+    entry = { start: now, count: 0 }
+    _rateMagic.set(ip, entry)
+  }
+  entry.count++
+  if (entry.count > 3) {
+    return NextResponse.json(
+      { error: 'Too many login attempts. Please try again in 15 minutes.' },
+      { status: 429, headers: { 'Retry-After': '900' } }
+    )
+  }
+  return null
+}
+
 // POST: Send magic link or verify token
 export async function POST(req) {
+  const rateLimited = _checkMagicRate(req)
+  if (rateLimited) return rateLimited
+
   try {
     const { action, email, token } = await req.json()
     const sb = getSupabaseAdmin()
@@ -156,12 +181,7 @@ export async function POST(req) {
       })
 
       // Create session cookie value (council_id:slug signed with HMAC)
-      const sessionPayload = `${council.id}:${council.slug}:${Date.now()}`
-      const hmac = crypto.createHmac('sha256', process.env.ADMIN_PASSWORD || 'council-secret')
-        .update(sessionPayload)
-        .digest('hex')
-
-      const sessionValue = `${sessionPayload}:${hmac}`
+      const sessionValue = createSessionValue(council.id, council.slug)
 
       const response = NextResponse.json({
         ok: true,

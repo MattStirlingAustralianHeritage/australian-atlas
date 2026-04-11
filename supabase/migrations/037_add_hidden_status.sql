@@ -1,5 +1,5 @@
 -- Allow 'hidden' as a valid listing status.
--- The Listing Editor and Humanator use status='hidden' to hide listings
+-- The Listing Editor and Listings Review use status='hidden' to hide listings
 -- from public view while preserving them in the admin panel.
 -- The original CHECK constraint (migration 002) only allowed: active, inactive, pending.
 

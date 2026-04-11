@@ -63,6 +63,7 @@ export async function GET(request) {
   let totalQueued = 0
   let totalDisqualified = 0
   let totalDiscovered = 0
+  const disqualifiedByGate = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 }
 
   // ── Pre-load master DB for dedup ────────────────────────
   const existingNames = new Set()
@@ -87,11 +88,11 @@ export async function GET(request) {
     }
   }
 
-  // Also check pending candidates
+  // Also check ALL candidates (including converted and rejected — they're still dupes)
   const { data: existingCandidates } = await sb
     .from('listing_candidates')
     .select('name, website_url')
-    .in('status', ['pending', 'reviewing'])
+    .limit(10000)
 
   if (existingCandidates) {
     for (const c of existingCandidates) {
@@ -102,12 +103,46 @@ export async function GET(request) {
 
   // ── Determine which verticals and states to run ─────────
 
+  // ── Queue depth targeting ─────────────────────────────
+  // Target: ~100 net-new verified candidates per run across all 9 verticals
+  // 12 × 9 = 108 (buffer for verticals that find fewer candidates)
+  // Ceiling of 100 pending per vertical prevents runaway queue growth
+  const TARGET_PER_VERTICAL = 100
+  const MAX_NEW_PER_VERTICAL = 12
+
   const verticalsToRun = onlyVertical && VERTICALS[onlyVertical]
     ? [onlyVertical]
     : Object.keys(VERTICALS)
 
   for (const vertical of verticalsToRun) {
     try {
+      // Check current queue depth for this vertical
+      const { count: pendingCount } = await sb
+        .from('listing_candidates')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending')
+        .eq('vertical', vertical)
+
+      const currentPending = pendingCount || 0
+      const slotsAvailable = Math.max(0, TARGET_PER_VERTICAL - currentPending)
+      const maxToQueue = Math.min(slotsAvailable, MAX_NEW_PER_VERTICAL)
+
+      if (maxToQueue === 0) {
+        console.log(`[prospect] ${vertical}: already at ${currentPending} pending (target ${TARGET_PER_VERTICAL}), skipping`)
+        results.push({
+          vertical,
+          verticalName: VERTICALS[vertical],
+          discovered: 0,
+          queued: 0,
+          disqualified: 0,
+          status: 'skipped',
+          reason: `Already at ${currentPending}/${TARGET_PER_VERTICAL} pending`,
+        })
+        continue
+      }
+
+      console.log(`[prospect] ${vertical}: ${currentPending} pending, targeting ${maxToQueue} new candidates`)
+
       // Get coverage by state to identify thin states
       const coverage = {}
       for (const s of STATES) {
@@ -121,12 +156,12 @@ export async function GET(request) {
       }
 
       // Target thin states (fewest listings) — or specific state if requested
+      // Search all 8 states, sorted thinnest first for priority
       const statesToSearch = onlyState
         ? [onlyState]
         : STATES
             .map(s => ({ state: s, count: coverage[s] || 0 }))
             .sort((a, b) => a.count - b.count)
-            .slice(0, 4) // Focus on 4 thinnest states
             .map(s => s.state)
 
       let verticalQueued = 0
@@ -189,6 +224,12 @@ export async function GET(request) {
 
         // ── Run each through the quality gate pipeline ─
         for (const candidate of filtered) {
+          // Stop if we've hit the per-vertical cap for this run
+          if (verticalQueued >= maxToQueue) {
+            console.log(`[prospect] ${vertical}: hit cap of ${maxToQueue} new candidates, stopping`)
+            break
+          }
+
           try {
             const result = await runPipeline(candidate, sb, { dryRun, verbose: false })
 
@@ -197,6 +238,9 @@ export async function GET(request) {
               console.log(`[prospect] QUEUED: "${candidate.name}" (${state}) — score ${result.score}`)
             } else {
               verticalDisqualified++
+              if (result.failedGate != null) {
+                disqualifiedByGate[result.failedGate] = (disqualifiedByGate[result.failedGate] || 0) + 1
+              }
               console.log(`[prospect] DROPPED: "${candidate.name}" — Gate ${result.failedGate}: ${result.failReason}`)
             }
           } catch (err) {
@@ -207,6 +251,9 @@ export async function GET(request) {
           // Rate limit between pipeline runs
           await new Promise(r => setTimeout(r, 800))
         }
+
+        // Also break out of states loop if we've hit the cap
+        if (verticalQueued >= maxToQueue) break
       }
 
       totalQueued += verticalQueued
@@ -249,6 +296,13 @@ export async function GET(request) {
     total_discovered: totalDiscovered,
     total_queued: totalQueued,
     total_disqualified: totalDisqualified,
+    disqualified_by_gate: {
+      gate_0_dedup: disqualifiedByGate[0],
+      gate_1_web_presence: disqualifiedByGate[1],
+      gate_2_address_region: disqualifiedByGate[2],
+      gate_3_business_activity: disqualifiedByGate[3],
+      gate_4_vertical_fit: disqualifiedByGate[4],
+    },
     dry_run: dryRun,
     results,
   })

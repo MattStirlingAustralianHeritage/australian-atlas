@@ -307,7 +307,7 @@ EXISTING LISTINGS (sample — do NOT recommend these):
 ${cov.existingNames.slice(0, 80).join(', ')}
 
 YOUR TASK:
-Recommend exactly 10 real Australian businesses that would be excellent additions to ${config.label}. Focus on:
+Recommend exactly 15 real Australian businesses that would be excellent additions to ${config.label}. Focus on:
 1. Filling gaps in thin states and regions (prioritise states with fewest listings)
 2. Well-known or respected places that are genuinely missing from the directory
 3. Geographic diversity — spread recommendations across different states and regions
@@ -329,7 +329,7 @@ CRITICAL RULES:
 - website_url MUST be null if you're not confident about the exact URL
 - Prioritise thin states and regions to maximise coverage impact
 
-Respond with a JSON array of exactly 10 objects. No other text, just the JSON array.`
+Respond with a JSON array of exactly 15 objects. No other text, just the JSON array.`
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -382,7 +382,7 @@ Respond with a JSON array of exactly 10 objects. No other text, just the JSON ar
   })
 
   // Return raw candidate objects for the pipeline to process
-  return filtered.slice(0, 10).map(c => ({
+  return filtered.slice(0, 15).map(c => ({
     name: c.name.trim(),
     region: c.region || null,
     vertical,

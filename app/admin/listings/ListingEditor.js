@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import WYSIWYGEditor from '@/components/admin/WYSIWYGEditor'
 
 const VERTICAL_NAMES = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
@@ -79,6 +80,7 @@ const VERTICAL_FIELDS = {
       { value: 'lookout', label: 'Lookout' }, { value: 'gorge', label: 'Gorge' },
       { value: 'coastal_walk', label: 'Coastal Walk' }, { value: 'hot_spring', label: 'Hot Spring' },
       { value: 'cave', label: 'Cave' }, { value: 'national_park', label: 'National Park' },
+      { value: 'bush_walk', label: 'Bush Walk' }, { value: 'wildlife_zoo', label: 'Wildlife & Zoo' },
     ]},
     { key: 'dogs_allowed', label: 'Dog Friendly', type: 'toggle' },
     { key: 'is_entry_free', label: 'Free Entry', type: 'toggle' },
@@ -368,6 +370,7 @@ function GeocodePicker({ address, region, state, currentLat, currentLng, onSelec
 function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, regions }) {
   const [draft, setDraft] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [saveSuccess, setSaveSuccess] = useState(false) // "Saved ✓" button state
   const [flash, setFlash] = useState(null) // { type: 'saved'|'saved-warn'|'error'|'hidden'|'unhidden', msg?: string }
   const [hideConfirm, setHideConfirm] = useState(false)
   const [hiding, setHiding] = useState(false)
@@ -402,26 +405,13 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
   const handleSave = async () => {
     if (!draft || saving) return
     setSaving(true)
+    setSaveSuccess(false)
     setFlash(null)
     try {
-      const res = await fetch(`/api/admin/listings/${listing.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(draft),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        console.error('Save failed:', data.error)
-        setFlash({ type: 'error', msg: data.error || 'Save failed' })
-        setTimeout(() => setFlash(null), 6000)
-        return
-      }
-      const { listing: updated, verticalSync } = data
-      onUpdate(updated)
-      setDraft({ ...updated })
-
-      // Save vertical-specific meta fields if present
-      const vertFields = VERTICAL_FIELDS[listing.vertical]
+      // Collect meta fields to send alongside listing fields in a single request
+      // The API saves meta FIRST so the vertical sync reads fresh category values
+      const vertFields = VERTICAL_FIELDS[draft.vertical || listing.vertical]
+      let metaPayload = null
       if (vertFields && draft) {
         const metaUpdates = {}
         let hasMetaChanges = false
@@ -431,16 +421,35 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
             hasMetaChanges = true
           }
         }
-        if (hasMetaChanges) {
-          fetch(`/api/admin/listings/${listing.id}/meta`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(metaUpdates),
-          }).catch(() => {}) // non-blocking
-        }
+        if (hasMetaChanges) metaPayload = metaUpdates
       }
 
-      if (verticalSync && !verticalSync.success) {
+      const res = await fetch(`/api/admin/listings/${listing.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...draft,
+          ...(metaPayload ? { _meta: metaPayload } : {}),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        console.error('Save failed:', data.error)
+        setFlash({ type: 'error', msg: data.error || 'Save failed' })
+        setTimeout(() => setFlash(null), 6000)
+        return
+      }
+      const { listing: updated, verticalSync, metaSync } = data
+      onUpdate(updated)
+      setDraft({ ...updated, ...(meta || {}), ...(metaPayload || {}) })
+
+      // Show "Saved ✓" on button for 2 seconds
+      setSaveSuccess(true)
+      setTimeout(() => setSaveSuccess(false), 2000)
+
+      if (metaSync && !metaSync.success) {
+        setFlash({ type: 'saved-warn', msg: `Meta save failed: ${metaSync.error}`, vertical: verticalSync?.vertical })
+      } else if (verticalSync && !verticalSync.success) {
         setFlash({ type: 'saved-warn', msg: verticalSync.warning, vertical: verticalSync.vertical })
       } else {
         setFlash({ type: 'saved', vertical: verticalSync?.vertical })
@@ -598,7 +607,18 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
             <Field label="Name" value={draft.name} onChange={v => updateDraft('name', v)} style={{ gridColumn: '1 / -1' }} />
-            <Field label="Description" value={draft.description} onChange={v => updateDraft('description', v)} type="textarea" style={{ gridColumn: '1 / -1' }} />
+            <div style={{ gridColumn: '1 / -1', marginBottom: 12 }}>
+              <label style={{
+                display: 'block', fontFamily: 'var(--font-body)', fontSize: 10,
+                fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase',
+                color: 'var(--color-muted)', marginBottom: 4,
+              }}>Description</label>
+              <WYSIWYGEditor
+                value={draft.description}
+                onChange={v => updateDraft('description', v)}
+                minHeight={200}
+              />
+            </div>
             <Field label="Website" value={draft.website} onChange={v => updateDraft('website', v)} />
             <Field label="Phone" value={draft.phone} onChange={v => updateDraft('phone', v)} />
             <Field label="Region" value={draft.region} onChange={v => updateDraft('region', v)} options={regions} />
@@ -651,15 +671,16 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
           )}
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderTop: '1px solid var(--color-border)', paddingTop: 12 }}>
-            <button onClick={handleSave} disabled={saving}
+            <button onClick={handleSave} disabled={saving || saveSuccess}
               style={{
                 fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 600,
                 letterSpacing: '0.04em', textTransform: 'uppercase',
                 padding: '8px 20px', borderRadius: 6, border: 'none',
-                background: 'var(--color-sage)', color: '#fff',
+                background: saveSuccess ? '#2e7d32' : 'var(--color-sage)', color: '#fff',
                 cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.6 : 1,
+                transition: 'background 0.2s ease',
               }}>
-              {saving ? 'Saving...' : 'Save Changes'}
+              {saving ? 'Saving...' : saveSuccess ? 'Saved \u2713' : 'Save Changes'}
             </button>
             <button onClick={onToggle}
               style={{
