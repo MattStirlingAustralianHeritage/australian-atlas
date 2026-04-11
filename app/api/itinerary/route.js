@@ -1096,9 +1096,11 @@ export async function GET(request) {
       accommodationInstruction = `\nACCOMMODATION: This is a day trip — no overnight stays needed. Set "overnight" to null.`
     } else if (accommodation === 'need' || duration.days > 1) {
       accommodationInstruction = `\nACCOMMODATION: The user needs accommodation. REQUIRED for multi-day trips:
-- Include a "rest" vertical venue as the overnight stop at the END of each day (except the last day if it's a drive-home day)
+- Each day (except the final day) MUST have an "overnight" field containing a "rest" vertical venue
+- Each day MUST have a DIFFERENT accommodation listing — do NOT reuse the same property across multiple days unless there are genuinely fewer Rest Atlas listings available than days, in which case mark consecutive nights as a multi-night stay by adding "(2-night stay)" to the note
 - The accommodation MUST be in or near that day's geographic cluster — never across the state
-- If no "rest" venue exists near a day's stops, note the general area to stay in that day's label
+- If no "rest" venue exists near a day's stops, set overnight to null and include "accommodation_gap": true in that day so the UI can show a fallback message
+- The "overnight" field is separate from the "stops" array — accommodation does NOT count as a numbered stop
 - Accommodation is non-negotiable when nights are specified — every night needs a place to stay`
     }
 
@@ -1500,23 +1502,31 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
 
     // Check if itinerary is missing accommodation for multi-day trips.
     // If the user asked for accommodation (or it's a multi-day trip without "sorted"),
-    // try to inject rest venues the LLM forgot.
-    const hasOvernight = enrichedDays.some(d => d.overnight?.listing_id)
-    let needsAccommodation = duration.days > 1 && !hasOvernight
+    // try to inject rest venues the LLM forgot — one per night, unique where possible.
     let accommodationNote = null
 
-    if (needsAccommodation && shouldGuaranteeRest) {
-      // Find available rest venues not already used
+    if (duration.days > 1 && shouldGuaranteeRest) {
+      // Collect all rest venues used by LLM
       const usedRestIds = new Set()
       enrichedDays.forEach(d => {
         if (d.overnight?.listing_id) usedRestIds.add(d.overnight.listing_id)
         ;(d.stops || []).filter(s => s.vertical === 'rest').forEach(s => usedRestIds.add(s.listing_id))
       })
-      const availableRest = venueData.filter(v => v.vertical === 'rest' && !usedRestIds.has(v.id))
+      const allRestVenues = venueData.filter(v => v.vertical === 'rest')
+      const availableRest = allRestVenues.filter(v => !usedRestIds.has(v.id))
 
-      if (availableRest.length > 0) {
+      // Count how many non-final days are missing overnight
+      let gapCount = 0
+      for (let di = 0; di < enrichedDays.length - 1; di++) {
+        if (!enrichedDays[di].overnight?.listing_id) gapCount++
+      }
+
+      if (gapCount > 0 && (availableRest.length > 0 || allRestVenues.length > 0)) {
         // Inject accommodation into each non-final day that's missing an overnight
         let injected = 0
+        // Use available (unused) pool first, fall back to full pool for multi-night stays
+        const pool = availableRest.length > 0 ? [...availableRest] : [...allRestVenues]
+
         for (let di = 0; di < enrichedDays.length - 1; di++) {
           const day = enrichedDays[di]
           if (day.overnight?.listing_id) continue // already has one
@@ -1532,12 +1542,21 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
 
           let bestRest = null
           let bestDist = Infinity
-          for (const rv of availableRest) {
+          const searchPool = pool.length > 0 ? pool : allRestVenues
+          for (const rv of searchPool) {
             const d = distKm(dayCenter.lat, dayCenter.lng, rv.lat, rv.lng)
             if (d < bestDist) { bestDist = d; bestRest = rv }
           }
 
           if (bestRest && bestDist < 80) {
+            // Check if this property is being reused (multi-night)
+            const alreadyUsedByPrevDay = enrichedDays.slice(0, di).some(
+              prev => prev.overnight?.listing_id === bestRest.id
+            )
+            const stayNote = alreadyUsedByPrevDay
+              ? `Continue your stay at ${bestRest.name} — ${bestRest.region || 'the area'}.`
+              : `A place to rest for the night in ${bestRest.region || 'the area'}.`
+
             enrichedDays[di] = {
               ...enrichedDays[di],
               overnight: {
@@ -1550,26 +1569,35 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
                 source_id: bestRest.source_id || null,
                 hero_image_url: bestRest.hero_image_url || null,
                 region: bestRest.region || null,
-                note: `A place to rest for the night in ${bestRest.region || 'the area'}.`,
+                note: stayNote,
+                multi_night: alreadyUsedByPrevDay || false,
               },
             }
-            // Remove from available pool so we don't reuse
-            const idx = availableRest.indexOf(bestRest)
-            if (idx >= 0) availableRest.splice(idx, 1)
+            // Remove from available pool so next day tries a different property
+            const poolIdx = pool.indexOf(bestRest)
+            if (poolIdx >= 0) pool.splice(poolIdx, 1)
             injected++
+          } else {
+            // No nearby rest venue — flag the gap for the frontend
+            enrichedDays[di] = {
+              ...enrichedDays[di],
+              accommodation_gap: true,
+            }
           }
         }
 
         if (injected > 0) {
           console.log(`[itinerary] Auto-injected ${injected} overnight accommodation stop(s)`)
-          needsAccommodation = false
         }
       }
 
-      // If we still have no accommodation, set a note for the frontend
-      if (needsAccommodation) {
-        accommodationNote = 'No Rest Atlas accommodation listings are currently available in this region. We recommend checking local booking sites for places to stay.'
-        console.warn('[itinerary] No rest venues available to inject for accommodation')
+      // Count remaining gaps after injection
+      const remainingGaps = enrichedDays.filter(
+        (d, i) => i < enrichedDays.length - 1 && !d.overnight?.listing_id
+      ).length
+      if (remainingGaps > 0) {
+        accommodationNote = `No Rest Atlas accommodation listings available for ${remainingGaps} night${remainingGaps > 1 ? 's' : ''} of this trip. We recommend checking local booking sites for those nights.`
+        console.warn(`[itinerary] ${remainingGaps} night(s) without rest venues`)
       }
     }
 

@@ -16,6 +16,12 @@ const VERTICAL_LABELS = {
   rest: 'Rest', field: 'Field', corner: 'Corner', found: 'Found', table: 'Table',
 }
 
+// Brand colours per vertical — used for card borders and map markers
+const VERTICAL_COLORS = {
+  sba: '#C49A3C', collection: '#7A6B8A', craft: '#C1603A', fine_grounds: '#8A7055',
+  rest: '#5A8A9A', field: '#4A7C59', corner: '#5F8A7E', found: '#D4956A', table: '#C4634F',
+}
+
 const FLOW_LABELS = {
   accommodation: { need: 'Accommodation included', sorted: 'Own accommodation', daytrip: 'Day trip' },
   transport: { driving: 'Driving', public: 'Public transport', walking: 'Walking / cycling' },
@@ -38,33 +44,43 @@ function MetadataChip({ children }) {
   )
 }
 
-function StopCard({ stop, index }) {
+function StopCard({ stop, index, isOvernight }) {
   const style = VERTICAL_STYLES[stop.vertical]
   const label = VERTICAL_LABELS[stop.vertical] || stop.vertical
-  const isAccom = stop.vertical === 'rest'
+  const isAccom = isOvernight || stop.vertical === 'rest'
   const venueUrl = stop.slug ? `/place/${stop.slug}` : null
+  const brandColor = VERTICAL_COLORS[stop.vertical] || '#1a1a1a'
 
   return (
     <div style={{
-      background: isAccom ? 'linear-gradient(135deg, #f0f7fa 0%, #e8f4f8 100%)' : 'var(--color-card-bg)',
+      background: isAccom ? 'linear-gradient(135deg, #faf6f2 0%, #f5efe8 100%)' : 'var(--color-card-bg)',
       border: `1px solid ${isAccom ? '#5A8A9A30' : 'var(--color-border)'}`,
+      borderLeft: `3px solid ${brandColor}`,
       borderRadius: 12, padding: '16px 18px',
       display: 'flex', gap: 14, alignItems: 'flex-start',
     }}>
-      {/* Number circle */}
+      {/* Number circle or STAY badge */}
       <div style={{
-        width: 30, height: 30, borderRadius: '50%', flexShrink: 0, marginTop: 2,
-        background: isAccom ? '#4A6741' : '#1a1a1a',
-        color: 'white', fontWeight: 700, fontSize: 12,
+        width: 30, height: 30, borderRadius: isAccom ? 6 : '50%', flexShrink: 0, marginTop: 2,
+        background: brandColor,
+        color: 'white', fontWeight: 700, fontSize: isAccom ? 8 : 12,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontFamily: 'system-ui, sans-serif',
+        letterSpacing: isAccom ? '0.06em' : 0,
       }}>
-        {index}
+        {isAccom ? 'STAY' : index}
       </div>
 
       {/* Content */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {/* Bed icon for accommodation */}
+          {isAccom && (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={brandColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <path d="M2 4v16M2 8h18a2 2 0 012 2v10M2 17h20M6 8v2"/>
+              <circle cx="6" cy="12" r="2"/>
+            </svg>
+          )}
           {venueUrl ? (
             <a href={venueUrl} style={{
               fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 16,
@@ -82,11 +98,21 @@ function StopCard({ stop, index }) {
           )}
           {style && (
             <span style={{
-              backgroundColor: style.bg, color: style.text,
+              backgroundColor: brandColor, color: '#fff',
               padding: '2px 8px', borderRadius: 99, fontSize: 10,
               fontWeight: 600, fontFamily: 'var(--font-body)', letterSpacing: '0.02em',
             }}>
               {label}
+            </span>
+          )}
+          {stop.multi_night && (
+            <span style={{
+              backgroundColor: '#f5efe8', color: brandColor,
+              padding: '2px 8px', borderRadius: 99, fontSize: 10,
+              fontWeight: 600, fontFamily: 'var(--font-body)', letterSpacing: '0.02em',
+              border: `1px solid ${brandColor}30`,
+            }}>
+              2-night stay
             </span>
           )}
         </div>
@@ -118,11 +144,13 @@ function StopCard({ stop, index }) {
 function RecommendationCard({ rec, onAdd, added }) {
   const label = VERTICAL_LABELS[rec.vertical] || rec.vertical
   const isAccom = rec.vertical === 'rest'
+  const brandColor = VERTICAL_COLORS[rec.vertical] || 'var(--color-sage)'
 
   return (
     <div style={{
-      background: isAccom ? 'linear-gradient(135deg, #f0f7fa 0%, #e8f4f8 100%)' : 'var(--color-card-bg)',
+      background: isAccom ? 'linear-gradient(135deg, #faf6f2 0%, #f5efe8 100%)' : 'var(--color-card-bg)',
       border: `1px solid ${isAccom ? '#5A8A9A40' : 'var(--color-border)'}`,
+      borderLeft: `3px solid ${brandColor}`,
       borderRadius: 12, padding: '14px 16px',
       display: 'flex', alignItems: 'center', gap: 12, minHeight: 72,
     }}>
@@ -135,7 +163,7 @@ function RecommendationCard({ rec, onAdd, added }) {
             {rec.name}
           </span>
           <span style={{
-            backgroundColor: 'var(--color-sage)', color: 'white',
+            backgroundColor: brandColor, color: 'white',
             padding: '1px 7px', borderRadius: 99, fontSize: 10,
             fontWeight: 600, fontFamily: 'var(--font-body)',
           }}>
@@ -545,24 +573,30 @@ function TrailResult({ itinerary, totalStops, flow, addedRecs, onAddRec, query }
           let globalIndex = 0
           return itinerary.days.map((day, di) => (
             <div key={di} style={{ marginBottom: 32 }}>
-              {/* Day header */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-                <span style={{
-                  fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 10,
-                  color: '#fff', background: 'var(--color-ink)',
-                  padding: '4px 10px', borderRadius: 99,
-                  letterSpacing: '0.08em', textTransform: 'uppercase',
-                }}>
-                  Day {day.day_number || di + 1}
-                </span>
-                {day.label && (
+              {/* Day header with full-width rule */}
+              <div style={{
+                borderTop: di > 0 ? '1px solid var(--color-border)' : 'none',
+                paddingTop: di > 0 ? 24 : 0,
+                marginBottom: 16,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
                   <span style={{
-                    fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 16,
-                    color: 'var(--color-ink)',
+                    fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: 11,
+                    color: '#fff', background: 'var(--color-ink)',
+                    padding: '4px 12px', borderRadius: 99,
+                    letterSpacing: '0.08em', textTransform: 'uppercase',
                   }}>
-                    {day.label}
+                    Day {day.day_number || di + 1}
                   </span>
-                )}
+                  {day.label && (
+                    <span style={{
+                      fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 18,
+                      color: 'var(--color-ink)',
+                    }}>
+                      {day.label}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Stops */}
@@ -574,8 +608,19 @@ function TrailResult({ itinerary, totalStops, flow, addedRecs, onAddRec, query }
                 {day.overnight && (
                   <>
                     {(() => { globalIndex++; return null })()}
-                    <StopCard stop={day.overnight} index={globalIndex} />
+                    <StopCard stop={day.overnight} index={globalIndex} isOvernight />
                   </>
+                )}
+                {day.accommodation_gap && !day.overnight && (
+                  <div style={{
+                    background: '#faf6f2', border: '1px solid #e8dfd4',
+                    borderLeft: `3px solid ${VERTICAL_COLORS.rest}`,
+                    borderRadius: 12, padding: '14px 18px',
+                    fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 400,
+                    color: '#744210', lineHeight: 1.5,
+                  }}>
+                    No Rest Atlas listings available in this area — book direct for tonight.
+                  </div>
                 )}
               </div>
             </div>

@@ -3,8 +3,14 @@
 import { useEffect, useRef } from 'react'
 
 const DAY_COLORS = ['#B87333', '#4A6741', '#4A5568', '#744210', '#2C5282']
-const ACCOM_COLOR = '#4A6741'
+const ACCOM_COLOR = '#5A8A9A'
 const ANIMATION_MS = 1500
+
+// Brand colours per vertical — matches itinerary page
+const VERTICAL_COLORS = {
+  sba: '#C49A3C', collection: '#7A6B8A', craft: '#C1603A', fine_grounds: '#8A7055',
+  rest: '#5A8A9A', field: '#4A7C59', corner: '#5F8A7E', found: '#D4956A', table: '#C4634F',
+}
 
 /**
  * Trail itinerary map — native GL layers (no HTML markers).
@@ -89,18 +95,22 @@ function collectStops(days) {
 function stopsGeoJSON(allStops) {
   return {
     type: 'FeatureCollection',
-    features: allStops.map(s => ({
-      type: 'Feature',
-      geometry: { type: 'Point', coordinates: [parseFloat(s.lng), parseFloat(s.lat)] },
-      properties: {
-        number: String(s._idx),
-        name: s.venue_name || s.name || '',
-        vertical: s.vertical || '',
-        isAccom: s._accom || false,
-        day: s._day,
-        visible: false,
-      },
-    })),
+    features: allStops.map(s => {
+      const vertColor = VERTICAL_COLORS[s.vertical] || '#1a1a1a'
+      return {
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [parseFloat(s.lng), parseFloat(s.lat)] },
+        properties: {
+          number: s._accom ? '⌂' : String(s._idx),
+          name: s.venue_name || s.name || '',
+          vertical: s.vertical || '',
+          verticalColor: vertColor,
+          isAccom: s._accom || false,
+          day: s._day,
+          visible: false,
+        },
+      }
+    }),
   }
 }
 
@@ -164,8 +174,8 @@ async function buildLayers(map, mapboxgl, days, allStops) {
     source: 'trail-stops',
     filter: ['==', ['get', 'visible'], true],
     paint: {
-      'circle-radius': 14,
-      'circle-color': ['case', ['==', ['get', 'isAccom'], true], ACCOM_COLOR, '#1a1a1a'],
+      'circle-radius': ['case', ['==', ['get', 'isAccom'], true], 15, 14],
+      'circle-color': ['get', 'verticalColor'],
       'circle-stroke-width': 2,
       'circle-stroke-color': '#ffffff',
     },
@@ -197,13 +207,15 @@ async function buildLayers(map, mapboxgl, days, allStops) {
     map.getCanvas().style.cursor = 'pointer'
     const props = e.features[0].properties
     const coords = e.features[0].geometry.coordinates.slice()
+    const vertColor = props.verticalColor || '#1a1a1a'
+    const vertLabel = props.vertical ? (props.vertical === 'sba' ? 'Small Batch' : props.vertical === 'fine_grounds' ? 'Fine Grounds' : props.vertical.charAt(0).toUpperCase() + props.vertical.slice(1)) : ''
     popup
       .setLngLat(coords)
       .setHTML(
         `<div style="font-family:system-ui,-apple-system,sans-serif;padding:2px 4px;">` +
         `<div style="font-size:13px;font-weight:600;color:#1a1a1a;">${props.name}</div>` +
-        (props.isAccom === true || props.isAccom === 'true'
-          ? `<div style="font-size:10px;color:#4A6741;font-weight:600;margin-top:2px;">Accommodation</div>`
+        (vertLabel
+          ? `<div style="font-size:10px;color:${vertColor};font-weight:600;margin-top:2px;">${props.isAccom === true || props.isAccom === 'true' ? '🛏 ' : ''}${vertLabel}</div>`
           : '') +
         `</div>`
       )
