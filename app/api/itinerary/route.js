@@ -2,15 +2,31 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { createHash } from 'crypto'
 
-// Claude API + Voyage embedding + DB queries can take 20-40s.
-// Vercel defaults to 10s — extend to 60s to avoid silent timeouts.
+// CRITICAL: Vercel defaults to 10s — extend to 60s. Must be top-level export.
 export const maxDuration = 60
+
+// Hardcoded model — one less thing that can break
+const MODEL = 'claude-sonnet-4-20250514'
 
 /** Generate an anonymous session id from user-agent + date (no PII) */
 function getSessionId(request) {
   const ua = request.headers.get('user-agent') || 'unknown'
   const day = new Date().toISOString().slice(0, 10)
   return createHash('sha256').update(`${ua}:${day}`).digest('hex').slice(0, 16)
+}
+
+/** Fire-and-forget error log — writes to trail_errors for diagnostics */
+function logTrailError({ destination, preferences, errorMessage, errorType, rawResponse }) {
+  try {
+    const sb = getSupabaseAdmin()
+    sb.from('trail_errors').insert({
+      destination: destination || null,
+      preferences: preferences || null,
+      error_message: errorMessage || null,
+      error_type: errorType || 'unknown',
+      raw_response: rawResponse ? String(rawResponse).slice(0, 5000) : null,
+    }).then(() => {}).catch(() => {})
+  } catch { /* silent — error logging must never crash the route */ }
 }
 
 /** Fire-and-forget trail log — must never break itinerary generation */
@@ -25,6 +41,77 @@ function logTrail(request, { promptText, regionDetected, verticalsIncluded, days
       session_id: getSessionId(request),
     }).then(() => {}).catch(() => {})
   } catch { /* silent */ }
+}
+
+/**
+ * Build a simplified fallback itinerary directly from venue data — no Claude call.
+ * Used when the Claude API fails after retries. Returns a basic but functional itinerary
+ * so the user always sees something instead of an error.
+ */
+function buildFallbackItinerary(venueData, { region, duration, stopsPerDay = 4 }) {
+  const nonRest = venueData.filter(v => v.vertical !== 'rest')
+  const restVenues = venueData.filter(v => v.vertical === 'rest')
+
+  // Sort by quality: featured/claimed first, then editors picks
+  nonRest.sort((a, b) => {
+    const aScore = (a.is_claimed ? 3 : 0) + (a.editors_pick ? 2 : 0) + (a.is_featured ? 1 : 0)
+    const bScore = (b.is_claimed ? 3 : 0) + (b.editors_pick ? 2 : 0) + (b.is_featured ? 1 : 0)
+    return bScore - aScore
+  })
+
+  const days = []
+  let venueIdx = 0
+
+  for (let di = 0; di < duration.days; di++) {
+    const dayStops = []
+    for (let si = 0; si < stopsPerDay && venueIdx < nonRest.length; si++) {
+      const v = nonRest[venueIdx++]
+      dayStops.push({
+        listing_id: v.id,
+        venue_name: v.name,
+        vertical: v.vertical,
+        lat: v.lat,
+        lng: v.lng,
+        slug: v.slug || null,
+        source_id: v.source_id || null,
+        hero_image_url: v.hero_image_url || null,
+        region: v.region || null,
+        note: v.description ? v.description.slice(0, 120) : 'A local favourite.',
+      })
+    }
+
+    let overnight = null
+    if (di < duration.days - 1 && restVenues[di]) {
+      const rv = restVenues[di]
+      overnight = {
+        listing_id: rv.id,
+        venue_name: rv.name,
+        vertical: 'rest',
+        lat: rv.lat,
+        lng: rv.lng,
+        slug: rv.slug || null,
+        source_id: rv.source_id || null,
+        hero_image_url: rv.hero_image_url || null,
+        region: rv.region || null,
+        note: `A place to rest for the night.`,
+      }
+    }
+
+    days.push({
+      day_number: di + 1,
+      label: duration.days === 1 ? `A day in ${region || 'the region'}` : `Day ${di + 1}`,
+      stops: dayStops,
+      overnight,
+      accommodation_gap: di < duration.days - 1 && !overnight,
+    })
+  }
+
+  return {
+    title: `Exploring ${region || 'the region'}`,
+    intro: `Here are some of the best independent venues in ${region || 'this area'}, curated from the Australian Atlas network.`,
+    days,
+    _fallback: true,
+  }
 }
 
 /**
@@ -57,14 +144,28 @@ function buildCacheKey(query, flow = {}) {
 }
 
 /**
- * Call Anthropic with a single retry on 529 (overloaded).
- * No client-side timeout — the Vercel function timeout is the backstop.
+ * Call Anthropic with retry (529 overloaded) and a hard 45-second timeout.
+ * The timeout prevents the function from hanging until the 60s Vercel limit,
+ * giving us time to return a graceful fallback instead of a silent crash.
  */
 async function callAnthropicWithRetry(client, params) {
+  const TIMEOUT_MS = 45000 // 45s — leaves 15s headroom before Vercel kills us
+
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      return await client.messages.create(params)
+      const result = await Promise.race([
+        client.messages.create(params),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('CLAUDE_TIMEOUT')), TIMEOUT_MS)
+        ),
+      ])
+      return result
     } catch (err) {
+      if (err.message === 'CLAUDE_TIMEOUT') {
+        console.error(`[itinerary] Claude API timed out after ${TIMEOUT_MS}ms (attempt ${attempt + 1})`)
+        if (attempt === 0) continue // retry once on timeout
+        throw err
+      }
       if (err.status === 529 && attempt === 0) {
         console.warn('[itinerary] Anthropic overloaded (529), retrying once...')
         continue
@@ -718,6 +819,13 @@ export async function GET(request) {
     return NextResponse.json({ error: 'Query parameter "q" is required (min 3 characters)' }, { status: 400 })
   }
 
+  // --- Environment validation — fail fast with a clear message ---
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.error('[itinerary] FATAL: ANTHROPIC_API_KEY not configured')
+    logTrailError({ destination: q, errorMessage: 'ANTHROPIC_API_KEY not configured', errorType: 'config_error' })
+    return NextResponse.json({ error: 'Trail builder is temporarily unavailable. Please try again later.' }, { status: 500 })
+  }
+
   try {
     // --- Response cache: return a recent cached result if available (24h TTL) ---
     const cacheKey = buildCacheKey(q, { accommodation, transport, group, pace })
@@ -1269,31 +1377,49 @@ Return this exact JSON structure:
 
 Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per day. Make it flow geographically. Favour the requested vertical(s) heavily. You MUST have exactly ${duration.days} entries in the "days" array.`
 
-    const response = await callAnthropicWithRetry(anthropic, {
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 4096,
-      messages: [{ role: 'user', content: userPrompt }],
-      system: systemPrompt,
-    })
-
-    // Extract text response
-    const textBlock = response.content.find(b => b.type === 'text')
-    if (!textBlock) {
-      return NextResponse.json({ error: 'No response from AI' }, { status: 500 })
-    }
-
-    // Parse JSON from response (strip any accidental markdown fences)
-    let rawText = textBlock.text.trim()
-    if (rawText.startsWith('```')) {
-      rawText = rawText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
-    }
-
     let itinerary
+    let rawText = null
+    let usedFallback = false
+
     try {
+      const response = await callAnthropicWithRetry(anthropic, {
+        model: MODEL,
+        max_tokens: 4096,
+        messages: [{ role: 'user', content: userPrompt }],
+        system: systemPrompt,
+      })
+
+      // Extract text response
+      const textBlock = response.content.find(b => b.type === 'text')
+      if (!textBlock) {
+        throw new Error('No text block in Claude response')
+      }
+
+      // Parse JSON from response (strip any accidental markdown fences)
+      rawText = textBlock.text.trim()
+      if (rawText.startsWith('```')) {
+        rawText = rawText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '')
+      }
+
       itinerary = JSON.parse(rawText)
-    } catch (parseErr) {
-      console.error('[itinerary] JSON parse error:', parseErr.message, 'Raw:', rawText.slice(0, 500))
-      return NextResponse.json({ error: 'Failed to parse itinerary response' }, { status: 500 })
+    } catch (claudeErr) {
+      const isTimeout = claudeErr.message === 'CLAUDE_TIMEOUT'
+      const isParseError = claudeErr instanceof SyntaxError
+      const errorType = isTimeout ? 'timeout' : isParseError ? 'parse_error' : 'api_error'
+
+      console.error(`[itinerary] Claude ${errorType}:`, claudeErr.message)
+      logTrailError({
+        destination: geoBounds?.label || region || q,
+        preferences: { accommodation, transport, group, pace },
+        errorMessage: claudeErr.message,
+        errorType,
+        rawResponse: rawText || null,
+      })
+
+      // FALLBACK: Build a simplified itinerary directly from venue data
+      console.warn('[itinerary] Using fallback itinerary builder')
+      itinerary = buildFallbackItinerary(venueData, { region: geoBounds?.label || region, duration, stopsPerDay })
+      usedFallback = true
     }
 
     // Validate & strip: remove any stops whose listing_id doesn't exist in candidates.
@@ -1353,14 +1479,14 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
       : null
     let ratioRetried = false
 
-    if (ratioResult && !ratioResult.passed) {
+    if (ratioResult && !ratioResult.passed && !usedFallback) {
       console.warn(`[itinerary] Vertical ratio check failed: ${(ratioResult.ratio * 100).toFixed(0)}% primary (${ratioResult.primaryStops}/${ratioResult.totalStops} stops). Retrying with stricter prompt.`)
 
       const stricterSystem = systemPrompt + `\n\nCRITICAL RATIO OVERRIDE: Your previous attempt had only ${(ratioResult.ratio * 100).toFixed(0)}% of stops from the primary vertical(s) (${primaryVerticals.map(v => VERTICAL_LABELS[v] || v).join(', ')}). This MUST be at least 50%. Replace non-primary stops with primary-vertical venues from the candidate list. Do not pad with unrelated verticals.`
 
       try {
         const retryResponse = await callAnthropicWithRetry(anthropic, {
-          model: 'claude-sonnet-4-20250514',
+          model: MODEL,
           max_tokens: 4096,
           messages: [{ role: 'user', content: userPrompt }],
           system: stricterSystem,
@@ -1434,7 +1560,7 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
     }
 
     // --- Post-processing: physically remove non-focus stops if ratio still below 50% ---
-    if (ratioResult && !ratioResult.passed && primaryVerticals.length > 0) {
+    if (ratioResult && !ratioResult.passed && primaryVerticals.length > 0 && !usedFallback) {
       console.warn(`[itinerary] Ratio still ${(ratioResult.ratio * 100).toFixed(0)}% after LLM retry — removing non-focus stops`)
       let removed = 0
       let done = false
@@ -1627,7 +1753,7 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
       }))
       // Sort: accommodation first if needed, then user interests, then by distance
       .sort((a, b) => {
-        if (needsAccommodation) {
+        if (shouldGuaranteeRest) {
           if (a.vertical === 'rest' && b.vertical !== 'rest') return -1
           if (b.vertical === 'rest' && a.vertical !== 'rest') return 1
         }
@@ -1662,7 +1788,7 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
       intro: itinerary.intro,
       days: enrichedDays,
       recommendations,
-      needs_accommodation: needsAccommodation && accommodation !== 'sorted',
+      needs_accommodation: shouldGuaranteeRest,
       accommodation_note: accommodationNote || null,
       thin_corpus: thinCorpus,
       parsed_preferences: {
@@ -1696,6 +1822,7 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
         group: group || null,
         pace: pace || null,
       } : null,
+      fallback: usedFallback || false,
     }
 
     // --- Cache the generated response (fire-and-forget, 24h TTL enforced on read) ---
@@ -1715,6 +1842,15 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
     return NextResponse.json(responsePayload)
   } catch (err) {
     console.error('[itinerary] Fatal error:', err)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    logTrailError({
+      destination: q,
+      preferences: { accommodation, transport, group, pace },
+      errorMessage: err.message || String(err),
+      errorType: 'fatal',
+    })
+    return NextResponse.json({
+      error: 'generation_failed',
+      message: 'Something went wrong building your trail. Please try again.',
+    }, { status: 500 })
   }
 }

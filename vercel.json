@@ -43,6 +43,10 @@
     {
       "path": "/api/cron/prospect?vertical=table",
       "schedule": "40 21 * * *"
+    },
+    {
+      "path": "/api/health/trail-builder",
+      "schedule": "0 */6 * * *"
     }
   ]
 }

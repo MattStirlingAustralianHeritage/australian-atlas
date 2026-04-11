@@ -45,11 +45,12 @@ function MetadataChip({ children }) {
 }
 
 function StopCard({ stop, index, isOvernight }) {
-  const style = VERTICAL_STYLES[stop.vertical]
-  const label = VERTICAL_LABELS[stop.vertical] || stop.vertical
-  const isAccom = isOvernight || stop.vertical === 'rest'
-  const venueUrl = stop.slug ? `/place/${stop.slug}` : null
-  const brandColor = VERTICAL_COLORS[stop.vertical] || '#1a1a1a'
+  if (!stop) return null
+  const style = VERTICAL_STYLES[stop?.vertical]
+  const label = VERTICAL_LABELS[stop?.vertical] || stop?.vertical || ''
+  const isAccom = isOvernight || stop?.vertical === 'rest'
+  const venueUrl = stop?.slug ? `/place/${stop.slug}` : null
+  const brandColor = VERTICAL_COLORS[stop?.vertical] || '#1a1a1a'
 
   return (
     <div style={{
@@ -142,9 +143,10 @@ function StopCard({ stop, index, isOvernight }) {
 }
 
 function RecommendationCard({ rec, onAdd, added }) {
-  const label = VERTICAL_LABELS[rec.vertical] || rec.vertical
-  const isAccom = rec.vertical === 'rest'
-  const brandColor = VERTICAL_COLORS[rec.vertical] || 'var(--color-sage)'
+  if (!rec) return null
+  const label = VERTICAL_LABELS[rec?.vertical] || rec?.vertical || ''
+  const isAccom = rec?.vertical === 'rest'
+  const brandColor = VERTICAL_COLORS[rec?.vertical] || 'var(--color-sage)'
 
   return (
     <div style={{
@@ -252,6 +254,8 @@ function ItineraryPageInner() {
 
         if (data.error === 'no_region' || data.error === 'insufficient_venues') {
           setError(data)
+        } else if (data.error === 'generation_failed') {
+          setError({ error: 'generation_failed', message: data.message || 'Something went wrong building your trail. Please try again.' })
         } else if (data.error) {
           setError({ error: data.error, message: data.message || data.error })
         } else {
@@ -390,7 +394,29 @@ function ItineraryPageInner() {
   // --- Result ---
   if (!itinerary) return null
 
-  const totalStops = itinerary.days.reduce((n, d) => n + (d.stops?.length || 0), 0)
+  // Guard: if days array is missing or empty, show a graceful message
+  if (!itinerary.days || itinerary.days.length === 0) {
+    return (
+      <div className="max-w-xl mx-auto px-4 py-16 text-center">
+        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)', marginBottom: 8 }}>
+          We couldn&apos;t build a full itinerary for this destination
+        </h2>
+        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 14, color: 'var(--color-muted)', maxWidth: 440, margin: '0 auto 24px', lineHeight: 1.6 }}>
+          This region may not have enough verified listings yet. Browse the region directly to see what&apos;s available.
+        </p>
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+          <Link href="/itinerary" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: '#fff', background: 'var(--color-ink)', padding: '10px 24px', borderRadius: 8, textDecoration: 'none' }}>
+            Try again
+          </Link>
+          <Link href="/regions" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--color-sage)', border: '1px solid var(--color-border)', padding: '10px 24px', borderRadius: 8, textDecoration: 'none' }}>
+            Browse regions
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  const totalStops = (itinerary.days || []).reduce((n, d) => n + (d?.stops?.length || 0), 0)
   const flow = itinerary.flow || {}
 
   return (
@@ -518,9 +544,21 @@ function TrailResult({ itinerary, totalStops, flow, addedRecs, onAddRec, query }
           {itinerary.intro}
         </p>
 
+        {/* Fallback notice — shown when Claude was unavailable */}
+        {itinerary.fallback && (
+          <div style={{
+            fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 400,
+            color: 'var(--color-muted)', background: 'var(--color-cream)',
+            border: '1px solid var(--color-border)', borderRadius: 8,
+            padding: '10px 14px', marginBottom: 20, lineHeight: 1.5,
+          }}>
+            This is a simplified itinerary. For a fully curated trail with editorial notes, try again in a few minutes.
+          </div>
+        )}
+
         {/* Metadata chips */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-          <MetadataChip>{itinerary.duration?.days || itinerary.days?.length} {(itinerary.duration?.days || itinerary.days?.length) === 1 ? 'day' : 'days'}</MetadataChip>
+          <MetadataChip>{itinerary?.duration?.days || itinerary?.days?.length || 0} {(itinerary?.duration?.days || itinerary?.days?.length || 0) === 1 ? 'day' : 'days'}</MetadataChip>
           <MetadataChip>{totalStops} stops</MetadataChip>
           {flow.accommodation && FLOW_LABELS.accommodation[flow.accommodation] && (
             <MetadataChip>{FLOW_LABELS.accommodation[flow.accommodation]}</MetadataChip>
@@ -571,7 +609,7 @@ function TrailResult({ itinerary, totalStops, flow, addedRecs, onAddRec, query }
         {/* Days */}
         {(() => {
           let globalIndex = 0
-          return itinerary.days.map((day, di) => (
+          return (itinerary?.days || []).map((day, di) => (
             <div key={di} style={{ marginBottom: 32 }}>
               {/* Day header with full-width rule */}
               <div style={{
@@ -701,8 +739,8 @@ function SaveTrailButton({ itinerary, query }) {
   async function handleSave() {
     setSaving(true)
     try {
-      const stops = itinerary.days.flatMap((day, di) =>
-        (day.stops || []).map((stop, si) => ({
+      const stops = (itinerary?.days || []).flatMap((day, di) =>
+        (day?.stops || []).map((stop, si) => ({
           listing_id: stop.listing_id || null,
           vertical: stop.vertical || null,
           venue_name: stop.venue_name,
