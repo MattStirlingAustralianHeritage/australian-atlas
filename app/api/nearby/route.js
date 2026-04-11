@@ -178,8 +178,8 @@ export async function GET(request) {
     })
   }
 
-  // Clean helper: strip internal fields before returning
-  const cleanListing = ({ lat: _lat, lng: _lng, hero_image_url, is_featured, is_claimed, ...rest }) => rest
+  // Clean helper: strip internal fields before returning (keep lat/lng for trail suggestions)
+  const cleanListing = ({ hero_image_url, is_featured, is_claimed, ...rest }) => rest
 
   // Grouped-by-vertical response
   if (groupByVertical) {

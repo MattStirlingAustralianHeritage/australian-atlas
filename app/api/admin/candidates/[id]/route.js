@@ -27,16 +27,17 @@ const VERTICAL_LABELS = {
   table: 'independent restaurant, cafe, or food producer',
 }
 
+// Valid categories per vertical — aligned with DB CHECK constraints on meta tables
 const VERTICAL_CATEGORIES = {
-  sba: ['winery', 'distillery', 'brewery', 'cidery', 'non_alcoholic', 'meadery', 'sake_brewery'],
-  collection: ['archive', 'cultural_centre', 'gallery', 'botanical_garden', 'heritage_site', 'museum'],
+  sba: ['brewery', 'winery', 'distillery', 'cidery', 'meadery', 'cellar_door', 'sour_brewery', 'non_alcoholic'],
+  collection: ['museum', 'gallery', 'heritage_site', 'cultural_centre', 'botanical_garden'],
   craft: ['ceramics_clay', 'visual_art', 'jewellery_metalwork', 'textile_fibre', 'wood_furniture', 'glass', 'printmaking'],
   fine_grounds: ['roaster', 'cafe'],
-  rest: ['boutique_hotel', 'guesthouse', 'bnb', 'farm_stay', 'glamping', 'cottage'],
+  rest: ['boutique_hotel', 'guesthouse', 'bnb', 'farm_stay', 'glamping', 'self_contained', 'cottage'],
   field: ['swimming_hole', 'waterfall', 'lookout', 'gorge', 'coastal_walk', 'hot_spring', 'cave', 'national_park'],
-  corner: ['bookshop', 'record_store', 'homewares', 'clothing', 'gift_shop', 'general_store', 'stationery', 'art_supplies', 'lifestyle'],
+  corner: ['bookshop', 'records', 'homewares', 'stationery', 'jewellery', 'toys', 'general', 'clothing', 'food_drink', 'plants', 'art_supplies', 'other'],
   found: ['vintage_clothing', 'vintage_furniture', 'antiques', 'op_shop', 'books_ephemera', 'art_objects', 'market'],
-  table: ['farm_gate', 'market', 'artisan_producer', 'specialty_retail', 'destination'],
+  table: ['restaurant', 'bakery', 'market', 'farm_gate', 'artisan_producer', 'specialty_retail', 'destination', 'cooking_school', 'providore', 'food_trail'],
 }
 
 // ─── Website Enrichment ────────────────────────────────────
@@ -244,7 +245,7 @@ export async function POST(request, { params }) {
   }
 
   try {
-    const { action } = await request.json()
+    const { action, subcategory } = await request.json()
 
     if (!['approve', 'reject'].includes(action)) {
       return NextResponse.json({ error: 'Invalid action — must be approve or reject' }, { status: 400 })
@@ -345,6 +346,9 @@ export async function POST(request, { params }) {
       }
 
       // 5. Build the full enriched data object
+      // Reviewer-selected subcategory takes priority over Claude-enriched category
+      const effectiveCategory = subcategory || enriched.category || null
+
       const fullData = {
         name: candidate.name,
         slug,
@@ -361,7 +365,7 @@ export async function POST(request, { params }) {
         postcode: enriched.postcode || null,
         opening_hours: enriched.opening_hours || null,
         instagram_handle: enriched.instagram_handle || null,
-        category: enriched.category || null,
+        category: effectiveCategory,
         hero_image_url: null,
       }
 
@@ -396,6 +400,7 @@ export async function POST(request, { params }) {
         phone: fullData.phone,
         address: fullData.address,
         hero_image_url: null,
+        sub_type: fullData.category || null,
         status: 'active',
         is_claimed: false,
         is_featured: false,

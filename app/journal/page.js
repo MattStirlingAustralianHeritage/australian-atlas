@@ -39,24 +39,28 @@ async function getArticlesFromMaster() {
     const sb = getSupabaseAdmin()
     const { data } = await sb
       .from('articles')
-      .select('id, vertical, title, slug, excerpt, hero_image_url, author, published_at, category, region_tags, listing_tags')
+      .select('id, vertical, verticals, title, slug, excerpt, hero_image_url, author, published_at, category, region_tags, listing_tags')
       .eq('status', 'published')
       .order('published_at', { ascending: false })
       .limit(60)
 
-    return (data || []).map(a => ({
-      id: `master-${a.id}`,
-      vertical: a.vertical || 'atlas',
-      title: a.title,
-      slug: a.slug,
-      excerpt: a.excerpt || null,
-      hero_image_url: a.hero_image_url || null,
-      author: a.author || null,
-      published_at: a.published_at,
-      category: a.category || null,
-      tags: [...(a.region_tags || []), ...(a.listing_tags || [])].filter(Boolean),
-      canonical_url: `${VERTICAL_JOURNAL_URLS[a.vertical] || VERTICAL_JOURNAL_URLS.sba}/${a.slug}`,
-    }))
+    return (data || []).map(a => {
+      const verts = Array.isArray(a.verticals) && a.verticals.length > 0 ? a.verticals : [a.vertical || 'atlas']
+      return {
+        id: `master-${a.id}`,
+        vertical: verts[0],
+        verticals: verts,
+        title: a.title,
+        slug: a.slug,
+        excerpt: a.excerpt || null,
+        hero_image_url: a.hero_image_url || null,
+        author: a.author || null,
+        published_at: a.published_at,
+        category: a.category || null,
+        tags: [...(a.region_tags || []), ...(a.listing_tags || [])].filter(Boolean),
+        canonical_url: `${VERTICAL_JOURNAL_URLS[verts[0]] || VERTICAL_JOURNAL_URLS.sba}/${a.slug}`,
+      }
+    })
   } catch {
     return []
   }

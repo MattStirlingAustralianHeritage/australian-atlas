@@ -6,6 +6,7 @@ import { getVerticalUrl, getVerticalLabel } from '@/lib/verticalUrl'
 import { listingJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
 import VerticalBadge from '@/components/VerticalBadge'
 import ListingCard, { TypographicCard, VERTICAL_TOKENS } from '@/components/ListingCard'
+import ListingMap from '@/components/ListingMap'
 
 export const revalidate = 3600
 
@@ -329,13 +330,13 @@ export default async function PlacePage({ params }) {
         {/* ── Details + Map card ──────────────────────────── */}
         <div className="rounded-xl overflow-hidden mb-10" style={{ border: '1px solid var(--color-border)', background: 'var(--color-card-bg)' }}>
           {/* Map */}
-          {hasCoords && mapboxToken ? (
+          {hasCoords ? (
             <div className="w-full aspect-[16/7] overflow-hidden">
-              <img
-                src={`https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/pin-l+${vertColor.replace('#', '')}(${listing.lng},${listing.lat})/${listing.lng},${listing.lat},14,0/800x350@2x?access_token=${mapboxToken}`}
-                alt={`Map showing ${listing.name}`}
-                loading="lazy"
-                className="w-full h-full object-cover"
+              <ListingMap
+                lat={listing.lat}
+                lng={listing.lng}
+                name={listing.name}
+                color={vertColor}
               />
             </div>
           ) : (

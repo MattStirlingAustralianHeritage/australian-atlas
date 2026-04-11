@@ -14,7 +14,10 @@ export default function JournalFeed({ articles, verticals, tags, verticalLabels,
   const filtered = useMemo(() => {
     let result = articles
     if (activeVerticals.size > 0) {
-      result = result.filter(a => activeVerticals.has(a.vertical))
+      result = result.filter(a => {
+        const verts = Array.isArray(a.verticals) && a.verticals.length > 0 ? a.verticals : [a.vertical]
+        return verts.some(v => activeVerticals.has(v))
+      })
     }
     if (activeTag) {
       result = result.filter(a => (a.tags || []).includes(activeTag))
@@ -251,18 +254,37 @@ function ArticleCard({ article, verticalLabels, verticalColors }) {
         e.currentTarget.style.borderColor = 'var(--color-border, #E5E0D8)'
       }}
     >
-      {/* Typographic article card */}
+      {/* Article card — hero image with gradient, or typographic fallback */}
       <div style={{
         position: 'relative', aspectRatio: '16/10', overflow: 'hidden',
         background: color, color: '#fff',
         display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
         padding: '1.25rem',
       }}>
-        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.8) 1px, transparent 1px)', backgroundSize: '16px 16px', opacity: 0.08, pointerEvents: 'none' }} />
+        {article.hero_image_url ? (
+          <>
+            <img
+              src={article.hero_image_url}
+              alt=""
+              style={{
+                position: 'absolute', inset: 0,
+                width: '100%', height: '100%',
+                objectFit: 'cover',
+              }}
+            />
+            <div style={{
+              position: 'absolute', inset: 0,
+              background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.2) 50%, transparent 100%)',
+              pointerEvents: 'none',
+            }} />
+          </>
+        ) : (
+          <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.8) 1px, transparent 1px)', backgroundSize: '16px 16px', opacity: 0.08, pointerEvents: 'none' }} />
+        )}
         <div style={{ position: 'relative', zIndex: 1 }}>
           <span style={{
             fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 8,
-            letterSpacing: '0.14em', textTransform: 'uppercase', opacity: 0.55,
+            letterSpacing: '0.14em', textTransform: 'uppercase', opacity: article.hero_image_url ? 0.85 : 0.55,
           }}>
             {label}
           </span>

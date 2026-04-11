@@ -37,7 +37,7 @@ export default function ArticlesPage() {
 
   // Draft state for editor
   const [draft, setDraft] = useState({
-    title: '', slug: '', vertical: 'atlas', excerpt: '', body: null,
+    title: '', slug: '', verticals: ['atlas'], excerpt: '', body: null,
     hero_image_url: '', author: '', status: 'draft', category: '',
     region_tags: [],
   })
@@ -60,7 +60,7 @@ export default function ArticlesPage() {
   function startNew() {
     setEditing('new')
     setDraft({
-      title: '', slug: '', vertical: 'atlas', excerpt: '', body: null,
+      title: '', slug: '', verticals: ['atlas'], excerpt: '', body: null,
       hero_image_url: '', author: '', status: 'draft', category: '',
       region_tags: [],
     })
@@ -69,10 +69,14 @@ export default function ArticlesPage() {
 
   function startEdit(article) {
     setEditing(article)
+    // Backward compat: use verticals array if available, fall back to single vertical
+    const verts = Array.isArray(article.verticals) && article.verticals.length > 0
+      ? article.verticals
+      : [article.vertical || 'atlas']
     setDraft({
       title: article.title || '',
       slug: article.slug || '',
-      vertical: article.vertical || 'atlas',
+      verticals: verts,
       excerpt: article.excerpt || '',
       body: article.body || null,
       hero_image_url: article.hero_image_url || '',
@@ -244,14 +248,19 @@ export default function ArticlesPage() {
                 onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
               >
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-                    <span style={{
-                      padding: '2px 8px', borderRadius: 3, fontSize: 10, fontWeight: 700,
-                      fontFamily: 'var(--font-body)', letterSpacing: '0.06em', textTransform: 'uppercase',
-                      color: '#fff', background: VERTICAL_COLORS[article.vertical] || '#888',
-                    }}>
-                      {VERTICAL_OPTIONS.find(v => v.value === article.vertical)?.label || article.vertical}
-                    </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 3, flexWrap: 'wrap' }}>
+                    {(Array.isArray(article.verticals) && article.verticals.length > 0
+                      ? article.verticals
+                      : [article.vertical || 'atlas']
+                    ).map(v => (
+                      <span key={v} style={{
+                        padding: '2px 8px', borderRadius: 3, fontSize: 10, fontWeight: 700,
+                        fontFamily: 'var(--font-body)', letterSpacing: '0.06em', textTransform: 'uppercase',
+                        color: '#fff', background: VERTICAL_COLORS[v] || '#888',
+                      }}>
+                        {VERTICAL_OPTIONS.find(opt => opt.value === v)?.label || v}
+                      </span>
+                    ))}
                     <span style={{
                       padding: '2px 8px', borderRadius: 3, fontSize: 10, fontWeight: 600,
                       fontFamily: 'var(--font-body)', letterSpacing: '0.06em', textTransform: 'uppercase',
@@ -348,15 +357,51 @@ export default function ArticlesPage() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 16px' }}>
           <Field label="Title" value={draft.title} onChange={v => updateDraft('title', v)} style={{ gridColumn: '1 / -1' }} />
           <Field label="Slug" value={draft.slug} onChange={v => updateDraft('slug', v)} mono />
-          <div>
-            <Label>Vertical</Label>
-            <select value={draft.vertical} onChange={e => updateDraft('vertical', e.target.value)} style={{
-              width: '100%', padding: '8px 10px', border: '1px solid var(--color-border)',
-              borderRadius: 4, fontFamily: 'var(--font-body)', fontSize: 14,
-              background: '#fff', color: 'var(--color-ink)',
+          <div style={{ gridColumn: '1 / -1' }}>
+            <Label>Verticals</Label>
+            <div style={{
+              display: 'flex', flexWrap: 'wrap', gap: 6,
+              padding: '8px 10px', border: '1px solid var(--color-border)',
+              borderRadius: 4, background: '#fff',
             }}>
-              {VERTICAL_OPTIONS.map(v => <option key={v.value} value={v.value}>{v.label}</option>)}
-            </select>
+              {VERTICAL_OPTIONS.map(v => {
+                const checked = (draft.verticals || []).includes(v.value)
+                return (
+                  <label key={v.value} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    padding: '4px 10px', borderRadius: 4, cursor: 'pointer',
+                    background: checked ? (VERTICAL_COLORS[v.value] || '#888') + '18' : 'transparent',
+                    border: `1px solid ${checked ? (VERTICAL_COLORS[v.value] || '#888') : 'var(--color-border)'}`,
+                    transition: 'all 0.1s',
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => {
+                        const current = draft.verticals || []
+                        const next = checked
+                          ? current.filter(x => x !== v.value)
+                          : [...current, v.value]
+                        updateDraft('verticals', next.length > 0 ? next : ['atlas'])
+                      }}
+                      style={{ display: 'none' }}
+                    />
+                    <span style={{
+                      width: 8, height: 8, borderRadius: '50%',
+                      background: VERTICAL_COLORS[v.value] || '#888',
+                      flexShrink: 0,
+                    }} />
+                    <span style={{
+                      fontFamily: 'var(--font-body)', fontSize: 12,
+                      fontWeight: checked ? 600 : 400,
+                      color: checked ? 'var(--color-ink)' : 'var(--color-muted)',
+                    }}>
+                      {v.label}
+                    </span>
+                  </label>
+                )
+              })}
+            </div>
           </div>
           <Field label="Author" value={draft.author} onChange={v => updateDraft('author', v)} />
           <Field label="Category" value={draft.category} onChange={v => updateDraft('category', v)} />

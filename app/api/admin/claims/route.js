@@ -71,6 +71,19 @@ const VERTICAL_NAMES = {
   corner: 'Corner Atlas', found: 'Found Atlas', table: 'Table Atlas',
 }
 
+// ─── Vertical claim table mapping ────────────────────────
+// Corner and Found use shop_claims, Table uses listing_claims, others use claims
+const VERTICAL_CLAIM_TABLE = {
+  corner: { table: 'shop_claims', entityKey: 'shop_id', nameKey: 'claimant_name', emailKey: 'claimant_email' },
+  found:  { table: 'shop_claims', entityKey: 'shop_id', nameKey: 'claimant_name', emailKey: 'claimant_email' },
+  table:  { table: 'listing_claims', entityKey: 'listing_id', nameKey: 'name', emailKey: 'email' },
+}
+const DEFAULT_CLAIM_TABLE = { table: 'claims', entityKey: 'venue_id', nameKey: 'contact_name', emailKey: 'contact_email' }
+
+function getVerticalClaimConfig(vertical) {
+  return VERTICAL_CLAIM_TABLE[vertical] || DEFAULT_CLAIM_TABLE
+}
+
 function getVerticalVendorUrl(vertical) {
   const config = VERTICAL_CONFIG[vertical]
   if (!config?.baseUrl) return null
@@ -143,24 +156,26 @@ async function handleApprove({ claimId, vertical, sourceClaimId, usingPortalTabl
     // ── Path A: Vertical-originated claim (has sourceClaimId) ──
     try {
       const verticalClient = getVerticalClient(effectiveVertical)
+      const claimConfig = getVerticalClaimConfig(effectiveVertical)
 
       await verticalClient
-        .from('claims')
+        .from(claimConfig.table)
         .update({ status: 'approved' })
         .eq('id', sourceClaimId)
 
       const { data: verticalClaim } = await verticalClient
-        .from('claims')
-        .select('venue_id, user_id')
+        .from(claimConfig.table)
+        .select(`${claimConfig.entityKey}, user_id`)
         .eq('id', sourceClaimId)
         .maybeSingle()
 
-      if (verticalClaim?.venue_id) {
+      const entityId = verticalClaim?.[claimConfig.entityKey]
+      if (entityId) {
         const venueTable = VERTICAL_CONFIG[effectiveVertical]?.table || 'venues'
         await verticalClient
           .from(venueTable)
           .update({ is_claimed: true })
-          .eq('id', verticalClaim.venue_id)
+          .eq('id', entityId)
       }
 
       verticalUserId = verticalClaim?.user_id
@@ -195,17 +210,25 @@ async function handleApprove({ claimId, vertical, sourceClaimId, usingPortalTabl
       // Create a pre-approved claim record on the vertical
       // (user_id is null — will be linked when vendor creates account)
       try {
+        const claimConfig = getVerticalClaimConfig(effectiveVertical)
+        const claimInsertData = {
+          [claimConfig.entityKey]: venueId,
+          [claimConfig.nameKey]: claimRecord?.claimant_name,
+          [claimConfig.emailKey]: claimRecord?.claimant_email,
+          status: 'approved',
+          user_id: null,
+        }
+        // Add venue_name / selected_tier for verticals that support them
+        if (claimConfig.table === 'claims') {
+          claimInsertData.venue_name = listingRecord.name || claimRecord?.claimant_name
+          claimInsertData.selected_tier = claimRecord?.tier || 'free'
+        }
+        if (claimConfig.table === 'listing_claims') {
+          claimInsertData.listing_name = listingRecord.name || claimRecord?.claimant_name
+        }
         await verticalClient
-          .from('claims')
-          .insert({
-            venue_id: venueId,
-            venue_name: listingRecord.name || claimRecord?.claimant_name,
-            contact_name: claimRecord?.claimant_name,
-            contact_email: claimRecord?.claimant_email,
-            status: 'approved',
-            selected_tier: claimRecord?.tier || 'free',
-            user_id: null,
-          })
+          .from(claimConfig.table)
+          .insert(claimInsertData)
         console.log(`[admin/claims] Created pre-approved claim on ${effectiveVertical} for venue ${venueId}`)
       } catch (claimInsertErr) {
         // Non-fatal — not all verticals have a claims table
@@ -216,23 +239,47 @@ async function handleApprove({ claimId, vertical, sourceClaimId, usingPortalTabl
     }
   }
 
-  // ── 4. Promote user to vendor role (if user_id known) ──
-  if (verticalUserId) {
+  // ── 4. Promote user to vendor role ──
+  const promoteEmail = claimRecord?.claimant_email
+  if (promoteEmail || verticalUserId) {
     try {
-      await fetch(`${ATLAS_AUTH_URL}/api/auth/promote-role`, {
+      const promoteRes = await fetch(`${ATLAS_AUTH_URL}/api/auth/promote-role`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-api-secret': process.env.SHARED_API_SECRET || process.env.SHARED_AUTH_SECRET,
         },
         body: JSON.stringify({
-          userId: verticalUserId,
+          userId: verticalUserId || undefined,
+          email: promoteEmail,
           role: 'vendor',
           vertical: effectiveVertical,
         }),
       })
+      if (!promoteRes.ok) {
+        const promoteBody = await promoteRes.text().catch(() => 'no body')
+        console.error('[admin/claims] Promote-role failed:', promoteRes.status, promoteBody)
+        // Write to failed_role_promotions for admin visibility
+        await sb.from('failed_role_promotions').insert({
+          email: promoteEmail || null,
+          user_id: verticalUserId || null,
+          target_role: 'vendor',
+          vertical: effectiveVertical || null,
+          error_message: `HTTP ${promoteRes.status}: ${promoteBody}`.slice(0, 500),
+          claim_id: claimId,
+        }).then(null, err => console.error('[admin/claims] failed_role_promotions insert error:', err.message))
+      }
     } catch (promoteErr) {
       console.error('[admin/claims] Promote-role error:', promoteErr.message)
+      // Write network/timeout failures to failed_role_promotions
+      await sb.from('failed_role_promotions').insert({
+        email: promoteEmail || null,
+        user_id: verticalUserId || null,
+        target_role: 'vendor',
+        vertical: effectiveVertical || null,
+        error_message: promoteErr.message?.slice(0, 500) || 'Unknown error',
+        claim_id: claimId,
+      }).then(null, err => console.error('[admin/claims] failed_role_promotions insert error:', err.message))
     }
   }
 
@@ -277,6 +324,18 @@ async function handleApprove({ claimId, vertical, sourceClaimId, usingPortalTabl
     // Non-fatal
   }
 
+  // ── Audit log ────────────────────────────────────────────
+  await sb.from('claim_audit_log').insert({
+    claim_id: claimId,
+    action: 'approved',
+    actor: 'admin',
+    details: {
+      vertical: effectiveVertical,
+      source_claim_id: sourceClaimId || null,
+      admin_notes: admin_notes || null,
+    },
+  }).then(null, err => console.error('[admin/claims] Audit log error:', err))
+
   return NextResponse.json({ success: true, action: 'approved' })
 }
 
@@ -306,8 +365,9 @@ async function handleReject({ claimId, vertical, sourceClaimId, usingPortalTable
   if (vertical && sourceClaimId) {
     try {
       const verticalClient = getVerticalClient(vertical)
+      const claimConfig = getVerticalClaimConfig(vertical)
       await verticalClient
-        .from('claims')
+        .from(claimConfig.table)
         .update({ status: 'rejected' })
         .eq('id', sourceClaimId)
     } catch (err) {
@@ -345,6 +405,18 @@ async function handleReject({ claimId, vertical, sourceClaimId, usingPortalTable
   } catch {
     // Non-fatal
   }
+
+  // ── Audit log ────────────────────────────────────────────
+  await sb.from('claim_audit_log').insert({
+    claim_id: claimId,
+    action: 'rejected',
+    actor: 'admin',
+    details: {
+      vertical: vertical || null,
+      source_claim_id: sourceClaimId || null,
+      admin_notes: admin_notes || null,
+    },
+  }).then(null, err => console.error('[admin/claims] Audit log error:', err))
 
   return NextResponse.json({ success: true, action: 'rejected' })
 }

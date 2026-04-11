@@ -55,6 +55,7 @@ function TrailBuilderInner() {
   const stopMarkersRef = useRef([])
   const resultMarkersRef = useRef([])
   const stopsRef = useRef(stops)
+  const prevStopsLenRef = useRef(0)
 
   useEffect(() => { stopsRef.current = stops }, [stops])
 
@@ -295,9 +296,28 @@ function TrailBuilderInner() {
 
     const doUpdate = async () => {
       const mapboxgl = (await import('mapbox-gl')).default
+      const prevLen = prevStopsLenRef.current
+
+      // Only re-fit the viewport when a stop is added (not on reorder or removal).
+      // Use instant (duration: 0) fit BEFORE rendering markers to avoid the
+      // visual artefact where markers appear clustered then "fly" to position.
+      if (stops.length > 0 && stops.length > prevLen) {
+        const withCoords = stops.filter(s => s.latitude && s.longitude)
+        if (withCoords.length === 1) {
+          map.jumpTo({ center: [parseFloat(withCoords[0].longitude), parseFloat(withCoords[0].latitude)], zoom: 11 })
+        } else if (withCoords.length > 1) {
+          const lngs = withCoords.map(s => parseFloat(s.longitude))
+          const lats = withCoords.map(s => parseFloat(s.latitude))
+          map.fitBounds(
+            [[Math.min(...lngs) - 0.05, Math.min(...lats) - 0.05], [Math.max(...lngs) + 0.05, Math.max(...lats) + 0.05]],
+            { padding: 60, duration: 0 }
+          )
+        }
+      }
+
       renderStopMarkers(map, mapboxgl, stops)
       await drawRoute(map, stops)
-      if (stops.length > 0) fitToStops(map, stops)
+      prevStopsLenRef.current = stops.length
     }
 
     if (map.isStyleLoaded()) {
@@ -305,7 +325,7 @@ function TrailBuilderInner() {
     } else {
       map.once('load', doUpdate)
     }
-  }, [stops, drawRoute, fitToStops, renderStopMarkers])
+  }, [stops, drawRoute, renderStopMarkers])
 
   // Update result markers when search results change
   useEffect(() => {

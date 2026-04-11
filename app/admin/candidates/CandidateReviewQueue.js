@@ -25,6 +25,94 @@ const VERTICAL_FULL_NAMES = {
   corner: 'Corner Atlas', found: 'Found Atlas', table: 'Table Atlas',
 }
 
+// Subcategory options per vertical — values must match DB CHECK constraints on meta tables
+const SUBCATEGORY_OPTIONS = {
+  sba: [
+    { value: 'brewery', label: 'Brewery' },
+    { value: 'winery', label: 'Winery' },
+    { value: 'distillery', label: 'Distillery' },
+    { value: 'cidery', label: 'Cidery' },
+    { value: 'meadery', label: 'Meadery' },
+    { value: 'cellar_door', label: 'Cellar Door' },
+    { value: 'sour_brewery', label: 'Sour Brewery' },
+    { value: 'non_alcoholic', label: 'Non-Alcoholic' },
+  ],
+  collection: [
+    { value: 'museum', label: 'Museum' },
+    { value: 'gallery', label: 'Gallery' },
+    { value: 'heritage_site', label: 'Heritage Site' },
+    { value: 'cultural_centre', label: 'Cultural Centre' },
+    { value: 'botanical_garden', label: 'Botanical Garden' },
+  ],
+  craft: [
+    { value: 'ceramics_clay', label: 'Ceramics & Clay' },
+    { value: 'visual_art', label: 'Visual Art' },
+    { value: 'jewellery_metalwork', label: 'Jewellery & Metalwork' },
+    { value: 'textile_fibre', label: 'Textile & Fibre' },
+    { value: 'wood_furniture', label: 'Wood & Furniture' },
+    { value: 'glass', label: 'Glass' },
+    { value: 'printmaking', label: 'Printmaking' },
+  ],
+  fine_grounds: [
+    { value: 'roaster', label: 'Roaster' },
+    { value: 'cafe', label: 'Cafe' },
+  ],
+  rest: [
+    { value: 'boutique_hotel', label: 'Boutique Hotel' },
+    { value: 'guesthouse', label: 'Guesthouse' },
+    { value: 'bnb', label: 'B&B' },
+    { value: 'farm_stay', label: 'Farm Stay' },
+    { value: 'glamping', label: 'Glamping' },
+    { value: 'self_contained', label: 'Self-Contained' },
+    { value: 'cottage', label: 'Cottage' },
+  ],
+  field: [
+    { value: 'swimming_hole', label: 'Swimming Hole' },
+    { value: 'waterfall', label: 'Waterfall' },
+    { value: 'lookout', label: 'Lookout' },
+    { value: 'gorge', label: 'Gorge' },
+    { value: 'coastal_walk', label: 'Coastal Walk' },
+    { value: 'hot_spring', label: 'Hot Spring' },
+    { value: 'cave', label: 'Cave' },
+    { value: 'national_park', label: 'National Park' },
+  ],
+  corner: [
+    { value: 'bookshop', label: 'Bookshop' },
+    { value: 'records', label: 'Records & Music' },
+    { value: 'homewares', label: 'Homewares & Interiors' },
+    { value: 'stationery', label: 'Stationery & Paper Goods' },
+    { value: 'jewellery', label: 'Jewellery' },
+    { value: 'toys', label: 'Toys & Children\'s' },
+    { value: 'general', label: 'General Store' },
+    { value: 'clothing', label: 'Clothing' },
+    { value: 'food_drink', label: 'Food & Drink' },
+    { value: 'plants', label: 'Plants' },
+    { value: 'art_supplies', label: 'Art Supplies' },
+    { value: 'other', label: 'Other' },
+  ],
+  found: [
+    { value: 'vintage_clothing', label: 'Vintage Clothing' },
+    { value: 'vintage_furniture', label: 'Vintage Furniture' },
+    { value: 'antiques', label: 'Antiques' },
+    { value: 'op_shop', label: 'Op Shop' },
+    { value: 'books_ephemera', label: 'Books & Ephemera' },
+    { value: 'art_objects', label: 'Art Objects' },
+    { value: 'market', label: 'Market' },
+  ],
+  table: [
+    { value: 'restaurant', label: 'Restaurant' },
+    { value: 'bakery', label: 'Bakery' },
+    { value: 'market', label: 'Market' },
+    { value: 'farm_gate', label: 'Farm Gate' },
+    { value: 'artisan_producer', label: 'Artisan Producer' },
+    { value: 'specialty_retail', label: 'Specialty Retail' },
+    { value: 'destination', label: 'Destination' },
+    { value: 'cooking_school', label: 'Cooking School' },
+    { value: 'providore', label: 'Providore' },
+    { value: 'food_trail', label: 'Food Trail' },
+  ],
+}
+
 // Geo anchors for map preview — fuzzy region matching
 const GEO_ANCHORS = {
   'Barossa': { lat: -34.56, lng: 138.95 }, 'Yarra Valley': { lat: -37.73, lng: 145.51 },
@@ -207,6 +295,37 @@ function VerticalSelect({ value, candidateId, onSaved }) {
       }}>
       {Object.entries(VERTICAL_NAMES).map(([key, label]) => (
         <option key={key} value={key} style={{ background: '#fff', color: '#333', textTransform: 'none' }}>{label}</option>
+      ))}
+    </select>
+  )
+}
+
+function SubcategorySelect({ vertical, value, onChange }) {
+  const options = SUBCATEGORY_OPTIONS[vertical] || []
+  const color = VERTICAL_COLORS[vertical] || 'var(--color-muted)'
+  const hasValue = !!value
+
+  if (options.length === 0) return null
+
+  return (
+    <select value={value || ''} onChange={e => onChange(e.target.value)}
+      style={{
+        fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 10,
+        letterSpacing: '0.06em',
+        color: hasValue ? color : 'var(--color-muted)',
+        background: hasValue ? `${color}12` : '#fff',
+        padding: '4px 22px 4px 10px', borderRadius: 3,
+        border: `1px solid ${hasValue ? `${color}40` : 'var(--color-border)'}`,
+        cursor: 'pointer', outline: 'none',
+        appearance: 'none', WebkitAppearance: 'none',
+        backgroundImage: `url("data:image/svg+xml,%3Csvg width='8' height='5' viewBox='0 0 8 5' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L4 4L7 1' stroke='%23999' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'right 6px center',
+        transition: 'all 0.15s',
+      }}>
+      <option value="" style={{ color: '#999' }}>Subcategory...</option>
+      {options.map(opt => (
+        <option key={opt.value} value={opt.value} style={{ color: '#333' }}>{opt.label}</option>
       ))}
     </select>
   )
@@ -406,11 +525,36 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
   const autoAdvanceRef = useRef(null)
   const cardRef = useRef(null)
 
+  // Subcategory state — pre-populate from gate_results if available
+  const [subcategory, setSubcategory] = useState(() => {
+    const gr = candidate.gate_results
+    if (!gr) return ''
+    // Check for category stored directly
+    if (gr.category) {
+      const opts = SUBCATEGORY_OPTIONS[candidate.vertical] || []
+      if (opts.find(o => o.value === gr.category)) return gr.category
+    }
+    return ''
+  })
+
   const vertical = candidate.vertical || 'sba'
   const color = VERTICAL_COLORS[vertical] || '#5F8A7E'
   const confidence = candidate.confidence || 0
   const confidencePercent = Math.round(confidence * 100)
   const buttonsDisabled = status !== 'idle' && status !== 'error'
+  const noSubcategory = !subcategory && (SUBCATEGORY_OPTIONS[vertical]?.length > 0)
+
+  // Reset subcategory when vertical changes (unless new vertical still has the same value)
+  const prevVerticalRef = useRef(vertical)
+  useEffect(() => {
+    if (vertical !== prevVerticalRef.current) {
+      const opts = SUBCATEGORY_OPTIONS[vertical] || []
+      if (!opts.find(o => o.value === subcategory)) {
+        setSubcategory('')
+      }
+      prevVerticalRef.current = vertical
+    }
+  }, [vertical, subcategory])
 
   const advanceNow = useCallback(() => {
     if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current)
@@ -458,7 +602,7 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
       const res = await fetch(`/api/admin/candidates/${candidate.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'approve' }),
+        body: JSON.stringify({ action: 'approve', subcategory: subcategory || undefined }),
       })
       const data = await res.json().catch(() => ({}))
 
@@ -520,6 +664,7 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <VerticalSelect value={vertical} candidateId={candidate.id} onSaved={onUpdate} />
+          <SubcategorySelect vertical={vertical} value={subcategory} onChange={setSubcategory} />
           <span style={{
             fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 11,
             color: confidence > 0.85 ? '#4A7C59' : confidence < 0.60 ? '#C49A3C' : 'var(--color-muted)',
@@ -537,16 +682,16 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
           )}
         </div>
         <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-          <button data-action="approve" onClick={() => handleAction('approve')} disabled={buttonsDisabled}
-            title="Approve (Y or Right Arrow)"
+          <button data-action="approve" onClick={() => handleAction('approve')} disabled={buttonsDisabled || noSubcategory}
+            title={noSubcategory ? 'Select a subcategory before publishing' : 'Approve (Y or Right Arrow)'}
             style={{
               height: 36, padding: '0 16px', borderRadius: 8,
-              background: status === 'approving' ? '#3a6a49' : '#4A7C59',
-              border: 'none', cursor: buttonsDisabled ? 'default' : 'pointer',
+              background: noSubcategory ? '#a0b8ae' : status === 'approving' ? '#3a6a49' : '#4A7C59',
+              border: 'none', cursor: (buttonsDisabled || noSubcategory) ? 'default' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               transition: 'all 0.15s',
-              boxShadow: '0 1px 3px rgba(74,124,89,0.3)',
-              opacity: buttonsDisabled && status !== 'approving' ? 0.5 : 1,
+              boxShadow: noSubcategory ? 'none' : '0 1px 3px rgba(74,124,89,0.3)',
+              opacity: (buttonsDisabled && status !== 'approving') ? 0.5 : 1,
               fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 600,
               color: '#fff', letterSpacing: '0.02em',
             }}
@@ -1137,16 +1282,258 @@ function CompletionScreen({ approved, rejected, regions }) {
   )
 }
 
+// ─── Vertical Filter Bar ─────────────────────────────────
+
+function VerticalFilterBar({ activeFilter, onFilterChange, queueDepth }) {
+  const allCount = Object.values(queueDepth).reduce((s, n) => s + n, 0)
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
+      padding: '10px 0', marginBottom: 16,
+    }}>
+      <button
+        onClick={() => onFilterChange(null)}
+        style={{
+          fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: activeFilter === null ? 600 : 400,
+          color: activeFilter === null ? '#fff' : 'var(--color-muted)',
+          background: activeFilter === null ? 'var(--color-sage)' : 'var(--color-cream)',
+          border: 'none', borderRadius: 100, padding: '5px 12px',
+          cursor: 'pointer', transition: 'all 0.15s',
+        }}
+      >
+        All ({allCount})
+      </button>
+      {Object.entries(VERTICAL_NAMES).map(([key, label]) => {
+        const count = queueDepth[key] || 0
+        const isActive = activeFilter === key
+        const color = VERTICAL_COLORS[key] || 'var(--color-muted)'
+        return (
+          <button
+            key={key}
+            onClick={() => onFilterChange(isActive ? null : key)}
+            style={{
+              fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: isActive ? 600 : 500,
+              letterSpacing: '0.04em',
+              color: isActive ? '#fff' : count > 0 ? color : 'var(--color-muted)',
+              background: isActive ? color : count > 0 ? `${color}12` : 'transparent',
+              border: `1px solid ${isActive ? color : count > 0 ? `${color}30` : 'var(--color-border)'}`,
+              borderRadius: 100, padding: '4px 10px',
+              cursor: 'pointer', transition: 'all 0.15s',
+              opacity: count === 0 && !isActive ? 0.5 : 1,
+            }}
+          >
+            {label} ({count})
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Rejected Log ────────────────────────────────────────
+
+function RejectedLog({ rejectedCandidates }) {
+  if (!rejectedCandidates || rejectedCandidates.length === 0) {
+    return (
+      <div style={{
+        textAlign: 'center', padding: '3rem 2rem',
+        border: '1px dashed var(--color-border)', borderRadius: 8,
+      }}>
+        <p style={{
+          fontFamily: 'var(--font-body)', fontSize: 14,
+          color: 'var(--color-muted)', margin: 0,
+        }}>
+          No rejected candidates yet.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'grid', gap: 6 }}>
+      {rejectedCandidates.map(c => {
+        const color = VERTICAL_COLORS[c.vertical] || 'var(--color-muted)'
+        const reviewedDate = c.reviewed_at ? new Date(c.reviewed_at).toLocaleDateString() : ''
+        const confidencePercent = c.confidence ? Math.round(c.confidence * 100) : null
+        return (
+          <div key={c.id} style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '10px 16px', borderRadius: 8,
+            background: '#fff', border: '1px solid var(--color-border)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+              <span style={{
+                fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 10,
+                letterSpacing: '0.08em', textTransform: 'uppercase',
+                color: '#fff', background: color,
+                padding: '2px 8px', borderRadius: 3, flexShrink: 0,
+              }}>
+                {VERTICAL_NAMES[c.vertical] || c.vertical}
+              </span>
+              <span style={{
+                fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500,
+                color: 'var(--color-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
+                {c.name}
+              </span>
+              {c.region && (
+                <span style={{
+                  fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-muted)',
+                  fontStyle: 'italic', flexShrink: 0,
+                }}>
+                  {c.region}
+                </span>
+              )}
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+              {confidencePercent !== null && (
+                <span style={{
+                  fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 500,
+                  color: confidencePercent >= 80 ? '#4A7C59' : 'var(--color-muted)',
+                }}>
+                  {confidencePercent}%
+                </span>
+              )}
+              <span style={{
+                fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-muted)',
+              }}>
+                {reviewedDate}
+              </span>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Generate Button ─────────────────────────────────────
+
+function GenerateButton({ onGenerated }) {
+  const [generating, setGenerating] = useState(false)
+  const [result, setResult] = useState(null)
+  const [error, setError] = useState(null)
+
+  const handleGenerate = async () => {
+    setGenerating(true)
+    setError(null)
+    setResult(null)
+    try {
+      const res = await fetch('/api/admin/candidates/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error || 'Generation failed')
+      } else {
+        setResult(data)
+        if (data.total_queued > 0) onGenerated?.()
+      }
+    } catch (err) {
+      setError(err.message || 'Network error')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <button
+          onClick={handleGenerate}
+          disabled={generating}
+          style={{
+            fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 600,
+            letterSpacing: '0.04em',
+            color: '#fff', background: generating ? '#3a6a49' : '#4A7C59',
+            border: 'none', borderRadius: 8, padding: '10px 20px',
+            cursor: generating ? 'default' : 'pointer',
+            display: 'flex', alignItems: 'center', gap: 8,
+            transition: 'all 0.15s',
+            boxShadow: '0 1px 3px rgba(74,124,89,0.3)',
+          }}
+        >
+          {generating ? (
+            <>
+              <div style={{
+                width: 14, height: 14,
+                border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff',
+                borderRadius: '50%', animation: 'candidateSpinner 0.6s linear infinite',
+              }} />
+              Generating...
+            </>
+          ) : (
+            <>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M7 1V13M1 7H13" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+              Generate Now
+            </>
+          )}
+        </button>
+        {result && (
+          <span style={{
+            fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500,
+            color: result.total_queued > 0 ? '#4A7C59' : 'var(--color-muted)',
+          }}>
+            {result.total_queued > 0
+              ? `${result.total_queued} new candidates queued (${result.duration_seconds}s)`
+              : `No new candidates found (${result.duration_seconds}s)`
+            }
+          </span>
+        )}
+        {error && (
+          <span style={{
+            fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500,
+            color: '#CC4444',
+          }}>
+            {error}
+          </span>
+        )}
+      </div>
+
+      {/* Per-vertical results breakdown */}
+      {result?.results?.length > 0 && (
+        <div style={{
+          marginTop: 10, padding: '10px 14px',
+          background: 'var(--color-cream)', borderRadius: 8,
+          display: 'flex', gap: 12, flexWrap: 'wrap',
+        }}>
+          {result.results.map(r => (
+            <span key={r.vertical} style={{
+              fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 500,
+              color: r.queued > 0 ? '#4A7C59' : r.status === 'skipped' ? 'var(--color-muted)' : '#CC4444',
+            }}>
+              {VERTICAL_NAMES[r.vertical] || r.vertical}: {r.status === 'skipped' ? 'full' : `+${r.queued}`}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Queue Container ──────────────────────────────────────
 
-export default function CandidateReviewQueue({ initialCandidates = [], mapboxToken }) {
+export default function CandidateReviewQueue({ initialCandidates = [], initialRejected = [], queueDepth = {}, mapboxToken }) {
   const [candidates, setCandidates] = useState(initialCandidates)
   const [approved, setApproved] = useState(0)
   const [rejected, setRejected] = useState(0)
   const [publishedRegions, setPublishedRegions] = useState([])
+  const [verticalFilter, setVerticalFilter] = useState(null)
+  const [activeTab, setActiveTab] = useState('review') // 'review' | 'rejected'
+  const [depth, setDepth] = useState(queueDepth)
   const focusDescRefs = useRef({})
   const totalReviewed = approved + rejected
   const totalQueue = candidates.length + totalReviewed
+
+  // Filter candidates by vertical
+  const filteredCandidates = verticalFilter
+    ? candidates.filter(c => c.vertical === verticalFilter)
+    : candidates
 
   useEffect(() => {
     if (mapboxToken) window.__MAPBOX_TOKEN = mapboxToken
@@ -1155,7 +1542,7 @@ export default function CandidateReviewQueue({ initialCandidates = [], mapboxTok
   useEffect(() => {
     const handleKey = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return
-      if (candidates.length === 0) return
+      if (filteredCandidates.length === 0) return
       switch (e.key) {
         case 'ArrowRight': case 'y': case 'Y': {
           e.preventDefault()
@@ -1178,25 +1565,44 @@ export default function CandidateReviewQueue({ initialCandidates = [], mapboxTok
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [candidates.length])
+  }, [filteredCandidates.length])
 
   const handleApprove = useCallback((id, region) => {
+    const candidate = candidates.find(c => c.id === id)
     setCandidates(prev => prev.filter(c => c.id !== id))
     setApproved(a => a + 1)
     if (region) {
       setPublishedRegions(prev => prev.includes(region) ? prev : [...prev, region])
     }
-  }, [])
+    // Update depth counter
+    if (candidate) {
+      setDepth(prev => ({
+        ...prev,
+        [candidate.vertical]: Math.max(0, (prev[candidate.vertical] || 0) - 1),
+      }))
+    }
+  }, [candidates])
   const handleReject = useCallback((id) => {
+    const candidate = candidates.find(c => c.id === id)
     setCandidates(prev => prev.filter(c => c.id !== id))
     setRejected(r => r + 1)
-  }, [])
+    if (candidate) {
+      setDepth(prev => ({
+        ...prev,
+        [candidate.vertical]: Math.max(0, (prev[candidate.vertical] || 0) - 1),
+      }))
+    }
+  }, [candidates])
   const handleUpdate = useCallback((updated) => {
     setCandidates(prev => prev.map(c => c.id === updated.id ? { ...c, ...updated } : c))
   }, [])
+  const handleGenerated = useCallback(() => {
+    // Reload the page to pick up new candidates
+    window.location.reload()
+  }, [])
 
   const progressPct = totalQueue > 0 ? (totalReviewed / totalQueue) * 100 : 0
-  const queueEmpty = candidates.length === 0
+  const queueEmpty = filteredCandidates.length === 0
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto' }}>
@@ -1207,90 +1613,142 @@ export default function CandidateReviewQueue({ initialCandidates = [], mapboxTok
         }
       `}</style>
 
-      {/* Keyboard hints — only while reviewing */}
-      {!queueEmpty && (
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          gap: 16, padding: '10px 16px', marginBottom: 20,
-          background: 'var(--color-cream)', borderRadius: 8,
-          fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-muted)',
-          fontWeight: 400, flexWrap: 'wrap',
-        }}>
-          <span><Kbd>Y</Kbd> / <Kbd>{'\u2192'}</Kbd> publish</span>
-          <span style={{ opacity: 0.3 }}>|</span>
-          <span><Kbd>N</Kbd> / <Kbd>{'\u2190'}</Kbd> skip</span>
-          <span style={{ opacity: 0.3 }}>|</span>
-          <span><Kbd>E</Kbd> edit description</span>
-        </div>
-      )}
+      {/* Tab bar */}
+      <div style={{
+        display: 'flex', gap: 0, marginBottom: 16,
+        borderBottom: '1px solid var(--color-border)',
+      }}>
+        {[
+          { key: 'review', label: `Review Queue (${candidates.length})` },
+          { key: 'rejected', label: `Rejected Log (${initialRejected.length})` },
+        ].map(tab => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            style={{
+              fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: activeTab === tab.key ? 600 : 400,
+              color: activeTab === tab.key ? 'var(--color-ink)' : 'var(--color-muted)',
+              background: 'none', border: 'none',
+              borderBottom: activeTab === tab.key ? '2px solid var(--color-sage)' : '2px solid transparent',
+              padding: '10px 20px', cursor: 'pointer',
+              transition: 'all 0.15s',
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-      {/* Progress bar — only while reviewing */}
-      {!queueEmpty && (
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
-            <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500, color: 'var(--color-ink)' }}>
-              {totalReviewed} of {totalQueue} reviewed
-            </span>
-            <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-muted)' }}>
-              <span style={{ color: '#4A7C59' }}>{approved} published</span>
-              {' / '}
-              <span style={{ color: '#CC4444' }}>{rejected} skipped</span>
-            </span>
-          </div>
-          <div style={{ height: 3, borderRadius: 2, background: 'var(--color-border)', overflow: 'hidden' }}>
-            <div style={{
-              height: '100%', width: `${progressPct}%`,
-              background: 'var(--color-sage)', borderRadius: 2,
-              transition: 'width 0.4s ease',
-            }} />
-          </div>
-        </div>
-      )}
-
-      {/* Active review or completion */}
-      {!queueEmpty ? (
-        <div>
-          <div key={candidates[0].id} data-candidate-index={0}>
-            <CandidatePreview
-              candidate={candidates[0]} isFocused={true} index={0}
-              onApprove={handleApprove} onReject={handleReject} onUpdate={handleUpdate}
-              focusDescRefs={focusDescRefs}
-            />
-          </div>
-          {candidates.length > 1 && (
-            <p style={{
-              textAlign: 'center', fontFamily: 'var(--font-body)',
-              fontSize: 13, color: 'var(--color-muted)', marginTop: 8,
-            }}>
-              {candidates.length - 1} more candidate{candidates.length - 1 !== 1 ? 's' : ''} in queue
-            </p>
-          )}
-        </div>
-      ) : totalReviewed > 0 ? (
-        <CompletionScreen
-          approved={approved}
-          rejected={rejected}
-          regions={publishedRegions}
-        />
+      {activeTab === 'rejected' ? (
+        <RejectedLog rejectedCandidates={initialRejected} />
       ) : (
-        <div style={{
-          textAlign: 'center', padding: '5rem 2rem',
-          background: '#fff', borderRadius: 16,
-          border: '1px solid var(--color-border)',
-        }}>
-          <p style={{
-            fontFamily: 'var(--font-display, Georgia)', fontSize: 22,
-            fontWeight: 400, color: 'var(--color-ink)', marginBottom: 8,
-          }}>
-            No pending candidates
-          </p>
-          <p style={{
-            fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 300,
-            color: 'var(--color-muted)', lineHeight: 1.5,
-          }}>
-            Run a discovery script to populate the candidate queue.
-          </p>
-        </div>
+        <>
+          {/* Vertical filter bar with queue depth */}
+          <VerticalFilterBar
+            activeFilter={verticalFilter}
+            onFilterChange={setVerticalFilter}
+            queueDepth={depth}
+          />
+
+          {/* Generate button — shown when queue is low */}
+          {candidates.length < 50 && (
+            <GenerateButton onGenerated={handleGenerated} />
+          )}
+
+          {/* Keyboard hints — only while reviewing */}
+          {!queueEmpty && (
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              gap: 16, padding: '10px 16px', marginBottom: 20,
+              background: 'var(--color-cream)', borderRadius: 8,
+              fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-muted)',
+              fontWeight: 400, flexWrap: 'wrap',
+            }}>
+              <span><Kbd>Y</Kbd> / <Kbd>{'\u2192'}</Kbd> publish</span>
+              <span style={{ opacity: 0.3 }}>|</span>
+              <span><Kbd>N</Kbd> / <Kbd>{'\u2190'}</Kbd> skip</span>
+              <span style={{ opacity: 0.3 }}>|</span>
+              <span><Kbd>E</Kbd> edit description</span>
+            </div>
+          )}
+
+          {/* Progress bar — only while reviewing */}
+          {!queueEmpty && (
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500, color: 'var(--color-ink)' }}>
+                  {totalReviewed} of {totalQueue} reviewed
+                  {verticalFilter && (
+                    <span style={{ fontWeight: 400, color: 'var(--color-muted)' }}>
+                      {' '}({VERTICAL_NAMES[verticalFilter]} filter)
+                    </span>
+                  )}
+                </span>
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-muted)' }}>
+                  <span style={{ color: '#4A7C59' }}>{approved} published</span>
+                  {' / '}
+                  <span style={{ color: '#CC4444' }}>{rejected} skipped</span>
+                </span>
+              </div>
+              <div style={{ height: 3, borderRadius: 2, background: 'var(--color-border)', overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%', width: `${progressPct}%`,
+                  background: 'var(--color-sage)', borderRadius: 2,
+                  transition: 'width 0.4s ease',
+                }} />
+              </div>
+            </div>
+          )}
+
+          {/* Active review or completion */}
+          {!queueEmpty ? (
+            <div>
+              <div key={filteredCandidates[0].id} data-candidate-index={0}>
+                <CandidatePreview
+                  candidate={filteredCandidates[0]} isFocused={true} index={0}
+                  onApprove={handleApprove} onReject={handleReject} onUpdate={handleUpdate}
+                  focusDescRefs={focusDescRefs}
+                />
+              </div>
+              {filteredCandidates.length > 1 && (
+                <p style={{
+                  textAlign: 'center', fontFamily: 'var(--font-body)',
+                  fontSize: 13, color: 'var(--color-muted)', marginTop: 8,
+                }}>
+                  {filteredCandidates.length - 1} more candidate{filteredCandidates.length - 1 !== 1 ? 's' : ''} in queue
+                </p>
+              )}
+            </div>
+          ) : totalReviewed > 0 ? (
+            <CompletionScreen
+              approved={approved}
+              rejected={rejected}
+              regions={publishedRegions}
+            />
+          ) : (
+            <div style={{
+              textAlign: 'center', padding: '5rem 2rem',
+              background: '#fff', borderRadius: 16,
+              border: '1px solid var(--color-border)',
+            }}>
+              <p style={{
+                fontFamily: 'var(--font-display, Georgia)', fontSize: 22,
+                fontWeight: 400, color: 'var(--color-ink)', marginBottom: 8,
+              }}>
+                {verticalFilter ? `No pending ${VERTICAL_NAMES[verticalFilter]} candidates` : 'No pending candidates'}
+              </p>
+              <p style={{
+                fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 300,
+                color: 'var(--color-muted)', lineHeight: 1.5,
+              }}>
+                {verticalFilter
+                  ? 'Try removing the filter or click Generate Now above.'
+                  : 'Click Generate Now to populate the candidate queue.'
+                }
+              </p>
+            </div>
+          )}
+        </>
       )}
     </div>
   )

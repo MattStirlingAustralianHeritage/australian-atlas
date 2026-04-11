@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 
 const TIERS = [
   {
@@ -20,12 +21,14 @@ const TIERS = [
   },
 ]
 
-export default function ClaimForm({ listingId, slug, vertColor }) {
+export default function ClaimForm({ listingId, listingName, slug, vertColor }) {
+  const router = useRouter()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [role, setRole] = useState('owner')
   const [tier, setTier] = useState('free')
   const [websiteDomain, setWebsiteDomain] = useState('')
+  const [honeypot, setHoneypot] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState(null)
@@ -36,6 +39,7 @@ export default function ClaimForm({ listingId, slug, vertColor }) {
     setSubmitting(true)
 
     try {
+      // Step 1: Submit the claim
       const res = await fetch('/api/claim', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -47,6 +51,7 @@ export default function ClaimForm({ listingId, slug, vertColor }) {
           role,
           tier,
           websiteDomain: websiteDomain.trim() || null,
+          website: honeypot || undefined,
         }),
       })
 
@@ -57,7 +62,35 @@ export default function ClaimForm({ listingId, slug, vertColor }) {
         return
       }
 
-      setSubmitted(true)
+      // Step 2: If Standard tier, redirect to Stripe checkout
+      if (tier === 'standard') {
+        const checkoutRes = await fetch('/api/stripe/claim-checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            claimId: data.claimId || null,
+            listingId,
+            listingName: listingName,
+            listingSlug: slug,
+            name: name.trim(),
+            email: email.trim(),
+          }),
+        })
+
+        const checkoutData = await checkoutRes.json()
+
+        if (checkoutRes.ok && checkoutData.url) {
+          window.location.href = checkoutData.url
+          return
+        }
+
+        // If Stripe checkout fails, claim is still submitted — redirect to success
+        console.error('Stripe checkout failed:', checkoutData.error)
+        router.push('/claim/success')
+        return
+      }
+
+      router.push('/claim/success')
     } catch {
       setError('Network error. Please check your connection and try again.')
     } finally {
@@ -122,6 +155,20 @@ export default function ClaimForm({ listingId, slug, vertColor }) {
 
   return (
     <form onSubmit={handleSubmit}>
+      {/* Honeypot — hidden from real users, auto-filled by bots */}
+      <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }} aria-hidden="true">
+        <label htmlFor="website">Website</label>
+        <input
+          id="website"
+          name="website"
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+          value={honeypot}
+          onChange={e => setHoneypot(e.target.value)}
+        />
+      </div>
+
       <div className="space-y-5">
         {/* Name */}
         <div>

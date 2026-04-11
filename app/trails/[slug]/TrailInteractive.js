@@ -41,9 +41,10 @@ export default function TrailInteractive({ initialStops, trailRegion }) {
       limit: '8',
     })
     fetch(`/api/nearby?${params}`)
-      .then(r => r.ok ? r.json() : [])
+      .then(r => r.ok ? r.json() : { listings: [] })
       .then(data => {
-        const venues = (data || []).filter(v => !existingIds.has(v.id))
+        const list = Array.isArray(data) ? data : (data?.listings || [])
+        const venues = list.filter(v => !existingIds.has(v.id))
         setSuggestions(venues.slice(0, 6))
       })
       .catch(() => setSuggestions([]))
@@ -65,7 +66,7 @@ export default function TrailInteractive({ initialStops, trailRegion }) {
       venue_name: venue.name,
       venue_lat: venue.lat,
       venue_lng: venue.lng,
-      venue_image_url: venue.hero_image_url,
+      venue_image_url: venue.image_url || venue.hero_image_url || null,
       vertical: venue.vertical,
       order_index: initialStops.length + addedStops.length,
       notes: null,
@@ -148,7 +149,8 @@ function SuggestionCard({ venue, isAdded, isRecentlyAdded, onAdd, index }) {
         display: 'flex', alignItems: 'center', gap: 12,
         padding: '10px 12px', borderRadius: 6,
         border: '1px solid var(--color-border)',
-        background: 'var(--color-bg)',
+        borderLeft: `3px solid ${color}`,
+        background: `linear-gradient(90deg, ${color}08 0%, var(--color-bg) 40%)`,
         animation: `trail-suggestion-slide-in 0.3s ease ${index * 0.05}s both`,
       }}
     >

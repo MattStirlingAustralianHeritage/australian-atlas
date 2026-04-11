@@ -15,7 +15,7 @@ export async function GET() {
   const sb = getSupabaseAdmin()
   const { data, error } = await sb
     .from('articles')
-    .select('id, cms_id, vertical, title, slug, excerpt, body, hero_image_url, author, status, published_at, category, region_tags, created_at, updated_at')
+    .select('id, cms_id, vertical, verticals, title, slug, excerpt, body, hero_image_url, author, status, published_at, category, region_tags, created_at, updated_at')
     .order('updated_at', { ascending: false })
     .limit(100)
 
@@ -33,7 +33,7 @@ export async function POST(request) {
   }
 
   const body = await request.json()
-  const { title, slug, vertical, excerpt, body: articleBody, hero_image_url, author, status, category, region_tags } = body
+  const { title, slug, verticals, vertical, excerpt, body: articleBody, hero_image_url, author, status, category, region_tags } = body
 
   if (!title || !slug) {
     return NextResponse.json({ error: 'Title and slug are required' }, { status: 400 })
@@ -44,13 +44,20 @@ export async function POST(request) {
   // Generate a portal cms_id for admin-created articles
   const cmsId = `portal-${crypto.randomUUID()}`
 
+  // Support both new multi-vertical and legacy single-vertical
+  const effectiveVerticals = Array.isArray(verticals) && verticals.length > 0
+    ? verticals
+    : [vertical || 'atlas']
+  const primaryVertical = effectiveVerticals[0]
+
   const { data, error } = await sb
     .from('articles')
     .insert({
       cms_id: cmsId,
       title,
       slug,
-      vertical: vertical || 'atlas',
+      vertical: primaryVertical,
+      verticals: effectiveVerticals,
       excerpt: excerpt || null,
       body: articleBody || null,
       hero_image_url: hero_image_url || null,
@@ -89,9 +96,9 @@ export async function PATCH(request) {
     return NextResponse.json({ error: 'Article id is required' }, { status: 400 })
   }
 
-  // Map body field from request
-  if ('body' in updates) {
-    // Supabase column is 'body', already correct
+  // Sync verticals → vertical (keep backward compat)
+  if (Array.isArray(updates.verticals) && updates.verticals.length > 0) {
+    updates.vertical = updates.verticals[0]
   }
 
   // Set published_at when publishing for the first time

@@ -182,6 +182,60 @@ export default function WYSIWYGEditor({ value, onChange, onUploadImage, uploadin
     setSlashMenu({ x: rect.left - edRect.left, y: rect.bottom - edRect.top + 6, query, slashIdx, node })
   }, [])
 
+  function handlePaste(e) {
+    e.preventDefault()
+    // Strip all HTML/Word/Office markup — insert as plain text only.
+    // The editor's own formatting (bold, italic, headings, etc.) is applied
+    // via the toolbar and slash commands, not from pasted content.
+    const text = e.clipboardData.getData('text/plain')
+    if (!text) return
+
+    const sel = window.getSelection()
+    if (!sel?.rangeCount) return
+
+    // Delete any selected content first
+    const range = sel.getRangeAt(0)
+    range.deleteContents()
+
+    // Split by double newlines into paragraphs, single newlines into <br>
+    const lines = text.split(/\n/)
+    const frag = document.createDocumentFragment()
+    let currentP = document.createElement('p')
+    let hasContent = false
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      if (line.trim() === '' && hasContent) {
+        // Empty line = new paragraph
+        frag.appendChild(currentP)
+        currentP = document.createElement('p')
+        hasContent = false
+      } else if (line.trim() !== '') {
+        if (hasContent) {
+          currentP.appendChild(document.createElement('br'))
+        }
+        currentP.appendChild(document.createTextNode(line))
+        hasContent = true
+      }
+    }
+    if (hasContent) {
+      frag.appendChild(currentP)
+    }
+
+    // If nothing was created, just insert the raw text
+    if (frag.childNodes.length === 0) {
+      frag.appendChild(document.createTextNode(text))
+    }
+
+    range.insertNode(frag)
+
+    // Move cursor to end of inserted content
+    sel.collapseToEnd()
+
+    setWordCount(getWordCount(editorRef.current))
+    emitChange()
+  }
+
   function handleInput() {
     setWordCount(getWordCount(editorRef.current))
     emitChange()
@@ -520,6 +574,7 @@ export default function WYSIWYGEditor({ value, onChange, onUploadImage, uploadin
         suppressContentEditableWarning
         data-placeholder="Start writing, or type / to insert a block..."
         onInput={handleInput}
+        onPaste={handlePaste}
         onKeyDown={handleKeyDown}
         onKeyUp={handleKeyUp}
         onMouseUp={updateBubble}
