@@ -153,7 +153,10 @@ export async function generateMetadata({ params }) {
   if (!listing) return { title: 'Place not found' }
 
   const vertLabel = VERTICAL_CATEGORY_LABELS[listing.vertical] || 'Place'
-  const location = [listing.region, listing.state].filter(Boolean).join(', ')
+  const regionIsStreet = listing.region && /\d/.test(listing.region)
+  const location = regionIsStreet
+    ? (listing.address || [listing.region, listing.state].filter(Boolean).join(', '))
+    : [listing.region, listing.state].filter(Boolean).join(', ')
   const title = location
     ? `${listing.name} — ${vertLabel} in ${location}`
     : `${listing.name} — ${vertLabel}`
@@ -201,7 +204,12 @@ export default async function PlacePage({ params }) {
   const vertColor = VERTICAL_COLORS[listing.vertical] || '#5F8A7E'
   const categoryLabel = VERTICAL_CATEGORY_LABELS[listing.vertical] || 'Place'
   const verticalUrl = getVerticalUrl(listing.vertical, listing.slug)
-  const location = [listing.region, listing.state].filter(Boolean).join(', ')
+  // Build location subtitle — prefer address when region looks like a street
+  // (data quality issue: some listings have street address stored as region)
+  const regionIsStreet = listing.region && /\d/.test(listing.region)
+  const location = regionIsStreet
+    ? (listing.address || [listing.region, listing.state].filter(Boolean).join(', '))
+    : [listing.region, listing.state].filter(Boolean).join(', ')
   const hasCoords = listing.lat && listing.lng
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''
   const websiteUrl = listing.website?.startsWith('http') ? listing.website : listing.website ? `https://${listing.website}` : null

@@ -857,16 +857,52 @@ export async function GET(request) {
       }
     } catch { /* no cache hit — proceed with generation */ }
 
-    const { region, geoBounds, verticals, duration, city_note, preferences } = parseItineraryQuery(q)
+    let { region, geoBounds, verticals, duration, city_note, preferences } = parseItineraryQuery(q)
 
     // Pace overrides stops-per-day target
     const stopsPerDay = pace === 'packed' ? 6 : pace === 'relaxed' ? 3 : 4
+
+    // ── Anchor-based region resolution ──────────────────────
+    // When a user clicks "Start a trail here" on a listing, the anchor param
+    // provides a listing ID. If parseItineraryQuery couldn't resolve a region
+    // from the text query (e.g. "1 day in Elsternwick"), use the anchor
+    // listing's own coordinates to build a geographic bounding box.
+    let anchorRegionSource = null
+    if (anchorId && !geoBounds) {
+      try {
+        const sb = getSupabaseAdmin()
+        const { data: anchor } = await sb
+          .from('listings')
+          .select('lat, lng, region, state, name')
+          .eq('id', anchorId)
+          .eq('status', 'active')
+          .maybeSingle()
+
+        if (anchor?.lat && anchor?.lng) {
+          // Build a ~30km bounding box around the anchor listing
+          const radius = 0.3 // ~30km in degrees at Australian latitudes
+          geoBounds = {
+            latMin: anchor.lat - radius,
+            latMax: anchor.lat + radius,
+            lngMin: anchor.lng - radius,
+            lngMax: anchor.lng + radius,
+            label: anchor.region || anchor.state || 'anchor',
+          }
+          region = anchor.region || anchor.state || region
+          anchorRegionSource = `anchor listing "${anchor.name}" (${anchor.region || anchor.state})`
+          console.log(`[itinerary] Region resolved from anchor: ${anchorRegionSource}`)
+        }
+      } catch (err) {
+        console.warn(`[itinerary] Failed to resolve region from anchor ${anchorId}:`, err.message)
+      }
+    }
 
     console.log('[itinerary] Parsed query:', {
       region,
       geoBounds: geoBounds ? `${geoBounds.label || 'custom'} (${geoBounds.latMin.toFixed(2)}–${geoBounds.latMax.toFixed(2)}, ${geoBounds.lngMin.toFixed(2)}–${geoBounds.lngMax.toFixed(2)})` : 'NONE',
       verticals, duration, preferences,
       flow: { accommodation, transport, group, pace, stopsPerDay },
+      anchorRegionSource: anchorRegionSource || 'none',
     })
 
     // STEP 1: Region must be detected. If the user's query names a place we can't
