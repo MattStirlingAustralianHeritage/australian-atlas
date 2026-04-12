@@ -213,9 +213,9 @@ const CATEGORY_KEYWORDS = {
   rest: ['accommodation', 'stay', 'stays', 'hotel', 'hotels', 'glamping', 'farmstay', 'cottage', 'boutique stay', 'bnb', 'b&b', 'bed and breakfast', 'sleep'],
   collection: ['art', 'gallery', 'galleries', 'museum', 'museums', 'heritage', 'cultural', 'exhibition'],
   craft: ['maker', 'makers', 'studio', 'studios', 'pottery', 'ceramics', 'woodwork', 'textiles', 'jewellery'],
-  field: ['nature', 'hiking', 'waterfall', 'swimming hole', 'lookout', 'walking', 'outdoor', 'national park'],
-  corner: ['shop', 'shops', 'bookshop', 'record store', 'homewares', 'indie'],
-  found: ['vintage', 'op shop', 'antique', 'antiques', 'secondhand', 'thrift', 'retro'],
+  field: ['natural beauty', 'nature', 'natural', 'scenic', 'scenery', 'hiking', 'waterfall', 'swimming hole', 'lookout', 'walking', 'outdoor', 'national park', 'bush walk', 'bushwalk', 'wildlife', 'zoo'],
+  corner: ['bookshop', 'bookshops', 'book shop', 'record store', 'record stores', 'homewares', 'indie shop', 'indie retail', 'independent shop'],
+  found: ['vintage', 'op shop', 'antique shops', 'antique shop', 'antique', 'antiques', 'secondhand', 'thrift', 'retro'],
   table: ['food', 'bakery', 'farm gate', 'providore', 'cheese', 'olive oil', 'produce', 'sourdough'],
 }
 
@@ -1819,6 +1819,9 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
         console.log(`[itinerary] Post-processing removed ${removed} non-focus stop(s). Ratio now ${(ratioResult.ratio * 100).toFixed(0)}% (${ratioResult.primaryStops}/${ratioResult.totalStops})`)
       }
     }
+
+    // Renumber days sequentially after any filtering/removal (prevents Day 1, Day 2, Day 4 gaps)
+    enrichedDays = enrichedDays.map((d, i) => ({ ...d, day_number: i + 1 }))
 
     // Build recommendations from unused candidates, constrained by geographic proximity
     const usedIds = new Set()

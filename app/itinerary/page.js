@@ -445,7 +445,30 @@ function ItineraryPageInner() {
       totalStops={totalStops}
       flow={flow}
       addedRecs={addedRecs}
-      onAddRec={(rec) => setAddedRecs(prev => new Set(prev).add(rec.id))}
+      onAddRec={(rec) => {
+        // 1. Mark as added visually
+        setAddedRecs(prev => new Set(prev).add(rec.id))
+        // 2. Add the listing as a stop on the last day of the itinerary
+        setItinerary(prev => {
+          if (!prev?.days?.length) return prev
+          const newDays = prev.days.map(d => ({ ...d, stops: [...(d.stops || [])] }))
+          const lastDay = newDays[newDays.length - 1]
+          lastDay.stops.push({
+            listing_id: rec.id,
+            venue_name: rec.name,
+            vertical: rec.vertical,
+            lat: rec.lat,
+            lng: rec.lng,
+            slug: rec.slug || null,
+            hero_image_url: rec.hero_image_url || null,
+            region: rec.region || null,
+            note: rec.description ? rec.description.slice(0, 120) : 'Added from recommendations.',
+          })
+          // Remove from recommendations
+          const newRecs = (prev.recommendations || []).filter(r => r.id !== rec.id)
+          return { ...prev, days: newDays, recommendations: newRecs }
+        })
+      }}
       query={q}
     />
   )
@@ -644,7 +667,7 @@ function TrailResult({ itinerary, totalStops, flow, addedRecs, onAddRec, query }
                     padding: '4px 12px', borderRadius: 99,
                     letterSpacing: '0.08em', textTransform: 'uppercase',
                   }}>
-                    Day {day.day_number || di + 1}
+                    Day {di + 1}
                   </span>
                   {day.label && (
                     <span style={{

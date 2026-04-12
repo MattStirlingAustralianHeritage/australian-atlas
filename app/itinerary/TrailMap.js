@@ -27,7 +27,9 @@ const VERTICAL_COLORS = {
 export default function TrailMap({ days }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
+  const initializedRef = useRef(false)
 
+  // Initial map creation — only runs once
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return
     if (!days || days.length === 0) return
@@ -39,11 +41,17 @@ export default function TrailMap({ days }) {
       const allStops = collectStops(days)
       if (allStops.length === 0) return
 
+      // Calculate initial bounds for immediate fit (no zoom pop)
+      const lngs = allStops.map(s => parseFloat(s.lng))
+      const lats = allStops.map(s => parseFloat(s.lat))
+      const sw = [Math.min(...lngs), Math.min(...lats)]
+      const ne = [Math.max(...lngs), Math.max(...lats)]
+
       const map = new mapboxgl.Map({
         container: containerRef.current,
         style: 'mapbox://styles/mapbox/light-v11',
-        center: [parseFloat(allStops[0].lng), parseFloat(allStops[0].lat)],
-        zoom: 10,
+        bounds: [sw, ne],
+        fitBoundsOptions: { padding: 80, maxZoom: 16 },
         attributionControl: false,
       })
 
@@ -54,6 +62,7 @@ export default function TrailMap({ days }) {
       map.on('load', () => {
         map.resize()
         buildLayers(map, mapboxgl, days, allStops)
+        initializedRef.current = true
       })
     })
 
@@ -61,8 +70,32 @@ export default function TrailMap({ days }) {
       if (mapRef.current) {
         mapRef.current.remove()
         mapRef.current = null
+        initializedRef.current = false
       }
     }
+  }, [days])
+
+  // Update map data when days change (e.g. user adds a recommendation)
+  useEffect(() => {
+    if (!initializedRef.current || !mapRef.current) return
+    const map = mapRef.current
+    const allStops = collectStops(days)
+    if (allStops.length === 0) return
+
+    // Update stop source with all stops visible
+    const geojson = stopsGeoJSON(allStops)
+    geojson.features.forEach(f => { f.properties.visible = true })
+    const src = map.getSource('trail-stops')
+    if (src) src.setData(geojson)
+
+    // Refit bounds to include new stops
+    const lngs = allStops.map(s => parseFloat(s.lng))
+    const lats = allStops.map(s => parseFloat(s.lat))
+    map.fitBounds(
+      [[Math.min(...lngs), Math.min(...lats)],
+       [Math.max(...lngs), Math.max(...lats)]],
+      { padding: 80, duration: 500, maxZoom: 16 }
+    )
   }, [days])
 
   return (
@@ -117,13 +150,13 @@ function stopsGeoJSON(allStops) {
 // ── Layer construction + animation ──────────────────────────
 
 async function buildLayers(map, mapboxgl, days, allStops) {
-  // 1. Fit bounds
+  // 1. Fit bounds — tight to actual stops, 80px padding, no extra degree buffer
   const lngs = allStops.map(s => parseFloat(s.lng))
   const lats = allStops.map(s => parseFloat(s.lat))
   map.fitBounds(
-    [[Math.min(...lngs) - 0.01, Math.min(...lats) - 0.01],
-     [Math.max(...lngs) + 0.01, Math.max(...lats) + 0.01]],
-    { padding: 60, duration: 1000, maxZoom: 14 }
+    [[Math.min(...lngs), Math.min(...lats)],
+     [Math.max(...lngs), Math.max(...lats)]],
+    { padding: 80, duration: 0, maxZoom: 16 }
   )
 
   // 2. Fetch routed geometry per day (in parallel)
