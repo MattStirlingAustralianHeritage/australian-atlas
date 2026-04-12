@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { createHash } from 'crypto'
 
-const SELECT_FIELDS = 'id, vertical, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, website'
+const SELECT_FIELDS = 'id, vertical, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website, address'
 
 /** Generate an anonymous session id from user-agent + date (no PII) */
 function getSessionId(request) {
@@ -131,6 +131,32 @@ function normalize(str) {
     .trim()
 }
 
+/** Strip all spaces/hyphens for compressed comparison ("Rippon Lea" → "ripponlea") */
+function compress(str) {
+  return normalize(str).replace(/[\s\-]/g, '')
+}
+
+/**
+ * Simple trigram similarity (Dice coefficient on character trigrams).
+ * Returns 0–1; higher = more similar.
+ */
+function trigramSimilarity(a, b) {
+  if (!a || !b) return 0
+  const ta = trigrams(a.toLowerCase())
+  const tb = trigrams(b.toLowerCase())
+  if (ta.size === 0 || tb.size === 0) return 0
+  let intersection = 0
+  for (const t of ta) { if (tb.has(t)) intersection++ }
+  return (2 * intersection) / (ta.size + tb.size)
+}
+
+function trigrams(str) {
+  const s = `  ${str} ` // pad for edge trigrams
+  const set = new Set()
+  for (let i = 0; i < s.length - 2; i++) set.add(s.slice(i, i + 3))
+  return set
+}
+
 /**
  * Score a listing's relevance to the query.
  *
@@ -145,6 +171,7 @@ function normalize(str) {
 function scoreRelevance(listing, rawQuery, cleanedTerms) {
   const name = normalize(listing.name)
   const fullQuery = normalize(rawQuery)
+  const address = normalize(listing.address)
 
   // Tier 1: Exact match (full query matches name exactly)
   if (name === fullQuery) return 300
@@ -159,8 +186,22 @@ function scoreRelevance(listing, rawQuery, cleanedTerms) {
   if (cleanedJoined && cleanedJoined.length >= 3 && name.includes(cleanedJoined)) return 200
   if (cleanedJoined && name.length >= 3 && cleanedJoined.includes(name)) return 200
 
+  // Tier 2a: Space-stripped match ("ripponlea" matches "rippon lea estate")
+  const compressedQuery = compress(rawQuery)
+  const compressedName = compress(listing.name)
+  if (compressedQuery.length >= 4 && compressedName.includes(compressedQuery)) return 200
+  if (compressedName.length >= 4 && compressedQuery.includes(compressedName)) return 200
+
   // Tier 2b: All cleaned search terms appear in the name
   if (cleanedTerms.length > 0 && cleanedTerms.every(t => name.includes(t))) return 150
+
+  // Tier 2c: Trigram similarity on name (handles misspellings and word-boundary mismatches)
+  const nameSim = trigramSimilarity(fullQuery, name)
+  if (nameSim >= 0.45) return 180
+
+  // Tier 2d: Address/suburb match (searching "Elsternwick" matches address containing it)
+  if (fullQuery.length >= 3 && address.includes(fullQuery)) return 120
+  if (cleanedJoined && cleanedJoined.length >= 3 && address.includes(cleanedJoined)) return 120
 
   // Tier 3: Some terms match the name (scored by match count)
   if (cleanedTerms.length > 0) {
@@ -170,7 +211,10 @@ function scoreRelevance(listing, rawQuery, cleanedTerms) {
     }
   }
 
-  // Tier 4: Matched on description/region/state only
+  // Tier 3b: Trigram similarity (lower threshold — partial fuzzy match)
+  if (nameSim >= 0.25) return 60
+
+  // Tier 4: Matched on description/region/state/address only
   return 10
 }
 
@@ -235,7 +279,7 @@ export async function GET(request) {
         for (const term of cleanedTerms) {
           const pattern = `%${term}%`
           baseQuery = baseQuery.or(
-            `name.ilike.${pattern},description.ilike.${pattern},region.ilike.${pattern},state.ilike.${pattern}`
+            `name.ilike.${pattern},description.ilike.${pattern},region.ilike.${pattern},state.ilike.${pattern},address.ilike.${pattern}`
           )
         }
       }
@@ -251,7 +295,39 @@ export async function GET(request) {
         return NextResponse.json({ error: error.message }, { status: 500 })
       }
 
-      const rawResults = data || []
+      let rawResults = data || []
+
+      // ── Fuzzy fallback: if ILIKE returned few results, do a broader query ──
+      // This catches queries like "Ripponlea" (no spaces) that fail ILIKE
+      // against "Rippon Lea Estate" because "ripponlea" is not a substring.
+      if (rawResults.length < 5 && cleanedTerms.length > 0) {
+        let fuzzyQuery = sb
+          .from('listings')
+          .select(SELECT_FIELDS)
+          .eq('status', 'active')
+          .limit(200)
+
+        if (vertical) fuzzyQuery = fuzzyQuery.eq('vertical', vertical)
+        else if (hintVertical) fuzzyQuery = fuzzyQuery.eq('vertical', hintVertical)
+        if (state) fuzzyQuery = fuzzyQuery.eq('state', state)
+
+        // Apply region hint if present
+        if (hintRegion && !region) {
+          if (hintRegion.length <= 3 && hintRegion === hintRegion.toUpperCase()) {
+            fuzzyQuery = fuzzyQuery.eq('state', hintRegion)
+          } else {
+            fuzzyQuery = fuzzyQuery.or(`region.ilike.%${hintRegion}%,state.ilike.%${hintRegion}%`)
+          }
+        }
+
+        const { data: fuzzyData } = await fuzzyQuery
+        if (fuzzyData && fuzzyData.length > 0) {
+          // Merge with existing results (deduplicate by id)
+          const existingIds = new Set(rawResults.map(r => r.id))
+          const newResults = fuzzyData.filter(r => !existingIds.has(r.id))
+          rawResults = rawResults.concat(newResults)
+        }
+      }
 
       // ── Score and rank ───────────────────────────────────
       const scored = rawResults

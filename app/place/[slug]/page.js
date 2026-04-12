@@ -106,27 +106,29 @@ async function getNearbyListings(listing, limit = 6) {
     pool = withDist
   }
 
-  // Pick closest, but cap per-vertical to ensure variety
+  // Pick closest, but cap per-vertical to ensure cross-vertical diversity.
+  // Pass 1: strict cap (max 2 per vertical) — prioritises variety
+  // Pass 2: relaxed cap (max 3 per vertical) — fills remaining slots
+  // Pass 3: no cap — only if still short (very sparse areas)
   const result = []
   const verticalCounts = {}
-  const maxPerVertical = 2
+  const usedIds = new Set()
 
-  for (const l of pool) {
-    if (result.length >= limit) break
-    const vc = verticalCounts[l.vertical] || 0
-    if (vc >= maxPerVertical) continue
-    verticalCounts[l.vertical] = vc + 1
-    result.push(l)
-  }
-
-  // If we still have room, fill with remaining by distance (ignore cap)
-  if (result.length < limit) {
-    const usedIds = new Set(result.map(r => r.id))
+  const addFromPool = (cap) => {
     for (const l of pool) {
       if (result.length >= limit) break
-      if (!usedIds.has(l.id)) result.push(l)
+      if (usedIds.has(l.id)) continue
+      const vc = verticalCounts[l.vertical] || 0
+      if (cap != null && vc >= cap) continue
+      verticalCounts[l.vertical] = vc + 1
+      usedIds.add(l.id)
+      result.push(l)
     }
   }
+
+  addFromPool(2)  // strict: max 2 per vertical
+  addFromPool(3)  // relaxed: max 3 per vertical
+  addFromPool(null)  // uncapped: fill remaining if needed
 
   return result
 }
