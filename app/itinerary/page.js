@@ -49,27 +49,35 @@ function StopCard({ stop, index, isOvernight }) {
   const style = VERTICAL_STYLES[stop?.vertical]
   const label = VERTICAL_LABELS[stop?.vertical] || stop?.vertical || ''
   const isAccom = isOvernight || stop?.vertical === 'rest'
+  const isAnchor = stop?.is_anchor === true
   const venueUrl = stop?.slug ? `/place/${stop.slug}` : null
   const brandColor = VERTICAL_COLORS[stop?.vertical] || '#1a1a1a'
 
   return (
     <div style={{
-      background: isAccom ? 'linear-gradient(135deg, #faf6f2 0%, #f5efe8 100%)' : 'var(--color-card-bg)',
-      border: `1px solid ${isAccom ? '#5A8A9A30' : 'var(--color-border)'}`,
-      borderLeft: `3px solid ${brandColor}`,
+      background: isAnchor
+        ? 'linear-gradient(135deg, #f6f9f7 0%, #eef4f0 100%)'
+        : isAccom ? 'linear-gradient(135deg, #faf6f2 0%, #f5efe8 100%)' : 'var(--color-card-bg)',
+      border: `1px solid ${isAnchor ? 'var(--color-sage, #5F8A7E)40' : isAccom ? '#5A8A9A30' : 'var(--color-border)'}`,
+      borderLeft: `3px solid ${isAnchor ? 'var(--color-sage, #5F8A7E)' : brandColor}`,
       borderRadius: 12, padding: '16px 18px',
       display: 'flex', gap: 14, alignItems: 'flex-start',
     }}>
-      {/* Number circle or STAY badge */}
+      {/* Number circle, STAY badge, or anchor pin */}
       <div style={{
         width: 30, height: 30, borderRadius: isAccom ? 6 : '50%', flexShrink: 0, marginTop: 2,
-        background: brandColor,
+        background: isAnchor ? 'var(--color-sage, #5F8A7E)' : brandColor,
         color: 'white', fontWeight: 700, fontSize: isAccom ? 8 : 12,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontFamily: 'system-ui, sans-serif',
         letterSpacing: isAccom ? '0.06em' : 0,
       }}>
-        {isAccom ? 'STAY' : index}
+        {isAnchor ? (
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
+            <circle cx="12" cy="10" r="3" />
+          </svg>
+        ) : isAccom ? 'STAY' : index}
       </div>
 
       {/* Content */}
@@ -104,6 +112,16 @@ function StopCard({ stop, index, isOvernight }) {
               fontWeight: 600, fontFamily: 'var(--font-body)', letterSpacing: '0.02em',
             }}>
               {label}
+            </span>
+          )}
+          {isAnchor && (
+            <span style={{
+              backgroundColor: 'var(--color-sage, #5F8A7E)15', color: 'var(--color-sage, #5F8A7E)',
+              padding: '2px 8px', borderRadius: 99, fontSize: 10,
+              fontWeight: 600, fontFamily: 'var(--font-body)', letterSpacing: '0.02em',
+              border: '1px solid var(--color-sage, #5F8A7E)30',
+            }}>
+              Starting point
             </span>
           )}
           {stop.multi_night && (
@@ -211,6 +229,7 @@ function ItineraryPageInner() {
   const flowTransport = searchParams.get('transport')
   const flowGroup = searchParams.get('group')
   const flowPace = searchParams.get('pace')
+  const flowAnchor = searchParams.get('anchor')
 
   // Prefs gate: modal must be completed before generation
   const hasPrefsFlag = searchParams.has('_prefs') || searchParams.has('rest_prefs')
@@ -246,6 +265,7 @@ function ItineraryPageInner() {
       if (flowTransport) params.set('transport', flowTransport)
       if (flowGroup) params.set('group', flowGroup)
       if (flowPace) params.set('pace', flowPace)
+      if (flowAnchor) params.set('anchor', flowAnchor)
 
       try {
         const res = await fetch(`/api/itinerary?${params.toString()}`)
@@ -270,7 +290,7 @@ function ItineraryPageInner() {
 
     fetchItinerary()
     return () => { cancelled = true }
-  }, [q, flowAccommodation, flowTransport, flowGroup, flowPace, needsPrefsModal])
+  }, [q, flowAccommodation, flowTransport, flowGroup, flowPace, flowAnchor, needsPrefsModal])
 
   // --- Prompt input (no query yet) ---
   if (!q) {

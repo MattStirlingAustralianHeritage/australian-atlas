@@ -148,6 +148,7 @@ function buildCacheKey(query, flow = {}) {
     flow.transport || '',
     flow.group || '',
     flow.pace || '',
+    flow.anchor || '',
   ].join('|')
   return createHash('sha256').update(normalized).digest('hex').slice(0, 32)
 }
@@ -823,6 +824,7 @@ export async function GET(request) {
   const transport = searchParams.get('transport')           // 'driving' | 'public' | 'walking'
   const group = searchParams.get('group')                   // 'family' | 'friends' | 'solo' | 'couple'
   const pace = searchParams.get('pace')                     // 'packed' | 'relaxed'
+  const anchorId = searchParams.get('anchor')               // listing ID to use as guaranteed stop 1 of day 1
 
   if (!q || q.trim().length < 3) {
     return NextResponse.json({ error: 'Query parameter "q" is required (min 3 characters)' }, { status: 400 })
@@ -837,7 +839,7 @@ export async function GET(request) {
 
   try {
     // --- Response cache: return a recent cached result if available (24h TTL) ---
-    const cacheKey = buildCacheKey(q, { accommodation, transport, group, pace })
+    const cacheKey = buildCacheKey(q, { accommodation, transport, group, pace, anchor: anchorId })
     try {
       const { data: cached } = await getSupabaseAdmin()
         .from('user_trails')
@@ -1201,6 +1203,57 @@ export async function GET(request) {
 
     const candidateIds = new Set(venueData.map(v => v.id))
 
+    // --- Anchor listing: guaranteed stop 1 of day 1 ---
+    let anchorListing = null
+    if (anchorId) {
+      // Check if the anchor is already in the candidate pool
+      const existingAnchor = venueData.find(v => String(v.id) === String(anchorId))
+      if (existingAnchor) {
+        anchorListing = existingAnchor
+      } else {
+        // Fetch anchor from DB — it may be outside the geo bounds, and that's OK
+        try {
+          const { data: anchorData } = await sb
+            .from('listings')
+            .select('id, name, vertical, lat, lng, region, state, description, hero_image_url, slug, source_id, is_claimed, is_featured, editors_pick')
+            .eq('id', anchorId)
+            .eq('status', 'active')
+            .single()
+
+          if (anchorData) {
+            const formatted = {
+              id: anchorData.id,
+              name: anchorData.name,
+              vertical: anchorData.vertical,
+              vertical_label: VERTICAL_LABELS[anchorData.vertical] || anchorData.vertical,
+              lat: anchorData.lat,
+              lng: anchorData.lng,
+              region: anchorData.region,
+              state: anchorData.state,
+              description: anchorData.description ? anchorData.description.slice(0, 200) : null,
+              slug: anchorData.slug,
+              source_id: anchorData.source_id || null,
+              hero_image_url: anchorData.hero_image_url || null,
+              is_claimed: anchorData.is_claimed || false,
+              is_featured: anchorData.is_featured || false,
+              editors_pick: anchorData.editors_pick || false,
+            }
+            // Prepend anchor to venue data so it's the first candidate
+            venueData.unshift(formatted)
+            candidateIds.add(formatted.id)
+            anchorListing = formatted
+          }
+        } catch (err) {
+          console.warn(`[itinerary] Failed to fetch anchor listing ${anchorId}:`, err.message)
+          // Continue without anchor — it's not critical
+        }
+      }
+
+      if (anchorListing) {
+        console.log(`[itinerary] Anchor listing: "${anchorListing.name}" (id=${anchorListing.id}, ${anchorListing.vertical})`)
+      }
+    }
+
     // Build the Anthropic API call
     const { default: Anthropic } = await import('@anthropic-ai/sdk')
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -1252,6 +1305,16 @@ export async function GET(request) {
       : pace === 'relaxed'
       ? `\nPACE: Relaxed pace — aim for ${stopsPerDay} stops per day. Include breathing room between stops. Suggest a coffee break or long lunch. Keep it unhurried.`
       : `\nPACE: Moderate pace — aim for ${stopsPerDay} stops per day.`
+
+    // Build anchor instruction — forces a specific listing as stop 1 of day 1
+    let anchorInstruction = ''
+    if (anchorListing) {
+      anchorInstruction = `\nANCHOR VENUE (MANDATORY): The user started trail-building from a specific listing. This venue MUST be the FIRST stop of Day 1 — no exceptions.
+- Listing ID: ${anchorListing.id}
+- Name: "${anchorListing.name}"
+- Vertical: ${anchorListing.vertical}
+Place it as stops[0] on day 1, regardless of the day-sequencing rules above. The rest of the day should flow naturally from this starting point. Build the remaining itinerary around the anchor's location.`
+    }
 
     // Build user preferences section for LLM
     let preferencesPrompt = ''
@@ -1320,7 +1383,7 @@ GEOGRAPHIC COHERENCE: All stops in the itinerary must be geographically tight.
 - For regional trips: stops should cluster within the core region. Avoid venues on the geographic fringe of the candidate list.
 - Before selecting a venue, check its lat/lng against the other stops you've chosen. If it's significantly further away than the rest, skip it and pick a closer alternative.
 - A compact, walkable/drivable itinerary is ALWAYS better than a geographically scattered one, even if it means missing a "better" venue.
-${accommodationInstruction}${transportInstruction}${groupInstruction}${paceInstruction}${preferencesPrompt}
+${anchorInstruction}${accommodationInstruction}${transportInstruction}${groupInstruction}${paceInstruction}${preferencesPrompt}
 
 Respond with valid JSON only. No markdown, no code fences, just the JSON object.`
 
@@ -1524,6 +1587,8 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
         enrichedDays = enrichedDays.map(day => {
           const filteredStops = (day.stops || []).filter(stop => {
             if (!stop.lat || !stop.lng) return true // keep stops without coords (rare)
+            // Never remove the anchor listing — it's the user's chosen starting point
+            if (anchorListing && String(stop.listing_id) === String(anchorListing.id)) return true
             const dist = haversineKm(cLat, cLng, parseFloat(stop.lat), parseFloat(stop.lng))
             if (dist > maxRadiusKm) {
               console.warn(`[itinerary] OUTLIER removed: "${stop.venue_name}" is ${Math.round(dist)}km from cluster center (max ${maxRadiusKm}km)`)
@@ -1551,6 +1616,47 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
           strippedCount += outlierCount
           console.log(`[itinerary] Removed ${outlierCount} geographic outlier(s) (>${maxRadiusKm}km from centroid)`)
         }
+      }
+    }
+
+    // --- Anchor listing guarantee ---
+    // If an anchor listing was requested, ensure it's stop 1 of day 1.
+    // The LLM is instructed to do this, but if it didn't, we inject it here.
+    if (anchorListing && enrichedDays.length > 0) {
+      const day1 = enrichedDays[0]
+      const anchorInDay1 = (day1.stops || []).find(s => String(s.listing_id) === String(anchorListing.id))
+
+      if (!anchorInDay1) {
+        // Remove anchor from any other day (if it ended up elsewhere)
+        for (const day of enrichedDays) {
+          day.stops = (day.stops || []).filter(s => String(s.listing_id) !== String(anchorListing.id))
+        }
+
+        // Prepend anchor as stop 1 of day 1
+        const anchorStop = {
+          listing_id: anchorListing.id,
+          venue_name: anchorListing.name,
+          vertical: anchorListing.vertical,
+          lat: anchorListing.lat,
+          lng: anchorListing.lng,
+          slug: anchorListing.slug || null,
+          source_id: anchorListing.source_id || null,
+          hero_image_url: anchorListing.hero_image_url || null,
+          region: anchorListing.region || null,
+          note: `Your starting point — the venue that inspired this trail.`,
+          is_anchor: true,
+        }
+        enrichedDays[0].stops = [anchorStop, ...(enrichedDays[0].stops || [])]
+        console.log(`[itinerary] Anchor "${anchorListing.name}" injected as stop 1 of day 1`)
+      } else {
+        // Anchor is in day 1 — make sure it's first and mark it
+        const idx = day1.stops.indexOf(anchorInDay1)
+        if (idx > 0) {
+          // Move to position 0
+          day1.stops.splice(idx, 1)
+          day1.stops.unshift(anchorInDay1)
+        }
+        anchorInDay1.is_anchor = true
       }
     }
 
@@ -1901,6 +2007,7 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
         pace: pace || null,
       } : null,
       fallback: usedFallback || false,
+      anchor_id: anchorListing ? anchorListing.id : null,
     }
 
     // --- Cache the generated response (fire-and-forget, 24h TTL enforced on read) ---
