@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import WYSIWYGEditor from '@/components/admin/WYSIWYGEditor'
+import { getVerticalUrl } from '@/lib/verticalUrl'
 
 const VERTICAL_NAMES = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
@@ -12,18 +13,6 @@ const VERTICAL_NAMES = {
 const VERTICAL_COLORS = {
   sba: '#C49A3C', collection: '#7A6B8A', craft: '#C1603A', fine_grounds: '#8A7055',
   rest: '#5A8A9A', field: '#4A7C59', corner: '#5F8A7E', found: '#D4956A', table: '#C4634F',
-}
-
-const VERTICAL_URLS = {
-  sba: 'https://smallbatchatlas.com.au/venue',
-  collection: 'https://collectionatlas.com.au/venue',
-  craft: 'https://craftatlas.com.au/venue',
-  fine_grounds: 'https://finegroundsatlas.com.au/roaster',
-  rest: 'https://restatlas.com.au/stay',
-  field: 'https://fieldatlas.com.au/places',
-  corner: 'https://corneratlas.com.au/shop',
-  found: 'https://foundatlas.com.au/shop',
-  table: 'https://tableatlas.com.au/listing',
 }
 
 const MILESTONES = [100, 500, 1000, 2500, 5000]
@@ -261,7 +250,7 @@ export default function ListingsReview({ initialListing, initialStats, verticalC
   const updateDraft = (field, value) => setDraft(prev => prev ? { ...prev, [field]: value } : null)
 
   const verticalColor = listing ? (VERTICAL_COLORS[listing.vertical] || '#999') : '#999'
-  const viewUrl = listing?.slug ? `${VERTICAL_URLS[listing.vertical] || ''}/${listing.slug}` : null
+  const viewUrl = listing?.slug ? getVerticalUrl(listing.vertical, listing.slug) : null
 
   return (
     <div style={{ maxWidth: 700, margin: '0 auto', position: 'relative' }}>

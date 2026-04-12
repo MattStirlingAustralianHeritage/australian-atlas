@@ -120,20 +120,26 @@ Return ONLY valid JSON, no markdown fences, no other text.`
   }
 }
 
-/** Geocode an address via Mapbox */
-async function geocodeAddress(address, state) {
+/** Geocode an address via Mapbox.
+ *  @param {string} address - Street address
+ *  @param {string} [state] - State code (e.g. 'SA')
+ *  @param {string} [suburb] - City/suburb to improve accuracy
+ *  @returns {{ lat: number, lng: number, place_name: string } | null}
+ */
+async function geocodeAddress(address, state, suburb) {
   if (!address) return null
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || process.env.MAPBOX_ACCESS_TOKEN
   if (!token) return null
   try {
-    const query = `${address}${state ? `, ${state}` : ''}, Australia`
+    const parts = [address, suburb, state, 'Australia'].filter(Boolean)
+    const query = parts.join(', ')
     const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?country=au&limit=1&access_token=${token}`
     const res = await fetch(url)
     if (!res.ok) return null
     const data = await res.json()
     const feature = data.features?.[0]
     if (!feature) return null
-    return { lat: feature.center[1], lng: feature.center[0] }
+    return { lat: feature.center[1], lng: feature.center[0], place_name: feature.place_name || null }
   } catch {
     return null
   }
@@ -308,23 +314,23 @@ export async function POST(request, { params }) {
       // 3. Geocode — try enriched address first, then fall back to name + region
       let coords = null
       if (enriched.address) {
-        coords = await geocodeAddress(enriched.address, enriched.state)
+        coords = await geocodeAddress(enriched.address, enriched.state, enriched.suburb)
         if (coords) {
-          console.log(`[approve] Geocoded from address: ${coords.lat}, ${coords.lng}`)
+          console.log(`[approve] Geocoded from address: ${coords.lat}, ${coords.lng} (${coords.place_name})`)
         }
       }
       // Fallback: geocode from business name + region (less precise but usually gets the right town)
       if (!coords && candidate.region) {
         coords = await geocodeAddress(`${candidate.name}, ${candidate.region}`, enriched.state || null)
         if (coords) {
-          console.log(`[approve] Geocoded from name+region fallback: ${coords.lat}, ${coords.lng}`)
+          console.log(`[approve] Geocoded from name+region fallback: ${coords.lat}, ${coords.lng} (${coords.place_name})`)
         }
       }
       // Last resort: geocode from just the region name
       if (!coords && candidate.region) {
         coords = await geocodeAddress(candidate.region, enriched.state || null)
         if (coords) {
-          console.log(`[approve] Geocoded from region fallback: ${coords.lat}, ${coords.lng}`)
+          console.log(`[approve] Geocoded from region fallback: ${coords.lat}, ${coords.lng} (${coords.place_name})`)
         }
       }
 

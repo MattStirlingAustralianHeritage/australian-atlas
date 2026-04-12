@@ -10,6 +10,7 @@ import VerticalBadge from '@/components/VerticalBadge'
 import ListingCard, { TypographicCard, VERTICAL_TOKENS } from '@/components/ListingCard'
 import ListingMap from '@/components/ListingMap'
 import InlineListingEditor from '@/components/InlineListingEditor'
+import StartTrailButton from '@/components/StartTrailButton'
 
 export const revalidate = 3600
 
@@ -41,7 +42,7 @@ const getListing = cache(async function getListing(slug) {
   // to avoid PGRST116 if two verticals share a slug
   const { data, error } = await sb
     .from('listings')
-    .select('*')
+    .select('id, vertical, name, slug, description, region, state, lat, lng, website, phone, address, hero_image_url, is_featured, is_claimed, editors_pick, status')
     .eq('slug', slug)
     .eq('status', 'active')
     .order('updated_at', { ascending: false })
@@ -349,6 +350,7 @@ export default async function PlacePage({ params }) {
               </svg>
             </a>
           )}
+          <StartTrailButton listing={{ id: listing.id, name: listing.name, slug: listing.slug, region: listing.region, state: listing.state, vertical: listing.vertical, lat: listing.lat, lng: listing.lng }} />
         </div>
 
         {/* ── Details + Map card ──────────────────────────── */}
