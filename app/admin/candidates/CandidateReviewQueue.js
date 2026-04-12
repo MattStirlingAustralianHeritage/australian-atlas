@@ -1660,13 +1660,17 @@ export default function CandidateReviewQueue({ initialCandidates = [], initialRe
   const [verticalFilter, setVerticalFilter] = useState(null)
   const [activeTab, setActiveTab] = useState('review') // 'review' | 'rejected'
   const [depth, setDepth] = useState(queueDepth)
+  // Track candidates whose vertical was changed mid-review so they stay
+  // visible in the current filter until explicitly published or skipped.
+  const [verticalOverrides, setVerticalOverrides] = useState({}) // { candidateId: originalVertical }
   const focusDescRefs = useRef({})
   const totalReviewed = approved + rejected
   const totalQueue = candidates.length + totalReviewed
 
-  // Filter candidates by vertical
+  // Filter candidates by vertical — but keep candidates whose vertical was
+  // changed during this session (they should remain visible until actioned)
   const filteredCandidates = verticalFilter
-    ? candidates.filter(c => c.vertical === verticalFilter)
+    ? candidates.filter(c => c.vertical === verticalFilter || verticalOverrides[c.id])
     : candidates
 
   useEffect(() => {
@@ -1705,10 +1709,11 @@ export default function CandidateReviewQueue({ initialCandidates = [], initialRe
     const candidate = candidates.find(c => c.id === id)
     setCandidates(prev => prev.filter(c => c.id !== id))
     setApproved(a => a + 1)
+    setVerticalOverrides(vo => { const { [id]: _, ...rest } = vo; return rest })
     if (region) {
       setPublishedRegions(prev => prev.includes(region) ? prev : [...prev, region])
     }
-    // Update depth counter
+    // Update depth counter — use the candidate's current (possibly changed) vertical
     if (candidate) {
       setDepth(prev => ({
         ...prev,
@@ -1720,6 +1725,7 @@ export default function CandidateReviewQueue({ initialCandidates = [], initialRe
     const candidate = candidates.find(c => c.id === id)
     setCandidates(prev => prev.filter(c => c.id !== id))
     setRejected(r => r + 1)
+    setVerticalOverrides(vo => { const { [id]: _, ...rest } = vo; return rest })
     if (candidate) {
       setDepth(prev => ({
         ...prev,
@@ -1728,8 +1734,16 @@ export default function CandidateReviewQueue({ initialCandidates = [], initialRe
     }
   }, [candidates])
   const handleUpdate = useCallback((updated) => {
-    setCandidates(prev => prev.map(c => c.id === updated.id ? { ...c, ...updated } : c))
-  }, [])
+    setCandidates(prev => prev.map(c => {
+      if (c.id !== updated.id) return c
+      // If the vertical changed and we have an active filter, pin the candidate
+      // so it doesn't vanish from the queue mid-review.
+      if (updated.vertical && updated.vertical !== c.vertical && verticalFilter) {
+        setVerticalOverrides(vo => ({ ...vo, [c.id]: c.vertical }))
+      }
+      return { ...c, ...updated }
+    }))
+  }, [verticalFilter])
   const handleGenerated = useCallback(() => {
     // Reload the page to pick up new candidates
     window.location.reload()
