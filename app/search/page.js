@@ -87,6 +87,7 @@ function SearchPageInner() {
   const [query, setQuery] = useState(searchParams.get('q') || '')
   const [vertical, setVertical] = useState(searchParams.get('vertical') || '')
   const [state, setState] = useState(searchParams.get('state') || '')
+  const [autoState, setAutoState] = useState('')  // State detected from query text by API
   const [results, setResults] = useState([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -120,6 +121,12 @@ function SearchPageInner() {
       setTotal(data.total || 0)
       setPage(data.page || 1)
       setTotalPages(data.totalPages || 0)
+      // Sync auto-detected state from query text (for chip highlighting)
+      if (data.detectedState && !state) {
+        setAutoState(data.detectedState)
+      } else {
+        setAutoState('')
+      }
     } catch (e) {
       console.error('Search error:', e)
     } finally {
@@ -159,7 +166,7 @@ function SearchPageInner() {
     if (loading) return 'Searching...'
     const count = total.toLocaleString()
     const vertLabel = VERTICAL_LABEL_MAP[vertical]
-    const stateLabel = state
+    const stateLabel = state || autoState
 
     if (query && vertical && stateLabel) {
       return `${count} ${vertLabel} results for \u201c${query}\u201d in ${stateLabel}`
@@ -256,23 +263,27 @@ function SearchPageInner() {
       {/* State filters */}
       <div className="mt-3 -mx-4 px-4 overflow-x-auto scrollbar-hide">
         <div className="flex gap-2 min-w-max pb-1">
-          {STATES.map(s => (
-            <button
-              key={s || 'all'}
-              onClick={() => setState(s)}
-              className="px-3 py-1.5 rounded-full transition-colors whitespace-nowrap"
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 400,
-                fontSize: '12px',
-                ...(state === s
-                  ? { backgroundColor: 'var(--color-ink)', color: '#fff', border: '1px solid var(--color-ink)' }
-                  : { backgroundColor: '#fff', color: 'var(--color-muted)', border: '1px solid var(--color-border)' }),
-              }}
-            >
-              {s || 'All states'}
-            </button>
-          ))}
+          {STATES.map(s => {
+            const effectiveState = state || autoState
+            const isActive = effectiveState === s || (!effectiveState && !s)
+            return (
+              <button
+                key={s || 'all'}
+                onClick={() => { setState(s); setAutoState('') }}
+                className="px-3 py-1.5 rounded-full transition-colors whitespace-nowrap"
+                style={{
+                  fontFamily: 'var(--font-body)',
+                  fontWeight: 400,
+                  fontSize: '12px',
+                  ...(isActive
+                    ? { backgroundColor: 'var(--color-ink)', color: '#fff', border: '1px solid var(--color-ink)' }
+                    : { backgroundColor: '#fff', color: 'var(--color-muted)', border: '1px solid var(--color-border)' }),
+                }}
+              >
+                {s || 'All states'}
+              </button>
+            )
+          })}
         </div>
       </div>
 

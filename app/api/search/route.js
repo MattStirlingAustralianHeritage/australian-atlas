@@ -31,7 +31,7 @@ const VERTICAL_KEYWORDS = {
   craft: ['maker', 'makers', 'artist', 'artists', 'studio', 'studios', 'pottery', 'ceramics', 'woodwork', 'textiles', 'jewellery', 'jewelry'],
   fine_grounds: ['coffee', 'cafe', 'cafes', 'roaster', 'roasters', 'espresso', 'specialty coffee'],
   rest: ['stay', 'stays', 'hotel', 'hotels', 'accommodation', 'boutique stay', 'boutique stays', 'glamping', 'farmstay', 'farm stay', 'cottage', 'cottages', 'bnb', 'b&b', 'bed and breakfast'],
-  field: ['swimming hole', 'waterfall', 'waterfalls', 'lookout', 'lookouts', 'hiking', 'trail', 'trails', 'nature', 'natural', 'outdoor', 'outdoors', 'walking track'],
+  field: ['swimming hole', 'waterfall', 'waterfalls', 'lookout', 'lookouts', 'hiking', 'hike', 'hikes', 'trail', 'trails', 'nature', 'natural', 'nature walk', 'nature walks', 'bush walk', 'bush walks', 'bushwalk', 'bushwalks', 'walk', 'walks', 'walking track', 'walking tracks', 'outdoor', 'outdoors', 'wildlife', 'wildlife park', 'zoo', 'gorge', 'gorges', 'cave', 'caves', 'hot spring', 'hot springs', 'national park'],
   corner: ['bookshop', 'bookshops', 'book shop', 'record store', 'record stores', 'homewares', 'indie shop', 'indie retail', 'independent shop'],
   found: ['vintage', 'op shop', 'op shops', 'antique', 'antiques', 'secondhand', 'second hand', 'thrift', 'retro', 'market'],
   table: ['farm gate', 'bakery', 'bakeries', 'food producer', 'providore', 'providores', 'butcher', 'cheese', 'olive oil', 'honey', 'sourdough'],
@@ -75,38 +75,98 @@ const REGION_KEYWORDS = {
 // Words to strip from query after extracting hints (prepositions, filler)
 const STRIP_WORDS = new Set(['near', 'in', 'around', 'the', 'a', 'an', 'and', 'or', 'for', 'best', 'top', 'good', 'great'])
 
+// Map state names and common abbreviations to state codes
+const STATE_KEYWORDS = {
+  'australian capital territory': 'ACT',
+  'new south wales': 'NSW',
+  'northern territory': 'NT',
+  'south australia': 'SA',
+  'western australia': 'WA',
+  'queensland': 'QLD',
+  'victoria': 'VIC',
+  'tasmania': 'TAS',
+  'tassie': 'TAS',
+  'nsw': 'NSW',
+  'qld': 'QLD',
+  'vic': 'VIC',
+  'tas': 'TAS',
+}
+
+// Map natural-language attribute phrases to canonical keys
+const ATTRIBUTE_KEYWORDS = {
+  'wheelchair accessible': 'wheelchair_accessible',
+  'family friendly': 'family_friendly',
+  'child friendly': 'family_friendly',
+  'kid friendly': 'family_friendly',
+  'kids friendly': 'family_friendly',
+  'for children': 'family_friendly',
+  'for families': 'family_friendly',
+  'dog friendly': 'dog_friendly',
+  'pet friendly': 'dog_friendly',
+  'for kids': 'family_friendly',
+}
+
+// Synonym phrases for attribute-based description matching (scoring boost)
+const ATTRIBUTE_SYNONYMS = {
+  family_friendly: ['child friendly', 'kid friendly', 'family friendly', 'children welcome', 'kids welcome', 'family-friendly', 'kid-friendly', 'child-friendly', 'suitable for children', 'suitable for kids', 'suitable for families'],
+  dog_friendly: ['dog friendly', 'pet friendly', 'dogs welcome', 'pets welcome', 'dog-friendly', 'pet-friendly', 'dogs allowed'],
+  wheelchair_accessible: ['wheelchair accessible', 'wheelchair access', 'disability access', 'wheelchair-accessible', 'disabled access'],
+}
+
 /**
- * Parse a natural-language query for vertical and region hints.
- * Returns { vertical, region, cleanedTerms } where vertical/region
- * may be null if no hint was found, and cleanedTerms is the remaining
- * search text with hint phrases removed.
+ * Parse a natural-language query for vertical, region, state, and attribute hints.
+ * Extraction order: attributes → verticals → states → regions (longest match first).
+ * Returns { vertical, region, state, attributes, cleanedTerms }.
  */
 function parseQueryHints(rawQuery) {
   const lower = rawQuery.toLowerCase().trim()
   let detectedVertical = null
   let detectedRegion = null
+  let detectedState = null
+  const detectedAttributes = []
   let remaining = lower
 
-  // Check for vertical keywords (longest match first)
+  // 1. Extract attribute phrases FIRST (multi-word; longest match first)
+  //    "child friendly" must be captured as a unit before single-word extraction
+  const attrEntries = Object.entries(ATTRIBUTE_KEYWORDS).sort((a, b) => b[0].length - a[0].length)
+  for (const [kw, attrValue] of attrEntries) {
+    if (remaining.includes(kw)) {
+      if (!detectedAttributes.includes(attrValue)) detectedAttributes.push(attrValue)
+      remaining = remaining.replace(kw, ' ').replace(/\s+/g, ' ').trim()
+    }
+  }
+
+  // 2. Check for vertical keywords (longest match first)
   for (const [vKey, keywords] of Object.entries(VERTICAL_KEYWORDS)) {
-    // Sort by length descending so multi-word matches win
     const sorted = [...keywords].sort((a, b) => b.length - a.length)
     for (const kw of sorted) {
       if (remaining.includes(kw)) {
         detectedVertical = vKey
-        remaining = remaining.replace(kw, ' ').trim()
+        remaining = remaining.replace(kw, ' ').replace(/\s+/g, ' ').trim()
         break
       }
     }
     if (detectedVertical) break
   }
 
-  // Check for region keywords (longest match first)
+  // 3. Check for state names (longest match first, word-boundary aware)
+  //    Catches "Victoria" → VIC, "New South Wales" → NSW, etc.
+  const stateEntries = Object.entries(STATE_KEYWORDS).sort((a, b) => b[0].length - a[0].length)
+  for (const [kw, stateCode] of stateEntries) {
+    const regex = new RegExp(`\\b${kw.replace(/\s+/g, '\\s+')}\\b`)
+    if (regex.test(remaining)) {
+      detectedState = stateCode
+      remaining = remaining.replace(regex, ' ').replace(/\s+/g, ' ').trim()
+      break
+    }
+  }
+
+  // 4. Check for region keywords (longest match first)
   const regionEntries = Object.entries(REGION_KEYWORDS).sort((a, b) => b[0].length - a[0].length)
   for (const [kw, regionValue] of regionEntries) {
     if (remaining.includes(kw)) {
       detectedRegion = regionValue
-      remaining = remaining.replace(kw, ' ').trim()
+      remaining = remaining.replace(kw, ' ').replace(/\s+/g, ' ').trim()
       break
     }
   }
@@ -116,7 +176,7 @@ function parseQueryHints(rawQuery) {
     .split(/\s+/)
     .filter(w => w.length >= 2 && !STRIP_WORDS.has(w))
 
-  return { vertical: detectedVertical, region: detectedRegion, cleanedTerms }
+  return { vertical: detectedVertical, region: detectedRegion, state: detectedState, attributes: detectedAttributes, cleanedTerms }
 }
 
 // ─── Relevance Scoring ────────────────────────────────────
@@ -255,17 +315,23 @@ export async function GET(request) {
 
     // If there's a text query, parse for hints, filter, score, and rank
     if (q && q.trim()) {
-      const { vertical: hintVertical, region: hintRegion, cleanedTerms } = parseQueryHints(q)
+      const { vertical: hintVertical, region: hintRegion, state: hintState, attributes: hintAttributes, cleanedTerms } = parseQueryHints(q)
 
       // Apply vertical hint if no explicit vertical filter was provided
       if (hintVertical && !vertical) {
         baseQuery = baseQuery.eq('vertical', hintVertical)
       }
 
+      // Apply state hint if no explicit state filter
+      if (hintState && !state) {
+        baseQuery = baseQuery.eq('state', hintState)
+      }
+
       // Apply region hint as ilike filter if no explicit region filter
       if (hintRegion && !region) {
         if (hintRegion.length <= 3 && hintRegion === hintRegion.toUpperCase()) {
-          baseQuery = baseQuery.eq('state', hintRegion)
+          // Region mapped to state code (e.g. 'tasmania' → 'TAS')
+          if (!state && !hintState) baseQuery = baseQuery.eq('state', hintRegion)
         } else {
           baseQuery = baseQuery.or(
             `region.ilike.%${hintRegion}%,state.ilike.%${hintRegion}%`
@@ -310,11 +376,12 @@ export async function GET(request) {
         if (vertical) fuzzyQuery = fuzzyQuery.eq('vertical', vertical)
         else if (hintVertical) fuzzyQuery = fuzzyQuery.eq('vertical', hintVertical)
         if (state) fuzzyQuery = fuzzyQuery.eq('state', state)
+        else if (hintState) fuzzyQuery = fuzzyQuery.eq('state', hintState)
 
         // Apply region hint if present
         if (hintRegion && !region) {
           if (hintRegion.length <= 3 && hintRegion === hintRegion.toUpperCase()) {
-            fuzzyQuery = fuzzyQuery.eq('state', hintRegion)
+            if (!state && !hintState) fuzzyQuery = fuzzyQuery.eq('state', hintRegion)
           } else {
             fuzzyQuery = fuzzyQuery.or(`region.ilike.%${hintRegion}%,state.ilike.%${hintRegion}%`)
           }
@@ -331,11 +398,22 @@ export async function GET(request) {
 
       // ── Score and rank ───────────────────────────────────
       const scored = rawResults
-        .map(listing => ({
-          ...listing,
-          _score: scoreRelevance(listing, q, cleanedTerms),
-          _boost: commercialBoost(listing),
-        }))
+        .map(listing => {
+          let score = scoreRelevance(listing, q, cleanedTerms)
+          // Attribute boost: listings matching detected attributes rank higher
+          if (hintAttributes.length > 0) {
+            const desc = normalize(listing.description || '')
+            for (const attr of hintAttributes) {
+              const synonyms = ATTRIBUTE_SYNONYMS[attr] || []
+              if (synonyms.some(s => desc.includes(s))) score += 30
+            }
+          }
+          return {
+            ...listing,
+            _score: score,
+            _boost: commercialBoost(listing),
+          }
+        })
         .filter(r => r._score >= MIN_SCORE_THRESHOLD)
         .sort((a, b) => {
           // Primary: relevance score descending
@@ -345,10 +423,22 @@ export async function GET(request) {
           return a.name.localeCompare(b.name)
         })
 
+      // ── Quality cap: trim low-relevance tail when many results ──
+      let qualityResults = scored
+      if (qualityResults.length > 60) {
+        for (const threshold of [150, 100, 50, 25]) {
+          const above = qualityResults.filter(r => (r._score + r._boost) >= threshold)
+          if (above.length >= 12) {
+            qualityResults = above
+            break
+          }
+        }
+      }
+
       // ── Paginate the scored results ──────────────────────
-      const total = scored.length
+      const total = qualityResults.length
       const offset = (page - 1) * limit
-      const paged = scored.slice(offset, offset + limit)
+      const paged = qualityResults.slice(offset, offset + limit)
 
       // Strip internal scoring fields before returning
       const listings = paged.map(({ _score, _boost, ...rest }) => rest)
@@ -361,6 +451,8 @@ export async function GET(request) {
         page,
         limit,
         totalPages: Math.ceil(total / limit),
+        detectedState: hintState || null,
+        detectedVertical: hintVertical || null,
       })
     }
 
