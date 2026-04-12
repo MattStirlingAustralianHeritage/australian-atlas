@@ -347,6 +347,17 @@ export async function POST(request, { params }) {
       // 5. Build the full data object — reviewer > candidate > enriched
       const effectiveCategory = subcategory || enriched.category || null
 
+      // Compose display address: street, suburb, state postcode
+      // enriched.address is typically street-only (e.g. "68 Nettleton Rd")
+      // Combine with suburb/state/postcode for full display format
+      let displayAddress = enriched.address || null
+      if (displayAddress && (enriched.suburb || enriched.state)) {
+        const parts = [displayAddress]
+        const localityParts = [enriched.suburb, [enriched.state, enriched.postcode].filter(Boolean).join(' ')].filter(Boolean)
+        if (localityParts.length > 0) parts.push(localityParts.join(' '))
+        displayAddress = parts.join(', ')
+      }
+
       const fullData = {
         name: ro.name || candidate.name,
         slug,
@@ -357,7 +368,7 @@ export async function POST(request, { params }) {
         lng: coords?.lng || null,
         website: normaliseUrl(ro.website_url || candidate.website_url) || null,
         phone: enriched.phone || null,
-        address: enriched.address || null,
+        address: displayAddress,
         email: enriched.email || null,
         suburb: enriched.suburb || ro.region || candidate.region || null,
         postcode: enriched.postcode || null,
