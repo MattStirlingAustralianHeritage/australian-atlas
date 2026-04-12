@@ -32,6 +32,7 @@ const CATEGORY_LABELS = {
   swimming_hole: 'Swimming Hole', waterfall: 'Waterfall', lookout: 'Lookout',
   gorge: 'Gorge', coastal_walk: 'Coastal Walk', hot_spring: 'Hot Spring',
   cave: 'Cave', national_park: 'National Park',
+  wildlife_zoo: 'Wildlife & Zoo', bush_walk: 'Bush Walk',
   bookshop: 'Bookshop', record_store: 'Record Store', homewares: 'Homewares',
   clothing: 'Clothing', gift_shop: 'Gift Shop', general_store: 'General Store',
   stationery: 'Stationery', art_supplies: 'Art Supplies', lifestyle: 'Lifestyle',

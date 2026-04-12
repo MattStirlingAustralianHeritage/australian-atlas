@@ -74,6 +74,8 @@ const SUBCATEGORY_OPTIONS = {
     { value: 'hot_spring', label: 'Hot Spring' },
     { value: 'cave', label: 'Cave' },
     { value: 'national_park', label: 'National Park' },
+    { value: 'wildlife_zoo', label: 'Wildlife & Zoo' },
+    { value: 'bush_walk', label: 'Bush Walk' },
   ],
   corner: [
     { value: 'bookshop', label: 'Bookshop' },

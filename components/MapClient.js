@@ -59,6 +59,7 @@ const SUB_TYPE_LABELS = {
     swimming_hole: 'Swimming Hole', waterfall: 'Waterfall', lookout: 'Lookout',
     gorge: 'Gorge', coastal_walk: 'Coastal Walk', hot_spring: 'Hot Spring',
     cave: 'Cave', national_park: 'National Park',
+    wildlife_zoo: 'Wildlife & Zoo', bush_walk: 'Bush Walk',
   },
   corner: {
     bookshop: 'Bookshop', records: 'Records', homewares: 'Homewares',
