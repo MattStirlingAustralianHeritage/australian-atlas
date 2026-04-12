@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import ListingCard from '@/components/ListingCard'
+import SearchAutocomplete from '@/components/SearchAutocomplete'
 
 import { VERTICAL_STYLES } from '@/components/VerticalBadge'
 
@@ -205,13 +206,19 @@ function SearchPageInner() {
         <svg className="w-6 h-6 text-[var(--color-accent)] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
-        <input
-          type="text"
-          placeholder="Search by name, place, or style..."
+        <SearchAutocomplete
           value={query}
-          onChange={e => setQuery(e.target.value)}
-          className="flex-1 bg-transparent outline-none placeholder:text-[var(--color-muted)]/60"
-          style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px' }}
+          onChange={setQuery}
+          onSelect={(item) => {
+            if (item.type === 'place' && item.slug) {
+              router.push(`/place/${item.slug}`)
+            } else if (item.type === 'suburb') {
+              setQuery(item.label)
+            } else if (item.type === 'region' && item.slug) {
+              router.push(`/regions/${item.slug}`)
+            }
+          }}
+          placeholder="Search by name, place, or style..."
         />
         {query && (
           <button onClick={() => setQuery('')} className="text-[var(--color-muted)] hover:text-[var(--color-ink)] transition-colors">

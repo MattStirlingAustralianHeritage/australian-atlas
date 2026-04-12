@@ -17,7 +17,7 @@ export async function GET(request) {
     // Look up operator account
     const { data: operator, error: opError } = await sb
       .from('operator_accounts')
-      .select('*')
+      .select('id, user_id, business_name, slug, contact_name, contact_email, operator_type, website, logo_url, tier, status, approved, stripe_customer_id, billing_cycle_end, created_at')
       .eq('user_id', user.id)
       .single()
 
@@ -48,25 +48,27 @@ export async function GET(request) {
 
     // ── Overview ──────────────────────────────────────────────
     if (view === 'overview') {
-      // Get collection count
-      const { count: collectionCount } = await sb
-        .from('operator_collections')
-        .select('id', { count: 'exact', head: true })
-        .eq('operator_id', operator.id)
+      // Parallelize the three independent queries
+      const [collectionCountResult, trailCountResult, activityResult] = await Promise.all([
+        sb
+          .from('operator_collections')
+          .select('id', { count: 'exact', head: true })
+          .eq('operator_id', operator.id),
+        sb
+          .from('operator_trails')
+          .select('id', { count: 'exact', head: true })
+          .eq('operator_id', operator.id),
+        sb
+          .from('operator_activity')
+          .select('id, operator_id, action, details, created_at')
+          .eq('operator_id', operator.id)
+          .order('created_at', { ascending: false })
+          .limit(10),
+      ])
 
-      // Get trail count
-      const { count: trailCount } = await sb
-        .from('operator_trails')
-        .select('id', { count: 'exact', head: true })
-        .eq('operator_id', operator.id)
-
-      // Get last 10 activity records
-      const { data: activity } = await sb
-        .from('operator_activity')
-        .select('*')
-        .eq('operator_id', operator.id)
-        .order('created_at', { ascending: false })
-        .limit(10)
+      const collectionCount = collectionCountResult.count
+      const trailCount = trailCountResult.count
+      const activity = activityResult.data
 
       return NextResponse.json({
         operator: {
@@ -97,7 +99,7 @@ export async function GET(request) {
     if (view === 'collections') {
       const { data: collections } = await sb
         .from('operator_collections')
-        .select('*')
+        .select('id, operator_id, title, description, listing_ids, slug, visibility, created_at, updated_at')
         .eq('operator_id', operator.id)
         .order('created_at', { ascending: false })
 
@@ -133,7 +135,7 @@ export async function GET(request) {
     if (view === 'trails') {
       const { data: trails } = await sb
         .from('operator_trails')
-        .select('*')
+        .select('id, operator_id, title, description, slug, trail_id, visibility, created_at, updated_at')
         .eq('operator_id', operator.id)
         .order('created_at', { ascending: false })
 

@@ -55,7 +55,7 @@ export async function POST(request) {
     if (resolvedUserId) {
       const result = await supabase
         .from('profiles')
-        .select('*')
+        .select('id, role, vendor_verticals')
         .eq('id', resolvedUserId)
         .single()
       profile = result.data
@@ -67,7 +67,7 @@ export async function POST(request) {
       const lookupEmail = email || userId
       const result = await supabase
         .from('profiles')
-        .select('*')
+        .select('id, role, vendor_verticals')
         .eq('email', lookupEmail.toLowerCase().trim())
         .single()
       profile = result.data

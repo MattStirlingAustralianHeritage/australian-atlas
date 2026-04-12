@@ -132,7 +132,7 @@ export async function POST(request) {
         stop_count: stops?.length || 0,
         created_by: user.id,
       })
-      .select()
+      .select('id, title, slug, short_code, description, type, visibility, region, vertical_focus, stop_count, published, created_by, created_at, updated_at')
       .single()
 
     if (trailError) {

@@ -11,6 +11,8 @@ import ListingCard, { TypographicCard, VERTICAL_TOKENS } from '@/components/List
 import ListingMap from '@/components/ListingMap'
 import InlineListingEditor from '@/components/InlineListingEditor'
 import StartTrailButton from '@/components/StartTrailButton'
+import ReportIssueButton from '@/components/ReportIssueButton'
+import OpeningHours from '@/components/OpeningHours'
 
 export const revalidate = 3600
 
@@ -42,7 +44,7 @@ const getListing = cache(async function getListing(slug) {
   // to avoid PGRST116 if two verticals share a slug
   const { data, error } = await sb
     .from('listings')
-    .select('id, vertical, name, slug, description, region, state, lat, lng, website, phone, address, hero_image_url, is_featured, is_claimed, editors_pick, status')
+    .select('id, vertical, name, slug, description, region, state, lat, lng, website, phone, address, hero_image_url, is_featured, is_claimed, editors_pick, status, hours')
     .eq('slug', slug)
     .eq('status', 'active')
     .order('updated_at', { ascending: false })
@@ -133,6 +135,40 @@ async function getNearbyListings(listing, limit = 6) {
   return result
 }
 
+async function getRegionListings(listing, excludeIds = [], limit = 4) {
+  if (!listing.region) return []
+  const sb = getSupabaseAdmin()
+
+  const { data } = await sb
+    .from('listings')
+    .select('id, name, slug, vertical, region, state, lat, lng, hero_image_url, description, is_featured, is_claimed, editors_pick')
+    .eq('status', 'active')
+    .eq('region', listing.region)
+    .not('id', 'in', `(${[listing.id, ...excludeIds].join(',')})`)
+    .order('quality_score', { ascending: false })
+    .order('editors_pick', { ascending: false })
+    .limit(limit)
+
+  return data || []
+}
+
+async function getCrossVerticalListings(listing, excludeIds = [], limit = 3) {
+  if (!listing.region || !listing.vertical) return []
+  const sb = getSupabaseAdmin()
+
+  const { data } = await sb
+    .from('listings')
+    .select('id, name, slug, vertical, region, state, lat, lng, hero_image_url, description, is_featured, is_claimed, editors_pick')
+    .eq('status', 'active')
+    .eq('region', listing.region)
+    .neq('vertical', listing.vertical)
+    .not('id', 'in', `(${[listing.id, ...excludeIds].join(',')})`)
+    .order('quality_score', { ascending: false })
+    .limit(limit)
+
+  return data || []
+}
+
 // ── Helper: clean website for display ─────────────────────────
 
 function cleanWebsite(url) {
@@ -174,9 +210,11 @@ export async function generateMetadata({ params }) {
       siteName: 'Australian Atlas',
       locale: 'en_AU',
       type: 'website',
-      ...(listing.hero_image_url ? {
-        images: [{ url: listing.hero_image_url, width: 1200, height: 630, alt: listing.name }],
-      } : {}),
+      images: [
+        listing.hero_image_url
+          ? { url: listing.hero_image_url, width: 1200, height: 630, alt: listing.name }
+          : { url: `https://australianatlas.com.au/og/${slug}`, width: 1200, height: 630, alt: listing.name },
+      ],
     },
     alternates: {
       canonical: `https://australianatlas.com.au/place/${slug}`,
@@ -200,6 +238,19 @@ export default async function PlacePage({ params }) {
   } catch { /* auth check failure = not admin */ }
 
   const nearby = await getNearbyListings(listing)
+  const nearbyIds = nearby.map(n => n.id)
+
+  // Region-based internal linking
+  const regionListings = await getRegionListings(listing, nearbyIds)
+  const regionIds = regionListings.map(r => r.id)
+  const crossVerticalListings = await getCrossVerticalListings(listing, [...nearbyIds, ...regionIds])
+
+  // Look up region slug for linking
+  const sb = getSupabaseAdmin()
+  const regionData = listing.region
+    ? (await sb.from('regions').select('slug, name').ilike('name', listing.region).maybeSingle()).data
+    : null
+
   const vertLabel = getVerticalLabel(listing.vertical)
   const vertColor = VERTICAL_COLORS[listing.vertical] || '#5F8A7E'
   const categoryLabel = VERTICAL_CATEGORY_LABELS[listing.vertical] || 'Place'
@@ -262,13 +313,18 @@ export default async function PlacePage({ params }) {
           <span>&rsaquo;</span>
           {listing.state && (
             <>
-              <span>{listing.state}</span>
+              <Link href={`/search?state=${encodeURIComponent(listing.state)}`} className="hover:underline">{listing.state}</Link>
               <span>&rsaquo;</span>
             </>
           )}
           {listing.region && (
             <>
-              <span>{listing.region}</span>
+              <Link
+                href={regionData ? `/regions/${regionData.slug}` : `/search?region=${encodeURIComponent(listing.region)}`}
+                className="hover:underline"
+              >
+                {listing.region}
+              </Link>
               <span>&rsaquo;</span>
             </>
           )}
@@ -363,6 +419,9 @@ export default async function PlacePage({ params }) {
           <StartTrailButton listing={{ id: listing.id, name: listing.name, slug: listing.slug, region: listing.region, state: listing.state, vertical: listing.vertical, lat: listing.lat, lng: listing.lng }} />
         </div>
 
+        {/* Report issue link */}
+        <ReportIssueButton listingId={listing.id} listingName={listing.name} />
+
         {/* ── Details + Map card ──────────────────────────── */}
         <div className="rounded-xl overflow-hidden mb-10" style={{ border: '1px solid var(--color-border)', background: 'var(--color-card-bg)' }}>
           {/* Map */}
@@ -425,6 +484,11 @@ export default async function PlacePage({ params }) {
                 <DetailItem label="State" value={listing.state} />
               )}
             </div>
+
+            {/* Opening hours */}
+            {listing.hours && (
+              <OpeningHours hours={listing.hours} />
+            )}
           </div>
         </div>
 
@@ -478,6 +542,73 @@ export default async function PlacePage({ params }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {nearby.map(n => (
                 <ListingCard key={n.id} listing={n} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ── More in region ─────────────────────────────── */}
+        {listing.region && regionListings.length > 0 && (
+          <section className="mt-12">
+            <h2
+              className="mb-5"
+              style={{
+                fontFamily: 'var(--font-display)',
+                fontWeight: 400,
+                fontSize: '22px',
+                color: 'var(--color-ink)',
+              }}
+            >
+              More in {listing.region}
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {regionListings.map(r => (
+                <ListingCard key={r.id} listing={r} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ── Explore this region ────────────────────────── */}
+        {listing.region && (
+          <Link
+            href={regionData ? `/regions/${regionData.slug}` : `/search?region=${encodeURIComponent(listing.region)}`}
+            className="block mt-10 py-5 px-6 rounded-lg transition-colors"
+            style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold tracking-wider uppercase mb-1" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)', letterSpacing: '0.08em', fontSize: '10px' }}>
+                  Explore Region
+                </p>
+                <p className="text-base font-medium" style={{ fontFamily: 'var(--font-display)', color: 'var(--color-ink)' }}>
+                  Explore all of {listing.region}
+                </p>
+              </div>
+              <svg className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--color-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </Link>
+        )}
+
+        {/* ── Cross-vertical discovery ───────────────────── */}
+        {listing.region && crossVerticalListings.length > 0 && (
+          <section className="mt-12">
+            <h3
+              className="mb-4"
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 400,
+                fontSize: '15px',
+                color: 'var(--color-muted)',
+              }}
+            >
+              While you&rsquo;re in {listing.region}, also discover
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {crossVerticalListings.map(c => (
+                <ListingCard key={c.id} listing={c} />
               ))}
             </div>
           </section>

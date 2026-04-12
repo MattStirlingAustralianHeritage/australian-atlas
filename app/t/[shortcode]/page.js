@@ -34,7 +34,7 @@ export default async function SharedTrailPage({ params }) {
 
   const { data: trail } = await sb
     .from('trails')
-    .select('*')
+    .select('id, title, slug, short_code, description, type, region, cover_image_url, hero_intro, curator_name, duration, best_season')
     .eq('short_code', shortcode)
     .in('visibility', ['link', 'public'])
     .single()
@@ -43,7 +43,7 @@ export default async function SharedTrailPage({ params }) {
 
   const { data: stops } = await sb
     .from('trail_stops')
-    .select('*, listings(slug)')
+    .select('id, trail_id, listing_id, vertical, venue_name, venue_lat, venue_lng, venue_image_url, order_index, day, notes, listings(slug)')
     .eq('trail_id', trail.id)
     .order('order_index', { ascending: true })
 

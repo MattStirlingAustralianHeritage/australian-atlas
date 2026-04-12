@@ -4,7 +4,7 @@ export default function robots() {
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/admin/', '/api/'],
+        disallow: ['/admin/', '/api/', '/dashboard/', '/vendor/', '/account/'],
       },
     ],
     sitemap: 'https://australianatlas.com.au/sitemap.xml',

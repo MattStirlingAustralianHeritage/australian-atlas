@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { cookies } from 'next/headers'
+import { verifySharedToken } from '@/lib/shared-auth'
 
 /**
  * POST /api/user/visits — Mark a listing as visited
@@ -9,14 +10,12 @@ import { cookies } from 'next/headers'
  */
 
 async function getUserId() {
-  // In production, extract from JWT / session
-  // For now, check for atlas_auth_token
   const cookieStore = await cookies()
   const token = cookieStore.get('atlas_auth_token')?.value
   if (!token) return null
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]))
-    return payload.sub
+    const { valid, user } = await verifySharedToken(token)
+    return valid ? user.id : null
   } catch { return null }
 }
 

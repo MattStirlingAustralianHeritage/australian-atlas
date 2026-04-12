@@ -22,7 +22,7 @@ export async function GET() {
       // Check vendor_profiles for this email
       const { data: profile } = await client
         .from('vendor_profiles')
-        .select('*')
+        .select('id, user_id, email, business_name, contact_name, phone, created_at')
         .eq('email', email)
         .maybeSingle()
 
@@ -30,7 +30,7 @@ export async function GET() {
         // Get approved claim for this user
         const { data: claim } = await client
           .from('claims')
-          .select('*')
+          .select('id, user_id, venue_id, status, created_at')
           .eq('user_id', profile.user_id)
           .eq('status', 'approved')
           .maybeSingle()

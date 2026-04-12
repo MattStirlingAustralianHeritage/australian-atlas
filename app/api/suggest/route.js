@@ -9,11 +9,22 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { name, region, vertical, website_url, notes } = body
+    const { name, region, vertical, website_url, notes, why_listed, submitter_name, submitter_email } = body
 
     if (!name || name.trim().length < 2) {
       return NextResponse.json({ error: 'Venue name is required' }, { status: 400 })
     }
+
+    // Build notes from why_listed or fallback to raw notes field
+    const combinedNotes = why_listed?.trim() || notes?.trim() || null
+
+    // Build submitted_by metadata
+    const submittedBy = (submitter_name?.trim() || submitter_email?.trim())
+      ? {
+          ...(submitter_name?.trim() ? { name: submitter_name.trim() } : {}),
+          ...(submitter_email?.trim() ? { email: submitter_email.trim() } : {}),
+        }
+      : null
 
     const sb = getSupabaseAdmin()
     const { error } = await sb.from('listing_candidates').insert({
@@ -22,7 +33,8 @@ export async function POST(request) {
       vertical: vertical || null,
       website_url: website_url?.trim() || null,
       source: 'user_suggested',
-      source_detail: notes?.trim() || null,
+      source_detail: combinedNotes,
+      ...(submittedBy ? { submitted_by: submittedBy } : {}),
       confidence: 0.3,
       status: 'pending',
     })

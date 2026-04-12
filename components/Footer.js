@@ -102,6 +102,7 @@ export default function Footer() {
                 { href: '/for-councils', label: 'For Councils' },
                 { href: '/operators', label: 'For Operators' },
                 { href: '/about', label: 'About' },
+                { href: '/suggest', label: 'Suggest a Place' },
               ].map(link => (
                 <li key={link.href}>
                   <Link

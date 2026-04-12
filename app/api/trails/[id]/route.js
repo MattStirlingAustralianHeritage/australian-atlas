@@ -17,7 +17,7 @@ export async function GET(request, { params }) {
 
     let query = sb
       .from('trails')
-      .select('*')
+      .select('id, title, slug, short_code, description, type, visibility, region, vertical_focus, stop_count, published, created_by, created_at, updated_at, cover_image_url, hero_intro, curator_name, curator_note, duration, best_season')
 
     if (isUuid) {
       query = query.eq('id', id)
@@ -34,7 +34,7 @@ export async function GET(request, { params }) {
     // Fetch stops ordered by order_index
     const { data: stops, error: stopsError } = await sb
       .from('trail_stops')
-      .select('*')
+      .select('id, trail_id, listing_id, vertical, venue_name, venue_lat, venue_lng, venue_image_url, order_index, notes')
       .eq('trail_id', trail.id)
       .order('order_index', { ascending: true })
 
@@ -140,7 +140,7 @@ export async function PUT(request, { params }) {
       .from('trails')
       .update(updates)
       .eq('id', id)
-      .select()
+      .select('id, title, slug, short_code, description, type, visibility, region, vertical_focus, stop_count, published, created_by, created_at, updated_at, cover_image_url, hero_intro, curator_name, curator_note, duration, best_season')
       .single()
 
     if (updateError) {
@@ -187,7 +187,7 @@ export async function PUT(request, { params }) {
     // Fetch updated stops
     const { data: updatedStops } = await sb
       .from('trail_stops')
-      .select('*')
+      .select('id, trail_id, listing_id, vertical, venue_name, venue_lat, venue_lng, venue_image_url, order_index, notes')
       .eq('trail_id', id)
       .order('order_index', { ascending: true })
 

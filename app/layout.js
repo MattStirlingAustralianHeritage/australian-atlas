@@ -5,6 +5,7 @@ import Footer from "@/components/Footer";
 import AtlasAnalytics from "@/components/AtlasAnalytics";
 import PageTracker from "@/components/PageTracker";
 import { websiteJsonLd, organizationJsonLd } from "@/lib/jsonLd";
+import GlobalErrorReporter from "@/components/GlobalErrorReporter";
 
 const playfair = Playfair_Display({
   variable: "--font-display",
@@ -82,6 +83,7 @@ export default function RootLayout({ children }) {
         <Footer />
         <AtlasAnalytics />
         <PageTracker vertical="portal" />
+        <GlobalErrorReporter />
       </body>
     </html>
   );

@@ -30,7 +30,7 @@ export async function GET() {
       // Check for picks made by the user's venues (outgoing)
       const { data: outPicks } = await admin
         .from(config.picksTable)
-        .select('*')
+        .select('id, venue_id, picked_venue_id, picked_venue_name, note, created_at')
         .limit(50)
 
       if (outPicks) {

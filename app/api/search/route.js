@@ -70,6 +70,28 @@ const REGION_KEYWORDS = {
   'canberra': 'ACT',
   'darwin': 'Darwin',
   'fremantle': 'Fremantle',
+  // Metro inner suburbs → metro region
+  'fitzroy': 'Melbourne',
+  'collingwood': 'Melbourne',
+  'carlton': 'Melbourne',
+  'brunswick': 'Melbourne',
+  'richmond': 'Melbourne',
+  'south yarra': 'Melbourne',
+  'st kilda': 'Melbourne',
+  'prahran': 'Melbourne',
+  'elsternwick': 'Melbourne',
+  'surry hills': 'Sydney',
+  'newtown': 'Sydney',
+  'paddington': 'Sydney',
+  'marrickville': 'Sydney',
+  'bondi': 'Sydney',
+  'fortitude valley': 'Brisbane',
+  'west end': 'Brisbane',
+  'new farm': 'Brisbane',
+  'leederville': 'Perth',
+  'northbridge': 'Perth',
+  'mount lawley': 'Perth',
+  'newcastle': 'Newcastle',
 }
 
 // Words to strip from query after extracting hints (prepositions, filler)

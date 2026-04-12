@@ -55,3 +55,8 @@ body {
   font-size: 18px;
   padding: 4px 8px;
 }
+
+/* SearchAutocomplete spinner */
+@keyframes autocomplete-spin {
+  to { transform: translateY(-50%) rotate(360deg); }
+}
