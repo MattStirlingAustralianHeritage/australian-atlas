@@ -104,7 +104,7 @@ CREATE TABLE IF NOT EXISTS collections (
   description text,
   hero_image_url text,
   author text DEFAULT 'Australian Atlas Editorial',
-  listing_ids bigint[] NOT NULL DEFAULT '{}',
+  listing_ids uuid[] NOT NULL DEFAULT '{}',
   vertical text, -- optional: themed collection for one vertical
   region text,   -- optional: region-scoped collection
   published boolean NOT NULL DEFAULT false,
@@ -122,7 +122,7 @@ CREATE INDEX IF NOT EXISTS idx_collections_published ON collections (published) 
 
 CREATE TABLE IF NOT EXISTS place_memories (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  listing_id bigint NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+  listing_id uuid NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
   author_name text, -- nullable for anonymous submissions
   memory text NOT NULL,
   approved boolean NOT NULL DEFAULT false,
@@ -138,8 +138,8 @@ CREATE INDEX IF NOT EXISTS idx_place_memories_listing ON place_memories (listing
 
 CREATE TABLE IF NOT EXISTS duplicate_pairs (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  listing_a_id bigint NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
-  listing_b_id bigint NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+  listing_a_id uuid NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+  listing_b_id uuid NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
   confidence text NOT NULL DEFAULT 'medium', -- high, medium
   match_reason text NOT NULL, -- same_name_suburb, same_website, trigram_match
   status text NOT NULL DEFAULT 'pending', -- pending, merged, dismissed
@@ -193,7 +193,7 @@ CREATE INDEX IF NOT EXISTS idx_client_errors_created ON client_errors (created_a
 
 CREATE TABLE IF NOT EXISTS operator_outreach (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  listing_id bigint NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+  listing_id uuid NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
   contact_email text,
   status text NOT NULL DEFAULT 'not_contacted', -- not_contacted, contacted, claimed, declined
   notes text,
@@ -218,7 +218,7 @@ CREATE TABLE IF NOT EXISTS listing_suggestions (
   reason text, -- why they love it
   submitter_email text,
   status text NOT NULL DEFAULT 'pending', -- pending, promoted, dismissed
-  promoted_candidate_id bigint,
+  promoted_candidate_id uuid,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -231,7 +231,7 @@ CREATE TABLE IF NOT EXISTS events (
   title text NOT NULL,
   slug text UNIQUE NOT NULL,
   description text,
-  listing_id bigint REFERENCES listings(id) ON DELETE SET NULL,
+  listing_id uuid REFERENCES listings(id) ON DELETE SET NULL,
   start_date timestamptz NOT NULL,
   end_date timestamptz,
   ticket_url text,
@@ -257,7 +257,7 @@ CREATE TABLE IF NOT EXISTS interviews (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   subject text NOT NULL,
   slug text UNIQUE NOT NULL,
-  listing_id bigint REFERENCES listings(id) ON DELETE SET NULL,
+  listing_id uuid REFERENCES listings(id) ON DELETE SET NULL,
   questions jsonb NOT NULL DEFAULT '[]',
   answers jsonb NOT NULL DEFAULT '[]',
   author text DEFAULT 'Matt Stirling',
@@ -296,7 +296,7 @@ CREATE OR REPLACE FUNCTION search_listings_combined(
   result_limit integer DEFAULT 30
 )
 RETURNS TABLE (
-  id bigint,
+  id uuid,
   name text,
   slug text,
   vertical text,
@@ -365,7 +365,7 @@ CREATE OR REPLACE FUNCTION autocomplete_listings(
   result_limit integer DEFAULT 8
 )
 RETURNS TABLE (
-  id bigint,
+  id uuid,
   name text,
   slug text,
   vertical text,

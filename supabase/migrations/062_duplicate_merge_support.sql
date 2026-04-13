@@ -2,7 +2,7 @@
 -- Required by the admin duplicates review page merge action
 
 -- Add merged_into column to track which listing a duplicate was merged into
-ALTER TABLE listings ADD COLUMN IF NOT EXISTS merged_into bigint REFERENCES listings(id);
+ALTER TABLE listings ADD COLUMN IF NOT EXISTS merged_into uuid REFERENCES listings(id);
 
 -- Expand status constraint to include 'duplicate'
 ALTER TABLE public.listings DROP CONSTRAINT IF EXISTS listings_status_check;
