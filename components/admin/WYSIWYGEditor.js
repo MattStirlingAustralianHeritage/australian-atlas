@@ -13,7 +13,10 @@ export function mdToHtml(md) {
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
     .replace(/`(.+?)`/g, '<code>$1</code>')
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
-    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<figure><img src="$2" alt="$1" /></figure>')
+    .replace(/!\[([^\]]*)\]\(([^)]+)\)(?:\{width=(\d+%?)\})?/g, (_, alt, src, w) => {
+      const style = w ? ` style="width:${w.includes('%') ? w : w+'%'}"` : ''
+      return `<figure${style}><img src="${src}" alt="${alt}" /></figure>`
+    })
     .replace(/^---$/gm, '<hr />')
     .replace(/^> (.+)$/gm, '<blockquote><p>$1</p></blockquote>')
     .replace(/^\d+\. (.+)$/gm, '<li data-t="ol">$1</li>')
@@ -47,7 +50,10 @@ export function htmlToMd(el) {
     if (tag === 'figure') {
       const img = node.querySelector('img')
       const cap = node.querySelector('figcaption')
-      return img ? `![${cap?.textContent || img.alt || ''}](${img.src})\n\n` : inner
+      if (!img) return inner
+      const w = node.style?.width
+      const suffix = w ? `{width=${w}}` : ''
+      return `![${cap?.textContent || img.alt || ''}](${img.src})${suffix}\n\n`
     }
     if (tag === 'img') return `![${node.alt || ''}](${node.src})\n\n`
     if (tag === 'ol') return inner + '\n'
@@ -96,6 +102,9 @@ export default function WYSIWYGEditor({ value, onChange, onUploadImage, uploadin
   const initialised = useRef(false)
   const lastEmittedValue = useRef(value)
   const [slashSelected, setSlashSelected] = useState(0)
+  const [selectedFigure, setSelectedFigure] = useState(null)
+  const [figureRect, setFigureRect] = useState(null)
+  const wrapperRef = useRef(null)
 
   useEffect(() => {
     if (editorRef.current && !initialised.current) {
@@ -242,6 +251,11 @@ export default function WYSIWYGEditor({ value, onChange, onUploadImage, uploadin
   }
 
   function handleKeyDown(e) {
+    // Image selection shortcuts
+    if (selectedFigure) {
+      if (e.key === 'Escape') { setSelectedFigure(null); setFigureRect(null); return }
+      if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelectedImage(); return }
+    }
     const mod = e.metaKey || e.ctrlKey
     if (mod && e.key === 'b') { e.preventDefault(); document.execCommand('bold'); updateFormats(); return }
     if (mod && e.key === 'i') { e.preventDefault(); document.execCommand('italic'); updateFormats(); return }
@@ -436,6 +450,7 @@ export default function WYSIWYGEditor({ value, onChange, onUploadImage, uploadin
   function insertImage(url) {
     editorRef.current?.focus()
     const figure = document.createElement('figure')
+    figure.style.width = '100%'
     const img = document.createElement('img'); img.src = url; img.alt = ''
     figure.appendChild(img)
     const p = document.createElement('p'); p.innerHTML = '<br>'
@@ -454,6 +469,95 @@ export default function WYSIWYGEditor({ value, onChange, onUploadImage, uploadin
     setWordCount(getWordCount(editorRef.current))
     emitChange()
   }
+
+  // ─── Image selection & resize ──────────────────────────────────
+  function handleEditorClick(e) {
+    const img = e.target.closest('img')
+    const figure = img ? (img.closest('figure') || img.parentElement) : null
+    if (figure && figure.tagName === 'FIGURE' && editorRef.current?.contains(figure)) {
+      e.preventDefault()
+      setSelectedFigure(figure)
+      requestAnimationFrame(() => recalcFigureRect(figure))
+    } else {
+      setSelectedFigure(null)
+      setFigureRect(null)
+    }
+  }
+
+  function recalcFigureRect(figure) {
+    if (!figure || !wrapperRef.current) { setFigureRect(null); return }
+    const fR = figure.getBoundingClientRect()
+    const wR = wrapperRef.current.getBoundingClientRect()
+    setFigureRect({ top: fR.top - wR.top, left: fR.left - wR.left, width: fR.width, height: fR.height })
+  }
+
+  function getCurrentWidth() {
+    if (!selectedFigure) return 100
+    const w = selectedFigure.style.width
+    return w ? (parseInt(w) || 100) : 100
+  }
+
+  function applyImageWidth(pct) {
+    if (!selectedFigure) return
+    selectedFigure.style.width = `${pct}%`
+    requestAnimationFrame(() => recalcFigureRect(selectedFigure))
+    emitChange()
+  }
+
+  function deleteSelectedImage() {
+    if (!selectedFigure) return
+    selectedFigure.remove()
+    setSelectedFigure(null)
+    setFigureRect(null)
+    emitChange()
+  }
+
+  function startResize(e, handle) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!selectedFigure || !editorRef.current) return
+    const startX = e.clientX
+    const startW = selectedFigure.getBoundingClientRect().width
+    const editorW = editorRef.current.getBoundingClientRect().width
+    const isLeft = handle.includes('left')
+    document.body.style.userSelect = 'none'
+    document.body.style.cursor = handle.includes('middle') ? 'ew-resize'
+      : (handle === 'top-left' || handle === 'bottom-right') ? 'nwse-resize' : 'nesw-resize'
+
+    function onMove(ev) {
+      const dx = ev.clientX - startX
+      const newPx = startW + (isLeft ? -dx : dx)
+      let pct = Math.round((newPx / editorW) * 100)
+      pct = Math.max(20, Math.min(100, pct))
+      for (const snap of [25, 33, 50, 66, 75, 100]) {
+        if (Math.abs(pct - snap) <= 3) { pct = snap; break }
+      }
+      selectedFigure.style.width = `${pct}%`
+      recalcFigureRect(selectedFigure)
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+      document.body.style.userSelect = ''
+      document.body.style.cursor = ''
+      emitChange()
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }
+
+  // Deselect image when clicking outside the editor
+  useEffect(() => {
+    if (!selectedFigure) return
+    function handleOutside(e) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+        setSelectedFigure(null)
+        setFigureRect(null)
+      }
+    }
+    document.addEventListener('mousedown', handleOutside)
+    return () => document.removeEventListener('mousedown', handleOutside)
+  }, [selectedFigure])
 
   useEffect(() => {
     function onDown(e) {
@@ -483,7 +587,7 @@ export default function WYSIWYGEditor({ value, onChange, onUploadImage, uploadin
   const visibleSlashCmds = slashMenu ? getSlashCmds(slashMenu.query) : []
 
   return (
-    <div style={{ position: 'relative', border: '1px solid var(--color-border)', borderRadius: 6, background: '#fff', overflow: 'visible' }}>
+    <div ref={wrapperRef} style={{ position: 'relative', border: '1px solid var(--color-border)', borderRadius: 6, background: '#fff', overflow: 'visible' }}>
       {/* ─── Toolbar ─── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 1, padding: '6px 10px', borderBottom: '1px solid var(--color-border)', background: '#FAFAF6', flexWrap: 'wrap', position: 'sticky', top: 0, zIndex: 10, borderRadius: '6px 6px 0 0' }}>
         <TB title="Heading 1 - type /h1" onClick={() => insertHeading(1)} extraStyle={{ fontFamily: 'var(--font-display)', fontSize: 15, letterSpacing: '-0.02em' }}>H1</TB>
@@ -580,8 +684,48 @@ export default function WYSIWYGEditor({ value, onChange, onUploadImage, uploadin
         onMouseUp={updateBubble}
         onDragOver={e => e.preventDefault()}
         onDrop={handleDrop}
+        onClick={handleEditorClick}
         style={{ minHeight, padding: '20px 24px', outline: 'none', fontSize: 15, fontFamily: 'var(--font-display)', color: 'var(--color-ink)', lineHeight: 1.8 }}
       />
+
+      {/* ─── Image resize overlay ─── */}
+      {selectedFigure && figureRect && (
+        <div data-image-toolbar style={{ position: 'absolute', top: figureRect.top, left: figureRect.left, width: figureRect.width, height: figureRect.height, pointerEvents: 'none', zIndex: 45 }}>
+          {/* Selection border */}
+          <div style={{ position: 'absolute', inset: 0, border: '2px solid #4A90D9', borderRadius: 4, pointerEvents: 'none' }} />
+          {/* Corner handles */}
+          {['top-left', 'top-right', 'bottom-left', 'bottom-right'].map(c => (
+            <div key={c} onMouseDown={e => startResize(e, c)} style={{
+              position: 'absolute', width: 10, height: 10, background: '#4A90D9', border: '2px solid #fff', borderRadius: 2, pointerEvents: 'auto',
+              cursor: (c === 'top-left' || c === 'bottom-right') ? 'nwse-resize' : 'nesw-resize',
+              ...(c.includes('top') ? { top: -5 } : { bottom: -5 }),
+              ...(c.includes('left') ? { left: -5 } : { right: -5 }),
+            }} />
+          ))}
+          {/* Edge handles */}
+          {['left', 'right'].map(side => (
+            <div key={side} onMouseDown={e => startResize(e, `middle-${side}`)} style={{
+              position: 'absolute', width: 6, height: 32, background: '#4A90D9', border: '2px solid #fff', borderRadius: 3, pointerEvents: 'auto', cursor: 'ew-resize',
+              top: '50%', transform: 'translateY(-50%)', ...(side === 'left' ? { left: -3 } : { right: -3 }),
+            }} />
+          ))}
+          {/* Size preset toolbar */}
+          <div style={{ position: 'absolute', top: -44, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 2, background: '#1c1c1c', borderRadius: 6, padding: '4px 5px', boxShadow: '0 4px 20px rgba(0,0,0,0.35)', pointerEvents: 'auto', whiteSpace: 'nowrap', animation: 'bubbleIn 0.1s ease-out' }}>
+            {[{ label: 'Small', pct: 33 }, { label: 'Medium', pct: 66 }, { label: 'Full', pct: 100 }].map(p => (
+              <button key={p.pct} title={`${p.label} (${p.pct}%)`} onMouseDown={e => { e.preventDefault(); e.stopPropagation(); applyImageWidth(p.pct) }}
+                style={{ padding: '4px 10px', border: 'none', borderRadius: 4, cursor: 'pointer', background: getCurrentWidth() === p.pct ? 'rgba(74,144,217,0.3)' : 'transparent', color: '#fff', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-body)' }}>
+                {p.label}
+              </button>
+            ))}
+            <div style={{ width: 1, height: 18, background: 'rgba(255,255,255,0.15)', margin: '0 3px', alignSelf: 'center' }} />
+            <button title="Delete image" onMouseDown={e => { e.preventDefault(); e.stopPropagation(); deleteSelectedImage() }}
+              style={{ padding: '4px 7px', border: 'none', borderRadius: 4, cursor: 'pointer', background: 'transparent', color: '#ff6b6b', fontSize: 13, fontWeight: 700, lineHeight: 1 }}>
+              ✕
+            </button>
+            <div style={{ position: 'absolute', bottom: -5, left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '5px solid #1c1c1c' }} />
+          </div>
+        </div>
+      )}
 
       {/* ─── Floating bubble toolbar ─── */}
       {bubble && bubble.y > -200 && (
@@ -662,7 +806,7 @@ export default function WYSIWYGEditor({ value, onChange, onUploadImage, uploadin
         [contenteditable] blockquote p { margin:0 }
         [contenteditable] hr { border:none; border-top:1px solid var(--color-border); margin:2em 0 }
         [contenteditable] figure { margin:1.5em 0 }
-        [contenteditable] figure img { max-width:100%; height:auto; display:block; border-radius:3px }
+        [contenteditable] figure img { width:100%; height:auto; display:block; border-radius:3px }
         [contenteditable] figcaption { margin-top:7px; font-size:13px; color:var(--color-muted); font-family:var(--font-body); font-style:italic; text-align:center }
         [contenteditable] img { max-width:100%; height:auto; display:block; border-radius:3px; margin:1em 0 }
         [contenteditable]:focus { caret-color:var(--color-sage) }
