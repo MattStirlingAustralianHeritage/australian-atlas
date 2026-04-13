@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import ListingCard from '@/components/ListingCard'
 import SearchAutocomplete from '@/components/SearchAutocomplete'
+import VibeSearch from './VibeSearch'
 
 import { VERTICAL_STYLES } from '@/components/VerticalBadge'
 
@@ -65,6 +66,133 @@ const VERTICAL_LABEL_MAP = Object.fromEntries(VERTICALS.filter(v => v.key).map(v
 
 const STATES = ['', 'VIC', 'NSW', 'QLD', 'SA', 'WA', 'TAS', 'ACT', 'NT']
 
+// ── Contextual header mapping ────────────────────────────────
+
+const CONTEXTUAL_VERTICAL_KEYWORDS = {
+  sba: ['brewery', 'breweries', 'winery', 'wineries', 'distillery', 'distilleries', 'cellar door', 'wine', 'beer', 'craft beer', 'spirits', 'gin', 'whisky', 'cider', 'small batch'],
+  collection: ['museum', 'museums', 'gallery', 'galleries', 'heritage', 'cultural', 'art gallery', 'exhibition'],
+  craft: ['maker', 'makers', 'studio', 'studios', 'pottery', 'ceramics', 'woodwork', 'textiles', 'jewellery'],
+  fine_grounds: ['coffee', 'cafe', 'cafes', 'roaster', 'roasters', 'espresso', 'specialty coffee'],
+  rest: ['stay', 'stays', 'hotel', 'hotels', 'accommodation', 'boutique stay', 'glamping', 'farmstay', 'cottage', 'lodge'],
+  field: ['swimming hole', 'waterfall', 'lookout', 'hiking', 'nature', 'bush walk', 'national park', 'wildlife'],
+  corner: ['bookshop', 'record store', 'homewares', 'indie shop'],
+  found: ['vintage', 'op shop', 'antique', 'antiques', 'secondhand', 'thrift', 'retro'],
+  table: ['farm gate', 'bakery', 'food producer', 'providore', 'butcher', 'cheese', 'restaurant', 'dining'],
+}
+
+const CONTEXTUAL_VERTICAL_NAMES = {
+  sba: 'Small Batch Atlas',
+  collection: 'Culture Atlas',
+  craft: 'Maker Studios',
+  fine_grounds: 'Fine Grounds',
+  rest: 'Boutique Stays',
+  field: 'Field Atlas',
+  corner: 'Corner Atlas',
+  found: 'Found Atlas',
+  table: 'Table Atlas',
+}
+
+const CONTEXTUAL_VERTICAL_COLORS = {
+  sba: '#6b3a2a',
+  collection: '#5a6b7c',
+  craft: '#7c6b5a',
+  fine_grounds: '#5F8A7E',
+  rest: '#8a5a6b',
+  field: '#5a7c5a',
+  corner: '#7c5a7c',
+  found: '#5a7c6b',
+  table: '#7c6b5a',
+}
+
+const CONTEXTUAL_CATEGORY_LABELS = {
+  sba: 'producers',
+  collection: 'cultural places',
+  craft: 'maker studios',
+  fine_grounds: 'coffee places',
+  rest: 'stays',
+  field: 'natural places',
+  corner: 'independent shops',
+  found: 'vintage finds',
+  table: 'food producers',
+}
+
+const CONTEXTUAL_LOCATION_KEYWORDS = {
+  'barossa': 'the Barossa',
+  'yarra valley': 'the Yarra Valley',
+  'mornington': 'the Mornington Peninsula',
+  'blue mountains': 'the Blue Mountains',
+  'byron': 'Byron Bay',
+  'adelaide hills': 'the Adelaide Hills',
+  'hunter valley': 'the Hunter Valley',
+  'margaret river': 'Margaret River',
+  'daylesford': 'Daylesford',
+  'melbourne': 'Melbourne',
+  'sydney': 'Sydney',
+  'brisbane': 'Brisbane',
+  'adelaide': 'Adelaide',
+  'perth': 'Perth',
+  'hobart': 'Hobart',
+  'fremantle': 'Fremantle',
+  'newcastle': 'Newcastle',
+  'goldfields': 'the Goldfields',
+  'dandenong': 'the Dandenong Ranges',
+  'macedon': 'the Macedon Ranges',
+  'bellarine': 'the Bellarine',
+  'gippsland': 'Gippsland',
+  'sunshine coast': 'the Sunshine Coast',
+  'gold coast': 'the Gold Coast',
+  'noosa': 'Noosa',
+  'tasmania': 'Tasmania',
+  'vic': 'Victoria',
+  'nsw': 'New South Wales',
+  'qld': 'Queensland',
+  'sa': 'South Australia',
+  'wa': 'Western Australia',
+}
+
+function detectContextualHeader(query) {
+  if (!query || query.trim().length < 3) return null
+  const lower = query.toLowerCase().trim()
+
+  let matchedVertical = null
+  let matchedCategory = null
+
+  // Find vertical match (longest match first)
+  const allPairs = []
+  for (const [vKey, keywords] of Object.entries(CONTEXTUAL_VERTICAL_KEYWORDS)) {
+    for (const kw of keywords) allPairs.push([kw, vKey])
+  }
+  allPairs.sort((a, b) => b[0].length - a[0].length)
+
+  for (const [kw, vKey] of allPairs) {
+    if (lower.includes(kw)) {
+      matchedVertical = vKey
+      matchedCategory = kw
+      break
+    }
+  }
+
+  // Find location match (longest match first)
+  let matchedLocation = null
+  const locEntries = Object.entries(CONTEXTUAL_LOCATION_KEYWORDS).sort((a, b) => b[0].length - a[0].length)
+  for (const [kw, displayName] of locEntries) {
+    if (lower.includes(kw)) {
+      matchedLocation = displayName
+      break
+    }
+  }
+
+  if (!matchedVertical) return null
+
+  return {
+    vertical: matchedVertical,
+    verticalName: CONTEXTUAL_VERTICAL_NAMES[matchedVertical],
+    verticalColor: CONTEXTUAL_VERTICAL_COLORS[matchedVertical],
+    categoryLabel: CONTEXTUAL_CATEGORY_LABELS[matchedVertical],
+    location: matchedLocation,
+  }
+}
+
 function SkeletonCard() {
   return (
     <div className="bg-[var(--color-card-bg)] rounded-xl overflow-hidden border border-[var(--color-border)] animate-pulse">
@@ -85,6 +213,7 @@ function SearchPageInner() {
   const searchParams = useSearchParams()
   const router = useRouter()
 
+  const [mode, setMode] = useState(searchParams.get('mode') === 'vibe' ? 'vibe' : 'search')
   const [query, setQuery] = useState(searchParams.get('q') || '')
   const [vertical, setVertical] = useState(searchParams.get('vertical') || '')
   const [state, setState] = useState(searchParams.get('state') || '')
@@ -95,6 +224,7 @@ function SearchPageInner() {
   const [totalPages, setTotalPages] = useState(0)
   const [loading, setLoading] = useState(true)
   const [initialLoad, setInitialLoad] = useState(true)
+  const [detectedVertical, setDetectedVertical] = useState(null)
 
   // Sync URL when filters change (debounced alongside search)
   const updateUrl = useCallback((q, v, s) => {
@@ -128,6 +258,8 @@ function SearchPageInner() {
       } else {
         setAutoState('')
       }
+      // Track detected vertical for contextual header
+      setDetectedVertical(data.detectedVertical || null)
     } catch (e) {
       console.error('Search error:', e)
     } finally {
@@ -193,6 +325,9 @@ function SearchPageInner() {
     return `${count} listings across nine atlases`
   }
 
+  // Contextual header detection
+  const contextualHeader = query ? detectContextualHeader(query) : null
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
       {/* Search header */}
@@ -200,6 +335,59 @@ function SearchPageInner() {
         <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 400 }} className="text-3xl sm:text-4xl text-[var(--color-ink)]">Search</h1>
         <p className="mt-1" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px', color: 'var(--color-muted)' }}>Find places across all nine atlases</p>
       </div>
+
+      {/* Mode toggle: Search / Vibe */}
+      <div className="mt-4 flex items-center gap-1" style={{ maxWidth: '18rem' }}>
+        <button
+          onClick={() => setMode('search')}
+          style={{
+            flex: 1,
+            padding: '0.5rem 1rem',
+            borderRadius: '0.5rem',
+            border: 'none',
+            cursor: 'pointer',
+            fontFamily: 'var(--font-body)',
+            fontWeight: 500,
+            fontSize: '0.8125rem',
+            transition: 'all 0.15s',
+            background: mode === 'search' ? 'var(--color-ink)' : 'transparent',
+            color: mode === 'search' ? '#fff' : 'var(--color-muted)',
+          }}
+        >
+          Search
+        </button>
+        <button
+          onClick={() => setMode('vibe')}
+          style={{
+            flex: 1,
+            padding: '0.5rem 1rem',
+            borderRadius: '0.5rem',
+            border: 'none',
+            cursor: 'pointer',
+            fontFamily: 'var(--font-body)',
+            fontWeight: 500,
+            fontSize: '0.8125rem',
+            transition: 'all 0.15s',
+            background: mode === 'vibe' ? 'var(--color-ink)' : 'transparent',
+            color: mode === 'vibe' ? '#fff' : 'var(--color-muted)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.375rem',
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z" />
+          </svg>
+          Vibe
+        </button>
+      </div>
+
+      {/* Vibe mode */}
+      {mode === 'vibe' && <VibeSearch />}
+
+      {/* Standard search mode */}
+      {mode === 'search' && <>
 
       {/* Search input */}
       <div className="mt-6 flex items-center gap-3 bg-white rounded-2xl px-5 py-4 max-w-2xl shadow-sm focus-within:shadow-md transition-all" style={{ border: '0.5px solid var(--color-border)' }}>
@@ -221,7 +409,7 @@ function SearchPageInner() {
           placeholder="Search by name, place, or style..."
         />
         {query && (
-          <button onClick={() => setQuery('')} className="text-[var(--color-muted)] hover:text-[var(--color-ink)] transition-colors">
+          <button onClick={() => setQuery('')} className="text-[var(--color-muted)] hover:text-[var(--color-ink)] transition-colors flex items-center justify-center" style={{ minWidth: 44, minHeight: 44, padding: 8 }}>
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -240,7 +428,7 @@ function SearchPageInner() {
               <button
                 key={v.key}
                 onClick={() => setVertical(v.key)}
-                className="px-4 py-2 rounded-full transition-all whitespace-nowrap"
+                className="px-4 py-2.5 rounded-full transition-all whitespace-nowrap"
                 style={{
                   fontFamily: 'var(--font-body)',
                   fontWeight: 500,
@@ -277,7 +465,7 @@ function SearchPageInner() {
               <button
                 key={s || 'all'}
                 onClick={() => { setState(s); setAutoState('') }}
-                className="px-3 py-1.5 rounded-full transition-colors whitespace-nowrap"
+                className="px-4 py-2.5 rounded-full transition-colors whitespace-nowrap"
                 style={{
                   fontFamily: 'var(--font-body)',
                   fontWeight: 400,
@@ -293,6 +481,37 @@ function SearchPageInner() {
           })}
         </div>
       </div>
+
+      {/* Contextual header when query maps to a vertical + location */}
+      {contextualHeader && !loading && results.length > 0 && (
+        <div
+          className="mt-6 mb-2"
+          style={{
+            padding: '1rem 1.25rem',
+            borderRadius: '0.75rem',
+            borderLeft: `3px solid ${contextualHeader.verticalColor}`,
+            background: '#fff',
+          }}
+        >
+          <p
+            style={{
+              fontFamily: 'var(--font-display)',
+              fontWeight: 400,
+              fontSize: '1.125rem',
+              color: contextualHeader.verticalColor,
+              margin: 0,
+              lineHeight: 1.3,
+            }}
+          >
+            {contextualHeader.verticalName}
+            <span style={{ color: 'var(--color-ink)', fontWeight: 400 }}>
+              {' \u2014 Independent '}
+              {contextualHeader.categoryLabel}
+              {contextualHeader.location && ` in ${contextualHeader.location}`}
+            </span>
+          </p>
+        </div>
+      )}
 
       {/* Results count -- contextual */}
       <div className="mt-6 flex items-center justify-between">
@@ -316,17 +535,17 @@ function SearchPageInner() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
           <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '20px' }} className="mb-2">No results found</h3>
-          <p className="max-w-md mx-auto mb-6" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px', color: 'var(--color-muted)' }}>
+          <p className="max-w-md mx-auto mb-6" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px', color: 'var(--color-muted)' }}>
             {query
               ? `No results for \u201c${query}\u201d \u2014 try broader terms or browse by region.`
               : 'Try adjusting your filters or searching for something specific.'}
           </p>
           <div className="flex items-center justify-center gap-3">
-            <a href="/map" className="text-[var(--color-accent)] hover:opacity-80 transition-opacity" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px' }}>
+            <a href="/map" className="text-[var(--color-accent)] hover:opacity-80 transition-opacity" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px', padding: '10px 4px', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>
               Explore the map
             </a>
             <span className="text-[var(--color-border)]">|</span>
-            <a href="/regions" className="text-[var(--color-accent)] hover:opacity-80 transition-opacity" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px' }}>
+            <a href="/regions" className="text-[var(--color-accent)] hover:opacity-80 transition-opacity" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px', padding: '10px 4px', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>
               Browse regions
             </a>
           </div>
@@ -362,8 +581,8 @@ function SearchPageInner() {
           <button
             onClick={() => search(page - 1)}
             disabled={page <= 1}
-            className="px-4 py-2 rounded-lg border border-[var(--color-border)] disabled:opacity-40 hover:bg-white transition-colors"
-            style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '13px' }}
+            className="px-5 py-3 rounded-lg border border-[var(--color-border)] disabled:opacity-40 hover:bg-white transition-colors"
+            style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '13px', minHeight: 44 }}
           >
             Previous
           </button>
@@ -373,13 +592,15 @@ function SearchPageInner() {
           <button
             onClick={() => search(page + 1)}
             disabled={page >= totalPages}
-            className="px-4 py-2 rounded-lg border border-[var(--color-border)] disabled:opacity-40 hover:bg-white transition-colors"
-            style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '13px' }}
+            className="px-5 py-3 rounded-lg border border-[var(--color-border)] disabled:opacity-40 hover:bg-white transition-colors"
+            style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '13px', minHeight: 44 }}
           >
             Next
           </button>
         </div>
       )}
+
+      </>}
     </div>
   )
 }

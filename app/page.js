@@ -5,7 +5,7 @@ import TrailPromptInput from '@/components/TrailPromptInput'
 import HomeMapSection from '@/components/HomeMapSection'
 import { getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
 
-export const revalidate = 300
+export const revalidate = 1800
 
 const verticals = [
   { key: 'sba', name: 'Small Batch Atlas', tag: 'Small Batch', desc: 'Craft breweries, wineries, distilleries, cideries and cellar doors', url: 'https://smallbatchatlas.com.au' },
@@ -202,26 +202,101 @@ export default async function Home() {
       {/* Hero */}
       <section className="relative text-center px-4 sm:px-6 pt-24 pb-8 max-w-4xl mx-auto">
         <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, letterSpacing: '-0.01em' }} className="text-4xl sm:text-5xl md:text-6xl leading-[1.1] text-[var(--color-ink)]">
-          The complete guide to<br /><em className="not-italic" style={{ fontStyle: 'italic' }}>independent</em> Australia.
+          Nine atlases. One guide to<br /><em className="not-italic" style={{ fontStyle: 'italic' }}>independent</em> Australia.
         </h1>
+
+        <p className="mt-5 max-w-2xl mx-auto" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '17px', lineHeight: 1.65, color: 'var(--color-muted)' }}>
+          A curated guide to the makers, producers, restaurants, galleries, shops, stays, and natural places worth knowing about &mdash; across nine specialist atlases and {stats.regions || '46'} regions.
+        </p>
 
         {/* Stats as credentials */}
         {stats.listings > 0 && (
-          <div className="mt-6 flex items-center justify-center gap-4 sm:gap-6" style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '13px', letterSpacing: '0.02em' }}>
+          <div className="mt-5 flex items-center justify-center gap-4 sm:gap-6" style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '13px', letterSpacing: '0.02em' }}>
             <span className="text-[var(--color-ink)]">{stats.listings.toLocaleString()} verified listings</span>
             <span className="text-[var(--color-accent)]" style={{ fontSize: '6px' }}>●</span>
             <span className="text-[var(--color-ink)]">9 atlases</span>
             <span className="text-[var(--color-accent)]" style={{ fontSize: '6px' }}>●</span>
-            <span className="text-[var(--color-ink)]">{stats.regions || '30'} regions</span>
+            <span className="text-[var(--color-ink)]">{stats.regions || '46'} regions</span>
           </div>
         )}
 
         {/* Search bar */}
         <HomeSearchBar />
+
+        {/* CTA */}
+        <div className="mt-6 flex items-center justify-center gap-4 flex-wrap">
+          <Link
+            href="/explore"
+            className="inline-flex items-center gap-2 bg-[var(--color-sage)] text-white px-7 py-3 rounded-full hover:opacity-90 transition-opacity"
+            style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px' }}
+          >
+            Start exploring
+          </Link>
+          <Link
+            href="/about"
+            className="inline-flex items-center gap-2 text-[var(--color-muted)] hover:text-[var(--color-ink)] transition-colors"
+            style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '14px', padding: '12px 4px' }}
+          >
+            What is this?
+          </Link>
+        </div>
       </section>
 
       {/* Interactive Map — centrepiece */}
       <HomeMapSection listingCount={stats.listings} />
+
+      {/* Long Weekend Feature Card */}
+      <section className="px-4 sm:px-6 py-12 max-w-4xl mx-auto">
+        <Link
+          href="/long-weekend"
+          className="group block rounded-2xl overflow-hidden hover:shadow-md transition-all"
+          style={{
+            background: 'var(--color-ink)',
+            border: '1px solid transparent',
+          }}
+        >
+          <div className="relative p-8 sm:p-10 flex flex-col sm:flex-row items-start gap-6">
+            {/* Dot-grid texture */}
+            <div className="absolute inset-0 pointer-events-none" style={{
+              opacity: 0.06,
+              backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)',
+              backgroundSize: '20px 20px',
+            }} />
+
+            <div className="relative flex-1">
+              <p style={{
+                fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 10,
+                letterSpacing: '0.16em', textTransform: 'uppercase',
+                color: 'var(--color-sage)', marginBottom: 12, lineHeight: 1,
+              }}>
+                Long Weekend Engine
+              </p>
+              <h2 style={{
+                fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 'clamp(22px, 3vw, 28px)',
+                color: '#fff', lineHeight: 1.25, marginBottom: 10,
+              }}>
+                Where should I go this long weekend?
+              </h2>
+              <p style={{
+                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 15,
+                color: 'rgba(255,255,255,0.6)', lineHeight: 1.65, marginBottom: 0, maxWidth: 480,
+              }}>
+                Tell us where you are and what you&apos;re into. We&apos;ll build a weekend plan from real places across the network &mdash; the independent stays, the producers, the swimming holes, the things worth the drive.
+              </p>
+            </div>
+
+            <div className="relative flex-shrink-0 self-center">
+              <span
+                className="inline-flex items-center gap-2 text-white border border-white/20 px-5 py-2.5 rounded-full group-hover:border-white/40 transition-colors"
+                style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13 }}
+              >
+                Plan a weekend
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+              </span>
+            </div>
+          </div>
+        </Link>
+      </section>
 
       {/* Atlas Grid */}
       <section className="px-4 sm:px-6 py-16 max-w-7xl mx-auto">
@@ -283,7 +358,7 @@ export default async function Home() {
                       <Link
                         href={`/search?vertical=${v.key}`}
                         className="relative z-10 transition-opacity hover:opacity-70"
-                        style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, color: colors.text }}
+                        style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, color: colors.text, padding: '8px 4px', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}
                       >
                         Browse
                       </Link>
@@ -306,7 +381,7 @@ export default async function Home() {
           <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400 }} className="text-3xl sm:text-4xl text-[var(--color-ink)]">
             Plan a trip in plain English
           </h2>
-          <p className="mt-4 max-w-xl mx-auto leading-relaxed" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px', color: 'var(--color-muted)' }}>
+          <p className="mt-4 max-w-xl mx-auto leading-relaxed" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px', color: 'var(--color-muted)' }}>
             Tell us where you want to go and what you&apos;re into. We&apos;ll build a day-by-day itinerary from real, verified venues across all nine atlases.
           </p>
 
@@ -336,7 +411,7 @@ export default async function Home() {
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {example.verticals.map(v => (
-                    <span key={v} style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '10px', color: 'var(--color-muted)', background: 'var(--color-cream)', padding: '2px 8px', borderRadius: 100 }}>{v}</span>
+                    <span key={v} style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '10px', color: 'var(--color-muted)', background: 'var(--color-cream)', padding: '4px 10px', borderRadius: 100 }}>{v}</span>
                   ))}
                 </div>
               </Link>
@@ -344,7 +419,7 @@ export default async function Home() {
           </div>
 
           <div className="mt-8">
-            <Link href="/trails" className="inline-flex items-center gap-2 text-[var(--color-accent)] hover:opacity-80 transition-opacity" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px' }}>
+            <Link href="/trails" className="inline-flex items-center gap-2 text-[var(--color-accent)] hover:opacity-80 transition-opacity" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', padding: '10px 4px', minHeight: 44 }}>
               Browse all trails
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
             </Link>
@@ -454,7 +529,7 @@ export default async function Home() {
             <Link
               href="/journal"
               className="inline-flex items-center gap-2 text-[var(--color-accent)] hover:opacity-80 transition-opacity"
-              style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px' }}
+              style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', padding: '10px 4px', minHeight: 44 }}
             >
               Read the Journal
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
@@ -469,7 +544,7 @@ export default async function Home() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-10">
             <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400 }} className="text-3xl sm:text-4xl text-[var(--color-ink)]">Explore by region</h2>
-            <p className="mt-3 max-w-xl mx-auto" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px', color: 'var(--color-muted)' }}>
+            <p className="mt-3 max-w-xl mx-auto" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px', color: 'var(--color-muted)' }}>
               Every listing in every region, across all nine atlases.
             </p>
           </div>
@@ -525,7 +600,7 @@ export default async function Home() {
           </div>
 
           <div className="mt-8 text-center">
-            <Link href="/regions" className="inline-flex items-center gap-2 text-[var(--color-accent)] hover:opacity-80 transition-opacity" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px' }}>
+            <Link href="/regions" className="inline-flex items-center gap-2 text-[var(--color-accent)] hover:opacity-80 transition-opacity" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', padding: '10px 4px', minHeight: 44 }}>
               Browse all regions
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
             </Link>
@@ -539,10 +614,10 @@ export default async function Home() {
           <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400 }} className="text-2xl sm:text-3xl">For tourism partners and regional councils</h2>
 
           <div className="mt-8 space-y-5">
-            <p className="text-white/70 leading-relaxed" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px' }}>
+            <p className="text-white/70 leading-relaxed" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px' }}>
               Nine curated atlases. {stats.listings > 0 ? stats.listings.toLocaleString() : '6,881'} verified listings. {stats.regions || 46} regions. Australian Atlas maps the independent businesses and cultural spaces that make regions worth visiting &mdash; the layer that ATDW and council tourism sites typically don&apos;t cover.
             </p>
-            <p className="text-white/70 leading-relaxed" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px' }}>
+            <p className="text-white/70 leading-relaxed" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px' }}>
               Council partnerships start with understanding what&apos;s already in your region on the network, then extend into content co-creation, editorial trails, regional analytics, and verified data access. Plans run annually from $249.
             </p>
           </div>
@@ -566,7 +641,7 @@ export default async function Home() {
             <a
               href="/council/login"
               className="text-white/50 hover:text-white/80 transition-colors"
-              style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '13px', textDecoration: 'underline', textUnderlineOffset: '3px' }}
+              style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '13px', textDecoration: 'underline', textUnderlineOffset: '3px', padding: '10px 4px', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}
             >
               Council login
             </a>

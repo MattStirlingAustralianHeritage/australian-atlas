@@ -28,13 +28,13 @@ function logSearch(request, { queryText, verticalFilter, resultCount }) {
 const VERTICAL_KEYWORDS = {
   sba: ['brewery', 'breweries', 'winery', 'wineries', 'distillery', 'distilleries', 'cidery', 'cideries', 'cellar door', 'wine', 'beer', 'craft beer', 'spirits', 'gin', 'whisky', 'whiskey', 'vermouth', 'cider', 'small batch', 'natural wine'],
   collection: ['museum', 'museums', 'gallery', 'galleries', 'heritage', 'cultural', 'art gallery', 'exhibition'],
-  craft: ['maker', 'makers', 'artist', 'artists', 'studio', 'studios', 'pottery', 'ceramics', 'woodwork', 'textiles', 'jewellery', 'jewelry'],
+  craft: ['chocolate maker', 'chocolate makers', 'maker', 'makers', 'artist', 'artists', 'studio', 'studios', 'pottery', 'ceramics', 'woodwork', 'textiles', 'jewellery', 'jewelry', 'chocolate'],
   fine_grounds: ['coffee', 'cafe', 'cafes', 'roaster', 'roasters', 'espresso', 'specialty coffee'],
-  rest: ['stay', 'stays', 'hotel', 'hotels', 'accommodation', 'boutique stay', 'boutique stays', 'glamping', 'farmstay', 'farm stay', 'cottage', 'cottages', 'bnb', 'b&b', 'bed and breakfast'],
+  rest: ['stay', 'stays', 'hotel', 'hotels', 'accommodation', 'boutique stay', 'boutique stays', 'glamping', 'farmstay', 'farm stay', 'cottage', 'cottages', 'bnb', 'b&b', 'bed and breakfast', 'lodge', 'lodges', 'eco lodge', 'eco lodges'],
   field: ['swimming hole', 'waterfall', 'waterfalls', 'lookout', 'lookouts', 'hiking', 'hike', 'hikes', 'trail', 'trails', 'nature', 'natural', 'nature walk', 'nature walks', 'bush walk', 'bush walks', 'bushwalk', 'bushwalks', 'walk', 'walks', 'walking track', 'walking tracks', 'outdoor', 'outdoors', 'wildlife', 'wildlife park', 'zoo', 'gorge', 'gorges', 'cave', 'caves', 'hot spring', 'hot springs', 'national park'],
   corner: ['bookshop', 'bookshops', 'book shop', 'record store', 'record stores', 'homewares', 'indie shop', 'indie retail', 'independent shop'],
   found: ['vintage', 'op shop', 'op shops', 'antique', 'antiques', 'secondhand', 'second hand', 'thrift', 'retro', 'market'],
-  table: ['farm gate', 'bakery', 'bakeries', 'food producer', 'providore', 'providores', 'butcher', 'cheese', 'olive oil', 'honey', 'sourdough'],
+  table: ['farm gate', 'bakery', 'bakeries', 'food producer', 'providore', 'providores', 'butcher', 'cheese maker', 'cheese makers', 'cheese', 'olive oil', 'honey', 'sourdough', 'oyster', 'seafood', 'restaurant', 'restaurants', 'dining', 'cooking school', 'cooking schools'],
 }
 
 // Map region keywords to region names for ilike matching
@@ -60,6 +60,8 @@ const REGION_KEYWORDS = {
   'gold coast': 'Gold Coast',
   'noosa': 'Noosa',
   'kangaroo island': 'Kangaroo Island',
+  'grampians': 'Grampians',
+  'surf coast': 'Surf Coast',
   'tasmania': 'TAS',
   'melbourne': 'Melbourne',
   'sydney': 'Sydney',
@@ -158,17 +160,19 @@ function parseQueryHints(rawQuery) {
     }
   }
 
-  // 2. Check for vertical keywords (longest match first)
+  // 2. Check for vertical keywords (longest match first ACROSS all verticals)
+  //    This ensures "cheese makers" (table) beats "makers" (craft).
+  const allVerticalPairs = []
   for (const [vKey, keywords] of Object.entries(VERTICAL_KEYWORDS)) {
-    const sorted = [...keywords].sort((a, b) => b.length - a.length)
-    for (const kw of sorted) {
-      if (remaining.includes(kw)) {
-        detectedVertical = vKey
-        remaining = remaining.replace(kw, ' ').replace(/\s+/g, ' ').trim()
-        break
-      }
+    for (const kw of keywords) allVerticalPairs.push([kw, vKey])
+  }
+  allVerticalPairs.sort((a, b) => b[0].length - a[0].length)
+  for (const [kw, vKey] of allVerticalPairs) {
+    if (remaining.includes(kw)) {
+      detectedVertical = vKey
+      remaining = remaining.replace(kw, ' ').replace(/\s+/g, ' ').trim()
+      break
     }
-    if (detectedVertical) break
   }
 
   // 3. Check for state names (longest match first, word-boundary aware)
@@ -385,10 +389,49 @@ export async function GET(request) {
 
       let rawResults = data || []
 
+      // ── Cross-vertical fallback: if vertical-filtered query returned 0 results ──
+      // Retry without the vertical filter so users still see relevant results
+      // from other categories (e.g. "boutique accommodation Mornington Peninsula"
+      // where no rest listings exist but sba/field listings do).
+      if (rawResults.length === 0 && hintVertical && !vertical) {
+        let crossQuery = sb
+          .from('listings')
+          .select(SELECT_FIELDS)
+          .eq('status', 'active')
+          .limit(500)
+
+        if (hintState) crossQuery = crossQuery.eq('state', hintState)
+
+        if (hintRegion) {
+          if (hintRegion.length <= 3 && hintRegion === hintRegion.toUpperCase()) {
+            if (!hintState) crossQuery = crossQuery.eq('state', hintRegion)
+          } else {
+            crossQuery = crossQuery.or(`region.ilike.%${hintRegion}%,state.ilike.%${hintRegion}%`)
+          }
+        }
+
+        if (cleanedTerms.length > 0) {
+          for (const term of cleanedTerms) {
+            const pattern = `%${term}%`
+            crossQuery = crossQuery.or(
+              `name.ilike.${pattern},description.ilike.${pattern},region.ilike.${pattern},state.ilike.${pattern},address.ilike.${pattern}`
+            )
+          }
+        }
+
+        const { data: crossData } = await crossQuery
+        if (crossData && crossData.length > 0) {
+          rawResults = crossData
+        }
+      }
+
       // ── Fuzzy fallback: if ILIKE returned few results, do a broader query ──
       // This catches queries like "Ripponlea" (no spaces) that fail ILIKE
       // against "Rippon Lea Estate" because "ripponlea" is not a substring.
       if (rawResults.length < 5 && cleanedTerms.length > 0) {
+        // Strategy 1: Prefix-based fuzzy search on names
+        // For each cleaned term, search using the first 5 characters as a prefix
+        // so "ripponlea" matches "rippon lea" via ilike %rippo%
         let fuzzyQuery = sb
           .from('listings')
           .select(SELECT_FIELDS)
@@ -407,6 +450,27 @@ export async function GET(request) {
           } else {
             fuzzyQuery = fuzzyQuery.or(`region.ilike.%${hintRegion}%,state.ilike.%${hintRegion}%`)
           }
+        }
+
+        // Build prefix-based OR filter for name matching
+        // For "ripponlea" → try "rippo%" prefix AND character-split "%r%i%p%p%o%n%l%e%a%"
+        const fuzzyOrParts = []
+        for (const term of cleanedTerms) {
+          if (term.length >= 4) {
+            const prefix = term.slice(0, Math.min(5, term.length))
+            fuzzyOrParts.push(`name.ilike.%${prefix}%`)
+            // Also try splitting the term into halves with wildcard between
+            // "ripponlea" → "%rippon%lea%"
+            const mid = Math.floor(term.length / 2)
+            const half1 = term.slice(0, mid)
+            const half2 = term.slice(mid)
+            if (half1.length >= 3 && half2.length >= 3) {
+              fuzzyOrParts.push(`name.ilike.%${half1}%${half2}%`)
+            }
+          }
+        }
+        if (fuzzyOrParts.length > 0) {
+          fuzzyQuery = fuzzyQuery.or(fuzzyOrParts.join(','))
         }
 
         const { data: fuzzyData } = await fuzzyQuery

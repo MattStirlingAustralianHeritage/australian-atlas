@@ -47,6 +47,58 @@
     {
       "path": "/api/health/trail-builder",
       "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/staleness-agent",
+      "schedule": "0 20 * * 0"
+    },
+    {
+      "path": "/api/cron/enrichment-agent",
+      "schedule": "0 16 * * *"
+    },
+    {
+      "path": "/api/cron/editorial-signals-agent",
+      "schedule": "0 21 * * 0"
+    },
+    {
+      "path": "/api/cron/monday-briefing-agent",
+      "schedule": "0 22 * * 0"
+    },
+    {
+      "path": "/api/cron/dead-image-agent",
+      "schedule": "0 17 * * 1"
+    },
+    {
+      "path": "/api/cron/voice-consistency-agent",
+      "schedule": "0 17 * * 2"
+    },
+    {
+      "path": "/api/cron/competitor-intelligence-agent",
+      "schedule": "0 17 * * 3"
+    },
+    {
+      "path": "/api/cron/revenue-signal-agent",
+      "schedule": "0 18 * * 4"
+    },
+    {
+      "path": "/api/cron/seo-content-agent",
+      "schedule": "0 17 * * 6"
+    },
+    {
+      "path": "/api/cron/backlink-builder-agent",
+      "schedule": "0 18 1 * *"
+    },
+    {
+      "path": "/api/cron/content-recycling-agent",
+      "schedule": "0 19 * * 3"
+    },
+    {
+      "path": "/api/cron/user-reactivation-agent",
+      "schedule": "0 19 1 * *"
+    },
+    {
+      "path": "/api/cron/listing-velocity-agent",
+      "schedule": "0 20 1 * *"
     }
   ]
 }

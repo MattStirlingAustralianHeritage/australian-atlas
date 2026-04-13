@@ -6,7 +6,18 @@ import { regionJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
 import RegionMapHero from '@/components/RegionMapHero'
 import RegionTrailCTA from '@/components/RegionTrailCTA'
 
-export const revalidate = 3600
+export const revalidate = 21600
+
+// Pre-generate all region pages at build time for SEO + fast cold starts
+export async function generateStaticParams() {
+  try {
+    const sb = getSupabaseAdmin()
+    const { data } = await sb.from('regions').select('slug')
+    return (data || []).map(r => ({ slug: r.slug }))
+  } catch {
+    return []
+  }
+}
 
 const VERTICAL_ORDER = ['sba', 'fine_grounds', 'collection', 'craft', 'rest', 'field', 'corner', 'found', 'table']
 
@@ -68,14 +79,14 @@ const MAX_PER_SECTION = 6
 
 const getRegion = cache(async function getRegion(slug) {
   const sb = getSupabaseAdmin()
-  const { data } = await sb.from('regions').select('*').eq('slug', slug).single()
+  const { data } = await sb.from('regions').select('id, name, slug, state, description, long_description, generated_intro, center_lat, center_lng, map_zoom, listing_count').eq('slug', slug).single()
   return data
 })
 
 async function getRegionNarrative(regionId) {
   if (!regionId) return null
   const sb = getSupabaseAdmin()
-  const { data } = await sb.from('region_narratives').select('*').eq('region_id', regionId).single()
+  const { data } = await sb.from('region_narratives').select('region_id, editorial_overview, best_time_to_visit, what_makes_distinct, vertical_highlights, listing_count_at_generation, generated_at').eq('region_id', regionId).single()
   return data
 }
 

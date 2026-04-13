@@ -18,7 +18,7 @@ export async function GET() {
     const sb = getSupabaseAdmin()
     const { data: operators, error } = await sb
       .from('operator_accounts')
-      .select('*')
+      .select('id, business_name, slug, contact_name, contact_email, operator_type, tier, status, approved, user_id, logo_url, stripe_subscription_id, stripe_customer_id, billing_cycle_start, billing_cycle_end, created_at, updated_at')
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -63,7 +63,7 @@ export async function PATCH(request) {
     // Fetch full operator record for email notifications
     const { data: operator } = await sb
       .from('operator_accounts')
-      .select('*')
+      .select('id, business_name, contact_name, contact_email')
       .eq('id', operator_id)
       .single()
 

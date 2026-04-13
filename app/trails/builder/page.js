@@ -425,9 +425,9 @@ function TrailBuilderInner() {
               if (tab === 'map') setTimeout(() => { if (mapInstance.current) mapInstance.current.resize() }, 50)
             }}
             style={{
-              flex: 1, padding: '10px 0', border: 'none',
+              flex: 1, padding: '14px 0', border: 'none', minHeight: 48,
               borderBottom: `2px solid ${mobileTab === tab ? '#5F8A7E' : 'transparent'}`,
-              background: 'transparent', fontFamily: 'var(--font-body)', fontSize: 12,
+              background: 'transparent', fontFamily: 'var(--font-body)', fontSize: 13,
               fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase',
               color: mobileTab === tab ? 'var(--color-ink)' : 'var(--color-muted)',
               cursor: 'pointer', transition: 'all 0.15s',
@@ -582,9 +582,9 @@ function TrailBuilderInner() {
                     key={v.key}
                     onClick={() => setActiveVertical(v.key)}
                     style={{
-                      padding: '4px 10px', borderRadius: 3,
+                      padding: '8px 12px', borderRadius: 4, minHeight: 36,
                       border: `1px solid ${active ? color : 'var(--color-border)'}`,
-                      cursor: 'pointer', fontSize: 11, fontWeight: 500,
+                      cursor: 'pointer', fontSize: 12, fontWeight: 500,
                       fontFamily: 'var(--font-body)',
                       background: active ? color : 'transparent',
                       color: active ? '#fff' : 'var(--color-muted)',
@@ -638,10 +638,11 @@ function TrailBuilderInner() {
                       <button
                         onClick={() => addStop(r)}
                         style={{
-                          flexShrink: 0, marginLeft: 8, padding: '4px 10px',
+                          flexShrink: 0, marginLeft: 8, padding: '8px 14px', minHeight: 44,
                           background: 'none', border: '1px solid var(--color-border)',
-                          borderRadius: 3, fontSize: 11, color: '#5F8A7E', cursor: 'pointer',
+                          borderRadius: 4, fontSize: 12, color: '#5F8A7E', cursor: 'pointer',
                           fontFamily: 'var(--font-body)', fontWeight: 600,
+                          display: 'flex', alignItems: 'center',
                         }}
                       >
                         + Add
@@ -707,13 +708,13 @@ function TrailBuilderInner() {
                             )}
                           </div>
                         </div>
-                        <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+                        <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                           <button
                             onClick={() => moveStop(i, -1)} disabled={i === 0}
                             style={{
-                              width: 22, height: 22, border: '1px solid var(--color-border)',
-                              background: 'transparent', color: 'var(--color-muted)', borderRadius: 3,
-                              fontSize: 10, cursor: i === 0 ? 'not-allowed' : 'pointer',
+                              width: 36, height: 36, border: '1px solid var(--color-border)',
+                              background: 'transparent', color: 'var(--color-muted)', borderRadius: 4,
+                              fontSize: 14, cursor: i === 0 ? 'not-allowed' : 'pointer',
                               opacity: i === 0 ? 0.35 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
                             }}
                           >
@@ -722,9 +723,9 @@ function TrailBuilderInner() {
                           <button
                             onClick={() => moveStop(i, 1)} disabled={i === stops.length - 1}
                             style={{
-                              width: 22, height: 22, border: '1px solid var(--color-border)',
-                              background: 'transparent', color: 'var(--color-muted)', borderRadius: 3,
-                              fontSize: 10, cursor: i === stops.length - 1 ? 'not-allowed' : 'pointer',
+                              width: 36, height: 36, border: '1px solid var(--color-border)',
+                              background: 'transparent', color: 'var(--color-muted)', borderRadius: 4,
+                              fontSize: 14, cursor: i === stops.length - 1 ? 'not-allowed' : 'pointer',
                               opacity: i === stops.length - 1 ? 0.35 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
                             }}
                           >
@@ -733,9 +734,9 @@ function TrailBuilderInner() {
                           <button
                             onClick={() => removeStop(stop.id)}
                             style={{
-                              width: 22, height: 22, border: '1px solid var(--color-border)',
-                              background: 'transparent', color: 'var(--color-muted)', borderRadius: 3,
-                              fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              width: 36, height: 36, border: '1px solid var(--color-border)',
+                              background: 'transparent', color: 'var(--color-muted)', borderRadius: 4,
+                              fontSize: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                             }}
                           >
                             &times;

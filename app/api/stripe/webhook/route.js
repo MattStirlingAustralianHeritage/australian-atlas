@@ -358,7 +358,7 @@ async function handlePaidClaimAutoApprove(sb, {
   // ── 2. Fetch the full claim + listing ──────────────────────────────────────
   const { data: claimRecord } = await sb
     .from('claims_review')
-    .select('*')
+    .select('id, listing_id, vertical, claimant_email, claimant_name, admin_notes, source_claim_id, tier')
     .eq('id', resolvedClaimId)
     .single()
 

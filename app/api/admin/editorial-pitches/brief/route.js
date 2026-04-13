@@ -38,7 +38,7 @@ export async function POST(request) {
   // Fetch the pitch
   const { data: pitch, error: pitchErr } = await sb
     .from('editorial_pitches')
-    .select('*')
+    .select('id, vertical, headline, angle, suggested_venue, suggested_venue_id, estimated_read_time, status, brief, created_at, updated_at')
     .eq('id', pitchId)
     .single()
 

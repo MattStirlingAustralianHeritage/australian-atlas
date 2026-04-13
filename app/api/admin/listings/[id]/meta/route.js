@@ -25,7 +25,7 @@ export async function GET(request, { params }) {
   const table = EXTENSION_TABLES[listing.vertical]
   if (!table) return NextResponse.json({ meta: null })
 
-  const { data: meta } = await sb.from(table).select('*').eq('listing_id', id).maybeSingle()
+  const { data: meta } = await sb.from(table).select('listing_id, entity_type, subcategory, tags, features, extra').eq('listing_id', id).maybeSingle()
   return NextResponse.json({ meta: meta || null })
 }
 
@@ -49,7 +49,7 @@ export async function PATCH(request, { params }) {
   const { data, error } = await sb.from(table).upsert(
     { listing_id: id, ...updates },
     { onConflict: 'listing_id' }
-  ).select('*').single()
+  ).select('listing_id, entity_type, subcategory, tags, features, extra').single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ meta: data })

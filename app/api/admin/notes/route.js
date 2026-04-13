@@ -20,7 +20,7 @@ export async function GET(request) {
     const sb = getSupabaseAdmin()
     let query = sb
       .from('admin_notes')
-      .select('*')
+      .select('id, note, url, severity, status, created_at, updated_at')
       .order('created_at', { ascending: false })
 
     if (status && VALID_STATUSES.includes(status)) {

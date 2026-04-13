@@ -18,7 +18,7 @@ export default async function CandidatesPage() {
     // Fetch pending candidates
     const { data, error } = await sb
       .from('listing_candidates')
-      .select('*')
+      .select('id, name, vertical, region, description, website_url, confidence, notes, source, source_detail, gate_results, status')
       .eq('status', 'pending')
       .order('vertical', { ascending: true })
       .order('confidence', { ascending: false })
@@ -30,7 +30,7 @@ export default async function CandidatesPage() {
     const depthPromises = ALL_VERTICALS.map(async (v) => {
       const { count } = await sb
         .from('listing_candidates')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true })
         .eq('status', 'pending')
         .eq('vertical', v)
       return [v, count || 0]

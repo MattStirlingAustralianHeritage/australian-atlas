@@ -1,0 +1,1820 @@
+{
+  "timestamp": "2026-04-13T05:44:53.047Z",
+  "summary": {
+    "total": 30,
+    "passed": 27,
+    "failed": 3,
+    "passRate": "90.0%"
+  },
+  "rootCauseBreakdown": [
+    {
+      "cause": "weak_description_embedding",
+      "count": 2,
+      "queries": [
+        "boutique accommodation Mornington Peninsula",
+        "seafood restaurants Adelaide"
+      ]
+    },
+    {
+      "cause": "missing_vertical_keyword",
+      "count": 1,
+      "queries": [
+        "heritage pubs"
+      ]
+    }
+  ],
+  "prioritizedFixes": [
+    {
+      "title": "Use PostgreSQL full-text search (websearch_to_tsquery) as fallback",
+      "impact": 8,
+      "type": "code_change",
+      "detail": "The FTS index and search_listings RPC function exist but are unused. When ilike + scoring yields poor results (< 3 results above score 50), fall back to FTS which handles stemming and word variants better.",
+      "affectedQueries": [
+        "\"nature walks Victoria\"",
+        "\"sculpture gardens\"",
+        "\"wool producers\"",
+        "\"oyster farms\""
+      ]
+    },
+    {
+      "title": "Add subcategory/type field to search index",
+      "impact": 5,
+      "type": "code_change",
+      "detail": "Many listings have subcategories (winery type, shop type, etc.) stored in vertical meta tables but not searchable in the main search. Include subcategory in ilike filters.",
+      "affectedQueries": [
+        "\"cellar doors Barossa\"",
+        "\"ceramic studios\"",
+        "\"Indigenous art galleries\""
+      ]
+    },
+    {
+      "title": "Add cross-vertical fallback when primary vertical yields zero results",
+      "impact": 3,
+      "type": "code_change",
+      "detail": "When a vertical-filtered query returns 0 results, retry without vertical filter and show results from all verticals, possibly with a \"Showing results from all categories\" banner.",
+      "affectedQueries": [
+        "\"boutique accommodation Mornington Peninsula\"",
+        "\"seafood restaurants Adelaide\"",
+        "\"heritage pubs\""
+      ]
+    },
+    {
+      "title": "Improve description/embedding quality for better text matching",
+      "impact": 2,
+      "type": "data_change",
+      "detail": "Listing descriptions need richer keyword coverage. Consider regenerating descriptions with more searchable terms, or add a \"tags\" column with relevant searchable keywords.",
+      "affectedQueries": [
+        "\"boutique accommodation Mornington Peninsula\"",
+        "\"seafood restaurants Adelaide\""
+      ]
+    },
+    {
+      "title": "Add dining/restaurant terms to vertical keywords",
+      "impact": 2,
+      "type": "code_change",
+      "detail": "Add \"restaurant\", \"restaurants\", \"seafood\", \"dining\" to table vertical keywords, or create a cross-vertical search for dining queries.",
+      "affectedQueries": [
+        "\"seafood restaurants Adelaide\"",
+        "\"cooking schools\""
+      ]
+    },
+    {
+      "title": "Improve attribute-based search (family/dog friendly)",
+      "impact": 2,
+      "type": "code_change",
+      "detail": "When attribute queries have no vertical detected, search across all verticals instead of returning poor results. Also check structured attribute data, not just description text.",
+      "affectedQueries": [
+        "\"family friendly Sydney\"",
+        "\"dog friendly cafes\""
+      ]
+    },
+    {
+      "title": "Add missing vertical keywords",
+      "impact": 1,
+      "type": "code_change",
+      "detail": "Add keywords to VERTICAL_KEYWORDS map: \"lodge\"/\"lodges\"/\"eco lodge\" -> rest, \"pub\"/\"pubs\" -> sba, \"cooking school\" -> table, \"chocolate\" -> table, \"seafood\"/\"restaurant\" -> table, \"sculpture\" -> collection, \"wool\" -> craft, \"oyster\" -> table, \"night market\" -> found",
+      "affectedQueries": [
+        "\"heritage pubs\""
+      ]
+    },
+    {
+      "title": "Resolve vertical keyword conflicts for compound queries",
+      "impact": 1,
+      "type": "code_change",
+      "detail": "When multiple vertical keywords match, prefer the more specific/dominant one, or fall back to cross-vertical search. \"makers markets\" should not lock to craft; \"chocolate makers\" should prefer table over craft.",
+      "affectedQueries": [
+        "\"heritage pubs\""
+      ]
+    }
+  ],
+  "results": [
+    {
+      "query": "cellar doors Barossa",
+      "description": "Wine venues in the Barossa Valley",
+      "note": null,
+      "pass": true,
+      "totalResults": 44,
+      "parsed": {
+        "hintVertical": "sba",
+        "hintRegion": "Barossa",
+        "hintState": null,
+        "hintAttributes": [],
+        "cleanedTerms": []
+      },
+      "top5": [
+        {
+          "name": "Saltram Cellar Door",
+          "vertical": "sba",
+          "region": "Barossa Valley",
+          "state": "SA",
+          "score": 180,
+          "address": "Murray St, Angaston SA 5353, Australia"
+        },
+        {
+          "name": "Barossa Beer and Cider Festival",
+          "vertical": "sba",
+          "region": "Barossa Valley",
+          "state": "SA",
+          "score": 60,
+          "address": "16 Penrice Rd, Nuriootpa SA 5355, Australia"
+        },
+        {
+          "name": "Barossa Gin School",
+          "vertical": "sba",
+          "region": "Barossa Valley",
+          "state": "SA",
+          "score": 60,
+          "address": "Murray St, Tanunda SA 5352, Australia"
+        },
+        {
+          "name": "Bethany Wines",
+          "vertical": "sba",
+          "region": "Barossa Valley",
+          "state": "SA",
+          "score": 10,
+          "address": "378 Bethany Rd, Tanunda SA 5352, Australia"
+        },
+        {
+          "name": "Charles Melton Wines",
+          "vertical": "sba",
+          "region": "Barossa Valley",
+          "state": "SA",
+          "score": 10,
+          "address": "194 Krondorf Rd, Krondorf SA 5352, Australia"
+        }
+      ],
+      "issues": [],
+      "rootCauses": []
+    },
+    {
+      "query": "nature walks Victoria",
+      "description": "Nature/outdoor walks in Victoria",
+      "note": null,
+      "pass": true,
+      "totalResults": 26,
+      "parsed": {
+        "hintVertical": "field",
+        "hintRegion": null,
+        "hintState": "VIC",
+        "hintAttributes": [],
+        "cleanedTerms": []
+      },
+      "top5": [
+        {
+          "name": "1000 Steps Dandenong",
+          "vertical": "field",
+          "region": "Dandenong Ranges",
+          "state": "VIC",
+          "score": 10,
+          "address": "(none)"
+        },
+        {
+          "name": "Boroka Lookout",
+          "vertical": "field",
+          "region": "Grampians",
+          "state": "VIC",
+          "score": 10,
+          "address": "(none)"
+        },
+        {
+          "name": "Castle Cove Lookout",
+          "vertical": "field",
+          "region": "Great Ocean Road",
+          "state": "VIC",
+          "score": 10,
+          "address": "(none)"
+        },
+        {
+          "name": "Gibson Steps",
+          "vertical": "field",
+          "region": "Great Ocean Road",
+          "state": "VIC",
+          "score": 10,
+          "address": "(none)"
+        },
+        {
+          "name": "Grampians National Park",
+          "vertical": "field",
+          "region": "Grampians",
+          "state": "VIC",
+          "score": 10,
+          "address": "(none)"
+        }
+      ],
+      "issues": [
+        {
+          "type": "weak_relevance",
+          "severity": "medium",
+          "message": "Only 1/5 top results mention query terms in name or description"
+        },
+        {
+          "type": "low_scores",
+          "severity": "low",
+          "message": "5/5 top results have minimum score (description-only matches)"
+        }
+      ],
+      "rootCauses": []
+    },
+    {
+      "query": "Ripponlea",
+      "description": "Named place search (Rippon Lea Estate)",
+      "note": null,
+      "pass": true,
+      "totalResults": 1,
+      "parsed": {
+        "hintVertical": null,
+        "hintRegion": null,
+        "hintState": null,
+        "hintAttributes": [],
+        "cleanedTerms": [
+          "ripponlea"
+        ]
+      },
+      "top5": [
+        {
+          "name": "Rippon Lea Estate",
+          "vertical": "collection",
+          "region": "Melbourne",
+          "state": "VIC",
+          "score": 200,
+          "address": "192 Hotham St, Elsternwick VIC 3185"
+        }
+      ],
+      "issues": [],
+      "rootCauses": []
+    },
+    {
+      "query": "glamping Queensland",
+      "description": "Glamping accommodation in Queensland",
+      "note": null,
+      "pass": true,
+      "totalResults": 17,
+      "parsed": {
+        "hintVertical": "rest",
+        "hintRegion": null,
+        "hintState": "QLD",
+        "hintAttributes": [],
+        "cleanedTerms": []
+      },
+      "top5": [
+        {
+          "name": "Bestbrook Mountain Farmstay",
+          "vertical": "rest",
+          "region": "9790 Cunningham Hwy, Tregony",
+          "state": "QLD",
+          "score": 10,
+          "address": "9790 Cunningham Highway"
+        },
+        {
+          "name": "Binna Burra Lodge",
+          "vertical": "rest",
+          "region": "Gold Coast Hinterland",
+          "state": "QLD",
+          "score": 10,
+          "address": "Binna Burra Road"
+        },
+        {
+          "name": "Clandulla Cottages & Farmstay",
+          "vertical": "rest",
+          "region": "312 Boyland Rd",
+          "state": "QLD",
+          "score": 10,
+          "address": "312 Boyland Rd, Boyland"
+        },
+        {
+          "name": "Farm Stay - The Bluff",
+          "vertical": "rest",
+          "region": "298 Cainbable Creek Rd, Cainbable Queensland",
+          "state": "QLD",
+          "score": 10,
+          "address": "298 Cainbable Creek Road, Cainbable, 4285"
+        },
+        {
+          "name": "Gilberton Outback Retreat",
+          "vertical": "rest",
+          "region": "Gulf Savannah",
+          "state": "QLD",
+          "score": 10,
+          "address": "(none)"
+        }
+      ],
+      "issues": [
+        {
+          "type": "weak_relevance",
+          "severity": "medium",
+          "message": "Only 0/5 top results mention query terms in name or description"
+        },
+        {
+          "type": "low_scores",
+          "severity": "low",
+          "message": "5/5 top results have minimum score (description-only matches)"
+        }
+      ],
+      "rootCauses": []
+    },
+    {
+      "query": "bookshops Melbourne",
+      "description": "Bookshops in Melbourne area",
+      "note": null,
+      "pass": true,
+      "totalResults": 19,
+      "parsed": {
+        "hintVertical": "corner",
+        "hintRegion": "Melbourne",
+        "hintState": null,
+        "hintAttributes": [],
+        "cleanedTerms": []
+      },
+      "top5": [
+        {
+          "name": "The Paperback Bookshop",
+          "vertical": "corner",
+          "region": "Melbourne",
+          "state": "VIC",
+          "score": 60,
+          "address": "60 Bourke Street"
+        },
+        {
+          "name": "Bookbinders Design",
+          "vertical": "corner",
+          "region": "Melbourne",
+          "state": "VIC",
+          "score": 10,
+          "address": "261 Little Collins Street"
+        },
+        {
+          "name": "Brunswick Bound",
+          "vertical": "corner",
+          "region": "Melbourne",
+          "state": "VIC",
+          "score": 10,
+          "address": "(none)"
+        },
+        {
+          "name": "Dusty Groove",
+          "vertical": "corner",
+          "region": "Melbourne",
+          "state": "VIC",
+          "score": 10,
+          "address": "288 High St"
+        },
+        {
+          "name": "E.G. Etal",
+          "vertical": "corner",
+          "region": "Melbourne",
+          "state": "VIC",
+          "score": 10,
+          "address": "185 Flinders Lane"
+        }
+      ],
+      "issues": [
+        {
+          "type": "weak_relevance",
+          "severity": "medium",
+          "message": "Only 0/5 top results mention query terms in name or description"
+        },
+        {
+          "type": "low_scores",
+          "severity": "low",
+          "message": "4/5 top results have minimum score (description-only matches)"
+        }
+      ],
+      "rootCauses": []
+    },
+    {
+      "query": "distilleries Tasmania",
+      "description": "Distilleries in Tasmania",
+      "note": null,
+      "pass": true,
+      "totalResults": 185,
+      "parsed": {
+        "hintVertical": "sba",
+        "hintRegion": null,
+        "hintState": "TAS",
+        "hintAttributes": [],
+        "cleanedTerms": []
+      },
+      "top5": [
+        {
+          "name": "Lawrenny Estate Distilling - Tasmanian Distillery",
+          "vertical": "sba",
+          "region": "Ouse",
+          "state": "TAS",
+          "score": 180,
+          "address": "6485 Lyell Hwy, Ouse TAS 7140, Australia"
+        },
+        {
+          "name": "7K Distillery",
+          "vertical": "sba",
+          "region": "Hobart & Southern Tasmania",
+          "state": "TAS",
+          "score": 60,
+          "address": "55 Hamilton Rd, New Norfolk TAS 7140, Australia"
+        },
+        {
+          "name": "Adam's Distillery",
+          "vertical": "sba",
+          "region": "Perth",
+          "state": "TAS",
+          "score": 60,
+          "address": "7 Eskleigh Rd, Perth TAS 7300, Australia"
+        },
+        {
+          "name": "Alchymia Distillery",
+          "vertical": "sba",
+          "region": "Table Cape",
+          "state": "TAS",
+          "score": 60,
+          "address": "599 Tollymore Rd, Table Cape TAS 7325, Australia"
+        },
+        {
+          "name": "Apogee Tasmania",
+          "vertical": "sba",
+          "region": "Tamar Valley",
+          "state": "TAS",
+          "score": 60,
+          "address": "Open by appointment, 1083 Golconda Rd, Lebrina TAS 7254, Australia"
+        }
+      ],
+      "issues": [
+        {
+          "type": "weak_relevance",
+          "severity": "medium",
+          "message": "Only 0/5 top results mention query terms in name or description"
+        }
+      ],
+      "rootCauses": []
+    },
+    {
+      "query": "family friendly Sydney",
+      "description": "Family friendly venues in Sydney",
+      "note": null,
+      "pass": true,
+      "totalResults": 198,
+      "parsed": {
+        "hintVertical": null,
+        "hintRegion": "Sydney",
+        "hintState": null,
+        "hintAttributes": [
+          "family_friendly"
+        ],
+        "cleanedTerms": []
+      },
+      "top5": [
+        {
+          "name": "Art Masterclass Sydney",
+          "vertical": "craft",
+          "region": "Sydney",
+          "state": "NSW",
+          "score": 60,
+          "address": "191 William St, Darlinghurst NSW 2010, Australia"
+        },
+        {
+          "name": "Midsomer Jewellery Sydney Wynyard",
+          "vertical": "craft",
+          "region": "Sydney",
+          "state": "NSW",
+          "score": 60,
+          "address": "Level 11, 66 Clarence Street, Wynyard, Sydney NSW 2000, Australia"
+        },
+        {
+          "name": "Museum of Sydney",
+          "vertical": "collection",
+          "region": "Sydney",
+          "state": "NSW",
+          "score": 60,
+          "address": "Bridge St & Phillip St, Sydney NSW 2000"
+        },
+        {
+          "name": "Paddington Markets Sydney",
+          "vertical": "found",
+          "region": "Sydney",
+          "state": "NSW",
+          "score": 60,
+          "address": "(none)"
+        },
+        {
+          "name": "Paint Clay Sip Sydney",
+          "vertical": "craft",
+          "region": "Sydney",
+          "state": "NSW",
+          "score": 60,
+          "address": "Unit 3/27 Dickson Ave, Artarmon NSW 2064, Australia"
+        }
+      ],
+      "issues": [
+        {
+          "type": "weak_relevance",
+          "severity": "medium",
+          "message": "Only 0/5 top results mention query terms in name or description"
+        }
+      ],
+      "rootCauses": []
+    },
+    {
+      "query": "ceramic studios",
+      "description": "Ceramic/pottery studios nationwide",
+      "note": null,
+      "pass": true,
+      "totalResults": 326,
+      "parsed": {
+        "hintVertical": "craft",
+        "hintRegion": null,
+        "hintState": null,
+        "hintAttributes": [],
+        "cleanedTerms": [
+          "ceramic"
+        ]
+      },
+      "top5": [
+        {
+          "name": "Abe Ceramics",
+          "vertical": "craft",
+          "region": "Adelaide",
+          "state": "SA",
+          "score": 200,
+          "address": "Unit 10/116-120 Melbourne St, North Adelaide SA 5006, Australia"
+        },
+        {
+          "name": "Adelaide Hills Ceramics Association",
+          "vertical": "craft",
+          "region": "(none)",
+          "state": "SA",
+          "score": 200,
+          "address": "Devereux Street &, Pound Rd, Macclesfield SA 5153, Australia"
+        },
+        {
+          "name": "Auart Ceramic Studio",
+          "vertical": "craft",
+          "region": "Sydney",
+          "state": "NSW",
+          "score": 200,
+          "address": "Ground Floor, 566 Parramatta Rd, Petersham NSW 2049, Australia"
+        },
+        {
+          "name": "Black Duck Studio Wollongong, Ceramics Workshops & Parties",
+          "vertical": "craft",
+          "region": "(none)",
+          "state": "NSW",
+          "score": 200,
+          "address": "80b Towradgi Rd, Towradgi NSW 2518, Australia"
+        },
+        {
+          "name": "BRB Handmade Ceramics",
+          "vertical": "craft",
+          "region": "Newcastle",
+          "state": "NSW",
+          "score": 200,
+          "address": "1C/50 Clyde St, Hamilton North NSW 2292, Australia"
+        }
+      ],
+      "issues": [],
+      "rootCauses": []
+    },
+    {
+      "query": "farm stays NSW",
+      "description": "Farm stay accommodation in NSW",
+      "note": null,
+      "pass": true,
+      "totalResults": 26,
+      "parsed": {
+        "hintVertical": "rest",
+        "hintRegion": null,
+        "hintState": "NSW",
+        "hintAttributes": [],
+        "cleanedTerms": []
+      },
+      "top5": [
+        {
+          "name": "Brindabella Farm Stay Retreat",
+          "vertical": "rest",
+          "region": "4388 Batlow Rd",
+          "state": "NSW",
+          "score": 60,
+          "address": "4388 Batlow Rd"
+        },
+        {
+          "name": "Glenayr Farm",
+          "vertical": "rest",
+          "region": "1257 Windeyer Rd",
+          "state": "NSW",
+          "score": 60,
+          "address": "1257 Windeyer Rd"
+        },
+        {
+          "name": "Hillview Farmstay",
+          "vertical": "rest",
+          "region": "Central Coast",
+          "state": "NSW",
+          "score": 60,
+          "address": "3241 Hume Hwy"
+        },
+        {
+          "name": "Lappi Farm",
+          "vertical": "rest",
+          "region": "770 Werralong Rd",
+          "state": "NSW",
+          "score": 60,
+          "address": "770 Werralong Rd"
+        },
+        {
+          "name": "The Mainstay Farmstay",
+          "vertical": "rest",
+          "region": "40 Seal Rocks Rd",
+          "state": "NSW",
+          "score": 60,
+          "address": "40 Seal Rocks Road"
+        }
+      ],
+      "issues": [
+        {
+          "type": "weak_relevance",
+          "severity": "medium",
+          "message": "Only 0/5 top results mention query terms in name or description"
+        }
+      ],
+      "rootCauses": []
+    },
+    {
+      "query": "coffee roasters Perth",
+      "description": "Coffee roasters in Perth",
+      "note": null,
+      "pass": true,
+      "totalResults": 4,
+      "parsed": {
+        "hintVertical": "fine_grounds",
+        "hintRegion": "Perth",
+        "hintState": null,
+        "hintAttributes": [],
+        "cleanedTerms": [
+          "coffee"
+        ]
+      },
+      "top5": [
+        {
+          "name": "Bolt Coffee",
+          "vertical": "fine_grounds",
+          "region": "Perth",
+          "state": "WA",
+          "score": 200,
+          "address": "5/115 Oxford St, Leederville WA 6007"
+        },
+        {
+          "name": "Bolt Coffee Cafe",
+          "vertical": "fine_grounds",
+          "region": "Perth",
+          "state": "WA",
+          "score": 200,
+          "address": "5/115 Oxford St, Leederville WA 6007"
+        },
+        {
+          "name": "La Veen Coffee",
+          "vertical": "fine_grounds",
+          "region": "Perth CBD",
+          "state": "WA",
+          "score": 200,
+          "address": "107 Murray St, Perth WA 6000"
+        },
+        {
+          "name": "Lowdown Espresso",
+          "vertical": "fine_grounds",
+          "region": "Perth",
+          "state": "WA",
+          "score": 10,
+          "address": "1/388 Murray St, Perth WA 6000"
+        }
+      ],
+      "issues": [],
+      "rootCauses": []
+    },
+    {
+      "query": "Indigenous art galleries",
+      "description": "Indigenous art galleries nationwide",
+      "note": null,
+      "pass": true,
+      "totalResults": 26,
+      "parsed": {
+        "hintVertical": "collection",
+        "hintRegion": null,
+        "hintState": null,
+        "hintAttributes": [],
+        "cleanedTerms": [
+          "indigenous",
+          "art"
+        ]
+      },
+      "top5": [
+        {
+          "name": "Cairns Indigenous Art Fair (CIAF)",
+          "vertical": "collection",
+          "region": "Cairns & Tropical North",
+          "state": "QLD",
+          "score": 200,
+          "address": "Cairns Cruise Liner Terminal, 1 Wharf Street, Cairns QLD 4870"
+        },
+        {
+          "name": "Araluen Arts Centre",
+          "vertical": "collection",
+          "region": "Alice Springs & Red Centre",
+          "state": "NT",
+          "score": 75,
+          "address": "61 Larapinta Drive, Araluen NT 0870"
+        },
+        {
+          "name": "Boomalli Aboriginal Artists Co-operative",
+          "vertical": "collection",
+          "region": "Sydney",
+          "state": "NSW",
+          "score": 75,
+          "address": "55-59 Flood Street, Leichhardt NSW 2040"
+        },
+        {
+          "name": "Ernabella Arts",
+          "vertical": "collection",
+          "region": "APY Lands",
+          "state": "SA",
+          "score": 75,
+          "address": "Pukatja Community, via Alice Springs SA 0872"
+        },
+        {
+          "name": "Girringun Aboriginal Art Centre",
+          "vertical": "collection",
+          "region": "Cardwell",
+          "state": "QLD",
+          "score": 75,
+          "address": "235 Victoria Street, Cardwell QLD 4849"
+        }
+      ],
+      "issues": [],
+      "rootCauses": []
+    },
+    {
+      "query": "vintage clothing Brunswick",
+      "description": "Vintage clothing shops in Brunswick/Melbourne",
+      "note": null,
+      "pass": true,
+      "totalResults": 7,
+      "parsed": {
+        "hintVertical": "found",
+        "hintRegion": "Melbourne",
+        "hintState": null,
+        "hintAttributes": [],
+        "cleanedTerms": [
+          "clothing"
+        ]
+      },
+      "top5": [
+        {
+          "name": "Vinnies Brunswick",
+          "vertical": "found",
+          "region": "Melbourne",
+          "state": "VIC",
+          "score": 180,
+          "address": "(none)"
+        },
+        {
+          "name": "Retrostar Vintage",
+          "vertical": "found",
+          "region": "Melbourne",
+          "state": "VIC",
+          "score": 60,
+          "address": "(none)"
+        },
+        {
+          "name": "Brotherhood of St Laurence Camberwell",
+          "vertical": "found",
+          "region": "Melbourne",
+          "state": "VIC",
+          "score": 10,
+          "address": "(none)"
+        },
+        {
+          "name": "Brotherhood of St Laurence Clifton Hill",
+          "vertical": "found",
+          "region": "Melbourne",
+          "state": "VIC",
+          "score": 10,
+          "address": "387 Queens Parade"
+        },
+        {
+          "name": "Shag",
+          "vertical": "found",
+          "region": "Melbourne",
+          "state": "VIC",
+          "score": 10,
+          "address": "130 Chapel St"
+        }
+      ],
+      "issues": [
+        {
+          "type": "low_scores",
+          "severity": "low",
+          "message": "3/5 top results have minimum score (description-only matches)"
+        }
+      ],
+      "rootCauses": []
+    },
+    {
+      "query": "cheese makers",
+      "description": "Cheese makers/producers nationwide",
+      "note": null,
+      "pass": true,
+      "totalResults": 53,
+      "parsed": {
+        "hintVertical": "table",
+        "hintRegion": null,
+        "hintState": null,
+        "hintAttributes": [],
+        "cleanedTerms": []
+      },
+      "top5": [
+        {
+          "name": "Chapters Boathouse",
+          "vertical": "table",
+          "region": "Shop/5 Enterprise Ave 5 Enterprise Ave, Two Rocks WA",
+          "state": "WA",
+          "score": 60,
+          "address": "Shop 5, Two Rocks Shopping Centre, 5 Enterprise Ave, Two Rocks WA 6037"
+        },
+        {
+          "name": "11 Acre Farm",
+          "vertical": "table",
+          "region": "448 Nicholson Rd Forrestdale Western Australia",
+          "state": "WA",
+          "score": 10,
+          "address": "448 Nicholson Rd, Forrestdale WA"
+        },
+        {
+          "name": "Agnes Restaurant",
+          "vertical": "table",
+          "region": "Brisbane",
+          "state": "QLD",
+          "score": 10,
+          "address": "22 Agnes Street Fortitude Valley Qld"
+        },
+        {
+          "name": "Amberly Farm",
+          "vertical": "table",
+          "region": "325 Kambah Pool Rd",
+          "state": "ACT",
+          "score": 10,
+          "address": "325 Kambah Pool Road"
+        },
+        {
+          "name": "Avocado Moment Cafe",
+          "vertical": "table",
+          "region": "69 A'Beckett St",
+          "state": "VIC",
+          "score": 10,
+          "address": "69 A'Beckett St"
+        }
+      ],
+      "issues": [
+        {
+          "type": "weak_relevance",
+          "severity": "medium",
+          "message": "Only 1/5 top results mention query terms in name or description"
+        },
+        {
+          "type": "low_scores",
+          "severity": "low",
+          "message": "4/5 top results have minimum score (description-only matches)"
+        }
+      ],
+      "rootCauses": []
+    },
+    {
+      "query": "boutique accommodation Mornington Peninsula",
+      "description": "Boutique stays on Mornington Peninsula",
+      "note": null,
+      "pass": false,
+      "totalResults": 0,
+      "parsed": {
+        "hintVertical": "rest",
+        "hintRegion": "Mornington Peninsula",
+        "hintState": null,
+        "hintAttributes": [],
+        "cleanedTerms": [
+          "boutique",
+          "peninsula"
+        ]
+      },
+      "top5": [],
+      "issues": [
+        {
+          "type": "no_results",
+          "severity": "high",
+          "message": "No results returned"
+        }
+      ],
+      "rootCauses": [
+        "weak_description_embedding"
+      ]
+    },
+    {
+      "query": "seafood restaurants Adelaide",
+      "description": "Seafood dining in Adelaide",
+      "note": "No restaurant vertical exists - should match table or general",
+      "pass": false,
+      "totalResults": 0,
+      "parsed": {
+        "hintVertical": "table",
+        "hintRegion": "Adelaide",
+        "hintState": null,
+        "hintAttributes": [],
+        "cleanedTerms": [
+          "seafood"
+        ]
+      },
+      "top5": [],
+      "issues": [
+        {
+          "type": "no_results",
+          "severity": "high",
+          "message": "No results returned"
+        }
+      ],
+      "rootCauses": [
+        "weak_description_embedding"
+      ]
+    },
+    {
+      "query": "hiking Grampians",
+      "description": "Hiking in the Grampians",
+      "note": "Grampians not in REGION_KEYWORDS",
+      "pass": true,
+      "totalResults": 10,
+      "parsed": {
+        "hintVertical": "field",
+        "hintRegion": "Grampians",
+        "hintState": null,
+        "hintAttributes": [],
+        "cleanedTerms": []
+      },
+      "top5": [
+        {
+          "name": "Grampians Peaks Trail",
+          "vertical": "field",
+          "region": "Grampians",
+          "state": "(none)",
+          "score": 180,
+          "address": "(none)"
+        },
+        {
+          "name": "Grampians National Park",
+          "vertical": "field",
+          "region": "Grampians",
+          "state": "VIC",
+          "score": 60,
+          "address": "(none)"
+        },
+        {
+          "name": "Boroka Lookout",
+          "vertical": "field",
+          "region": "Grampians",
+          "state": "VIC",
+          "score": 10,
+          "address": "(none)"
+        },
+        {
+          "name": "MacKenzie Falls",
+          "vertical": "field",
+          "region": "Grampians",
+          "state": "VIC",
+          "score": 10,
+          "address": "(none)"
+        },
+        {
+          "name": "Mackenzie Falls Pool",
+          "vertical": "field",
+          "region": "Grampians",
+          "state": "VIC",
+          "score": 10,
+          "address": "(none)"
+        }
+      ],
+      "issues": [
+        {
+          "type": "weak_relevance",
+          "severity": "medium",
+          "message": "Only 0/5 top results mention query terms in name or description"
+        },
+        {
+          "type": "low_scores",
+          "severity": "low",
+          "message": "3/5 top results have minimum score (description-only matches)"
+        }
+      ],
+      "rootCauses": []
+    },
+    {
+      "query": "natural wine",
+      "description": "Natural wine producers nationwide",
+      "note": null,
+      "pass": true,
+      "totalResults": 500,
+      "parsed": {
+        "hintVertical": "sba",
+        "hintRegion": null,
+        "hintState": null,
+        "hintAttributes": [],
+        "cleanedTerms": []
+      },
+      "top5": [
+        {
+          "name": "Bago Maze and Wine",
+          "vertical": "sba",
+          "region": "Herons Creek",
+          "state": "NSW",
+          "score": 60,
+          "address": "197 Lambs Rd, Herons Creek NSW 2439, Australia"
+        },
+        {
+          "name": "BAIE Wines",
+          "vertical": "sba",
+          "region": "Curlewis",
+          "state": "VIC",
+          "score": 60,
+          "address": "120 McDermott Rd, Curlewis VIC 3222, Australia"
+        },
+        {
+          "name": "Basket Range Wine",
+          "vertical": "sba",
+          "region": "Adelaide Hills",
+          "state": "SA",
+          "score": 60,
+          "address": "Blockers Rd, Basket Range SA 5138, Australia"
+        },
+        {
+          "name": "Bekkers Wine",
+          "vertical": "sba",
+          "region": "McLaren Vale",
+          "state": "SA",
+          "score": 60,
+          "address": "212-220 Seaview Rd, McLaren Vale SA 5171, Australia"
+        },
+        {
+          "name": "Courabyra Wines",
+          "vertical": "sba",
+          "region": "Tumbarumba",
+          "state": "NSW",
+          "score": 60,
+          "address": "805 Courabyra Rd, Tumbarumba NSW 2653, Australia"
+        }
+      ],
+      "issues": [],
+      "rootCauses": []
+    },
+    {
+      "query": "makers markets",
+      "description": "Makers markets / craft markets",
+      "note": "\"makers\" triggers craft vertical, \"market\" triggers found vertical - conflict",
+      "pass": true,
+      "totalResults": 9,
+      "parsed": {
+        "hintVertical": "craft",
+        "hintRegion": null,
+        "hintState": null,
+        "hintAttributes": [],
+        "cleanedTerms": [
+          "markets"
+        ]
+      },
+      "top5": [
+        {
+          "name": "The Potter's Market",
+          "vertical": "craft",
+          "region": "(none)",
+          "state": "WA",
+          "score": 180,
+          "address": "56 Stockdale Rd, O'Connor WA 6163, Australia"
+        },
+        {
+          "name": "CS Illustrator",
+          "vertical": "craft",
+          "region": "(none)",
+          "state": "WA",
+          "score": 120,
+          "address": "Fremantle Markets Stall, 3A Henderson St, Fremantle WA 6160, Australia"
+        },
+        {
+          "name": "Silver Gem Cairns",
+          "vertical": "craft",
+          "region": "(none)",
+          "state": "QLD",
+          "score": 120,
+          "address": "Shops 83/84 Cairns Night Markets, 54 - 60 Abbott St, Cairns City QLD 4870, Australia"
+        },
+        {
+          "name": "Tigalf Handcrafted Jewellery",
+          "vertical": "craft",
+          "region": "Melbourne",
+          "state": "VIC",
+          "score": 120,
+          "address": "16 String Bean Alley Queen Victoria Markets, Melbourne VIC 3000, Australia"
+        },
+        {
+          "name": "Daylesford Sunday Market",
+          "vertical": "craft",
+          "region": "(none)",
+          "state": "NSW",
+          "score": 60,
+          "address": "18 Raglan St, Daylesford VIC 3460, Australia"
+        }
+      ],
+      "issues": [],
+      "rootCauses": []
+    },
+    {
+      "query": "eco lodges",
+      "description": "Eco lodges/eco accommodation",
+      "note": "\"lodges\" not in vertical keywords for rest",
+      "pass": true,
+      "totalResults": 96,
+      "parsed": {
+        "hintVertical": "rest",
+        "hintRegion": null,
+        "hintState": null,
+        "hintAttributes": [],
+        "cleanedTerms": []
+      },
+      "top5": [
+        {
+          "name": "Tanonga Luxury Eco Lodges",
+          "vertical": "rest",
+          "region": "Pope Dr",
+          "state": "SA",
+          "score": 200,
+          "address": "Pope Dr, Tanonga SA"
+        },
+        {
+          "name": "Wattle & Gum Eco Lodges @ Peak View Farm",
+          "vertical": "rest",
+          "region": "5661 Kosciuszko Rd",
+          "state": "NSW",
+          "score": 200,
+          "address": "5661 Kosciuszko Rd"
+        },
+        {
+          "name": "Alkina Lodge",
+          "vertical": "rest",
+          "region": "Great Ocean Road",
+          "state": "VIC",
+          "score": 60,
+          "address": "Private Road"
+        },
+        {
+          "name": "Binna Burra Lodge",
+          "vertical": "rest",
+          "region": "Gold Coast Hinterland",
+          "state": "QLD",
+          "score": 60,
+          "address": "Binna Burra Road"
+        },
+        {
+          "name": "Cape Lodge",
+          "vertical": "rest",
+          "region": "Margaret River",
+          "state": "WA",
+          "score": 60,
+          "address": "3341 Caves Road"
+        }
+      ],
+      "issues": [],
+      "rootCauses": []
+    },
+    {
+      "query": "heritage pubs",
+      "description": "Heritage pubs",
+      "note": "\"heritage\" triggers collection vertical, \"pubs\" not in any vertical",
+      "pass": false,
+      "totalResults": 0,
+      "parsed": {
+        "hintVertical": "collection",
+        "hintRegion": null,
+        "hintState": null,
+        "hintAttributes": [],
+        "cleanedTerms": [
+          "pubs"
+        ]
+      },
+      "top5": [],
+      "issues": [
+        {
+          "type": "no_results",
+          "severity": "high",
+          "message": "No results returned"
+        }
+      ],
+      "rootCauses": [
+        "missing_vertical_keyword"
+      ]
+    },
+    {
+      "query": "cooking schools",
+      "description": "Cooking schools nationwide",
+      "note": "No vertical keyword for cooking schools",
+      "pass": true,
+      "totalResults": 53,
+      "parsed": {
+        "hintVertical": "table",
+        "hintRegion": null,
+        "hintState": null,
+        "hintAttributes": [],
+        "cleanedTerms": []
+      },
+      "top5": [
+        {
+          "name": "11 Acre Farm",
+          "vertical": "table",
+          "region": "448 Nicholson Rd Forrestdale Western Australia",
+          "state": "WA",
+          "score": 10,
+          "address": "448 Nicholson Rd, Forrestdale WA"
+        },
+        {
+          "name": "Agnes Restaurant",
+          "vertical": "table",
+          "region": "Brisbane",
+          "state": "QLD",
+          "score": 10,
+          "address": "22 Agnes Street Fortitude Valley Qld"
+        },
+        {
+          "name": "Amberly Farm",
+          "vertical": "table",
+          "region": "325 Kambah Pool Rd",
+          "state": "ACT",
+          "score": 10,
+          "address": "325 Kambah Pool Road"
+        },
+        {
+          "name": "Avocado Moment Cafe",
+          "vertical": "table",
+          "region": "69 A'Beckett St",
+          "state": "VIC",
+          "score": 10,
+          "address": "69 A'Beckett St"
+        },
+        {
+          "name": "Bakery Cafe Hazel",
+          "vertical": "table",
+          "region": "99 Victoria Rd",
+          "state": "NSW",
+          "score": 10,
+          "address": "99 Victoria Rd"
+        }
+      ],
+      "issues": [
+        {
+          "type": "weak_relevance",
+          "severity": "medium",
+          "message": "Only 1/5 top results mention query terms in name or description"
+        },
+        {
+          "type": "low_scores",
+          "severity": "low",
+          "message": "5/5 top results have minimum score (description-only matches)"
+        }
+      ],
+      "rootCauses": []
+    },
+    {
+      "query": "providores",
+      "description": "Providores / specialty food shops",
+      "note": null,
+      "pass": true,
+      "totalResults": 53,
+      "parsed": {
+        "hintVertical": "table",
+        "hintRegion": null,
+        "hintState": null,
+        "hintAttributes": [],
+        "cleanedTerms": []
+      },
+      "top5": [
+        {
+          "name": "11 Acre Farm",
+          "vertical": "table",
+          "region": "448 Nicholson Rd Forrestdale Western Australia",
+          "state": "WA",
+          "score": 10,
+          "address": "448 Nicholson Rd, Forrestdale WA"
+        },
+        {
+          "name": "Agnes Restaurant",
+          "vertical": "table",
+          "region": "Brisbane",
+          "state": "QLD",
+          "score": 10,
+          "address": "22 Agnes Street Fortitude Valley Qld"
+        },
+        {
+          "name": "Amberly Farm",
+          "vertical": "table",
+          "region": "325 Kambah Pool Rd",
+          "state": "ACT",
+          "score": 10,
+          "address": "325 Kambah Pool Road"
+        },
+        {
+          "name": "Avocado Moment Cafe",
+          "vertical": "table",
+          "region": "69 A'Beckett St",
+          "state": "VIC",
+          "score": 10,
+          "address": "69 A'Beckett St"
+        },
+        {
+          "name": "Bakery Cafe Hazel",
+          "vertical": "table",
+          "region": "99 Victoria Rd",
+          "state": "NSW",
+          "score": 10,
+          "address": "99 Victoria Rd"
+        }
+      ],
+      "issues": [
+        {
+          "type": "weak_relevance",
+          "severity": "medium",
+          "message": "Only 0/5 top results mention query terms in name or description"
+        },
+        {
+          "type": "low_scores",
+          "severity": "low",
+          "message": "5/5 top results have minimum score (description-only matches)"
+        }
+      ],
+      "rootCauses": []
+    },
+    {
+      "query": "sculpture gardens",
+      "description": "Sculpture gardens",
+      "note": "\"gallery\" not triggered, \"sculpture\" not a keyword",
+      "pass": true,
+      "totalResults": 8,
+      "parsed": {
+        "hintVertical": null,
+        "hintRegion": null,
+        "hintState": null,
+        "hintAttributes": [],
+        "cleanedTerms": [
+          "sculpture",
+          "gardens"
+        ]
+      },
+      "top5": [
+        {
+          "name": "McClelland Sculpture Park and Gallery",
+          "vertical": "collection",
+          "region": "Mornington Peninsula",
+          "state": "VIC",
+          "score": 75,
+          "address": "390 McClelland Drive, Langwarrin VIC 3910"
+        },
+        {
+          "name": "Heide Museum of Modern Art",
+          "vertical": "collection",
+          "region": "Melbourne",
+          "state": "VIC",
+          "score": 10,
+          "address": "7 Templestowe Rd, Bulleen VIC 3105"
+        },
+        {
+          "name": "Montalto",
+          "vertical": "sba",
+          "region": "Red Hill South",
+          "state": "VIC",
+          "score": 10,
+          "address": "33 Shoreham Rd, Red Hill South VIC 3937, Australia"
+        },
+        {
+          "name": "Museum of Art and Culture, Lake Macquarie",
+          "vertical": "collection",
+          "region": "Hunter Valley",
+          "state": "NSW",
+          "score": 10,
+          "address": "First Street, Booragul NSW 2284"
+        },
+        {
+          "name": "Norman Lindsay Gallery and Museum",
+          "vertical": "collection",
+          "region": "Blue Mountains",
+          "state": "NSW",
+          "score": 10,
+          "address": "14 Norman Lindsay Crescent, Faulconbridge NSW 2776"
+        }
+      ],
+      "issues": [
+        {
+          "type": "low_scores",
+          "severity": "low",
+          "message": "4/5 top results have minimum score (description-only matches)"
+        }
+      ],
+      "rootCauses": []
+    },
+    {
+      "query": "wool producers",
+      "description": "Wool producers",
+      "note": "No vertical keyword for wool",
+      "pass": true,
+      "totalResults": 33,
+      "parsed": {
+        "hintVertical": null,
+        "hintRegion": null,
+        "hintState": null,
+        "hintAttributes": [],
+        "cleanedTerms": [
+          "wool",
+          "producers"
+        ]
+      },
+      "top5": [
+        {
+          "name": "Bendigo Woollen Mills",
+          "vertical": "craft",
+          "region": "(none)",
+          "state": "NSW",
+          "score": 75,
+          "address": "4 Lansell St, East Bendigo VIC 3550, Australia"
+        },
+        {
+          "name": "Blackall Woolscour",
+          "vertical": "collection",
+          "region": "Blackall",
+          "state": "QLD",
+          "score": 75,
+          "address": "Evora Road, Blackall QLD 4472"
+        },
+        {
+          "name": "Brisbane Brewing Co. Woolloongabba",
+          "vertical": "sba",
+          "region": "Woolloongabba",
+          "state": "QLD",
+          "score": 75,
+          "address": "601 Stanley St, Woolloongabba QLD 4102, Australia"
+        },
+        {
+          "name": "Coloured Wool and Fibre Company",
+          "vertical": "craft",
+          "region": "(none)",
+          "state": "NSW",
+          "score": 75,
+          "address": "6658 Murray Valley Hwy, Koetong VIC 3704, Australia"
+        },
+        {
+          "name": "Crossways Wool & Fabrics",
+          "vertical": "craft",
+          "region": "Perth",
+          "state": "WA",
+          "score": 75,
+          "address": "15/180 Rokeby Rd, Subiaco WA 6008, Australia"
+        }
+      ],
+      "issues": [],
+      "rootCauses": []
+    },
+    {
+      "query": "oyster farms",
+      "description": "Oyster farms",
+      "note": "No vertical keyword for oyster",
+      "pass": true,
+      "totalResults": 1,
+      "parsed": {
+        "hintVertical": "table",
+        "hintRegion": null,
+        "hintState": null,
+        "hintAttributes": [],
+        "cleanedTerms": [
+          "farms"
+        ]
+      },
+      "top5": [
+        {
+          "name": "Wellington Point Farmhouse Restaurant and Cafe",
+          "vertical": "table",
+          "region": "2/623 Main Rd",
+          "state": "QLD",
+          "score": 10,
+          "address": "625 Main Road, Wellington Point"
+        }
+      ],
+      "issues": [],
+      "rootCauses": []
+    },
+    {
+      "query": "dog friendly cafes",
+      "description": "Dog-friendly cafes",
+      "note": null,
+      "pass": true,
+      "totalResults": 147,
+      "parsed": {
+        "hintVertical": "fine_grounds",
+        "hintRegion": null,
+        "hintState": null,
+        "hintAttributes": [
+          "dog_friendly"
+        ],
+        "cleanedTerms": []
+      },
+      "top5": [
+        {
+          "name": "Locale Espresso",
+          "vertical": "fine_grounds",
+          "region": "Stirling",
+          "state": "SA",
+          "score": 40,
+          "address": "27 Mount Barker Rd, Stirling SA 5152"
+        },
+        {
+          "name": "Adore Coffee Roasters",
+          "vertical": "fine_grounds",
+          "region": "26 Fariola St",
+          "state": "NSW",
+          "score": 10,
+          "address": "26 Fariola St, Silverwater"
+        },
+        {
+          "name": "Altura Coffee",
+          "vertical": "fine_grounds",
+          "region": "253 Grange Rd",
+          "state": "SA",
+          "score": 10,
+          "address": "253 Grange Rd"
+        },
+        {
+          "name": "Artificer",
+          "vertical": "fine_grounds",
+          "region": "Sydney",
+          "state": "NSW",
+          "score": 10,
+          "address": "381 Bourke St, Surry Hills NSW 2010"
+        },
+        {
+          "name": "Artis Wood Roasted Coffee",
+          "vertical": "fine_grounds",
+          "region": "20 Narabang Way",
+          "state": "NSW",
+          "score": 10,
+          "address": "9-11 Shepherd Street, Marrickville NSW 2204"
+        }
+      ],
+      "issues": [
+        {
+          "type": "weak_relevance",
+          "severity": "medium",
+          "message": "Only 1/5 top results mention query terms in name or description"
+        },
+        {
+          "type": "low_scores",
+          "severity": "low",
+          "message": "4/5 top results have minimum score (description-only matches)"
+        }
+      ],
+      "rootCauses": []
+    },
+    {
+      "query": "surf coast accommodation",
+      "description": "Accommodation on the Surf Coast",
+      "note": "Surf Coast not in REGION_KEYWORDS",
+      "pass": true,
+      "totalResults": 1,
+      "parsed": {
+        "hintVertical": "rest",
+        "hintRegion": "Surf Coast",
+        "hintState": null,
+        "hintAttributes": [],
+        "cleanedTerms": []
+      },
+      "top5": [
+        {
+          "name": "Kings Bluff Walk",
+          "vertical": "field",
+          "region": "Surf Coast",
+          "state": "VIC",
+          "score": 10,
+          "address": "(none)"
+        }
+      ],
+      "issues": [],
+      "rootCauses": []
+    },
+    {
+      "query": "night markets",
+      "description": "Night markets",
+      "note": "\"market\" triggers found vertical",
+      "pass": true,
+      "totalResults": 126,
+      "parsed": {
+        "hintVertical": "found",
+        "hintRegion": null,
+        "hintState": null,
+        "hintAttributes": [],
+        "cleanedTerms": [
+          "night"
+        ]
+      },
+      "top5": [
+        {
+          "name": "Nightfall",
+          "vertical": "rest",
+          "region": "3009 Christmas Creek Rd, Lamington Queensland",
+          "state": "QLD",
+          "score": 200,
+          "address": "3009 Christmas Creek Rd"
+        },
+        {
+          "name": "Cairns & District Woodworkers Guild",
+          "vertical": "craft",
+          "region": "(none)",
+          "state": "QLD",
+          "score": 120,
+          "address": "16 Knight St, Portsmith QLD 4870, Australia"
+        },
+        {
+          "name": "Shark Bay World Heritage Discovery Centre",
+          "vertical": "collection",
+          "region": "Denham",
+          "state": "WA",
+          "score": 120,
+          "address": "53 Knight Terrace, Denham WA 6537"
+        },
+        {
+          "name": "Silver Gem Cairns",
+          "vertical": "craft",
+          "region": "(none)",
+          "state": "QLD",
+          "score": 120,
+          "address": "Shops 83/84 Cairns Night Markets, 54 - 60 Abbott St, Cairns City QLD 4870, Australia"
+        },
+        {
+          "name": "Alkina Lodge",
+          "vertical": "rest",
+          "region": "Great Ocean Road",
+          "state": "VIC",
+          "score": 10,
+          "address": "Private Road"
+        }
+      ],
+      "issues": [
+        {
+          "type": "wrong_vertical_results",
+          "severity": "medium",
+          "message": "5/5 top results are in wrong vertical"
+        }
+      ],
+      "rootCauses": []
+    },
+    {
+      "query": "chocolate makers",
+      "description": "Chocolate makers",
+      "note": "\"chocolate makers\" compound phrase correctly routes to craft",
+      "pass": true,
+      "totalResults": 500,
+      "parsed": {
+        "hintVertical": "craft",
+        "hintRegion": null,
+        "hintState": null,
+        "hintAttributes": [],
+        "cleanedTerms": []
+      },
+      "top5": [
+        {
+          "name": "Australian Furniture Makers Pty Ltd",
+          "vertical": "craft",
+          "region": "(none)",
+          "state": "VIC",
+          "score": 60,
+          "address": "17 Martin Dr, Delacombe VIC 3356, Australia"
+        },
+        {
+          "name": "Home Makers Club",
+          "vertical": "craft",
+          "region": "(none)",
+          "state": "NSW",
+          "score": 60,
+          "address": "140 Jonson St, Byron Bay NSW 2481, Australia"
+        },
+        {
+          "name": "Maker Maker Store",
+          "vertical": "craft",
+          "region": "Melbourne",
+          "state": "VIC",
+          "score": 60,
+          "address": "Shop 2/162 Lygon St, Brunswick East VIC 3057, Australia"
+        },
+        {
+          "name": "Makerie",
+          "vertical": "craft",
+          "region": "(none)",
+          "state": "ACT",
+          "score": 60,
+          "address": "5/100 Barrier St, Fyshwick ACT 2609, Australia"
+        },
+        {
+          "name": "& Gallery Australia",
+          "vertical": "craft",
+          "region": "(none)",
+          "state": "VIC",
+          "score": 10,
+          "address": "21 Morce Ave, Sorrento VIC 3943, Australia"
+        }
+      ],
+      "issues": [],
+      "rootCauses": []
+    },
+    {
+      "query": "farm gate sales",
+      "description": "Farm gate sales / direct producers",
+      "note": null,
+      "pass": true,
+      "totalResults": 25,
+      "parsed": {
+        "hintVertical": "table",
+        "hintRegion": null,
+        "hintState": null,
+        "hintAttributes": [],
+        "cleanedTerms": [
+          "sales"
+        ]
+      },
+      "top5": [
+        {
+          "name": "Wood-Bilt Kitchens & Sales",
+          "vertical": "craft",
+          "region": "(none)",
+          "state": "QLD",
+          "score": 200,
+          "address": "196 Brown St, Westcourt QLD 4870, Australia"
+        },
+        {
+          "name": "Angullong Wines",
+          "vertical": "sba",
+          "region": "Orange",
+          "state": "NSW",
+          "score": 10,
+          "address": "The Old Bluestone Stables Cnr Park &, Victoria St, Millthorpe NSW 2798, Australia"
+        },
+        {
+          "name": "Banks & Solander Distillery",
+          "vertical": "sba",
+          "region": "Botany",
+          "state": "NSW",
+          "score": 10,
+          "address": "31 Salisbury St, Botany NSW 2019, Australia"
+        },
+        {
+          "name": "Chateau Mildura Winery",
+          "vertical": "sba",
+          "region": "Irymple",
+          "state": "VIC",
+          "score": 10,
+          "address": "191 Belar Ave, Irymple VIC 3498, Australia"
+        },
+        {
+          "name": "DeiTos Vineyard Wines",
+          "vertical": "sba",
+          "region": "Middlesex",
+          "state": "WA",
+          "score": 10,
+          "address": "41 Towie Rd, Middlesex WA 6258, Australia"
+        }
+      ],
+      "issues": [
+        {
+          "type": "wrong_vertical_results",
+          "severity": "medium",
+          "message": "5/5 top results are in wrong vertical"
+        },
+        {
+          "type": "low_scores",
+          "severity": "low",
+          "message": "4/5 top results have minimum score (description-only matches)"
+        }
+      ],
+      "rootCauses": []
+    }
+  ]
+}

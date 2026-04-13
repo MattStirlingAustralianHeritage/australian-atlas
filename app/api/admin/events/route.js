@@ -15,7 +15,7 @@ export async function GET() {
     const sb = getSupabaseAdmin()
     const { data, error } = await sb
       .from('events')
-      .select('*')
+      .select('id, name, slug, description, location, start_date, end_date, submitter_email, submitter_name, status, stripe_payment_intent_id, submitted_at, approved_at, created_at')
       .eq('status', 'pending')
       .order('submitted_at', { ascending: true })
 
@@ -46,7 +46,7 @@ export async function POST(request) {
     // Fetch the event
     const { data: event, error: fetchError } = await sb
       .from('events')
-      .select('*')
+      .select('id, name, slug, submitter_email, stripe_payment_intent_id, status')
       .eq('id', eventId)
       .single()
 

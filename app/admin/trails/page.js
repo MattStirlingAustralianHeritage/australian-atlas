@@ -168,7 +168,7 @@ export default function AdminTrailsPage() {
     setLoading(true)
     const { data } = await supabase
       .from('trails')
-      .select('*, trail_stops(count)')
+      .select('id, title, slug, description, hero_intro, cover_image_url, region, vertical_focus, duration_hours, best_season, curator_name, curator_note, published, type, stop_count, trail_stops(count)')
       .order('created_at', { ascending: false })
     setTrails(data || [])
     setLoading(false)
@@ -301,7 +301,7 @@ function TrailEditor({ trail, onBack }) {
     if (!trail?.id) return
     supabase
       .from('trail_stops')
-      .select('*')
+      .select('id, trail_id, listing_id, vertical, venue_name, venue_lat, venue_lng, venue_image_url, order_index, notes')
       .eq('trail_id', trail.id)
       .order('order_index')
       .then(({ data }) => setStops(data || []))

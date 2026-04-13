@@ -16,7 +16,7 @@ export default async function ClaimsPage() {
   try {
     const { data, error } = await sb
       .from('claims_review')
-      .select('*, listings(name)')
+      .select('id, status, vertical, claimant_email, contact_email, claimant_name, contact_name, venue_name, listing_name, tier, selected_tier, created_at, reviewed_at, admin_notes, source_claim_id, listing_id, listings(name)')
       .order('created_at', { ascending: false })
       .limit(100)
 
@@ -325,7 +325,7 @@ async function fetchVerticalClaims() {
       const client = getVerticalClient(key)
       const { data, error } = await client
         .from('claims')
-        .select('*')
+        .select('id, status, contact_email, claimant_email, contact_name, claimant_name, venue_name, tier, selected_tier, created_at, reviewed_at, admin_notes')
         .order('created_at', { ascending: false })
         .limit(50)
 

@@ -28,7 +28,7 @@ export async function POST(request) {
   // Fetch all pending/reviewing candidates
   const { data: candidates, error: fetchError } = await sb
     .from('listing_candidates')
-    .select('*')
+    .select('id, name, vertical, region, status, website_url, description, notes, confidence, source, gate_results, created_at')
     .in('status', ['pending', 'reviewing'])
     .order('created_at', { ascending: true })
 

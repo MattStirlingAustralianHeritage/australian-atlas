@@ -26,7 +26,7 @@ export async function POST() {
     // Find all candidate-sourced listings that haven't been synced
     const { data: listings, error } = await sb
       .from('listings')
-      .select('*')
+      .select('id, name, slug, vertical, description, region, state, lat, lng, website, phone, address, hero_image_url, source_id')
       .like('source_id', 'candidate-%')
       .eq('status', 'active')
 

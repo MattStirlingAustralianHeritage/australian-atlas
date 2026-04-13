@@ -1,0 +1,159 @@
+STRIPE INTEGRATION AUDIT — Australian Atlas
+Generated: 2026-04-13
+============================================
+
+OVERVIEW
+--------
+Stripe is integrated for three subscription flows (listing claims, council
+tiers, operator tiers) and one-off event listing payments. The webhook
+handler covers the full lifecycle (checkout, renewal, cancellation,
+payment failure). Idempotency is enforced via a processed_stripe_events
+table.
+
+
+1. WHAT IS BUILT AND WORKING
+-----------------------------
+
+a) Listing Claim Checkout (/api/stripe/claim-checkout)
+   - Creates a Stripe Checkout subscription session for $99/yr Standard tier.
+   - Uses STRIPE_STANDARD_PRICE_ID env var for the price.
+   - On checkout.session.completed, the webhook auto-approves the claim,
+     marks the listing as claimed, syncs to the vertical DB, promotes the
+     user to vendor role, and sends an approval email via Resend.
+   - ClaimForm UI (/claim/[slug]/ClaimForm.js) triggers this flow.
+
+b) Council Checkout (/api/council/checkout)
+   - Three tiers: explorer, partner, enterprise.
+   - Price IDs: STRIPE_COUNCIL_EXPLORER_PRICE_ID, STRIPE_COUNCIL_PARTNER_PRICE_ID,
+     STRIPE_COUNCIL_ENTERPRISE_PRICE_ID.
+   - Auth: council_session cookie (magic link OTP).
+   - On success: updates council_accounts with tier, status, billing cycle,
+     Stripe IDs. Logs activity.
+
+c) Operator Checkout (/api/operators/checkout)
+   - Two tiers: starter, pro.
+   - Price IDs: OPERATOR_STRIPE_STARTER_PRICE_ID, OPERATOR_STRIPE_PRO_PRICE_ID.
+   - Auth: Supabase session (user must have operator_accounts row).
+   - On success: updates operator_accounts with tier, status, billing cycle,
+     Stripe IDs. Sends welcome email. Logs activity.
+
+d) Operator Billing Portal (/api/operators/portal)
+   - Creates a Stripe Billing Portal session so operators can self-manage
+     their subscription (update payment method, cancel, view invoices).
+   - Requires existing stripe_customer_id on operator_accounts.
+
+e) Event Listing Payment (/api/events/create-payment-intent)
+   - One-off PaymentIntent for $49 AUD.
+   - Used when submitting a community event listing.
+   - No subscription — single charge.
+
+f) Webhook Handler (/api/stripe/webhook)
+   - Handles: checkout.session.completed, customer.subscription.deleted,
+     invoice.payment_succeeded, invoice.payment_failed.
+   - Idempotent via processed_stripe_events table.
+   - Payment failure emails sent to councils and operators via Resend.
+   - Subscription cancellation downgrades councils to explorer and
+     operators to starter tier.
+   - Invoice renewal extends billing cycle by 1 year.
+
+g) Admin Events API (/api/admin/events)
+   - References Stripe payment_intent_id for event approval workflow.
+
+h) Revenue Signal Agent (/api/cron/revenue-signal-agent)
+   - Cron job that checks Stripe subscription signals for revenue reporting.
+
+
+2. WHAT IS MISSING
+-------------------
+
+a) Billing Portal for Councils
+   - Operators have /api/operators/portal for self-service billing.
+   - Councils have no equivalent — the "Manage Billing" button on the
+     subscription page shows an alert() placeholder.
+
+b) Billing Portal for Listing Vendors
+   - Vendors who claimed listings via paid checkout have no self-service
+     billing portal endpoint. They cannot update payment methods or
+     cancel without contacting support.
+
+c) Subscription Upgrade/Downgrade Flow
+   - Dashboard subscription page (/dashboard/subscription) upgrade buttons
+     show alert() placeholders ("Upgrade options coming soon").
+   - No Stripe proration or plan-change logic exists.
+   - The council dashboard similarly lacks a tier-change flow.
+
+d) Stripe Customer Portal Configuration
+   - Billing portal is created programmatically but requires Stripe
+     Dashboard configuration (branding, allowed actions, etc.) to be
+     verified.
+
+e) Webhook Event Coverage Gaps
+   - customer.subscription.updated not handled — tier changes, payment
+     method updates, and trial transitions would be missed.
+   - checkout.session.expired not handled — if a user abandons checkout,
+     no cleanup or follow-up occurs.
+
+f) Event Payment Completion
+   - The PaymentIntent for events is created, but there is no webhook
+     handler for payment_intent.succeeded to auto-approve the event.
+     Event approval appears to be manual via admin.
+
+g) Subscription Status UI
+   - The /dashboard/subscription page relies on network data from
+     /api/dashboard/network but does not show Stripe billing dates,
+     next invoice, or payment method on file.
+
+h) Refund Handling
+   - No charge.refunded or charge.dispute.* webhook handlers.
+
+i) Trial/Grace Period
+   - No trial_end handling in the webhook. If Stripe trials are
+     configured on the price, the webhook won't detect trial expiry.
+
+
+3. TODO FOR DEDICATED STRIPE SESSION
+--------------------------------------
+
+Priority 1 (Revenue-critical):
+  [ ] Add council billing portal endpoint (mirror /api/operators/portal)
+  [ ] Add vendor/listing billing portal endpoint
+  [ ] Wire "Manage Billing" buttons to real portal sessions
+  [ ] Handle customer.subscription.updated webhook event
+
+Priority 2 (User experience):
+  [ ] Build subscription upgrade/downgrade flow with Stripe proration
+  [ ] Show billing dates, next invoice, payment method in dashboard UI
+  [ ] Handle checkout.session.expired for abandoned checkout recovery
+  [ ] Add event payment_intent.succeeded webhook for auto-approval
+
+Priority 3 (Robustness):
+  [ ] Handle charge.refunded webhook
+  [ ] Handle charge.dispute.created webhook
+  [ ] Add retry logic for failed vertical DB syncs in webhook
+  [ ] Configure Stripe Customer Portal branding and allowed actions
+  [ ] Add monitoring/alerting for webhook failures
+  [ ] Review and test idempotency under concurrent webhook delivery
+
+
+ENV VARS REQUIRED
+-----------------
+STRIPE_SECRET_KEY                     — Main Stripe secret key
+STRIPE_WEBHOOK_SECRET                 — Webhook endpoint signing secret
+STRIPE_STANDARD_PRICE_ID              — Listing claim Standard tier ($99/yr)
+STRIPE_COUNCIL_EXPLORER_PRICE_ID      — Council Explorer tier
+STRIPE_COUNCIL_PARTNER_PRICE_ID       — Council Partner tier
+STRIPE_COUNCIL_ENTERPRISE_PRICE_ID    — Council Enterprise tier
+OPERATOR_STRIPE_STARTER_PRICE_ID      — Operator Starter tier
+OPERATOR_STRIPE_PRO_PRICE_ID          — Operator Pro tier
+
+
+FILES REVIEWED
+--------------
+app/api/stripe/webhook/route.js
+app/api/stripe/claim-checkout/route.js
+app/api/operators/checkout/route.js
+app/api/operators/portal/route.js
+app/api/council/checkout/route.js
+app/api/events/create-payment-intent/route.js
+app/dashboard/subscription/page.js
+app/claim/[slug]/ClaimForm.js

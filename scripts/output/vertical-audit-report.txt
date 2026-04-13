@@ -1,0 +1,362 @@
+VERTICAL HOMEPAGE AUDIT REPORT
+Generated: 2026-04-13
+Scope: All 9 vertical homepages (app/page.js)
+
+================================================================================
+1. SMALL BATCH ATLAS (SBA)
+================================================================================
+Path: /Users/matt/Desktop/Australian Atlas Websites/Small Batch Atlas/small-batch-atlas-next/
+
+TEST DATA FILTER:
+  - PASS: Featured venues query already has .not('name', 'ilike', '\\_%') (line 39)
+
+HERO SECTION:
+  - PASS: Strong editorial copy
+  - Headline: "Discover {count} breweries, wineries & distilleries"
+  - Subheading: "From the Yarra Valley to Margaret River..."
+  - Includes dynamic venue count and HomeSearch component
+
+FEATURED LISTINGS:
+  - Query: listing_tier IN (standard, premium), ordered by tier desc, limit 8
+  - No quality_score filter (not yet calculated)
+  - Pattern: GOOD - uses listing_tier for quality gating
+
+JOURNAL SECTION:
+  - PASS: Uses portal client pattern (getPortalClient) for cross-project syndication
+  - Falls back to local articles table if portal unavailable
+  - Portal query filters: verticals contains 'sba', status = published
+
+SUBCATEGORY BADGES:
+  - PASS: No emoji found in constants or page labels
+
+AUSTRALIAN ATLAS LINK:
+  - PASS: "Part of Australian Atlas" link present in Nav.js (line 91)
+  - Footer also links to australianatlas.com.au
+
+ITEMS NEEDING REVIEW: None
+
+================================================================================
+2. TABLE ATLAS
+================================================================================
+Path: /Users/matt/Desktop/Australian Atlas Websites/Table Atlas/table-atlas/
+
+TEST DATA FILTER:
+  - FIXED: Added .not('name', 'ilike', '\\_%') to listings query (line 24)
+  - File: table-atlas/app/page.js
+
+HERO SECTION:
+  - PASS: Good editorial copy
+  - Headline: "Food producers & growers markets"
+  - Subheading: "Australia's food producers, farm gates, and growers markets..."
+
+FEATURED LISTINGS:
+  - NOTE: No featured listings section on homepage
+  - Uses hardcoded CATEGORY_COUNTS object (lines 8-16) -- these are static, not from DB
+  - REVIEW: Category counts are hardcoded and likely stale (e.g., restaurant: 80, bakery: 68)
+
+JOURNAL SECTION:
+  - NOT PRESENT: No journal/articles section on homepage
+  - No articles table query
+
+SUBCATEGORY BADGES:
+  - PASS: No emoji found
+
+AUSTRALIAN ATLAS LINK:
+  - PASS: "Part of Australian Atlas" link present in Nav.js (line 93)
+
+ITEMS NEEDING REVIEW:
+  - Hardcoded CATEGORY_COUNTS should be replaced with dynamic DB query
+  - No featured listings section -- consider adding one
+
+================================================================================
+3. COLLECTION ATLAS (Culture Atlas)
+================================================================================
+Path: /Users/matt/Desktop/Australian Atlas Websites/Collection Atlas/
+
+TEST DATA FILTER:
+  - FIXED: Added .not('name', 'ilike', '\\_%') to featuredVenues query (line 28)
+  - File: Collection Atlas/app/page.js
+
+HERO SECTION:
+  - PASS: Strong editorial copy
+  - Headline: "Discover {count} museums, galleries & heritage sites"
+  - Subheading: "From the NGV to the Australian War Memorial..."
+
+FEATURED LISTINGS:
+  - Query: listing_tier IN (standard, premium), ordered by tier desc, limit 8
+  - No quality_score filter (not yet calculated)
+  - Pattern: GOOD
+
+JOURNAL SECTION:
+  - WARNING: Queries LOCAL articles table, not portal client
+  - Query: supabase.from('articles')... (line 27)
+  - This will only show articles if Collection Atlas has its own articles table populated
+  - Should migrate to portal client pattern like SBA for cross-project syndication
+
+SUBCATEGORY BADGES:
+  - PASS: No emoji found
+
+AUSTRALIAN ATLAS LINK:
+  - PASS: "Part of Australian Atlas" link present in Nav.js (line 90)
+
+ITEMS NEEDING REVIEW:
+  - Journal section should use portal client for article syndication
+
+================================================================================
+4. CORNER ATLAS
+================================================================================
+Path: /Users/matt/Desktop/Australian Atlas Websites/Corner Atlas/corner-atlas/
+
+TEST DATA FILTER:
+  - FIXED: Added .not('name', 'ilike', '\\_%') to featuredShops query (line 20)
+  - File: corner-atlas/app/page.js
+
+HERO SECTION:
+  - PASS: Strong editorial copy
+  - Headline: "Independent shops worth finding"
+  - Subheading: "Bookshops, record stores, homewares, stationery, jewellery and toy shops..."
+  - Includes dynamic total count
+
+FEATURED LISTINGS:
+  - Query: published=true, featured=true, limit 6
+  - Uses separate shop_images join for hero images
+  - No quality_score or listing_tier filter -- relies solely on featured boolean
+  - Pattern: OK but less robust than tier-based gating
+
+JOURNAL SECTION:
+  - NOT PRESENT: No journal/articles section on homepage
+
+SUBCATEGORY BADGES:
+  - PASS: No emoji found
+
+AUSTRALIAN ATLAS LINK:
+  - MISSING: No "Part of Australian Atlas" link in Nav.js
+  - Has "for-venues" CTA link to australianatlas.com.au but no branded network link
+  - File: corner-atlas/components/Nav.js
+
+ITEMS NEEDING REVIEW:
+  - Add "Part of Australian Atlas" link to Nav.js (follow SBA pattern)
+  - No Footer.js file exists -- consider adding one with atlas link
+
+================================================================================
+5. CRAFT ATLAS
+================================================================================
+Path: /Users/matt/Desktop/Australian Atlas Websites/Craft Atlas/
+
+TEST DATA FILTER:
+  - FIXED: Added .not('name', 'ilike', '\\_%') to featuredVenues query (line 49)
+  - File: Craft Atlas/app/page.js
+
+HERO SECTION:
+  - PASS: Strong editorial copy
+  - Headline: "Discover {count} makers, artists & studios"
+  - Subheading: "From the Blue Mountains to the Tamar..."
+  - NOTE: Craft Atlas is actually the makers/studios vertical, not craft beer
+
+FEATURED LISTINGS:
+  - Query: published=true, address not empty, tier IN (standard, premium), limit 8
+  - Has visitability filter (address not null/empty) -- good
+  - No quality_score filter (not yet calculated)
+  - Pattern: GOOD
+
+JOURNAL SECTION:
+  - WARNING: Queries LOCAL articles table, not portal client
+  - Query: supabase.from('articles')... (line 48)
+  - Should migrate to portal client pattern
+
+SUBCATEGORY BADGES:
+  - PASS: No emoji found
+
+AUSTRALIAN ATLAS LINK:
+  - PASS: "Part of Australian Atlas" link present in Nav.js (line 90)
+
+BUG FOUND AND FIXED:
+  - Duplicate <NewsletterToast /> component on lines 256-257
+  - Removed duplicate (line 257)
+
+ITEMS NEEDING REVIEW:
+  - Journal section should use portal client for article syndication
+
+================================================================================
+6. FIELD ATLAS
+================================================================================
+Path: /Users/matt/Desktop/Australian Atlas Websites/Field Atlas/field-atlas/
+
+TEST DATA FILTER:
+  - FIXED: Added .not('name', 'ilike', '\\_%') to allPlaces query (line 28)
+  - File: field-atlas/app/page.js
+  - Note: Featured items are derived from allPlaces via tag filtering ('iconic')
+
+HERO SECTION:
+  - PASS: Strong editorial copy
+  - Headline: "Natural places worth finding"
+  - Subheading: "A curated guide to Australia's swimming holes, waterfalls, lookouts..."
+
+FEATURED LISTINGS:
+  - Query: All published places, then client-side filter for 'iconic' tag
+  - Falls back to random selection if fewer than 6 iconic
+  - REVIEW: Random selection uses Math.random() which isn't deterministic --
+    could show different results on each ISR revalidation
+  - No quality_score filter (not yet calculated)
+
+JOURNAL SECTION:
+  - NOT PRESENT: No journal/articles section on homepage
+
+SUBCATEGORY BADGES:
+  - PASS: No emoji found
+
+AUSTRALIAN ATLAS LINK:
+  - PASS: "Part of Australian Atlas" link present in Nav.js (line 88)
+
+ITEMS NEEDING REVIEW:
+  - Featured selection uses Math.random() -- consider deterministic fallback
+  - Fetches ALL published places for homepage (could be large) -- consider
+    separate featured query with limit
+
+================================================================================
+7. FINE GROUNDS ATLAS
+================================================================================
+Path: /Users/matt/Desktop/Australian Atlas Websites/Fine Grounds Atlas/fine-grounds-atlas/
+
+TEST DATA FILTER:
+  - FIXED: Added .not('name', 'ilike', '\\_%') to both featuredRoasters (line 27)
+    and featuredCafes (line 28) queries
+  - File: fine-grounds-atlas/app/page.js
+
+HERO SECTION:
+  - PASS: Strong editorial copy
+  - Headline: "Discover {total} roasters & cafes"
+  - Subheading: "From Melbourne laneways to Byron Bay beachfronts..."
+
+FEATURED LISTINGS:
+  - Query: Two separate queries for roasters and cafes, each with
+    listing_tier IN (standard, premium), limit 4, merged to max 8
+  - No quality_score filter (not yet calculated)
+  - Pattern: GOOD
+
+JOURNAL SECTION:
+  - WARNING: Queries LOCAL articles table, not portal client
+  - Query: supabase.from('articles')... (line 26)
+  - Should migrate to portal client pattern
+
+SUBCATEGORY BADGES:
+  - PASS: No emoji found
+
+AUSTRALIAN ATLAS LINK:
+  - PASS: "Part of Australian Atlas" link present in Nav.js (line 91)
+
+ITEMS NEEDING REVIEW:
+  - Journal section should use portal client for article syndication
+
+================================================================================
+8. FOUND ATLAS
+================================================================================
+Path: /Users/matt/Desktop/Australian Atlas Websites/Found Atlas/found-atlas/
+
+TEST DATA FILTER:
+  - FIXED: Added .not('name', 'ilike', '\\_%') to featuredShops query (line 15)
+  - File: found-atlas/app/page.js
+
+HERO SECTION:
+  - PASS: Strong editorial copy
+  - Headline: "Discover {total} vintage, antique & secondhand shops"
+  - Subheading: "Australia's secondhand, vintage, and antique shops..."
+
+FEATURED LISTINGS:
+  - Query: published=true, tier=paid, featured=true, limit 6
+  - Dual gating (paid tier + featured flag) -- robust
+  - No quality_score filter (not yet calculated)
+
+JOURNAL SECTION:
+  - NOT PRESENT: No journal/articles section on homepage
+
+SUBCATEGORY BADGES:
+  - PASS: No emoji found
+
+AUSTRALIAN ATLAS LINK:
+  - MISSING: No "Part of Australian Atlas" link in Nav.js
+  - Has "for-venues" CTA link to australianatlas.com.au but no branded network link
+  - File: found-atlas/components/Nav.js
+
+ITEMS NEEDING REVIEW:
+  - Add "Part of Australian Atlas" link to Nav.js (follow SBA pattern)
+
+================================================================================
+9. REST ATLAS
+================================================================================
+Path: /Users/matt/Desktop/Australian Atlas Websites/Rest Atlas/rest-atlas/
+
+TEST DATA FILTER:
+  - FIXED: Added .not('name', 'ilike', '\\_%') to featuredProperties query (line 34)
+  - File: rest-atlas/app/page.js
+
+HERO SECTION:
+  - PASS: Strong editorial copy
+  - Headline: "Discover {total} boutique stays across Australia"
+  - Subheading: "From the Yarra Valley to Byron Bay..."
+
+FEATURED LISTINGS:
+  - Query: listing_tier IN (standard, premium), data_status != fabricated, limit 8
+  - Has fabricated data filter (data_status) -- unique to Rest Atlas, good
+  - No quality_score filter (not yet calculated)
+  - Pattern: GOOD
+
+JOURNAL SECTION:
+  - WARNING: Queries LOCAL articles table, not portal client
+  - Query: supabase.from('articles')... (line 33)
+  - Should migrate to portal client pattern
+
+SUBCATEGORY BADGES:
+  - PASS: No emoji found
+
+AUSTRALIAN ATLAS LINK:
+  - PASS: "Part of Australian Atlas" link present in Nav.js (line 90)
+
+ITEMS NEEDING REVIEW:
+  - Journal section should use portal client for article syndication
+
+
+================================================================================
+SUMMARY OF FIXES APPLIED
+================================================================================
+
+1. TEST DATA FILTERS ADDED (8 files, 9 queries):
+   - Collection Atlas/app/page.js: featuredVenues query
+   - Craft Atlas/app/page.js: featuredVenues query
+   - Fine Grounds Atlas/fine-grounds-atlas/app/page.js: featuredRoasters + featuredCafes
+   - Rest Atlas/rest-atlas/app/page.js: featuredProperties query
+   - Corner Atlas/corner-atlas/app/page.js: featuredShops query
+   - Found Atlas/found-atlas/app/page.js: featuredShops query
+   - Field Atlas/field-atlas/app/page.js: allPlaces query
+   - Table Atlas/table-atlas/app/page.js: listings query
+   (SBA already had this filter)
+
+2. DUPLICATE COMPONENT REMOVED:
+   - Craft Atlas/app/page.js: Removed duplicate <NewsletterToast /> (was on lines 256-257)
+
+================================================================================
+SUMMARY OF ISSUES NEEDING MANUAL REVIEW
+================================================================================
+
+HIGH PRIORITY:
+  - Corner Atlas: Missing "Part of Australian Atlas" link in Nav.js
+  - Found Atlas: Missing "Part of Australian Atlas" link in Nav.js
+
+MEDIUM PRIORITY (Journal Section Migration):
+  - Collection Atlas: Journal queries local articles table, not portal client
+  - Craft Atlas: Journal queries local articles table, not portal client
+  - Fine Grounds Atlas: Journal queries local articles table, not portal client
+  - Rest Atlas: Journal queries local articles table, not portal client
+  (Only SBA uses the portal client pattern for cross-project syndication)
+
+LOW PRIORITY:
+  - Table Atlas: Hardcoded CATEGORY_COUNTS should be replaced with dynamic query
+  - Table Atlas: No featured listings section on homepage
+  - Field Atlas: Featured selection uses Math.random() -- non-deterministic
+  - Field Atlas: Fetches ALL published places for homepage (scalability concern)
+  - No vertical uses quality_score in featured queries (awaiting calculation)
+
+NO ISSUES FOUND:
+  - No emoji characters found in subcategory badges/labels (all 9 verticals clean)
+  - All hero sections have proper editorial copy (no generic placeholder text)
+  - All verticals have "Claim your listing" CTA linking to australianatlas.com.au

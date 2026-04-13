@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import VerticalBadge from '@/components/VerticalBadge'
 
-export const revalidate = 3600
+export const revalidate = 7200
 
 const SITE_URL = 'https://australianatlas.com.au'
 
@@ -27,7 +27,7 @@ export default async function CollectionsPage() {
 
   const { data: collections } = await sb
     .from('collections')
-    .select('*')
+    .select('id, title, slug, description, listing_ids, vertical, region, author')
     .eq('published', true)
     .order('created_at', { ascending: false })
 

@@ -328,7 +328,7 @@ export default function ListingCard({ listing, meta, linkToVertical = false }) {
         <div className="p-4">
           <h3
             className="leading-tight group-hover:text-[var(--color-accent)] transition-colors"
-            style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '15px' }}
+            style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '16px' }}
           >
             {listing.name}
           </h3>

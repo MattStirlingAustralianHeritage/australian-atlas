@@ -36,7 +36,7 @@ export default async function AdminOperatorsPage() {
   try {
     const { data, error: fetchError } = await sb
       .from('operator_accounts')
-      .select('*')
+      .select('id, business_name, contact_email, contact_name, status, tier, operator_type, website, created_at, last_login_at, approved')
       .order('created_at', { ascending: false })
 
     if (fetchError) throw fetchError

@@ -43,7 +43,7 @@ export async function GET(request) {
       // Fetch a specific listing
       const { data, error } = await sb
         .from('listings')
-        .select('id, name, slug, vertical, region, state, lat, lng, website, phone, address, hero_image_url, is_claimed, is_featured, status, description, created_at, updated_at')
+        .select('id, name, slug, vertical, region, state, lat, lng, website, phone, address, hero_image_url, is_claimed, is_featured, status, description, hours, created_at, updated_at')
         .eq('id', listingId)
         .eq('is_claimed', true)
         .single()
@@ -67,7 +67,7 @@ export async function GET(request) {
       // TODO: Once vendor_user_id is added to listings, filter by that directly
       const { data, error } = await sb
         .from('listings')
-        .select('id, name, slug, vertical, region, state, lat, lng, website, phone, address, hero_image_url, is_claimed, is_featured, status, description, created_at, updated_at')
+        .select('id, name, slug, vertical, region, state, lat, lng, website, phone, address, hero_image_url, is_claimed, is_featured, status, description, hours, created_at, updated_at')
         .eq('is_claimed', true)
         .in('vertical', activeVerticals)
         .order('name')

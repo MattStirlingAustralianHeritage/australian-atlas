@@ -29,7 +29,7 @@ export async function POST(request) {
   try {
     let query = sb
       .from('listings')
-      .select('*')
+      .select('id, name, slug, vertical, description, region, state, lat, lng, website, phone, address, hero_image_url, source_id')
       .eq('status', 'active')
       .not('lat', 'is', null)
       .not('lng', 'is', null)

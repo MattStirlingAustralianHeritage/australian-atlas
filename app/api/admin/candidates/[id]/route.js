@@ -267,7 +267,7 @@ export async function POST(request, { params }) {
       // 1. Fetch the candidate
       const { data: candidate, error: fetchError } = await sb
         .from('listing_candidates')
-        .select('*')
+        .select('id, name, vertical, region, status, website_url, description, notes, confidence, source, gate_results, created_at')
         .eq('id', id)
         .single()
 

@@ -38,7 +38,7 @@ export async function PATCH(request, { params }) {
         const { data: metaData, error: metaError } = await sb.from(metaTable).upsert(
           { listing_id: id, ..._meta },
           { onConflict: 'listing_id' }
-        ).select('*').single()
+        ).select('listing_id, entity_type, subcategory, tags, features, extra').single()
 
         if (metaError) {
           console.warn('[admin/listings/PATCH] Meta save failed:', metaError.message)

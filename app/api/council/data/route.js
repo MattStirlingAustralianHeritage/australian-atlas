@@ -18,7 +18,7 @@ export async function GET(req) {
     // Get council account
     const { data: council } = await sb
       .from('council_accounts')
-      .select('*')
+      .select('id, name, tier, status, contact_email, logo_url, billing_cycle_end')
       .eq('id', session.councilId)
       .single()
 
@@ -61,7 +61,7 @@ export async function GET(req) {
       // Get recent activity
       const { data: activity } = await sb
         .from('council_activity')
-        .select('*')
+        .select('id, council_id, action, metadata, created_at')
         .eq('council_id', council.id)
         .order('created_at', { ascending: false })
         .limit(10)
@@ -179,7 +179,7 @@ export async function GET(req) {
 
       const { data: content } = await sb
         .from('council_content')
-        .select('*')
+        .select('id, council_id, title, body, content_type, status, created_at, updated_at')
         .eq('council_id', council.id)
         .order('updated_at', { ascending: false })
 

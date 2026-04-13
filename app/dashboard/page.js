@@ -75,9 +75,146 @@ function ScoreBar({ score }) {
   )
 }
 
-function ListingCard({ listing }) {
+function CompletenessChecklist({ listing }) {
+  const vendorUrl = getVendorDashboardUrl(listing.vertical)
+
+  const checks = [
+    {
+      field: 'description',
+      label: 'Description',
+      complete: !!listing.description,
+      hint: 'Listings with descriptions get 3x more engagement',
+    },
+    {
+      field: 'hours',
+      label: 'Opening hours',
+      complete: !!listing.hours,
+      hint: 'Listings with hours get seen 40% more',
+    },
+    {
+      field: 'hero_image_url',
+      label: 'Hero image',
+      complete: !!listing.hero_image_url,
+      hint: 'Add a photo to stand out',
+    },
+    {
+      field: 'website',
+      label: 'Website',
+      complete: !!listing.website,
+      hint: 'Help visitors find your site',
+    },
+    {
+      field: 'phone',
+      label: 'Phone number',
+      complete: !!listing.phone,
+      hint: 'Help people find you',
+    },
+  ]
+
+  const completeCount = checks.filter(c => c.complete).length
+  const allComplete = completeCount === checks.length
+
+  if (allComplete) return null
+
+  return (
+    <div style={{
+      marginBottom: 16,
+      padding: '12px 14px',
+      borderRadius: 8,
+      background: '#FFFDF7',
+      border: '1px solid #F0EBDF',
+    }}>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 10,
+      }}>
+        <span style={{
+          fontFamily: 'var(--font-body, system-ui)',
+          fontSize: 11,
+          fontWeight: 600,
+          letterSpacing: '0.1em',
+          textTransform: 'uppercase',
+          color: 'var(--color-muted, #888)',
+        }}>
+          Listing completeness
+        </span>
+        <span style={{
+          fontFamily: 'var(--font-body, system-ui)',
+          fontSize: 11,
+          fontWeight: 500,
+          color: completeCount >= 4 ? 'var(--color-sage, #5f8a7e)' : '#d4a03c',
+        }}>
+          {completeCount}/{checks.length}
+        </span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {checks.map(check => (
+          <div key={check.field} style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 8,
+            padding: check.complete ? '0' : '4px 6px',
+            borderRadius: 4,
+            background: check.complete ? 'transparent' : '#FFF8EE',
+          }}>
+            <span style={{
+              fontSize: 13,
+              lineHeight: '18px',
+              flexShrink: 0,
+              color: check.complete ? '#16a34a' : '#dc2626',
+            }}>
+              {check.complete ? '\u2713' : '\u2717'}
+            </span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {check.complete ? (
+                <span style={{
+                  fontFamily: 'var(--font-body, system-ui)',
+                  fontSize: 12,
+                  color: '#16a34a',
+                  fontWeight: 500,
+                }}>
+                  {check.label} added
+                </span>
+              ) : (
+                <a
+                  href={vendorUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    fontFamily: 'var(--font-body, system-ui)',
+                    fontSize: 12,
+                    color: '#dc2626',
+                    fontWeight: 500,
+                    textDecoration: 'none',
+                    display: 'block',
+                    lineHeight: '18px',
+                  }}
+                >
+                  {check.label} missing
+                  <span style={{
+                    fontWeight: 400,
+                    color: 'var(--color-muted, #888)',
+                    fontSize: 11,
+                    marginLeft: 6,
+                  }}>
+                    &mdash; {check.hint}
+                  </span>
+                </a>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function ListingCard({ listing, liveStats }) {
   const score = listing.score
   const stats = listing.stats
+  const live = liveStats || null
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''
 
   const staticMapUrl = listing.lat && listing.lng && mapboxToken
@@ -204,7 +341,7 @@ function ListingCard({ listing }) {
         {/* Stats row */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
+          gridTemplateColumns: 'repeat(4, 1fr)',
           gap: 8,
           padding: '12px 0',
           borderTop: '1px solid var(--color-border, #e5e5e5)',
@@ -219,7 +356,7 @@ function ListingCard({ listing }) {
               color: 'var(--color-ink, #2D2A26)',
               margin: 0,
             }}>
-              {stats.views !== null ? stats.views : '--'}
+              {live ? live.views_30d : (stats.views !== null ? stats.views : '--')}
             </p>
             <p style={{
               fontFamily: 'var(--font-body, system-ui)',
@@ -230,7 +367,7 @@ function ListingCard({ listing }) {
               color: 'var(--color-muted, #888)',
               margin: '2px 0 0',
             }}>
-              {stats.views !== null ? 'Views' : 'Views (soon)'}
+              {live ? 'Views (30d)' : (stats.views !== null ? 'Views' : 'Views (soon)')}
             </p>
           </div>
           <div style={{ textAlign: 'center' }}>
@@ -263,7 +400,7 @@ function ListingCard({ listing }) {
               color: 'var(--color-ink, #2D2A26)',
               margin: 0,
             }}>
-              {stats.trail_inclusions}
+              {live ? live.trail_count : stats.trail_inclusions}
             </p>
             <p style={{
               fontFamily: 'var(--font-body, system-ui)',
@@ -277,7 +414,32 @@ function ListingCard({ listing }) {
               Trails
             </p>
           </div>
+          <div style={{ textAlign: 'center' }}>
+            <p style={{
+              fontFamily: 'var(--font-display, Georgia)',
+              fontSize: 18,
+              fontWeight: 400,
+              color: 'var(--color-ink, #2D2A26)',
+              margin: 0,
+            }}>
+              {live ? live.save_count : '--'}
+            </p>
+            <p style={{
+              fontFamily: 'var(--font-body, system-ui)',
+              fontSize: 9,
+              fontWeight: 500,
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              color: 'var(--color-muted, #888)',
+              margin: '2px 0 0',
+            }}>
+              Saves
+            </p>
+          </div>
         </div>
+
+        {/* Completeness checklist */}
+        <CompletenessChecklist listing={listing} />
 
         {/* Quick links */}
         <div style={{ display: 'flex', gap: 8 }}>
@@ -363,6 +525,7 @@ export default function DashboardPage() {
   const [listings, setListings] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [liveStats, setLiveStats] = useState({})
 
   useEffect(() => {
     const token = localStorage.getItem('atlas_auth_token')
@@ -394,7 +557,22 @@ export default function DashboardPage() {
         if (data.error) {
           setError(data.error)
         } else {
-          setListings(data.listings || [])
+          const fetchedListings = data.listings || []
+          setListings(fetchedListings)
+
+          // Fetch live stats for each listing
+          for (const listing of fetchedListings) {
+            fetch(`/api/dashboard/stats?listing_id=${listing.id}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+              .then(r => r.ok ? r.json() : null)
+              .then(stats => {
+                if (stats && !stats.error) {
+                  setLiveStats(prev => ({ ...prev, [listing.id]: stats }))
+                }
+              })
+              .catch(() => { /* stats fetch failed silently */ })
+          }
         }
         setLoading(false)
       })
@@ -564,7 +742,7 @@ export default function DashboardPage() {
         <section style={{ padding: '0 1.5rem 2rem', maxWidth: 720, margin: '0 auto' }}>
           <div style={{ display: 'grid', gap: '1rem' }}>
             {listings.map(listing => (
-              <ListingCard key={listing.id} listing={listing} />
+              <ListingCard key={listing.id} listing={listing} liveStats={liveStats[listing.id]} />
             ))}
           </div>
         </section>

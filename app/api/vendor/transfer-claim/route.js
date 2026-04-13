@@ -40,7 +40,7 @@ export async function POST(request) {
     // ── Fetch the existing approved claim ────────────────────
     const { data: existingClaim, error: fetchError } = await sb
       .from('claims_review')
-      .select('*')
+      .select('id, listing_id, vertical, claimant_name, claimant_email, tier, status, admin_notes, reviewed_at')
       .eq('id', claimId)
       .eq('status', 'approved')
       .single()

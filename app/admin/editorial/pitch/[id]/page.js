@@ -22,7 +22,7 @@ export default async function PitchDetailPage({ params }) {
 
   const { data: pitch } = await sb
     .from('editorial_pitches')
-    .select('*')
+    .select('id, vertical, estimated_read_time, status, headline, angle, suggested_venue, suggested_venue_id, brief')
     .eq('id', id)
     .single()
 

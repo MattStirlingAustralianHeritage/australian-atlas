@@ -74,11 +74,12 @@ async function main() {
   const pairs = new Map()
 
   function addPair(a, b, reason, confidence) {
-    const key = a.id < b.id ? `${a.id}-${b.id}` : `${b.id}-${a.id}`
+    const [lo, hi] = a.id < b.id ? [a.id, b.id] : [b.id, a.id]
+    const key = `${lo}-${hi}`
     if (!pairs.has(key)) {
       pairs.set(key, {
-        listing_a_id: Math.min(a.id, b.id),
-        listing_b_id: Math.max(a.id, b.id),
+        listing_a_id: lo,
+        listing_b_id: hi,
         match_reason: reason,
         confidence,
       })

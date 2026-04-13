@@ -13,6 +13,9 @@ import InlineListingEditor from '@/components/InlineListingEditor'
 import StartTrailButton from '@/components/StartTrailButton'
 import ReportIssueButton from '@/components/ReportIssueButton'
 import OpeningHours from '@/components/OpeningHours'
+import PlaceMemories from '@/components/PlaceMemories'
+import SameSpirit from '@/components/SameSpirit'
+import VerificationBadge from '@/components/VerificationBadge'
 
 export const revalidate = 3600
 
@@ -44,7 +47,7 @@ const getListing = cache(async function getListing(slug) {
   // to avoid PGRST116 if two verticals share a slug
   const { data, error } = await sb
     .from('listings')
-    .select('id, vertical, name, slug, description, region, state, lat, lng, website, phone, address, hero_image_url, is_featured, is_claimed, editors_pick, status, hours')
+    .select('id, vertical, name, slug, description, region, state, suburb, lat, lng, website, phone, address, hero_image_url, is_featured, is_claimed, editors_pick, status, hours, cluster_id, verified')
     .eq('slug', slug)
     .eq('status', 'active')
     .order('updated_at', { ascending: false })
@@ -182,6 +185,28 @@ async function getCrossVerticalListings(listing, excludeIds = [], limit = 3) {
   return data || []
 }
 
+/**
+ * Cluster-aware recommendations: listings in the same semantic cluster
+ * but from different verticals. Gives recommendations semantic coherence
+ * without being repetitive.
+ */
+async function getClusterSiblings(listing, excludeIds = [], limit = 3) {
+  if (!listing.cluster_id) return []
+  const sb = getSupabaseAdmin()
+
+  const { data } = await sb
+    .from('listings')
+    .select('id, name, slug, vertical, region, state, lat, lng, hero_image_url, description, is_featured, is_claimed, editors_pick')
+    .eq('status', 'active')
+    .eq('cluster_id', listing.cluster_id)
+    .neq('vertical', listing.vertical)
+    .not('id', 'in', `(${[listing.id, ...excludeIds].join(',')})`)
+    .order('editors_pick', { ascending: false })
+    .limit(limit)
+
+  return data || []
+}
+
 // ── Helper: clean website for display ─────────────────────────
 
 function cleanWebsite(url) {
@@ -257,6 +282,20 @@ export default async function PlacePage({ params }) {
   const regionListings = await getRegionListings(listing, nearbyIds)
   const regionIds = regionListings.map(r => r.id)
   const crossVerticalListings = await getCrossVerticalListings(listing, [...nearbyIds, ...regionIds])
+  const allUsedIds = [...nearbyIds, ...regionIds, ...crossVerticalListings.map(c => c.id)]
+
+  // Cluster-aware recommendations: same semantic cluster, different vertical
+  const clusterSiblings = await getClusterSiblings(listing, allUsedIds)
+
+  // Fetch approved place memories (max 5)
+  const sbMem = getSupabaseAdmin()
+  const { data: memories } = await sbMem
+    .from('place_memories')
+    .select('id, author_name, memory, created_at')
+    .eq('listing_id', listing.id)
+    .eq('approved', true)
+    .order('created_at', { ascending: false })
+    .limit(5)
 
   // Look up region slug for linking
   const sb = getSupabaseAdmin()
@@ -321,12 +360,12 @@ export default async function PlacePage({ params }) {
       <div className="max-w-3xl mx-auto px-5 pb-20" style={{ marginTop: listing.hero_image_url ? '-48px' : '0' }}>
 
         {/* Breadcrumb */}
-        <nav className="flex items-center gap-1.5 mb-6 text-xs" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)', marginTop: listing.hero_image_url ? '0' : '32px' }}>
-          <Link href="/map" className="hover:underline">Map</Link>
+        <nav className="flex items-center gap-1.5 mb-6 text-xs flex-wrap" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)', marginTop: listing.hero_image_url ? '0' : '32px' }}>
+          <Link href="/map" className="hover:underline" style={{ padding: '6px 2px', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>Map</Link>
           <span>&rsaquo;</span>
           {listing.state && (
             <>
-              <Link href={`/search?state=${encodeURIComponent(listing.state)}`} className="hover:underline">{listing.state}</Link>
+              <Link href={`/search?state=${encodeURIComponent(listing.state)}`} className="hover:underline" style={{ padding: '6px 2px', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>{listing.state}</Link>
               <span>&rsaquo;</span>
             </>
           )}
@@ -335,13 +374,14 @@ export default async function PlacePage({ params }) {
               <Link
                 href={regionData ? `/regions/${regionData.slug}` : `/search?region=${encodeURIComponent(listing.region)}`}
                 className="hover:underline"
+                style={{ padding: '6px 2px', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}
               >
                 {listing.region}
               </Link>
               <span>&rsaquo;</span>
             </>
           )}
-          <span style={{ color: 'var(--color-ink)' }}>{listing.name}</span>
+          <span style={{ color: 'var(--color-ink)', padding: '6px 2px' }}>{listing.name}</span>
         </nav>
 
         {/* Vertical badge + category */}
@@ -368,7 +408,7 @@ export default async function PlacePage({ params }) {
 
         {/* Location */}
         {location && (
-          <p className="mb-6" style={{ fontFamily: 'var(--font-body)', fontSize: '15px', fontWeight: 300, color: 'var(--color-muted)' }}>
+          <p className="mb-6" style={{ fontFamily: 'var(--font-body)', fontSize: '16px', fontWeight: 300, color: 'var(--color-muted)' }}>
             {location}
           </p>
         )}
@@ -391,7 +431,7 @@ export default async function PlacePage({ params }) {
 
         {/* Description */}
         {listing.description && (
-          <div className="mb-8" style={{ fontFamily: 'var(--font-body)', fontSize: '15px', fontWeight: 300, lineHeight: 1.7, color: 'var(--color-ink)' }}>
+          <div className="mb-8" style={{ fontFamily: 'var(--font-body)', fontSize: '16px', fontWeight: 300, lineHeight: 1.7, color: 'var(--color-ink)' }}>
             {listing.description.split('\n').map((p, i) => (
               p.trim() ? <p key={i} className={i > 0 ? 'mt-4' : ''}>{p}</p> : null
             ))}
@@ -405,8 +445,8 @@ export default async function PlacePage({ params }) {
               href={websiteUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90"
-              style={{ background: vertColor, fontFamily: 'var(--font-body)' }}
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90"
+              style={{ background: vertColor, fontFamily: 'var(--font-body)', minHeight: 44 }}
             >
               Visit Website
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -419,8 +459,8 @@ export default async function PlacePage({ params }) {
               href={`https://www.google.com/maps/dir/?api=1&destination=${listing.lat},${listing.lng}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-colors"
-              style={{ fontFamily: 'var(--font-body)', border: '1px solid var(--color-border)', color: 'var(--color-ink)', background: 'var(--color-card-bg)' }}
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-lg text-sm font-medium transition-colors"
+              style={{ fontFamily: 'var(--font-body)', border: '1px solid var(--color-border)', color: 'var(--color-ink)', background: 'var(--color-card-bg)', minHeight: 44 }}
             >
               Get Directions
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -506,7 +546,7 @@ export default async function PlacePage({ params }) {
         </div>
 
         {/* ── Also listed on [Vertical] ──────────────────── */}
-        <div className="flex items-center gap-3 mb-10 py-4 px-5 rounded-lg" style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}>
+        <div className="flex items-center gap-3 mb-10 py-3 px-5 rounded-lg" style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)', minHeight: 56 }}>
           <VerticalBadge vertical={listing.vertical} />
           <span className="text-sm" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)' }}>
             Also listed on
@@ -522,6 +562,9 @@ export default async function PlacePage({ params }) {
           </a>
         </div>
 
+        {/* ── Place Memories ──────────────────────────────── */}
+        <PlaceMemories listingId={listing.id} initialMemories={memories || []} />
+
         {/* ── Claim CTA (if unclaimed) ───────────────────── */}
         {!listing.is_claimed && (
           <div className="text-center py-6 px-5 rounded-lg mb-10" style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}>
@@ -530,13 +573,20 @@ export default async function PlacePage({ params }) {
             </p>
             <Link
               href={`/claim/${listing.slug}`}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90"
-              style={{ background: vertColor, fontFamily: 'var(--font-body)' }}
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90"
+              style={{ background: vertColor, fontFamily: 'var(--font-body)', minHeight: 44 }}
             >
               Claim this listing
             </Link>
           </div>
         )}
+
+        {/* ── In the Same Spirit ─────────────────────────── */}
+        <SameSpirit
+          listingId={listing.id}
+          vertical={listing.vertical}
+          suburb={listing.suburb || ''}
+        />
 
         {/* ── Nearby listings ────────────────────────────── */}
         {nearby.length > 0 && (
@@ -626,6 +676,28 @@ export default async function PlacePage({ params }) {
             </div>
           </section>
         )}
+
+        {/* ── Semantically similar ── cluster-aware recommendations */}
+        {clusterSiblings.length > 0 && (
+          <section className="mt-12">
+            <h3
+              className="mb-4"
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 400,
+                fontSize: '15px',
+                color: 'var(--color-muted)',
+              }}
+            >
+              You might also like
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {clusterSiblings.map(c => (
+                <ListingCard key={c.id} listing={c} />
+              ))}
+            </div>
+          </section>
+        )}
       </div>
 
       {/* Admin inline editing — only rendered server-side when checkAdmin() passes.
@@ -633,24 +705,31 @@ export default async function PlacePage({ params }) {
           Passes only the fields the editor needs — avoids serialising the
           1536-dim embedding vector and other heavy columns to the client. */}
       {isAdmin && (
-        <InlineListingEditor listing={{
-          id: listing.id,
-          name: listing.name,
-          slug: listing.slug,
-          description: listing.description,
-          address: listing.address,
-          website: listing.website,
-          phone: listing.phone,
-          region: listing.region,
-          state: listing.state,
-          status: listing.status,
-          vertical: listing.vertical,
-          lat: listing.lat,
-          lng: listing.lng,
-          is_featured: listing.is_featured,
-          editors_pick: listing.editors_pick,
-          is_claimed: listing.is_claimed,
-        }} />
+        <>
+          <InlineListingEditor listing={{
+            id: listing.id,
+            name: listing.name,
+            slug: listing.slug,
+            description: listing.description,
+            address: listing.address,
+            website: listing.website,
+            phone: listing.phone,
+            region: listing.region,
+            state: listing.state,
+            status: listing.status,
+            vertical: listing.vertical,
+            lat: listing.lat,
+            lng: listing.lng,
+            is_featured: listing.is_featured,
+            editors_pick: listing.editors_pick,
+            is_claimed: listing.is_claimed,
+          }} />
+          <VerificationBadge
+            listingId={listing.id}
+            listingName={listing.name}
+            initialVerified={listing.verified || false}
+          />
+        </>
       )}
     </div>
   )

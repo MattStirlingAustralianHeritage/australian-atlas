@@ -46,10 +46,15 @@ export default async function sitemap() {
     { url: `${SITE_URL}/operators`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.8 },
     { url: `${SITE_URL}/for-councils`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.8 },
     { url: `${SITE_URL}/pricing`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${SITE_URL}/long-weekend`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.8 },
+    { url: `${SITE_URL}/on-this-road`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.8 },
+    { url: `${SITE_URL}/discover`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.7 },
+    { url: `${SITE_URL}/for-you`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.6 },
+    { url: `${SITE_URL}/atlas-index`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.8 },
   ]
 
   // ── Dynamic pages (fetched in parallel) ────────────────────
-  const [listings, regions, trails, events, articles] = await Promise.all([
+  const [listings, regions, trails, events, articles, seoPages] = await Promise.all([
     // Listings — paginated (may exceed 1000)
     fetchAllPaginated(supabase, 'listings', 'slug, updated_at', [
       ['eq', 'status', 'active'],
@@ -77,6 +82,12 @@ export default async function sitemap() {
     supabase
       .from('articles')
       .select('slug, updated_at')
+      .eq('status', 'published')
+      .then(r => r.data || []),
+    // SEO pages (published)
+    supabase
+      .from('seo_pages')
+      .select('slug, published_at')
       .eq('status', 'published')
       .then(r => r.data || []),
   ])
@@ -116,6 +127,13 @@ export default async function sitemap() {
     priority: 0.6,
   }))
 
+  const seoPageEntries = seoPages.map(p => ({
+    url: `${SITE_URL}/seo/${p.slug}`,
+    lastModified: p.published_at ? new Date(p.published_at) : new Date(),
+    changeFrequency: 'monthly',
+    priority: 0.7,
+  }))
+
   return [
     ...staticPages,
     ...listingPages,
@@ -123,5 +141,6 @@ export default async function sitemap() {
     ...trailPages,
     ...eventPages,
     ...articlePages,
+    ...seoPageEntries,
   ]
 }

@@ -131,7 +131,7 @@ export async function POST(request) {
     if (type === 'collection') {
       const { data: collection, error: colError } = await sb
         .from('operator_collections')
-        .select('*')
+        .select('name, description, region, listing_ids')
         .eq('id', id)
         .eq('operator_id', operator.id)
         .single()
@@ -171,7 +171,7 @@ export async function POST(request) {
     if (type === 'trail') {
       const { data: trail, error: trailError } = await sb
         .from('operator_trails')
-        .select('*')
+        .select('name, description, trail_data, days, region')
         .eq('id', id)
         .eq('operator_id', operator.id)
         .single()

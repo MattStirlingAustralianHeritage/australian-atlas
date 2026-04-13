@@ -187,7 +187,7 @@ export async function GET() {
     const sb = getSupabaseAdmin()
     const { data, error } = await sb
       .from('editorial_pitches')
-      .select('*')
+      .select('id, vertical, headline, angle, suggested_venue, suggested_venue_id, estimated_read_time, status, brief, created_at, updated_at')
       .eq('status', 'active')
       .order('created_at', { ascending: false })
 

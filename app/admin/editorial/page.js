@@ -11,7 +11,7 @@ export default async function EditorialPage() {
   try {
     const { data, error } = await sb
       .from('story_ideas')
-      .select('*')
+      .select('id, status, venue_name, vertical, region, target_publish_date, story_angle, notes, source, created_at')
       .order('created_at', { ascending: false })
       .limit(50)
     if (!error && data) ideas = data

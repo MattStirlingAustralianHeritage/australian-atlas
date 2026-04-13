@@ -16,15 +16,15 @@ export default async function DuplicatesPage() {
     { count: mergedCount },
     { count: dismissedCount },
   ] = await Promise.all([
-    sb.from('duplicate_pairs').select('*', { count: 'exact', head: true }).or('status.eq.pending,status.is.null'),
-    sb.from('duplicate_pairs').select('*', { count: 'exact', head: true }).eq('status', 'merged'),
-    sb.from('duplicate_pairs').select('*', { count: 'exact', head: true }).eq('status', 'dismissed'),
+    sb.from('duplicate_pairs').select('id', { count: 'exact', head: true }).or('status.eq.pending,status.is.null'),
+    sb.from('duplicate_pairs').select('id', { count: 'exact', head: true }).eq('status', 'merged'),
+    sb.from('duplicate_pairs').select('id', { count: 'exact', head: true }).eq('status', 'dismissed'),
   ])
 
   // ── Fetch pending pairs ─────────────────────────────────
   const { data: pairs, error: pairsError } = await sb
     .from('duplicate_pairs')
-    .select('*')
+    .select('id, listing_a_id, listing_b_id, confidence, match_reason, status')
     .or('status.eq.pending,status.is.null')
     .limit(300)
 

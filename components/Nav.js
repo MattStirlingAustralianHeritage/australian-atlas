@@ -39,6 +39,7 @@ export default function Nav() {
     { href: '/explore', label: 'Explore' },
     { href: '/map', label: 'Map' },
     { href: '/trails', label: 'Trails' },
+    { href: '/discover', label: 'Discover' },
     { href: '/collections', label: 'Collections' },
     { href: '/journal', label: 'Journal' },
     { href: '/regions', label: 'Regions' },
@@ -102,7 +103,12 @@ export default function Nav() {
               background: 'none',
               border: 'none',
               cursor: 'pointer',
-              padding: '4px',
+              padding: '12px',
+              minWidth: '44px',
+              minHeight: '44px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
               color: 'var(--color-ink)',
             }}
           >

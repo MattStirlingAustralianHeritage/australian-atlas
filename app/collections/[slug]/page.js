@@ -6,7 +6,7 @@ import { breadcrumbJsonLd } from '@/lib/jsonLd'
 import ListingCard from '@/components/ListingCard'
 import VerticalBadge from '@/components/VerticalBadge'
 
-export const revalidate = 3600
+export const revalidate = 7200
 
 const SITE_URL = 'https://australianatlas.com.au'
 
@@ -14,7 +14,7 @@ const getCollection = cache(async function getCollection(slug) {
   const sb = getSupabaseAdmin()
   const { data } = await sb
     .from('collections')
-    .select('*')
+    .select('id, title, slug, description, hero_image_url, listing_ids, vertical, region, author')
     .eq('slug', slug)
     .eq('published', true)
     .single()
@@ -60,7 +60,7 @@ export default async function CollectionPage({ params }) {
   if (collection.listing_ids && collection.listing_ids.length > 0) {
     const { data } = await sb
       .from('listings')
-      .select('*')
+      .select('id, name, slug, vertical, region, state, hero_image_url, source_id, is_featured, is_claimed, editors_pick')
       .in('id', collection.listing_ids)
       .eq('status', 'active')
 

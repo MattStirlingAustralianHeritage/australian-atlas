@@ -18,11 +18,17 @@
 }
 
 /* Base */
+html {
+  overflow-x: hidden;
+}
+
 body {
   font-family: var(--font-body);
+  font-size: 16px;
   background: var(--color-bg);
   color: var(--color-ink);
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
 /* Hide scrollbar for filter pills */

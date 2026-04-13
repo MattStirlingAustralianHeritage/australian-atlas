@@ -57,8 +57,8 @@ const BELIEFS = [
     body: 'Australia has an extraordinary independent layer: the makers, the growers, the people running galleries in converted woolsheds and roasting coffee in country towns. Most platforms miss it. We exist to map it.',
   },
   {
-    title: 'Small team, long view',
-    body: 'Australian Atlas is built by a small team in Australia. We are not a venture-backed startup chasing growth metrics. We are building a reference work, and we intend to be here for a long time.',
+    title: 'One person, long view',
+    body: 'Australian Atlas is built and maintained by one person in Australia. It is not a venture-backed startup chasing growth metrics. It is a reference work, built with care, and intended to last.',
   },
 ]
 
@@ -152,6 +152,15 @@ export default async function AboutPage() {
             {stats.listings > 0 ? ` and ${stats.listings.toLocaleString()} verified listings` : ''}.
             Each place is checked, categorised, and maintained &mdash; a reference work,
             not a scrape.
+          </p>
+          <p style={{
+            fontFamily: 'var(--font-body)', fontSize: 16, fontWeight: 300,
+            color: 'var(--color-muted)', lineHeight: 1.75, margin: 0,
+          }}>
+            I started this because I kept finding places that deserved more visibility than an
+            Instagram post or a Google pin. A distiller doing something genuinely interesting
+            in a shed outside Castlemaine. A bookshop in a town of 400 people. These are the
+            places that make a region worth the drive, and nobody was mapping them properly.
           </p>
         </div>
       </section>
@@ -290,14 +299,14 @@ export default async function AboutPage() {
           letterSpacing: '0.15em', textTransform: 'uppercase',
           color: 'var(--color-sage)', marginBottom: 8, textAlign: 'center',
         }}>
-          Built for
+          Who it&apos;s for
         </p>
         <h2 style={{
           fontFamily: 'var(--font-display)', fontSize: 'clamp(22px, 3vw, 30px)',
           fontWeight: 400, color: 'var(--color-ink)', marginBottom: 36,
           textAlign: 'center',
         }}>
-          Three audiences, one platform
+          Different people, same network
         </h2>
 
         <div style={{
@@ -421,8 +430,8 @@ export default async function AboutPage() {
             color: 'var(--color-muted)', lineHeight: 1.7, margin: '0 auto 24px',
             maxWidth: 480,
           }}>
-            Australian Atlas is community-driven. Anyone can suggest a place, report an issue,
-            or help us build a more complete picture of independent Australia.
+            The network gets better when people contribute. If you know an independent place
+            that should be listed &mdash; a maker, a producer, a shop, a swimming hole &mdash; let me know.
           </p>
           <Link
             href="/suggest"

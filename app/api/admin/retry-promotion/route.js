@@ -20,7 +20,7 @@ export async function GET() {
 
   const { data, error } = await sb
     .from('failed_role_promotions')
-    .select('*')
+    .select('id, claim_id, user_email, target_role, vertical, error_message, retry_count, last_attempt_at, resolved_at, created_at')
     .is('resolved_at', null)
     .order('created_at', { ascending: false })
     .limit(50)
@@ -50,7 +50,7 @@ export async function POST(request) {
     // Fetch the failure record
     const { data: failure, error: fetchError } = await sb
       .from('failed_role_promotions')
-      .select('*')
+      .select('id, claim_id, user_email, target_role, vertical, error_message, retry_count, last_attempt_at, resolved_at, created_at')
       .eq('id', failureId)
       .is('resolved_at', null)
       .single()

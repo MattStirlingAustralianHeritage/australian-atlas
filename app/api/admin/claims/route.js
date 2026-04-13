@@ -16,7 +16,7 @@ export async function GET() {
     const sb = getSupabaseAdmin()
     const { data, error } = await sb
       .from('claims_review')
-      .select('*')
+      .select('id, listing_id, vertical, claimant_name, claimant_email, tier, status, admin_notes, source_claim_id, reviewed_at, created_at')
       .eq('status', 'pending')
       .order('created_at', { ascending: true })
 
@@ -102,7 +102,7 @@ async function handleApprove({ claimId, vertical, sourceClaimId, usingPortalTabl
   if (usingPortalTable) {
     const { data } = await sb
       .from('claims_review')
-      .select('*')
+      .select('id, listing_id, vertical, claimant_name, claimant_email, tier, status, admin_notes, source_claim_id, reviewed_at, created_at')
       .eq('id', claimId)
       .single()
     claimRecord = data
@@ -335,6 +335,17 @@ async function handleApprove({ claimId, vertical, sourceClaimId, usingPortalTabl
       admin_notes: admin_notes || null,
     },
   }).then(null, err => console.error('[admin/claims] Audit log error:', err))
+
+  // ── 6. Fire Operator Amplification Agent (non-blocking) ──
+  // Sends the operator a personalised share kit with social captions,
+  // newsletter paragraph, and their listing URL.
+  if (claimRecord?.claimant_email && claimRecord?.listing_id) {
+    import('@/lib/agents/operator-amplification-agent')
+      .then(({ sendShareKit }) => {
+        sendShareKit(claimRecord.listing_id, claimRecord.claimant_email, claimRecord.claimant_name)
+      })
+      .catch(err => console.error('[admin/claims] Operator amplification agent error:', err.message))
+  }
 
   return NextResponse.json({ success: true, action: 'approved' })
 }

@@ -18,7 +18,7 @@ export async function GET(request) {
 
     const sb = getSupabaseAdmin()
 
-    let query = sb.from('duplicate_pairs').select('*')
+    let query = sb.from('duplicate_pairs').select('id, listing_a_id, listing_b_id, confidence, match_reason, status, resolved_at, resolved_by, created_at')
 
     // Status filter
     if (status === 'pending') {
@@ -110,7 +110,7 @@ export async function POST(request) {
       // Verify the pair exists
       const { data: pair, error: pairError } = await sb
         .from('duplicate_pairs')
-        .select('*')
+        .select('id, listing_a_id, listing_b_id, confidence, match_reason, status')
         .eq('id', pair_id)
         .single()
 

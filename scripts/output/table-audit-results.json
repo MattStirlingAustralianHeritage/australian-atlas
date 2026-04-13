@@ -1,0 +1,484 @@
+{
+  "auditDate": "2026-04-13T05:39:27.940Z",
+  "totalActiveListings": 53,
+  "nonActiveListings": [
+    {
+      "id": "a252fc34-6b0b-4ed4-958b-881706171df5",
+      "name": "PepperBerry Restaurant",
+      "status": "hidden",
+      "website": "https://www.pepperberryrestaurant.com.au/"
+    }
+  ],
+  "summary": {
+    "highConfidenceNonIndependent": 5,
+    "mediumConfidenceNeedsReview": 7,
+    "passesIndependenceCheck": 41
+  },
+  "highConfidenceNonIndependent": [
+    {
+      "id": "0a664933-c104-4164-801d-937bd0a7f006",
+      "name": "Agnes Restaurant",
+      "slug": "agnes-restaurant",
+      "suburb": null,
+      "state": "QLD",
+      "website": "https://anyday.com.au/agnes-venue-page",
+      "reasons": [
+        "Part of Anyday hospitality group (7+ venues including Same Same, Honto, Bianca, LOS, Idle). Website hosted on anyday.com.au group domain. Multi-venue restaurant group, not independent."
+      ]
+    },
+    {
+      "id": "0abcab60-b26d-441a-9b84-32f36470b377",
+      "name": "Doot Doot Doot",
+      "slug": "doot-doot-doot",
+      "suburb": null,
+      "state": "VIC",
+      "website": "https://dootdootdoot.com.au/",
+      "reasons": [
+        "Restaurant inside Jackalope Hotel, Mornington Peninsula. Description references 'Group Executive Chef' (Jackalope Hotels group). Listed on jackalopehotels.com as their dining venue."
+      ]
+    },
+    {
+      "id": "1860acf8-d9b8-4838-a1d2-02f9d6148fd8",
+      "name": "Farm Cove Eatery",
+      "slug": "farm-cove-eatery",
+      "suburb": null,
+      "state": "NSW",
+      "website": "https://www.botanichouse.com.au/farm-cove-eatery/",
+      "reasons": [
+        "Part of Botanic House dining complex (Ambassador Chef Luke Nguyen). Website is botanichouse.com.au/farm-cove-eatery -- a subpage of the parent venue. Operated as one of two dining spaces under Botanic House."
+      ]
+    },
+    {
+      "id": "5cd8676f-ef39-4c42-90e8-b746a1b83e4a",
+      "name": "Solander Dining and Bar",
+      "slug": "solander-dining-and-bar",
+      "suburb": null,
+      "state": "NSW",
+      "website": "https://www.solanderdiningandbar.com.au/",
+      "reasons": [
+        "Located inside West Hotel Sydney, a Curio Collection by Hilton property. Website hosted on own domain but venue is a Hilton hotel restaurant."
+      ]
+    },
+    {
+      "id": "6cee8d69-f2f6-4c6e-ba65-7f5dd34a3488",
+      "name": "Warrior Restaurant & Bar",
+      "slug": "warrior-restaurant-bar",
+      "suburb": null,
+      "state": "QLD",
+      "website": "https://thecrocodilehunterlodge.com.au/dining",
+      "reasons": [
+        "Restaurant inside The Crocodile Hunter Lodge at Australia Zoo (Irwin family). Website is thecrocodilehunterlodge.com.au/dining -- a subpage of the lodge site, not an independent restaurant.",
+        "Website domain matches chain: thecrocodilehunterlodge.com (domain: thecrocodilehunterlodge.com.au)"
+      ]
+    }
+  ],
+  "mediumConfidenceNeedsReview": [
+    {
+      "id": "9b4db4b7-3d64-40c6-a8b5-ec800967d2fd",
+      "name": "Butcher and the Farmer Tramsheds",
+      "slug": "butcher-and-the-farmer-tramsheds",
+      "suburb": null,
+      "state": "NSW",
+      "website": "https://butcherandthefarmer.com/au/sydney/tramsheds/?utm_source=google&utm_medium=organic&utm_campaign=yext&utm_content=booking-tramsheds",
+      "reasons": [
+        "Has at least 2 locations (Tramsheds and Meadowbank). URL path /au/sydney/tramsheds/ suggests multi-location structure. Meadowbank location is a collaboration with Italian Street Kitchen."
+      ]
+    },
+    {
+      "id": "83a1e1f7-5ef9-4f18-b9ba-f40b04fa0a0b",
+      "name": "Cutler",
+      "slug": "cutler",
+      "suburb": null,
+      "state": "VIC",
+      "website": "https://www.cutlerandco.com.au/",
+      "reasons": [
+        "Part of Andrew McConnell's Trader House restaurant group (also operates Cumulus Inc., Gimlet, Marion, Supernormal). While a respected independent chef-owner operation, it is a multi-venue hospitality group."
+      ]
+    },
+    {
+      "id": "ddf9fef9-d16f-4357-8030-9173273ffbd7",
+      "name": "Gibney Cottesloe",
+      "slug": "gibney-cottesloe",
+      "suburb": null,
+      "state": "WA",
+      "website": "https://gibneycottesloe.com/",
+      "reasons": [
+        "Operated by Kailis Hospitality Group, which also runs Island Market Trigg, Kailis Fish Market Cafe, and Shorehouse. Multi-venue hospitality group."
+      ]
+    },
+    {
+      "id": "14737827-7e6f-4f3b-8b37-136479faaf22",
+      "name": "Meatmaiden",
+      "slug": "meatmaiden",
+      "suburb": null,
+      "state": "VIC",
+      "website": "https://www.meatmaiden.com.au/",
+      "reasons": [
+        "Sister restaurant to Meatmother, owned by Neil Hamblen and Nick Johnston. Small multi-venue operation (2 venues), not a chain but not a single-venue independent."
+      ]
+    },
+    {
+      "id": "c24b6a05-693b-4c4b-b0f1-58efa71c2af5",
+      "name": "Midden by Mark Olive",
+      "slug": "midden-by-mark-olive",
+      "suburb": null,
+      "state": "NSW",
+      "website": "https://www.middensydney.com.au/",
+      "reasons": [
+        "Located inside Sydney Opera House. Operated by Doltone Hospitality Group (a large-scale events and hospitality company). Venue is within a major institutional/tourism complex."
+      ]
+    },
+    {
+      "id": "aa0e89fc-5298-4ff0-b7f1-e9868a11debb",
+      "name": "Stilts Dining",
+      "slug": "stilts-dining",
+      "suburb": null,
+      "state": "QLD",
+      "website": "https://www.stiltsdining.com.au/",
+      "reasons": [
+        "Operated by Tassis Group (Michael Tassis), a Brisbane hospitality group. Multi-venue operation."
+      ]
+    },
+    {
+      "id": "d5ad2283-b32a-482d-b336-546c9aba5794",
+      "name": "The Sanderson",
+      "slug": "the-sanderson",
+      "suburb": null,
+      "state": "NSW",
+      "website": "https://thesanderson.com.au/",
+      "reasons": [
+        "Operated by the Speakeasy Group (Greg Sanderson & Sven Almenning), which also runs Nick & Nora's, Mjolner, and Eau De Vie. Multi-venue hospitality group."
+      ]
+    }
+  ],
+  "passesIndependenceCheck": [
+    {
+      "id": "dfb881fb-551c-4e89-a146-7c84317cfc08",
+      "name": "11 Acre Farm",
+      "slug": "11-acre-farm",
+      "suburb": null,
+      "state": "WA",
+      "website": "https://11acre.farm/"
+    },
+    {
+      "id": "698f0516-5d34-44e4-9364-ac855dae802f",
+      "name": "Amberly Farm",
+      "slug": "amberly-farm",
+      "suburb": null,
+      "state": "ACT",
+      "website": "https://www.amberlyfarm.com.au/"
+    },
+    {
+      "id": "fc945e4f-0239-487d-975a-d5e6a3263414",
+      "name": "Avocado Moment Cafe",
+      "slug": "avocado-moment-cafe",
+      "suburb": null,
+      "state": "VIC",
+      "website": "https://avocadomoment.com.au/"
+    },
+    {
+      "id": "dae64474-394a-4845-99fe-716ac1cf07c7",
+      "name": "Bakery Cafe Hazel",
+      "slug": "bakery-cafe-hazel",
+      "suburb": null,
+      "state": "NSW",
+      "website": "https://bakerycafehazel.com.au/"
+    },
+    {
+      "id": "c8dc588c-5146-40d8-859b-1f12d04e3fe1",
+      "name": "Barragunda Dining",
+      "slug": "barragunda-dining",
+      "suburb": null,
+      "state": "VIC",
+      "website": "https://www.barragunda.com.au/dining/"
+    },
+    {
+      "id": "6e77c1ec-ecbe-4ca7-b87d-66044d27c62d",
+      "name": "Bloomwood",
+      "slug": "bloomwood",
+      "suburb": null,
+      "state": "VIC",
+      "website": "https://bloomwood.website/"
+    },
+    {
+      "id": "4bdae587-f846-4f9c-85c0-c1727dbac8cc",
+      "name": "Chapters Boathouse",
+      "slug": "chapters-boathouse",
+      "suburb": null,
+      "state": "WA",
+      "website": "https://www.chaptersboathouse.com/"
+    },
+    {
+      "id": "ac204aa3-433f-46c7-9a0d-75e6824e66ba",
+      "name": "Charlie's Paddock",
+      "slug": "charlies-paddock",
+      "suburb": null,
+      "state": "WA",
+      "website": "https://charliespaddock.com.au/"
+    },
+    {
+      "id": "3434c05a-c755-480d-8089-675893d295f2",
+      "name": "Chez Pierre",
+      "slug": "chez-pierre",
+      "suburb": null,
+      "state": "WA",
+      "website": "https://chezpierre.com.au/"
+    },
+    {
+      "id": "55691fe3-c7fc-4bad-810d-d1f80bd3617b",
+      "name": "Cradle Coast Olives",
+      "slug": "cradle-coast-olives",
+      "suburb": null,
+      "state": "TAS",
+      "website": "https://cradlecoastolives.com.au/"
+    },
+    {
+      "id": "e2bb3545-8662-4d81-b985-5b23a3a055a8",
+      "name": "Double Dutch Bakery",
+      "slug": "double-dutch-bakery",
+      "suburb": null,
+      "state": "VIC",
+      "website": "https://doubledutchbakery.com.au/"
+    },
+    {
+      "id": "eaf904ad-fa94-4acd-a450-251017bdf328",
+      "name": "Farmhouse Kings Cross",
+      "slug": "farmhouse-kings-cross",
+      "suburb": null,
+      "state": "NSW",
+      "website": "https://farmhousekingscross.com.au/"
+    },
+    {
+      "id": "70107c4b-2dac-4688-b217-71a171b8d01b",
+      "name": "Homeleigh Grove Olives",
+      "slug": "homeleigh-grove-olives",
+      "suburb": null,
+      "state": "ACT",
+      "website": "https://www.homeleigh.com.au/"
+    },
+    {
+      "id": "27e6a0f7-9c15-46d1-bfd8-c5c0b68f066b",
+      "name": "Joey's",
+      "slug": "joeys",
+      "suburb": null,
+      "state": "QLD",
+      "website": "https://www.joeys.com.au/"
+    },
+    {
+      "id": "6e89831b-fd04-4250-b874-096955c74365",
+      "name": "Juniper & Bay",
+      "slug": "juniper-bay",
+      "suburb": null,
+      "state": "WA",
+      "website": "https://juniperandbay.com.au/"
+    },
+    {
+      "id": "c4b664d6-87dd-4016-9fe2-07ba0c651876",
+      "name": "Kitchen Farm Pantry",
+      "slug": "kitchen-farm-pantry",
+      "suburb": null,
+      "state": "SA",
+      "website": "https://kitchenfarm.com.au/"
+    },
+    {
+      "id": "6da74110-862a-4441-81f5-5fe46c56ff94",
+      "name": "Little French Nest",
+      "slug": "little-french-nest",
+      "suburb": null,
+      "state": "WA",
+      "website": "https://www.littlefrenchnest.com/"
+    },
+    {
+      "id": "7c3b3425-e166-4eb8-83c8-531038f65e6c",
+      "name": "Meelup Farmhouse",
+      "slug": "meelup-farmhouse",
+      "suburb": null,
+      "state": "WA",
+      "website": "https://www.meelupfarmhouse.com.au/"
+    },
+    {
+      "id": "29dcbda5-c0bb-4688-a23b-4eb1a4b6961e",
+      "name": "Montrachet",
+      "slug": "montrachet",
+      "suburb": null,
+      "state": "QLD",
+      "website": "https://www.montrachet.com.au/"
+    },
+    {
+      "id": "a2e7d85a-c9c4-4ba8-8957-5b5b8ccc90c9",
+      "name": "Navi",
+      "slug": "navi",
+      "suburb": null,
+      "state": "VIC",
+      "website": "https://www.restaurantnavi.com.au/"
+    },
+    {
+      "id": "ba2a705a-caa9-47ed-9ec9-ceee5b822c2c",
+      "name": "New Farm Bistro",
+      "slug": "new-farm-bistro",
+      "suburb": null,
+      "state": "QLD",
+      "website": "https://www.newfarmbistro.com.au/"
+    },
+    {
+      "id": "e2fbb5ab-c629-4e56-b6b0-bb3165acde99",
+      "name": "New Farm Deli",
+      "slug": "new-farm-deli",
+      "suburb": null,
+      "state": "QLD",
+      "website": "https://www.newfarmdeli.com.au/"
+    },
+    {
+      "id": "9c1d9f2d-83b1-4796-bba2-494ddb89056c",
+      "name": "O.MY Restaurant",
+      "slug": "o-my-restaurant",
+      "suburb": null,
+      "state": "VIC",
+      "website": "https://www.omyrestaurant.com.au/"
+    },
+    {
+      "id": "722b01b1-7f9c-4585-aab0-6e1d25b5208f",
+      "name": "Olive Groves of Tasmania",
+      "slug": "olive-groves-of-tasmania",
+      "suburb": null,
+      "state": "TAS",
+      "website": "https://tasmanianoliveoil.com.au/"
+    },
+    {
+      "id": "911f1f9b-1f91-4926-8d9e-6d5180a8f5a8",
+      "name": "OZIN Restaurant",
+      "slug": "ozin-restaurant",
+      "suburb": null,
+      "state": null,
+      "website": "https://www.ozinrestaurant.com.au/"
+    },
+    {
+      "id": "8cea432d-7bba-4470-84d4-fb263b01bc14",
+      "name": "Palmerston Markets",
+      "slug": "palmerston-markets",
+      "suburb": null,
+      "state": "NT",
+      "website": "https://www.palmerstonmarkets.org.au/"
+    },
+    {
+      "id": "3a226fc3-ed46-4cf8-8c26-b9123d976fdd",
+      "name": "Patina at Customs House",
+      "slug": "patina-at-customs-house",
+      "suburb": null,
+      "state": "QLD",
+      "website": "https://patinacustomshouse.com.au/?utm_source=google&utm_medium=organic&utm_campaign=gbp"
+    },
+    {
+      "id": "6ce3dcb0-63cb-4802-b0ce-823cb6431fd7",
+      "name": "Peninsula Farm Cafe",
+      "slug": "peninsula-farm-cafe",
+      "suburb": null,
+      "state": "WA",
+      "website": "https://peninsulafarmcafe.com.au/"
+    },
+    {
+      "id": "2c864d1b-1b10-4f2a-a0e9-3564780131cc",
+      "name": "Restaurant Botanic",
+      "slug": "restaurant-botanic",
+      "suburb": null,
+      "state": "SA",
+      "website": "https://restaurantbotanic.com.au/"
+    },
+    {
+      "id": "c55d8027-5132-4ca7-a510-439eaeecee1e",
+      "name": "Self Raised Bread Shoppe",
+      "slug": "self-raised-bread-shoppe",
+      "suburb": null,
+      "state": "NSW",
+      "website": "https://www.selfraised.com.au/"
+    },
+    {
+      "id": "a3656448-43a7-4a1d-a7c3-e7c8ab6c024b",
+      "name": "Snapper Rocks",
+      "slug": "snapper-rocks",
+      "suburb": null,
+      "state": "NT",
+      "website": "https://www.snapper.rocks/"
+    },
+    {
+      "id": "890bf86e-c01a-44d1-a57b-f439fb140231",
+      "name": "Soul Soul Cafe",
+      "slug": "soul-soul-cafe",
+      "suburb": null,
+      "state": "VIC",
+      "website": "https://www.soulsoul.com.au/"
+    },
+    {
+      "id": "0aa51960-efcf-4077-bb6c-6a91ad6dc553",
+      "name": "The Bakery",
+      "slug": "the-bakery",
+      "suburb": null,
+      "state": "NT",
+      "website": "https://www.alicebakery.com.au/"
+    },
+    {
+      "id": "1038b011-0810-4a24-8785-af13fa2f6768",
+      "name": "The Balfour Kitchen & Bar",
+      "slug": "the-balfour-kitchen-bar",
+      "suburb": null,
+      "state": null,
+      "website": "https://thebalfourkitchenandbar.com.au/"
+    },
+    {
+      "id": "2755f742-5efb-4f32-8098-b62cb1ac6f67",
+      "name": "The Farm Eatery",
+      "slug": "the-farm-eatery",
+      "suburb": null,
+      "state": "SA",
+      "website": "https://thefarmeatery.com/"
+    },
+    {
+      "id": "52bdee67-a7e4-497d-811a-0609ce22b7b0",
+      "name": "The Good Paddock",
+      "slug": "the-good-paddock",
+      "suburb": null,
+      "state": "WA",
+      "website": "https://thegoodpaddock.au/"
+    },
+    {
+      "id": "a3cabe91-5fcf-409b-ae0a-374b8746a2f9",
+      "name": "The Simple Market",
+      "slug": "the-simple-market",
+      "suburb": null,
+      "state": "SA",
+      "website": "https://www.thesimplemarket.com.au/"
+    },
+    {
+      "id": "3c00c546-1de6-4d93-aa92-34be16a2735b",
+      "name": "Twenty Seats",
+      "slug": "twenty-seats",
+      "suburb": null,
+      "state": "WA",
+      "website": "https://www.twentyseats.com.au/"
+    },
+    {
+      "id": "b1c3617a-ba14-4bb9-8d7d-1a6840e9ad1a",
+      "name": "Wellington Point Farmhouse Restaurant and Cafe",
+      "slug": "wellington-point-farmhouse-restaurant-and-cafe",
+      "suburb": null,
+      "state": "QLD",
+      "website": "https://www.wellingtonpointfarmhouse.com.au/"
+    },
+    {
+      "id": "ff9df19c-657a-46f5-90b6-17e3a076fc1b",
+      "name": "Wharf One",
+      "slug": "wharf-one",
+      "suburb": null,
+      "state": "NT",
+      "website": "https://www.wharfone.com.au/"
+    },
+    {
+      "id": "bc2c0823-115b-40bd-9996-12dcc55e29a9",
+      "name": "Windy Point Restaurant",
+      "slug": "windy-point-restaurant",
+      "suburb": null,
+      "state": "SA",
+      "website": "https://www.windypoint.com.au/"
+    }
+  ]
+}

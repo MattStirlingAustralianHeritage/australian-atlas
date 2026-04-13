@@ -393,9 +393,9 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
         }}>
           {[{ key: 'map', label: 'Map' }, { key: 'builder', label: 'Build a trail' }].map(tab => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
-              padding: '7px 18px', border: 'none', cursor: 'pointer',
+              padding: '10px 20px', border: 'none', cursor: 'pointer',
               fontSize: 12, fontWeight: activeTab === tab.key ? 600 : 400,
-              fontFamily: 'var(--font-sans)',
+              fontFamily: 'var(--font-sans)', minHeight: 44,
               background: activeTab === tab.key ? PRIMARY : 'transparent',
               color: activeTab === tab.key ? '#fff' : 'var(--color-muted)',
               transition: 'all 0.15s',
@@ -539,8 +539,31 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
           )}
         </button>
 
-        <button className="map-mobile-only" onClick={() => setMobileLegendOpen(o => !o)} style={{
+        <button className="map-mobile-only" onClick={() => {
+          if (!navigator.geolocation) return
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              map.current?.flyTo({ center: [pos.coords.longitude, pos.coords.latitude], zoom: 12, duration: 1200 })
+            },
+            () => {},
+            { enableHighAccuracy: true, timeout: 8000 }
+          )
+        }} style={{
           position: 'absolute', bottom: 160, right: 16, zIndex: 10,
+          width: 48, height: 48, borderRadius: '50%',
+          background: 'rgba(250,248,245,0.97)', border: '1px solid var(--color-border)',
+          boxShadow: '0 2px 12px rgba(0,0,0,0.15)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'pointer',
+        }} aria-label="Use my location">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={PRIMARY} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
+          </svg>
+        </button>
+
+        <button className="map-mobile-only" onClick={() => setMobileLegendOpen(o => !o)} style={{
+          position: 'absolute', bottom: 220, right: 16, zIndex: 10,
           width: 48, height: 48, borderRadius: '50%',
           background: 'rgba(250,248,245,0.97)', border: '1px solid var(--color-border)',
           boxShadow: '0 2px 12px rgba(0,0,0,0.15)',
@@ -551,7 +574,7 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
         {/* Mobile legend popover */}
         {mobileLegendOpen && (
           <div className="map-mobile-only" style={{
-            position: 'absolute', bottom: 220, right: 16, zIndex: 10,
+            position: 'absolute', bottom: 280, right: 16, zIndex: 10,
             background: 'rgba(250,248,245,0.97)', border: '1px solid var(--color-border)',
             borderRadius: 6, padding: '12px 14px', boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
           }}>
@@ -592,9 +615,9 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
                   const active = v.key === 'all' ? isAllVerticals : selectedVerticals.has(v.key)
                   return (
                     <button key={v.key} onClick={() => toggleVertical(v.key)} style={{
-                      padding: '7px 14px', borderRadius: 20,
+                      padding: '10px 16px', borderRadius: 20, minHeight: 44,
                       border: `1px solid ${active ? (VERTICAL_COLORS[v.key] || PRIMARY) : 'var(--color-border)'}`,
-                      cursor: 'pointer', fontSize: 12, fontWeight: 500, fontFamily: 'var(--font-sans)',
+                      cursor: 'pointer', fontSize: 13, fontWeight: 500, fontFamily: 'var(--font-sans)',
                       background: active ? (VERTICAL_COLORS[v.key] || PRIMARY) : 'transparent',
                       color: active ? '#fff' : 'var(--color-muted)', transition: 'all 0.15s',
                     }}>{v.label}</button>
@@ -609,17 +632,17 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
                 <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', marginBottom: 10, fontFamily: 'var(--font-sans)' }}>Type</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   <button onClick={() => setSubTypeFilter('all')} style={{
-                    padding: '7px 14px', borderRadius: 20,
+                    padding: '10px 16px', borderRadius: 20, minHeight: 44,
                     border: `1px solid ${subTypeFilter === 'all' ? (VERTICAL_COLORS[singleSelectedVertical] || PRIMARY) : 'var(--color-border)'}`,
-                    cursor: 'pointer', fontSize: 12, fontWeight: 500, fontFamily: 'var(--font-sans)',
+                    cursor: 'pointer', fontSize: 13, fontWeight: 500, fontFamily: 'var(--font-sans)',
                     background: subTypeFilter === 'all' ? (VERTICAL_COLORS[singleSelectedVertical] || PRIMARY) : 'transparent',
                     color: subTypeFilter === 'all' ? '#fff' : 'var(--color-muted)', transition: 'all 0.15s',
                   }}>All</button>
                   {Object.entries(currentSubTypes).map(([key, label]) => (
                     <button key={key} onClick={() => { setSubTypeFilter(key); setMobileSheetOpen(false) }} style={{
-                      padding: '7px 14px', borderRadius: 20,
+                      padding: '10px 16px', borderRadius: 20, minHeight: 44,
                       border: `1px solid ${subTypeFilter === key ? (VERTICAL_COLORS[singleSelectedVertical] || PRIMARY) : 'var(--color-border)'}`,
-                      cursor: 'pointer', fontSize: 12, fontWeight: 500, fontFamily: 'var(--font-sans)',
+                      cursor: 'pointer', fontSize: 13, fontWeight: 500, fontFamily: 'var(--font-sans)',
                       background: subTypeFilter === key ? (VERTICAL_COLORS[singleSelectedVertical] || PRIMARY) : 'transparent',
                       color: subTypeFilter === key ? '#fff' : 'var(--color-muted)', transition: 'all 0.15s',
                     }}>{label}</button>
@@ -634,9 +657,9 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {STATES.map(s => (
                   <button key={s} onClick={() => { setStateFilter(s); setMobileSheetOpen(false) }} style={{
-                    padding: '7px 14px', borderRadius: 20,
+                    padding: '10px 16px', borderRadius: 20, minHeight: 44,
                     border: `1px solid ${stateFilter === s ? PRIMARY : 'var(--color-border)'}`,
-                    cursor: 'pointer', fontSize: 12, fontWeight: 500, fontFamily: 'var(--font-sans)',
+                    cursor: 'pointer', fontSize: 13, fontWeight: 500, fontFamily: 'var(--font-sans)',
                     background: stateFilter === s ? PRIMARY : 'transparent',
                     color: stateFilter === s ? '#fff' : 'var(--color-muted)', transition: 'all 0.15s',
                   }}>{s}</button>

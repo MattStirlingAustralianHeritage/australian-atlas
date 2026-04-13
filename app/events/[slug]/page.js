@@ -50,7 +50,7 @@ async function getEvent(slug) {
     const sb = getSupabaseAdmin()
     const { data } = await sb
       .from('events')
-      .select('*')
+      .select('id, name, slug, description, start_date, end_date, ticket_url, category, state, region, region_id, image_url, website_url, location_name, suburb, address, lat, lng, verticals, status')
       .eq('slug', slug)
       .eq('status', 'approved')
       .single()

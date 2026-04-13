@@ -17,7 +17,7 @@ const getTrail = cache(async function getTrail(slug) {
   const sb = getSupabaseAdmin()
   const { data } = await sb
     .from('trails')
-    .select('*')
+    .select('id, title, description, short_code, slug, type, visibility, hero_intro, cover_image_url, region, duration, curator_name, curator_note, vertical_focus, best_season, published')
     .eq('slug', slug)
     .eq('published', true)
     .single()

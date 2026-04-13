@@ -1,0 +1,422 @@
+{
+  "generatedAt": "2026-04-13T07:34:18.145Z",
+  "totalListings": 6201,
+  "updated": 6201,
+  "errors": 0,
+  "distribution": {
+    "0-20": 0,
+    "20-40": 2407,
+    "40-60": 3794,
+    "60-80": 0,
+    "80-100": 0
+  },
+  "avgByVertical": [
+    {
+      "vertical": "craft",
+      "avgScore": 47,
+      "count": 2315
+    },
+    {
+      "vertical": "found",
+      "avgScore": 43,
+      "count": 154
+    },
+    {
+      "vertical": "corner",
+      "avgScore": 41,
+      "count": 130
+    },
+    {
+      "vertical": "rest",
+      "avgScore": 41,
+      "count": 96
+    },
+    {
+      "vertical": "sba",
+      "avgScore": 40,
+      "count": 2148
+    },
+    {
+      "vertical": "table",
+      "avgScore": 40,
+      "count": 54
+    },
+    {
+      "vertical": "collection",
+      "avgScore": 39,
+      "count": 954
+    },
+    {
+      "vertical": "fine_grounds",
+      "avgScore": 36,
+      "count": 147
+    },
+    {
+      "vertical": "field",
+      "avgScore": 32,
+      "count": 203
+    }
+  ],
+  "avgByRegion": [
+    {
+      "region": "Unknown",
+      "avgScore": 46,
+      "count": 1738
+    },
+    {
+      "region": "Melbourne",
+      "avgScore": 45,
+      "count": 234
+    },
+    {
+      "region": "Sydney",
+      "avgScore": 45,
+      "count": 194
+    },
+    {
+      "region": "Adelaide",
+      "avgScore": 45,
+      "count": 163
+    },
+    {
+      "region": "Brisbane",
+      "avgScore": 46,
+      "count": 136
+    },
+    {
+      "region": "Perth",
+      "avgScore": 46,
+      "count": 107
+    },
+    {
+      "region": "Margaret River",
+      "avgScore": 39,
+      "count": 78
+    },
+    {
+      "region": "Hobart City",
+      "avgScore": 46,
+      "count": 75
+    },
+    {
+      "region": "Newcastle",
+      "avgScore": 47,
+      "count": 59
+    },
+    {
+      "region": "Yarra Valley",
+      "avgScore": 40,
+      "count": 54
+    },
+    {
+      "region": "Barossa Valley",
+      "avgScore": 39,
+      "count": 51
+    },
+    {
+      "region": "Hunter Valley",
+      "avgScore": 40,
+      "count": 47
+    },
+    {
+      "region": "McLaren Vale",
+      "avgScore": 41,
+      "count": 43
+    },
+    {
+      "region": "Canberra District",
+      "avgScore": 38,
+      "count": 40
+    },
+    {
+      "region": "Pokolbin",
+      "avgScore": 40,
+      "count": 34
+    }
+  ],
+  "top20": [
+    {
+      "name": "Mead Medical",
+      "vertical": "sba",
+      "suburb": null,
+      "state": "WA",
+      "score": 58
+    },
+    {
+      "name": "The Butcher Shop",
+      "vertical": "corner",
+      "suburb": null,
+      "state": "WA",
+      "score": 55
+    },
+    {
+      "name": "Roots Custom Made Furniture",
+      "vertical": "craft",
+      "suburb": null,
+      "state": "VIC",
+      "score": 53
+    },
+    {
+      "name": "Terra-Villa Pottery",
+      "vertical": "craft",
+      "suburb": null,
+      "state": "SA",
+      "score": 53
+    },
+    {
+      "name": "Morris & Sons",
+      "vertical": "craft",
+      "suburb": null,
+      "state": "VIC",
+      "score": 53
+    },
+    {
+      "name": "Wildwood Designs",
+      "vertical": "craft",
+      "suburb": null,
+      "state": "NSW",
+      "score": 53
+    },
+    {
+      "name": "Agnes Restaurant",
+      "vertical": "table",
+      "suburb": null,
+      "state": "QLD",
+      "score": 53
+    },
+    {
+      "name": "Handspinners and Weavers Guild of S.A.",
+      "vertical": "craft",
+      "suburb": null,
+      "state": "SA",
+      "score": 53
+    },
+    {
+      "name": "Wild Island Tasmania",
+      "vertical": "craft",
+      "suburb": null,
+      "state": "TAS",
+      "score": 53
+    },
+    {
+      "name": "The Fabric Printer",
+      "vertical": "craft",
+      "suburb": null,
+      "state": "WA",
+      "score": 53
+    },
+    {
+      "name": "AAD Art Gallery - Australian Art & Design",
+      "vertical": "craft",
+      "suburb": null,
+      "state": "NSW",
+      "score": 53
+    },
+    {
+      "name": "Print Paint Pot - Pottery Class Sydney",
+      "vertical": "craft",
+      "suburb": null,
+      "state": "NSW",
+      "score": 53
+    },
+    {
+      "name": "Savoir-Faire Jewellery",
+      "vertical": "craft",
+      "suburb": null,
+      "state": "VIC",
+      "score": 53
+    },
+    {
+      "name": "Savannah Estate",
+      "vertical": "sba",
+      "suburb": null,
+      "state": "NSW",
+      "score": 53
+    },
+    {
+      "name": "Yarnarama - open by appointment",
+      "vertical": "craft",
+      "suburb": null,
+      "state": "SA",
+      "score": 53
+    },
+    {
+      "name": "Billabong Retreat",
+      "vertical": "rest",
+      "suburb": null,
+      "state": "NSW",
+      "score": 53
+    },
+    {
+      "name": "Empire Revival",
+      "vertical": "found",
+      "suburb": null,
+      "state": "QLD",
+      "score": 53
+    },
+    {
+      "name": "Tessuti Fabrics",
+      "vertical": "craft",
+      "suburb": null,
+      "state": "VIC",
+      "score": 53
+    },
+    {
+      "name": "Australian Galleries",
+      "vertical": "craft",
+      "suburb": null,
+      "state": "VIC",
+      "score": 53
+    },
+    {
+      "name": "Noisy Ritual",
+      "vertical": "sba",
+      "suburb": null,
+      "state": "VIC",
+      "score": 53
+    }
+  ],
+  "bottom20": [
+    {
+      "name": "Warrumbungle National Park Summit Trail",
+      "vertical": "field",
+      "suburb": null,
+      "state": null,
+      "score": 23
+    },
+    {
+      "name": "e360 Design",
+      "vertical": "corner",
+      "suburb": null,
+      "state": null,
+      "score": 23
+    },
+    {
+      "name": "Readings Bookshop",
+      "vertical": "corner",
+      "suburb": null,
+      "state": null,
+      "score": 23
+    },
+    {
+      "name": "Mount Sonder Lookout",
+      "vertical": "field",
+      "suburb": null,
+      "state": "NT",
+      "score": 25
+    },
+    {
+      "name": "Mount Kosciuszko Summit",
+      "vertical": "field",
+      "suburb": null,
+      "state": "NSW",
+      "score": 25
+    },
+    {
+      "name": "Kangaroo Island Coastal Walk",
+      "vertical": "field",
+      "suburb": null,
+      "state": "SA",
+      "score": 25
+    },
+    {
+      "name": "Drew Lookout",
+      "vertical": "field",
+      "suburb": null,
+      "state": "QLD",
+      "score": 25
+    },
+    {
+      "name": "The Pinnacle",
+      "vertical": "field",
+      "suburb": null,
+      "state": "ACT",
+      "score": 25
+    },
+    {
+      "name": "Ebor Falls",
+      "vertical": "field",
+      "suburb": null,
+      "state": "NSW",
+      "score": 25
+    },
+    {
+      "name": "Mostly Books",
+      "vertical": "corner",
+      "suburb": null,
+      "state": "SA",
+      "score": 25
+    },
+    {
+      "name": "Mossman Gorge Swimming",
+      "vertical": "field",
+      "suburb": null,
+      "state": "QLD",
+      "score": 25
+    },
+    {
+      "name": "Naracoorte Caves",
+      "vertical": "field",
+      "suburb": null,
+      "state": "SA",
+      "score": 25
+    },
+    {
+      "name": "Cape Hauy",
+      "vertical": "field",
+      "suburb": null,
+      "state": "TAS",
+      "score": 25
+    },
+    {
+      "name": "Hancock Gorge",
+      "vertical": "field",
+      "suburb": null,
+      "state": "WA",
+      "score": 25
+    },
+    {
+      "name": "Point Lookout",
+      "vertical": "field",
+      "suburb": null,
+      "state": "NSW",
+      "score": 25
+    },
+    {
+      "name": "Numie",
+      "vertical": "rest",
+      "suburb": null,
+      "state": "TAS",
+      "score": 25
+    },
+    {
+      "name": "Mt Ohlssen-Bagge",
+      "vertical": "field",
+      "suburb": null,
+      "state": "SA",
+      "score": 25
+    },
+    {
+      "name": "Mackenzie Falls Pool",
+      "vertical": "field",
+      "suburb": null,
+      "state": "VIC",
+      "score": 25
+    },
+    {
+      "name": "Trentham Falls",
+      "vertical": "field",
+      "suburb": null,
+      "state": "VIC",
+      "score": 25
+    },
+    {
+      "name": "Big Crystal Creek",
+      "vertical": "field",
+      "suburb": null,
+      "state": "QLD",
+      "score": 25
+    }
+  ],
+  "highValueTargets": 0
+}
