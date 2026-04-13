@@ -51,7 +51,21 @@ const getListing = cache(async function getListing(slug) {
     .limit(1)
     .maybeSingle()
 
-  if (error || !data) return null
+  // If the query fails (e.g. missing column), retry without optional columns
+  if (error && !data) {
+    const retry = await sb
+      .from('listings')
+      .select('id, vertical, name, slug, description, region, state, lat, lng, website, phone, address, hero_image_url, is_featured, is_claimed, editors_pick, status')
+      .eq('slug', slug)
+      .eq('status', 'active')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (retry.error || !retry.data) return null
+    return retry.data
+  }
+
+  if (!data) return null
   return data
 })
 
@@ -145,7 +159,6 @@ async function getRegionListings(listing, excludeIds = [], limit = 4) {
     .eq('status', 'active')
     .eq('region', listing.region)
     .not('id', 'in', `(${[listing.id, ...excludeIds].join(',')})`)
-    .order('quality_score', { ascending: false })
     .order('editors_pick', { ascending: false })
     .limit(limit)
 
@@ -163,7 +176,7 @@ async function getCrossVerticalListings(listing, excludeIds = [], limit = 3) {
     .eq('region', listing.region)
     .neq('vertical', listing.vertical)
     .not('id', 'in', `(${[listing.id, ...excludeIds].join(',')})`)
-    .order('quality_score', { ascending: false })
+    .order('editors_pick', { ascending: false })
     .limit(limit)
 
   return data || []
