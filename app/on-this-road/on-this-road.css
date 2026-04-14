@@ -1,0 +1,75 @@
+/* On This Road — responsive styles */
+
+/* Loading animation */
+@keyframes roadLine {
+  0% { transform: scaleX(0); transform-origin: left; }
+  50% { transform: scaleX(1); transform-origin: left; }
+  50.1% { transform: scaleX(1); transform-origin: right; }
+  100% { transform: scaleX(0); transform-origin: right; }
+}
+
+/* Form inputs stack on mobile */
+@media (max-width: 640px) {
+  .otr-inputs {
+    flex-direction: column !important;
+  }
+  .otr-inputs > div {
+    flex: unset !important;
+  }
+}
+
+/* Mobile: show toggle, hide map by default */
+.otr-mobile-toggle {
+  display: flex !important;
+}
+.otr-mobile-map {
+  display: none;
+}
+
+/* Desktop: hide toggle, show both columns */
+@media (min-width: 768px) {
+  .otr-mobile-toggle {
+    display: none !important;
+  }
+  .otr-mobile-map {
+    display: block !important;
+  }
+  .otr-split {
+    grid-template-columns: 3fr 2fr !important;
+    gap: 32px !important;
+  }
+  .otr-map-col {
+    position: sticky !important;
+    top: 20px !important;
+    align-self: start !important;
+    height: calc(100vh - 40px) !important;
+  }
+}
+
+/* Swap button */
+.otr-swap-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+  background: var(--color-card-bg, #fff);
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  align-self: flex-end;
+  margin-bottom: 6px;
+}
+.otr-swap-btn:hover {
+  background: var(--color-cream, #f5f2ec);
+  border-color: var(--color-accent, #B87333);
+}
+@media (max-width: 640px) {
+  .otr-swap-btn {
+    align-self: center;
+    margin-bottom: 0;
+    transform: rotate(90deg);
+  }
+}
