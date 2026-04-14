@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import BackfillButton from './BackfillButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -6,6 +7,18 @@ const VERTICAL_DISPLAY = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
   fine_grounds: 'Fine Grounds', rest: 'Rest', field: 'Field',
   corner: 'Corner', found: 'Found', table: 'Table',
+}
+
+const VERTICAL_URLS = {
+  sba: 'https://smallbatchatlas.com.au',
+  collection: 'https://collectionatlas.com.au',
+  craft: 'https://craftatlas.com.au',
+  fine_grounds: 'https://finegroundsatlas.com.au',
+  rest: 'https://restatlas.com.au',
+  field: 'https://fieldatlas.com.au',
+  corner: 'https://corneratlas.com.au',
+  found: 'https://foundatlas.com.au',
+  table: 'https://tableatlas.com.au',
 }
 
 export default async function QualityReportPage() {
@@ -19,7 +32,7 @@ export default async function QualityReportPage() {
   while (true) {
     const { data, error } = await sb
       .from('listings')
-      .select('id, name, vertical, suburb, state, region, status, quality_score')
+      .select('id, name, vertical, slug, suburb, state, region, status, quality_score')
       .order('id')
       .range(offset, offset + BATCH - 1)
 
@@ -29,15 +42,15 @@ export default async function QualityReportPage() {
     if (data.length < BATCH) break
   }
 
-  // Distribution
-  const distribution = { '0-20': 0, '20-40': 0, '40-60': 0, '60-80': 0, '80-100': 0 }
+  // Distribution (using the requested ranges)
+  const distribution = { '0-20': 0, '21-40': 0, '41-60': 0, '61-80': 0, '81-100': 0 }
   for (const l of allListings) {
     const s = l.quality_score || 0
-    if (s < 20) distribution['0-20']++
-    else if (s < 40) distribution['20-40']++
-    else if (s < 60) distribution['40-60']++
-    else if (s < 80) distribution['60-80']++
-    else distribution['80-100']++
+    if (s <= 20) distribution['0-20']++
+    else if (s <= 40) distribution['21-40']++
+    else if (s <= 60) distribution['41-60']++
+    else if (s <= 80) distribution['61-80']++
+    else distribution['81-100']++
   }
 
   // Average by vertical
@@ -96,6 +109,7 @@ export default async function QualityReportPage() {
     statLabel: { fontFamily: 'var(--font-body, system-ui)', fontSize: '0.75rem', color: 'var(--color-muted, #888)', margin: '0.25rem 0 0', textTransform: 'uppercase', letterSpacing: '0.08em' },
     tableHeader: { fontWeight: 600, color: 'var(--color-muted, #888)', textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '0.7rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--color-border, #e5e5e5)' },
     tableRow: { fontFamily: 'var(--font-body, system-ui)', fontSize: '0.85rem', color: 'var(--color-ink, #2D2A26)', padding: '0.5rem 0', borderBottom: '1px solid var(--color-border, #e5e5e5)' },
+    listingLink: { color: 'var(--color-accent, #C49A3C)', textDecoration: 'none', fontWeight: 500 },
   }
 
   function scoreBadge(score) {
@@ -120,6 +134,12 @@ export default async function QualityReportPage() {
     }
   }
 
+  function listingLink(listing) {
+    const baseUrl = VERTICAL_URLS[listing.vertical]
+    if (!baseUrl || !listing.slug) return null
+    return `${baseUrl}/venue/${listing.slug}`
+  }
+
   return (
     <div style={styles.page}>
       <div style={styles.container}>
@@ -128,6 +148,9 @@ export default async function QualityReportPage() {
           <h1 style={styles.heading}>Quality Score Report</h1>
           <p style={styles.subtitle}>Data quality and completeness across all listings</p>
         </div>
+
+        {/* Backfill Button */}
+        <BackfillButton />
 
         {/* Stat cards */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
@@ -234,16 +257,25 @@ export default async function QualityReportPage() {
               </tr>
             </thead>
             <tbody>
-              {top20.map(l => (
-                <tr key={l.id}>
-                  <td style={styles.tableRow}>{l.name}</td>
-                  <td style={styles.tableRow}>{VERTICAL_DISPLAY[l.vertical] || l.vertical}</td>
-                  <td style={styles.tableRow}>{[l.suburb, l.state].filter(Boolean).join(', ')}</td>
-                  <td style={{ ...styles.tableRow, textAlign: 'right' }}>
-                    <span style={scoreBadge(l.quality_score || 0)}>{l.quality_score || 0}</span>
-                  </td>
-                </tr>
-              ))}
+              {top20.map(l => {
+                const link = listingLink(l)
+                return (
+                  <tr key={l.id}>
+                    <td style={styles.tableRow}>
+                      {link ? (
+                        <a href={link} target="_blank" rel="noopener noreferrer" style={styles.listingLink}>
+                          {l.name}
+                        </a>
+                      ) : l.name}
+                    </td>
+                    <td style={styles.tableRow}>{VERTICAL_DISPLAY[l.vertical] || l.vertical}</td>
+                    <td style={styles.tableRow}>{[l.suburb, l.state].filter(Boolean).join(', ')}</td>
+                    <td style={{ ...styles.tableRow, textAlign: 'right' }}>
+                      <span style={scoreBadge(l.quality_score || 0)}>{l.quality_score || 0}</span>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -262,16 +294,25 @@ export default async function QualityReportPage() {
               </tr>
             </thead>
             <tbody>
-              {bottom20.map(l => (
-                <tr key={l.id}>
-                  <td style={styles.tableRow}>{l.name}</td>
-                  <td style={styles.tableRow}>{VERTICAL_DISPLAY[l.vertical] || l.vertical}</td>
-                  <td style={styles.tableRow}>{[l.suburb, l.state].filter(Boolean).join(', ')}</td>
-                  <td style={{ ...styles.tableRow, textAlign: 'right' }}>
-                    <span style={scoreBadge(l.quality_score || 0)}>{l.quality_score || 0}</span>
-                  </td>
-                </tr>
-              ))}
+              {bottom20.map(l => {
+                const link = listingLink(l)
+                return (
+                  <tr key={l.id}>
+                    <td style={styles.tableRow}>
+                      {link ? (
+                        <a href={link} target="_blank" rel="noopener noreferrer" style={styles.listingLink}>
+                          {l.name}
+                        </a>
+                      ) : l.name}
+                    </td>
+                    <td style={styles.tableRow}>{VERTICAL_DISPLAY[l.vertical] || l.vertical}</td>
+                    <td style={styles.tableRow}>{[l.suburb, l.state].filter(Boolean).join(', ')}</td>
+                    <td style={{ ...styles.tableRow, textAlign: 'right' }}>
+                      <span style={scoreBadge(l.quality_score || 0)}>{l.quality_score || 0}</span>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>

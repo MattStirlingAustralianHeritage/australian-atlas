@@ -29,7 +29,7 @@ export async function POST(request) {
   try {
     let query = sb
       .from('listings')
-      .select('id, name, slug, vertical, description, region, state, lat, lng, website, phone, address, hero_image_url, source_id')
+      .select('id, name, slug, vertical, description, region, state, lat, lng, website, phone, address, hero_image_url, source_id, sub_type, sub_types')
       .eq('status', 'active')
       .not('lat', 'is', null)
       .not('lng', 'is', null)
@@ -38,7 +38,7 @@ export async function POST(request) {
       query = query.eq('vertical', verticalFilter)
     }
 
-    const { data: listings, error } = await query.order('vertical').limit(500)
+    const { data: listings, error } = await query.order('vertical').limit(2000)
     if (error) throw error
     if (!listings || listings.length === 0) {
       return NextResponse.json({ message: 'No active listings found', totals: {} })
@@ -65,7 +65,9 @@ export async function POST(request) {
         address: listing.address,
         hero_image_url: listing.hero_image_url,
         suburb: listing.region,
-        category: null,
+        category: (Array.isArray(listing.sub_types) && listing.sub_types.length > 0)
+          ? listing.sub_types[0]
+          : (listing.sub_type || null),
       }
 
       const sourceId = listing.source_id

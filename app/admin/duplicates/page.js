@@ -92,28 +92,8 @@ export default async function DuplicatesPage() {
       </div>
 
       <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
-        {/* Summary Cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-          <SummaryCard label="Pending" sublabel="Awaiting review" count={counts.pending} color="#92400e" bg="#fffbeb" border="#fde68a" />
-          <SummaryCard label="Merged" sublabel="Duplicates resolved" count={counts.merged} color="#276749" bg="#f0fff4" border="#c6e9c6" />
-          <SummaryCard label="Dismissed" sublabel="Not duplicates" count={counts.dismissed} color="#666" bg="#f7f7f7" border="#e5e5e5" />
-        </div>
-
-        {/* Table */}
-        <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid var(--color-border, #E5E0D8)', overflow: 'hidden' }}>
-          <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--color-border, #E5E0D8)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h2 style={{ fontSize: '1rem', fontWeight: 600, margin: 0, color: 'var(--color-ink, #2D2A26)' }}>
-              Pairs
-            </h2>
-            <span style={{ fontSize: '0.8rem', color: 'var(--color-muted, #8B8578)' }}>
-              {enrichedPairs.length} results
-            </span>
-          </div>
-
-          <div style={{ padding: '0 0.5rem 0.5rem' }}>
-            <DuplicatesTable initialPairs={enrichedPairs} />
-          </div>
-        </div>
+        {/* Table — counts are managed client-side for instant updates */}
+        <DuplicatesTable initialPairs={enrichedPairs} initialCounts={counts} />
       </div>
     </div>
   )

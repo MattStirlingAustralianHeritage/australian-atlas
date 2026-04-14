@@ -92,7 +92,7 @@ const getListing = cache(async function getListing(slug) {
   // to avoid PGRST116 if two verticals share a slug
   const { data, error } = await sb
     .from('listings')
-    .select('id, vertical, name, slug, description, region, state, suburb, lat, lng, website, phone, address, hero_image_url, is_featured, is_claimed, editors_pick, status, hours, cluster_id, verified, sub_type')
+    .select('id, vertical, name, slug, description, region, state, suburb, lat, lng, website, phone, address, hero_image_url, is_featured, is_claimed, editors_pick, status, hours, cluster_id, verified, sub_type, sub_types')
     .eq('slug', slug)
     .eq('status', 'active')
     .order('updated_at', { ascending: false })
@@ -375,6 +375,8 @@ export default async function PlacePage({ params }) {
   // over the generic vertical label (e.g. "Boutique Stay")
   const specificSubcategory = formatSubcategory(listing._subcategory || listing.sub_type)
   const categoryLabel = specificSubcategory || VERTICAL_CATEGORY_LABELS[listing.vertical] || 'Place'
+  // Secondary subcategories — sub_types[1+] (skip the primary which is already shown)
+  const secondarySubcategories = (listing.sub_types || []).slice(1).map(formatSubcategory).filter(Boolean)
   const verticalUrl = getVerticalUrl(listing.vertical, listing.slug)
   // Build location subtitle — prefer address when region looks like a street
   // (data quality issue: some listings have street address stored as region)
@@ -454,11 +456,23 @@ export default async function PlacePage({ params }) {
         </nav>
 
         {/* Vertical badge + category */}
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
           <VerticalBadge vertical={listing.vertical} />
           <span className="text-xs" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)' }}>
             {categoryLabel}
           </span>
+          {secondarySubcategories.map((sc, i) => (
+            <span key={i} className="text-xs px-2 py-0.5 rounded-full" style={{
+              fontFamily: 'var(--font-body)',
+              color: 'var(--color-muted)',
+              background: 'var(--color-cream, #FAF8F5)',
+              border: '1px solid var(--color-border, #e0dcd4)',
+              fontSize: '10px',
+              letterSpacing: '0.03em',
+            }}>
+              {sc}
+            </span>
+          ))}
         </div>
 
         {/* Name */}
@@ -792,6 +806,8 @@ export default async function PlacePage({ params }) {
             is_featured: listing.is_featured,
             editors_pick: listing.editors_pick,
             is_claimed: listing.is_claimed,
+            sub_type: listing.sub_type,
+            sub_types: listing.sub_types || [],
           }} />
           <VerificationBadge
             listingId={listing.id}

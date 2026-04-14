@@ -157,6 +157,143 @@ function PanelToggle({ label, value, onChange }) {
   )
 }
 
+// ── Identify which field key is the "category" field for each vertical ──
+const VERTICAL_CATEGORY_KEY = {
+  sba: 'producer_type',
+  collection: 'institution_type',
+  craft: 'discipline',
+  fine_grounds: 'entity_type',
+  rest: 'accommodation_type',
+  field: 'feature_type',
+  corner: 'shop_type',
+  found: 'shop_type',
+  table: 'food_type',
+}
+
+// ── Subcategory multi-select with primary/secondary ordering ──
+function SubcategoryPicker({ label, options, selected, onChange }) {
+  // selected = array of values, first = primary
+  const selectedArr = Array.isArray(selected) ? selected : (selected ? [selected] : [])
+
+  const addItem = (value) => {
+    if (!value || selectedArr.includes(value)) return
+    onChange([...selectedArr, value])
+  }
+
+  const removeItem = (index) => {
+    const next = [...selectedArr]
+    next.splice(index, 1)
+    onChange(next)
+  }
+
+  const moveUp = (index) => {
+    if (index <= 0) return
+    const next = [...selectedArr]
+    ;[next[index - 1], next[index]] = [next[index], next[index - 1]]
+    onChange(next)
+  }
+
+  const moveDown = (index) => {
+    if (index >= selectedArr.length - 1) return
+    const next = [...selectedArr]
+    ;[next[index], next[index + 1]] = [next[index + 1], next[index]]
+    onChange(next)
+  }
+
+  const getLabel = (val) => {
+    const opt = options.find(o => (typeof o === 'string' ? o : o.value) === val)
+    if (!opt) return val.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+    return typeof opt === 'string' ? opt : opt.label
+  }
+
+  // Options not yet selected
+  const availableOptions = options.filter(o => {
+    const val = typeof o === 'string' ? o : o.value
+    return !selectedArr.includes(val)
+  })
+
+  const chipBase = {
+    display: 'inline-flex', alignItems: 'center', gap: 4,
+    fontFamily: 'var(--font-body, system-ui)', fontSize: 11,
+    padding: '4px 8px', borderRadius: 6, cursor: 'default',
+    lineHeight: 1.3,
+  }
+
+  const arrowBtn = {
+    background: 'none', border: 'none', cursor: 'pointer',
+    padding: '0 2px', fontSize: 12, lineHeight: 1,
+    color: 'inherit', opacity: 0.6,
+  }
+
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <label style={{
+        display: 'block', fontFamily: 'var(--font-body, system-ui)', fontSize: 10,
+        fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase',
+        color: 'var(--color-muted, #6B6760)', marginBottom: 5,
+      }}>{label}</label>
+
+      {/* Selected items with ordering controls */}
+      {selectedArr.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+          {selectedArr.map((val, i) => (
+            <span key={val} style={{
+              ...chipBase,
+              background: i === 0 ? 'var(--color-ink, #2D2A26)' : 'var(--color-cream, #FAF8F5)',
+              color: i === 0 ? '#fff' : 'var(--color-ink, #2D2A26)',
+              border: i === 0 ? 'none' : '1px solid var(--color-border, #e0dcd4)',
+              fontWeight: i === 0 ? 600 : 400,
+            }}>
+              <span style={{
+                fontSize: 8, fontWeight: 700, letterSpacing: '0.06em',
+                textTransform: 'uppercase', opacity: 0.7, marginRight: 2,
+              }}>
+                {i === 0 ? 'PRIMARY' : `#${i + 1}`}
+              </span>
+              {getLabel(val)}
+              {selectedArr.length > 1 && (
+                <>
+                  <button onClick={() => moveUp(i)} disabled={i === 0}
+                    style={{ ...arrowBtn, opacity: i === 0 ? 0.2 : 0.6 }} title="Move up"
+                  >&#9650;</button>
+                  <button onClick={() => moveDown(i)} disabled={i === selectedArr.length - 1}
+                    style={{ ...arrowBtn, opacity: i === selectedArr.length - 1 ? 0.2 : 0.6 }} title="Move down"
+                  >&#9660;</button>
+                </>
+              )}
+              <button onClick={() => removeItem(i)}
+                style={{ ...arrowBtn, fontSize: 14, opacity: 0.5 }} title="Remove"
+              >&#10005;</button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Dropdown to add more subcategories */}
+      {availableOptions.length > 0 && (
+        <select
+          value=""
+          onChange={e => { if (e.target.value) addItem(e.target.value) }}
+          style={{
+            fontFamily: 'var(--font-body, system-ui)', fontSize: 13,
+            color: 'var(--color-ink)',
+            border: '1px solid var(--color-border, #e0dcd4)', borderRadius: 6,
+            padding: '8px 10px', background: '#fff', outline: 'none',
+            width: '100%', boxSizing: 'border-box', cursor: 'pointer',
+          }}
+        >
+          <option value="">{selectedArr.length === 0 ? 'Select primary subcategory...' : 'Add secondary subcategory...'}</option>
+          {availableOptions.map(o => {
+            const val = typeof o === 'string' ? o : o.value
+            const lab = typeof o === 'string' ? o : o.label
+            return <option key={val} value={val}>{lab}</option>
+          })}
+        </select>
+      )}
+    </div>
+  )
+}
+
 // ── Main component ──────────────────────────────────────────
 // IMPORTANT: This component is ONLY rendered when the server-side
 // admin check passes in the listing page. It never reaches the DOM
@@ -167,6 +304,7 @@ export default function InlineListingEditor({ listing }) {
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState(null)
   const [metaDraft, setMetaDraft] = useState({})
+  const [subTypes, setSubTypes] = useState([])
   const [saving, setSaving] = useState(false)
   const [saveResult, setSaveResult] = useState(null) // 'success' | 'error'
   const [errorMsg, setErrorMsg] = useState(null)
@@ -189,6 +327,11 @@ export default function InlineListingEditor({ listing }) {
       editors_pick: listing.editors_pick || false,
     })
     setMetaDraft(listing.meta || {})
+    // Initialize sub_types from listing data — prefer sub_types array, fall back to sub_type scalar
+    const initialSubTypes = Array.isArray(listing.sub_types) && listing.sub_types.length > 0
+      ? listing.sub_types
+      : (listing.sub_type ? [listing.sub_type] : [])
+    setSubTypes(initialSubTypes)
     setOpen(true)
     setSaveResult(null)
     setErrorMsg(null)
@@ -198,6 +341,7 @@ export default function InlineListingEditor({ listing }) {
     setOpen(false)
     setDraft(null)
     setMetaDraft({})
+    setSubTypes([])
     setSaveResult(null)
     setErrorMsg(null)
   }, [])
@@ -220,18 +364,53 @@ export default function InlineListingEditor({ listing }) {
       // Attach meta fields if any were changed
       const metaFields = VERTICAL_FIELDS[draft.vertical || listing.vertical]
       if (metaFields && Object.keys(metaDraft).length > 0) {
-        payload._meta = metaDraft
+        payload._meta = { ...metaDraft }
       }
 
-      const res = await fetch(`/api/admin/listings/${listing.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      const data = await res.json()
+      // Sync sub_types array to payload — the primary (index 0) also gets
+      // written to the vertical's category meta key so the API can sync it
+      if (subTypes.length > 0) {
+        payload._sub_types = subTypes
+        const vertical = draft.vertical || listing.vertical
+        const categoryKey = VERTICAL_CATEGORY_KEY[vertical]
+        if (categoryKey) {
+          // Ensure meta payload includes the primary subcategory
+          if (!payload._meta) payload._meta = {}
+          payload._meta[categoryKey] = subTypes[0]
+        }
+      } else {
+        payload._sub_types = []
+      }
+
+      // Use AbortController with 15s timeout to prevent hanging requests
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 15000)
+
+      let res
+      try {
+        res = await fetch(`/api/admin/listings/${listing.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+        })
+      } finally {
+        clearTimeout(timeout)
+      }
+
+      let data
+      try {
+        data = await res.json()
+      } catch {
+        // Response wasn't valid JSON
+        setErrorMsg(`Server returned ${res.status} ${res.statusText}`)
+        setSaveResult('error')
+        setSaving(false)
+        return
+      }
 
       if (!res.ok) {
-        setErrorMsg(data.error || 'Save failed')
+        setErrorMsg(data.error || `Save failed (${res.status})`)
         setSaveResult('error')
         setSaving(false)
         return
@@ -248,11 +427,17 @@ export default function InlineListingEditor({ listing }) {
         setSaveResult(null)
       }, 2000)
     } catch (err) {
-      setErrorMsg(err.message || 'Network error')
+      if (err.name === 'AbortError') {
+        setErrorMsg('Request timed out — the server took too long to respond. Try again.')
+      } else if (err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
+        setErrorMsg('Network error — check your connection and try again.')
+      } else {
+        setErrorMsg(err.message || 'Unexpected error')
+      }
       setSaveResult('error')
       setSaving(false)
     }
-  }, [draft, metaDraft, saving, listing.id, listing.vertical, router])
+  }, [draft, metaDraft, subTypes, saving, listing.id, listing.vertical, router])
 
   // Escape key closes panel
   useEffect(() => {
@@ -451,6 +636,30 @@ export default function InlineListingEditor({ listing }) {
                   </div>
 
                   {verticalFields.map(field => {
+                    const vertical = draft.vertical || listing.vertical
+                    const categoryKey = VERTICAL_CATEGORY_KEY[vertical]
+
+                    // Use SubcategoryPicker for the category field (multi-select with ordering)
+                    if (field.type === 'select' && field.key === categoryKey) {
+                      return (
+                        <SubcategoryPicker
+                          key={field.key}
+                          label={field.label}
+                          options={field.options}
+                          selected={subTypes}
+                          onChange={(newSubTypes) => {
+                            setSubTypes(newSubTypes)
+                            // Keep metaDraft in sync with the primary subcategory
+                            if (newSubTypes.length > 0) {
+                              updateMeta(field.key, newSubTypes[0])
+                            } else {
+                              updateMeta(field.key, null)
+                            }
+                          }}
+                        />
+                      )
+                    }
+
                     if (field.type === 'toggle') {
                       return (
                         <PanelToggle

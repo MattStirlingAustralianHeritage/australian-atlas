@@ -415,6 +415,7 @@ export async function POST(request, { params }) {
         address: fullData.address,
         hero_image_url: null,
         sub_type: fullData.category || null,
+        sub_types: fullData.category ? [fullData.category] : [],
         status: 'active',
         is_claimed: false,
         is_featured: false,

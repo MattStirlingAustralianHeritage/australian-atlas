@@ -12,7 +12,8 @@ const EXTENSION_TABLES = {
 }
 
 // Maps vertical → the meta key that holds its subcategory.
-// When this key is saved to the meta table, we also sync it to listings.sub_type.
+// When this key is saved to the meta table, we also sync it to listings.sub_types[0].
+// The trigger on listings keeps sub_type in sync with sub_types[1] automatically.
 const META_CATEGORY_KEY = {
   sba: 'producer_type',
   collection: 'institution_type',
@@ -37,9 +38,9 @@ export async function PATCH(request, { params }) {
   try {
     const body = await request.json()
 
-    // Extract meta fields if included — save them BEFORE the main update
+    // Extract meta fields and sub_types — save them BEFORE the main update
     // so that updateListing reads fresh meta for the vertical sync
-    const { _meta, ...listingFields } = body
+    const { _meta, _sub_types, ...listingFields } = body
     let metaResult = null
 
     if (_meta && Object.keys(_meta).length > 0) {
@@ -61,16 +62,43 @@ export async function PATCH(request, { params }) {
           metaResult = { success: true, meta: metaData }
         }
 
-        // ── Sync category meta field → listings.sub_type ──
-        // Keeps the generic sub_type column in sync with the vertical-specific
-        // category field (e.g. rest.accommodation_type → listings.sub_type)
+        // ── Sync category meta field → listings.sub_types ──
+        // The primary subcategory (sub_types[0]) comes from the vertical-specific
+        // category field (e.g. rest.accommodation_type).
+        // Secondary subcategories (sub_types[1+]) can be set via _sub_types in the payload.
+        // The DB trigger keeps sub_type in sync with sub_types[1] automatically.
         const categoryKey = META_CATEGORY_KEY[row.vertical]
         if (categoryKey && categoryKey in _meta) {
-          const newSubType = _meta[categoryKey] || null
-          listingFields.sub_type = newSubType
-          console.log(`[admin/listings/PATCH] Syncing ${row.vertical}.${categoryKey} → sub_type: ${newSubType}`)
+          const primarySubType = _meta[categoryKey] || null
+
+          // If the client sent _sub_types (full ordered array), use it directly
+          // Otherwise, build the array: new primary + existing secondaries
+          if (Array.isArray(_sub_types)) {
+            listingFields.sub_types = _sub_types.filter(Boolean)
+          } else if (primarySubType) {
+            // Preserve existing secondary subcategories if any
+            const { data: currentRow } = await sb.from('listings').select('sub_types').eq('id', id).single()
+            const existingArray = currentRow?.sub_types || []
+            const secondaries = existingArray.slice(1)
+            listingFields.sub_types = [primarySubType, ...secondaries]
+          } else {
+            listingFields.sub_types = []
+          }
+          // sub_type kept in sync: primary = sub_types[0]
+          console.log(`[admin/listings/PATCH] Syncing ${row.vertical}.${categoryKey} → sub_types: [${listingFields.sub_types.join(', ')}]`)
+        }
+
+        // Handle explicit _sub_types without category change (reordering secondaries)
+        if (Array.isArray(_sub_types) && !(categoryKey && categoryKey in _meta)) {
+          listingFields.sub_types = _sub_types.filter(Boolean)
+          console.log(`[admin/listings/PATCH] Explicit sub_types update: [${listingFields.sub_types.join(', ')}]`)
         }
       }
+    }
+
+    // Handle _sub_types sent without _meta (e.g., direct API call or reordering only)
+    if (Array.isArray(_sub_types) && !('sub_types' in listingFields)) {
+      listingFields.sub_types = _sub_types.filter(Boolean)
     }
 
     // Now run the main update (reads fresh meta for vertical sync)

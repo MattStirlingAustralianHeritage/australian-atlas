@@ -279,26 +279,102 @@ function DiffIndicator({ a, b, field, label }) {
   )
 }
 
+// ─── Summary Card (moved here for client-side count updates) ─
+
+function SummaryCard({ label, sublabel, count, color, bg, border }) {
+  return (
+    <div style={{
+      display: 'block',
+      background: bg,
+      borderRadius: '12px',
+      border: `1px solid ${border}`,
+      padding: '1.25rem',
+    }}>
+      <p style={{ fontSize: '0.7rem', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted, #8B8578)', margin: '0 0 0.375rem' }}>
+        {label}
+      </p>
+      <p style={{ fontSize: '2rem', fontWeight: 600, color, margin: '0 0 0.25rem', fontVariantNumeric: 'tabular-nums', fontFamily: 'var(--font-display, Georgia)' }}>
+        {count}
+      </p>
+      <p style={{ fontSize: '0.7rem', color: 'var(--color-muted, #8B8578)', margin: 0 }}>
+        {sublabel}
+      </p>
+    </div>
+  )
+}
+
+// ─── Inline error banner for a pair ─────────────────────
+
+function PairError({ message, onDismiss }) {
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: '8px',
+      padding: '8px 12px',
+      borderRadius: '6px',
+      background: '#fef2f2',
+      border: '1px solid #f5c6c6',
+      marginBottom: '10px',
+    }}>
+      <p style={{ fontSize: '0.75rem', color: '#c53030', margin: 0, fontWeight: 500 }}>
+        {message}
+      </p>
+      <button
+        onClick={onDismiss}
+        style={{
+          background: 'none', border: 'none', cursor: 'pointer',
+          color: '#c53030', fontSize: '1rem', lineHeight: 1, padding: '0 2px',
+        }}
+        aria-label="Dismiss error"
+      >
+        &times;
+      </button>
+    </div>
+  )
+}
+
 // ─── Main Component ──────────────────────────────────────
 
-export default function DuplicatesTable({ initialPairs }) {
+export default function DuplicatesTable({ initialPairs, initialCounts }) {
   const router = useRouter()
   const [filter, setFilter] = useState('all')
   const [skipped, setSkipped] = useState(new Set())
+  const [resolved, setResolved] = useState(new Set()) // pairs removed by merge/dismiss
   const [loadingAction, setLoadingAction] = useState({}) // pairId -> action
   const [mergeSelections, setMergeSelections] = useState({}) // pairId -> keepId
+  const [pairErrors, setPairErrors] = useState({}) // pairId -> error message
+  const [countDeltas, setCountDeltas] = useState({ pending: 0, merged: 0, dismissed: 0 })
 
-  const filtered = (initialPairs || []).filter(p => {
-    if (skipped.has(p.id)) return false
+  // Live counts = server counts + local deltas
+  const counts = {
+    pending: (initialCounts?.pending || 0) + countDeltas.pending,
+    merged: (initialCounts?.merged || 0) + countDeltas.merged,
+    dismissed: (initialCounts?.dismissed || 0) + countDeltas.dismissed,
+  }
+
+  // Visible pairs: not skipped, not resolved
+  const visible = (initialPairs || []).filter(p => !skipped.has(p.id) && !resolved.has(p.id))
+
+  const filtered = visible.filter(p => {
     if (filter === 'high') return p.confidence === 'high'
     if (filter === 'medium') return p.confidence === 'medium'
     return true
   })
 
+  const clearError = useCallback((pairId) => {
+    setPairErrors(prev => {
+      const next = { ...prev }
+      delete next[pairId]
+      return next
+    })
+  }, [])
+
   const handleMerge = useCallback(async (pair) => {
     const keepId = mergeSelections[pair.id]
     if (!keepId) {
-      alert('Click on the listing you want to KEEP first, then press Merge.')
+      setPairErrors(prev => ({ ...prev, [pair.id]: 'Click on the listing you want to keep first, then press Merge.' }))
       return
     }
     const removeId = keepId === pair.listing_a_id ? pair.listing_b_id : pair.listing_a_id
@@ -309,6 +385,7 @@ export default function DuplicatesTable({ initialPairs }) {
       return
     }
 
+    clearError(pair.id)
     setLoadingAction(prev => ({ ...prev, [pair.id]: 'merge' }))
     try {
       await apiCall({
@@ -317,44 +394,71 @@ export default function DuplicatesTable({ initialPairs }) {
         keep_id: keepId,
         remove_id: removeId,
       })
+      // Instantly remove the pair and update counts
+      setResolved(prev => new Set([...prev, pair.id]))
+      setCountDeltas(prev => ({ ...prev, pending: prev.pending - 1, merged: prev.merged + 1 }))
+      // Background refresh for server-side consistency
       router.refresh()
     } catch (err) {
-      alert('Merge failed: ' + err.message)
+      setPairErrors(prev => ({ ...prev, [pair.id]: 'Merge failed: ' + err.message }))
     } finally {
       setLoadingAction(prev => ({ ...prev, [pair.id]: null }))
     }
-  }, [mergeSelections, router])
+  }, [mergeSelections, router, clearError])
 
   const handleDismiss = useCallback(async (pair) => {
+    clearError(pair.id)
     setLoadingAction(prev => ({ ...prev, [pair.id]: 'dismiss' }))
     try {
       await apiCall({
         action: 'dismiss',
         pair_id: pair.id,
       })
+      // Instantly remove the pair and update counts
+      setResolved(prev => new Set([...prev, pair.id]))
+      setCountDeltas(prev => ({ ...prev, pending: prev.pending - 1, dismissed: prev.dismissed + 1 }))
       router.refresh()
     } catch (err) {
-      alert('Dismiss failed: ' + err.message)
+      setPairErrors(prev => ({ ...prev, [pair.id]: 'Dismiss failed: ' + err.message }))
     } finally {
       setLoadingAction(prev => ({ ...prev, [pair.id]: null }))
     }
-  }, [router])
+  }, [router, clearError])
 
   const handleSkip = useCallback((pairId) => {
     setSkipped(prev => new Set([...prev, pairId]))
   }, [])
 
   const selectForKeep = useCallback((pairId, listingId) => {
+    clearError(pairId)
     setMergeSelections(prev => ({
       ...prev,
       [pairId]: prev[pairId] === listingId ? null : listingId,
     }))
-  }, [])
+  }, [clearError])
 
   return (
     <div>
       {/* Spinner keyframes */}
       <style>{`@keyframes dup-spin { to { transform: rotate(360deg) } }`}</style>
+
+      {/* Summary Cards — live-updating */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+        <SummaryCard label="Pending" sublabel="Awaiting review" count={counts.pending} color="#92400e" bg="#fffbeb" border="#fde68a" />
+        <SummaryCard label="Merged" sublabel="Duplicates resolved" count={counts.merged} color="#276749" bg="#f0fff4" border="#c6e9c6" />
+        <SummaryCard label="Dismissed" sublabel="Not duplicates" count={counts.dismissed} color="#666" bg="#f7f7f7" border="#e5e5e5" />
+      </div>
+
+      {/* Table wrapper */}
+      <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid var(--color-border, #E5E0D8)', overflow: 'hidden' }}>
+        <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--color-border, #E5E0D8)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h2 style={{ fontSize: '1rem', fontWeight: 600, margin: 0, color: 'var(--color-ink, #2D2A26)' }}>
+            Pairs
+          </h2>
+          <span style={{ fontSize: '0.8rem', color: 'var(--color-muted, #8B8578)' }}>
+            {visible.length} remaining
+          </span>
+        </div>
 
       {/* Filter Tabs */}
       <div style={{
@@ -367,8 +471,8 @@ export default function DuplicatesTable({ initialPairs }) {
         {FILTER_TABS.map(tab => {
           const isActive = filter === tab.key
           const count = tab.key === 'all'
-            ? (initialPairs || []).filter(p => !skipped.has(p.id)).length
-            : (initialPairs || []).filter(p => !skipped.has(p.id) && p.confidence === tab.key).length
+            ? visible.length
+            : visible.filter(p => p.confidence === tab.key).length
           return (
             <button
               key={tab.key}
@@ -407,14 +511,21 @@ export default function DuplicatesTable({ initialPairs }) {
             const confStyle = getConfidenceStyle(pair.confidence)
             const isLoading = !!loadingAction[pair.id]
             const selectedKeep = mergeSelections[pair.id]
+            const errorMsg = pairErrors[pair.id]
 
             return (
               <div key={pair.id} style={{
                 padding: '16px 20px',
                 borderRadius: '10px',
-                border: '1px solid var(--color-border, #E5E0D8)',
+                border: errorMsg ? '1px solid #f5c6c6' : '1px solid var(--color-border, #E5E0D8)',
                 background: '#fff',
+                transition: 'border-color 0.2s',
               }}>
+                {/* Inline error */}
+                {errorMsg && (
+                  <PairError message={errorMsg} onDismiss={() => clearError(pair.id)} />
+                )}
+
                 {/* Header row: badges + actions */}
                 <div style={{
                   display: 'flex',
@@ -477,7 +588,7 @@ export default function DuplicatesTable({ initialPairs }) {
                 </div>
 
                 {/* Merge instruction */}
-                {!selectedKeep && (
+                {!selectedKeep && !errorMsg && (
                   <p style={{
                     fontSize: '0.7rem',
                     color: 'var(--color-muted, #8B8578)',
@@ -517,6 +628,7 @@ export default function DuplicatesTable({ initialPairs }) {
           })}
         </div>
       )}
+      </div>
     </div>
   )
 }

@@ -1002,12 +1002,15 @@ export async function GET(request) {
     const sb = getSupabaseAdmin()
     const LISTING_COLS = 'id, name, vertical, lat, lng, region, state, description, hero_image_url, slug, source_id, is_claimed, is_featured, editors_pick'
 
-    // Helper: build a base query with status + coordinate filters + geo bounds
+    // Helper: build a base query with status + coordinate filters + geo bounds.
+    // trail_suitable filter excludes listings explicitly marked unsuitable
+    // (retail-only, workshops). NULL = not yet classified, still included.
     function baseQuery() {
       let q = sb
         .from('listings')
         .select(LISTING_COLS)
         .eq('status', 'active')
+        .or('trail_suitable.eq.true,trail_suitable.is.null')
         .not('lat', 'is', null)
         .not('lng', 'is', null)
       return applyGeoFilter(q, effectiveGeoBounds)

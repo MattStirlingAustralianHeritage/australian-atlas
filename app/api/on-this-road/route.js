@@ -196,10 +196,13 @@ export async function POST(request) {
       const latDelta = QUERY_BUFFER_KM / 111
       const lngDelta = QUERY_BUFFER_KM / (111 * Math.cos(pLat * Math.PI / 180))
 
+      // trail_suitable filter: exclude listings explicitly marked unsuitable.
+      // NULL = not yet classified (included until enrichment runs).
       const { data } = await sb
         .from('listings')
         .select('id, name, slug, vertical, region, state, suburb, lat, lng, hero_image_url, quality_score, description, sub_type')
         .eq('status', 'active')
+        .or('trail_suitable.eq.true,trail_suitable.is.null')
         .gte('lat', pLat - latDelta)
         .lte('lat', pLat + latDelta)
         .gte('lng', pLng - lngDelta)

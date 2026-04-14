@@ -118,6 +118,137 @@ const VERTICAL_FIELDS = {
   ],
 }
 
+// ── Identify which field key is the "category" field for each vertical ──
+const VERTICAL_CATEGORY_KEY = {
+  sba: 'producer_type',
+  collection: 'institution_type',
+  craft: 'discipline',
+  fine_grounds: 'entity_type',
+  rest: 'accommodation_type',
+  field: 'feature_type',
+  corner: 'shop_type',
+  found: 'shop_type',
+  table: 'food_type',
+}
+
+// ── Subcategory multi-select with primary/secondary ordering ──
+function SubcategoryPicker({ label, options, selected, onChange }) {
+  const selectedArr = Array.isArray(selected) ? selected : (selected ? [selected] : [])
+
+  const addItem = (value) => {
+    if (!value || selectedArr.includes(value)) return
+    onChange([...selectedArr, value])
+  }
+
+  const removeItem = (index) => {
+    const next = [...selectedArr]
+    next.splice(index, 1)
+    onChange(next)
+  }
+
+  const moveUp = (index) => {
+    if (index <= 0) return
+    const next = [...selectedArr]
+    ;[next[index - 1], next[index]] = [next[index], next[index - 1]]
+    onChange(next)
+  }
+
+  const moveDown = (index) => {
+    if (index >= selectedArr.length - 1) return
+    const next = [...selectedArr]
+    ;[next[index], next[index + 1]] = [next[index + 1], next[index]]
+    onChange(next)
+  }
+
+  const getLabel = (val) => {
+    const opt = options.find(o => (typeof o === 'string' ? o : o.value) === val)
+    if (!opt) return val.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+    return typeof opt === 'string' ? opt : opt.label
+  }
+
+  const availableOptions = options.filter(o => {
+    const val = typeof o === 'string' ? o : o.value
+    return !selectedArr.includes(val)
+  })
+
+  const chipBase = {
+    display: 'inline-flex', alignItems: 'center', gap: 4,
+    fontFamily: 'var(--font-body)', fontSize: 11,
+    padding: '4px 8px', borderRadius: 6, cursor: 'default',
+    lineHeight: 1.3,
+  }
+
+  const arrowBtn = {
+    background: 'none', border: 'none', cursor: 'pointer',
+    padding: '0 2px', fontSize: 12, lineHeight: 1,
+    color: 'inherit', opacity: 0.6,
+  }
+
+  const baseInput = {
+    fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-ink)',
+    border: '1px solid var(--color-border)', borderRadius: 6,
+    padding: '6px 10px', background: '#fff', outline: 'none',
+    width: '100%', boxSizing: 'border-box', cursor: 'pointer',
+  }
+
+  return (
+    <div style={{ marginBottom: 12, gridColumn: '1 / -1' }}>
+      <label style={{
+        display: 'block', fontFamily: 'var(--font-body)', fontSize: 10,
+        fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase',
+        color: 'var(--color-muted)', marginBottom: 4,
+      }}>{label}</label>
+
+      {selectedArr.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+          {selectedArr.map((val, i) => (
+            <span key={val} style={{
+              ...chipBase,
+              background: i === 0 ? 'var(--color-ink)' : 'var(--color-cream, #FAF8F5)',
+              color: i === 0 ? '#fff' : 'var(--color-ink)',
+              border: i === 0 ? 'none' : '1px solid var(--color-border)',
+              fontWeight: i === 0 ? 600 : 400,
+            }}>
+              <span style={{
+                fontSize: 8, fontWeight: 700, letterSpacing: '0.06em',
+                textTransform: 'uppercase', opacity: 0.7, marginRight: 2,
+              }}>
+                {i === 0 ? 'PRIMARY' : `#${i + 1}`}
+              </span>
+              {getLabel(val)}
+              {selectedArr.length > 1 && (
+                <>
+                  <button onClick={() => moveUp(i)} disabled={i === 0}
+                    style={{ ...arrowBtn, opacity: i === 0 ? 0.2 : 0.6 }} title="Move up"
+                  >&#9650;</button>
+                  <button onClick={() => moveDown(i)} disabled={i === selectedArr.length - 1}
+                    style={{ ...arrowBtn, opacity: i === selectedArr.length - 1 ? 0.2 : 0.6 }} title="Move down"
+                  >&#9660;</button>
+                </>
+              )}
+              <button onClick={() => removeItem(i)}
+                style={{ ...arrowBtn, fontSize: 14, opacity: 0.5 }} title="Remove"
+              >&#10005;</button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      {availableOptions.length > 0 && (
+        <select value="" onChange={e => { if (e.target.value) addItem(e.target.value) }}
+          style={baseInput}>
+          <option value="">{selectedArr.length === 0 ? 'Select primary subcategory...' : 'Add secondary subcategory...'}</option>
+          {availableOptions.map(o => {
+            const val = typeof o === 'string' ? o : o.value
+            const lab = typeof o === 'string' ? o : o.label
+            return <option key={val} value={val}>{lab}</option>
+          })}
+        </select>
+      )}
+    </div>
+  )
+}
+
 const SORT_OPTIONS = [
   { value: 'updated_at_desc', label: 'Recently Updated' },
   { value: 'name_asc', label: 'Name A–Z' },
@@ -379,6 +510,12 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
   const [deleteInput, setDeleteInput] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [meta, setMeta] = useState(null)
+  const [subTypes, setSubTypes] = useState(() => {
+    // Initialize from listing data
+    if (Array.isArray(listing.sub_types) && listing.sub_types.length > 0) return listing.sub_types
+    if (listing.sub_type) return [listing.sub_type]
+    return []
+  })
   const verticalColor = VERTICAL_COLORS[listing.vertical] || '#999'
 
   useEffect(() => {
@@ -397,6 +534,11 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
           if (data?.meta) {
             setMeta(data.meta)
             setDraft(prev => prev ? { ...prev, ...data.meta } : prev)
+            // If subTypes is empty, initialize from the meta category key
+            const categoryKey = VERTICAL_CATEGORY_KEY[listing.vertical]
+            if (categoryKey && data.meta[categoryKey] && subTypes.length === 0) {
+              setSubTypes([data.meta[categoryKey]])
+            }
           }
         })
         .catch(() => {})
@@ -425,12 +567,21 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
         if (hasMetaChanges) metaPayload = metaUpdates
       }
 
+      // Sync sub_types array: primary (index 0) also goes to the meta category key
+      const vertical = draft.vertical || listing.vertical
+      const categoryKey = VERTICAL_CATEGORY_KEY[vertical]
+      if (subTypes.length > 0 && categoryKey) {
+        if (!metaPayload) metaPayload = {}
+        metaPayload[categoryKey] = subTypes[0]
+      }
+
       const res = await fetch(`/api/admin/listings/${listing.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...draft,
           ...(metaPayload ? { _meta: metaPayload } : {}),
+          _sub_types: subTypes,
         }),
       })
       const data = await res.json()
@@ -660,14 +811,36 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
                 {VERTICAL_NAMES[draft.vertical]} Fields
               </p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 16px' }}>
-                {VERTICAL_FIELDS[draft.vertical].map(field => (
-                  field.type === 'toggle'
+                {VERTICAL_FIELDS[draft.vertical].map(field => {
+                  const catKey = VERTICAL_CATEGORY_KEY[draft.vertical]
+
+                  // Use SubcategoryPicker for the category field (multi-select with ordering)
+                  if (field.type === 'select' && field.key === catKey) {
+                    return (
+                      <SubcategoryPicker
+                        key={field.key}
+                        label={field.label}
+                        options={field.options}
+                        selected={subTypes}
+                        onChange={(newSubTypes) => {
+                          setSubTypes(newSubTypes)
+                          if (newSubTypes.length > 0) {
+                            updateDraft(field.key, newSubTypes[0])
+                          } else {
+                            updateDraft(field.key, null)
+                          }
+                        }}
+                      />
+                    )
+                  }
+
+                  return field.type === 'toggle'
                     ? <Field key={field.key} toggle label={field.label} value={draft[field.key]} onChange={v => updateDraft(field.key, v)} />
                     : <Field key={field.key} label={field.label} value={draft[field.key]}
                         onChange={v => updateDraft(field.key, v)}
                         type={field.type === 'select' ? undefined : field.type}
                         options={field.options} />
-                ))}
+                })}
               </div>
             </div>
           )}
