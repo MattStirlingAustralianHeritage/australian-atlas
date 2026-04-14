@@ -299,10 +299,12 @@ export async function POST(request) {
     }
 
     // 4. Get outbound route
+    console.log(`[on-this-road] [${rid}] Directions request: ${startCoords.lng},${startCoords.lat} → ${endCoords.lng},${endCoords.lat}`)
     const route = await getRoute(startCoords, endCoords)
     if (!route) {
       return NextResponse.json({ error: 'No driving route found between these locations.' }, { status: 400 })
     }
+    console.log(`[on-this-road] [${rid}] Route: ${Math.round(route.distance / 1000)}km, ${route.geometry?.coordinates?.length} coords, first: [${route.geometry?.coordinates?.[0]}], last: [${route.geometry?.coordinates?.[route.geometry?.coordinates?.length - 1]}]`)
 
     // 5. Build outbound itinerary
     const result = await buildItinerary({
@@ -715,6 +717,19 @@ async function buildItinerary({
 
 // ── Prompt builders ─────────────────────────────────────────────────
 
+// Shared editorial voice instructions for all prompts
+const EDITORIAL_VOICE = `WRITING VOICE — you are a travel editor at Australian Atlas. Write like field notes from someone who has driven this road and knows what matters.
+
+STOP DESCRIPTIONS: Write exactly two sentences per stop. First sentence: a specific sensory detail, what the traveller will notice or do here, grounded in this particular place. Second sentence: why this stop matters on THIS route — connect it to the landscape, the drive, the day's rhythm.
+
+BANNED PHRASES (never use): "hidden gem", "nestled", "boasts", "offers", "perfect for", "whether you're...or...", "no trip to X is complete without", "pre-selected", "segment pick", "a great spot", "must-visit", "don't miss", "something for everyone"
+
+EXEMPLAR STOP DESCRIPTIONS (match this voice):
+- "Sixth-generation land. The vines here predate most Australian wine regions and the approach reflects that continuity — patient, unhurried, low-intervention."
+- "The road up into the Adelaide Hills is one of the best short drives in the country. The temperature drops, the canopy closes in, and everything slows down."
+- "A Hills institution that has earned its reputation through consistency rather than reinvention. The kind of place where regulars outnumber tourists ten to one."
+`
+
 function buildSingleDayPrompt({
   startNameFull, endNameFull, routeDistanceKm, routeDurationMinutes,
   detourConfig, tripConfig, prefContext, departureContext, seasonContext,
@@ -730,6 +745,8 @@ ${prefContext}
 ${departureContext}
 ${seasonContext}
 
+${EDITORIAL_VOICE}
+
 CRITICAL: Select stops that are geographically distributed along the FULL LENGTH of the route. The route is ${routeDistanceKm}km — aim for stops approximately every ${targetSpacingKm}km. Listings marked "is_segment_pick: true" are pre-selected for their route segment — strongly prefer these.
 
 From the listings below, select the best ${targetStops} stops in order along the route. Prioritise:
@@ -739,14 +756,14 @@ From the listings below, select the best ${targetStops} stops in order along the
 4. Vertical diversity (at least 3 different verticals)
 5. No two consecutive stops less than ${MIN_SPACING_KM}km apart
 
-For each stop write one sentence explaining why it\u2019s worth pulling over for.
-Then write a 2-sentence route introduction that captures this particular drive. Be specific about landscape, the road, the places. No generic travel writing.
+Write a 2–3 sentence route introduction that captures this particular drive — specific landscape, the road, the places. No generic travel writing.
+Also write an evocative subtitle (max 8 words) that captures the character of this drive — e.g. "Through the Old Gold Towns" or "Where the Vines Meet the Coast".
 
 Available listings in order along route (position_km = distance from start):
 ${JSON.stringify(listingsJson, null, 1)}
 
 Return ONLY valid JSON, no markdown:
-{"intro":"2-sentence editorial intro","stops":[{"listing_id":"uuid","listing_name":"Name","cluster":"Region name","position_km":123,"reason":"One sentence"}]}`
+{"intro":"2-3 sentence editorial intro","subtitle":"Evocative subtitle","stops":[{"listing_id":"uuid","listing_name":"Name","cluster":"Region name","position_km":123,"reason":"Two sentences, editorial voice"}]}`
 }
 
 function buildMultiDayPrompt({
@@ -777,6 +794,8 @@ ${prefContext}
 ${departureContext}
 ${seasonContext}
 
+${EDITORIAL_VOICE}
+
 This is a ${tripConfig.days}-day trip. The route is ${routeDistanceKm}km total.
 ${dayTargetsSection}
 
@@ -788,12 +807,16 @@ CRITICAL RULES:
 5. Prioritise preference matches, quality, vertical diversity.
 6. All listing_ids for stops MUST come from the day stops list below. Do NOT invent stops.
 
+Write a 2–3 sentence route introduction that captures this particular drive — specific landscape, the road, the places. No generic travel writing.
+Also write an evocative subtitle (max 8 words) that captures the character of this drive — e.g. "Through the Old Gold Towns" or "Where the Vines Meet the Coast".
+For each day label, write "Day N — [start place] to [end place]" AND a "day_subtitle" that captures the character of that day's drive (max 8 words).
+
 Day stops (position_km = distance from start):
 ${JSON.stringify(listingsJson, null, 1)}
 ${overnightSection}
 
 Return ONLY valid JSON:
-{"intro":"2-sentence editorial intro","days":[{"day_number":1,"label":"Day 1 — [place] to [place]","stops":[{"listing_id":"uuid","listing_name":"Name","cluster":"Region","position_km":123,"reason":"One sentence"}],"overnight":{"listing_id":"uuid","listing_name":"Name","position_km":456,"reason":"Why stay here"}}]}`
+{"intro":"2-3 sentence editorial intro","subtitle":"Evocative subtitle","days":[{"day_number":1,"label":"Day 1 — [place] to [place]","day_subtitle":"Character of the day's drive","stops":[{"listing_id":"uuid","listing_name":"Name","cluster":"Region","position_km":123,"reason":"Two sentences, editorial voice"}],"overnight":{"listing_id":"uuid","listing_name":"Name","position_km":456,"reason":"Two sentences about this stay"}}]}`
 }
 
 // ── Format Claude result into response ──────────────────────────────
@@ -853,6 +876,7 @@ function formatClaudeResult({
       return {
         day_number: day.day_number,
         label: day.label || `Day ${day.day_number}`,
+        day_subtitle: day.day_subtitle || null,
         stops: (day.stops || []).map(enrichStop).filter(Boolean),
         overnight: enrichedOvernight,
         accommodation_gap: !enrichedOvernight && day.day_number < tripConfig.days,
@@ -866,6 +890,7 @@ function formatClaudeResult({
 
     return NextResponse.json({
       title: claudeResult.title || `${startCoords.text || startName} to ${endCoords.text || endName}`,
+      subtitle: claudeResult.subtitle || null,
       intro: claudeResult.intro || null,
       route_geometry: routeGeometry,
       stops: allStops,
@@ -893,6 +918,7 @@ function formatClaudeResult({
 
   return NextResponse.json({
     title: claudeResult.title || `${startCoords.text || startName} to ${endCoords.text || endName}`,
+    subtitle: claudeResult.subtitle || null,
     intro: claudeResult.intro || null,
     route_geometry: routeGeometry,
     stops: enrichedStops,

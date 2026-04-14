@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import {
@@ -59,7 +59,7 @@ const PREFERENCE_CHIPS = [
 ]
 
 const LOADING_MESSAGES = [
-  'Mapping the route and finding hidden gems\u2026',
+  'Mapping the route and marking the good stops\u2026',
   'Checking which cellar doors are on the way\u2026',
   'Asking locals where to stop\u2026',
   'Finding places worth pulling over for\u2026',
@@ -159,6 +159,7 @@ export default function OnThisRoadClient() {
   const [loadingMsg, setLoadingMsg] = useState(LOADING_MESSAGES[0])
   const loadingInterval = useRef(null)
   const resultsRef = useRef(null)
+  const formRef = useRef(null)
   const [heroUrl] = useState(() => getHeroTileUrl())
 
   const isMultiDay = ['2_days', '3_days', '4_plus'].includes(tripLength)
@@ -284,7 +285,7 @@ export default function OnThisRoadClient() {
       </div>
 
       {/* ── Form ────────────────────────────────────────────── */}
-      <div className="otr-form-section">
+      <div className="otr-form-section" ref={formRef}>
         <div className="otr-form-inner">
           <div>
 
@@ -474,7 +475,7 @@ export default function OnThisRoadClient() {
       {/* ── Results ─────────────────────────────────────────── */}
       {result && !result.short_trip && !loading && (
         <div ref={resultsRef} className="otr-results">
-          <ResultsView result={result} />
+          <ResultsView result={result} formRef={formRef} onRegenerate={handleSubmit} />
         </div>
       )}
     </div>
@@ -483,52 +484,88 @@ export default function OnThisRoadClient() {
 
 // ── Results view ────────────────────────────────────────────────────
 
-function ResultsView({ result }) {
+function ResultsView({ result, formRef, onRegenerate }) {
   const {
-    title, stops, days, route_geometry, total_listings_found,
+    title, subtitle, stops, days, route_geometry,
     route_duration_minutes, route_distance_km, intro,
     additional_stop_hours, coverage_gaps, is_long_trip,
     is_surprise_loop, is_multi_day, rest_listings,
-    start_name, end_name,
+    start_name, end_name, start_coords, end_coords,
+    departure_timing, trip_length,
   } = result
 
-  const [mobileView, setMobileView] = useState('list')
   const [saving, setSaving] = useState(false)
   const [savedUrl, setSavedUrl] = useState(null)
+  const [mobileMapExpanded, setMobileMapExpanded] = useState(false)
+  const [activeDayNumber, setActiveDayNumber] = useState(null)
+  const [highlightedStopIndex, setHighlightedStopIndex] = useState(null)
+  const [regenCount, setRegenCount] = useState(0)
+  const [regenCooldown, setRegenCooldown] = useState(0)
+  const dayRefs = useRef({})
+  const observerRef = useRef(null)
+  const cooldownRef = useRef(null)
 
-  const allStops = stops || []
   const hasDays = is_multi_day && days && days.length > 1
 
-  // Empty state
-  if (allStops.length === 0) {
-    return (
-      <div style={{ maxWidth: 600, margin: '0 auto', padding: '60px 20px', textAlign: 'center' }}>
-        <p style={{
-          fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 400,
-          fontStyle: 'italic', color: 'var(--color-ink)', margin: '0 0 12px',
-        }}>
-          We don&apos;t have much on this route yet.
-        </p>
-        <p style={{
-          fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 300,
-          color: 'var(--color-muted)', margin: '0 0 24px', lineHeight: 1.6,
-        }}>
-          The network is growing. Know a place that should be here?
-        </p>
-        <Link href="/suggest" style={{
-          display: 'inline-flex', alignItems: 'center', gap: 8,
-          padding: '12px 24px', borderRadius: 8, fontSize: 14,
-          fontFamily: 'var(--font-body)', fontWeight: 500,
-          color: 'var(--color-ink)', border: '1px solid var(--color-border)',
-          textDecoration: 'none', background: 'transparent',
-        }}>
-          Suggest a place
-        </Link>
-      </div>
-    )
+  // Tag stops with globalIndex and day_number for the map
+  const taggedStops = []
+  let globalIdx = 1
+  if (hasDays) {
+    for (const day of days) {
+      for (const stop of (day.stops || [])) {
+        taggedStops.push({ ...stop, globalIndex: globalIdx++, day_number: day.day_number })
+      }
+      if (day.overnight) {
+        taggedStops.push({ ...day.overnight, globalIndex: globalIdx++, day_number: day.day_number, is_overnight: true })
+      }
+    }
+  } else {
+    for (const stop of (stops || [])) {
+      taggedStops.push({ ...stop, globalIndex: globalIdx++, day_number: 1 })
+    }
   }
 
-  // Save trip
+  // IntersectionObserver for day-fly
+  useEffect(() => {
+    if (!hasDays) return
+    const entries = Object.values(dayRefs.current).filter(Boolean)
+    if (entries.length === 0) return
+
+    observerRef.current = new IntersectionObserver((observations) => {
+      for (const entry of observations) {
+        if (entry.isIntersecting) {
+          const dayNum = parseInt(entry.target.getAttribute('data-day'))
+          if (dayNum) setActiveDayNumber(dayNum)
+        }
+      }
+    }, { threshold: 0.3, rootMargin: '-10% 0px -40% 0px' })
+
+    for (const el of entries) {
+      observerRef.current.observe(el)
+    }
+
+    return () => observerRef.current?.disconnect()
+  }, [hasDays, days])
+
+  // Regenerate cooldown timer
+  useEffect(() => {
+    if (regenCooldown <= 0) return
+    cooldownRef.current = setInterval(() => {
+      setRegenCooldown(prev => {
+        if (prev <= 1) { clearInterval(cooldownRef.current); return 0 }
+        return prev - 1
+      })
+    }, 1000)
+    return () => clearInterval(cooldownRef.current)
+  }, [regenCooldown])
+
+  // Pin click → scroll to stop
+  const handlePinClick = useCallback((stopGlobalIndex) => {
+    const el = document.querySelector(`[data-stop-index="${stopGlobalIndex}"]`)
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [])
+
+  // Save trip (anonymous by default, associated with account if authed)
   const handleSave = async () => {
     setSaving(true)
     try {
@@ -538,161 +575,208 @@ function ResultsView({ result }) {
         body: JSON.stringify(result),
       })
       const data = await res.json()
-      if (data.url) {
-        setSavedUrl(`https://australianatlas.com.au${data.url}`)
-      }
+      if (data.url) setSavedUrl(`https://australianatlas.com.au${data.url}`)
     } catch { /* silent */ }
     setSaving(false)
   }
 
-  const copyUrl = () => {
-    if (savedUrl) navigator.clipboard?.writeText(savedUrl)
+  const handleShare = () => {
+    if (savedUrl) {
+      navigator.clipboard?.writeText(savedUrl)
+      return
+    }
+    handleSave()
   }
+
+  const handleRegenerate = () => {
+    if (regenCount >= 3 || regenCooldown > 0) return
+    setRegenCount(prev => prev + 1)
+    setRegenCooldown(30)
+    if (onRegenerate) onRegenerate()
+  }
+
+  // Build Google Maps URL with waypoints
+  const buildGoogleMapsUrl = () => {
+    const waypoints = taggedStops.filter(s => !s.is_overnight && s.lat && s.lng).slice(0, 9) // Google max 9 waypoints
+    const origin = start_coords ? `${start_coords.lat},${start_coords.lng}` : encodeURIComponent(start_name)
+    const dest = end_coords ? `${end_coords.lat},${end_coords.lng}` : encodeURIComponent(end_name)
+    const wp = waypoints.map(s => `${s.lat},${s.lng}`).join('|')
+    return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}${wp ? `&waypoints=${wp}` : ''}&travelmode=driving`
+  }
+
+  const buildAppleMapsUrl = () => {
+    const allPoints = taggedStops.filter(s => !s.is_overnight && s.lat && s.lng)
+    const origin = start_coords ? `${start_coords.lat},${start_coords.lng}` : ''
+    const dest = end_coords ? `${end_coords.lat},${end_coords.lng}` : ''
+    return `maps://?saddr=${origin}&daddr=${dest}&dirflg=d`
+  }
+
+  // Empty state
+  if (!taggedStops.length) {
+    return (
+      <div className="otr-empty-state">
+        <p className="otr-empty-title">We don&apos;t have much on this route yet.</p>
+        <p className="otr-empty-sub">The network is growing. Know a place that should be here?</p>
+        <Link href="/suggest" className="otr-empty-link">Suggest a place</Link>
+      </div>
+    )
+  }
+
+  // Parse day labels — "Day 1 — Melbourne to Seymour" → { prefix: "Day 1", places: "Melbourne to Seymour" }
+  const parseDayLabel = (label) => {
+    const match = label?.match(/^(Day \d+)\s*[—–-]\s*(.+)$/)
+    if (match) return { prefix: match[1], places: match[2] }
+    return { prefix: label || '', places: '' }
+  }
+
+  // Departure day name
+  const departureDayName = (() => {
+    const map = { this_morning: 'Today', this_afternoon: 'Today', tomorrow_morning: 'Tomorrow', this_weekend: 'This weekend' }
+    return map[departure_timing] || null
+  })()
 
   return (
     <>
-      {/* Header */}
+      {/* ── Trip header ───────────────────────────────────────── */}
       <div className="otr-results-header">
-        <h2 style={{
-          fontFamily: 'var(--font-display)', fontWeight: 400,
-          fontSize: 'clamp(24px, 4vw, 36px)', lineHeight: 1.2,
-          color: 'var(--color-ink)', margin: 0,
-        }}>
-          {title}
-        </h2>
+        <h2 className="otr-trip-title">{title}</h2>
+        {subtitle && <p className="otr-trip-subtitle">{subtitle}</p>}
 
-        {/* Route stats */}
-        <div style={{ display: 'flex', gap: 16, marginTop: 10, flexWrap: 'wrap' }}>
-          {route_distance_km > 0 && (
-            <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 300, color: 'var(--color-muted)' }}>
-              {route_distance_km.toLocaleString()} km
-            </span>
-          )}
-          {route_duration_minutes > 0 && (
-            <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 300, color: 'var(--color-muted)' }}>
-              ~{Math.round(route_duration_minutes / 60)} hr drive
-            </span>
-          )}
-          <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 300, color: 'var(--color-muted)' }}>
-            {allStops.length} stops
-          </span>
-          {is_surprise_loop && (
-            <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500, color: 'var(--otr-amber)', background: 'rgba(196,154,60,0.1)', padding: '2px 10px', borderRadius: 99 }}>
-              Surprise loop
-            </span>
-          )}
-          {hasDays && (
-            <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500, color: 'var(--otr-amber)', background: 'rgba(196,154,60,0.1)', padding: '2px 10px', borderRadius: 99 }}>
-              {days.length} days
-            </span>
-          )}
+        {/* Metadata strip */}
+        <div className="otr-trip-meta">
+          {route_distance_km > 0 && <span>{route_distance_km.toLocaleString()} KM</span>}
+          {route_distance_km > 0 && route_duration_minutes > 0 && <span className="otr-meta-dot" aria-hidden="true">&middot;</span>}
+          {route_duration_minutes > 0 && <span>~{Math.round(route_duration_minutes / 60)} HR DRIVE</span>}
+          <span className="otr-meta-dot" aria-hidden="true">&middot;</span>
+          <span>{taggedStops.filter(s => !s.is_overnight).length} STOPS</span>
+          {hasDays && <><span className="otr-meta-dot" aria-hidden="true">&middot;</span><span>{days.length} DAYS</span></>}
+          {departureDayName && <><span className="otr-meta-dot" aria-hidden="true">&middot;</span><span>DEPARTING {departureDayName.toUpperCase()}</span></>}
+          {is_surprise_loop && <><span className="otr-meta-dot" aria-hidden="true">&middot;</span><span>SURPRISE LOOP</span></>}
         </div>
 
-        {intro && (
-          <p style={{
-            fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 400,
-            fontStyle: 'italic', color: 'var(--color-ink)', margin: '16px 0 0',
-            lineHeight: 1.6, maxWidth: 700, opacity: 0.85,
-          }}>
-            {intro}
-          </p>
-        )}
+        {intro && <p className="otr-trip-intro">{intro}</p>}
 
         {additional_stop_hours > 0 && (
-          <p style={{
-            fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 400,
-            color: 'var(--otr-amber)', margin: '10px 0 0',
-          }}>
+          <p className="otr-trip-stop-hours">
             Add approximately {additional_stop_hours} {additional_stop_hours === 1 ? 'hour' : 'hours'} for stops.
           </p>
         )}
       </div>
 
+      {/* ── Actions bar ───────────────────────────────────────── */}
+      <div className="otr-trip-actions">
+        <button type="button" className="otr-action-btn" onClick={handleSave} disabled={saving || !!savedUrl}>
+          <Upload size={14} strokeWidth={2} />
+          {savedUrl ? 'Saved' : saving ? 'Saving\u2026' : 'Save this trip'}
+        </button>
+        <button type="button" className="otr-action-btn" onClick={handleShare}>
+          Share
+        </button>
+        <a className="otr-action-btn" href={buildGoogleMapsUrl()} target="_blank" rel="noopener noreferrer">
+          Open in Google Maps
+        </a>
+        <a className="otr-action-btn otr-action-btn--secondary" href={buildAppleMapsUrl()} target="_blank" rel="noopener noreferrer">
+          Apple Maps
+        </a>
+        <button type="button" className="otr-action-btn otr-action-btn--secondary"
+          onClick={() => formRef?.current?.scrollIntoView({ behavior: 'smooth' })}>
+          Edit trip
+        </button>
+        <button type="button" className="otr-action-btn otr-action-btn--secondary"
+          onClick={handleRegenerate}
+          disabled={regenCount >= 3 || regenCooldown > 0}>
+          {regenCooldown > 0 ? `Regenerate (${regenCooldown}s)` : regenCount >= 3 ? 'Limit reached' : 'Regenerate'}
+        </button>
+      </div>
+
+      {/* ── Body: split layout ────────────────────────────────── */}
       <div className="otr-results-body">
-        {/* Mobile toggle */}
-        <div className="otr-mobile-toggle" style={{
-          gap: 0, marginTop: 16, borderRadius: 8, overflow: 'hidden',
-          border: '1px solid var(--color-border)', width: 'fit-content',
-        }}>
-          <button onClick={() => setMobileView('list')} style={{
-            padding: '8px 20px', fontSize: 13, fontFamily: 'var(--font-body)', fontWeight: 500,
-            color: mobileView === 'list' ? '#fff' : 'var(--color-ink)',
-            background: mobileView === 'list' ? 'var(--color-ink)' : 'transparent',
-            border: 'none', cursor: 'pointer',
-          }}>Stops</button>
-          <button onClick={() => setMobileView('map')} style={{
-            padding: '8px 20px', fontSize: 13, fontFamily: 'var(--font-body)', fontWeight: 500,
-            color: mobileView === 'map' ? '#fff' : 'var(--color-ink)',
-            background: mobileView === 'map' ? 'var(--color-ink)' : 'transparent',
-            border: 'none', borderLeft: '1px solid var(--color-border)', cursor: 'pointer',
-          }}>Map</button>
+        {/* Mobile map preview bar */}
+        <div className={`otr-mobile-map-bar ${mobileMapExpanded ? 'otr-mobile-map-bar--expanded' : ''}`}
+          onClick={() => !mobileMapExpanded && setMobileMapExpanded(true)}>
+          {mobileMapExpanded && (
+            <button type="button" className="otr-mobile-map-close"
+              onClick={(e) => { e.stopPropagation(); setMobileMapExpanded(false) }}>
+              &times;
+            </button>
+          )}
+          <RouteMap
+            routeGeometry={route_geometry}
+            stops={taggedStops}
+            coverageGaps={coverage_gaps}
+            startName={start_name}
+            endName={end_name}
+            activeDayNumber={activeDayNumber}
+            highlightedStopIndex={highlightedStopIndex}
+            onPinClick={(idx) => { handlePinClick(idx); setMobileMapExpanded(false) }}
+            compact={!mobileMapExpanded}
+          />
         </div>
 
-        {/* Split layout */}
-        <div className="otr-split" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 0, marginTop: 8 }}>
-          {/* Stops list */}
-          {mobileView === 'list' && (
-            <div>
-              {hasDays ? (
-                // Multi-day: render by day
-                days.map(day => (
-                  <DaySection key={day.day_number} day={day} />
-                ))
-              ) : (
-                // Single-day: flat list with clusters
-                <SingleDayStops stops={allStops} />
-              )}
+        <div className="otr-split">
+          {/* Itinerary column */}
+          <div className="otr-itinerary-col">
+            {hasDays ? (
+              days.map((day) => {
+                const { prefix, places } = parseDayLabel(day.label)
+                const dayStops = taggedStops.filter(s => s.day_number === day.day_number && !s.is_overnight)
+                const overnight = taggedStops.find(s => s.day_number === day.day_number && s.is_overnight)
 
-              {/* Long trip warning */}
-              {is_long_trip && rest_listings && rest_listings.length > 0 && !hasDays && (
-                <LongTripBanner routeDistanceKm={route_distance_km} restListings={rest_listings} />
-              )}
+                return (
+                  <section key={day.day_number} className="otr-day-chapter"
+                    data-day={day.day_number}
+                    ref={el => { dayRefs.current[day.day_number] = el }}>
 
-              {/* Save & share */}
-              <div className="otr-save-bar">
-                {!savedUrl ? (
-                  <button className="otr-save-btn" onClick={handleSave} disabled={saving}>
-                    <Upload size={16} strokeWidth={2} />
-                    {saving ? 'Saving\u2026' : 'Save & share this trip'}
-                  </button>
-                ) : (
-                  <>
-                    <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500, color: 'var(--otr-amber)' }}>
-                      Trip saved!
-                    </span>
-                    <span className="otr-share-url">
-                      <a href={savedUrl} target="_blank" rel="noopener noreferrer">{savedUrl}</a>
-                    </span>
-                    <button className="otr-save-btn" onClick={copyUrl} style={{ padding: '8px 16px', fontSize: 12 }}>
-                      Copy link
-                    </button>
-                  </>
-                )}
-              </div>
+                    <div className="otr-day-heading">
+                      <span className="otr-day-number">{prefix}</span>
+                      {places && <h3 className="otr-day-title">{places}</h3>}
+                      {day.day_subtitle && <p className="otr-day-subtitle">{day.day_subtitle}</p>}
+                      <div className="otr-day-rule" />
+                    </div>
 
-              {/* Footer CTAs */}
-              <div style={{ marginTop: 24, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                <Link href="/trails/builder" style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 8,
-                  padding: '14px 28px', borderRadius: 8, fontSize: 14,
-                  fontFamily: 'var(--font-body)', fontWeight: 500, color: '#fff',
-                  background: 'var(--color-ink)', textDecoration: 'none', minHeight: 48,
-                }}>
-                  Build a full trail
-                </Link>
-              </div>
-            </div>
-          )}
+                    {dayStops.map((stop) => (
+                      <StopCard key={stop.listing_id || stop.globalIndex} stop={stop}
+                        onHover={setHighlightedStopIndex} />
+                    ))}
 
-          {/* Map */}
-          <div className={mobileView === 'map' ? 'otr-map-col' : 'otr-map-col otr-mobile-map'}
-            style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid var(--color-border)', minHeight: 400, marginTop: 24 }}>
+                    {overnight && <OvernightCard stop={overnight} />}
+
+                    {day.accommodation_gap && (
+                      <div className="otr-accommodation-gap">
+                        <AlertTriangle size={14} strokeWidth={1.5} />
+                        {day.accommodation_note || 'No verified stays found for this night — you may need to book independently.'}
+                      </div>
+                    )}
+                  </section>
+                )
+              })
+            ) : (
+              <section className="otr-day-chapter" data-day="1"
+                ref={el => { dayRefs.current[1] = el }}>
+                {taggedStops.map((stop) => (
+                  <StopCard key={stop.listing_id || stop.globalIndex} stop={stop}
+                    onHover={setHighlightedStopIndex} />
+                ))}
+              </section>
+            )}
+
+            {/* Long trip warning */}
+            {is_long_trip && rest_listings && rest_listings.length > 0 && !hasDays && (
+              <LongTripBanner routeDistanceKm={route_distance_km} restListings={rest_listings} />
+            )}
+          </div>
+
+          {/* Map column (desktop sticky) */}
+          <div className="otr-map-col">
             <RouteMap
               routeGeometry={route_geometry}
-              stops={allStops}
+              stops={taggedStops}
               coverageGaps={coverage_gaps}
               startName={start_name}
               endName={end_name}
+              activeDayNumber={activeDayNumber}
+              highlightedStopIndex={highlightedStopIndex}
+              onPinClick={handlePinClick}
             />
           </div>
         </div>
@@ -701,145 +785,41 @@ function ResultsView({ result }) {
   )
 }
 
-// ── Single day stops (clustered) ────────────────────────────────────
-
-function SingleDayStops({ stops }) {
-  const clustered = []
-  let currentCluster = null
-  for (const stop of stops) {
-    const name = stop.cluster || 'Along the way'
-    if (name !== currentCluster) {
-      clustered.push({ name, stops: [] })
-      currentCluster = name
-    }
-    clustered[clustered.length - 1].stops.push(stop)
-  }
-
-  let globalIdx = 0
-  return clustered.map((cluster, ci) => (
-    <div key={ci}>
-      {clustered.length > 1 && (
-        <div style={{ padding: '16px 0 8px', borderBottom: '1px solid var(--color-border)' }}>
-          <h3 style={{
-            fontFamily: 'var(--font-display)', fontSize: 16, fontWeight: 400,
-            fontStyle: 'italic', color: 'var(--color-ink)', margin: 0,
-          }}>
-            {cluster.name}
-          </h3>
-        </div>
-      )}
-      {cluster.stops.map((stop) => {
-        const idx = globalIdx++
-        return <StopCard key={stop.listing_id || idx} stop={stop} index={idx} />
-      })}
-    </div>
-  ))
-}
-
-// ── Day section (multi-day) ─────────────────────────────────────────
-
-function DaySection({ day }) {
-  return (
-    <div className="otr-day-section">
-      <div className="otr-day-header">
-        <div className="otr-day-badge">{day.day_number}</div>
-        <h3 className="otr-day-label">{day.label || `Day ${day.day_number}`}</h3>
-      </div>
-
-      {day.stops?.map((stop, i) => (
-        <StopCard key={stop.listing_id || i} stop={stop} index={i} />
-      ))}
-
-      {day.overnight && <OvernightCard stop={day.overnight} />}
-
-      {day.accommodation_gap && (
-        <div style={{
-          padding: '12px 16px', borderRadius: 8, margin: '12px 0',
-          background: 'rgba(220, 38, 38, 0.04)', border: '1px solid rgba(220, 38, 38, 0.1)',
-          fontFamily: 'var(--font-body)', fontSize: 13, color: '#dc2626',
-          display: 'flex', alignItems: 'center', gap: 8,
-        }}>
-          <AlertTriangle size={14} strokeWidth={1.5} />
-          No accommodation found for this night — you may need to book independently.
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ── Stop card ───────────────────────────────────────────────────────
 
-function StopCard({ stop, index }) {
-  const vertColor = VERTICAL_COLORS[stop.vertical] || '#5F8A7E'
+function StopCard({ stop, onHover }) {
   const vertName = VERTICAL_NAMES[stop.vertical] || stop.vertical
   const hasImage = stop.hero_image_url && !stop.hero_image_url.includes('unsplash.com')
+  const isLast = false // spine continues unless explicitly marked
 
   return (
-    <div style={{
-      display: 'flex', gap: 16, padding: '16px 0 16px 16px',
-      borderBottom: '1px solid var(--color-border)',
-      borderLeft: `3px solid ${vertColor}`,
-    }}>
-      <div style={{
-        width: 32, height: 32, borderRadius: '50%', background: vertColor,
-        color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 13,
-        flexShrink: 0, marginTop: 2,
-      }}>
-        {index + 1}
+    <div className="otr-stop" data-stop-index={stop.globalIndex}
+      onMouseEnter={() => onHover?.(stop.globalIndex)}
+      onMouseLeave={() => onHover?.(null)}>
+      <div className="otr-stop-timeline">
+        <div className="otr-stop-dot">{stop.globalIndex}</div>
+        {!isLast && <div className="otr-stop-spine" />}
       </div>
-
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <a href={`/place/${stop.slug}`} target="_blank" rel="noopener noreferrer" style={{
-          fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 400,
-          color: 'var(--color-ink)', textDecoration: 'none', lineHeight: 1.3,
-        }}>
+      <div className="otr-stop-content">
+        <a className="otr-stop-name" href={`/place/${stop.slug}`} target="_blank" rel="noopener noreferrer">
           {stop.listing_name}
         </a>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
-          <span style={{
-            display: 'inline-flex', padding: '3px 10px', borderRadius: 99,
-            fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-body)',
-            backgroundColor: vertColor, color: '#fff', textTransform: 'uppercase', letterSpacing: '0.04em',
-          }}>
-            {vertName}
+        <div className="otr-stop-byline">
+          <span className="otr-stop-vertical">{vertName}</span>
+          <span className="otr-stop-location">
+            {stop.suburb}{stop.suburb && stop.position_km != null ? ' \u00b7 ' : ''}{stop.position_km != null ? `${stop.position_km} km` : ''}
           </span>
-          {stop.suburb && (
-            <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 300, color: 'var(--color-muted)' }}>
-              {stop.suburb}
-            </span>
-          )}
-          {stop.position_km != null && (
-            <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 300, color: 'var(--color-muted)' }}>
-              {stop.position_km} km
-            </span>
-          )}
         </div>
-
         {(stop.reason || stop.notes) && (
-          <p style={{
-            fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 300,
-            color: 'var(--color-ink)', margin: '8px 0 0', lineHeight: 1.5, fontStyle: 'italic',
-          }}>
-            {stop.reason || stop.notes}
-          </p>
+          <p className="otr-stop-reason">{stop.reason || stop.notes}</p>
         )}
-
-        <a href={`/place/${stop.slug}`} target="_blank" rel="noopener noreferrer" style={{
-          display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 8,
-          fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 400,
-          color: 'var(--color-muted)', textDecoration: 'none',
-        }}>
-          View listing
-          <ArrowRight size={12} strokeWidth={1.5} />
+        <a className="otr-stop-link" href={`/place/${stop.slug}`} target="_blank" rel="noopener noreferrer">
+          View listing <ArrowRight size={12} strokeWidth={1.5} />
         </a>
       </div>
-
       {hasImage && (
-        <div style={{ width: 72, height: 72, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
-          <img src={stop.hero_image_url} alt={stop.listing_name} loading="lazy"
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        <div className="otr-stop-image">
+          <img src={stop.hero_image_url} alt={stop.listing_name} loading="lazy" />
         </div>
       )}
     </div>
@@ -852,39 +832,22 @@ function OvernightCard({ stop }) {
   const hasImage = stop.hero_image_url && !stop.hero_image_url.includes('unsplash.com')
 
   return (
-    <div className="otr-overnight">
+    <div className="otr-overnight-pick" data-stop-index={stop.globalIndex}>
       {hasImage && (
-        <div style={{ width: 80, height: 80, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
-          <img src={stop.hero_image_url} alt={stop.listing_name} loading="lazy"
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        <div className="otr-overnight-image">
+          <img src={stop.hero_image_url} alt={stop.listing_name} loading="lazy" />
         </div>
       )}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
-          <span className="otr-overnight-badge">
-            <Moon size={12} strokeWidth={2} />
-            Stay tonight
-          </span>
-        </div>
-        <a href={`/place/${stop.slug}`} target="_blank" rel="noopener noreferrer" style={{
-          fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 400,
-          color: '#fff', textDecoration: 'none', lineHeight: 1.3,
-        }}>
+      <div className="otr-overnight-content">
+        <span className="otr-overnight-eyebrow">Tonight&apos;s Stay</span>
+        <a className="otr-overnight-name" href={`/place/${stop.slug}`} target="_blank" rel="noopener noreferrer">
           {stop.listing_name}
         </a>
-        {stop.region && (
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 300, color: 'rgba(255,255,255,0.4)', margin: '4px 0 0' }}>
-            {stop.region}
-          </p>
+        {(stop.region || stop.suburb) && (
+          <p className="otr-overnight-location">{stop.suburb || stop.region}{stop.state ? `, ${stop.state}` : ''}</p>
         )}
-        {stop.reason && (
-          <p style={{
-            fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 300,
-            color: 'rgba(255,255,255,0.6)', margin: '8px 0 0', lineHeight: 1.5, fontStyle: 'italic',
-          }}>
-            {stop.reason}
-          </p>
-        )}
+        {stop.reason && <p className="otr-overnight-reason">{stop.reason}</p>}
+        <span className="otr-overnight-tag">Rest Atlas</span>
       </div>
     </div>
   )
@@ -896,51 +859,26 @@ function LongTripBanner({ routeDistanceKm, restListings }) {
   const [expanded, setExpanded] = useState(false)
 
   return (
-    <div style={{
-      padding: '16px 20px', borderRadius: 12, marginTop: 24,
-      background: 'linear-gradient(135deg, #2d2a24 0%, #3a2a35 100%)',
-      border: '1px solid rgba(138, 90, 107, 0.3)',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-        <AlertTriangle size={20} strokeWidth={1.5} color="#C49A3C" style={{ flexShrink: 0, marginTop: 2 }} />
-        <div style={{ flex: 1 }}>
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500, color: '#fff', margin: '0 0 4px' }}>
-            This is a long drive ({routeDistanceKm.toLocaleString()} km)
-          </p>
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 300, color: 'rgba(255,255,255,0.6)', margin: 0, lineHeight: 1.5 }}>
-            Consider selecting a multi-day trip length. We found {restListings.length} boutique stays along the route.
-          </p>
+    <div className="otr-long-trip-banner">
+      <div className="otr-long-trip-header">
+        <AlertTriangle size={18} strokeWidth={1.5} />
+        <div>
+          <p className="otr-long-trip-title">This is a long drive ({routeDistanceKm.toLocaleString()} km)</p>
+          <p className="otr-long-trip-sub">Consider selecting a multi-day trip length. We found {restListings.length} boutique stays along the route.</p>
         </div>
       </div>
-
       {restListings.length > 0 && (
-        <button onClick={() => setExpanded(!expanded)} style={{
-          display: 'flex', alignItems: 'center', gap: 6, marginTop: 12,
-          padding: '6px 12px', borderRadius: 6, fontSize: 12,
-          fontFamily: 'var(--font-body)', fontWeight: 500, color: '#C49A3C',
-          background: 'rgba(196, 154, 60, 0.1)', border: '1px solid rgba(196, 154, 60, 0.2)', cursor: 'pointer',
-        }}>
+        <button type="button" className="otr-long-trip-toggle" onClick={() => setExpanded(!expanded)}>
           {expanded ? 'Hide' : 'Show'} overnight stops
-          <ChevronDown size={12} strokeWidth={2}
-            style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+          <ChevronDown size={12} strokeWidth={2} style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
         </button>
       )}
-
       {expanded && restListings.map((stay, i) => (
-        <a key={stay.listing_id || i} href={`/place/${stay.slug}`} target="_blank" rel="noopener noreferrer" style={{
-          display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
-          borderRadius: 8, background: 'rgba(255,255,255,0.05)', textDecoration: 'none', marginTop: 8,
-        }}>
-          {stay.hero_image_url && (
-            <img src={stay.hero_image_url} alt="" style={{ width: 40, height: 40, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} loading="lazy" />
-          )}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 400, color: '#fff', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {stay.listing_name}
-            </p>
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 300, color: 'rgba(255,255,255,0.5)', margin: '2px 0 0' }}>
-              {stay.region || stay.suburb} &middot; {stay.position_km} km
-            </p>
+        <a key={stay.listing_id || i} href={`/place/${stay.slug}`} target="_blank" rel="noopener noreferrer" className="otr-long-trip-stay">
+          {stay.hero_image_url && <img src={stay.hero_image_url} alt="" loading="lazy" />}
+          <div>
+            <p className="otr-long-trip-stay-name">{stay.listing_name}</p>
+            <p className="otr-long-trip-stay-meta">{stay.region || stay.suburb} &middot; {stay.position_km} km</p>
           </div>
         </a>
       ))}

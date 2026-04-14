@@ -368,127 +368,587 @@
   color: var(--otr-ink-50);
 }
 
-/* ── Results area ─────────────────────────────────────────── */
+/* ── Results wrapper ──────────────────────────────────────── */
 .otr-results {
   animation: fadeInUp 0.5s ease-out;
 }
+
+/* ── Trip header ─────────────────────────────────────────── */
 .otr-results-header {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 40px 20px 24px;
+  padding: 48px 20px 28px;
   border-bottom: 1px solid var(--otr-border);
 }
+.otr-trip-title {
+  font-family: var(--font-display);
+  font-size: 36px;
+  font-weight: 400;
+  color: var(--otr-ink);
+  margin: 0 0 6px;
+  line-height: 1.15;
+}
+.otr-trip-subtitle {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--otr-ink-50);
+  margin: 0 0 16px;
+  line-height: 1.4;
+}
+.otr-trip-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--otr-ink-50);
+  margin-bottom: 16px;
+}
+.otr-meta-dot {
+  color: var(--otr-amber);
+  font-size: 14px;
+  line-height: 1;
+}
+.otr-trip-intro {
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--otr-ink-70);
+  line-height: 1.65;
+  margin: 0 0 8px;
+  max-width: 680px;
+}
+.otr-trip-stop-hours {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--otr-ink-40);
+  margin: 0;
+}
+
+/* ── Actions bar ─────────────────────────────────────────── */
+.otr-trip-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px 20px;
+  flex-wrap: wrap;
+}
+.otr-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: var(--font-body);
+  font-weight: 500;
+  color: var(--otr-ink);
+  background: var(--otr-amber);
+  border: 1px solid var(--otr-amber);
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.otr-action-btn:hover {
+  background: var(--otr-amber-dark);
+  border-color: var(--otr-amber-dark);
+}
+.otr-action-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.otr-action-btn--secondary {
+  background: transparent;
+  color: var(--otr-ink-60);
+  border-color: var(--otr-border-strong);
+}
+.otr-action-btn--secondary:hover {
+  background: rgba(28, 26, 23, 0.04);
+  color: var(--otr-ink);
+  border-color: var(--otr-ink-40);
+}
+
+/* ── Results body / split layout ─────────────────────────── */
 .otr-results-body {
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 20px 60px;
 }
+.otr-split {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+.otr-itinerary-col {
+  min-width: 0;
+}
+.otr-map-col {
+  display: none;
+  border-radius: 12px;
+  overflow: hidden;
+}
 
-/* ── Day sections ─────────────────────────────────────────── */
-.otr-day-section {
-  margin-top: 32px;
+/* ── Mobile map preview bar ──────────────────────────────── */
+.otr-mobile-map-bar {
+  height: 120px;
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 20px 0 8px;
+  cursor: pointer;
+  position: relative;
+  transition: none;
 }
-.otr-day-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px 0 12px;
+.otr-mobile-map-bar--expanded {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  height: 100vh;
+  height: 100dvh;
+  border-radius: 0;
+  margin: 0;
+  cursor: default;
 }
-.otr-day-badge {
+.otr-mobile-map-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1001;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(28, 26, 23, 0.85);
+  color: #fff;
+  border: none;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  background: var(--otr-ink);
-  color: var(--otr-amber);
-  font-family: var(--font-display);
-  font-size: 16px;
-  font-weight: 600;
-  flex-shrink: 0;
-}
-.otr-day-label {
-  font-family: var(--font-display);
-  font-size: 18px;
-  font-weight: 400;
-  font-style: italic;
-  color: var(--otr-ink);
-  margin: 0;
 }
 
-/* ── Overnight card ───────────────────────────────────────── */
-.otr-overnight {
-  display: flex;
-  gap: 16px;
-  padding: 20px;
-  margin: 12px 0 8px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #2d2a24 0%, #352e28 100%);
-  border: 1px solid rgba(196, 154, 60, 0.15);
+/* ── Day chapters ────────────────────────────────────────── */
+.otr-day-chapter {
+  padding-top: 32px;
 }
-.otr-overnight-badge {
+.otr-day-chapter:first-child {
+  padding-top: 24px;
+}
+.otr-day-heading {
+  margin-bottom: 24px;
+}
+.otr-day-number {
+  display: block;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--otr-amber);
+  margin-bottom: 4px;
+}
+.otr-day-title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 400;
+  color: var(--otr-ink);
+  margin: 0 0 4px;
+  line-height: 1.2;
+}
+.otr-day-subtitle {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--otr-ink-40);
+  margin: 0 0 12px;
+  line-height: 1.4;
+}
+.otr-day-rule {
+  width: 48px;
+  height: 1px;
+  background: var(--otr-amber);
+  opacity: 0.5;
+}
+
+/* ── Stop cards with timeline ────────────────────────────── */
+.otr-stop {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 0;
+  transition: background 0.15s;
+  border-radius: 8px;
+}
+.otr-stop:hover {
+  background: rgba(196, 154, 60, 0.03);
+}
+.otr-stop-timeline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 32px;
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+.otr-stop-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--otr-amber);
+  color: var(--otr-ink);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+.otr-stop-spine {
+  width: 2px;
+  flex: 1;
+  min-height: 20px;
+  background: rgba(196, 154, 60, 0.2);
+  margin-top: 4px;
+}
+.otr-stop-content {
+  flex: 1;
+  min-width: 0;
+  padding-top: 2px;
+}
+.otr-stop-name {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 400;
+  color: var(--otr-ink);
+  text-decoration: none;
+  display: block;
+  line-height: 1.25;
+  margin-bottom: 4px;
+}
+.otr-stop-name:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--otr-amber);
+  text-underline-offset: 3px;
+}
+.otr-stop-byline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.otr-stop-vertical {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--otr-ink-50);
+}
+.otr-stop-location {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--otr-ink-40);
+}
+.otr-stop-reason {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--otr-ink-60);
+  line-height: 1.55;
+  margin: 2px 0 6px;
+}
+.otr-stop-link {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 10px;
-  border-radius: 6px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--otr-amber);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.otr-stop-link:hover {
+  color: var(--otr-amber-dark);
+}
+.otr-stop-image {
+  width: 80px;
+  height: 80px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.otr-stop-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ── Overnight pick card ─────────────────────────────────── */
+.otr-overnight-pick {
+  display: flex;
+  gap: 20px;
+  padding: 20px;
+  margin: 12px 0 16px 48px;
+  border-radius: 10px;
+  background: var(--otr-paper);
+  border: 1px solid var(--otr-ink);
+}
+.otr-overnight-image {
+  width: 100px;
+  height: 100px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.otr-overnight-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.otr-overnight-content {
+  flex: 1;
+  min-width: 0;
+}
+.otr-overnight-eyebrow {
+  display: block;
+  font-family: var(--font-body);
   font-size: 10px;
   font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--otr-amber);
+  margin-bottom: 4px;
+}
+.otr-overnight-name {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--otr-ink);
+  text-decoration: none;
+  display: block;
+  line-height: 1.25;
+  margin-bottom: 4px;
+}
+.otr-overnight-name:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--otr-amber);
+  text-underline-offset: 3px;
+}
+.otr-overnight-location {
   font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--otr-ink-50);
+  margin: 0 0 6px;
+}
+.otr-overnight-reason {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--otr-ink-60);
+  line-height: 1.55;
+  margin: 0 0 8px;
+}
+.otr-overnight-tag {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  background: rgba(196, 154, 60, 0.15);
+  background: var(--otr-ink);
   color: var(--otr-amber);
 }
 
-/* ── Save/share bar ───────────────────────────────────────── */
-.otr-save-bar {
+/* ── Accommodation gap warning ───────────────────────────── */
+.otr-accommodation-gap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  margin: 8px 0 8px 48px;
+  border-radius: 8px;
+  background: rgba(196, 154, 60, 0.05);
+  border: 1px solid rgba(196, 154, 60, 0.15);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--otr-ink-60);
+  line-height: 1.4;
+}
+.otr-accommodation-gap svg {
+  flex-shrink: 0;
+  color: var(--otr-amber);
+}
+
+/* ── Long trip banner ────────────────────────────────────── */
+.otr-long-trip-banner {
+  margin: 24px 0 0 48px;
+  padding: 20px;
+  border-radius: 10px;
+  border: 1px solid var(--otr-border);
+  background: var(--otr-paper);
+}
+.otr-long-trip-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.otr-long-trip-header svg {
+  flex-shrink: 0;
+  color: var(--otr-amber);
+  margin-top: 2px;
+}
+.otr-long-trip-title {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--otr-ink);
+  margin: 0 0 4px;
+}
+.otr-long-trip-sub {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--otr-ink-60);
+  margin: 0;
+  line-height: 1.5;
+}
+.otr-long-trip-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 0;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--otr-amber);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.otr-long-trip-toggle:hover {
+  color: var(--otr-amber-dark);
+}
+.otr-long-trip-stay {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 32px;
-  padding: 20px 24px;
-  border-radius: 12px;
-  background: var(--otr-ink);
-  flex-wrap: wrap;
+  padding: 10px 0;
+  border-top: 1px solid var(--otr-border);
+  margin-top: 10px;
+  text-decoration: none;
+  color: var(--otr-ink);
+  transition: opacity 0.15s;
 }
-.otr-save-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-size: 14px;
+.otr-long-trip-stay:hover {
+  opacity: 0.8;
+}
+.otr-long-trip-stay img {
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.otr-long-trip-stay-name {
   font-family: var(--font-body);
+  font-size: 14px;
   font-weight: 500;
   color: var(--otr-ink);
-  background: var(--otr-amber);
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s;
-  min-height: 44px;
+  margin: 0 0 2px;
 }
-.otr-save-btn:hover { background: var(--otr-amber-dark); }
-.otr-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.otr-share-url {
+.otr-long-trip-stay-meta {
   font-family: var(--font-body);
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.5);
-  word-break: break-all;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--otr-ink-40);
+  margin: 0;
 }
-.otr-share-url a {
+
+/* ── Empty state ─────────────────────────────────────────── */
+.otr-empty-state {
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 80px 20px;
+  text-align: center;
+}
+.otr-empty-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--otr-ink);
+  margin: 0 0 8px;
+}
+.otr-empty-sub {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--otr-ink-50);
+  margin: 0 0 20px;
+}
+.otr-empty-link {
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
   color: var(--otr-amber);
   text-decoration: none;
 }
-
-/* ── Mobile toggle ────────────────────────────────────────── */
-.otr-mobile-toggle {
-  display: flex !important;
+.otr-empty-link:hover {
+  text-decoration: underline;
 }
-.otr-mobile-map { display: none; }
 
-/* ── Responsive ───────────────────────────────────────────── */
+/* ── Map classes (RouteMap component) ────────────────────── */
+.otr-map-compact {
+  width: 100%;
+  height: 100%;
+  min-height: 120px;
+}
+.otr-map-full {
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+}
+
+/* ── Map popup (dark theme) ──────────────────────────────── */
+.otr-map-popup .mapboxgl-popup-content {
+  background: #2d2a24;
+  color: #F8F6F1;
+  font-family: var(--font-body);
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+.otr-map-popup .mapboxgl-popup-tip {
+  border-top-color: #2d2a24;
+}
+.otr-map-popup .mapboxgl-popup-content strong {
+  font-weight: 600;
+}
+
+/* ── Responsive — small screens ──────────────────────────── */
 @media (max-width: 640px) {
   .otr-hero { padding: 40px 16px 36px; min-height: 200px; }
   .otr-form-section { padding: 36px 16px 40px; }
@@ -497,22 +957,36 @@
   .otr-swap-btn { align-self: center; transform: rotate(90deg); margin-top: 0; }
   .otr-chips-grid { grid-template-columns: 1fr 1fr; }
   .otr-cta { width: 100%; }
-  .otr-overnight { flex-direction: column; gap: 12px; }
-  .otr-save-bar { flex-direction: column; align-items: stretch; }
   .otr-selector-group { margin-top: 36px; }
+
+  .otr-trip-title { font-size: 28px; }
+  .otr-trip-subtitle { font-size: 16px; }
+  .otr-trip-actions { gap: 6px; }
+  .otr-action-btn { padding: 7px 12px; font-size: 12px; }
+  .otr-day-title { font-size: 20px; }
+  .otr-stop-image { width: 64px; height: 64px; }
+  .otr-overnight-pick { flex-direction: column; gap: 12px; margin-left: 0; }
+  .otr-overnight-image { width: 100%; height: 140px; }
+  .otr-accommodation-gap { margin-left: 0; }
+  .otr-long-trip-banner { margin-left: 0; }
 }
 
+/* ── Responsive — desktop split ──────────────────────────── */
 @media (min-width: 768px) {
-  .otr-mobile-toggle { display: none !important; }
-  .otr-mobile-map { display: block !important; }
+  .otr-mobile-map-bar {
+    display: none;
+  }
   .otr-split {
-    grid-template-columns: 3fr 2fr !important;
-    gap: 32px !important;
+    grid-template-columns: 3fr 2fr;
+    gap: 32px;
   }
   .otr-map-col {
-    position: sticky !important;
-    top: 20px !important;
-    align-self: start !important;
-    height: calc(100vh - 40px) !important;
+    display: block;
+    position: sticky;
+    top: 20px;
+    align-self: start;
+    height: calc(100vh - 40px);
+    border-radius: 12px;
+    overflow: hidden;
   }
 }
