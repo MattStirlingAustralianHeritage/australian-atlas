@@ -5,7 +5,7 @@ export const maxDuration = 60
 
 const MAPBOX_TOKEN = process.env.MAPBOX_ACCESS_TOKEN || process.env.NEXT_PUBLIC_MAPBOX_TOKEN
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY
-const MODEL = 'claude-sonnet-4-20250514'
+const MODEL = 'claude-sonnet-4-6'
 
 const VERTICAL_NAMES = {
   sba: 'Small Batch Atlas', collection: 'Culture Atlas', craft: 'Craft Atlas',
@@ -196,10 +196,35 @@ function scoreSeasonalRelevance(listing, currentSeason) {
   return 0
 }
 
+// ── Request ID generator ────────────────────────────────────────────
+
+function requestId() {
+  return 'otr_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7)
+}
+
+function envCheck() {
+  const missing = []
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) missing.push('NEXT_PUBLIC_SUPABASE_URL')
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) missing.push('SUPABASE_SERVICE_ROLE_KEY')
+  if (!MAPBOX_TOKEN) missing.push('MAPBOX_ACCESS_TOKEN / NEXT_PUBLIC_MAPBOX_TOKEN')
+  if (!ANTHROPIC_API_KEY) missing.push('ANTHROPIC_API_KEY')
+  return missing
+}
+
 // ── Main handler ────────────────────────────────────────────────────
 
 export async function POST(request) {
+  const rid = requestId()
   try {
+    // Check env vars upfront
+    const missingEnv = envCheck()
+    if (missingEnv.length > 0) {
+      console.error(`[on-this-road] [${rid}] Missing env vars:`, missingEnv)
+      return NextResponse.json(
+        { error: 'The trip planner is misconfigured. Please try again later.', category: 'missing_env', request_id: rid },
+        { status: 500 }
+      )
+    }
     const body = await request.json()
     const {
       start, end,
@@ -322,30 +347,30 @@ export async function POST(request) {
     return result
 
   } catch (err) {
-    console.error('[on-this-road] Error:', err?.message, err?.stack)
+    console.error(`[on-this-road] [${rid}] Error:`, err?.message, err?.stack)
 
     // Surface specific error categories
     const message = err?.message || ''
     if (message.includes('timeout') || message.includes('TIMEOUT') || err?.code === 'ETIMEDOUT') {
       return NextResponse.json(
-        { error: 'Route planning timed out. Try a shorter trip or fewer preferences.' },
+        { error: 'Route planning timed out. Try a shorter trip or fewer preferences.', category: 'timeout', request_id: rid },
         { status: 504 }
       )
     }
     if (message.includes('ANTHROPIC') || message.includes('anthropic') || message.includes('claude')) {
       return NextResponse.json(
-        { error: 'The itinerary writer is temporarily unavailable. Your route was found — please try again in a moment.' },
+        { error: 'The itinerary writer is temporarily unavailable. Your route was found — please try again in a moment.', category: 'upstream_api_error', request_id: rid },
         { status: 502 }
       )
     }
     if (message.includes('supabase') || message.includes('PGRST') || message.includes('relation')) {
       return NextResponse.json(
-        { error: 'Could not search listings along the route. Please try again shortly.' },
+        { error: 'Could not search listings along the route. Please try again shortly.', category: 'upstream_api_error', request_id: rid },
         { status: 502 }
       )
     }
     return NextResponse.json(
-      { error: 'Something went wrong planning your route. Please try again.' },
+      { error: 'Something went wrong planning your route. Please try again.', category: 'unknown', request_id: rid },
       { status: 500 }
     )
   }
@@ -368,51 +393,55 @@ async function buildItinerary({
   const routeDistances = buildRouteDistances(routeCoords)
   const totalRouteKm = routeDistances[routeDistances.length - 1] || routeDistanceKm
 
-  // Query listings along route
-  const samplePoints = sampleRoutePoints(routeCoords, 20)
+  // Query listings along route — batched for performance
+  const samplePoints = sampleRoutePoints(routeCoords, 30)
   const sb = getSupabaseAdmin()
   const seenIds = new Set()
   const allListings = []
 
   const SELECT_COLS = 'id, name, slug, vertical, region, state, suburb, lat, lng, hero_image_url, quality_score, description, sub_type, visit_type, best_season'
 
-  for (const point of samplePoints) {
-    const [pLng, pLat] = point
-    const latDelta = detourConfig.bufferKm / 111
-    const lngDelta = detourConfig.bufferKm / (111 * Math.cos(pLat * Math.PI / 180))
-
-    // trail_suitable filter: exclude explicitly unsuitable listings.
-    // NULL = not yet classified (included until enrichment runs).
-    const { data } = await sb
-      .from('listings')
-      .select(SELECT_COLS)
-      .eq('status', 'active')
-      .or('trail_suitable.eq.true,trail_suitable.is.null')
-      .gte('lat', pLat - latDelta)
-      .lte('lat', pLat + latDelta)
-      .gte('lng', pLng - lngDelta)
-      .lte('lng', pLng + lngDelta)
-      .not('lat', 'is', null)
-      .not('lng', 'is', null)
-      .limit(50)
-
-    if (data) {
-      for (const listing of data) {
-        if (!seenIds.has(listing.id)) { seenIds.add(listing.id); allListings.push(listing) }
+  // Run all point queries in parallel batches of 10
+  const BATCH_SIZE = 10
+  for (let batchStart = 0; batchStart < samplePoints.length; batchStart += BATCH_SIZE) {
+    const batch = samplePoints.slice(batchStart, batchStart + BATCH_SIZE)
+    const results = await Promise.all(batch.map(point => {
+      const [pLng, pLat] = point
+      const latDelta = detourConfig.bufferKm / 111
+      const lngDelta = detourConfig.bufferKm / (111 * Math.cos(pLat * Math.PI / 180))
+      return sb
+        .from('listings')
+        .select(SELECT_COLS)
+        .eq('status', 'active')
+        .or('trail_suitable.eq.true,trail_suitable.is.null')
+        .gte('lat', pLat - latDelta)
+        .lte('lat', pLat + latDelta)
+        .gte('lng', pLng - lngDelta)
+        .lte('lng', pLng + lngDelta)
+        .not('lat', 'is', null)
+        .not('lng', 'is', null)
+        .limit(50)
+    }))
+    for (const { data } of results) {
+      if (data) {
+        for (const listing of data) {
+          if (!seenIds.has(listing.id)) { seenIds.add(listing.id); allListings.push(listing) }
+        }
       }
     }
   }
 
-  // If multi-day, also query Rest Atlas listings with expanded buffer
+  // If multi-day, also query Rest Atlas listings with expanded buffer — batched
   let restCandidates = []
   if (isMultiDay) {
     const restBuffer = Math.max(detourConfig.bufferKm, 30)
     const restSeen = new Set()
-    for (const point of sampleRoutePoints(routeCoords, 50)) {
+    const restPoints = sampleRoutePoints(routeCoords, 50)
+    const restResults = await Promise.all(restPoints.map(point => {
       const [pLng, pLat] = point
       const latDelta = restBuffer / 111
       const lngDelta = restBuffer / (111 * Math.cos(pLat * Math.PI / 180))
-      const { data } = await sb
+      return sb
         .from('listings')
         .select(SELECT_COLS)
         .eq('status', 'active')
@@ -425,6 +454,8 @@ async function buildItinerary({
         .not('lat', 'is', null)
         .not('lng', 'is', null)
         .limit(20)
+    }))
+    for (const { data } of restResults) {
       if (data) {
         for (const l of data) {
           if (!restSeen.has(l.id)) { restSeen.add(l.id); restCandidates.push(l) }
@@ -570,6 +601,17 @@ async function buildItinerary({
       }))
     : []
 
+  // Build per-day distance targets for multi-day trips
+  const dayTargets = []
+  if (isMultiDay) {
+    const kmPerDay = Math.round(totalRouteKm / tripConfig.days)
+    for (let d = 1; d <= tripConfig.days; d++) {
+      const startKm = (d - 1) * kmPerDay
+      const endKm = d === tripConfig.days ? totalRouteKm : d * kmPerDay
+      dayTargets.push({ day: d, startKm, endKm, overnightTargetKm: endKm })
+    }
+  }
+
   // Build prompt
   const startNameFull = startCoords.text || startName
   const endNameFull = endCoords.text || endName
@@ -583,7 +625,7 @@ async function buildItinerary({
       startNameFull, endNameFull, routeDistanceKm, routeDurationMinutes,
       detourConfig, tripConfig, prefContext, departureContext, seasonContext,
       targetStops, targetSpacingKm, MIN_SPACING_KM, listingsJson, overnightJson,
-      isSurpriseLoop,
+      isSurpriseLoop, dayTargets, totalRouteKm,
     })
   } else {
     prompt = buildSingleDayPrompt({
@@ -627,6 +669,20 @@ async function buildItinerary({
   // Add rest candidates to map for overnight enrichment
   for (const r of restCandidates) {
     if (!listingMap.has(r.id)) listingMap.set(r.id, r)
+  }
+
+  // Anti-hallucination: validate overnight IDs against actual candidates
+  if (claudeResult && isMultiDay && claudeResult.days) {
+    const validOvernightIds = new Set(restCandidates.map(r => r.id))
+    for (const day of claudeResult.days) {
+      if (day.overnight && day.overnight.listing_id) {
+        if (!validOvernightIds.has(day.overnight.listing_id)) {
+          console.error(`[on-this-road] HALLUCINATED OVERNIGHT DETECTED: Day ${day.day_number} — "${day.overnight.listing_name}" (${day.overnight.listing_id}) is not in the ${validOvernightIds.size} rest candidates. Stripping.`)
+          day.overnight = null
+          day.accommodation_note = day.accommodation_note || 'No verified stay found for this area.'
+        }
+      }
+    }
   }
 
   if (claudeResult) {
@@ -697,15 +753,23 @@ function buildMultiDayPrompt({
   startNameFull, endNameFull, routeDistanceKm, routeDurationMinutes,
   detourConfig, tripConfig, prefContext, departureContext, seasonContext,
   targetStops, targetSpacingKm, MIN_SPACING_KM, listingsJson, overnightJson,
-  isSurpriseLoop,
+  isSurpriseLoop, dayTargets, totalRouteKm,
 }) {
   const routeDesc = isSurpriseLoop
     ? `a ${tripConfig.days}-day loop from ${startNameFull} (${routeDistanceKm}km total)`
     : `${startNameFull} to ${endNameFull} over ${tripConfig.days} days (${routeDistanceKm}km, ~${Math.round(routeDurationMinutes / 60)} hours driving)`
 
+  // Build per-day distance targets section
+  const dayTargetsSection = dayTargets && dayTargets.length > 0
+    ? `\n\nPER-DAY DISTANCE TARGETS (MUST follow these):\n${dayTargets.map(dt =>
+        `- Day ${dt.day}: stops between ${dt.startKm}km–${dt.endKm}km from start. Overnight near ${dt.overnightTargetKm}km.`
+      ).join('\n')}\nEach day MUST make meaningful progress toward the destination. Day stops and overnights outside their assigned km range are WRONG.`
+    : ''
+
+  const overnightIds = overnightJson.map(o => o.listing_id)
   const overnightSection = overnightJson.length > 0
-    ? `\n\nAccommodation options along route (pick one per night, placed at logical overnight points):\n${JSON.stringify(overnightJson, null, 1)}`
-    : '\n\nNo accommodation listings found along this route — note any overnight gaps in your response.'
+    ? `\n\nACCOMMODATION CANDIDATES (you MUST pick overnight stays ONLY from this list — do NOT invent or hallucinate any accommodation):\n${JSON.stringify(overnightJson, null, 1)}\n\nValid overnight listing_ids: ${JSON.stringify(overnightIds)}\nIf no candidate exists near a day's endpoint, set overnight to null and add "accommodation_note": "No verified stays near [area] — consider continuing to [next town with candidates]".`
+    : '\n\nNo accommodation listings found along this route. Set overnight to null for all days and add "accommodation_note" explaining the gap.'
 
   return `You are writing for Australian Atlas, a curated guide to independent Australian places. A traveller is driving ${routeDesc}. They are ${detourConfig.label}.
 
@@ -713,9 +777,16 @@ ${prefContext}
 ${departureContext}
 ${seasonContext}
 
-This is a ${tripConfig.days}-day trip. Organise stops into days, with each day ending at an overnight accommodation stop. The route is ${routeDistanceKm}km — divide it roughly equally across ${tripConfig.days} days.
+This is a ${tripConfig.days}-day trip. The route is ${routeDistanceKm}km total.
+${dayTargetsSection}
 
-Listings marked "is_segment_pick: true" are pre-selected — strongly prefer these. Prioritise preference matches, quality, vertical diversity.
+CRITICAL RULES:
+1. Each day's stops MUST fall within that day's km range. Day 1 covers the first segment, Day 2 the next, etc.
+2. Overnight stays MUST be selected from the accommodation candidates list below. Do NOT invent accommodation names. If the listing_id is not in the candidates list, do NOT use it.
+3. Each day must end meaningfully closer to the destination than the previous day.
+4. Listings marked "is_segment_pick: true" are pre-selected — strongly prefer these.
+5. Prioritise preference matches, quality, vertical diversity.
+6. All listing_ids for stops MUST come from the day stops list below. Do NOT invent stops.
 
 Day stops (position_km = distance from start):
 ${JSON.stringify(listingsJson, null, 1)}
@@ -777,13 +848,17 @@ function formatClaudeResult({
 
   // Multi-day response
   if (isMultiDay && claudeResult.days) {
-    const days = claudeResult.days.map(day => ({
-      day_number: day.day_number,
-      label: day.label || `Day ${day.day_number}`,
-      stops: (day.stops || []).map(enrichStop).filter(Boolean),
-      overnight: enrichOvernight(day.overnight),
-      accommodation_gap: !day.overnight && day.day_number < tripConfig.days,
-    }))
+    const days = claudeResult.days.map(day => {
+      const enrichedOvernight = enrichOvernight(day.overnight)
+      return {
+        day_number: day.day_number,
+        label: day.label || `Day ${day.day_number}`,
+        stops: (day.stops || []).map(enrichStop).filter(Boolean),
+        overnight: enrichedOvernight,
+        accommodation_gap: !enrichedOvernight && day.day_number < tripConfig.days,
+        accommodation_note: day.accommodation_note || null,
+      }
+    })
 
     const allStops = days.flatMap(d => [...d.stops, ...(d.overnight ? [d.overnight] : [])])
     const avgStopMinutes = 25
