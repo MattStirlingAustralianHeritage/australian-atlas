@@ -15,27 +15,18 @@ export default async function CandidatesPage() {
   let queueDepth = {}
 
   try {
-    // Fetch pending candidates
+    // Fetch pending candidates — always use select('*') to avoid column-not-found
+    // errors when migrations haven't been applied to production yet
     const { data, error } = await sb
       .from('listing_candidates')
-      .select('id, name, vertical, region, description, website_url, confidence, notes, source, source_detail, gate_results, status')
+      .select('*')
       .eq('status', 'pending')
       .order('vertical', { ascending: true })
       .order('confidence', { ascending: false })
       .limit(100)
 
     if (error) {
-      console.error('[admin/candidates] Primary query failed:', error.message)
-      // Retry with select('*') — a column in the explicit list may not exist yet
-      const retry = await sb
-        .from('listing_candidates')
-        .select('*')
-        .eq('status', 'pending')
-        .order('vertical', { ascending: true })
-        .order('confidence', { ascending: false })
-        .limit(100)
-      if (!retry.error && retry.data) candidates = retry.data
-      else if (retry.error) console.error('[admin/candidates] Fallback query also failed:', retry.error.message)
+      console.error('[admin/candidates] Query failed:', error.message)
     } else if (data) {
       candidates = data
     }
@@ -55,7 +46,7 @@ export default async function CandidatesPage() {
     // Fetch recently rejected/skipped candidates (last 50)
     const { data: rejected } = await sb
       .from('listing_candidates')
-      .select('id, name, vertical, region, website_url, confidence, notes, reviewed_at, source')
+      .select('*')
       .eq('status', 'rejected')
       .order('reviewed_at', { ascending: false })
       .limit(50)

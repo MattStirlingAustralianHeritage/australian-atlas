@@ -264,15 +264,20 @@ export async function POST(request, { params }) {
 
     // ── Approve ───────────────────────────────────────────
     if (action === 'approve') {
-      // 1. Fetch the candidate
+      // 1. Fetch the candidate — use select('*') to avoid column-not-found
+      //    errors when migrations haven't been run on production yet
       const { data: candidate, error: fetchError } = await sb
         .from('listing_candidates')
-        .select('id, name, vertical, region, status, website_url, description, notes, confidence, source, gate_results, created_at')
+        .select('*')
         .eq('id', id)
         .single()
 
-      if (fetchError || !candidate) {
-        return NextResponse.json({ error: 'Candidate not found' }, { status: 404 })
+      if (fetchError) {
+        console.error(`[admin/candidates/POST] Fetch error for id=${id}:`, fetchError.message)
+        return NextResponse.json({ error: `Failed to fetch candidate: ${fetchError.message}` }, { status: 500 })
+      }
+      if (!candidate) {
+        return NextResponse.json({ error: `Candidate not found (id: ${id})` }, { status: 404 })
       }
 
       const vertical = candidate.vertical || 'sba'
@@ -509,7 +514,7 @@ export async function POST(request, { params }) {
       })
     }
   } catch (err) {
-    console.error('[admin/candidates/POST] Error:', err.message)
-    return NextResponse.json({ error: err.message || 'Action failed' }, { status: 500 })
+    console.error('[admin/candidates/POST] Error:', err.message, err.stack)
+    return NextResponse.json({ error: `Action failed: ${err.message || 'Unknown error'}` }, { status: 500 })
   }
 }

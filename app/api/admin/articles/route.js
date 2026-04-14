@@ -107,6 +107,15 @@ export async function PATCH(request) {
   }
 
   const sb = getSupabaseAdmin()
+
+  // If body is being updated, unlock first (admin is the only process allowed to
+  // edit body), track who made the change, and re-lock after
+  if ('body' in updates) {
+    updates.body_locked = false // Temporarily unlock for this update
+    updates.body_updated_at = new Date().toISOString()
+    updates.body_updated_by = 'admin'
+  }
+
   const { data, error } = await sb
     .from('articles')
     .update(updates)
@@ -119,6 +128,12 @@ export async function PATCH(request) {
       return NextResponse.json({ error: 'An article with that slug already exists' }, { status: 409 })
     }
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  // Re-lock body after admin update if article is published
+  if ('body' in updates && data?.status === 'published' && data?.body) {
+    await sb.from('articles').update({ body_locked: true }).eq('id', id)
+    data.body_locked = true
   }
 
   return NextResponse.json(data)

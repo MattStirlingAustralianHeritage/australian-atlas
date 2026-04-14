@@ -28,12 +28,13 @@ export async function POST(request) {
   // Fetch all pending/reviewing candidates
   const { data: candidates, error: fetchError } = await sb
     .from('listing_candidates')
-    .select('id, name, vertical, region, status, website_url, description, notes, confidence, source, gate_results, created_at')
+    .select('*')
     .in('status', ['pending', 'reviewing'])
     .order('created_at', { ascending: true })
 
   if (fetchError) {
-    return NextResponse.json({ error: 'Failed to fetch candidates' }, { status: 500 })
+    console.error('[rerun-gates] Fetch error:', fetchError.message)
+    return NextResponse.json({ error: `Failed to fetch candidates: ${fetchError.message}` }, { status: 500 })
   }
 
   if (!candidates || candidates.length === 0) {

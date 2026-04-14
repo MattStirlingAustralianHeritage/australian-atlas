@@ -8,6 +8,15 @@ export const maxDuration = 300
 const AGENT_NAME = 'content-recycling'
 const DELAY_MS = 1500
 
+/**
+ * HARD RULE: This agent NEVER writes to the body, content, or description
+ * field of any article. It may only write to:
+ * - meta_description (if currently null)
+ * - recycled_at (timestamp)
+ * Any violation of this rule is a critical bug.
+ */
+const ALLOWED_ARTICLE_FIELDS = ['meta_description', 'recycled_at']
+
 function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }

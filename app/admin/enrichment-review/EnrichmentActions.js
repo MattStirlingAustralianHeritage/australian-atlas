@@ -160,6 +160,60 @@ export default function EnrichmentActions({ listing }) {
 
 
 /**
+ * Expandable source text viewer for enrichment review.
+ * Shows the scraped website content used to generate the AI description.
+ */
+export function SourceTextToggle({ sourceText, wordCount }) {
+  const [open, setOpen] = useState(false)
+
+  if (!sourceText) return null
+
+  return (
+    <div style={{ marginTop: 10 }}>
+      <button
+        onClick={() => setOpen(v => !v)}
+        style={{
+          fontFamily: 'var(--font-body)',
+          fontSize: 11,
+          fontWeight: 500,
+          color: '#666',
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          padding: 0,
+          textDecoration: 'underline',
+          textDecorationColor: '#ccc',
+          textUnderlineOffset: 2,
+        }}
+      >
+        {open ? 'Hide source material' : 'View source material'}
+        {wordCount != null && ` (${wordCount} words)`}
+      </button>
+      {open && (
+        <div style={{
+          marginTop: 8,
+          padding: '12px 14px',
+          borderRadius: 6,
+          background: '#f0eeea',
+          border: '1px solid #e0ddd6',
+          fontFamily: 'monospace',
+          fontSize: 11,
+          lineHeight: 1.55,
+          color: '#444',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          maxHeight: 300,
+          overflowY: 'auto',
+        }}>
+          {sourceText}
+        </div>
+      )}
+    </div>
+  )
+}
+
+
+/**
  * Bulk approve button — used at the top of the review page.
  * Approves all listed IDs sequentially.
  */

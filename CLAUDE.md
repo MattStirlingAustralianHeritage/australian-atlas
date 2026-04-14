@@ -200,3 +200,28 @@ scripts/        — data sync, seeding, editorial generation
 - Never render a "Visit Website" button if website_url is null.
 - Homepage stat numbers link to /map?type=[value] for pre-filtered map views.
 - The /explore page reads ?region= URL params on mount for pre-filtered views from homepage city cards.
+
+## Article Body Protection (CRITICAL)
+
+**No automated process, agent, cron job, script, or enrichment pipeline may write to the `body` or `content` field of any record in the `articles` table under any circumstances.**
+
+This is a hard, non-negotiable rule. It exists because the article sync pipeline (`syncArticles.js`) previously overwrote a published article body with stale CMS data, destroying editorial work.
+
+### Rules
+
+1. The `body_locked` column on `articles` is set to `true` for all published articles. A PostgreSQL trigger (`protect_article_body`) prevents body updates when locked.
+2. Only the admin CMS editor (`/api/admin/articles` PATCH) may update article body. It temporarily unlocks, writes, and re-locks.
+3. The article sync pipeline (`lib/sync/syncArticles.js`) syncs metadata only (title, excerpt, tags, hero image). It NEVER includes `body` in UPDATE operations. Body is only written on INSERT (new articles).
+4. The content recycling agent may only write `meta_description` and `recycled_at` to articles. No other fields.
+5. No other agent, script, or cron may write to the articles table at all.
+6. If you are writing code that touches the `articles` table, ask: "Does this modify body/content?" If yes, STOP. Only the admin PATCH route is allowed.
+
+### Allowed article writes by source
+
+| Source | body | meta_description | recycled_at | Other metadata |
+|--------|------|------------------|-------------|---------------|
+| Admin CMS (PATCH) | ✅ (unlocks → writes → relocks) | ✅ | — | ✅ |
+| syncArticles.js | ❌ NEVER (on update) | — | — | ✅ metadata only |
+| syncArticles.js | ✅ (on INSERT only) | — | — | ✅ |
+| Content recycling | ❌ | ✅ (if null) | ✅ | ❌ |
+| Any other agent | ❌ | ❌ | ❌ | ❌ |
