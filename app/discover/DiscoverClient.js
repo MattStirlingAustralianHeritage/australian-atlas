@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
+import './discover.css'
 
 const VERTICAL_COLORS = {
   sba: '#6b3a2a',
@@ -16,7 +17,7 @@ const VERTICAL_COLORS = {
 }
 
 const VERTICAL_NAMES = {
-  sba: 'Small Batch',
+  sba: 'Small Batch Atlas',
   collection: 'Culture Atlas',
   craft: 'Maker Studios',
   fine_grounds: 'Fine Grounds',
@@ -31,8 +32,7 @@ function getFirstSentence(text) {
   if (!text) return ''
   const match = text.match(/^(.+?[.!?])\s/)
   if (match) return match[1]
-  // If no sentence boundary found, truncate at 120 chars
-  if (text.length > 120) return text.slice(0, 120).trim() + '...'
+  if (text.length > 120) return text.slice(0, 120).trim() + '\u2026'
   return text
 }
 
@@ -48,7 +48,7 @@ export default function DiscoverClient() {
   const [saveCount, setSaveCount] = useState(0)
   const [sessionId] = useState(() => generateSessionId())
   const [showTrailCta, setShowTrailCta] = useState(false)
-  const [direction, setDirection] = useState(null) // 'left' or 'right' for animation
+  const [direction, setDirection] = useState(null)
   const [animating, setAnimating] = useState(false)
 
   // Touch/swipe state
@@ -81,12 +81,10 @@ export default function DiscoverClient() {
     }
   }, [])
 
-  // Fetch first listing on mount
   useEffect(() => {
     fetchListing()
   }, [fetchListing])
 
-  // Check trail CTA threshold
   useEffect(() => {
     if (saveCount >= 5 && !showTrailCta) {
       setShowTrailCta(true)
@@ -99,7 +97,6 @@ export default function DiscoverClient() {
     setDirection('right')
     setAnimating(true)
 
-    // Save to API
     try {
       const res = await fetch('/api/discover/save', {
         method: 'POST',
@@ -117,7 +114,6 @@ export default function DiscoverClient() {
 
     setSavedListings(prev => [...prev, currentListing])
 
-    // Animate out then fetch next
     setTimeout(() => {
       const lastVertical = currentListing?.vertical || ''
       setAnimating(false)
@@ -152,7 +148,6 @@ export default function DiscoverClient() {
     const deltaX = e.touches[0].clientX - touchStartX.current
     const deltaY = e.touches[0].clientY - touchStartY.current
 
-    // Only track horizontal swipes (ignore vertical scrolling)
     if (Math.abs(deltaX) > Math.abs(deltaY)) {
       e.preventDefault()
       touchDeltaX.current = deltaX
@@ -168,7 +163,6 @@ export default function DiscoverClient() {
 
     const delta = touchDeltaX.current
 
-    // Reset card position
     if (cardRef.current) {
       cardRef.current.style.transform = ''
       cardRef.current.style.transition = 'transform 0.3s ease'
@@ -185,44 +179,50 @@ export default function DiscoverClient() {
     touchDeltaX.current = 0
   }, [handleSave, handleNext])
 
-  // Loading skeleton
+  // ── Loading skeleton ────────────────────────────────────
   if (loading && !currentListing) {
     return (
       <div style={{
         position: 'fixed',
         inset: 0,
         zIndex: 50,
-        backgroundColor: '#1a1a1a',
+        backgroundColor: '#141210',
         display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
+        gap: 16,
       }}>
         <div style={{
-          width: '80%',
-          maxWidth: 400,
-          height: 300,
-          borderRadius: 16,
-          backgroundColor: '#2a2a2a',
+          width: 48,
+          height: 1,
+          backgroundColor: 'rgba(184, 134, 43, 0.3)',
+          borderRadius: 1,
           animation: 'discoverPulse 2s ease-in-out infinite',
         }} />
-        <style>{`
-          @keyframes discoverPulse {
-            0%, 100% { opacity: 0.4; }
-            50% { opacity: 0.7; }
-          }
-        `}</style>
+        <p style={{
+          fontFamily: 'var(--font-display)',
+          fontStyle: 'italic',
+          fontSize: 15,
+          fontWeight: 400,
+          color: 'rgba(255,255,255,0.25)',
+          margin: 0,
+          letterSpacing: '0.02em',
+        }}>
+          Finding something good
+        </p>
       </div>
     )
   }
 
-  // Exhausted state
+  // ── Exhausted state ─────────────────────────────────────
   if (!currentListing && !loading) {
     return (
       <div style={{
         position: 'fixed',
         inset: 0,
         zIndex: 50,
-        backgroundColor: '#1a1a1a',
+        backgroundColor: '#141210',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -230,41 +230,52 @@ export default function DiscoverClient() {
         padding: 24,
         textAlign: 'center',
       }}>
+        <div style={{
+          width: 48,
+          height: 1,
+          backgroundColor: 'rgba(184, 134, 43, 0.2)',
+          borderRadius: 1,
+          marginBottom: 24,
+        }} />
         <p style={{
           fontFamily: 'var(--font-display)',
-          fontSize: 28,
+          fontStyle: 'italic',
+          fontSize: 'clamp(24px, 5vw, 32px)',
           fontWeight: 400,
           color: '#fff',
           marginBottom: 12,
         }}>
-          You've seen them all
+          {"You\u2019ve seen them all"}
         </p>
         <p style={{
           fontFamily: 'var(--font-body)',
-          fontSize: 15,
+          fontSize: 14,
           fontWeight: 300,
-          color: 'rgba(255,255,255,0.5)',
-          marginBottom: 32,
-          maxWidth: 360,
+          color: 'rgba(255,255,255,0.4)',
+          marginBottom: 36,
+          maxWidth: 340,
+          lineHeight: 1.6,
         }}>
           {saveCount > 0
-            ? `You saved ${saveCount} place${saveCount !== 1 ? 's' : ''}. Build a trail from your discoveries.`
+            ? `${saveCount} place${saveCount !== 1 ? 's' : ''} saved. Turn them into a trail.`
             : 'Come back tomorrow for more discoveries.'
           }
         </p>
-        <div style={{ display: 'flex', gap: 12 }}>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
           {saveCount > 0 && (
             <Link
               href="/trails/builder"
               style={{
                 fontFamily: 'var(--font-body)',
                 fontWeight: 500,
-                fontSize: 14,
+                fontSize: 13,
                 color: '#fff',
-                backgroundColor: '#2d6a4f',
+                backgroundColor: 'rgba(184, 134, 43, 0.2)',
+                border: '1px solid rgba(184, 134, 43, 0.3)',
                 padding: '12px 24px',
-                borderRadius: 12,
+                borderRadius: 10,
                 textDecoration: 'none',
+                transition: 'background-color 0.2s',
               }}
             >
               Build a trail
@@ -275,11 +286,11 @@ export default function DiscoverClient() {
             style={{
               fontFamily: 'var(--font-body)',
               fontWeight: 500,
-              fontSize: 14,
-              color: 'rgba(255,255,255,0.7)',
-              border: '1px solid rgba(255,255,255,0.2)',
+              fontSize: 13,
+              color: 'rgba(255,255,255,0.5)',
+              border: '1px solid rgba(255,255,255,0.12)',
               padding: '12px 24px',
-              borderRadius: 12,
+              borderRadius: 10,
               textDecoration: 'none',
             }}
           >
@@ -290,10 +301,13 @@ export default function DiscoverClient() {
     )
   }
 
+  // ── Active card ─────────────────────────────────────────
   const verticalColor = VERTICAL_COLORS[currentListing.vertical] || '#5a6b7c'
   const verticalName = VERTICAL_NAMES[currentListing.vertical] || currentListing.vertical
   const snippet = getFirstSentence(currentListing.description)
-  const locationParts = [currentListing.region, currentListing.state].filter(Boolean)
+  const locationParts = [currentListing.suburb, currentListing.region, currentListing.state].filter(Boolean)
+  const hasHero = !!currentListing.hero_image_url
+  const initial = (currentListing.name || '?')[0].toUpperCase()
 
   const cardAnimationStyle = animating
     ? {
@@ -315,28 +329,36 @@ export default function DiscoverClient() {
         position: 'fixed',
         inset: 0,
         zIndex: 50,
-        backgroundColor: '#111',
+        backgroundColor: '#141210',
         overflow: 'hidden',
       }}
     >
-      {/* Background image */}
-      {currentListing.hero_image_url && (
+      {/* Background — hero image OR typographic fallback */}
+      {hasHero ? (
         <div style={{
           position: 'absolute',
           inset: 0,
           backgroundImage: `url(${currentListing.hero_image_url})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
-          filter: 'brightness(0.4)',
+          filter: 'brightness(0.35) saturate(0.85)',
           transition: 'background-image 0.3s ease',
         }} />
+      ) : (
+        <div
+          className="discover-typo-fallback"
+          data-initial={initial}
+          style={{ backgroundColor: '#1a1815' }}
+        />
       )}
 
-      {/* Dark gradient overlay */}
+      {/* Gradient overlay — stronger at bottom for text legibility */}
       <div style={{
         position: 'absolute',
         inset: 0,
-        background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.3) 40%, rgba(0,0,0,0.15) 60%, rgba(0,0,0,0.4) 100%)',
+        background: hasHero
+          ? 'linear-gradient(to top, rgba(20,18,16,0.92) 0%, rgba(20,18,16,0.5) 35%, rgba(20,18,16,0.1) 55%, rgba(20,18,16,0.45) 100%)'
+          : 'linear-gradient(to top, rgba(20,18,16,0.7) 0%, transparent 40%)',
       }} />
 
       {/* Top bar */}
@@ -351,41 +373,42 @@ export default function DiscoverClient() {
         justifyContent: 'space-between',
         zIndex: 10,
       }}>
-        {/* Close / back */}
         <Link
-          href="/explore"
+          href="/"
           style={{
-            color: 'rgba(255,255,255,0.7)',
+            color: 'rgba(255,255,255,0.5)',
             textDecoration: 'none',
             fontFamily: 'var(--font-body)',
             fontWeight: 400,
-            fontSize: 14,
+            fontSize: 13,
             display: 'flex',
             alignItems: 'center',
             gap: 6,
             padding: '8px 4px',
             minHeight: 44,
+            letterSpacing: '0.02em',
           }}
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M15 19l-7-7 7-7" />
           </svg>
-          Discover
+          Atlas
         </Link>
 
-        {/* Save counter badge */}
+        {/* Save counter */}
         {saveCount > 0 && (
           <span style={{
             fontFamily: 'var(--font-body)',
-            fontWeight: 500,
-            fontSize: 12,
-            color: '#fff',
-            backgroundColor: 'rgba(255,255,255,0.15)',
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
+            fontWeight: 400,
+            fontSize: 11,
+            letterSpacing: '0.04em',
+            color: 'rgba(255,255,255,0.6)',
+            backgroundColor: 'rgba(255,255,255,0.08)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
             padding: '6px 14px',
             borderRadius: 20,
-            border: '1px solid rgba(255,255,255,0.1)',
+            border: '1px solid rgba(255,255,255,0.06)',
           }}>
             {saveCount} saved
           </span>
@@ -401,7 +424,7 @@ export default function DiscoverClient() {
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'flex-end',
-          padding: '0 24px 140px',
+          padding: '0 24px 150px',
           zIndex: 5,
           ...cardAnimationStyle,
         }}
@@ -409,19 +432,20 @@ export default function DiscoverClient() {
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-        {/* Vertical badge */}
+        {/* Vertical badge — uses vertical display name, not sub_type */}
         <span style={{
           alignSelf: 'flex-start',
           fontFamily: 'var(--font-body)',
           fontWeight: 500,
-          fontSize: 11,
-          letterSpacing: '0.03em',
+          fontSize: 10,
+          letterSpacing: '0.06em',
           textTransform: 'uppercase',
           color: '#fff',
           backgroundColor: verticalColor,
-          padding: '5px 12px',
+          padding: '4px 12px',
           borderRadius: 20,
           marginBottom: 16,
+          opacity: 0.9,
         }}>
           {verticalName}
         </span>
@@ -430,11 +454,12 @@ export default function DiscoverClient() {
         <h1 style={{
           fontFamily: 'var(--font-display)',
           fontWeight: 400,
-          fontSize: 'clamp(28px, 7vw, 42px)',
-          lineHeight: 1.15,
+          fontSize: 'clamp(26px, 7vw, 40px)',
+          lineHeight: 1.12,
           color: '#fff',
-          margin: '0 0 12px',
-          maxWidth: 600,
+          margin: '0 0 14px',
+          maxWidth: 560,
+          letterSpacing: '-0.01em',
         }}>
           {currentListing.name}
         </h1>
@@ -444,11 +469,11 @@ export default function DiscoverClient() {
           <p style={{
             fontFamily: 'var(--font-body)',
             fontWeight: 300,
-            fontSize: 'clamp(14px, 3.5vw, 16px)',
-            lineHeight: 1.6,
-            color: 'rgba(255,255,255,0.7)',
+            fontSize: 'clamp(14px, 3.5vw, 15px)',
+            lineHeight: 1.65,
+            color: 'rgba(255,255,255,0.6)',
             margin: '0 0 16px',
-            maxWidth: 500,
+            maxWidth: 480,
           }}>
             {snippet}
           </p>
@@ -459,34 +484,39 @@ export default function DiscoverClient() {
           <p style={{
             fontFamily: 'var(--font-body)',
             fontWeight: 400,
-            fontSize: 13,
-            color: 'rgba(255,255,255,0.4)',
-            margin: '0 0 12px',
-            letterSpacing: '0.02em',
+            fontSize: 12,
+            color: 'rgba(255,255,255,0.3)',
+            margin: '0 0 14px',
+            letterSpacing: '0.03em',
           }}>
-            {locationParts.join(', ')}
+            {locationParts.join(' \u00b7 ')}
           </p>
         )}
 
-        {/* View listing link */}
+        {/* View listing link — arrow animates on hover */}
         <Link
           href={`/place/${currentListing.slug}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="discover-view-link"
           style={{
             fontFamily: 'var(--font-body)',
             fontWeight: 400,
-            fontSize: 13,
-            color: 'rgba(255,255,255,0.5)',
+            fontSize: 12,
+            color: 'rgba(184, 134, 43, 0.7)',
             textDecoration: 'none',
             display: 'inline-flex',
             alignItems: 'center',
-            gap: 4,
+            gap: 6,
             padding: '8px 0',
             minHeight: 44,
+            letterSpacing: '0.02em',
           }}
         >
           View listing
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M5 12h14M12 5l7 7-7 7" />
+          <svg className="discover-view-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M5 12h14" />
+            <path d="M12 5l7 7-7 7" />
           </svg>
         </Link>
       </div>
@@ -512,85 +542,91 @@ export default function DiscoverClient() {
               display: 'block',
               fontFamily: 'var(--font-body)',
               fontWeight: 400,
-              fontSize: 13,
-              color: 'rgba(255,255,255,0.8)',
-              backgroundColor: 'rgba(45,106,79,0.3)',
-              border: '1px solid rgba(45,106,79,0.4)',
-              borderRadius: 12,
-              padding: '12px 16px',
+              fontSize: 12,
+              color: 'rgba(184, 134, 43, 0.8)',
+              backgroundColor: 'rgba(184, 134, 43, 0.08)',
+              border: '1px solid rgba(184, 134, 43, 0.15)',
+              borderRadius: 10,
+              padding: '11px 16px',
               textAlign: 'center',
               textDecoration: 'none',
               backdropFilter: 'blur(8px)',
               WebkitBackdropFilter: 'blur(8px)',
               marginBottom: 4,
+              letterSpacing: '0.02em',
             }}
           >
-            Build a trail from your discoveries?
+            Turn your saves into a trail
           </Link>
         )}
 
-        {/* Action buttons */}
-        <div style={{
-          display: 'flex',
-          gap: 10,
-        }}>
-          {/* Skip button */}
+        {/* Action buttons — side by side */}
+        <div className="discover-actions">
+          {/* Skip */}
           <button
             onClick={handleNext}
             disabled={loading || animating}
+            className="discover-skip-btn"
             style={{
               flex: 1,
               fontFamily: 'var(--font-body)',
               fontWeight: 500,
-              fontSize: 14,
-              color: 'rgba(255,255,255,0.7)',
+              fontSize: 13,
+              color: 'rgba(255,255,255,0.55)',
               backgroundColor: 'transparent',
-              border: '1px solid rgba(255,255,255,0.2)',
-              borderRadius: 14,
+              border: '1px solid rgba(255,255,255,0.12)',
+              borderRadius: 12,
               padding: '14px 20px',
               cursor: 'pointer',
               transition: 'all 0.2s ease',
               minHeight: 50,
-              opacity: loading || animating ? 0.5 : 1,
+              opacity: loading || animating ? 0.4 : 1,
+              letterSpacing: '0.02em',
             }}
           >
-            Show me another
+            Next
           </button>
 
-          {/* Save button */}
+          {/* Save */}
           <button
             onClick={handleSave}
             disabled={loading || animating}
+            className="discover-save-btn"
             style={{
               flex: 1.2,
               fontFamily: 'var(--font-body)',
               fontWeight: 600,
-              fontSize: 14,
+              fontSize: 13,
               color: '#fff',
-              backgroundColor: '#2d6a4f',
-              border: '1px solid #3a8563',
-              borderRadius: 14,
+              backgroundColor: 'rgba(184, 134, 43, 0.25)',
+              border: '1px solid rgba(184, 134, 43, 0.35)',
+              borderRadius: 12,
               padding: '14px 20px',
               cursor: 'pointer',
               transition: 'all 0.2s ease',
               minHeight: 50,
-              opacity: loading || animating ? 0.5 : 1,
+              opacity: loading || animating ? 0.4 : 1,
+              letterSpacing: '0.02em',
             }}
           >
-            I'd visit this
+            {"I\u2019d visit this"}
           </button>
         </div>
 
-        {/* Swipe hint -- only show initially */}
-        <p style={{
-          fontFamily: 'var(--font-body)',
-          fontWeight: 300,
-          fontSize: 11,
-          color: 'rgba(255,255,255,0.25)',
-          textAlign: 'center',
-          margin: 0,
-          padding: '4px 0 0',
-        }}>
+        {/* Swipe hint — mobile only (hidden on desktop via CSS) */}
+        <p
+          className="discover-swipe-hint"
+          style={{
+            fontFamily: 'var(--font-body)',
+            fontWeight: 300,
+            fontSize: 10,
+            color: 'rgba(255,255,255,0.18)',
+            textAlign: 'center',
+            margin: 0,
+            padding: '4px 0 0',
+            letterSpacing: '0.04em',
+          }}
+        >
           Swipe right to save, left to skip
         </p>
       </div>

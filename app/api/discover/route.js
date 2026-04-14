@@ -1,6 +1,34 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { NextResponse } from 'next/server'
 
+const SELECT_FIELDS = 'id, name, slug, vertical, sub_type, description, region, state, suburb, hero_image_url, quality_score'
+
+/**
+ * Base query builder with all data quality filters:
+ * - status = 'active'
+ * - quality_score >= 40
+ * - geocode_confidence != 'low' (exclude bad geocoding)
+ * - description word count > 20 (require meaningful descriptions)
+ */
+function baseQuery(sb, select = SELECT_FIELDS) {
+  return sb
+    .from('listings')
+    .select(select)
+    .eq('status', 'active')
+    .gte('quality_score', 40)
+    .or('geocode_confidence.is.null,geocode_confidence.neq.low')
+}
+
+/**
+ * Post-fetch filter: ensure description has > 20 words.
+ * Supabase can't do word-count in a WHERE clause, so we filter client-side.
+ */
+function hasGoodDescription(listing) {
+  if (!listing?.description) return false
+  const wordCount = listing.description.trim().split(/\s+/).length
+  return wordCount > 20
+}
+
 export async function GET(request) {
   const { searchParams } = new URL(request.url)
   const excludeParam = searchParams.get('exclude') || ''
@@ -9,21 +37,16 @@ export async function GET(request) {
   const excludeIds = excludeParam.split(',').filter(Boolean)
   const sb = getSupabaseAdmin()
 
-  // Build base query for counting eligible listings
+  // Count eligible listings (with vertical diversity filter)
   let countQuery = sb
     .from('listings')
     .select('*', { count: 'exact', head: true })
     .eq('status', 'active')
     .gte('quality_score', 40)
+    .or('geocode_confidence.is.null,geocode_confidence.neq.low')
 
-  // Try to pick a different vertical to avoid filter bubbles
   if (lastVertical) {
     countQuery = countQuery.neq('vertical', lastVertical)
-  }
-
-  if (excludeIds.length > 0) {
-    // Supabase doesn't support NOT IN directly on uuid arrays easily,
-    // so we'll filter after fetch if needed. For count, we accept slight over-count.
   }
 
   const { count, error: countError } = await countQuery
@@ -33,54 +56,37 @@ export async function GET(request) {
   }
 
   if (!count || count === 0) {
-    // Fallback: if filtering by vertical yields nothing, try any vertical
     if (lastVertical) {
       return retryWithoutVerticalFilter(sb, excludeIds)
     }
     return NextResponse.json({ listing: null, exhausted: true })
   }
 
-  // Pick a random offset
-  const offset = Math.floor(Math.random() * count)
+  // Try up to 8 random picks to find a good listing
+  // (one that's not excluded and has a meaningful description)
+  let listing = null
 
-  let query = sb
-    .from('listings')
-    .select('id, name, slug, vertical, description, region, state, suburb, hero_image_url, quality_score')
-    .eq('status', 'active')
-    .gte('quality_score', 40)
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const offset = Math.floor(Math.random() * count)
 
-  if (lastVertical) {
-    query = query.neq('vertical', lastVertical)
-  }
+    let query = baseQuery(sb)
+    if (lastVertical) {
+      query = query.neq('vertical', lastVertical)
+    }
 
-  const { data, error } = await query.range(offset, offset)
+    const { data, error } = await query.range(offset, offset)
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
-
-  // If the picked listing is in the exclude list, try a few more random picks
-  let listing = data?.[0] || null
-
-  if (listing && excludeIds.includes(String(listing.id))) {
-    // Try up to 5 more random offsets
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const newOffset = Math.floor(Math.random() * count)
-      let retryQuery = sb
-        .from('listings')
-        .select('id, name, slug, vertical, description, region, state, suburb, hero_image_url, quality_score')
-        .eq('status', 'active')
-        .gte('quality_score', 40)
-
-      if (lastVertical) {
-        retryQuery = retryQuery.neq('vertical', lastVertical)
-      }
-
-      const { data: retryData } = await retryQuery.range(newOffset, newOffset)
-      if (retryData?.[0] && !excludeIds.includes(String(retryData[0].id))) {
-        listing = retryData[0]
-        break
-      }
+    const candidate = data?.[0]
+    if (
+      candidate &&
+      !excludeIds.includes(String(candidate.id)) &&
+      hasGoodDescription(candidate)
+    ) {
+      listing = candidate
+      break
     }
   }
 
@@ -101,35 +107,27 @@ async function retryWithoutVerticalFilter(sb, excludeIds) {
     .select('*', { count: 'exact', head: true })
     .eq('status', 'active')
     .gte('quality_score', 40)
+    .or('geocode_confidence.is.null,geocode_confidence.neq.low')
 
   if (!count || count === 0) {
     return NextResponse.json({ listing: null, exhausted: true })
   }
 
-  const offset = Math.floor(Math.random() * count)
-  const { data } = await sb
-    .from('listings')
-    .select('id, name, slug, vertical, description, region, state, suburb, hero_image_url, quality_score')
-    .eq('status', 'active')
-    .gte('quality_score', 40)
-    .range(offset, offset)
+  let listing = null
 
-  let listing = data?.[0] || null
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const offset = Math.floor(Math.random() * count)
 
-  if (listing && excludeIds.includes(String(listing.id))) {
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const newOffset = Math.floor(Math.random() * count)
-      const { data: retryData } = await sb
-        .from('listings')
-        .select('id, name, slug, vertical, description, region, state, suburb, hero_image_url, quality_score')
-        .eq('status', 'active')
-        .gte('quality_score', 40)
-        .range(newOffset, newOffset)
+    const { data } = await baseQuery(sb).range(offset, offset)
+    const candidate = data?.[0]
 
-      if (retryData?.[0] && !excludeIds.includes(String(retryData[0].id))) {
-        listing = retryData[0]
-        break
-      }
+    if (
+      candidate &&
+      !excludeIds.includes(String(candidate.id)) &&
+      hasGoodDescription(candidate)
+    ) {
+      listing = candidate
+      break
     }
   }
 
