@@ -213,11 +213,19 @@ export default function OnThisRoadClient() {
         }),
       })
 
-      const data = await res.json()
       if (!res.ok) {
-        setError(data.error || 'Something went wrong. Please try again.')
+        const body = await res.text()
+        console.error('[on-this-road] API error:', res.status, body)
+        // Try to parse JSON error body for user-friendly message
+        try {
+          const errData = JSON.parse(body)
+          setError(errData.error || `Something went wrong (${res.status}). Please try again.`)
+        } catch {
+          setError(`Something went wrong (${res.status}). Please try again.`)
+        }
         return
       }
+      const data = await res.json()
       setResult(data)
 
       // Scroll to results
