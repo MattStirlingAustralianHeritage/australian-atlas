@@ -24,7 +24,21 @@ export default async function CandidatesPage() {
       .order('confidence', { ascending: false })
       .limit(100)
 
-    if (!error && data) candidates = data
+    if (error) {
+      console.error('[admin/candidates] Primary query failed:', error.message)
+      // Retry with select('*') — a column in the explicit list may not exist yet
+      const retry = await sb
+        .from('listing_candidates')
+        .select('*')
+        .eq('status', 'pending')
+        .order('vertical', { ascending: true })
+        .order('confidence', { ascending: false })
+        .limit(100)
+      if (!retry.error && retry.data) candidates = retry.data
+      else if (retry.error) console.error('[admin/candidates] Fallback query also failed:', retry.error.message)
+    } else if (data) {
+      candidates = data
+    }
 
     // Fetch per-vertical queue depth
     const depthPromises = ALL_VERTICALS.map(async (v) => {
