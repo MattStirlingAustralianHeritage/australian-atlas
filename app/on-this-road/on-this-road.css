@@ -1,14 +1,21 @@
-/* On This Road — full design system */
+/* On This Road — Atlas editorial design */
 
 :root {
-  --otr-dark: #1c1a17;
-  --otr-dark-mid: #2d2a24;
-  --otr-gold: #d4a843;
-  --otr-gold-muted: rgba(212, 168, 67, 0.4);
-  --otr-gold-glow: rgba(212, 168, 67, 0.15);
+  --otr-ink: var(--color-ink, #1C1A17);
+  --otr-cream: var(--color-bg, #F8F6F1);
+  --otr-paper: var(--color-cream, #faf8f5);
+  --otr-amber: #C49A3C;
+  --otr-amber-dark: #B08A32;
+  --otr-border: rgba(28, 26, 23, 0.12);
+  --otr-border-strong: rgba(28, 26, 23, 0.20);
+  --otr-ink-60: rgba(28, 26, 23, 0.6);
+  --otr-ink-50: rgba(28, 26, 23, 0.5);
+  --otr-ink-40: rgba(28, 26, 23, 0.4);
+  --otr-ink-20: rgba(28, 26, 23, 0.2);
+  --otr-ink-70: rgba(28, 26, 23, 0.7);
 }
 
-/* ── Loading animation ─────────────────────────────────────────── */
+/* ── Animations ───────────────────────────────────────────── */
 @keyframes roadLine {
   0% { transform: scaleX(0); transform-origin: left; }
   50% { transform: scaleX(1); transform-origin: left; }
@@ -21,50 +28,83 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes pulseGold {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(212, 168, 67, 0.3); }
-  50% { box-shadow: 0 0 0 6px rgba(212, 168, 67, 0); }
-}
-
-/* ── Hero section ──────────────────────────────────────────────── */
+/* ── Hero band (~280px) ───────────────────────────────────── */
 .otr-hero {
-  background: linear-gradient(170deg, #1c1a17 0%, #2a2520 60%, #332a22 100%);
-  padding: 56px 20px 48px;
   position: relative;
   overflow: hidden;
+  padding: 64px 20px 56px;
+  min-height: 280px;
+  display: flex;
+  align-items: flex-end;
 }
-.otr-hero::before {
+.otr-hero-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center 40%;
+  background-repeat: no-repeat;
+}
+.otr-hero-bg::after {
   content: '';
   position: absolute;
-  top: -50%;
-  right: -20%;
-  width: 60%;
-  height: 200%;
-  background: radial-gradient(ellipse, rgba(212, 168, 67, 0.04) 0%, transparent 70%);
-  pointer-events: none;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(28, 26, 23, 0.60) 0%,
+    rgba(28, 26, 23, 0.85) 100%
+  );
+}
+/* Fallback when no tile image loads */
+.otr-hero-bg-fallback {
+  background: var(--otr-ink);
 }
 .otr-hero-inner {
   max-width: 900px;
   margin: 0 auto;
   position: relative;
   z-index: 1;
+  width: 100%;
 }
 
-/* ── Form section ──────────────────────────────────────────────── */
+/* ── Form section ─────────────────────────────────────────── */
 .otr-form-section {
-  background: var(--otr-dark);
-  padding: 0 20px 48px;
+  background: var(--otr-cream);
+  padding: 48px 20px 56px;
 }
 .otr-form-inner {
   max-width: 900px;
   margin: 0 auto;
 }
 
-/* ── Place inputs ──────────────────────────────────────────────── */
+/* ── Section labels ───────────────────────────────────────── */
+.otr-selector-group {
+  margin-top: 48px;
+}
+.otr-selector-label {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--otr-ink-60);
+  margin: 0 0 12px;
+}
+
+/* ── Place inputs ─────────────────────────────────────────── */
 .otr-inputs {
   display: flex;
   gap: 12px;
   align-items: flex-end;
+}
+.otr-input-label {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--otr-ink-60);
+  display: block;
+  margin-bottom: 8px;
 }
 .otr-place-input {
   width: 100%;
@@ -72,33 +112,35 @@
   font-size: 16px;
   font-family: var(--font-display);
   font-weight: 400;
-  color: #fff;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
+  color: var(--otr-ink);
+  background: var(--otr-paper);
+  border: 1px solid var(--otr-ink);
+  border-radius: 8px;
   outline: none;
   transition: border-color 0.25s, box-shadow 0.25s;
   box-sizing: border-box;
 }
 .otr-place-input::placeholder {
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--otr-ink-40);
   font-style: italic;
 }
 .otr-place-input:focus {
-  border-color: var(--otr-gold-muted);
-  box-shadow: 0 0 0 3px var(--otr-gold-glow);
+  border-color: var(--otr-amber);
+  box-shadow: 0 0 0 3px rgba(196, 154, 60, 0.15);
 }
+
+/* ── Suggestion panel ─────────────────────────────────────── */
 .otr-suggestion-panel {
   position: absolute;
   top: 100%;
   left: 0;
   right: 0;
-  background: var(--otr-dark-mid);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
+  background: #fff;
+  border: 1px solid var(--otr-border);
+  border-radius: 8px;
   margin-top: 4px;
   z-index: 100;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
   overflow: hidden;
 }
 .otr-suggestion-btn {
@@ -107,216 +149,226 @@
   padding: 12px 18px;
   font-size: 14px;
   font-family: var(--font-body);
-  font-weight: 300;
-  color: rgba(255, 255, 255, 0.8);
+  font-weight: 400;
+  color: var(--otr-ink);
   background: transparent;
   border: none;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--otr-border);
   text-align: left;
   cursor: pointer;
   transition: background 0.15s;
 }
 .otr-suggestion-btn:last-child { border-bottom: none; }
 .otr-suggestion-btn:hover {
-  background: rgba(212, 168, 67, 0.1);
-  color: #fff;
+  background: rgba(196, 154, 60, 0.08);
 }
 
-/* Route connector */
-.otr-route-connector {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding: 0 8px;
-  flex-shrink: 0;
-  align-self: center;
-  margin-top: 16px;
-}
-.otr-connector-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--otr-gold-muted);
-}
-.otr-connector-line {
-  width: 1px;
-  height: 20px;
-  background: rgba(255, 255, 255, 0.15);
-}
-
-/* Swap button */
+/* ── Swap button ──────────────────────────────────────────── */
 .otr-swap-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--otr-ink);
+  background: transparent;
   cursor: pointer;
   transition: all 0.2s;
   flex-shrink: 0;
   align-self: center;
   margin-top: 16px;
+  color: var(--otr-ink);
 }
 .otr-swap-btn:hover {
-  background: rgba(212, 168, 67, 0.15);
-  border-color: var(--otr-gold-muted);
+  background: var(--otr-ink);
+  color: var(--otr-paper);
 }
 
-/* ── Selectors (shared pill/chip pattern) ──────────────────────── */
-.otr-selector-group {
-  margin-top: 28px;
-}
-.otr-selector-label {
-  font-family: var(--font-body);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.4);
-  margin: 0 0 10px;
-}
+/* ── Pills (Leaving, Trip Length, Detour) ─────────────────── */
 .otr-pill-row {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
 }
 .otr-pill {
-  padding: 9px 20px;
-  border-radius: 99px;
+  padding: 10px 18px;
+  border-radius: 999px;
   font-size: 13px;
   font-family: var(--font-body);
   font-weight: 400;
-  color: rgba(255, 255, 255, 0.6);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--otr-ink);
+  background: var(--otr-cream);
+  border: 1px solid var(--otr-ink-20);
   cursor: pointer;
   transition: all 0.2s;
-  min-height: 40px;
   white-space: nowrap;
 }
 .otr-pill:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.8);
+  border-color: var(--otr-ink-40);
 }
 .otr-pill.active {
-  color: var(--otr-dark);
-  background: var(--otr-gold);
-  border-color: var(--otr-gold);
+  color: var(--otr-ink);
+  background: var(--otr-amber);
+  border-color: var(--otr-amber);
   font-weight: 500;
 }
 
-/* ── Preference chips ──────────────────────────────────────────── */
+/* Detour pills with sublabel */
+.otr-pill--detour {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 10px 18px;
+  line-height: 1.3;
+}
+.otr-pill__sublabel {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--otr-ink-50);
+  margin-top: 2px;
+}
+.otr-pill.active .otr-pill__sublabel {
+  color: var(--otr-ink-60);
+}
+
+/* ── Preference chips ─────────────────────────────────────── */
 .otr-chips-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 8px;
 }
 .otr-chip {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  border-radius: 10px;
+  gap: 10px;
+  padding: 10px 18px;
+  border-radius: 999px;
   font-size: 13px;
   font-family: var(--font-body);
   font-weight: 400;
-  color: rgba(255, 255, 255, 0.55);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--otr-ink);
+  background: var(--otr-cream);
+  border: 1px solid var(--otr-ink-20);
   cursor: pointer;
-  transition: all 0.2s, transform 0.15s;
+  transition: all 0.2s;
   min-height: 44px;
 }
 .otr-chip:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.15);
-  color: rgba(255, 255, 255, 0.8);
+  border-color: var(--otr-ink-40);
 }
 .otr-chip.active {
-  background: rgba(212, 168, 67, 0.12);
-  border-color: var(--otr-gold-muted);
-  color: var(--otr-gold);
+  background: var(--otr-amber);
+  border-color: var(--otr-amber);
+  color: var(--otr-ink);
   font-weight: 500;
-}
-.otr-chip.active:hover {
-  background: rgba(212, 168, 67, 0.18);
 }
 .otr-chip.locked {
   opacity: 0.7;
   cursor: default;
 }
 .otr-chip-icon {
-  font-size: 16px;
   flex-shrink: 0;
   line-height: 1;
-}
-
-/* ── Surprise Me toggle ───────────────────────────────────────── */
-.otr-surprise-toggle {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 18px;
-  border-radius: 10px;
-  font-size: 14px;
-  font-family: var(--font-body);
-  font-weight: 400;
-  color: rgba(255, 255, 255, 0.5);
-  background: transparent;
-  border: 1px dashed rgba(255, 255, 255, 0.12);
-  cursor: pointer;
-  transition: all 0.25s;
-  margin-top: 28px;
-  width: 100%;
-}
-.otr-surprise-toggle:hover {
-  border-color: var(--otr-gold-muted);
-  color: rgba(255, 255, 255, 0.7);
-}
-.otr-surprise-toggle.active {
-  border-style: solid;
-  border-color: var(--otr-gold-muted);
-  background: rgba(212, 168, 67, 0.08);
-  color: var(--otr-gold);
 }
 
-/* ── CTA button ────────────────────────────────────────────────── */
+/* ── Surprise Me — inline link style ──────────────────────── */
+.otr-surprise-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+  margin-top: 16px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-style: italic;
+  font-weight: 400;
+  color: var(--otr-ink-70);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.2s;
+  width: 100%;
+  justify-content: center;
+}
+.otr-surprise-link:hover {
+  color: var(--otr-ink);
+}
+.otr-surprise-link.active {
+  color: var(--otr-amber-dark);
+}
+
+/* ── Return different road — checkbox toggle style ────────── */
+.otr-return-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  margin-top: 24px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--otr-ink-60);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.otr-return-toggle:hover {
+  color: var(--otr-ink);
+}
+.otr-return-toggle.active {
+  color: var(--otr-ink);
+}
+.otr-return-checkbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid var(--otr-ink-20);
+  background: var(--otr-paper);
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+.otr-return-toggle.active .otr-return-checkbox {
+  background: var(--otr-amber);
+  border-color: var(--otr-amber);
+}
+
+/* ── CTA button ───────────────────────────────────────────── */
 .otr-cta {
-  margin-top: 36px;
-  padding: 16px 40px;
+  margin-top: 48px;
+  padding: 14px 28px;
   font-size: 16px;
   font-family: var(--font-body);
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  color: var(--otr-dark);
-  background: var(--otr-gold);
+  font-weight: 600;
+  color: var(--otr-ink);
+  background: var(--otr-amber);
   border: none;
-  border-radius: 10px;
+  border-radius: 6px;
   cursor: pointer;
   transition: all 0.25s;
-  min-height: 52px;
+  min-height: 50px;
   position: relative;
   overflow: hidden;
 }
 .otr-cta:hover:not(:disabled) {
-  background: #ddb34e;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 20px rgba(212, 168, 67, 0.3);
+  background: var(--otr-amber-dark);
 }
 .otr-cta:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 .otr-cta.loading {
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.5);
+  background: var(--otr-border);
+  color: var(--otr-ink-50);
 }
 
-/* ── Results area ──────────────────────────────────────────────── */
+/* ── Results area ─────────────────────────────────────────── */
 .otr-results {
   animation: fadeInUp 0.5s ease-out;
 }
@@ -324,7 +376,7 @@
   max-width: 1200px;
   margin: 0 auto;
   padding: 40px 20px 24px;
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--otr-border);
 }
 .otr-results-body {
   max-width: 1200px;
@@ -332,7 +384,7 @@
   padding: 0 20px 60px;
 }
 
-/* ── Day sections ──────────────────────────────────────────────── */
+/* ── Day sections ─────────────────────────────────────────── */
 .otr-day-section {
   margin-top: 32px;
 }
@@ -349,8 +401,8 @@
   width: 36px;
   height: 36px;
   border-radius: 8px;
-  background: var(--otr-dark);
-  color: var(--otr-gold);
+  background: var(--otr-ink);
+  color: var(--otr-amber);
   font-family: var(--font-display);
   font-size: 16px;
   font-weight: 600;
@@ -361,11 +413,11 @@
   font-size: 18px;
   font-weight: 400;
   font-style: italic;
-  color: var(--color-ink);
+  color: var(--otr-ink);
   margin: 0;
 }
 
-/* ── Overnight card ────────────────────────────────────────────── */
+/* ── Overnight card ───────────────────────────────────────── */
 .otr-overnight {
   display: flex;
   gap: 16px;
@@ -373,7 +425,7 @@
   margin: 12px 0 8px;
   border-radius: 12px;
   background: linear-gradient(135deg, #2d2a24 0%, #352e28 100%);
-  border: 1px solid rgba(212, 168, 67, 0.15);
+  border: 1px solid rgba(196, 154, 60, 0.15);
 }
 .otr-overnight-badge {
   display: inline-flex;
@@ -386,11 +438,11 @@
   font-family: var(--font-body);
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  background: rgba(212, 168, 67, 0.15);
-  color: var(--otr-gold);
+  background: rgba(196, 154, 60, 0.15);
+  color: var(--otr-amber);
 }
 
-/* ── Save/share bar ────────────────────────────────────────────── */
+/* ── Save/share bar ───────────────────────────────────────── */
 .otr-save-bar {
   display: flex;
   align-items: center;
@@ -398,7 +450,7 @@
   margin-top: 32px;
   padding: 20px 24px;
   border-radius: 12px;
-  background: var(--otr-dark);
+  background: var(--otr-ink);
   flex-wrap: wrap;
 }
 .otr-save-btn {
@@ -410,14 +462,14 @@
   font-size: 14px;
   font-family: var(--font-body);
   font-weight: 500;
-  color: var(--otr-dark);
-  background: var(--otr-gold);
+  color: var(--otr-ink);
+  background: var(--otr-amber);
   border: none;
   cursor: pointer;
   transition: all 0.2s;
   min-height: 44px;
 }
-.otr-save-btn:hover { background: #ddb34e; }
+.otr-save-btn:hover { background: var(--otr-amber-dark); }
 .otr-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .otr-share-url {
   font-family: var(--font-body);
@@ -426,29 +478,28 @@
   word-break: break-all;
 }
 .otr-share-url a {
-  color: var(--otr-gold);
+  color: var(--otr-amber);
   text-decoration: none;
 }
 
-/* ── Mobile toggle ─────────────────────────────────────────────── */
+/* ── Mobile toggle ────────────────────────────────────────── */
 .otr-mobile-toggle {
   display: flex !important;
 }
 .otr-mobile-map { display: none; }
 
-/* ── Responsive ────────────────────────────────────────────────── */
+/* ── Responsive ───────────────────────────────────────────── */
 @media (max-width: 640px) {
-  .otr-hero { padding: 40px 16px 36px; }
-  .otr-form-section { padding: 0 16px 40px; }
+  .otr-hero { padding: 40px 16px 36px; min-height: 200px; }
+  .otr-form-section { padding: 36px 16px 40px; }
   .otr-inputs { flex-direction: column !important; }
   .otr-inputs > div { flex: unset !important; }
   .otr-swap-btn { align-self: center; transform: rotate(90deg); margin-top: 0; }
-  .otr-route-connector { flex-direction: row; margin-top: 0; padding: 4px 0; }
-  .otr-connector-line { width: 20px; height: 1px; }
   .otr-chips-grid { grid-template-columns: 1fr 1fr; }
   .otr-cta { width: 100%; }
   .otr-overnight { flex-direction: column; gap: 12px; }
   .otr-save-bar { flex-direction: column; align-items: stretch; }
+  .otr-selector-group { margin-top: 36px; }
 }
 
 @media (min-width: 768px) {

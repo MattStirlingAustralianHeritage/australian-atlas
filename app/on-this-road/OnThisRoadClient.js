@@ -3,6 +3,12 @@
 import { useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
+import {
+  Wine, Coffee, Landmark, UtensilsCrossed, Wheat, BedDouble,
+  Palette, Mountain, Compass, CornerDownLeft, ArrowUpDown,
+  Check, Lock, Moon, ChevronDown, AlertTriangle, ArrowRight,
+  Upload, MapPin,
+} from 'lucide-react'
 import './on-this-road.css'
 
 const RouteMap = dynamic(() => import('./RouteMap'), { ssr: false })
@@ -42,14 +48,14 @@ const DETOUR_OPTIONS = [
 ]
 
 const PREFERENCE_CHIPS = [
-  { key: 'cellar_doors', icon: '\ud83c\udf77', label: 'Cellar doors & wineries' },
-  { key: 'great_coffee', icon: '\u2615', label: 'Great coffee' },
-  { key: 'history', icon: '\ud83c\udfdb\ufe0f', label: 'History & heritage' },
-  { key: 'lunch', icon: '\ud83c\udf7d\ufe0f', label: 'Worth stopping for lunch' },
-  { key: 'producers', icon: '\ud83e\uddc0', label: 'Producers & farm gates' },
-  { key: 'accommodation', icon: '\ud83c\udfe8', label: 'Somewhere good to stay' },
-  { key: 'art_makers', icon: '\ud83c\udfa8', label: 'Art & makers' },
-  { key: 'nature', icon: '\ud83c\udf3f', label: 'Nature & scenery' },
+  { key: 'cellar_doors', Icon: Wine, label: 'Cellar doors & wineries' },
+  { key: 'great_coffee', Icon: Coffee, label: 'Great coffee' },
+  { key: 'history', Icon: Landmark, label: 'History & heritage' },
+  { key: 'lunch', Icon: UtensilsCrossed, label: 'Worth stopping for lunch' },
+  { key: 'producers', Icon: Wheat, label: 'Producers & farm gates' },
+  { key: 'accommodation', Icon: BedDouble, label: 'Somewhere good to stay' },
+  { key: 'art_makers', Icon: Palette, label: 'Art & makers' },
+  { key: 'nature', Icon: Mountain, label: 'Nature & scenery' },
 ]
 
 const LOADING_MESSAGES = [
@@ -59,6 +65,20 @@ const LOADING_MESSAGES = [
   'Finding places worth pulling over for\u2026',
   'Curating your road trip\u2026',
 ]
+
+// Mapbox static tile for hero background
+const MAPBOX_STYLE = 'mattstirlingaustralianheritage/cmn32b0iz003401swccb7d21k'
+const HERO_TILE_URL = typeof window !== 'undefined'
+  ? null // Will be set from env
+  : null
+
+function getHeroTileUrl() {
+  const token = typeof window !== 'undefined'
+    ? (document.querySelector('meta[name="mapbox-token"]')?.content || '')
+    : ''
+  if (!token) return null
+  return `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/static/134,-28,3.5,0/1280x400@2x?access_token=${token}`
+}
 
 // ── Place input with autocomplete ───────────────────────────────────
 
@@ -100,13 +120,7 @@ function PlaceInput({ value, onChange, placeholder, label }) {
 
   return (
     <div style={{ position: 'relative', flex: 1 }}>
-      <label style={{
-        fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 600,
-        letterSpacing: '0.14em', textTransform: 'uppercase',
-        color: 'rgba(255,255,255,0.4)', display: 'block', marginBottom: 8,
-      }}>
-        {label}
-      </label>
+      <label className="otr-input-label">{label}</label>
       <input
         type="text" value={query} onChange={handleChange}
         onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
@@ -145,6 +159,7 @@ export default function OnThisRoadClient() {
   const [loadingMsg, setLoadingMsg] = useState(LOADING_MESSAGES[0])
   const loadingInterval = useRef(null)
   const resultsRef = useRef(null)
+  const [heroUrl] = useState(() => getHeroTileUrl())
 
   const isMultiDay = ['2_days', '3_days', '4_plus'].includes(tripLength)
 
@@ -209,8 +224,16 @@ export default function OnThisRoadClient() {
       setTimeout(() => {
         resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }, 100)
-    } catch {
-      setError('Could not connect. Please check your internet and try again.')
+    } catch (err) {
+      // Surface specific error categories
+      if (err.name === 'AbortError' || err.message?.includes('timeout')) {
+        setError('The route is taking longer than expected to plan. Try a shorter trip or fewer preferences.')
+      } else if (!navigator.onLine) {
+        setError('You appear to be offline. Please check your internet connection and try again.')
+      } else {
+        setError('Could not reach the trip planner. Please try again in a moment.')
+      }
+      console.error('[on-this-road] Client error:', err)
     } finally {
       setLoading(false)
       clearInterval(loadingInterval.current)
@@ -223,25 +246,28 @@ export default function OnThisRoadClient() {
     <div style={{ minHeight: '100vh', background: 'var(--color-bg)' }}>
       {/* ── Hero ────────────────────────────────────────────── */}
       <div className="otr-hero">
+        <div className={`otr-hero-bg ${heroUrl ? '' : 'otr-hero-bg-fallback'}`}
+          style={heroUrl ? { backgroundImage: `url(${heroUrl})` } : undefined}
+        />
         <div className="otr-hero-inner">
           <p style={{
-            fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 600,
-            letterSpacing: '0.16em', textTransform: 'uppercase',
-            color: 'var(--otr-gold)', margin: '0 0 16px',
+            fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 500,
+            letterSpacing: '0.15em', textTransform: 'uppercase',
+            color: 'rgba(250, 248, 245, 0.6)', margin: '0 0 16px',
           }}>
             Road Trip Planner
           </p>
           <h1 style={{
             fontFamily: 'var(--font-display)', fontWeight: 400,
             fontSize: 'clamp(36px, 6vw, 56px)', lineHeight: 1.05,
-            color: '#fff', margin: 0,
+            color: 'var(--otr-paper)', margin: 0,
           }}>
             On This Road
           </h1>
           <p style={{
             fontFamily: 'var(--font-display)', fontSize: 'clamp(16px, 2.5vw, 20px)',
             fontWeight: 400, fontStyle: 'italic',
-            color: 'rgba(255,255,255,0.5)', margin: '12px 0 0', lineHeight: 1.5,
+            color: 'rgba(250, 248, 245, 0.5)', margin: '12px 0 0', lineHeight: 1.5,
             maxWidth: 500,
           }}>
             Every drive is better with somewhere worth stopping.
@@ -257,24 +283,21 @@ export default function OnThisRoadClient() {
             {/* From / To inputs */}
             <div className="otr-inputs" style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
               <PlaceInput value={startPlace} onChange={setStartPlace}
-                placeholder="Melbourne" label="From" />
+                placeholder="Melbourne" label="FROM" />
 
               <button type="button" className="otr-swap-btn" onClick={handleSwap} title="Swap">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                  stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4" />
-                </svg>
+                <ArrowUpDown size={16} strokeWidth={2} />
               </button>
 
               {!surpriseMe && (
                 <PlaceInput value={endPlace} onChange={setEndPlace}
-                  placeholder="Sydney" label="To" />
+                  placeholder="Sydney" label="TO" />
               )}
               {surpriseMe && (
                 <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 0' }}>
                   <p style={{
                     fontFamily: 'var(--font-display)', fontSize: 16, fontStyle: 'italic',
-                    color: 'var(--otr-gold)', margin: 0, opacity: 0.7,
+                    color: 'var(--otr-ink-60)', margin: 0,
                   }}>
                     We&apos;ll pick the direction
                   </p>
@@ -282,13 +305,15 @@ export default function OnThisRoadClient() {
               )}
             </div>
 
-            {/* Surprise Me toggle */}
-            <button type="button"
-              className={`otr-surprise-toggle ${surpriseMe ? 'active' : ''}`}
-              onClick={() => setSurpriseMe(!surpriseMe)}>
-              <span style={{ fontSize: 18 }}>{surpriseMe ? '\u2728' : '\ud83c\udfb2'}</span>
-              <span>{surpriseMe ? 'Surprise mode on \u2014 we\u2019ll pick a loop' : 'Surprise me \u2014 just pick a direction'}</span>
-            </button>
+            {/* Surprise Me — inline link style */}
+            <div style={{ textAlign: 'center' }}>
+              <button type="button"
+                className={`otr-surprise-link ${surpriseMe ? 'active' : ''}`}
+                onClick={() => setSurpriseMe(!surpriseMe)}>
+                <Compass size={14} strokeWidth={1.5} />
+                <span>{surpriseMe ? 'Surprise mode on \u2014 we\u2019ll pick a loop' : 'Surprise me \u2014 just pick a direction'}</span>
+              </button>
+            </div>
 
             {/* Departure timing */}
             <div className="otr-selector-group">
@@ -306,7 +331,7 @@ export default function OnThisRoadClient() {
 
             {/* Trip length */}
             <div className="otr-selector-group">
-              <p className="otr-selector-label">Trip length</p>
+              <p className="otr-selector-label">Trip Length</p>
               <div className="otr-pill-row">
                 {TRIP_LENGTH_OPTIONS.map(opt => (
                   <button key={opt.value} type="button"
@@ -320,15 +345,14 @@ export default function OnThisRoadClient() {
 
             {/* Detour tolerance */}
             <div className="otr-selector-group">
-              <p className="otr-selector-label">Detour tolerance</p>
+              <p className="otr-selector-label">Detour Tolerance</p>
               <div className="otr-pill-row">
                 {DETOUR_OPTIONS.map(opt => (
                   <button key={opt.value} type="button"
-                    className={`otr-pill ${detourTolerance === opt.value ? 'active' : ''}`}
-                    onClick={() => setDetourTolerance(opt.value)}
-                    style={{ flexDirection: 'column', alignItems: 'flex-start', padding: '10px 20px', lineHeight: 1.4 }}>
+                    className={`otr-pill otr-pill--detour ${detourTolerance === opt.value ? 'active' : ''}`}
+                    onClick={() => setDetourTolerance(opt.value)}>
                     <span>{opt.label}</span>
-                    <span style={{ fontSize: 11, opacity: 0.5, fontWeight: 300 }}>{opt.sublabel}</span>
+                    <span className="otr-pill__sublabel">{opt.sublabel}</span>
                   </button>
                 ))}
               </div>
@@ -336,7 +360,7 @@ export default function OnThisRoadClient() {
 
             {/* Preference chips */}
             <div className="otr-selector-group">
-              <p className="otr-selector-label">What are you into?</p>
+              <p className="otr-selector-label">What Are You Into?</p>
               <div className="otr-chips-grid">
                 {PREFERENCE_CHIPS.map(chip => {
                   const isActive = effectivePrefs.includes(chip.key)
@@ -345,15 +369,12 @@ export default function OnThisRoadClient() {
                     <button key={chip.key} type="button"
                       className={`otr-chip ${isActive ? 'active' : ''} ${isLocked ? 'locked' : ''}`}
                       onClick={() => togglePref(chip.key)}>
-                      <span className="otr-chip-icon">{chip.icon}</span>
+                      <span className="otr-chip-icon">
+                        <chip.Icon size={16} strokeWidth={1.5} />
+                      </span>
                       <span>{chip.label}</span>
                       {isLocked && (
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-                          stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                          style={{ marginLeft: 'auto', opacity: 0.5 }}>
-                          <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                          <path d="M7 11V7a5 5 0 0110 0v4" />
-                        </svg>
+                        <Lock size={12} strokeWidth={2} style={{ marginLeft: 'auto', opacity: 0.5 }} />
                       )}
                     </button>
                   )
@@ -364,10 +385,12 @@ export default function OnThisRoadClient() {
             {/* Multi-day: return different road */}
             {isMultiDay && (
               <button type="button"
-                className={`otr-surprise-toggle ${returnDifferent ? 'active' : ''}`}
-                style={{ marginTop: 20 }}
+                className={`otr-return-toggle ${returnDifferent ? 'active' : ''}`}
                 onClick={() => setReturnDifferent(!returnDifferent)}>
-                <span style={{ fontSize: 18 }}>{returnDifferent ? '\ud83d\udea3' : '\ud83d\udee3\ufe0f'}</span>
+                <span className="otr-return-checkbox">
+                  {returnDifferent && <Check size={14} strokeWidth={2.5} />}
+                </span>
+                <CornerDownLeft size={16} strokeWidth={1.5} />
                 <span>{returnDifferent ? 'Taking a different road home' : 'Take a different road home'}</span>
               </button>
             )}
@@ -385,11 +408,13 @@ export default function OnThisRoadClient() {
       {error && (
         <div style={{ maxWidth: 900, margin: '0 auto', padding: '24px 20px' }}>
           <div style={{
-            padding: '16px 20px', borderRadius: 10,
+            padding: '16px 20px', borderRadius: 8,
             background: 'rgba(220, 38, 38, 0.06)', border: '1px solid rgba(220, 38, 38, 0.15)',
             fontFamily: 'var(--font-body)', fontSize: 14, color: '#dc2626',
+            display: 'flex', alignItems: 'flex-start', gap: 10,
           }}>
-            {error}
+            <AlertTriangle size={16} strokeWidth={1.5} style={{ flexShrink: 0, marginTop: 2 }} />
+            <span>{error}</span>
           </div>
         </div>
       )}
@@ -401,12 +426,12 @@ export default function OnThisRoadClient() {
           justifyContent: 'center', padding: '80px 20px', textAlign: 'center',
         }}>
           <div style={{
-            width: 120, height: 3, background: 'var(--color-border)',
+            width: 120, height: 3, background: 'var(--otr-border)',
             borderRadius: 2, overflow: 'hidden', marginBottom: 24, position: 'relative',
           }}>
             <div style={{
               position: 'absolute', inset: 0,
-              background: 'var(--otr-gold)',
+              background: 'var(--otr-amber)',
               animation: 'roadLine 2s ease-in-out infinite',
             }} />
           </div>
@@ -543,12 +568,12 @@ function ResultsView({ result }) {
             {allStops.length} stops
           </span>
           {is_surprise_loop && (
-            <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500, color: 'var(--otr-gold)', background: 'var(--otr-gold-glow)', padding: '2px 10px', borderRadius: 99 }}>
+            <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500, color: 'var(--otr-amber)', background: 'rgba(196,154,60,0.1)', padding: '2px 10px', borderRadius: 99 }}>
               Surprise loop
             </span>
           )}
           {hasDays && (
-            <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500, color: 'var(--otr-gold)', background: 'var(--otr-gold-glow)', padding: '2px 10px', borderRadius: 99 }}>
+            <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500, color: 'var(--otr-amber)', background: 'rgba(196,154,60,0.1)', padding: '2px 10px', borderRadius: 99 }}>
               {days.length} days
             </span>
           )}
@@ -567,7 +592,7 @@ function ResultsView({ result }) {
         {additional_stop_hours > 0 && (
           <p style={{
             fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 400,
-            color: 'var(--otr-gold)', margin: '10px 0 0',
+            color: 'var(--otr-amber)', margin: '10px 0 0',
           }}>
             Add approximately {additional_stop_hours} {additional_stop_hours === 1 ? 'hour' : 'hours'} for stops.
           </p>
@@ -618,15 +643,12 @@ function ResultsView({ result }) {
               <div className="otr-save-bar">
                 {!savedUrl ? (
                   <button className="otr-save-btn" onClick={handleSave} disabled={saving}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13" />
-                    </svg>
+                    <Upload size={16} strokeWidth={2} />
                     {saving ? 'Saving\u2026' : 'Save & share this trip'}
                   </button>
                 ) : (
                   <>
-                    <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500, color: 'var(--otr-gold)' }}>
+                    <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500, color: 'var(--otr-amber)' }}>
                       Trip saved!
                     </span>
                     <span className="otr-share-url">
@@ -726,8 +748,10 @@ function DaySection({ day }) {
           padding: '12px 16px', borderRadius: 8, margin: '12px 0',
           background: 'rgba(220, 38, 38, 0.04)', border: '1px solid rgba(220, 38, 38, 0.1)',
           fontFamily: 'var(--font-body)', fontSize: 13, color: '#dc2626',
+          display: 'flex', alignItems: 'center', gap: 8,
         }}>
-          No accommodation found for this night \u2014 you may need to book independently.
+          <AlertTriangle size={14} strokeWidth={1.5} />
+          No accommodation found for this night — you may need to book independently.
         </div>
       )}
     </div>
@@ -799,9 +823,7 @@ function StopCard({ stop, index }) {
           color: 'var(--color-muted)', textDecoration: 'none',
         }}>
           View listing
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M5 12h14M12 5l7 7-7 7" />
-          </svg>
+          <ArrowRight size={12} strokeWidth={1.5} />
         </a>
       </div>
 
@@ -831,9 +853,7 @@ function OvernightCard({ stop }) {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
           <span className="otr-overnight-badge">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
-            </svg>
+            <Moon size={12} strokeWidth={2} />
             Stay tonight
           </span>
         </div>
@@ -873,10 +893,7 @@ function LongTripBanner({ routeDistanceKm, restListings }) {
       border: '1px solid rgba(138, 90, 107, 0.3)',
     }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d4a843" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}>
-          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-          <path d="M12 9v4M12 17h.01" />
-        </svg>
+        <AlertTriangle size={20} strokeWidth={1.5} color="#C49A3C" style={{ flexShrink: 0, marginTop: 2 }} />
         <div style={{ flex: 1 }}>
           <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500, color: '#fff', margin: '0 0 4px' }}>
             This is a long drive ({routeDistanceKm.toLocaleString()} km)
@@ -891,14 +908,12 @@ function LongTripBanner({ routeDistanceKm, restListings }) {
         <button onClick={() => setExpanded(!expanded)} style={{
           display: 'flex', alignItems: 'center', gap: 6, marginTop: 12,
           padding: '6px 12px', borderRadius: 6, fontSize: 12,
-          fontFamily: 'var(--font-body)', fontWeight: 500, color: '#d4a843',
-          background: 'rgba(212, 168, 67, 0.1)', border: '1px solid rgba(212, 168, 67, 0.2)', cursor: 'pointer',
+          fontFamily: 'var(--font-body)', fontWeight: 500, color: '#C49A3C',
+          background: 'rgba(196, 154, 60, 0.1)', border: '1px solid rgba(196, 154, 60, 0.2)', cursor: 'pointer',
         }}>
           {expanded ? 'Hide' : 'Show'} overnight stops
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-            style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
-            <path d="M6 9l6 6 6-6" />
-          </svg>
+          <ChevronDown size={12} strokeWidth={2}
+            style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
         </button>
       )}
 

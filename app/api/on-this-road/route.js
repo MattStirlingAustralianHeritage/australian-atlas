@@ -322,9 +322,30 @@ export async function POST(request) {
     return result
 
   } catch (err) {
-    console.error('[on-this-road] Error:', err)
+    console.error('[on-this-road] Error:', err?.message, err?.stack)
+
+    // Surface specific error categories
+    const message = err?.message || ''
+    if (message.includes('timeout') || message.includes('TIMEOUT') || err?.code === 'ETIMEDOUT') {
+      return NextResponse.json(
+        { error: 'Route planning timed out. Try a shorter trip or fewer preferences.' },
+        { status: 504 }
+      )
+    }
+    if (message.includes('ANTHROPIC') || message.includes('anthropic') || message.includes('claude')) {
+      return NextResponse.json(
+        { error: 'The itinerary writer is temporarily unavailable. Your route was found — please try again in a moment.' },
+        { status: 502 }
+      )
+    }
+    if (message.includes('supabase') || message.includes('PGRST') || message.includes('relation')) {
+      return NextResponse.json(
+        { error: 'Could not search listings along the route. Please try again shortly.' },
+        { status: 502 }
+      )
+    }
     return NextResponse.json(
-      { error: 'An error occurred planning your route. Please try again.' },
+      { error: 'Something went wrong planning your route. Please try again.' },
       { status: 500 }
     )
   }
@@ -589,12 +610,16 @@ async function buildItinerary({
         messages: [{ role: 'user', content: prompt }],
       }),
     })
+    if (!claudeRes.ok) {
+      const errBody = await claudeRes.text().catch(() => '')
+      console.error('[on-this-road] Claude API non-200:', claudeRes.status, errBody.slice(0, 300))
+    }
     const claudeData = await claudeRes.json()
     const text = claudeData.content?.[0]?.text || ''
     const jsonMatch = text.match(/\{[\s\S]*\}/)
     if (jsonMatch) claudeResult = JSON.parse(jsonMatch[0])
   } catch (err) {
-    console.error('[on-this-road] Claude API error:', err)
+    console.error('[on-this-road] Claude API error:', err?.message, '| Listings sent:', listingsForPrompt.length, '| Route:', routeDistanceKm, 'km')
   }
 
   // Build response
