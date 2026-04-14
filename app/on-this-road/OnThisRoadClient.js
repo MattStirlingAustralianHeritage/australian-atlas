@@ -21,14 +21,14 @@ const VERTICAL_COLORS = {
 
 const VERTICAL_NAMES = {
   sba: 'Small Batch',
-  collection: 'Culture Atlas',
-  craft: 'Maker Studios',
+  collection: 'Culture',
+  craft: 'Craft',
   fine_grounds: 'Fine Grounds',
-  rest: 'Boutique Stays',
-  field: 'Field Atlas',
-  corner: 'Corner Atlas',
-  found: 'Found Atlas',
-  table: 'Table Atlas',
+  rest: 'Rest',
+  field: 'Field',
+  corner: 'Corner',
+  found: 'Found',
+  table: 'Table',
 }
 
 const TIME_OPTIONS = [

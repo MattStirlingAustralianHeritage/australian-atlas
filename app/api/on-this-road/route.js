@@ -264,29 +264,74 @@ export async function POST(request) {
       })
     }
 
-    // 7. Group into clusters by region
-    const clusters = {}
+    // 7. Segment-based stop distribution
+    // Divide route into equal segments and pick the best listing per segment.
+    // This prevents clustering at departure/destination and ensures stops
+    // are distributed along the full route length.
+    const totalRouteKm = routeDistances[routeDistances.length - 1] || routeDistanceKm
+    const numSegments = Math.max(6, Math.min(12, Math.round(totalRouteKm / 80)))
+    const segmentLengthKm = totalRouteKm / numSegments
+    const MIN_SPACING_KM = 50
+
+    // Assign each listing to a segment
+    const segments = Array.from({ length: numSegments }, () => [])
     for (const listing of routeListings) {
-      const clusterKey = listing.region || listing.suburb || 'Along the way'
-      if (!clusters[clusterKey]) clusters[clusterKey] = []
-      clusters[clusterKey].push({
-        listing_id: listing.id,
-        listing_name: listing.name,
-        slug: listing.slug,
-        vertical: listing.vertical,
-        vertical_name: VERTICAL_NAMES[listing.vertical] || listing.vertical,
-        region: listing.region,
-        suburb: listing.suburb,
-        state: listing.state,
-        lat: listing.lat,
-        lng: listing.lng,
-        quality_score: listing.quality_score || 0,
-        hero_image_url: listing.hero_image_url,
-        description: listing.description ? listing.description.slice(0, 150) : '',
-        position_km: listing.positionKm,
-        distance_from_route_km: Math.round(listing.distanceFromRoute * 10) / 10,
-      })
+      const segIdx = Math.min(
+        numSegments - 1,
+        Math.floor(listing.positionKm / segmentLengthKm)
+      )
+      segments[segIdx].push(listing)
     }
+
+    // For segments with zero listings, try expanding buffer to 40km
+    for (let i = 0; i < numSegments; i++) {
+      if (segments[i].length === 0) {
+        const segStartKm = i * segmentLengthKm
+        const segEndKm = (i + 1) * segmentLengthKm
+        const expanded = allListings
+          .map(listing => {
+            const proj = projectOntoRoute(listing.lat, listing.lng, routeCoords)
+            const posKm = routeDistances[proj.routeIndex] || 0
+            return { ...listing, distanceFromRoute: proj.distance, routeIndex: proj.routeIndex, positionKm: Math.round(posKm) }
+          })
+          .filter(l =>
+            l.distanceFromRoute <= 40 &&
+            l.positionKm >= segStartKm &&
+            l.positionKm < segEndKm &&
+            (l.quality_score || 0) >= Math.max(timeConfig.minQuality - 20, 0)
+          )
+        if (expanded.length > 0) {
+          segments[i] = expanded
+        }
+      }
+    }
+
+    // Pick the best listing per segment (highest quality score), enforcing minimum spacing
+    const distributedListings = []
+    let lastPositionKm = -Infinity
+
+    for (let i = 0; i < numSegments; i++) {
+      const seg = segments[i]
+        .sort((a, b) => (b.quality_score || 0) - (a.quality_score || 0))
+
+      for (const listing of seg) {
+        if (listing.positionKm - lastPositionKm >= MIN_SPACING_KM) {
+          distributedListings.push(listing)
+          lastPositionKm = listing.positionKm
+          break
+        }
+      }
+    }
+
+    // Also gather remaining high-quality listings for Claude to have options
+    const distributedIds = new Set(distributedListings.map(l => l.id))
+    const supplemental = routeListings
+      .filter(l => !distributedIds.has(l.id))
+      .sort((a, b) => (b.quality_score || 0) - (a.quality_score || 0))
+      .slice(0, 20)
+
+    const listingsForPrompt = [...distributedListings, ...supplemental]
+      .sort((a, b) => a.positionKm - b.positionKm)
 
     // For long trips, separate out Rest Atlas listings
     let restListings = []
@@ -305,31 +350,42 @@ export async function POST(request) {
         }))
     }
 
-    // 8. Call Claude to pick the best stops and write route narrative
+    // 8. Call Claude with geographically distributed listings
     const startName = startCoords.text || start
     const endName = endCoords.text || end
-    const clusterSummary = Object.entries(clusters).map(([region, listings]) => ({
-      region,
-      listings: listings.map(l => ({
-        listing_id: l.listing_id,
-        listing_name: l.listing_name,
-        vertical: l.vertical,
-        vertical_name: l.vertical_name,
-        quality_score: l.quality_score,
-        distance_from_route_km: l.distance_from_route_km,
-        position_km: l.position_km,
-        description: l.description,
-      })),
+    const targetSpacingKm = Math.round(totalRouteKm / numSegments)
+
+    const listingsJson = listingsForPrompt.map(l => ({
+      listing_id: l.id,
+      listing_name: l.name,
+      vertical: l.vertical,
+      vertical_name: VERTICAL_NAMES[l.vertical] || l.vertical,
+      quality_score: l.quality_score || 0,
+      distance_from_route_km: Math.round(l.distanceFromRoute * 10) / 10,
+      position_km: l.positionKm,
+      region: l.region,
+      description: l.description ? l.description.slice(0, 150) : '',
+      is_segment_pick: distributedIds.has(l.id),
     }))
 
     const prompt = `You are writing for Australian Atlas, a curated guide to independent Australian places. A traveller is driving from ${startName} to ${endName} (${routeDistanceKm}km, about ${Math.round(routeDurationMinutes / 60)} hours) and has ${timeConfig.label} to spare for stops.
 
-From the listings below, select the best 8-12 stops in order along the route. Prioritise quality score, vertical diversity (at least 3 different verticals), and genuine interest \u2014 not just proximity. For each stop write one sentence explaining why it\u2019s worth pulling over for.
+CRITICAL: Select stops that are geographically distributed along the FULL LENGTH of the route. Do NOT cluster stops at the start or end. The route is ${routeDistanceKm}km — aim for stops approximately every ${targetSpacingKm}km. Each stop should represent a meaningfully different point along the journey.
+
+Listings marked "is_segment_pick: true" are pre-selected as the best option for their route segment — strongly prefer these unless a nearby alternative is significantly more interesting.
+
+From the listings below, select the best 8-12 stops in order along the route. Prioritise:
+1. Geographic distribution (most important — spread stops evenly)
+2. Quality score and genuine interest
+3. Vertical diversity (at least 3 different verticals)
+4. No two consecutive stops less than ${MIN_SPACING_KM}km apart
+
+For each stop write one sentence explaining why it\u2019s worth pulling over for.
 
 Then write a 2-sentence route introduction that captures the character of this particular drive. Be specific about the landscape, the feel of the road, the kind of places along the way. No generic travel writing.
 
-Available listings grouped by cluster along the route:
-${JSON.stringify(clusterSummary, null, 1)}
+Available listings in order along route (position_km = distance from start):
+${JSON.stringify(listingsJson, null, 1)}
 
 Return ONLY valid JSON, no markdown, no code fences:
 {"intro":"2-sentence editorial route introduction","stops":[{"listing_id":"uuid","listing_name":"Name","cluster":"Region or town name","position_km":123,"reason":"One sentence on why to stop here"}]}`
