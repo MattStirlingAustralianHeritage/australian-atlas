@@ -72,16 +72,26 @@ export async function POST(request) {
       const hasValidSourceId = sourceId && !String(sourceId).startsWith('candidate-')
 
       if (hasValidSourceId) {
-        // UPDATE existing vertical row
+        // Try to UPDATE existing vertical row first
         const result = await updateInVertical(v, sourceId, syncData)
         if (result.success) {
           totals[v].synced++
         } else {
-          totals[v].failed++
-          failures.push({ id: listing.id, name: listing.name, vertical: v, error: result.error })
+          // Update failed — the source_id may point to a nonexistent row.
+          // Fall through to upsert (pushToVertical) which handles this gracefully.
+          console.warn(`[resync] Update failed for ${listing.name} (${v}), falling back to upsert: ${result.error}`)
+          const pushResult = await pushToVertical(v, syncData)
+          if (pushResult.success) {
+            // Re-link source_id to the (possibly new) vertical row
+            await sb.from('listings').update({ source_id: pushResult.id }).eq('id', listing.id)
+            totals[v].synced++
+          } else {
+            totals[v].failed++
+            failures.push({ id: listing.id, name: listing.name, vertical: v, error: pushResult.error })
+          }
         }
       } else {
-        // INSERT new vertical row
+        // INSERT or UPSERT new vertical row
         const result = await pushToVertical(v, syncData)
         if (result.success) {
           // Link the new vertical row back to master
