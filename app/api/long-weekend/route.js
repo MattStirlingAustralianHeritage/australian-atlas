@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 export const maxDuration = 60
 
 const MODEL = 'claude-sonnet-4-20250514'
+const MAPBOX_TOKEN = process.env.MAPBOX_ACCESS_TOKEN || process.env.NEXT_PUBLIC_MAPBOX_TOKEN
 
 // ── Departure city coordinates ───────────────────────────────
 const CITY_COORDS = {
@@ -45,12 +46,12 @@ const VERTICAL_NAMES = {
  * POST /api/long-weekend
  *
  * Build a 3-day long weekend itinerary using nearby listings and Claude.
- * Body: { city, radius, group, vibes }
+ * Body: { city, radius, group, vibes, subVibes? }
  */
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { city, radius, group, vibes } = body
+    const { city, radius, group, vibes, subVibes } = body
 
     if (!city || !CITY_COORDS[city]) {
       return NextResponse.json({ error: 'Invalid departure city' }, { status: 400 })
@@ -124,7 +125,13 @@ export async function POST(request) {
 
     const systemPrompt = 'You are an editorial travel writer for Australian Atlas, a curated guide to independent Australian places. You write with warmth and specificity, like a well-travelled friend sharing their favourites. Never generic. Always grounded in real place detail.'
 
-    const userPrompt = `Build a 3-day long weekend itinerary for ${group} with a ${vibes.join(', ')} vibe, departing from ${city}, staying in the ${bestRegion} area.
+    // Build sub-vibes section for prompt if provided
+    let subVibeSection = ''
+    if (Array.isArray(subVibes) && subVibes.length > 0) {
+      subVibeSection = `\nThe traveller is specifically interested in: ${subVibes.join(', ')}. Prioritise listings that match these specific interests — map them to the relevant Atlas verticals and subcategories when selecting stops.`
+    }
+
+    const userPrompt = `Build a 3-day long weekend itinerary for ${group} with a ${vibes.join(', ')} vibe, departing from ${city}, staying in the ${bestRegion} area.${subVibeSection}
 
 Available listings:
 ${JSON.stringify(listingsJson, null, 2)}
@@ -137,6 +144,8 @@ Requirements:
 - Each stop needs a one-sentence reason that reads like editorial copy, not a template.
 - Use ONLY listing IDs from the provided list. Do not invent listings.
 - Arrival times should be realistic (Day 1 starts no earlier than 2pm, Day 2 from 9am, Day 3 from 8:30am).
+- Day 3 MUST end with a closing note — a single editorial sentence that gives a sense of completion and goodbye to the area. Like closing a chapter. Examples: "From here, the drive home feels earned." or "Leave enough time to stop for one last coffee before the highway." Be specific to the region if possible.
+- Include a "head_home" field on Day 3 with the nearest town/suburb to depart from.
 
 Return ONLY valid JSON with no markdown formatting, no code fences:
 {
@@ -155,7 +164,15 @@ Return ONLY valid JSON with no markdown formatting, no code fences:
           "duration_minutes": 60,
           "notes": "string — one editorial sentence about why this stop"
         }
-      ]
+      ],
+      "closing_note": null
+    },
+    {
+      "day_number": 3,
+      "theme": "...",
+      "stops": [...],
+      "closing_note": "string — one editorial sentence to close the weekend",
+      "head_home": "string — nearest town/suburb name to depart from"
     }
   ],
   "accommodation": {
@@ -226,6 +243,49 @@ Return ONLY valid JSON with no markdown formatting, no code fences:
       itinerary.accommodation.listing = listingMap[itinerary.accommodation.listing_id] || null
     }
 
+    // ── Step 7: Estimate drive home time ───────────────────
+    // Find the last stop with coordinates for the drive home estimate
+    let headHomeEstimate = null
+    const lastDay = itinerary.days?.[itinerary.days.length - 1]
+    const headHomeTown = lastDay?.head_home
+    if (headHomeTown && MAPBOX_TOKEN) {
+      // Find last stop with coords, or use accommodation coords
+      let lastCoords = null
+      if (lastDay?.stops?.length > 0) {
+        for (let i = lastDay.stops.length - 1; i >= 0; i--) {
+          const listing = lastDay.stops[i].listing
+          if (listing?.lat && listing?.lng) {
+            lastCoords = { lat: listing.lat, lng: listing.lng }
+            break
+          }
+        }
+      }
+      if (!lastCoords && itinerary.accommodation?.listing?.lat) {
+        lastCoords = {
+          lat: itinerary.accommodation.listing.lat,
+          lng: itinerary.accommodation.listing.lng,
+        }
+      }
+
+      if (lastCoords) {
+        try {
+          const dirUrl = `https://api.mapbox.com/directions/v5/mapbox/driving/${lastCoords.lng},${lastCoords.lat};${cityCoords.lng},${cityCoords.lat}?overview=false&access_token=${MAPBOX_TOKEN}`
+          const dirRes = await fetch(dirUrl)
+          const dirData = await dirRes.json()
+          if (dirData.routes?.[0]) {
+            headHomeEstimate = {
+              from: headHomeTown,
+              to: city,
+              duration_minutes: Math.round(dirData.routes[0].duration / 60),
+              distance_km: Math.round(dirData.routes[0].distance / 1000),
+            }
+          }
+        } catch (err) {
+          console.error('[long-weekend] Drive home estimate failed:', err.message)
+        }
+      }
+    }
+
     return NextResponse.json({
       itinerary,
       meta: {
@@ -233,10 +293,12 @@ Return ONLY valid JSON with no markdown formatting, no code fences:
         radius,
         group,
         vibes,
+        subVibes: subVibes || [],
         region: bestRegion,
         total_listings_found: listings.length,
         region_listings_count: regionListings.length,
       },
+      head_home_estimate: headHomeEstimate,
     })
   } catch (err) {
     console.error('[long-weekend] Fatal error:', err)

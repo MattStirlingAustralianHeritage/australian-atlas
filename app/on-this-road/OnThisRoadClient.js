@@ -32,10 +32,10 @@ const VERTICAL_NAMES = {
 }
 
 const TIME_OPTIONS = [
-  { value: '1', label: '1 hour' },
-  { value: '2', label: '2 hours' },
-  { value: '4', label: '4 hours' },
-  { value: 'all_day', label: 'All day' },
+  { value: '30', label: '30 minutes' },
+  { value: '60', label: '1 hour' },
+  { value: '120', label: '2 hours' },
+  { value: 'all', label: 'As long as it takes' },
 ]
 
 // ---- Autocomplete input with Mapbox geocoding ----
@@ -227,6 +227,224 @@ function LoadingState() {
   )
 }
 
+// ---- Short trip message ----
+
+function ShortTripMessage({ message }) {
+  return (
+    <div style={{
+      maxWidth: 600,
+      margin: '0 auto',
+      padding: '60px 20px',
+      textAlign: 'center',
+    }}>
+      <div style={{
+        width: 48,
+        height: 48,
+        margin: '0 auto 20px',
+        borderRadius: '50%',
+        background: 'var(--color-cream, #f5f2ec)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent, #B87333)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <path d="M8 12h8M12 8v8" />
+        </svg>
+      </div>
+      <p style={{
+        fontFamily: 'var(--font-display)',
+        fontSize: 22,
+        fontWeight: 400,
+        fontStyle: 'italic',
+        color: 'var(--color-ink)',
+        margin: '0 0 12px',
+        lineHeight: 1.4,
+      }}>
+        {message || "That\u2019s a short trip \u2014 not much road to explore."}
+      </p>
+      <p style={{
+        fontFamily: 'var(--font-body)',
+        fontSize: 14,
+        fontWeight: 300,
+        color: 'var(--color-muted)',
+        margin: '0 0 24px',
+        lineHeight: 1.6,
+      }}>
+        On This Road works best for drives of 20km or more. For shorter distances, try the Long Weekend Engine to find places near your destination.
+      </p>
+      <Link
+        href="/long-weekend"
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '12px 28px',
+          borderRadius: 8,
+          fontSize: 14,
+          fontFamily: 'var(--font-body)',
+          fontWeight: 500,
+          color: '#fff',
+          background: 'var(--color-ink)',
+          textDecoration: 'none',
+          transition: 'opacity 0.2s',
+          minHeight: 44,
+        }}
+      >
+        Try the Long Weekend Engine
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M5 12h14M12 5l7 7-7 7" />
+        </svg>
+      </Link>
+    </div>
+  )
+}
+
+// ---- Long trip warning banner ----
+
+function LongTripBanner({ routeDistanceKm, restListings }) {
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <div style={{
+      padding: '16px 20px',
+      borderRadius: 12,
+      background: 'linear-gradient(135deg, #2d2a24 0%, #3a2a35 100%)',
+      border: '1px solid rgba(138, 90, 107, 0.3)',
+      marginBottom: 24,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+        <span style={{ fontSize: 20, lineHeight: 1, flexShrink: 0, marginTop: 2 }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d4a843" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            <path d="M12 9v4M12 17h.01" />
+          </svg>
+        </span>
+        <div style={{ flex: 1 }}>
+          <p style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: 14,
+            fontWeight: 500,
+            color: '#fff',
+            margin: '0 0 4px',
+          }}>
+            This is a long drive ({routeDistanceKm.toLocaleString()} km)
+          </p>
+          <p style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: 13,
+            fontWeight: 300,
+            color: 'rgba(255,255,255,0.6)',
+            margin: 0,
+            lineHeight: 1.5,
+          }}>
+            You&apos;ll want to break this into days. We&apos;ve found {restListings.length} boutique stays along the route.
+          </p>
+        </div>
+      </div>
+
+      {restListings.length > 0 && (
+        <>
+          <button
+            onClick={() => setExpanded(!expanded)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              marginTop: 12,
+              padding: '6px 12px',
+              borderRadius: 6,
+              fontSize: 12,
+              fontFamily: 'var(--font-body)',
+              fontWeight: 500,
+              color: '#d4a843',
+              background: 'rgba(212, 168, 67, 0.1)',
+              border: '1px solid rgba(212, 168, 67, 0.2)',
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+          >
+            {expanded ? 'Hide' : 'Show'} overnight stops
+            <svg
+              width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+              style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
+
+          {expanded && (
+            <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {restListings.map((stay, i) => (
+                <Link
+                  key={stay.listing_id || i}
+                  href={`/place/${stay.slug}`}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '8px 12px',
+                    borderRadius: 8,
+                    background: 'rgba(255,255,255,0.05)',
+                    textDecoration: 'none',
+                    transition: 'background 0.15s',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                >
+                  {stay.hero_image_url && (
+                    <img src={stay.hero_image_url} alt="" style={{ width: 40, height: 40, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} loading="lazy" />
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 400, color: '#fff', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {stay.listing_name}
+                    </p>
+                    <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 300, color: 'rgba(255,255,255,0.5)', margin: '2px 0 0' }}>
+                      {stay.region || stay.suburb} &middot; {stay.position_km} km into route
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+// ---- Cluster section header ----
+
+function ClusterHeader({ name, count }) {
+  return (
+    <div style={{
+      padding: '16px 0 8px',
+      borderBottom: '1px solid var(--color-border)',
+    }}>
+      <h3 style={{
+        fontFamily: 'var(--font-display)',
+        fontSize: 16,
+        fontWeight: 400,
+        fontStyle: 'italic',
+        color: 'var(--color-ink)',
+        margin: 0,
+      }}>
+        {name}
+      </h3>
+      <p style={{
+        fontFamily: 'var(--font-body)',
+        fontSize: 11,
+        fontWeight: 400,
+        color: 'var(--color-muted)',
+        margin: '2px 0 0',
+        letterSpacing: '0.03em',
+      }}>
+        {count} {count === 1 ? 'stop' : 'stops'}
+      </p>
+    </div>
+  )
+}
+
 // ---- Stop card ----
 
 function StopCard({ stop, index }) {
@@ -263,20 +481,6 @@ function StopCard({ stop, index }) {
 
       {/* Content */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        {/* Time from previous */}
-        {stop.estimated_minutes_from_previous && (
-          <p style={{
-            fontFamily: 'var(--font-body)',
-            fontSize: 11,
-            fontWeight: 400,
-            color: 'var(--color-muted)',
-            margin: '0 0 4px',
-            letterSpacing: '0.03em',
-          }}>
-            {stop.estimated_minutes_from_previous} min from previous
-          </p>
-        )}
-
         {/* Name */}
         <Link
           href={`/place/${stop.slug}`}
@@ -312,20 +516,20 @@ function StopCard({ stop, index }) {
               {vertName}
             </span>
           )}
-          {stop.cluster && (
+          {stop.position_km != null && (
             <span style={{
               fontFamily: 'var(--font-body)',
               fontSize: 12,
               fontWeight: 300,
               color: 'var(--color-muted)',
             }}>
-              {stop.cluster}
+              {stop.position_km} km
             </span>
           )}
         </div>
 
-        {/* Notes */}
-        {stop.notes && (
+        {/* Reason / Notes */}
+        {(stop.reason || stop.notes) && (
           <p style={{
             fontFamily: 'var(--font-body)',
             fontSize: 14,
@@ -335,7 +539,7 @@ function StopCard({ stop, index }) {
             lineHeight: 1.5,
             fontStyle: 'italic',
           }}>
-            {stop.notes}
+            {stop.reason || stop.notes}
           </p>
         )}
       </div>
@@ -370,7 +574,7 @@ function StopCard({ stop, index }) {
 export default function OnThisRoadClient() {
   const [startPlace, setStartPlace] = useState('')
   const [endPlace, setEndPlace] = useState('')
-  const [timeAvailable, setTimeAvailable] = useState('2')
+  const [timeAvailable, setTimeAvailable] = useState('120')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [result, setResult] = useState(null)
@@ -439,15 +643,26 @@ export default function OnThisRoadClient() {
           On This Road
         </h1>
         <p style={{
+          fontFamily: 'var(--font-display)',
+          fontSize: 18,
+          fontWeight: 400,
+          fontStyle: 'italic',
+          color: 'var(--color-muted)',
+          margin: '8px 0 0',
+          lineHeight: 1.5,
+        }}>
+          Every drive is better with somewhere worth stopping.
+        </p>
+        <p style={{
           fontFamily: 'var(--font-body)',
-          fontSize: 16,
+          fontSize: 15,
           fontWeight: 300,
           color: 'var(--color-muted)',
-          margin: '12px 0 0',
+          margin: '8px 0 0',
           maxWidth: 500,
           lineHeight: 1.6,
         }}>
-          Discover independent makers, stays, and cultural spaces between any two points in Australia.
+          You know where you&apos;re going. We&apos;ll find what&apos;s worth seeing on the way.
         </p>
       </div>
 
@@ -575,8 +790,13 @@ export default function OnThisRoadClient() {
       {/* Loading */}
       {loading && <LoadingState />}
 
+      {/* Short trip redirect */}
+      {result && result.short_trip && !loading && (
+        <ShortTripMessage message={result.message} />
+      )}
+
       {/* Results */}
-      {result && !loading && (
+      {result && !result.short_trip && !loading && (
         <ResultsView result={result} />
       )}
     </div>
@@ -586,7 +806,14 @@ export default function OnThisRoadClient() {
 // ---- Results split view ----
 
 function ResultsView({ result }) {
-  const { title, stops, route_geometry, total_listings_found, route_duration_minutes, route_distance_km } = result
+  const {
+    title, stops, route_geometry, total_listings_found,
+    route_duration_minutes, route_distance_km, intro,
+    additional_stop_hours, coverage_gaps, is_long_trip,
+    rest_listings, start_name, end_name,
+  } = result
+
+  const [mobileView, setMobileView] = useState('list') // 'list' | 'map'
 
   if (!stops || stops.length === 0) {
     return (
@@ -612,11 +839,38 @@ function ResultsView({ result }) {
           color: 'var(--color-muted)',
           marginTop: 8,
         }}>
-          Try a different route or a longer distance.
+          We&apos;re still mapping Australia&apos;s independent operators. Try a different route or widen your time window.
         </p>
+        {coverage_gaps && coverage_gaps.length > 0 && (
+          <p style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: 13,
+            fontWeight: 300,
+            color: 'var(--color-muted)',
+            marginTop: 16,
+            fontStyle: 'italic',
+          }}>
+            {coverage_gaps.length} stretch{coverage_gaps.length !== 1 ? 'es' : ''} of this route {coverage_gaps.length !== 1 ? 'have' : 'has'} no listings yet.
+          </p>
+        )}
       </div>
     )
   }
+
+  // Group stops by cluster
+  const clusteredStops = []
+  let currentCluster = null
+  for (const stop of stops) {
+    const clusterName = stop.cluster || 'Along the way'
+    if (clusterName !== currentCluster) {
+      clusteredStops.push({ type: 'header', name: clusterName, stops: [] })
+      currentCluster = clusterName
+    }
+    clusteredStops[clusteredStops.length - 1].stops.push(stop)
+  }
+
+  // Build trail URL with stop IDs for save functionality
+  const trailStopIds = stops.map(s => s.listing_id).filter(Boolean).join(',')
 
   return (
     <div style={{
@@ -624,7 +878,7 @@ function ResultsView({ result }) {
       margin: '0 auto',
       padding: '0 20px 60px',
     }}>
-      {/* Route title */}
+      {/* Route title + intro */}
       <div style={{
         padding: '32px 0 24px',
         borderBottom: '1px solid var(--color-border)',
@@ -640,150 +894,253 @@ function ResultsView({ result }) {
         }}>
           {title}
         </h2>
+
+        {/* Route meta stats */}
         <div style={{
           display: 'flex',
           gap: 16,
           marginTop: 10,
           flexWrap: 'wrap',
         }}>
-          <span style={{
-            fontFamily: 'var(--font-body)',
-            fontSize: 13,
-            fontWeight: 300,
-            color: 'var(--color-muted)',
-          }}>
+          <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 300, color: 'var(--color-muted)' }}>
             {stops.length} stops
           </span>
           {route_distance_km && (
-            <span style={{
-              fontFamily: 'var(--font-body)',
-              fontSize: 13,
-              fontWeight: 300,
-              color: 'var(--color-muted)',
-            }}>
-              {route_distance_km} km
+            <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 300, color: 'var(--color-muted)' }}>
+              {route_distance_km.toLocaleString()} km
             </span>
           )}
           {route_duration_minutes && (
-            <span style={{
-              fontFamily: 'var(--font-body)',
-              fontSize: 13,
-              fontWeight: 300,
-              color: 'var(--color-muted)',
-            }}>
+            <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 300, color: 'var(--color-muted)' }}>
               ~{Math.round(route_duration_minutes / 60)} hr drive
             </span>
           )}
           {total_listings_found > 0 && (
-            <span style={{
-              fontFamily: 'var(--font-body)',
-              fontSize: 13,
-              fontWeight: 300,
-              color: 'var(--color-muted)',
-            }}>
+            <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 300, color: 'var(--color-muted)' }}>
               {total_listings_found} places found along route
             </span>
           )}
         </div>
+
+        {/* Editorial intro from Claude */}
+        {intro && (
+          <p style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: 17,
+            fontWeight: 400,
+            fontStyle: 'italic',
+            color: 'var(--color-ink)',
+            margin: '16px 0 0',
+            lineHeight: 1.6,
+            maxWidth: 700,
+            opacity: 0.85,
+          }}>
+            {intro}
+          </p>
+        )}
+
+        {/* Additional stop time estimate */}
+        {additional_stop_hours > 0 && (
+          <p style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: 13,
+            fontWeight: 400,
+            color: 'var(--color-accent, #B87333)',
+            margin: '10px 0 0',
+          }}>
+            With your stops, add approximately {additional_stop_hours} {additional_stop_hours === 1 ? 'hour' : 'hours'} to the drive.
+          </p>
+        )}
+      </div>
+
+      {/* Long trip warning */}
+      {is_long_trip && rest_listings && rest_listings.length > 0 && (
+        <div style={{ marginTop: 24 }}>
+          <LongTripBanner routeDistanceKm={route_distance_km} restListings={rest_listings} />
+        </div>
+      )}
+
+      {/* Mobile toggle */}
+      <style>{`
+        .otr-mobile-toggle { display: flex !important; }
+        .otr-mobile-list { display: block; }
+        .otr-mobile-map { display: none; }
+        @media (min-width: 768px) {
+          .otr-mobile-toggle { display: none !important; }
+          .otr-mobile-list { display: block !important; }
+          .otr-mobile-map { display: block !important; }
+          .otr-split {
+            grid-template-columns: 3fr 2fr !important;
+            gap: 32px !important;
+          }
+          .otr-map-col {
+            position: sticky !important;
+            top: 20px !important;
+            align-self: start !important;
+            height: calc(100vh - 40px) !important;
+          }
+        }
+      `}</style>
+
+      <div className="otr-mobile-toggle" style={{
+        display: 'none',
+        gap: 0,
+        marginTop: 16,
+        borderRadius: 8,
+        overflow: 'hidden',
+        border: '1px solid var(--color-border)',
+        width: 'fit-content',
+      }}>
+        <button
+          onClick={() => setMobileView('list')}
+          style={{
+            padding: '8px 20px',
+            fontSize: 13,
+            fontFamily: 'var(--font-body)',
+            fontWeight: 500,
+            color: mobileView === 'list' ? '#fff' : 'var(--color-ink)',
+            background: mobileView === 'list' ? 'var(--color-ink)' : 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+          }}
+        >
+          List
+        </button>
+        <button
+          onClick={() => setMobileView('map')}
+          style={{
+            padding: '8px 20px',
+            fontSize: 13,
+            fontFamily: 'var(--font-body)',
+            fontWeight: 500,
+            color: mobileView === 'map' ? '#fff' : 'var(--color-ink)',
+            background: mobileView === 'map' ? 'var(--color-ink)' : 'transparent',
+            border: 'none',
+            borderLeft: '1px solid var(--color-border)',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+          }}
+        >
+          Map
+        </button>
       </div>
 
       {/* Split layout */}
-      <div style={{
+      <div className="otr-split" style={{
         display: 'grid',
         gridTemplateColumns: '1fr',
         gap: 0,
+        marginTop: 8,
       }}>
-        <style>{`
-          @media (min-width: 768px) {
-            .otr-split {
-              grid-template-columns: 3fr 2fr !important;
-              gap: 32px !important;
-            }
-            .otr-map-col {
-              position: sticky !important;
-              top: 20px !important;
-              align-self: start !important;
-              height: calc(100vh - 40px) !important;
-            }
-          }
-        `}</style>
-        <div className="otr-split" style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr',
-          gap: 0,
-        }}>
-          {/* Stop list */}
-          <div>
-            {stops.map((stop, i) => (
-              <StopCard key={stop.listing_id || i} stop={stop} index={i} />
-            ))}
+        {/* Stop list */}
+        <div className={`otr-mobile-list ${mobileView === 'list' ? '' : 'otr-mobile-list--hidden'}`}
+          style={{ display: mobileView === 'list' ? 'block' : undefined }}
+        >
+          {clusteredStops.map((cluster, ci) => (
+            <div key={ci}>
+              {/* Only show cluster header if we have more than one cluster */}
+              {clusteredStops.length > 1 && (
+                <ClusterHeader name={cluster.name} count={cluster.stops.length} />
+              )}
+              {cluster.stops.map((stop, si) => {
+                // Calculate the global index across all clusters
+                const globalIndex = clusteredStops.slice(0, ci).reduce((sum, c) => sum + c.stops.length, 0) + si
+                return <StopCard key={stop.listing_id || globalIndex} stop={stop} index={globalIndex} />
+              })}
+            </div>
+          ))}
 
-            {/* Add to trail CTA */}
-            <div style={{
-              marginTop: 32,
-              padding: '20px 24px',
-              borderRadius: 12,
-              background: 'var(--color-cream, #f5f2ec)',
-              border: '1px solid var(--color-border)',
-              textAlign: 'center',
-            }}>
-              <p style={{
-                fontFamily: 'var(--font-display)',
-                fontSize: 18,
-                fontWeight: 400,
-                color: 'var(--color-ink)',
-                margin: '0 0 8px',
-              }}>
-                Save this route as a trail
-              </p>
-              <p style={{
+          {/* Footer CTAs */}
+          <div style={{
+            marginTop: 40,
+            display: 'flex',
+            gap: 16,
+            flexWrap: 'wrap',
+          }}>
+            <Link
+              href={`/trails/builder${trailStopIds ? `?stops=${trailStopIds}` : ''}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '14px 28px',
+                borderRadius: 8,
+                fontSize: 14,
                 fontFamily: 'var(--font-body)',
-                fontSize: 13,
-                fontWeight: 300,
-                color: 'var(--color-muted)',
-                margin: '0 0 16px',
-              }}>
-                Create an account to save and share your road trips
-              </p>
+                fontWeight: 500,
+                color: '#fff',
+                background: 'var(--color-ink)',
+                textDecoration: 'none',
+                transition: 'opacity 0.2s',
+                minHeight: 48,
+              }}
+              onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+              onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" />
+              </svg>
+              Build a full trail
+            </Link>
+
+            {end_name && (
               <Link
-                href="/trails/builder"
+                href={`/long-weekend?destination=${encodeURIComponent(end_name)}`}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 8,
-                  padding: '12px 24px',
+                  padding: '14px 28px',
                   borderRadius: 8,
                   fontSize: 14,
                   fontFamily: 'var(--font-body)',
                   fontWeight: 500,
-                  color: '#fff',
-                  background: 'var(--color-ink)',
+                  color: 'var(--color-ink)',
+                  background: 'transparent',
+                  border: '1px solid var(--color-border)',
                   textDecoration: 'none',
-                  transition: 'opacity 0.2s',
-                  minHeight: 44,
+                  transition: 'all 0.2s',
+                  minHeight: 48,
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = 'var(--color-ink)'
+                  e.currentTarget.style.background = 'var(--color-cream, #f5f2ec)'
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = 'var(--color-border)'
+                  e.currentTarget.style.background = 'transparent'
                 }}
               >
-                Add to trail
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M5 12h14M12 5l7 7-7 7" />
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
                 </svg>
+                Plan a long weekend at {end_name}
               </Link>
-            </div>
+            )}
           </div>
+        </div>
 
-          {/* Map column */}
-          <div className="otr-map-col" style={{
+        {/* Map column */}
+        <div
+          className={`otr-map-col ${mobileView === 'map' ? '' : 'otr-mobile-map'}`}
+          style={{
             borderRadius: 12,
             overflow: 'hidden',
             border: '1px solid var(--color-border)',
             minHeight: 400,
-            marginTop: 24,
-          }}>
-            <RouteMap
-              routeGeometry={route_geometry}
-              stops={stops}
-            />
-          </div>
+            marginTop: mobileView === 'map' ? 8 : 24,
+            display: mobileView === 'map' ? 'block' : undefined,
+          }}
+        >
+          <RouteMap
+            routeGeometry={route_geometry}
+            stops={stops}
+            coverageGaps={coverage_gaps}
+            startName={start_name}
+            endName={end_name}
+          />
         </div>
       </div>
     </div>

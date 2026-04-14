@@ -1,8 +1,11 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import dynamic from 'next/dynamic'
+
+const ItineraryMap = dynamic(() => import('./ItineraryMap'), { ssr: false })
 
 // ── Constants ────────────────────────────────────────────────
 const CITIES = [
@@ -32,6 +35,43 @@ const VIBE_OPTIONS = [
   { value: 'Nature', label: 'Nature' },
   { value: 'All of the above', label: 'All of the above' },
 ]
+
+const SUB_VIBE_OPTIONS = {
+  Foodie: [
+    'Cellar doors & tastings',
+    'Farm gate & producers',
+    'Distillery tours',
+    'Cooking schools',
+    'Providores & delis',
+    'Coffee & roasters',
+    'Restaurants & dining',
+  ],
+  Cultural: [
+    'Galleries & studios',
+    'Heritage & history',
+    'Live music & performance',
+    'Makers & craft',
+  ],
+  Adventurous: [
+    'Hiking & walking',
+    'Swimming holes',
+    'Wildlife & nature reserves',
+    'Coastal exploration',
+  ],
+  Relaxed: [
+    'Boutique stays',
+    'Spa & wellness',
+    'Scenic drives',
+    'Bookshops & browsing',
+    'Antiques & op shopping',
+  ],
+  Nature: [
+    'National parks',
+    'Beaches & coastline',
+    'Forests & bushland',
+    'Wildlife encounters',
+  ],
+}
 
 const VERTICAL_COLORS = {
   sba: '#6b3a2a',
@@ -66,6 +106,7 @@ export default function LongWeekendClient() {
   const [radius, setRadius] = useState('2h')
   const [group, setGroup] = useState('')
   const [vibes, setVibes] = useState([])
+  const [subVibes, setSubVibes] = useState([])
 
   // Result state
   const [loading, setLoading] = useState(false)
@@ -77,22 +118,38 @@ export default function LongWeekendClient() {
   const toggleVibe = useCallback((vibe) => {
     setVibes(prev => {
       if (vibe === 'All of the above') {
-        // If selecting "All", toggle all on/off
-        if (prev.includes('All of the above')) return []
+        if (prev.includes('All of the above')) {
+          setSubVibes([])
+          return []
+        }
+        setSubVibes([])
         return VIBE_OPTIONS.map(v => v.value)
       }
-      // If toggling an individual vibe, remove "All of the above" logic
       const without = prev.filter(v => v !== 'All of the above')
+      let next
       if (without.includes(vibe)) {
-        return without.filter(v => v !== vibe)
+        next = without.filter(v => v !== vibe)
+        // Clear sub-vibes for the deselected vibe
+        const removedSubVibes = SUB_VIBE_OPTIONS[vibe] || []
+        setSubVibes(prev => prev.filter(sv => !removedSubVibes.includes(sv)))
+      } else {
+        next = [...without, vibe]
       }
-      const next = [...without, vibe]
-      // If all individual vibes are selected, add "All of the above" too
       const allIndividual = VIBE_OPTIONS.filter(v => v.value !== 'All of the above').every(v => next.includes(v.value))
       if (allIndividual) return VIBE_OPTIONS.map(v => v.value)
       return next
     })
   }, [])
+
+  const toggleSubVibe = useCallback((sv) => {
+    setSubVibes(prev =>
+      prev.includes(sv) ? prev.filter(v => v !== sv) : [...prev, sv]
+    )
+  }, [])
+
+  // Gather all available sub-vibes for currently selected primary vibes
+  const activeVibes = vibes.filter(v => v !== 'All of the above')
+  const availableSubVibes = activeVibes.flatMap(v => SUB_VIBE_OPTIONS[v] || [])
 
   const canSubmit = city && radius && group && vibes.length > 0
 
@@ -108,7 +165,13 @@ export default function LongWeekendClient() {
       const res = await fetch('/api/long-weekend', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ city, radius, group, vibes: vibes.filter(v => v !== 'All of the above') }),
+        body: JSON.stringify({
+          city,
+          radius,
+          group,
+          vibes: vibes.filter(v => v !== 'All of the above'),
+          subVibes: subVibes.length > 0 ? subVibes : undefined,
+        }),
       })
 
       const data = await res.json()
@@ -124,7 +187,7 @@ export default function LongWeekendClient() {
     } finally {
       setLoading(false)
     }
-  }, [canSubmit, city, radius, group, vibes])
+  }, [canSubmit, city, radius, group, vibes, subVibes])
 
   const handleSaveTrail = useCallback(async () => {
     if (!result?.itinerary) return
@@ -317,6 +380,31 @@ export default function LongWeekendClient() {
           </div>
         </FormSection>
 
+        {/* Sub-vibes (second tier) */}
+        {availableSubVibes.length > 0 && (
+          <FormSection label="Anything specific?">
+            <p style={{
+              fontFamily: 'var(--font-body)',
+              fontSize: 13,
+              color: 'var(--color-muted, #8a8a8a)',
+              marginBottom: 12,
+              marginTop: -4,
+            }}>
+              Optional — narrow the focus or leave broad.
+            </p>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {availableSubVibes.map(sv => (
+                <SubVibeChip
+                  key={sv}
+                  label={sv}
+                  selected={subVibes.includes(sv)}
+                  onClick={() => toggleSubVibe(sv)}
+                />
+              ))}
+            </div>
+          </FormSection>
+        )}
+
         {/* Submit */}
         <div style={{ marginTop: 40, textAlign: 'center' }}>
           <button
@@ -506,6 +594,29 @@ function ChipButton({ label, selected, onClick }) {
   )
 }
 
+function SubVibeChip({ label, selected, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        fontFamily: 'var(--font-body)',
+        fontSize: 12,
+        padding: '6px 14px',
+        borderRadius: 100,
+        border: `1px solid ${selected ? 'var(--color-accent, #B87333)' : 'var(--color-border, #e0ddd8)'}`,
+        backgroundColor: selected ? 'rgba(184, 115, 51, 0.08)' : 'transparent',
+        color: selected ? 'var(--color-accent, #B87333)' : 'var(--color-muted, #8a8a8a)',
+        cursor: 'pointer',
+        transition: 'all 0.15s ease',
+        fontWeight: selected ? 500 : 400,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {label}
+    </button>
+  )
+}
+
 const selectStyle = {
   fontFamily: 'var(--font-body)',
   fontSize: 15,
@@ -526,18 +637,63 @@ const selectStyle = {
 // ── Itinerary results ────────────────────────────────────────
 
 function ItineraryResults({ result, onSave, saveStatus, onShare, copied, onAnother, onAdjust }) {
-  const { itinerary, meta } = result
+  const { itinerary, meta, head_home_estimate } = result
+  const [highlightedStop, setHighlightedStop] = useState(null)
+  const [showMap, setShowMap] = useState(true) // Desktop default; mobile overridden by CSS
+  const stopRefs = useRef({})
+
+  // Collect all stops with coordinates for the map
+  const allMapStops = []
+  let globalStopIndex = 0
+  for (const day of itinerary.days || []) {
+    for (const stop of day.stops || []) {
+      if (stop.listing?.lat && stop.listing?.lng) {
+        allMapStops.push({
+          index: globalStopIndex,
+          dayNumber: day.day_number,
+          listing: stop.listing,
+          listing_name: stop.listing_name || stop.listing.name,
+          notes: stop.notes,
+        })
+      }
+      globalStopIndex++
+    }
+  }
+
+  // Add accommodation to map if it has coords
+  if (itinerary.accommodation?.listing?.lat && itinerary.accommodation?.listing?.lng) {
+    allMapStops.push({
+      index: -1, // Special index for accommodation
+      dayNumber: 0,
+      listing: itinerary.accommodation.listing,
+      listing_name: itinerary.accommodation.listing_name || itinerary.accommodation.listing.name,
+      notes: itinerary.accommodation.notes,
+      isAccommodation: true,
+    })
+  }
+
+  const handleMapStopClick = useCallback((stopIndex) => {
+    setHighlightedStop(stopIndex)
+    const ref = stopRefs.current[stopIndex]
+    if (ref) {
+      ref.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [])
+
+  const handleListStopClick = useCallback((stopIndex) => {
+    setHighlightedStop(stopIndex)
+  }, [])
 
   return (
     <section style={{
-      maxWidth: 720,
+      maxWidth: 800,
       margin: '0 auto',
       padding: '0 24px 80px',
     }}>
       {/* Title block */}
       <div style={{
         textAlign: 'center',
-        marginBottom: 48,
+        marginBottom: 32,
         paddingTop: 16,
         borderTop: '1px solid var(--color-border, #e0ddd8)',
       }}>
@@ -586,6 +742,65 @@ function ItineraryResults({ result, onSave, saveStatus, onShare, copied, onAnoth
         )}
       </div>
 
+      {/* Itinerary Map */}
+      {allMapStops.length > 0 && (
+        <>
+          {/* Mobile toggle */}
+          <style>{`
+            .lw-map-toggle { display: block; }
+            .lw-map-container { display: none; }
+            .lw-map-container.lw-map-open { display: block; }
+            @media (min-width: 768px) {
+              .lw-map-toggle { display: none; }
+              .lw-map-container { display: block !important; }
+            }
+          `}</style>
+
+          <button
+            className="lw-map-toggle"
+            onClick={() => setShowMap(!showMap)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              width: '100%',
+              padding: '12px 16px',
+              marginBottom: 16,
+              borderRadius: 8,
+              border: '1px solid var(--color-border, #e0ddd8)',
+              background: '#fff',
+              fontFamily: 'var(--font-body)',
+              fontSize: 13,
+              fontWeight: 500,
+              color: 'var(--color-ink, #1a1a1a)',
+              cursor: 'pointer',
+              justifyContent: 'center',
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
+              <line x1="8" y1="2" x2="8" y2="18" />
+              <line x1="16" y1="6" x2="16" y2="22" />
+            </svg>
+            {showMap ? 'Hide map' : 'Show map'}
+          </button>
+
+          <div className={`lw-map-container ${showMap ? 'lw-map-open' : ''}`} style={{
+            marginBottom: 32,
+            borderRadius: 12,
+            overflow: 'hidden',
+            border: '1px solid var(--color-border, #e0ddd8)',
+            height: 360,
+          }}>
+            <ItineraryMap
+              stops={allMapStops}
+              highlightedStop={highlightedStop}
+              onStopClick={handleMapStopClick}
+            />
+          </div>
+        </>
+      )}
+
       {/* Accommodation card */}
       {itinerary.accommodation?.listing && (
         <div style={{
@@ -594,6 +809,7 @@ function ItineraryResults({ result, onSave, saveStatus, onShare, copied, onAnoth
           backgroundColor: '#fff',
           borderRadius: 12,
           border: '1px solid var(--color-border, #e0ddd8)',
+          borderLeft: `4px solid ${VERTICAL_COLORS.rest}`,
           display: 'flex',
           gap: 20,
           alignItems: 'center',
@@ -628,17 +844,24 @@ function ItineraryResults({ result, onSave, saveStatus, onShare, copied, onAnoth
             }}>
               Your base
             </p>
-            <Link
-              href={`/place/${itinerary.accommodation.listing.slug}`}
-              style={{
-                fontFamily: 'var(--font-display)',
-                fontSize: 20,
-                color: 'var(--color-ink, #1a1a1a)',
-                textDecoration: 'none',
-              }}
-            >
-              {itinerary.accommodation.listing_name}
-            </Link>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span
+                onClick={(e) => {
+                  e.preventDefault()
+                  window.open(`/place/${itinerary.accommodation.listing.slug}`, '_blank')
+                }}
+                style={{
+                  fontFamily: 'var(--font-display)',
+                  fontSize: 20,
+                  color: 'var(--color-ink, #1a1a1a)',
+                  textDecoration: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                {itinerary.accommodation.listing_name}
+              </span>
+              <VerticalBadge vertical={itinerary.accommodation.listing.vertical} />
+            </div>
             {itinerary.accommodation.notes && (
               <p style={{
                 fontFamily: 'var(--font-body)',
@@ -650,67 +873,152 @@ function ItineraryResults({ result, onSave, saveStatus, onShare, copied, onAnoth
                 {itinerary.accommodation.notes}
               </p>
             )}
-            <VerticalBadge vertical={itinerary.accommodation.listing.vertical} />
           </div>
         </div>
       )}
 
       {/* Day-by-day itinerary */}
-      {(itinerary.days || []).map((day, dayIdx) => (
-        <div key={dayIdx} style={{ marginBottom: 48 }}>
-          {/* Day heading */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'baseline',
-            gap: 12,
-            marginBottom: 20,
-            paddingBottom: 12,
-            borderBottom: '1px solid var(--color-border, #e0ddd8)',
-          }}>
-            <span style={{
-              fontFamily: 'var(--font-body)',
-              fontSize: 12,
-              textTransform: 'uppercase',
-              letterSpacing: '0.1em',
-              color: 'var(--color-sage, #6b7c5a)',
-              fontWeight: 600,
-            }}>
-              Day {day.day_number}
-            </span>
-            <span style={{
-              fontFamily: 'var(--font-display)',
-              fontSize: 22,
-              color: 'var(--color-ink, #1a1a1a)',
-              fontWeight: 400,
-            }}>
-              {day.theme}
-            </span>
-          </div>
+      {(itinerary.days || []).map((day, dayIdx) => {
+        const isLastDay = dayIdx === (itinerary.days || []).length - 1
 
-          {/* Stops */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {(day.stops || []).map((stop, stopIdx) => (
-              <StopCard key={stopIdx} stop={stop} />
-            ))}
-          </div>
-        </div>
-      ))}
+        return (
+          <div key={dayIdx} style={{ marginBottom: isLastDay ? 24 : 48 }}>
+            {/* Day heading */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'baseline',
+              gap: 12,
+              marginBottom: 20,
+              paddingBottom: 12,
+              borderBottom: '1px solid var(--color-border, #e0ddd8)',
+            }}>
+              <span style={{
+                fontFamily: 'var(--font-body)',
+                fontSize: 12,
+                textTransform: 'uppercase',
+                letterSpacing: '0.1em',
+                color: 'var(--color-sage, #6b7c5a)',
+                fontWeight: 600,
+              }}>
+                Day {day.day_number}
+              </span>
+              <span style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: 22,
+                color: 'var(--color-ink, #1a1a1a)',
+                fontWeight: 400,
+              }}>
+                {day.theme}
+              </span>
+            </div>
 
-      {/* Action buttons */}
+            {/* Stops */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {(day.stops || []).map((stop, stopIdx) => {
+                // Calculate global index for map highlighting
+                let gIdx = 0
+                for (let d = 0; d < dayIdx; d++) {
+                  gIdx += (itinerary.days[d].stops || []).length
+                }
+                gIdx += stopIdx
+
+                return (
+                  <div
+                    key={stopIdx}
+                    ref={el => { stopRefs.current[gIdx] = el }}
+                    onClick={() => handleListStopClick(gIdx)}
+                  >
+                    <StopCard
+                      stop={stop}
+                      highlighted={highlightedStop === gIdx}
+                    />
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Day 3 closing note + head home */}
+            {isLastDay && (
+              <div style={{
+                marginTop: 24,
+                padding: '20px 24px',
+                background: 'var(--color-cream, #f5f2ec)',
+                borderRadius: 10,
+                borderLeft: '3px solid var(--color-sage, #6b7c5a)',
+              }}>
+                {day.closing_note && (
+                  <p style={{
+                    fontFamily: 'var(--font-display)',
+                    fontSize: 17,
+                    fontWeight: 400,
+                    fontStyle: 'italic',
+                    color: 'var(--color-ink, #1a1a1a)',
+                    margin: 0,
+                    lineHeight: 1.6,
+                  }}>
+                    {day.closing_note}
+                  </p>
+                )}
+
+                {head_home_estimate && (
+                  <div style={{
+                    marginTop: day.closing_note ? 16 : 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                  }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-muted, #8a8a8a)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                      <polyline points="9 22 9 12 15 12 15 22" />
+                    </svg>
+                    <p style={{
+                      fontFamily: 'var(--font-body)',
+                      fontSize: 13,
+                      color: 'var(--color-muted, #8a8a8a)',
+                      margin: 0,
+                      lineHeight: 1.5,
+                    }}>
+                      Head home from {head_home_estimate.from} &mdash;{' '}
+                      {head_home_estimate.duration_minutes >= 60
+                        ? `${Math.floor(head_home_estimate.duration_minutes / 60)}h ${head_home_estimate.duration_minutes % 60}min`
+                        : `${head_home_estimate.duration_minutes} min`
+                      } drive back to {head_home_estimate.to} ({head_home_estimate.distance_km} km)
+                    </p>
+                  </div>
+                )}
+
+                {!head_home_estimate && day.head_home && (
+                  <p style={{
+                    fontFamily: 'var(--font-body)',
+                    fontSize: 13,
+                    color: 'var(--color-muted, #8a8a8a)',
+                    margin: day.closing_note ? '12px 0 0' : 0,
+                  }}>
+                    Head home from {day.head_home}.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )
+      })}
+
+      {/* Save this weekend + action buttons */}
       <div style={{
         display: 'flex',
         gap: 12,
         flexWrap: 'wrap',
         justifyContent: 'center',
-        marginTop: 48,
+        marginTop: 40,
         paddingTop: 32,
         borderTop: '1px solid var(--color-border, #e0ddd8)',
       }}>
         <ActionButton
-          label={saveStatus === 'saved' ? 'Saved!' : saveStatus === 'saving' ? 'Saving...' : saveStatus === 'auth' ? 'Sign in to save' : saveStatus === 'error' ? 'Save failed' : 'Save this trip'}
+          label={saveStatus === 'saved' ? 'Saved!' : saveStatus === 'saving' ? 'Saving...' : saveStatus === 'auth' ? 'Sign in to save' : saveStatus === 'error' ? 'Save failed' : 'Save this weekend'}
           onClick={onSave}
           disabled={saveStatus === 'saving' || saveStatus === 'saved'}
           primary
+          icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z" /></svg>}
         />
         <ActionButton
           label={copied ? 'Copied!' : 'Share'}
@@ -729,20 +1037,24 @@ function ItineraryResults({ result, onSave, saveStatus, onShare, copied, onAnoth
   )
 }
 
-function StopCard({ stop }) {
+function StopCard({ stop, highlighted }) {
   const listing = stop.listing
   if (!listing) return null
+
+  const vertColor = VERTICAL_COLORS[listing.vertical] || '#6b7c5a'
 
   return (
     <div style={{
       display: 'flex',
       gap: 16,
       padding: 16,
-      backgroundColor: '#fff',
+      backgroundColor: highlighted ? 'rgba(107, 124, 90, 0.04)' : '#fff',
       borderRadius: 10,
-      border: '1px solid var(--color-border, #e0ddd8)',
-      transition: 'box-shadow 0.15s ease',
+      border: `1px solid ${highlighted ? 'var(--color-sage, #6b7c5a)' : 'var(--color-border, #e0ddd8)'}`,
+      borderLeft: `4px solid ${vertColor}`,
+      transition: 'all 0.2s ease',
       alignItems: 'flex-start',
+      cursor: 'pointer',
     }}>
       {/* Thumbnail */}
       {listing.hero_image_url && (
@@ -766,18 +1078,33 @@ function StopCard({ stop }) {
       {/* Content */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
-          <Link
-            href={`/place/${listing.slug}`}
+          {/* Vertical colour dot */}
+          <span style={{
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            backgroundColor: vertColor,
+            display: 'inline-block',
+            flexShrink: 0,
+          }} />
+          <span
+            onClick={(e) => {
+              e.stopPropagation()
+              window.open(`/place/${listing.slug}`, '_blank')
+            }}
             style={{
               fontFamily: 'var(--font-display)',
               fontSize: 17,
               color: 'var(--color-ink, #1a1a1a)',
               textDecoration: 'none',
               lineHeight: 1.3,
+              cursor: 'pointer',
             }}
+            onMouseEnter={e => e.target.style.color = vertColor}
+            onMouseLeave={e => e.target.style.color = 'var(--color-ink, #1a1a1a)'}
           >
             {stop.listing_name || listing.name}
-          </Link>
+          </span>
           <VerticalBadge vertical={listing.vertical} />
         </div>
 
@@ -839,11 +1166,11 @@ function VerticalBadge({ vertical }) {
       fontFamily: 'var(--font-body)',
       fontSize: 10,
       textTransform: 'uppercase',
-      letterSpacing: '0.08em',
+      letterSpacing: '0.06em',
       fontWeight: 600,
-      color: color,
-      backgroundColor: `${color}14`,
-      padding: '3px 8px',
+      color: '#fff',
+      backgroundColor: color,
+      padding: '3px 10px',
       borderRadius: 4,
       whiteSpace: 'nowrap',
     }}>
@@ -852,7 +1179,7 @@ function VerticalBadge({ vertical }) {
   )
 }
 
-function ActionButton({ label, onClick, disabled, primary }) {
+function ActionButton({ label, onClick, disabled, primary, icon }) {
   return (
     <button
       onClick={onClick}
@@ -870,8 +1197,12 @@ function ActionButton({ label, onClick, disabled, primary }) {
         transition: 'all 0.15s ease',
         opacity: disabled ? 0.6 : 1,
         whiteSpace: 'nowrap',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 8,
       }}
     >
+      {icon}
       {label}
     </button>
   )

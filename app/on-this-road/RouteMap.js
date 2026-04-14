@@ -16,7 +16,7 @@ const VERTICAL_COLORS = {
 
 const ROUTE_COLOR = '#8B6914'
 
-export default function RouteMap({ routeGeometry, stops }) {
+export default function RouteMap({ routeGeometry, stops, coverageGaps, startName, endName }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
 
@@ -88,6 +88,88 @@ export default function RouteMap({ routeGeometry, stops }) {
             'line-join': 'round',
           },
         })
+
+        // Start and end markers
+        const routeStart = routeGeometry.coordinates[0]
+        const routeEnd = routeGeometry.coordinates[routeGeometry.coordinates.length - 1]
+
+        // Start marker (green circle)
+        const startEl = document.createElement('div')
+        startEl.style.cssText = 'width:28px;height:28px;border-radius:50%;background:#4a7c59;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.2);cursor:default;'
+        const startInner = document.createElement('div')
+        startInner.style.cssText = 'width:8px;height:8px;border-radius:50%;background:#fff;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);'
+        startEl.appendChild(startInner)
+        new mapboxgl.Marker({ element: startEl })
+          .setLngLat(routeStart)
+          .setPopup(new mapboxgl.Popup({ offset: 16, closeButton: false }).setHTML(
+            `<div style="font-family:system-ui;font-size:12px;padding:2px 4px;"><strong>${startName || 'Start'}</strong></div>`
+          ))
+          .addTo(map)
+
+        // End marker (dark circle with flag)
+        const endEl = document.createElement('div')
+        endEl.style.cssText = 'width:28px;height:28px;border-radius:50%;background:#2d2a24;border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.2);cursor:default;display:flex;align-items:center;justify-content:center;'
+        endEl.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>'
+        new mapboxgl.Marker({ element: endEl })
+          .setLngLat(routeEnd)
+          .setPopup(new mapboxgl.Popup({ offset: 16, closeButton: false }).setHTML(
+            `<div style="font-family:system-ui;font-size:12px;padding:2px 4px;"><strong>${endName || 'End'}</strong></div>`
+          ))
+          .addTo(map)
+
+        // Coverage gap annotations
+        if (coverageGaps && coverageGaps.length > 0) {
+          const gapFeatures = coverageGaps.map((gap, i) => ({
+            type: 'Feature',
+            geometry: {
+              type: 'Point',
+              coordinates: [gap.midpoint.lng, gap.midpoint.lat],
+            },
+            properties: {
+              label: `${gap.lengthKm} km gap`,
+              index: i,
+            },
+          }))
+
+          map.addSource('coverage-gaps', {
+            type: 'geojson',
+            data: {
+              type: 'FeatureCollection',
+              features: gapFeatures,
+            },
+          })
+
+          // Dashed circle for gap markers
+          map.addLayer({
+            id: 'coverage-gaps-circle',
+            type: 'circle',
+            source: 'coverage-gaps',
+            paint: {
+              'circle-radius': 16,
+              'circle-color': 'rgba(212, 168, 67, 0.08)',
+              'circle-stroke-width': 1.5,
+              'circle-stroke-color': 'rgba(212, 168, 67, 0.4)',
+            },
+          })
+
+          map.addLayer({
+            id: 'coverage-gaps-label',
+            type: 'symbol',
+            source: 'coverage-gaps',
+            layout: {
+              'text-field': ['get', 'label'],
+              'text-size': 10,
+              'text-font': ['DIN Pro Medium', 'Arial Unicode MS Regular'],
+              'text-offset': [0, 2.2],
+              'text-allow-overlap': false,
+            },
+            paint: {
+              'text-color': 'rgba(184, 134, 43, 0.7)',
+              'text-halo-color': '#fff',
+              'text-halo-width': 1,
+            },
+          })
+        }
 
         // Stop markers
         const stopsWithCoords = stops.filter(s => s.lat && s.lng)
@@ -169,7 +251,7 @@ export default function RouteMap({ routeGeometry, stops }) {
         mapRef.current = null
       }
     })
-  }, [routeGeometry, stops])
+  }, [routeGeometry, stops, coverageGaps, startName, endName])
 
   return (
     <div

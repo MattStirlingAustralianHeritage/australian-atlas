@@ -245,57 +245,109 @@ export default async function Home() {
       {/* Interactive Map — centrepiece */}
       <HomeMapSection listingCount={stats.listings} />
 
-      {/* Long Weekend Feature Card */}
-      <section className="px-4 sm:px-6 py-12 max-w-4xl mx-auto">
-        <Link
-          href="/long-weekend"
-          className="group block rounded-2xl overflow-hidden hover:shadow-md transition-all"
-          style={{
-            background: 'var(--color-ink)',
-            border: '1px solid transparent',
-          }}
-        >
-          <div className="relative p-8 sm:p-10 flex flex-col sm:flex-row items-start gap-6">
-            {/* Dot-grid texture */}
-            <div className="absolute inset-0 pointer-events-none" style={{
-              opacity: 0.06,
-              backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)',
-              backgroundSize: '20px 20px',
-            }} />
+      {/* Trip Planning Cards — dual card layout */}
+      <section className="px-4 sm:px-6 py-12 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Long Weekend Engine */}
+          <Link
+            href="/long-weekend"
+            className="group block rounded-2xl overflow-hidden hover:shadow-md transition-all"
+            style={{
+              background: 'var(--color-ink)',
+              border: '1px solid transparent',
+            }}
+          >
+            <div className="relative p-7 sm:p-8 flex flex-col min-h-[220px]">
+              <div className="absolute inset-0 pointer-events-none" style={{
+                opacity: 0.06,
+                backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)',
+                backgroundSize: '20px 20px',
+              }} />
 
-            <div className="relative flex-1">
-              <p style={{
-                fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 10,
-                letterSpacing: '0.16em', textTransform: 'uppercase',
-                color: 'var(--color-sage)', marginBottom: 12, lineHeight: 1,
-              }}>
-                Long Weekend Engine
-              </p>
-              <h2 style={{
-                fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 'clamp(22px, 3vw, 28px)',
-                color: '#fff', lineHeight: 1.25, marginBottom: 10,
-              }}>
-                Where should I go this long weekend?
-              </h2>
-              <p style={{
-                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 15,
-                color: 'rgba(255,255,255,0.6)', lineHeight: 1.65, marginBottom: 0, maxWidth: 480,
-              }}>
-                Tell us where you are and what you&apos;re into. We&apos;ll build a weekend plan from real places across the network &mdash; the independent stays, the producers, the swimming holes, the things worth the drive.
-              </p>
-            </div>
+              <div className="relative flex-1">
+                <p style={{
+                  fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 10,
+                  letterSpacing: '0.16em', textTransform: 'uppercase',
+                  color: 'var(--color-sage)', marginBottom: 10, lineHeight: 1,
+                }}>
+                  Long Weekend Engine
+                </p>
+                <h2 style={{
+                  fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 'clamp(20px, 2.5vw, 24px)',
+                  color: '#fff', lineHeight: 1.25, marginBottom: 8,
+                }}>
+                  Where should I go this long weekend?
+                </h2>
+                <p style={{
+                  fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 14,
+                  color: 'rgba(255,255,255,0.55)', lineHeight: 1.6, marginBottom: 0,
+                }}>
+                  Tell us where you are and what you&apos;re into. We&apos;ll build a 3-day plan from real places across the network.
+                </p>
+              </div>
 
-            <div className="relative flex-shrink-0 self-center">
-              <span
-                className="inline-flex items-center gap-2 text-white border border-white/20 px-5 py-2.5 rounded-full group-hover:border-white/40 transition-colors"
-                style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13 }}
-              >
-                Plan a weekend
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-              </span>
+              <div className="relative mt-4">
+                <span
+                  className="inline-flex items-center gap-2 text-white border border-white/20 px-4 py-2 rounded-full group-hover:border-white/40 transition-colors"
+                  style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12 }}
+                >
+                  Plan a weekend
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                </span>
+              </div>
             </div>
-          </div>
-        </Link>
+          </Link>
+
+          {/* On This Road */}
+          <Link
+            href="/on-this-road"
+            className="group block rounded-2xl overflow-hidden hover:shadow-md transition-all"
+            style={{
+              background: 'var(--color-ink)',
+              border: '1px solid transparent',
+            }}
+          >
+            <div className="relative p-7 sm:p-8 flex flex-col min-h-[220px]">
+              <div className="absolute inset-0 pointer-events-none" style={{
+                opacity: 0.05,
+                backgroundImage: 'repeating-linear-gradient(90deg, #fff 0px, #fff 1px, transparent 1px, transparent 24px)',
+                backgroundSize: '24px 100%',
+              }} />
+
+              <div className="relative flex-1">
+                <p style={{
+                  fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 10,
+                  letterSpacing: '0.16em', textTransform: 'uppercase',
+                  color: '#d4a843', marginBottom: 10, lineHeight: 1,
+                }}>
+                  On This Road
+                </p>
+                <h2 style={{
+                  fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 'clamp(20px, 2.5vw, 24px)',
+                  color: '#fff', lineHeight: 1.25, marginBottom: 8,
+                }}>
+                  Every drive is better with somewhere worth stopping.
+                </h2>
+                <p style={{
+                  fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 14,
+                  color: 'rgba(255,255,255,0.55)', lineHeight: 1.6, marginBottom: 0,
+                }}>
+                  You know where you&apos;re going. We&apos;ll find independent makers, stays, and cultural spaces on the way.
+                </p>
+              </div>
+
+              <div className="relative mt-4">
+                <span
+                  className="inline-flex items-center gap-2 text-white border border-white/20 px-4 py-2 rounded-full group-hover:border-white/40 transition-colors"
+                  style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12 }}
+                >
+                  Plan a road trip
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                </span>
+              </div>
+            </div>
+          </Link>
+        </div>
       </section>
 
       {/* Atlas Grid */}
