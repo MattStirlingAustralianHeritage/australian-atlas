@@ -11,6 +11,20 @@ const EXTENSION_TABLES = {
   corner: 'corner_meta', found: 'found_meta', table: 'table_meta',
 }
 
+// Maps vertical → the meta key that holds its subcategory.
+// When this key is saved to the meta table, we also sync it to listings.sub_type.
+const META_CATEGORY_KEY = {
+  sba: 'producer_type',
+  collection: 'institution_type',
+  craft: 'discipline',
+  fine_grounds: 'entity_type',
+  rest: 'accommodation_type',
+  field: 'feature_type',
+  corner: 'shop_type',
+  found: 'shop_type',
+  table: 'food_type',
+}
+
 export async function PATCH(request, { params }) {
   const cookieStore = await cookies()
   if (!(await checkAdmin(cookieStore))) {
@@ -45,6 +59,16 @@ export async function PATCH(request, { params }) {
           metaResult = { success: false, error: metaError.message }
         } else {
           metaResult = { success: true, meta: metaData }
+        }
+
+        // ── Sync category meta field → listings.sub_type ──
+        // Keeps the generic sub_type column in sync with the vertical-specific
+        // category field (e.g. rest.accommodation_type → listings.sub_type)
+        const categoryKey = META_CATEGORY_KEY[row.vertical]
+        if (categoryKey && categoryKey in _meta) {
+          const newSubType = _meta[categoryKey] || null
+          listingFields.sub_type = newSubType
+          console.log(`[admin/listings/PATCH] Syncing ${row.vertical}.${categoryKey} → sub_type: ${newSubType}`)
         }
       }
     }

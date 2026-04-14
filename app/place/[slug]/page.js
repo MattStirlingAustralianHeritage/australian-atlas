@@ -41,13 +41,58 @@ const VERTICAL_COLORS = {
 
 // ── Data fetching ─────────────────────────────────────────────
 
+// Maps vertical → its meta table + the specific category key
+const META_CATEGORY_LOOKUP = {
+  sba: { table: 'sba_meta', key: 'producer_type' },
+  collection: { table: 'collection_meta', key: 'institution_type' },
+  craft: { table: 'craft_meta', key: 'discipline' },
+  fine_grounds: { table: 'fine_grounds_meta', key: 'entity_type' },
+  rest: { table: 'rest_meta', key: 'accommodation_type' },
+  field: { table: 'field_meta', key: 'feature_type' },
+  corner: { table: 'corner_meta', key: 'shop_type' },
+  found: { table: 'found_meta', key: 'shop_type' },
+  table: { table: 'table_meta', key: 'food_type' },
+}
+
+// Subcategory display labels (matches ListingCard.CATEGORY_LABELS)
+const SUBCATEGORY_LABELS = {
+  winery: 'Winery', distillery: 'Distillery', brewery: 'Brewery',
+  cidery: 'Cidery', non_alcoholic: 'Non-Alcoholic', meadery: 'Meadery',
+  museum: 'Museum', gallery: 'Gallery', heritage_site: 'Heritage Site',
+  cultural_centre: 'Cultural Centre', botanical_garden: 'Botanical Garden',
+  ceramics_clay: 'Ceramics & Clay', visual_art: 'Visual Art',
+  jewellery_metalwork: 'Jewellery & Metalwork', textile_fibre: 'Textile & Fibre',
+  wood_furniture: 'Wood & Furniture', glass: 'Glass', printmaking: 'Printmaking',
+  roaster: 'Roaster', cafe: 'Cafe',
+  boutique_hotel: 'Boutique Hotel', guesthouse: 'Guesthouse', bnb: 'B&B',
+  farm_stay: 'Farm Stay', glamping: 'Glamping', cottage: 'Cottage',
+  self_contained: 'Self-Contained',
+  swimming_hole: 'Swimming Hole', waterfall: 'Waterfall', lookout: 'Lookout',
+  gorge: 'Gorge', coastal_walk: 'Coastal Walk', hot_spring: 'Hot Spring',
+  cave: 'Cave', national_park: 'National Park', bush_walk: 'Bush Walk',
+  wildlife_zoo: 'Wildlife & Zoo',
+  bookshop: 'Bookshop', record_store: 'Record Store', homewares: 'Homewares',
+  clothing: 'Clothing', general_store: 'General Store', stationery: 'Stationery',
+  vintage_clothing: 'Vintage Clothing', vintage_furniture: 'Vintage Furniture',
+  antiques: 'Antiques', op_shop: 'Op Shop', books_ephemera: 'Books & Ephemera',
+  art_objects: 'Art Objects', market: 'Market',
+  restaurant: 'Restaurant', bakery: 'Bakery', farm_gate: 'Farm Gate',
+  artisan_producer: 'Artisan Producer', specialty_retail: 'Specialty Retail',
+  destination: 'Destination', providore: 'Providore',
+}
+
+function formatSubcategory(value) {
+  if (!value) return null
+  return SUBCATEGORY_LABELS[value] || value.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
 const getListing = cache(async function getListing(slug) {
   const sb = getSupabaseAdmin()
   // slug is NOT unique across verticals — use limit(1) instead of .single()
   // to avoid PGRST116 if two verticals share a slug
   const { data, error } = await sb
     .from('listings')
-    .select('id, vertical, name, slug, description, region, state, suburb, lat, lng, website, phone, address, hero_image_url, is_featured, is_claimed, editors_pick, status, hours, cluster_id, verified')
+    .select('id, vertical, name, slug, description, region, state, suburb, lat, lng, website, phone, address, hero_image_url, is_featured, is_claimed, editors_pick, status, hours, cluster_id, verified, sub_type')
     .eq('slug', slug)
     .eq('status', 'active')
     .order('updated_at', { ascending: false })
@@ -69,6 +114,26 @@ const getListing = cache(async function getListing(slug) {
   }
 
   if (!data) return null
+
+  // Fetch vertical-specific subcategory from meta table.
+  // This is the source of truth — sub_type on listings may be stale.
+  const metaLookup = META_CATEGORY_LOOKUP[data.vertical]
+  if (metaLookup) {
+    try {
+      const { data: metaRow } = await sb
+        .from(metaLookup.table)
+        .select(metaLookup.key)
+        .eq('listing_id', data.id)
+        .maybeSingle()
+
+      if (metaRow?.[metaLookup.key]) {
+        data._subcategory = metaRow[metaLookup.key]
+      }
+    } catch {
+      // Meta fetch failure is non-blocking
+    }
+  }
+
   return data
 })
 
@@ -226,7 +291,8 @@ export async function generateMetadata({ params }) {
   const listing = await getListing(slug)
   if (!listing) return { title: 'Place not found' }
 
-  const vertLabel = VERTICAL_CATEGORY_LABELS[listing.vertical] || 'Place'
+  const metaSubcategory = formatSubcategory(listing._subcategory || listing.sub_type)
+  const vertLabel = metaSubcategory || VERTICAL_CATEGORY_LABELS[listing.vertical] || 'Place'
   const regionIsStreet = listing.region && /\d/.test(listing.region)
   const location = regionIsStreet
     ? (listing.address || [listing.region, listing.state].filter(Boolean).join(', '))
@@ -305,7 +371,10 @@ export default async function PlacePage({ params }) {
 
   const vertLabel = getVerticalLabel(listing.vertical)
   const vertColor = VERTICAL_COLORS[listing.vertical] || '#5F8A7E'
-  const categoryLabel = VERTICAL_CATEGORY_LABELS[listing.vertical] || 'Place'
+  // Prefer the specific subcategory from meta (e.g. "Glamping", "Farm Stay")
+  // over the generic vertical label (e.g. "Boutique Stay")
+  const specificSubcategory = formatSubcategory(listing._subcategory || listing.sub_type)
+  const categoryLabel = specificSubcategory || VERTICAL_CATEGORY_LABELS[listing.vertical] || 'Place'
   const verticalUrl = getVerticalUrl(listing.vertical, listing.slug)
   // Build location subtitle — prefer address when region looks like a street
   // (data quality issue: some listings have street address stored as region)
