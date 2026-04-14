@@ -36,16 +36,20 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: 'Listing not found' }, { status: 404 })
     }
 
-    // Check if already synced (source_id is a real vertical row ID, not a placeholder)
-    if (listing.source_id && !String(listing.source_id).startsWith('candidate-')) {
+    // Allow force re-push via ?force=true query param, even if source_id is set.
+    // Useful when the vertical row exists but has the wrong published state.
+    const { searchParams } = new URL(request.url)
+    const force = searchParams.get('force') === 'true'
+
+    if (!force && listing.source_id && !String(listing.source_id).startsWith('candidate-')) {
       return NextResponse.json({
         success: true,
         alreadySynced: true,
-        message: `Already synced to ${listing.vertical} (source_id: ${listing.source_id})`,
+        message: `Already synced to ${listing.vertical} (source_id: ${listing.source_id}). Use ?force=true to re-push.`,
       })
     }
 
-    // Sync to vertical DB
+    // Sync to vertical DB (uses upsert — safe for both new and existing rows)
     const result = await syncListingToVertical(listing.id, listing.vertical)
 
     if (!result.success) {
