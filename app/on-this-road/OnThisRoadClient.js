@@ -278,7 +278,7 @@ export default function OnThisRoadClient() {
       {/* ── Form ────────────────────────────────────────────── */}
       <div className="otr-form-section">
         <div className="otr-form-inner">
-          <form onSubmit={handleSubmit}>
+          <div>
 
             {/* From / To inputs */}
             <div className="otr-inputs" style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
@@ -396,11 +396,12 @@ export default function OnThisRoadClient() {
             )}
 
             {/* Submit */}
-            <button type="submit" className={`otr-cta ${loading ? 'loading' : ''}`}
-              disabled={loading || !canSubmit}>
+            <button type="button" className={`otr-cta ${loading ? 'loading' : ''}`}
+              disabled={loading || !canSubmit}
+              onClick={handleSubmit}>
               {loading ? 'Planning your trip\u2026' : surpriseMe ? 'Surprise me' : 'Show me what\u2019s on this road'}
             </button>
-          </form>
+          </div>
         </div>
       </div>
 
