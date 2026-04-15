@@ -104,18 +104,33 @@ Return ONLY valid JSON, no markdown fences, no other text.`
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: 'claude-haiku-4-5',
         max_tokens: 1000,
         messages: [{ role: 'user', content: prompt }],
       }),
     })
-    if (!res.ok) return null
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '')
+      console.error(`[enrichFromWebsite] Claude API ${res.status}: ${errBody.slice(0, 300)}`)
+      return null
+    }
     const result = await res.json()
     const text = result.content?.[0]?.text?.trim()
-    if (!text) return null
-    const jsonStr = text.replace(/^```json?\s*/, '').replace(/\s*```$/, '')
+    if (!text) {
+      console.error('[enrichFromWebsite] Claude returned empty content')
+      return null
+    }
+    // Strip markdown fences — handle ``` anywhere in the response, not just at boundaries
+    let jsonStr = text
+    const fenceMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/)
+    if (fenceMatch) {
+      jsonStr = fenceMatch[1].trim()
+    } else {
+      jsonStr = jsonStr.replace(/^```json?\s*/, '').replace(/\s*```$/, '').trim()
+    }
     return JSON.parse(jsonStr)
-  } catch {
+  } catch (err) {
+    console.error(`[enrichFromWebsite] Error for "${candidate.name}":`, err.message || err)
     return null
   }
 }
@@ -147,7 +162,7 @@ async function geocodeAddress(address, state, suburb) {
 
 // ─── Description Generation (fallback when no website) ─────
 
-async function generateDescription(candidate) {
+async function generateDescription(candidate, attempt = 1) {
   const type = VERTICAL_LABELS[candidate.vertical] || 'venue'
   const prompt = `Write a 2–3 sentence editorial description for "${candidate.name}", a ${type} in ${candidate.region || 'Australia'}. ${candidate.notes ? `Context: ${candidate.notes}` : ''}
 
@@ -162,15 +177,33 @@ Tone: warm, concise, editorial — like a curated travel guide. Focus on what ma
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: 'claude-haiku-4-5',
         max_tokens: 300,
         messages: [{ role: 'user', content: prompt }],
       }),
     })
-    if (!res.ok) return null
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '')
+      console.error(`[generateDescription] Claude API ${res.status} (attempt ${attempt}): ${errBody.slice(0, 300)}`)
+      // Retry once on transient failures (429, 500, 502, 503, 529)
+      if (attempt === 1 && [429, 500, 502, 503, 529].includes(res.status)) {
+        await new Promise(r => setTimeout(r, 2000))
+        return generateDescription(candidate, 2)
+      }
+      return null
+    }
     const result = await res.json()
-    return result.content?.[0]?.text?.trim() || null
-  } catch {
+    const text = result.content?.[0]?.text?.trim()
+    if (!text) {
+      console.error('[generateDescription] Claude returned empty content')
+    }
+    return text || null
+  } catch (err) {
+    console.error(`[generateDescription] Error for "${candidate.name}" (attempt ${attempt}):`, err.message || err)
+    if (attempt === 1) {
+      await new Promise(r => setTimeout(r, 2000))
+      return generateDescription(candidate, 2)
+    }
     return null
   }
 }
@@ -247,6 +280,11 @@ export async function POST(request, { params }) {
     }
 
     const sb = getSupabaseAdmin()
+
+    // ── API key check (loud early warning) ───────────────
+    if (!process.env.ANTHROPIC_API_KEY) {
+      console.error('[admin/candidates/POST] ANTHROPIC_API_KEY is not set — enrichment and description generation will fail')
+    }
 
     // ── Reject ────────────────────────────────────────────
     if (action === 'reject') {
@@ -345,8 +383,16 @@ export async function POST(request, { params }) {
       const ro = reviewerOverrides || {}
 
       let description = ro.description || candidate.description || enriched.description || null
+      let descriptionSource = ro.description ? 'reviewer' : candidate.description ? 'candidate' : enriched.description ? 'website_enrichment' : null
       if (!description) {
+        console.log(`[approve] No description from reviewer/candidate/enrichment — generating via Claude...`)
         description = await generateDescription(candidate)
+        descriptionSource = description ? 'ai_generated' : null
+      }
+      if (!description) {
+        console.error(`[approve] WARNING: All description sources failed for "${candidate.name}" — listing will have no description`)
+      } else {
+        console.log(`[approve] Description source: ${descriptionSource} (${description.length} chars)`)
       }
 
       // 5. Build the full data object — reviewer > candidate > enriched
