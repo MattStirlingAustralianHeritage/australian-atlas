@@ -113,6 +113,7 @@ const SUBCATEGORY_OPTIONS = {
     { value: 'cooking_school', label: 'Cooking School' },
     { value: 'providore', label: 'Providore' },
     { value: 'food_trail', label: 'Food Trail' },
+    { value: 'creamery', label: 'Creamery' },
   ],
 }
 
