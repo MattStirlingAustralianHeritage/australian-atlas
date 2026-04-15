@@ -498,25 +498,65 @@ export async function POST(request, { params }) {
         needs_review: isAiOriginated,
       }
 
-      // Check if listing already exists (retry case — previous attempt may have written master but not vertical)
-      const { data: existingListing } = await sb
+      // Check if listing already exists — match by slug OR source_id to catch:
+      //   - Retries (same slug from same candidate)
+      //   - Source_id collisions (pushToVertical UPSERT returned an existing row's ID)
+      //   - Name edits between approval attempts (slug changed but source_id is same)
+      const { data: existingBySlug } = await sb
         .from('listings')
-        .select('id')
+        .select('id, slug, source_id, name, status, needs_review')
         .eq('vertical', vertical)
         .eq('slug', slug)
         .maybeSingle()
 
+      let existingBySourceId = null
+      if (!existingBySlug) {
+        const { data } = await sb
+          .from('listings')
+          .select('id, slug, source_id, name, status, needs_review')
+          .eq('vertical', vertical)
+          .eq('source_id', String(sourceId))
+          .maybeSingle()
+        existingBySourceId = data
+      }
+
+      const existingListing = existingBySlug || existingBySourceId
+
       let listingId
       if (existingListing) {
-        // Retry — update existing listing with latest data (including new source_id if vertical push now succeeded)
+        // Existing listing found — update it with latest data
         listingId = existingListing.id
+        const matchedBy = existingBySlug ? 'slug' : 'source_id'
 
         // Prefer the existing source_id if the new vertical push failed (avoids overwriting valid link with candidate- placeholder)
         const { data: currentListing } = await sb.from('listings').select('source_id').eq('id', listingId).single()
         const effectiveSourceId = verticalRowId || (currentListing?.source_id && !String(currentListing.source_id).startsWith('candidate-') ? currentListing.source_id : sourceId)
 
-        await sb.from('listings').update({ source_id: effectiveSourceId, description, region: fullData.region, state: fullData.state, lat: fullData.lat, lng: fullData.lng, website: fullData.website, phone: fullData.phone, address: fullData.address }).eq('id', listingId)
-        console.log(`[approve] Updated existing master listing ${listingId} (retry)`)
+        // Update all fields — include slug and name in case they changed since the first attempt
+        const updatePayload = {
+          source_id: effectiveSourceId,
+          name: fullData.name,
+          slug,
+          description,
+          region: fullData.region,
+          state: fullData.state,
+          lat: fullData.lat,
+          lng: fullData.lng,
+          website: fullData.website,
+          phone: fullData.phone,
+          address: fullData.address,
+          sub_type: fullData.category || null,
+          sub_type_secondary: effectiveSecondary,
+          sub_types: subTypes,
+          status: 'active',
+          data_source: listingData.data_source,
+          needs_review: listingData.needs_review,
+        }
+        // Only overwrite hero_image_url if we have a new one (don't null out existing)
+        if (ogImage) updatePayload.hero_image_url = ogImage
+
+        await sb.from('listings').update(updatePayload).eq('id', listingId)
+        console.log(`[approve] Updated existing master listing ${listingId} (matched by ${matchedBy}: "${existingListing[matchedBy]}" → new slug: "${slug}")`)
 
         // Sync to vertical — use the effective source_id for the update
         if (effectiveSourceId && !String(effectiveSourceId).startsWith('candidate-')) {
@@ -540,7 +580,25 @@ export async function POST(request, { params }) {
 
         if (insertError) {
           if (insertError.code === '23505') {
-            return NextResponse.json({ error: 'A listing with this name already exists for this vertical' }, { status: 409 })
+            // Unique constraint violation not caught by preventive checks — fetch conflicting listing for diagnostics
+            const { data: conflicts } = await sb
+              .from('listings')
+              .select('id, name, slug, source_id, status, needs_review, data_source, created_at')
+              .eq('vertical', vertical)
+              .or(`slug.eq.${slug},source_id.eq.${sourceId}`)
+              .limit(5)
+
+            console.error(`[approve] 23505 conflict for "${fullData.name}" (slug: ${slug}, source_id: ${sourceId}):`, JSON.stringify(conflicts))
+            return NextResponse.json({
+              error: `Duplicate conflict: ${conflicts?.length || 0} existing listing(s) in ${VERTICAL_DISPLAY_NAMES[vertical] || vertical} conflict with "${fullData.name}".`,
+              conflicting: (conflicts || []).map(c => ({
+                id: c.id, name: c.name, slug: c.slug, source_id: c.source_id,
+                status: c.status, needs_review: c.needs_review, data_source: c.data_source,
+                created_at: c.created_at,
+              })),
+              candidate: { slug, source_id: sourceId },
+              hint: 'An existing listing with a matching source_id or slug is blocking this insert. It may be hidden (needs_review=true) or from a failed previous approval. Check the admin listings page to resolve the duplicate.',
+            }, { status: 409 })
           }
           throw insertError
         }
