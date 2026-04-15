@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic'
 import {
   Wine, Coffee, Landmark, UtensilsCrossed, Wheat, BedDouble,
   Palette, Mountain, Compass, CornerDownLeft, ArrowUpDown,
-  Check, Lock, Moon, ChevronDown, AlertTriangle, ArrowRight,
+  Check, Moon, ChevronDown, AlertTriangle, ArrowRight,
   Upload, MapPin,
 } from 'lucide-react'
 import './on-this-road.css'
@@ -383,7 +383,9 @@ export default function OnThisRoadClient() {
                       </span>
                       <span>{chip.label}</span>
                       {isLocked && (
-                        <Lock size={12} strokeWidth={2} style={{ marginLeft: 'auto', opacity: 0.5 }} />
+                        <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 500, opacity: 0.6, letterSpacing: '0.02em' }}>
+                          always on
+                        </span>
                       )}
                     </button>
                   )

@@ -486,7 +486,11 @@ async function buildItinerary({
     })
     .filter(l => {
       if (l.distanceFromRoute > detourConfig.bufferKm) return false
-      if ((l.quality_score || 0) < detourConfig.minQuality) return false
+      // Unscored listings (quality_score 0 or null) get a baseline of 50
+      // so they aren't excluded before Claude can evaluate them.
+      // The composite scoring in segment selection still weights quality.
+      const effectiveQuality = l.quality_score > 0 ? l.quality_score : 50
+      if (effectiveQuality < detourConfig.minQuality) return false
       return true
     })
     .sort((a, b) => a.routeIndex - b.routeIndex)
