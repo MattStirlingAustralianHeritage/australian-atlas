@@ -339,10 +339,14 @@
   border-color: var(--otr-amber);
 }
 
-/* ── CTA button ───────────────────────────────────────────── */
-.otr-cta {
+/* ── CTA row — own row, centred, visually separated ──────── */
+.otr-cta-row {
   margin-top: 48px;
-  padding: 14px 28px;
+  display: flex;
+  justify-content: center;
+}
+.otr-cta {
+  padding: 16px 48px;
   font-size: 16px;
   font-family: var(--font-body);
   font-weight: 600;
@@ -353,6 +357,8 @@
   cursor: pointer;
   transition: all 0.25s;
   min-height: 50px;
+  width: 100%;
+  max-width: 400px;
   position: relative;
   overflow: hidden;
 }
@@ -956,7 +962,7 @@
   .otr-inputs > div { flex: unset !important; }
   .otr-swap-btn { align-self: center; transform: rotate(90deg); margin-top: 0; }
   .otr-chips-grid { grid-template-columns: 1fr 1fr; }
-  .otr-cta { width: 100%; }
+  .otr-cta { width: 100%; max-width: none; }
   .otr-selector-group { margin-top: 36px; }
 
   .otr-trip-title { font-size: 28px; }

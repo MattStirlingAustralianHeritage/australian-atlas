@@ -404,12 +404,14 @@ export default function OnThisRoadClient() {
               </button>
             )}
 
-            {/* Submit */}
-            <button type="button" className={`otr-cta ${loading ? 'loading' : ''}`}
-              disabled={loading || !canSubmit}
-              onClick={handleSubmit}>
-              {loading ? 'Planning your trip\u2026' : surpriseMe ? 'Surprise me' : 'Show me what\u2019s on this road'}
-            </button>
+            {/* Submit — own row for visual weight */}
+            <div className="otr-cta-row">
+              <button type="button" className={`otr-cta ${loading ? 'loading' : ''}`}
+                disabled={loading || !canSubmit}
+                onClick={handleSubmit}>
+                {loading ? 'Planning your trip\u2026' : surpriseMe ? 'Surprise me' : 'Show me what\u2019s on this road'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
