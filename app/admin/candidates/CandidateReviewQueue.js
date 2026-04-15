@@ -303,12 +303,13 @@ function VerticalSelect({ value, candidateId, onSaved }) {
   )
 }
 
-function SubcategorySelect({ vertical, value, onChange }) {
-  const options = SUBCATEGORY_OPTIONS[vertical] || []
+function SubcategorySelect({ vertical, value, onChange, exclude, placeholder }) {
+  let options = SUBCATEGORY_OPTIONS[vertical] || []
+  if (exclude) options = options.filter(o => o.value !== exclude)
   const color = VERTICAL_COLORS[vertical] || 'var(--color-muted)'
   const hasValue = !!value
 
-  if (options.length === 0) return null
+  if ((SUBCATEGORY_OPTIONS[vertical] || []).length === 0) return null
 
   return (
     <select value={value || ''} onChange={e => onChange(e.target.value)}
@@ -326,7 +327,7 @@ function SubcategorySelect({ vertical, value, onChange }) {
         backgroundPosition: 'right 6px center',
         transition: 'all 0.15s',
       }}>
-      <option value="" style={{ color: '#999' }}>Subcategory...</option>
+      <option value="" style={{ color: '#999' }}>{placeholder || 'Subcategory...'}</option>
       {options.map(opt => (
         <option key={opt.value} value={opt.value} style={{ color: '#333' }}>{opt.label}</option>
       ))}
@@ -538,6 +539,7 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
     }
     return ''
   })
+  const [subcategorySecondary, setSubcategorySecondary] = useState('')
 
   const vertical = candidate.vertical || 'sba'
   const color = VERTICAL_COLORS[vertical] || '#5F8A7E'
@@ -577,9 +579,17 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
       if (!opts.find(o => o.value === subcategory)) {
         setSubcategory('')
       }
+      setSubcategorySecondary('')
       prevVerticalRef.current = vertical
     }
   }, [vertical, subcategory])
+
+  // Clear secondary if it matches the newly selected primary
+  useEffect(() => {
+    if (subcategorySecondary && subcategorySecondary === subcategory) {
+      setSubcategorySecondary('')
+    }
+  }, [subcategory, subcategorySecondary])
 
   const advanceNow = useCallback(() => {
     if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current)
@@ -630,6 +640,7 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
         body: JSON.stringify({
           action: 'approve',
           subcategory: subcategory || undefined,
+          subcategory_secondary: subcategorySecondary || undefined,
           // Reviewer edits always win — send current card state so the API
           // uses these as the authoritative values over enriched/AI data
           reviewerOverrides: {
@@ -700,7 +711,8 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <VerticalSelect value={vertical} candidateId={candidate.id} onSaved={onUpdate} />
-          <SubcategorySelect vertical={vertical} value={subcategory} onChange={setSubcategory} />
+          <SubcategorySelect vertical={vertical} value={subcategory} onChange={setSubcategory} placeholder="Primary..." />
+          <SubcategorySelect vertical={vertical} value={subcategorySecondary} onChange={setSubcategorySecondary} exclude={subcategory} placeholder="Secondary..." />
           <span style={{
             fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 11,
             color: confidence > 0.85 ? '#4A7C59' : confidence < 0.60 ? '#C49A3C' : 'var(--color-muted)',

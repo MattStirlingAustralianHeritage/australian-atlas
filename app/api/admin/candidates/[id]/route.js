@@ -240,7 +240,7 @@ export async function POST(request, { params }) {
   }
 
   try {
-    const { action, subcategory, reviewerOverrides } = await request.json()
+    const { action, subcategory, subcategory_secondary, reviewerOverrides } = await request.json()
 
     if (!['approve', 'reject'].includes(action)) {
       return NextResponse.json({ error: 'Invalid action — must be approve or reject' }, { status: 400 })
@@ -400,6 +400,9 @@ export async function POST(request, { params }) {
       const isAiOriginated = candidate.source === 'ai_prospector' || candidate.source === 'ai_daily'
         || candidate.source === 'automated_discovery'
 
+      const effectiveSecondary = subcategory_secondary || null
+      const subTypes = [fullData.category, effectiveSecondary].filter(Boolean)
+
       const listingData = {
         vertical,
         source_id: sourceId,
@@ -415,7 +418,8 @@ export async function POST(request, { params }) {
         address: fullData.address,
         hero_image_url: null,
         sub_type: fullData.category || null,
-        sub_types: fullData.category ? [fullData.category] : [],
+        sub_type_secondary: effectiveSecondary,
+        sub_types: subTypes,
         status: 'active',
         is_claimed: false,
         is_featured: false,
