@@ -57,6 +57,17 @@ const PREFERENCE_MAP = {
   nature:          { verticals: ['field'], visit_types: [], label: 'Nature & scenery' },
 }
 
+// ── Multi-day overnight clustering ─────────────────────────────────
+// Verticals that cluster at overnight waypoints (evening + morning)
+const OVERNIGHT_VERTICALS = new Set(['rest', 'table', 'fine_grounds'])
+// Verticals distributed between overnight points (daytime discovery)
+const DISCOVERY_VERTICALS = new Set(['sba', 'craft', 'collection', 'corner', 'field', 'found'])
+// Radius for querying dinner/coffee near overnight waypoints
+const OVERNIGHT_CLUSTER_RADIUS_KM = 25
+// Deprioritize listings near origin/destination (km)
+const ORIGIN_DEAD_ZONE_KM = 50
+const DESTINATION_DEAD_ZONE_KM = 30
+
 // ── Season mapping (Southern Hemisphere) ────────────────────────────
 const MONTH_TO_SEASON = {
   0: 'Summer', 1: 'Summer', 2: 'Autumn', 3: 'Autumn', 4: 'Autumn',
@@ -149,6 +160,81 @@ function findCoverageGaps(routeCoords, routeDistances, listings) {
     }
   }
   return gaps
+}
+
+/**
+ * Compute overnight waypoints — roughly evenly spaced along the route.
+ * Returns one waypoint per night (days - 1 waypoints for N days).
+ */
+function computeOvernightWaypoints(routeCoords, routeDistances, totalRouteKm, tripDays) {
+  const waypoints = []
+  const kmPerDay = totalRouteKm / tripDays
+  for (let d = 1; d < tripDays; d++) {
+    const targetKm = d * kmPerDay
+    const idx = routeDistances.findIndex(dist => dist >= targetKm)
+    if (idx >= 0 && idx < routeCoords.length) {
+      const [lng, lat] = routeCoords[idx]
+      waypoints.push({ night: d, targetKm: Math.round(targetKm), lat, lng, routeIndex: idx })
+    }
+  }
+  return waypoints
+}
+
+/**
+ * Build overnight clusters: for each overnight waypoint, find the best
+ * rest/table/fine_grounds listings within OVERNIGHT_CLUSTER_RADIUS_KM.
+ * Returns pre-assembled clusters that Claude can use directly.
+ */
+function buildOvernightClusters(overnightWaypoints, routeListings, restCandidates) {
+  return overnightWaypoints.map(wp => {
+    // Find rest candidates near this waypoint (within cluster radius)
+    const nearbyRest = restCandidates
+      .filter(r => Math.abs(r.positionKm - wp.targetKm) <= OVERNIGHT_CLUSTER_RADIUS_KM * 1.5)
+      .sort((a, b) => {
+        // Prefer closer to waypoint + higher quality
+        const distA = Math.abs(a.positionKm - wp.targetKm)
+        const distB = Math.abs(b.positionKm - wp.targetKm)
+        const scoreA = (a.quality_score > 0 ? a.quality_score : 50) - distA * 0.3
+        const scoreB = (b.quality_score > 0 ? b.quality_score : 50) - distB * 0.3
+        return scoreB - scoreA
+      })
+
+    // Find table/fine_grounds near this waypoint from the main route listings
+    const nearbyDining = routeListings
+      .filter(l => l.vertical === 'table' && Math.abs(l.positionKm - wp.targetKm) <= OVERNIGHT_CLUSTER_RADIUS_KM)
+      .sort((a, b) => (b.quality_score || 0) - (a.quality_score || 0))
+
+    const nearbyCoffee = routeListings
+      .filter(l => l.vertical === 'fine_grounds' && Math.abs(l.positionKm - wp.targetKm) <= OVERNIGHT_CLUSTER_RADIUS_KM)
+      .sort((a, b) => (b.quality_score || 0) - (a.quality_score || 0))
+
+    // Determine cluster region name from the best rest candidate or nearby listings
+    const anchor = nearbyRest[0] || nearbyDining[0] || nearbyCoffee[0]
+    const clusterRegion = anchor
+      ? (anchor.suburb || anchor.region || `${Math.round(wp.targetKm)}km mark`)
+      : `${Math.round(wp.targetKm)}km mark`
+
+    return {
+      night: wp.night,
+      targetKm: wp.targetKm,
+      lat: wp.lat,
+      lng: wp.lng,
+      region: clusterRegion,
+      rest_candidates: nearbyRest.slice(0, 3).map(r => ({
+        listing_id: r.id, listing_name: r.name, position_km: r.positionKm,
+        region: r.region, suburb: r.suburb, description: r.description?.slice(0, 100) || '',
+        quality_score: r.quality_score || 0,
+      })),
+      dinner_candidates: nearbyDining.slice(0, 3).map(l => ({
+        listing_id: l.id, listing_name: l.name, position_km: l.positionKm,
+        region: l.region, vertical: l.vertical, description: l.description?.slice(0, 100) || '',
+      })),
+      coffee_candidates: nearbyCoffee.slice(0, 2).map(l => ({
+        listing_id: l.id, listing_name: l.name, position_km: l.positionKm,
+        region: l.region, description: l.description?.slice(0, 80) || '',
+      })),
+    }
+  })
 }
 
 async function geocode(text) {
@@ -518,110 +604,159 @@ async function buildItinerary({
     })
   }
 
-  // Segment-based stop distribution
+  // ── Stop distribution (multi-day vs single-day) ───────────────────
   const totalStopsTarget = tripConfig.stopsPerDay * tripConfig.days
-  const numSegments = Math.max(6, Math.min(totalStopsTarget + 4, Math.round(totalRouteKm / 60)))
-  const segmentLengthKm = totalRouteKm / numSegments
   const MIN_SPACING_KM = Math.max(30, totalRouteKm / (totalStopsTarget + 2))
 
-  const segments = Array.from({ length: numSegments }, () => [])
-  for (const listing of routeListings) {
-    const segIdx = Math.min(numSegments - 1, Math.floor(listing.positionKm / segmentLengthKm))
-    segments[segIdx].push(listing)
-  }
-
-  // Pick best listing per segment using composite score
-  const distributedListings = []
-  let lastPositionKm = -Infinity
-
-  for (let i = 0; i < numSegments; i++) {
-    const seg = segments[i].sort((a, b) => {
-      // Composite: quality + preference weight + seasonal
-      const scoreA = (a.quality_score || 0) + (a.preferenceScore * 15) + (a.seasonalScore * 5)
-      const scoreB = (b.quality_score || 0) + (b.preferenceScore * 15) + (b.seasonalScore * 5)
-      return scoreB - scoreA
-    })
-
-    for (const listing of seg) {
-      if (listing.positionKm - lastPositionKm >= MIN_SPACING_KM) {
-        distributedListings.push(listing)
-        lastPositionKm = listing.positionKm
-        break
-      }
-    }
-  }
-
-  const distributedIds = new Set(distributedListings.map(l => l.id))
-  const supplemental = routeListings
-    .filter(l => !distributedIds.has(l.id))
-    .sort((a, b) => {
-      const scoreA = (a.quality_score || 0) + (a.preferenceScore * 15) + (a.seasonalScore * 5)
-      const scoreB = (b.quality_score || 0) + (b.preferenceScore * 15) + (b.seasonalScore * 5)
-      return scoreB - scoreA
-    })
-    .slice(0, 20)
-
-  const listingsForPrompt = [...distributedListings, ...supplemental]
-    .sort((a, b) => a.positionKm - b.positionKm)
-
-  // Build preference context for Claude
+  // Build preference + seasonal context (shared by both paths)
   const prefLabels = preferences.map(p => PREFERENCE_MAP[p]?.label).filter(Boolean)
   const prefContext = prefLabels.length > 0
     ? `The traveller has expressed interest in: ${prefLabels.join(', ')}. Strongly prefer listings that match these interests.`
     : ''
-
-  // Build departure context
   const departureContext = departureConfig
     ? `They are leaving ${departureConfig.label}. The first stop should be roughly ${departureConfig.minFirstStopKm}-${departureConfig.maxFirstStopKm} km from the start — don't suggest anything too close to departure.`
     : ''
-
-  // Build seasonal context
   const seasonContext = `The current season is ${currentSeason} (Australia). When multiple listings compete for a slot, prefer those with best_season matching "${currentSeason}" or "Year-round".`
 
-  // Build listings payload for Claude
-  const listingsJson = listingsForPrompt.map(l => ({
-    listing_id: l.id,
-    listing_name: l.name,
-    vertical: l.vertical,
-    vertical_name: VERTICAL_NAMES[l.vertical] || l.vertical,
-    visit_type: l.visit_type || null,
-    quality_score: l.quality_score || 0,
-    distance_from_route_km: Math.round(l.distanceFromRoute * 10) / 10,
-    position_km: l.positionKm,
-    region: l.region,
-    description: l.description ? l.description.slice(0, 150) : '',
-    best_season: l.best_season || null,
-    is_segment_pick: distributedIds.has(l.id),
-    preference_match: l.preferenceScore > 0,
-  }))
+  // ── Multi-day: overnight clusters + discovery distribution ─────────
+  let overnightClusters = []
+  let discoveryListingsJson = []
+  let listingsJson = []
+  let dayTargets = []
 
-  // Build overnight candidates for multi-day
-  const overnightJson = isMultiDay && restCandidates.length > 0
-    ? restCandidates.map(l => ({
-        listing_id: l.id,
-        listing_name: l.name,
-        position_km: l.positionKm,
-        region: l.region,
-        description: l.description ? l.description.slice(0, 100) : '',
-        quality_score: l.quality_score || 0,
-      }))
-    : []
-
-  // Build per-day distance targets for multi-day trips
-  const dayTargets = []
   if (isMultiDay) {
+    // 1. Compute overnight waypoints
+    const overnightWaypoints = computeOvernightWaypoints(routeCoords, routeDistances, totalRouteKm, tripConfig.days)
+
+    // 2. Build overnight clusters (rest + table + fine_grounds near each waypoint)
+    overnightClusters = buildOvernightClusters(overnightWaypoints, routeListings, restCandidates)
+
+    // 3. Collect all IDs claimed by overnight clusters so they aren't double-used
+    const clusterIds = new Set()
+    for (const c of overnightClusters) {
+      for (const r of c.rest_candidates) clusterIds.add(r.listing_id)
+      for (const d of c.dinner_candidates) clusterIds.add(d.listing_id)
+      for (const co of c.coffee_candidates) clusterIds.add(co.listing_id)
+    }
+
+    // 4. Discovery listings: only discovery verticals, deprioritise origin/destination zones
+    const discoveryListings = routeListings
+      .filter(l => DISCOVERY_VERTICALS.has(l.vertical) && !clusterIds.has(l.id))
+      .map(l => {
+        // Soft penalty for origin/destination proximity
+        let zonePenalty = 0
+        if (l.positionKm < ORIGIN_DEAD_ZONE_KM) zonePenalty = 20
+        else if (l.positionKm > totalRouteKm - DESTINATION_DEAD_ZONE_KM) zonePenalty = 15
+        return { ...l, zonePenalty }
+      })
+
+    // 5. Segment-distribute discovery listings between overnight points
+    const numSegments = Math.max(6, Math.min(totalStopsTarget + 4, Math.round(totalRouteKm / 60)))
+    const segmentLengthKm = totalRouteKm / numSegments
+    const segments = Array.from({ length: numSegments }, () => [])
+    for (const listing of discoveryListings) {
+      const segIdx = Math.min(numSegments - 1, Math.floor(listing.positionKm / segmentLengthKm))
+      segments[segIdx].push(listing)
+    }
+
+    const distributedListings = []
+    let lastPositionKm = -Infinity
+    for (let i = 0; i < numSegments; i++) {
+      const seg = segments[i].sort((a, b) => {
+        const scoreA = (a.quality_score > 0 ? a.quality_score : 50) + (a.preferenceScore * 15) + (a.seasonalScore * 5) - a.zonePenalty
+        const scoreB = (b.quality_score > 0 ? b.quality_score : 50) + (b.preferenceScore * 15) + (b.seasonalScore * 5) - b.zonePenalty
+        return scoreB - scoreA
+      })
+      for (const listing of seg) {
+        if (listing.positionKm - lastPositionKm >= MIN_SPACING_KM) {
+          distributedListings.push(listing)
+          lastPositionKm = listing.positionKm
+          break
+        }
+      }
+    }
+
+    const distributedIds = new Set(distributedListings.map(l => l.id))
+    const supplemental = discoveryListings
+      .filter(l => !distributedIds.has(l.id))
+      .sort((a, b) => {
+        const scoreA = (a.quality_score > 0 ? a.quality_score : 50) + (a.preferenceScore * 15) - a.zonePenalty
+        const scoreB = (b.quality_score > 0 ? b.quality_score : 50) + (b.preferenceScore * 15) - b.zonePenalty
+        return scoreB - scoreA
+      })
+      .slice(0, 15)
+
+    discoveryListingsJson = [...distributedListings, ...supplemental]
+      .sort((a, b) => a.positionKm - b.positionKm)
+      .map(l => ({
+        listing_id: l.id, listing_name: l.name, vertical: l.vertical,
+        vertical_name: VERTICAL_NAMES[l.vertical] || l.vertical,
+        quality_score: l.quality_score || 0, position_km: l.positionKm,
+        region: l.region, description: l.description ? l.description.slice(0, 150) : '',
+        preference_match: l.preferenceScore > 0, is_segment_pick: distributedIds.has(l.id),
+      }))
+
+    // 6. Build per-day distance targets
     const kmPerDay = Math.round(totalRouteKm / tripConfig.days)
     for (let d = 1; d <= tripConfig.days; d++) {
       const startKm = (d - 1) * kmPerDay
       const endKm = d === tripConfig.days ? totalRouteKm : d * kmPerDay
       dayTargets.push({ day: d, startKm, endKm, overnightTargetKm: endKm })
     }
+
+  }
+
+  // ── Single-day: standard segment distribution (all verticals) ─────
+  if (!isMultiDay) {
+    const numSegments = Math.max(6, Math.min(totalStopsTarget + 4, Math.round(totalRouteKm / 60)))
+    const segmentLengthKm = totalRouteKm / numSegments
+    const segments = Array.from({ length: numSegments }, () => [])
+    for (const listing of routeListings) {
+      const segIdx = Math.min(numSegments - 1, Math.floor(listing.positionKm / segmentLengthKm))
+      segments[segIdx].push(listing)
+    }
+    const distributedListings = []
+    let lastPositionKm = -Infinity
+    for (let i = 0; i < numSegments; i++) {
+      const seg = segments[i].sort((a, b) => {
+        const scoreA = (a.quality_score > 0 ? a.quality_score : 50) + (a.preferenceScore * 15) + (a.seasonalScore * 5)
+        const scoreB = (b.quality_score > 0 ? b.quality_score : 50) + (b.preferenceScore * 15) + (b.seasonalScore * 5)
+        return scoreB - scoreA
+      })
+      for (const listing of seg) {
+        if (listing.positionKm - lastPositionKm >= MIN_SPACING_KM) {
+          distributedListings.push(listing)
+          lastPositionKm = listing.positionKm
+          break
+        }
+      }
+    }
+    const distributedIds = new Set(distributedListings.map(l => l.id))
+    const supplemental = routeListings
+      .filter(l => !distributedIds.has(l.id))
+      .sort((a, b) => {
+        const scoreA = (a.quality_score > 0 ? a.quality_score : 50) + (a.preferenceScore * 15) + (a.seasonalScore * 5)
+        const scoreB = (b.quality_score > 0 ? b.quality_score : 50) + (b.preferenceScore * 15) + (b.seasonalScore * 5)
+        return scoreB - scoreA
+      })
+      .slice(0, 20)
+    listingsJson = [...distributedListings, ...supplemental]
+      .sort((a, b) => a.positionKm - b.positionKm)
+      .map(l => ({
+        listing_id: l.id, listing_name: l.name, vertical: l.vertical,
+        vertical_name: VERTICAL_NAMES[l.vertical] || l.vertical,
+        visit_type: l.visit_type || null, quality_score: l.quality_score || 0,
+        distance_from_route_km: Math.round(l.distanceFromRoute * 10) / 10,
+        position_km: l.positionKm, region: l.region,
+        description: l.description ? l.description.slice(0, 150) : '',
+        best_season: l.best_season || null, is_segment_pick: distributedIds.has(l.id),
+        preference_match: l.preferenceScore > 0,
+      }))
   }
 
   // Build prompt
   const startNameFull = startCoords.text || startName
   const endNameFull = endCoords.text || endName
-
   const targetStops = tripConfig.stopsPerDay * tripConfig.days
   const targetSpacingKm = Math.round(totalRouteKm / (targetStops + 2))
 
@@ -630,7 +765,8 @@ async function buildItinerary({
     prompt = buildMultiDayPrompt({
       startNameFull, endNameFull, routeDistanceKm, routeDurationMinutes,
       detourConfig, tripConfig, prefContext, departureContext, seasonContext,
-      targetStops, targetSpacingKm, MIN_SPACING_KM, listingsJson, overnightJson,
+      targetStops, targetSpacingKm, MIN_SPACING_KM,
+      overnightClusters, discoveryListingsJson,
       isSurpriseLoop, dayTargets, totalRouteKm,
     })
   } else {
@@ -667,7 +803,7 @@ async function buildItinerary({
     const jsonMatch = text.match(/\{[\s\S]*\}/)
     if (jsonMatch) claudeResult = JSON.parse(jsonMatch[0])
   } catch (err) {
-    console.error('[on-this-road] Claude API error:', err?.message, '| Listings sent:', listingsForPrompt.length, '| Route:', routeDistanceKm, 'km')
+    console.error('[on-this-road] Claude API error:', err?.message, '| Route:', routeDistanceKm, 'km', '| Multi-day:', isMultiDay)
   }
 
   // Build response
@@ -677,15 +813,29 @@ async function buildItinerary({
     if (!listingMap.has(r.id)) listingMap.set(r.id, r)
   }
 
-  // Anti-hallucination: validate overnight IDs against actual candidates
+  // Anti-hallucination: validate overnight/dinner/coffee IDs against actual candidates
   if (claudeResult && isMultiDay && claudeResult.days) {
     const validOvernightIds = new Set(restCandidates.map(r => r.id))
+    const validDinnerIds = new Set(overnightClusters.flatMap(c => c.dinner_candidates.map(d => d.listing_id)))
+    const validCoffeeIds = new Set(overnightClusters.flatMap(c => c.coffee_candidates.map(co => co.listing_id)))
     for (const day of claudeResult.days) {
       if (day.overnight && day.overnight.listing_id) {
         if (!validOvernightIds.has(day.overnight.listing_id)) {
-          console.error(`[on-this-road] HALLUCINATED OVERNIGHT DETECTED: Day ${day.day_number} — "${day.overnight.listing_name}" (${day.overnight.listing_id}) is not in the ${validOvernightIds.size} rest candidates. Stripping.`)
+          console.error(`[on-this-road] HALLUCINATED OVERNIGHT: Day ${day.day_number} — "${day.overnight.listing_name}" (${day.overnight.listing_id}) not in ${validOvernightIds.size} rest candidates. Stripping.`)
           day.overnight = null
           day.accommodation_note = day.accommodation_note || 'No verified stay found for this area.'
+        }
+      }
+      if (day.dinner && day.dinner.listing_id) {
+        if (!validDinnerIds.has(day.dinner.listing_id)) {
+          console.error(`[on-this-road] HALLUCINATED DINNER: Day ${day.day_number} — "${day.dinner.listing_name}" (${day.dinner.listing_id}). Stripping.`)
+          day.dinner = null
+        }
+      }
+      if (day.morning_coffee && day.morning_coffee.listing_id) {
+        if (!validCoffeeIds.has(day.morning_coffee.listing_id)) {
+          console.error(`[on-this-road] HALLUCINATED COFFEE: Day ${day.day_number} — "${day.morning_coffee.listing_name}" (${day.morning_coffee.listing_id}). Stripping.`)
+          day.morning_coffee = null
         }
       }
     }
@@ -773,7 +923,8 @@ Return ONLY valid JSON, no markdown:
 function buildMultiDayPrompt({
   startNameFull, endNameFull, routeDistanceKm, routeDurationMinutes,
   detourConfig, tripConfig, prefContext, departureContext, seasonContext,
-  targetStops, targetSpacingKm, MIN_SPACING_KM, listingsJson, overnightJson,
+  targetStops, targetSpacingKm, MIN_SPACING_KM,
+  overnightClusters, discoveryListingsJson,
   isSurpriseLoop, dayTargets, totalRouteKm,
 }) {
   const routeDesc = isSurpriseLoop
@@ -787,10 +938,34 @@ function buildMultiDayPrompt({
       ).join('\n')}\nEach day MUST make meaningful progress toward the destination. Day stops and overnights outside their assigned km range are WRONG.`
     : ''
 
-  const overnightIds = overnightJson.map(o => o.listing_id)
-  const overnightSection = overnightJson.length > 0
-    ? `\n\nACCOMMODATION CANDIDATES (you MUST pick overnight stays ONLY from this list — do NOT invent or hallucinate any accommodation):\n${JSON.stringify(overnightJson, null, 1)}\n\nValid overnight listing_ids: ${JSON.stringify(overnightIds)}\nIf no candidate exists near a day's endpoint, set overnight to null and add "accommodation_note": "No verified stays near [area] — consider continuing to [next town with candidates]".`
-    : '\n\nNo accommodation listings found along this route. Set overnight to null for all days and add "accommodation_note" explaining the gap.'
+  // Build overnight clusters section — pre-assembled rest/dinner/coffee candidates per night
+  let clustersSection = ''
+  if (overnightClusters.length > 0) {
+    const clusterBlocks = overnightClusters.map(c => {
+      const restPart = c.rest_candidates.length > 0
+        ? `  Accommodation (pick ONE):\n${c.rest_candidates.map(r => `    - ${r.listing_name} [${r.listing_id}] at ${r.position_km}km — ${r.description}`).join('\n')}`
+        : '  Accommodation: none found — set overnight to null'
+      const dinnerPart = c.dinner_candidates.length > 0
+        ? `  Dinner (pick ONE):\n${c.dinner_candidates.map(d => `    - ${d.listing_name} [${d.listing_id}] at ${d.position_km}km — ${d.description}`).join('\n')}`
+        : '  Dinner: none nearby — set dinner to null'
+      const coffeePart = c.coffee_candidates.length > 0
+        ? `  Morning coffee next day (pick ONE):\n${c.coffee_candidates.map(co => `    - ${co.listing_name} [${co.listing_id}] at ${co.position_km}km — ${co.description}`).join('\n')}`
+        : '  Morning coffee: none nearby — set morning_coffee to null'
+      return `Night ${c.night} — ${c.region} (~${c.targetKm}km from start):\n${restPart}\n${dinnerPart}\n${coffeePart}`
+    })
+    clustersSection = `\n\nOVERNIGHT CLUSTERS (pre-assembled — the traveller sleeps, eats dinner, and gets coffee in the same area):
+${clusterBlocks.join('\n\n')}
+
+CLUSTER RULES:
+- overnight listing_id MUST come from the cluster's Accommodation list. Do NOT invent accommodation.
+- dinner listing_id MUST come from the cluster's Dinner list. If none listed, set dinner to null.
+- morning_coffee listing_id MUST come from the cluster's Morning coffee list. If none, set morning_coffee to null.
+- Day 1 has no morning_coffee (the traveller starts from home).
+- The last day (arriving at destination) has no overnight or dinner — omit both.
+- Morning coffee from Night N belongs to Day N+1 (it's the next morning's stop before driving on).`
+  } else {
+    clustersSection = '\n\nNo overnight clusters found along this route. Set overnight, dinner, and morning_coffee to null for all days.'
+  }
 
   return `You are writing for Australian Atlas, a curated guide to independent Australian places. A traveller is driving ${routeDesc}. They are ${detourConfig.label}.
 
@@ -803,24 +978,26 @@ ${EDITORIAL_VOICE}
 This is a ${tripConfig.days}-day trip. The route is ${routeDistanceKm}km total.
 ${dayTargetsSection}
 
+TRIP RHYTHM: The traveller discovers things during the day, then stops for dinner + sleep in a coherent overnight area. Each night's accommodation, dinner, and next morning's coffee are clustered in one town/area. Daytime stops are the discovery layer between overnight points.
+
 CRITICAL RULES:
-1. Each day's stops MUST fall within that day's km range. Day 1 covers the first segment, Day 2 the next, etc.
-2. Overnight stays MUST be selected from the accommodation candidates list below. Do NOT invent accommodation names. If the listing_id is not in the candidates list, do NOT use it.
+1. Each day's discovery stops MUST fall within that day's km range.
+2. Overnight, dinner, and morning_coffee MUST be selected from the pre-assembled clusters below. Do NOT invent names or IDs.
 3. Each day must end meaningfully closer to the destination than the previous day.
 4. Listings marked "is_segment_pick: true" are pre-selected — strongly prefer these.
-5. Prioritise preference matches, quality, vertical diversity.
-6. All listing_ids for stops MUST come from the day stops list below. Do NOT invent stops.
+5. Prioritise preference matches, quality, vertical diversity across discovery stops.
+6. All listing_ids MUST come from the provided data. Do NOT invent stops.
+${clustersSection}
 
-Write a 2–3 sentence route introduction that captures this particular drive — specific landscape, the road, the places. No generic travel writing.
-Also write an evocative subtitle (max 8 words) that captures the character of this drive — e.g. "Through the Old Gold Towns" or "Where the Vines Meet the Coast".
-For each day label, write "Day N — [start place] to [end place]" AND a "day_subtitle" that captures the character of that day's drive (max 8 words).
+DAYTIME DISCOVERY STOPS (distribute across days by position_km — these are for the driving segments between overnight points):
+${JSON.stringify(discoveryListingsJson, null, 1)}
 
-Day stops (position_km = distance from start):
-${JSON.stringify(listingsJson, null, 1)}
-${overnightSection}
+Write a 2–3 sentence route introduction capturing this particular drive — specific landscape, road character, the places. No generic travel writing.
+Also write an evocative subtitle (max 8 words) — e.g. "Through the Old Gold Towns" or "Where the Vines Meet the Coast".
+For each day label, write "Day N — [start place] to [end place]" AND a "day_subtitle" (max 8 words).
 
 Return ONLY valid JSON:
-{"intro":"2-3 sentence editorial intro","subtitle":"Evocative subtitle","days":[{"day_number":1,"label":"Day 1 — [place] to [place]","day_subtitle":"Character of the day's drive","stops":[{"listing_id":"uuid","listing_name":"Name","cluster":"Region","position_km":123,"reason":"Two sentences, editorial voice"}],"overnight":{"listing_id":"uuid","listing_name":"Name","position_km":456,"reason":"Two sentences about this stay"}}]}`
+{"intro":"2-3 sentence editorial intro","subtitle":"Evocative subtitle","days":[{"day_number":1,"label":"Day 1 — [place] to [place]","day_subtitle":"Character of the day","stops":[{"listing_id":"uuid","listing_name":"Name","cluster":"Region","position_km":123,"reason":"Two sentences, editorial voice"}],"dinner":{"listing_id":"uuid","listing_name":"Name","reason":"Two sentences"},"overnight":{"listing_id":"uuid","listing_name":"Name","position_km":456,"reason":"Two sentences about this stay"},"morning_coffee":null},{"day_number":2,"label":"Day 2 — ...","day_subtitle":"...","morning_coffee":{"listing_id":"uuid","listing_name":"Name","reason":"One sentence"},"stops":[...],"dinner":null,"overnight":null}]}`
 }
 
 // ── Format Claude result into response ──────────────────────────────
@@ -877,12 +1054,24 @@ function formatClaudeResult({
   if (isMultiDay && claudeResult.days) {
     const days = claudeResult.days.map(day => {
       const enrichedOvernight = enrichOvernight(day.overnight)
+      const enrichedDinner = day.dinner ? enrichStop(day.dinner) : null
+      const enrichedCoffee = day.morning_coffee ? enrichStop(day.morning_coffee) : null
+      const discoveryStops = (day.stops || []).map(enrichStop).filter(Boolean)
+
+      // Compose full stop list: morning coffee → discovery → dinner
+      const composedStops = []
+      if (enrichedCoffee) composedStops.push({ ...enrichedCoffee, is_morning_coffee: true })
+      composedStops.push(...discoveryStops)
+      if (enrichedDinner) composedStops.push({ ...enrichedDinner, is_dinner: true })
+
       return {
         day_number: day.day_number,
         label: day.label || `Day ${day.day_number}`,
         day_subtitle: day.day_subtitle || null,
-        stops: (day.stops || []).map(enrichStop).filter(Boolean),
+        stops: composedStops,
         overnight: enrichedOvernight,
+        dinner: enrichedDinner,
+        morning_coffee: enrichedCoffee,
         accommodation_gap: !enrichedOvernight && day.day_number < tripConfig.days,
         accommodation_note: day.accommodation_note || null,
       }
