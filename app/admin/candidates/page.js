@@ -23,7 +23,7 @@ export default async function CandidatesPage() {
       .eq('status', 'pending')
       .order('vertical', { ascending: true })
       .order('confidence', { ascending: false })
-      .limit(100)
+      .limit(2000)
 
     if (error) {
       console.error('[admin/candidates] Query failed:', error.message)
