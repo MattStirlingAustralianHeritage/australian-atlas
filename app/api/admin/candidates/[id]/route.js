@@ -31,7 +31,10 @@ const VERTICAL_LABELS = {
 
 // ─── Website Enrichment ────────────────────────────────────
 
-/** Fetch a URL and return stripped plain text (max 8000 chars) */
+/** Fetch a URL and return stripped plain text + og:image.
+ *  Returns { text, ogImage } — text is the page content (max 8000 chars),
+ *  ogImage is the og:image URL extracted from meta tags before stripping HTML.
+ */
 async function fetchWebsiteContent(url) {
   try {
     const controller = new AbortController()
@@ -42,10 +45,19 @@ async function fetchWebsiteContent(url) {
       redirect: 'follow',
     })
     clearTimeout(timeout)
-    if (!res.ok) return null
+    if (!res.ok) {
+      console.log(`[fetchWebsite] HTTP ${res.status} for ${url}`)
+      return { text: null, ogImage: null }
+    }
 
     const html = await res.text()
-    return html
+
+    // Extract og:image before stripping HTML — handles both meta attribute orders
+    const ogMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)
+      || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i)
+    const ogImage = ogMatch?.[1] || null
+
+    const text = html
       .replace(/<script[\s\S]*?<\/script>/gi, '')
       .replace(/<style[\s\S]*?<\/style>/gi, '')
       .replace(/<nav[\s\S]*?<\/nav>/gi, '')
@@ -59,8 +71,11 @@ async function fetchWebsiteContent(url) {
       .replace(/\s+/g, ' ')
       .trim()
       .slice(0, 8000)
-  } catch {
-    return null
+
+    return { text, ogImage }
+  } catch (err) {
+    console.log(`[fetchWebsite] Error for ${url}: ${err.message || err}`)
+    return { text: null, ogImage: null }
   }
 }
 
@@ -342,16 +357,22 @@ export async function POST(request, { params }) {
 
       // 2. Enrich from website if available
       let enriched = {}
-      if (candidate.website_url) {
-        console.log(`[approve] Fetching website: ${candidate.website_url}`)
-        const websiteText = await fetchWebsiteContent(candidate.website_url)
+      let ogImage = null
+      const websiteUrl = normaliseUrl(candidate.website_url)
+      if (websiteUrl) {
+        console.log(`[approve] Fetching website: ${websiteUrl}`)
+        const { text: websiteText, ogImage: extractedOg } = await fetchWebsiteContent(websiteUrl)
+        ogImage = extractedOg
+        if (ogImage) console.log(`[approve] Found og:image: ${ogImage}`)
         if (websiteText) {
           console.log(`[approve] Extracting details with Claude (${websiteText.length} chars)...`)
           enriched = (await enrichFromWebsite(candidate, websiteText)) || {}
           console.log(`[approve] Enriched fields: ${Object.keys(enriched).filter(k => enriched[k] != null).join(', ')}`)
         } else {
-          console.log(`[approve] Could not fetch website content`)
+          console.log(`[approve] Could not fetch website content from ${websiteUrl}`)
         }
+      } else if (candidate.website_url) {
+        console.log(`[approve] Could not normalise website URL: "${candidate.website_url}"`)
       }
 
       // 3. Geocode — try enriched address first, then fall back to name + region
@@ -426,7 +447,11 @@ export async function POST(request, { params }) {
         opening_hours: enriched.opening_hours || null,
         instagram_handle: enriched.instagram_handle || null,
         category: effectiveCategory,
-        hero_image_url: null,
+        hero_image_url: ogImage || null,
+      }
+
+      if (ogImage) {
+        console.log(`[approve] Using og:image as hero: ${ogImage}`)
       }
 
       // 6. Push to the vertical's own database (synchronous with retries)
@@ -462,7 +487,7 @@ export async function POST(request, { params }) {
         website: fullData.website,
         phone: fullData.phone,
         address: fullData.address,
-        hero_image_url: null,
+        hero_image_url: ogImage || null,
         sub_type: fullData.category || null,
         sub_type_secondary: effectiveSecondary,
         sub_types: subTypes,
