@@ -49,7 +49,7 @@ const META_ENUMS = {
     producer_type: ['brewery', 'winery', 'distillery', 'cidery', 'meadery', 'cellar_door', 'sour_brewery', 'non_alcoholic'],
   },
   collection: {
-    institution_type: ['museum', 'gallery', 'heritage_site', 'botanical_garden', 'cultural_centre'],
+    institution_type: ['museum', 'gallery', 'heritage_site', 'botanical_garden', 'cultural_centre', 'sculpture_park'],
   },
   craft: {
     discipline: ['ceramics_clay', 'visual_art', 'jewellery_metalwork', 'textile_fibre', 'wood_furniture', 'glass', 'printmaking'],

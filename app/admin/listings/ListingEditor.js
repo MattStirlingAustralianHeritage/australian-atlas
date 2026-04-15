@@ -44,7 +44,7 @@ const VERTICAL_FIELDS = {
     { key: 'institution_type', label: 'Institution Type', type: 'select', options: [
       { value: 'museum', label: 'Museum' }, { value: 'gallery', label: 'Gallery' },
       { value: 'heritage_site', label: 'Heritage Site' }, { value: 'cultural_centre', label: 'Cultural Centre' },
-      { value: 'botanical_garden', label: 'Botanical Garden' },
+      { value: 'botanical_garden', label: 'Botanical Garden' }, { value: 'sculpture_park', label: 'Sculpture Park' },
     ]},
     { key: 'is_free_admission', label: 'Free Admission', type: 'toggle' },
   ],
