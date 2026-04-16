@@ -65,6 +65,7 @@ const SUBCATEGORY_OPTIONS = {
     { value: 'farm_stay', label: 'Farm Stay' },
     { value: 'glamping', label: 'Glamping' },
     { value: 'cottage', label: 'Cottage' },
+    { value: 'eco_resort', label: 'Eco Resort' },
   ],
   field: [
     { value: 'swimming_hole', label: 'Swimming Hole' },

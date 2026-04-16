@@ -52,7 +52,7 @@ const VERTICAL_FIELDS = {
       { value: 'boutique_hotel', label: 'Boutique Hotel' }, { value: 'farm_stay', label: 'Farm Stay' },
       { value: 'glamping', label: 'Glamping' }, { value: 'self_contained', label: 'Self-Contained' },
       { value: 'bnb', label: 'B&B' }, { value: 'guesthouse', label: 'Guesthouse' },
-      { value: 'cottage', label: 'Cottage' },
+      { value: 'cottage', label: 'Cottage' }, { value: 'eco_resort', label: 'Eco Resort' },
     ]},
     { key: 'min_price_per_night', label: 'Min Price/Night ($)', type: 'number' },
     { key: 'pet_friendly', label: 'Pet Friendly', type: 'toggle' },
