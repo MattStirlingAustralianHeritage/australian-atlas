@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { VERTICAL_STYLES } from './VerticalBadge'
 import { TypographicCard } from './ListingCard'
+import { isApprovedImageSource } from '@/lib/image-utils'
 
 export default function CrossVerticalNearby({ lat, lng, currentVertical, listingName, subRegion }) {
   const [listings, setListings] = useState([])
@@ -46,7 +47,7 @@ export default function CrossVerticalNearby({ lat, lng, currentVertical, listing
       <div className="cvn-grid">
         {listings.map(item => {
           const vs = VERTICAL_STYLES[item.vertical] || { bg: '#f0f0f0', text: '#666', label: item.vertical }
-          const hasRealImage = item.image_url && !item.image_url.includes('unsplash.com')
+          const hasRealImage = isApprovedImageSource(item.image_url)
 
           return (
             <a

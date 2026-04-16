@@ -1,5 +1,6 @@
 import { getVerticalUrl } from '@/lib/verticalUrl'
 import VerticalBadge from '@/components/VerticalBadge'
+import { isApprovedImageSource } from '@/lib/image-utils'
 
 // ============================================================
 // ListingCard — Bespoke typographic card replacing all photography
@@ -43,11 +44,6 @@ const CATEGORY_LABELS = {
   specialty_retail: 'Specialty Retail', destination: 'Destination', restaurant: 'Restaurant',
 }
 
-/** Check if a URL is from Unsplash (should be replaced with typographic card) */
-function isUnsplashUrl(url) {
-  if (!url) return true
-  return url.includes('unsplash.com') || url.includes('images.unsplash.com')
-}
 
 function formatCategory(cat) {
   if (!cat) return null
@@ -273,7 +269,7 @@ export default function ListingCard({ listing, meta, linkToVertical = false }) {
   const showFeatured = !isAtlasSelect && listing.is_featured && listing.is_claimed
 
   // Show venue-uploaded image only (not Unsplash)
-  const hasRealImage = listing.hero_image_url && !isUnsplashUrl(listing.hero_image_url)
+  const hasRealImage = listing.hero_image_url && isApprovedImageSource(listing.hero_image_url)
 
   return (
     <a

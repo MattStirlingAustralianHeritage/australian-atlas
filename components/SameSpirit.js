@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import VerticalBadge from '@/components/VerticalBadge'
+import { isApprovedImageSource } from '@/lib/image-utils'
 
 const VERTICAL_COLORS = {
   sba: '#6b3a2a',
@@ -192,7 +193,7 @@ export default function SameSpirit({ listingId, vertical, suburb }) {
 function SpiritCard({ item }) {
   const vertColor = VERTICAL_COLORS[item.vertical] || '#5F8A7E'
   const location = [item.region, item.state].filter(Boolean).join(', ')
-  const hasImage = item.hero_image_url && !item.hero_image_url.includes('unsplash.com')
+  const hasImage = isApprovedImageSource(item.hero_image_url)
 
   return (
     <Link

@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
+import { isApprovedImageSource } from '@/lib/image-utils'
 import {
   Wine, Coffee, Landmark, UtensilsCrossed, Wheat, BedDouble,
   Palette, Mountain, Compass, CornerDownLeft, ArrowUpDown,
@@ -793,7 +794,7 @@ function ResultsView({ result, formRef, onRegenerate }) {
 
 function StopCard({ stop, onHover }) {
   const vertName = VERTICAL_NAMES[stop.vertical] || stop.vertical
-  const hasImage = stop.hero_image_url && !stop.hero_image_url.includes('unsplash.com')
+  const hasImage = isApprovedImageSource(stop.hero_image_url)
   const isLast = false // spine continues unless explicitly marked
 
   return (
@@ -833,7 +834,7 @@ function StopCard({ stop, onHover }) {
 // ── Overnight card ──────────────────────────────────────────────────
 
 function OvernightCard({ stop }) {
-  const hasImage = stop.hero_image_url && !stop.hero_image_url.includes('unsplash.com')
+  const hasImage = isApprovedImageSource(stop.hero_image_url)
 
   return (
     <div className="otr-overnight-pick" data-stop-index={stop.globalIndex}>

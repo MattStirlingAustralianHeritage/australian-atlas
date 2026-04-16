@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import { isApprovedImageSource } from '@/lib/image-utils'
 
 const VERTICAL_COLORS = {
   sba: '#6b3a2a',
@@ -26,13 +27,9 @@ const VERTICAL_LABELS = {
   table: 'Table Atlas',
 }
 
-function isUnsplashUrl(url) {
-  if (!url) return true
-  return url.includes('unsplash.com') || url.includes('images.unsplash.com')
-}
 
 function VibeResultCard({ result }) {
-  const hasRealImage = result.hero_image_url && !isUnsplashUrl(result.hero_image_url)
+  const hasRealImage = result.hero_image_url && isApprovedImageSource(result.hero_image_url)
   const verticalColor = VERTICAL_COLORS[result.vertical] || 'var(--color-muted)'
   const verticalLabel = VERTICAL_LABELS[result.vertical] || result.vertical
 

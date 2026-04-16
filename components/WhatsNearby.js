@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { VERTICAL_STYLES } from './VerticalBadge'
 import { TypographicCard, VERTICAL_TOKENS } from './ListingCard'
+import { isApprovedImageSource } from '@/lib/image-utils'
 
 /**
  * WhatsNearby — Cross-vertical "What's Nearby" component for the Australian Atlas portal.
@@ -93,7 +94,7 @@ export default function WhatsNearby({
 
             <div className="wn-grid">
               {listings.map(item => {
-                const hasRealImage = item.image_url && !item.image_url.includes('unsplash.com')
+                const hasRealImage = isApprovedImageSource(item.image_url)
 
                 return (
                   <a

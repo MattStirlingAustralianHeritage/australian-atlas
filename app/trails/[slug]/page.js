@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getVerticalUrl, getVerticalBadge } from '@/lib/verticalUrl'
+import { isApprovedImageSource } from '@/lib/image-utils'
 import TrailInteractive from './TrailInteractive'
 import ShareButton from './ShareButton'
 
@@ -212,7 +213,7 @@ function StopCard({ stop, index, isLast }) {
       {/* Card */}
       <div style={{ flex: 1, background: 'var(--color-card-bg)', border: '1px solid var(--color-border)', borderRadius: 3, overflow: 'hidden' }}>
         {/* Typographic venue card or real venue photo */}
-        {stop.venue_image_url && !stop.venue_image_url.includes('unsplash.com') ? (
+        {isApprovedImageSource(stop.venue_image_url) ? (
           <div style={{ aspectRatio: '16/7', overflow: 'hidden' }}>
             <img src={stop.venue_image_url} alt={stop.venue_name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>

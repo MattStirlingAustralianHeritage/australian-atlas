@@ -6,6 +6,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getVerticalUrl, getVerticalLabel } from '@/lib/verticalUrl'
 import { listingJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
 import { checkAdmin } from '@/lib/admin-auth'
+import { isApprovedImageSource } from '@/lib/image-utils'
 import VerticalBadge from '@/components/VerticalBadge'
 import ListingCard, { TypographicCard, VERTICAL_TOKENS } from '@/components/ListingCard'
 import ListingMap from '@/components/ListingMap'
@@ -85,6 +86,7 @@ function formatSubcategory(value) {
   if (!value) return null
   return SUBCATEGORY_LABELS[value] || value.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
+
 
 const getListing = cache(async function getListing(slug) {
   const sb = getSupabaseAdmin()
@@ -315,7 +317,7 @@ export async function generateMetadata({ params }) {
       locale: 'en_AU',
       type: 'website',
       images: [
-        listing.hero_image_url
+        isApprovedImageSource(listing.hero_image_url)
           ? { url: listing.hero_image_url, width: 1200, height: 630, alt: listing.name }
           : { url: `https://australianatlas.com.au/og/${slug}`, width: 1200, height: 630, alt: listing.name },
       ],
@@ -406,7 +408,7 @@ export default async function PlacePage({ params }) {
       />
 
       {/* ── Hero ────────────────────────────────────────── */}
-      {listing.hero_image_url && !listing.hero_image_url.includes('unsplash.com') ? (
+      {isApprovedImageSource(listing.hero_image_url) ? (
         <div className="w-full aspect-[21/7] overflow-hidden relative">
           <img
             src={listing.hero_image_url}
