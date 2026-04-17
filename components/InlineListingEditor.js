@@ -325,6 +325,7 @@ export default function InlineListingEditor({ listing }) {
       lng: listing.lng ?? '',
       is_featured: listing.is_featured || false,
       editors_pick: listing.editors_pick || false,
+      address_on_request: listing.address_on_request || false,
     })
     setMetaDraft(listing.meta || {})
     // Initialize sub_types from listing data — prefer sub_types array, fall back to sub_type scalar
@@ -575,6 +576,16 @@ export default function InlineListingEditor({ listing }) {
               <PanelField label="Name" value={draft.name} onChange={v => updateField('name', v)} />
               <PanelField label="Description" value={draft.description} onChange={v => updateField('description', v)} multiline />
               <PanelField label="Address" value={draft.address} onChange={v => updateField('address', v)} />
+
+              <div style={{ marginBottom: 16 }}>
+                <PanelToggle label="Address on request" value={draft.address_on_request} onChange={v => updateField('address_on_request', v)} />
+                <div style={{
+                  fontFamily: 'var(--font-body, system-ui)', fontSize: 11,
+                  color: 'var(--color-muted, #6B6760)', marginTop: -4, paddingLeft: 24,
+                }}>
+                  Hide street address publicly — show suburb/state only
+                </div>
+              </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <PanelField label="Phone" value={draft.phone} onChange={v => updateField('phone', v)} />

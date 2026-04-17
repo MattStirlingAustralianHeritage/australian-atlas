@@ -712,7 +712,7 @@ function getFiltered(listings, selectedVerticals, subTypeFilter, stateFilter, se
 function buildGeoJSON(listings) {
   return {
     type: 'FeatureCollection',
-    features: listings.filter(l => l.lat && l.lng).map(l => {
+    features: listings.filter(l => l.lat && l.lng && !l.address_on_request).map(l => {
       const color = VERTICAL_COLORS[l.vertical] || PRIMARY
       const subTypes = SUB_TYPE_LABELS[l.vertical] || {}
       return {
