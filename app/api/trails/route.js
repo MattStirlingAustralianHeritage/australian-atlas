@@ -71,16 +71,16 @@ export async function GET(request) {
  */
 export async function POST(request) {
   try {
-    // Auth check
-    const supabase = await createAuthServerClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const body = await request.json()
+    const { title, description, type, visibility, region, vertical_focus, stops, saved_via } = body
 
-    if (authError || !user) {
+    // Auth check — share saves allow anonymous creation
+    const supabase = await createAuthServerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user && saved_via !== 'share') {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
-
-    const body = await request.json()
-    const { title, description, type, visibility, region, vertical_focus, stops } = body
 
     if (!title || !title.trim()) {
       return NextResponse.json({ error: 'Title is required' }, { status: 400 })
@@ -130,7 +130,8 @@ export async function POST(request) {
         region: region || null,
         vertical_focus: vertical_focus || null,
         stop_count: stops?.length || 0,
-        created_by: user.id,
+        created_by: user?.id || null,
+        saved_via: saved_via || null,
       })
       .select('id, title, slug, short_code, description, type, visibility, region, vertical_focus, stop_count, published, created_by, created_at, updated_at')
       .single()
@@ -152,6 +153,7 @@ export async function POST(request) {
         venue_image_url: stop.venue_image_url || null,
         order_index: stop.order_index ?? i,
         notes: stop.notes || null,
+        included_in_route: stop.included_in_route !== false,
       }))
 
       const { error: stopsError } = await sb

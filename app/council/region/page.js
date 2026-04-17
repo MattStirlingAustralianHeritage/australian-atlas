@@ -16,17 +16,22 @@ export default function CouncilRegion() {
   const regionSlug = searchParams.get('r')
   const [regionData, setRegionData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
 
   const region = regions.find(r => r.slug === regionSlug) || regions[0]
 
+  // Reset page when region changes
+  useEffect(() => { setPage(1) }, [region?.slug])
+
   useEffect(() => {
     if (!region) { setLoading(false); return }
+    setLoading(true)
 
-    fetch(`/api/council/data?view=listings&region=${region.slug}`)
+    fetch(`/api/council/data?view=listings&region=${region.slug}&page=${page}`)
       .then(r => r.json())
       .then(d => { setRegionData(d); setLoading(false) })
       .catch(() => setLoading(false))
-  }, [region?.slug])
+  }, [region?.slug, page])
 
   if (!council) return null
 
@@ -185,6 +190,57 @@ export default function CouncilRegion() {
                 Showing {regionData.listings.length} of {regionData.totalListings} listings
               </div>
             )}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {regionData?.totalListings > (regionData?.perPage || 50) && (
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            gap: '0.5rem',
+            marginTop: '2rem',
+          }}>
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              style={{
+                padding: '0.5rem 1rem',
+                borderRadius: '8px',
+                border: '1px solid var(--color-border)',
+                background: '#fff',
+                fontFamily: 'var(--font-body)',
+                fontSize: '0.85rem',
+                color: page === 1 ? 'var(--color-border)' : 'var(--color-ink)',
+                cursor: page === 1 ? 'not-allowed' : 'pointer',
+              }}
+            >
+              Previous
+            </button>
+            <span style={{
+              fontFamily: 'var(--font-body)',
+              fontSize: '0.85rem',
+              color: 'var(--color-muted)',
+              padding: '0.5rem 0.75rem',
+            }}>
+              Page {page} of {Math.ceil(regionData.totalListings / (regionData.perPage || 50))}
+            </span>
+            <button
+              onClick={() => setPage(p => p + 1)}
+              disabled={page >= Math.ceil(regionData.totalListings / (regionData.perPage || 50))}
+              style={{
+                padding: '0.5rem 1rem',
+                borderRadius: '8px',
+                border: '1px solid var(--color-border)',
+                background: '#fff',
+                fontFamily: 'var(--font-body)',
+                fontSize: '0.85rem',
+                color: page >= Math.ceil(regionData.totalListings / (regionData.perPage || 50)) ? 'var(--color-border)' : 'var(--color-ink)',
+                cursor: page >= Math.ceil(regionData.totalListings / (regionData.perPage || 50)) ? 'not-allowed' : 'pointer',
+              }}
+            >
+              Next
+            </button>
           </div>
         )}
       </section>

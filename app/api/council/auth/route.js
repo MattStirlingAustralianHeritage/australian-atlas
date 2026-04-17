@@ -79,10 +79,14 @@ export async function POST(req) {
         return genericResponse
       }
 
-      // Account not approved — return generic message, log failure
+      // Account not approved — return distinct pending message
       if (!council.approved) {
         await logAuthAttempt(sb, { email: normalised, success: false, failureReason: 'not_approved', ip })
-        return genericResponse
+        return NextResponse.json({
+          ok: true,
+          message: 'Your account is pending approval. We\'ll email you when it\'s ready.',
+          pending: true,
+        })
       }
 
       // Domain not whitelisted — return generic message, log failure

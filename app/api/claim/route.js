@@ -90,6 +90,14 @@ export async function POST(request) {
       )
     }
 
+    // Field Atlas listings are natural features — not claimable
+    if (listing.vertical === 'field') {
+      return NextResponse.json(
+        { error: 'This type of listing cannot be claimed.' },
+        { status: 400 }
+      )
+    }
+
     // ── Check for duplicate pending claim ─────────────────────
     const { data: existing } = await sb
       .from('claims_review')

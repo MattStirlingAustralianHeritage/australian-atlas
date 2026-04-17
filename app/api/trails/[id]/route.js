@@ -34,7 +34,7 @@ export async function GET(request, { params }) {
     // Fetch stops ordered by order_index
     const { data: stops, error: stopsError } = await sb
       .from('trail_stops')
-      .select('id, trail_id, listing_id, vertical, venue_name, venue_lat, venue_lng, venue_image_url, order_index, notes')
+      .select('id, trail_id, listing_id, vertical, venue_name, venue_lat, venue_lng, venue_image_url, order_index, notes, included_in_route')
       .eq('trail_id', trail.id)
       .order('order_index', { ascending: true })
 
@@ -172,6 +172,7 @@ export async function PUT(request, { params }) {
           venue_image_url: stop.venue_image_url || null,
           order_index: stop.order_index ?? i,
           notes: stop.notes || null,
+          included_in_route: stop.included_in_route !== false,
         }))
 
         const { error: insertError } = await sb
@@ -187,7 +188,7 @@ export async function PUT(request, { params }) {
     // Fetch updated stops
     const { data: updatedStops } = await sb
       .from('trail_stops')
-      .select('id, trail_id, listing_id, vertical, venue_name, venue_lat, venue_lng, venue_image_url, order_index, notes')
+      .select('id, trail_id, listing_id, vertical, venue_name, venue_lat, venue_lng, venue_image_url, order_index, notes, included_in_route')
       .eq('trail_id', id)
       .order('order_index', { ascending: true })
 

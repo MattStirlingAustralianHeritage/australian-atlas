@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
+import { isApprovedImageSource } from '@/lib/image-utils'
 
 /**
  * PATCH /api/admin/dead-images
@@ -49,6 +50,14 @@ export async function PATCH(request) {
 
       if (!listing.hero_image_candidate_url) {
         return NextResponse.json({ error: 'No candidate image to approve' }, { status: 400 })
+      }
+
+      // Only promote images from approved domains
+      if (!isApprovedImageSource(listing.hero_image_candidate_url)) {
+        return NextResponse.json({
+          error: `Image URL is from an external domain and cannot be used as a hero image. Only images hosted on approved infrastructure (Supabase Storage, Google Cloud Storage) are allowed.`,
+          url: listing.hero_image_candidate_url,
+        }, { status: 400 })
       }
 
       // Update staleness flags to clear dead status

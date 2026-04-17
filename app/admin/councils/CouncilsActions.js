@@ -133,6 +133,83 @@ export default function CouncilsActions({ councils, regions }) {
         </div>
       )}
 
+      {/* Per-council region assignment */}
+      {councils?.length > 0 && regions?.length > 0 && (
+        <div style={{ marginTop: 20, marginBottom: 16 }}>
+          <h3 style={{ fontSize: 14, fontWeight: 500, marginBottom: 8, color: 'var(--text-2)' }}>
+            Region assignment
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {councils.map(c => {
+              const assignedIds = (c.council_regions || []).map(cr => cr.region_id)
+              const available = regions.filter(r => !assignedIds.includes(r.id))
+              return (
+                <div key={c.id} style={{
+                  padding: '10px 12px', background: '#fff', border: '1px solid var(--border)',
+                  borderRadius: 4, fontSize: 13,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: assignedIds.length > 0 ? 8 : 0 }}>
+                    <span style={{ fontWeight: 500 }}>{c.name}</span>
+                    {available.length > 0 && (
+                      <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                        <select
+                          id={`region-select-${c.id}`}
+                          style={{
+                            padding: '4px 8px', fontSize: 12, border: '1px solid var(--border)',
+                            borderRadius: 3, fontFamily: 'var(--font-sans)',
+                          }}
+                        >
+                          {available.map(r => (
+                            <option key={r.id} value={r.id}>{r.name}</option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => {
+                            const select = document.getElementById(`region-select-${c.id}`)
+                            if (select?.value) {
+                              handleAction(c.id, 'assign_region', { regionId: select.value })
+                            }
+                          }}
+                          style={{
+                            padding: '4px 10px', fontSize: 11, border: '1px solid #5F8A7E',
+                            borderRadius: 3, background: '#F0FDF4', color: '#166534', cursor: 'pointer',
+                          }}
+                        >
+                          Assign
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  {assignedIds.length > 0 && (
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      {(c.council_regions || []).map((cr, i) => (
+                        <span key={i} style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                          fontSize: 11, padding: '2px 8px', borderRadius: 2,
+                          background: 'var(--bg-2)', color: 'var(--text-2)',
+                        }}>
+                          {cr.regions?.name || cr.region_id}
+                          <button
+                            onClick={() => handleAction(c.id, 'remove_region', { regionId: cr.region_id })}
+                            style={{
+                              background: 'none', border: 'none', cursor: 'pointer',
+                              color: '#C0392B', fontSize: 13, padding: 0, lineHeight: 1,
+                            }}
+                            title={`Remove ${cr.regions?.name || 'region'}`}
+                          >
+                            &times;
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {showCreate && (
         <form onSubmit={handleCreate} style={{
           marginTop: 16, padding: 24, border: '1px solid var(--border)',

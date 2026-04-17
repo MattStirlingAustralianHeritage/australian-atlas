@@ -13,6 +13,13 @@
 import { createClient } from '@supabase/supabase-js'
 import { readFileSync } from 'fs'
 
+// Image source whitelist — only approved domains written to hero_image_url
+const APPROVED_HOSTS = ['supabase.co', 'storage.googleapis.com']
+function isApprovedImageSource(url) {
+  if (!url) return false
+  try { return APPROVED_HOSTS.some(h => new URL(url).hostname.endsWith(h)) } catch { return false }
+}
+
 // ─── Env loading ─────────────────────────────────────────────
 try {
   const envText = readFileSync('.env.local', 'utf-8')
@@ -253,7 +260,13 @@ async function main() {
   if (enriched.phone && !listing.phone) verticalUpdate.phone = enriched.phone
   if (enriched.email && !listing.email) verticalUpdate.email = enriched.email
   if (enriched.opening_hours && !listing.opening_hours) verticalUpdate.opening_hours = enriched.opening_hours
-  if (ogImage && !listing.hero_image_url) verticalUpdate.hero_image_url = ogImage
+  if (ogImage && !listing.hero_image_url) {
+    if (isApprovedImageSource(ogImage)) {
+      verticalUpdate.hero_image_url = ogImage
+    } else {
+      console.log(`  ⚠️  og:image from external domain (skipped for hero): ${ogImage}`)
+    }
+  }
 
   if (Object.keys(verticalUpdate).length === 0) {
     console.log('\n✅ Nothing to update — listing already enriched')

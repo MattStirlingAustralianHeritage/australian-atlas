@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
 import { pushToVerticalWithRetry, updateInVertical, getVerticalListingUrl, VERTICAL_DISPLAY_NAMES, VERTICAL_CATEGORIES } from '@/lib/sync/pushToVertical'
+import { isApprovedImageSource } from '@/lib/image-utils'
 
 /** Normalise a URL to include https:// prefix */
 function normaliseUrl(url) {
@@ -447,11 +448,16 @@ export async function POST(request, { params }) {
         opening_hours: enriched.opening_hours || null,
         instagram_handle: enriched.instagram_handle || null,
         category: effectiveCategory,
-        hero_image_url: ogImage || null,
+        hero_image_url: (ogImage && isApprovedImageSource(ogImage)) ? ogImage : null,
+        hero_image_candidate_url: (ogImage && !isApprovedImageSource(ogImage)) ? ogImage : null,
       }
 
       if (ogImage) {
-        console.log(`[approve] Using og:image as hero: ${ogImage}`)
+        if (isApprovedImageSource(ogImage)) {
+          console.log(`[approve] Using og:image as hero (approved domain): ${ogImage}`)
+        } else {
+          console.log(`[approve] og:image stored as candidate (external domain, needs review): ${ogImage}`)
+        }
       }
 
       // 6. Push to the vertical's own database (synchronous with retries)
@@ -487,7 +493,8 @@ export async function POST(request, { params }) {
         website: fullData.website,
         phone: fullData.phone,
         address: fullData.address,
-        hero_image_url: ogImage || null,
+        hero_image_url: (ogImage && isApprovedImageSource(ogImage)) ? ogImage : null,
+        hero_image_candidate_url: (ogImage && !isApprovedImageSource(ogImage)) ? ogImage : null,
         sub_type: fullData.category || null,
         sub_type_secondary: effectiveSecondary,
         sub_types: subTypes,
@@ -552,8 +559,12 @@ export async function POST(request, { params }) {
           data_source: listingData.data_source,
           needs_review: listingData.needs_review,
         }
-        // Only overwrite hero_image_url if we have a new one (don't null out existing)
-        if (ogImage) updatePayload.hero_image_url = ogImage
+        // Only overwrite hero_image_url if we have a new approved-domain image
+        if (ogImage && isApprovedImageSource(ogImage)) {
+          updatePayload.hero_image_url = ogImage
+        } else if (ogImage) {
+          updatePayload.hero_image_candidate_url = ogImage
+        }
 
         await sb.from('listings').update(updatePayload).eq('id', listingId)
         console.log(`[approve] Updated existing master listing ${listingId} (matched by ${matchedBy}: "${existingListing[matchedBy]}" → new slug: "${slug}")`)

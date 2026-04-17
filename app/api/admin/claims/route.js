@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { getSupabaseAdmin, getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
+import { getSupabaseAdmin, getVerticalClient, VERTICAL_CONFIG, getClaimFieldConfig, buildClaimPayload, getVerticalClaimsTable } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
 
 const ATLAS_AUTH_URL = process.env.NEXT_PUBLIC_ATLAS_AUTH_URL || 'https://www.australianatlas.com.au'
@@ -71,18 +71,7 @@ const VERTICAL_NAMES = {
   corner: 'Corner Atlas', found: 'Found Atlas', table: 'Table Atlas',
 }
 
-// ─── Vertical claim table mapping ────────────────────────
-// Corner and Found use shop_claims, Table uses listing_claims, others use claims
-const VERTICAL_CLAIM_TABLE = {
-  corner: { table: 'shop_claims', entityKey: 'shop_id', nameKey: 'claimant_name', emailKey: 'claimant_email' },
-  found:  { table: 'shop_claims', entityKey: 'shop_id', nameKey: 'claimant_name', emailKey: 'claimant_email' },
-  table:  { table: 'listing_claims', entityKey: 'listing_id', nameKey: 'name', emailKey: 'email' },
-}
-const DEFAULT_CLAIM_TABLE = { table: 'claims', entityKey: 'venue_id', nameKey: 'contact_name', emailKey: 'contact_email' }
-
-function getVerticalClaimConfig(vertical) {
-  return VERTICAL_CLAIM_TABLE[vertical] || DEFAULT_CLAIM_TABLE
-}
+// Claim table config now imported from lib/supabase/clients.js (getVerticalClaimsTable)
 
 function getVerticalVendorUrl(vertical) {
   const config = VERTICAL_CONFIG[vertical]
@@ -156,7 +145,7 @@ async function handleApprove({ claimId, vertical, sourceClaimId, usingPortalTabl
     // ── Path A: Vertical-originated claim (has sourceClaimId) ──
     try {
       const verticalClient = getVerticalClient(effectiveVertical)
-      const claimConfig = getVerticalClaimConfig(effectiveVertical)
+      const claimConfig = getVerticalClaimsTable(effectiveVertical)
 
       await verticalClient
         .from(claimConfig.table)
@@ -171,11 +160,17 @@ async function handleApprove({ claimId, vertical, sourceClaimId, usingPortalTabl
 
       const entityId = verticalClaim?.[claimConfig.entityKey]
       if (entityId) {
-        const venueTable = VERTICAL_CONFIG[effectiveVertical]?.table || 'venues'
-        await verticalClient
-          .from(venueTable)
-          .update({ is_claimed: true })
-          .eq('id', entityId)
+        const claimFieldConfig = getClaimFieldConfig(effectiveVertical)
+        if (claimFieldConfig && claimFieldConfig.claimable !== false) {
+          const venueTable = VERTICAL_CONFIG[effectiveVertical]?.table || 'venues'
+          const payload = buildClaimPayload(effectiveVertical, verticalClaim?.user_id)
+          if (payload) {
+            await verticalClient
+              .from(venueTable)
+              .update(payload)
+              .eq('id', entityId)
+          }
+        }
       }
 
       verticalUserId = verticalClaim?.user_id
@@ -201,16 +196,22 @@ async function handleApprove({ claimId, vertical, sourceClaimId, usingPortalTabl
         }
       }
 
-      // Mark the venue as claimed on the vertical
-      await verticalClient
-        .from(venueTable)
-        .update({ is_claimed: true })
-        .eq('id', venueId)
+      // Mark the venue as claimed on the vertical (using correct field per vertical)
+      const claimFieldConfig = getClaimFieldConfig(effectiveVertical)
+      if (claimFieldConfig && claimFieldConfig.claimable !== false) {
+        const payload = buildClaimPayload(effectiveVertical, null) // no user_id in portal-originated claims
+        if (payload) {
+          await verticalClient
+            .from(venueTable)
+            .update(payload)
+            .eq('id', venueId)
+        }
+      }
 
       // Create a pre-approved claim record on the vertical
       // (user_id is null — will be linked when vendor creates account)
       try {
-        const claimConfig = getVerticalClaimConfig(effectiveVertical)
+        const claimConfig = getVerticalClaimsTable(effectiveVertical)
         const claimInsertData = {
           [claimConfig.entityKey]: venueId,
           [claimConfig.nameKey]: claimRecord?.claimant_name,
@@ -376,7 +377,7 @@ async function handleReject({ claimId, vertical, sourceClaimId, usingPortalTable
   if (vertical && sourceClaimId) {
     try {
       const verticalClient = getVerticalClient(vertical)
-      const claimConfig = getVerticalClaimConfig(vertical)
+      const claimConfig = getVerticalClaimsTable(vertical)
       await verticalClient
         .from(claimConfig.table)
         .update({ status: 'rejected' })

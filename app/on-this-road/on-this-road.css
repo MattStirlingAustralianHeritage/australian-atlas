@@ -28,6 +28,221 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes compassSpin {
+  0% { transform: rotate(0deg); }
+  15% { transform: rotate(120deg); }
+  35% { transform: rotate(280deg); }
+  55% { transform: rotate(520deg); }
+  75% { transform: rotate(680deg); }
+  90% { transform: rotate(710deg); }
+  100% { transform: rotate(720deg); }
+}
+
+@keyframes compassSettle {
+  0% { transform: rotate(var(--compass-target, 0deg)); opacity: 1; }
+  30% { transform: rotate(calc(var(--compass-target, 0deg) + 8deg)); }
+  60% { transform: rotate(calc(var(--compass-target, 0deg) - 3deg)); }
+  100% { transform: rotate(var(--compass-target, 0deg)); opacity: 1; }
+}
+
+@keyframes fadeInSlide {
+  from { opacity: 0; transform: translateY(20px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes directionFadeIn {
+  from { opacity: 0; letter-spacing: 0.4em; }
+  to { opacity: 1; letter-spacing: 0.2em; }
+}
+
+/* ── Mode toggle (Plan / Surprise Me) ─────────────────────── */
+.otr-mode-toggle {
+  display: flex;
+  gap: 0;
+  background: rgba(28, 26, 23, 0.04);
+  border: 1px solid var(--otr-border);
+  border-radius: 999px;
+  padding: 3px;
+  max-width: 340px;
+  margin: 0 auto 32px;
+}
+.otr-mode-btn {
+  flex: 1;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--otr-ink-50);
+  cursor: pointer;
+  transition: all 0.25s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.otr-mode-btn.active {
+  background: var(--otr-paper);
+  color: var(--otr-ink);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+.otr-mode-btn:hover:not(.active) {
+  color: var(--otr-ink-70);
+}
+
+/* ── Compass reveal ───────────────────────────────────────── */
+.otr-compass-reveal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px 60px;
+  text-align: center;
+  min-height: 400px;
+}
+.otr-compass-ring {
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  border: 1.5px solid var(--otr-border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  margin-bottom: 32px;
+}
+.otr-compass-ring::before {
+  content: 'N';
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-body);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: var(--otr-ink-40);
+}
+.otr-compass-ring::after {
+  content: '';
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  border: 1px solid var(--otr-border);
+}
+.otr-compass-needle {
+  width: 2px;
+  height: 80px;
+  position: relative;
+  transform-origin: bottom center;
+}
+.otr-compass-needle::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 40px solid var(--otr-amber);
+}
+.otr-compass-needle::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 34px solid var(--otr-ink-20);
+}
+.otr-compass-needle.spinning {
+  animation: compassSpin 2.5s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+.otr-compass-needle.settled {
+  animation: compassSettle 0.8s ease-out forwards;
+}
+.otr-compass-direction {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--otr-amber-dark);
+  margin-bottom: 8px;
+  animation: directionFadeIn 0.6s ease-out both;
+  animation-delay: 0.3s;
+}
+.otr-compass-heading {
+  font-family: var(--font-display);
+  font-size: clamp(22px, 4vw, 32px);
+  font-weight: 400;
+  font-style: italic;
+  color: var(--otr-ink);
+  margin: 0;
+  animation: fadeInUp 0.6s ease-out both;
+  animation-delay: 0.5s;
+}
+
+/* ── Surprise stop reveal ─────────────────────────────────── */
+.otr-stop.reveal-hidden {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: none;
+}
+.otr-stop.reveal-visible {
+  animation: fadeInSlide 0.5s ease-out forwards;
+}
+.otr-overnight-pick.reveal-hidden {
+  opacity: 0;
+  transform: translateY(20px);
+}
+.otr-overnight-pick.reveal-visible {
+  animation: fadeInSlide 0.5s ease-out forwards;
+}
+.otr-day-chapter.reveal-hidden {
+  opacity: 0;
+}
+.otr-day-chapter.reveal-visible {
+  animation: fadeInUp 0.4s ease-out forwards;
+}
+
+/* ── Re-roll button ───────────────────────────────────────── */
+.otr-reroll-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  border: 1.5px solid var(--otr-amber);
+  border-radius: 999px;
+  background: transparent;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--otr-amber-dark);
+  cursor: pointer;
+  transition: all 0.25s ease;
+  margin-top: 32px;
+}
+.otr-reroll-btn:hover {
+  background: rgba(196, 154, 60, 0.06);
+  border-color: var(--otr-amber-dark);
+}
+.otr-reroll-btn .otr-reroll-icon {
+  transition: transform 0.3s ease;
+}
+.otr-reroll-btn:hover .otr-reroll-icon {
+  transform: rotate(90deg);
+}
+
 /* ── Hero band (~280px) ───────────────────────────────────── */
 .otr-hero {
   position: relative;
@@ -777,6 +992,12 @@
   line-height: 1.55;
   margin: 0 0 8px;
 }
+.otr-overnight-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
 .otr-overnight-tag {
   display: inline-block;
   padding: 3px 10px;
@@ -788,6 +1009,66 @@
   text-transform: uppercase;
   background: var(--otr-ink);
   color: var(--otr-amber);
+}
+.otr-overnight-swap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: 1px solid var(--otr-border);
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--otr-ink-60);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.otr-overnight-swap:hover {
+  color: var(--otr-amber);
+  border-color: var(--otr-amber);
+}
+.otr-overnight-swap .otr-chevron-down {
+  transform: rotate(90deg);
+}
+.otr-overnight-alternatives {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 10px;
+  border: 1px solid var(--otr-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.otr-alt-option {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px;
+  background: var(--otr-paper);
+  border: none;
+  border-bottom: 1px solid var(--otr-border);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s;
+}
+.otr-alt-option:last-child {
+  border-bottom: none;
+}
+.otr-alt-option:hover {
+  background: rgba(196, 154, 60, 0.06);
+}
+.otr-alt-name {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--otr-ink);
+}
+.otr-alt-detail {
+  font-family: var(--font-body);
+  font-size: 11px;
+  color: var(--otr-ink-60);
 }
 
 /* ── Accommodation gap warning ───────────────────────────── */

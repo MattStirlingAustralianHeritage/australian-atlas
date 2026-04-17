@@ -1,4 +1,4 @@
-import { getSupabaseAdmin, getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
+import { getSupabaseAdmin, getVerticalClient, VERTICAL_CONFIG, getVerticalClaimsTable } from '@/lib/supabase/clients'
 import ClaimsActions from './ClaimsActions'
 
 export const metadata = { title: 'Claims Review — Admin' }
@@ -323,9 +323,13 @@ async function fetchVerticalClaims() {
 
     try {
       const client = getVerticalClient(key)
+      const claimConfig = getVerticalClaimsTable(key)
       const { data, error } = await client
-        .from('claims')
-        .select('id, status, contact_email, claimant_email, contact_name, claimant_name, venue_name, tier, selected_tier, created_at, reviewed_at, admin_notes')
+        .from(claimConfig.table)
+        .select('id, status, created_at, reviewed_at, admin_notes, user_id, ' +
+          `${claimConfig.emailKey}, ${claimConfig.nameKey}` +
+          (claimConfig.table === 'claims' ? ', venue_name, tier, selected_tier' : '') +
+          (claimConfig.table === 'listing_claims' ? ', listing_name' : ''))
         .order('created_at', { ascending: false })
         .limit(50)
 
@@ -336,9 +340,10 @@ async function fetchVerticalClaims() {
             vertical: key,
             source_claim_id: claim.id,
             // Normalise to portal field names
-            claimant_email: claim.contact_email || claim.claimant_email,
-            claimant_name: claim.contact_name || claim.claimant_name,
-            listing_name: claim.venue_name,
+            claimant_email: claim[claimConfig.emailKey] || '',
+            claimant_name: claim[claimConfig.nameKey] || '',
+            listing_name: claim.venue_name || claim.listing_name || '',
+            tier: claim.tier || claim.selected_tier || 'free',
           })
         }
       }

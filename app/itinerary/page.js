@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect, useRef, Suspense } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { VERTICAL_STYLES } from '@/components/VerticalBadge'
 import TrailQuestionFlow from '@/components/TrailQuestionFlow'
+import { useRouteEditor } from '@/hooks/useRouteEditor'
 
 const TrailMap = dynamic(() => import('./TrailMap'), { ssr: false })
 
@@ -44,7 +45,7 @@ function MetadataChip({ children }) {
   )
 }
 
-function StopCard({ stop, index, isOvernight }) {
+function StopCard({ stop, index, isOvernight, included = true, pinned = false, onToggle }) {
   if (!stop) return null
   const style = VERTICAL_STYLES[stop?.vertical]
   const label = VERTICAL_LABELS[stop?.vertical] || stop?.vertical || ''
@@ -52,6 +53,7 @@ function StopCard({ stop, index, isOvernight }) {
   const isAnchor = stop?.is_anchor === true
   const venueUrl = stop?.slug ? `/place/${stop.slug}` : null
   const brandColor = VERTICAL_COLORS[stop?.vertical] || '#1a1a1a'
+  const canToggle = onToggle && !pinned
 
   return (
     <div style={{
@@ -62,12 +64,15 @@ function StopCard({ stop, index, isOvernight }) {
       borderLeft: `3px solid ${isAnchor ? 'var(--color-sage, #5F8A7E)' : brandColor}`,
       borderRadius: 12, padding: '16px 18px',
       display: 'flex', gap: 14, alignItems: 'flex-start',
+      opacity: included ? 1 : 0.5,
+      transition: 'opacity 0.2s ease',
     }}>
       {/* Number circle, STAY badge, or anchor pin */}
       <div style={{
         width: 30, height: 30, borderRadius: isAccom ? 6 : '50%', flexShrink: 0, marginTop: 2,
-        background: isAnchor ? 'var(--color-sage, #5F8A7E)' : brandColor,
-        color: 'white', fontWeight: 700, fontSize: isAccom ? 8 : 12,
+        background: included ? (isAnchor ? 'var(--color-sage, #5F8A7E)' : brandColor) : 'transparent',
+        border: included ? 'none' : `2px solid ${brandColor}`,
+        color: included ? 'white' : brandColor, fontWeight: 700, fontSize: isAccom ? 8 : 12,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontFamily: 'system-ui, sans-serif',
         letterSpacing: isAccom ? '0.06em' : 0,
@@ -134,6 +139,16 @@ function StopCard({ stop, index, isOvernight }) {
               2-night stay
             </span>
           )}
+          {!included && (
+            <span style={{
+              backgroundColor: '#f5f5f5', color: '#888',
+              padding: '2px 8px', borderRadius: 99, fontSize: 10,
+              fontWeight: 600, fontFamily: 'var(--font-body)', letterSpacing: '0.02em',
+              border: '1px dashed #ccc',
+            }}>
+              Optional detour
+            </span>
+          )}
         </div>
         {stop.note && (
           <p style={{
@@ -156,6 +171,27 @@ function StopCard({ stop, index, isOvernight }) {
           </a>
         )}
       </div>
+
+      {/* Toggle route inclusion */}
+      {canToggle && (
+        <button
+          onClick={() => onToggle(stop.id)}
+          title={included ? 'Remove from route' : 'Add to route'}
+          style={{
+            flexShrink: 0, width: 44, height: 44, borderRadius: '50%',
+            border: `1.5px solid ${included ? '#ccc' : 'var(--color-sage)'}`,
+            background: included ? 'transparent' : 'var(--color-sage)',
+            color: included ? '#999' : '#fff',
+            cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 20, fontWeight: 300, lineHeight: 1,
+            transition: 'all 0.2s ease',
+            alignSelf: 'center',
+          }}
+        >
+          {included ? '\u2212' : '+'}
+        </button>
+      )}
     </div>
   )
 }
@@ -550,6 +586,66 @@ function TrailPromptInput() {
 function TrailResult({ itinerary, totalStops, flow, addedRecs, onAddRec, query }) {
   const scrollRef = useRef(null)
 
+  // Flatten days → flat stop list for route editor
+  const flatStops = useMemo(() => {
+    if (!itinerary?.days) return []
+    const flat = []
+    let globalIdx = 0
+    itinerary.days.forEach((day, di) => {
+      ;(day.stops || []).forEach((stop, si) => {
+        globalIdx++
+        flat.push({
+          ...stop,
+          id: stop.listing_id || `gen-${di}-${si}`,
+          lat: stop.lat,
+          lng: stop.lng,
+          _day: di,
+          _idx: globalIdx,
+          _accom: false,
+        })
+      })
+      if (day.overnight) {
+        globalIdx++
+        flat.push({
+          ...day.overnight,
+          id: day.overnight.listing_id || `overnight-${di}`,
+          lat: day.overnight.lat,
+          lng: day.overnight.lng,
+          _day: di,
+          _idx: globalIdx,
+          _accom: true,
+        })
+      }
+    })
+    return flat
+  }, [itinerary?.days])
+
+  // Pinning rules:
+  // (a) First non-accom stop of day 0 — pinned (anchor/starting point)
+  // (b) Last non-accom stop of final day — pinned (destination)
+  // (c) All overnight stays — pinned
+  const isPinned = useCallback((stop, _index, allStops) => {
+    if (stop._accom) return true
+    const firstNonAccom = allStops.find(s => !s._accom)
+    if (firstNonAccom && firstNonAccom.id === stop.id) return true
+    const lastDay = Math.max(...allStops.map(s => s._day))
+    const lastDayNonAccom = allStops.filter(s => s._day === lastDay && !s._accom)
+    if (lastDayNonAccom.length > 0 && lastDayNonAccom[lastDayNonAccom.length - 1].id === stop.id) return true
+    return false
+  }, [])
+
+  const { stops: augmentedStops, toggle, flush } = useRouteEditor(flatStops, { isPinned })
+
+  // Group augmented stops by day for rendering
+  const stopsByDay = useMemo(() => {
+    const grouped = {}
+    for (const s of augmentedStops) {
+      if (!grouped[s._day]) grouped[s._day] = []
+      grouped[s._day].push(s)
+    }
+    return grouped
+  }, [augmentedStops])
+
   return (
     <div style={{
       display: 'flex', flexDirection: 'row', height: 'calc(100vh - 64px)',
@@ -650,9 +746,12 @@ function TrailResult({ itinerary, totalStops, flow, addedRecs, onAddRec, query }
         )}
 
         {/* Days */}
-        {(() => {
-          let globalIndex = 0
-          return (itinerary?.days || []).map((day, di) => (
+        {(itinerary?.days || []).map((day, di) => {
+          const dayStops = stopsByDay[di] || []
+          const regularStops = dayStops.filter(s => !s._accom)
+          const overnightStop = dayStops.find(s => s._accom)
+
+          return (
             <div key={di} style={{ marginBottom: 32 }}>
               {/* Day header with full-width rule */}
               <div style={{
@@ -682,17 +781,28 @@ function TrailResult({ itinerary, totalStops, flow, addedRecs, onAddRec, query }
 
               {/* Stops */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {(day.stops || []).map((stop) => {
-                  globalIndex++
-                  return <StopCard key={stop.listing_id || globalIndex} stop={stop} index={globalIndex} />
-                })}
-                {day.overnight && (
-                  <>
-                    {(() => { globalIndex++; return null })()}
-                    <StopCard stop={day.overnight} index={globalIndex} isOvernight />
-                  </>
+                {regularStops.map(stop => (
+                  <StopCard
+                    key={stop.id}
+                    stop={stop}
+                    index={stop._idx}
+                    included={stop._included}
+                    pinned={stop._pinned}
+                    onToggle={toggle}
+                  />
+                ))}
+                {overnightStop && (
+                  <StopCard
+                    key={overnightStop.id}
+                    stop={overnightStop}
+                    index={overnightStop._idx}
+                    isOvernight
+                    included={overnightStop._included}
+                    pinned={overnightStop._pinned}
+                    onToggle={toggle}
+                  />
                 )}
-                {day.accommodation_gap && !day.overnight && (
+                {day.accommodation_gap && !overnightStop && (
                   <div style={{
                     background: '#faf6f2', border: '1px solid #e8dfd4',
                     borderLeft: `3px solid ${VERTICAL_COLORS.rest}`,
@@ -705,8 +815,8 @@ function TrailResult({ itinerary, totalStops, flow, addedRecs, onAddRec, query }
                 )}
               </div>
             </div>
-          ))
-        })()}
+          )
+        })}
 
         {/* Recommendations */}
         {itinerary.recommendations?.length > 0 && (
@@ -736,8 +846,8 @@ function TrailResult({ itinerary, totalStops, flow, addedRecs, onAddRec, query }
           display: 'flex', gap: 10, paddingTop: 16,
           borderTop: '1px solid var(--color-border)',
         }}>
-          <SaveTrailButton itinerary={itinerary} query={query} />
-          <ShareButton />
+          <SaveTrailButton itinerary={itinerary} query={query} augmentedStops={augmentedStops} flush={flush} />
+          <ShareButton itinerary={itinerary} augmentedStops={augmentedStops} flush={flush} />
         </div>
       </div>
 
@@ -746,7 +856,7 @@ function TrailResult({ itinerary, totalStops, flow, addedRecs, onAddRec, query }
         width: '45%', position: 'sticky', top: 0,
         height: 'calc(100vh - 64px)', borderLeft: '1px solid var(--color-border)',
       }} className="trail-right-col">
-        <TrailMap days={itinerary.days} />
+        <TrailMap stops={augmentedStops} days={itinerary.days} onToggle={toggle} />
       </div>
 
       {/* Mobile overrides */}
@@ -775,25 +885,27 @@ function TrailResult({ itinerary, totalStops, flow, addedRecs, onAddRec, query }
 
 // --- Save & Share buttons ---
 
-function SaveTrailButton({ itinerary, query }) {
+function SaveTrailButton({ itinerary, query, augmentedStops, flush }) {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
   async function handleSave() {
     setSaving(true)
     try {
-      const stops = (itinerary?.days || []).flatMap((day, di) =>
-        (day?.stops || []).map((stop, si) => ({
-          listing_id: stop.listing_id || null,
-          vertical: stop.vertical || null,
-          venue_name: stop.venue_name,
-          venue_lat: stop.lat,
-          venue_lng: stop.lng,
-          venue_image_url: stop.hero_image_url || null,
-          order_index: di * 100 + si,
-          notes: stop.note || null,
-        }))
-      )
+      // Flush any pending route toggle changes
+      if (flush) await flush()
+
+      const stops = (augmentedStops || []).map((stop, i) => ({
+        listing_id: stop.listing_id || null,
+        vertical: stop.vertical || null,
+        venue_name: stop.venue_name,
+        venue_lat: stop.lat,
+        venue_lng: stop.lng,
+        venue_image_url: stop.hero_image_url || null,
+        order_index: i,
+        notes: stop.note || null,
+        included_in_route: stop._included !== false,
+      }))
 
       const res = await fetch('/api/trails', {
         method: 'POST',
@@ -805,6 +917,7 @@ function SaveTrailButton({ itinerary, query }) {
           visibility: 'private',
           region: itinerary.region || null,
           vertical_focus: itinerary.focus_verticals?.join(', ') || null,
+          saved_via: 'explicit',
           stops,
         }),
       })
@@ -833,29 +946,87 @@ function SaveTrailButton({ itinerary, query }) {
   )
 }
 
-function ShareButton() {
+function ShareButton({ itinerary, augmentedStops, flush }) {
+  const [sharing, setSharing] = useState(false)
   const [copied, setCopied] = useState(false)
 
-  function handleShare() {
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(window.location.href)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+  async function handleShare() {
+    if (sharing) return
+    setSharing(true)
+    try {
+      // Flush pending route toggle changes
+      if (flush) await flush()
+
+      // Auto-save trail (anonymous OK via saved_via: 'share')
+      const stops = (augmentedStops || []).map((stop, i) => ({
+        listing_id: stop.listing_id || null,
+        vertical: stop.vertical || null,
+        venue_name: stop.venue_name,
+        venue_lat: stop.lat,
+        venue_lng: stop.lng,
+        venue_image_url: stop.hero_image_url || null,
+        order_index: i,
+        notes: stop.note || null,
+        included_in_route: stop._included !== false,
+      }))
+
+      const res = await fetch('/api/trails', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: itinerary.title,
+          description: itinerary.intro,
+          type: 'user',
+          visibility: 'link',
+          region: itinerary.region || null,
+          vertical_focus: itinerary.focus_verticals?.join(', ') || null,
+          saved_via: 'share',
+          stops,
+        }),
+      })
+
+      if (res.ok) {
+        const { trail } = await res.json()
+        const shareUrl = trail?.short_code
+          ? `${window.location.origin}/t/${trail.short_code}`
+          : `${window.location.origin}/trails/${trail?.slug || trail?.id}`
+        if (navigator.clipboard) {
+          await navigator.clipboard.writeText(shareUrl)
+          setCopied(true)
+          setTimeout(() => setCopied(false), 2000)
+        }
+      } else {
+        // Fallback: copy current URL
+        if (navigator.clipboard) {
+          await navigator.clipboard.writeText(window.location.href)
+          setCopied(true)
+          setTimeout(() => setCopied(false), 2000)
+        }
+      }
+    } catch {
+      // Fallback: copy current URL
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        navigator.clipboard.writeText(window.location.href)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      }
+    } finally {
+      setSharing(false)
     }
   }
 
   return (
-    <button onClick={handleShare} style={{
+    <button onClick={handleShare} disabled={sharing} style={{
       fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13,
       color: 'var(--color-muted)', background: 'transparent',
       border: '1px solid var(--color-border)', borderRadius: 8,
-      padding: '10px 20px', cursor: 'pointer',
+      padding: '10px 20px', cursor: sharing ? 'default' : 'pointer',
       display: 'flex', alignItems: 'center', gap: 6,
     }}>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
         <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/>
       </svg>
-      {copied ? 'Link copied' : 'Share'}
+      {copied ? 'Link copied' : sharing ? 'Sharing...' : 'Share'}
     </button>
   )
 }

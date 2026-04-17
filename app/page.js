@@ -54,13 +54,13 @@ async function getStats() {
   try {
     const sb = getSupabaseAdmin()
     const [{ count }, { count: regionCount }] = await Promise.all([
-      sb.from('listings').select('*', { count: 'exact', head: true }).eq('status', 'active'),
+      sb.from('listings').select('*', { count: 'exact', head: true }).eq('status', 'active').not('name', 'ilike', '\\_%'),
       sb.from('regions').select('*', { count: 'exact', head: true }),
     ])
     // Get per-vertical counts (parallel)
     const verticalCountResults = await Promise.all(
       verticals.map(v =>
-        sb.from('listings').select('*', { count: 'exact', head: true }).eq('vertical', v.key).eq('status', 'active')
+        sb.from('listings').select('*', { count: 'exact', head: true }).eq('vertical', v.key).eq('status', 'active').not('name', 'ilike', '\\_%')
           .then(({ count: c }) => [v.key, c || 0])
       )
     )

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getSupabaseAdmin, getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
+import { getSupabaseAdmin, getVerticalClient, VERTICAL_CONFIG, getClaimFieldConfig, buildClaimPayload, getVerticalClaimsTable } from '@/lib/supabase/clients'
 
 const ATLAS_AUTH_URL = process.env.NEXT_PUBLIC_ATLAS_AUTH_URL || 'https://www.australianatlas.com.au'
 
@@ -421,24 +421,29 @@ async function handlePaidClaimAutoApprove(sb, {
     // Path A: Vertical-originated claim
     try {
       const verticalClient = getVerticalClient(effectiveVertical)
+      const claimConfig = getVerticalClaimsTable(effectiveVertical)
 
       await verticalClient
-        .from('claims')
+        .from(claimConfig.table)
         .update({ status: 'approved' })
         .eq('id', claimRecord.source_claim_id)
 
       const { data: verticalClaim } = await verticalClient
-        .from('claims')
-        .select('venue_id, user_id')
+        .from(claimConfig.table)
+        .select(`${claimConfig.entityKey}, user_id`)
         .eq('id', claimRecord.source_claim_id)
         .maybeSingle()
 
-      if (verticalClaim?.venue_id) {
+      const entityId = verticalClaim?.[claimConfig.entityKey]
+      if (entityId) {
         const venueTable = VERTICAL_CONFIG[effectiveVertical]?.table || 'venues'
-        await verticalClient
-          .from(venueTable)
-          .update({ is_claimed: true })
-          .eq('id', verticalClaim.venue_id)
+        const payload = buildClaimPayload(effectiveVertical, verticalClaim?.user_id)
+        if (payload) {
+          await verticalClient
+            .from(venueTable)
+            .update(payload)
+            .eq('id', entityId)
+        }
       }
 
       verticalUserId = verticalClaim?.user_id
@@ -464,24 +469,38 @@ async function handlePaidClaimAutoApprove(sb, {
         }
       }
 
-      await verticalClient
-        .from(venueTable)
-        .update({ is_claimed: true })
-        .eq('id', venueId)
+      // Mark venue as claimed using correct field per vertical
+      const claimFieldCfg = getClaimFieldConfig(effectiveVertical)
+      if (claimFieldCfg && claimFieldCfg.claimable !== false) {
+        const payload = buildClaimPayload(effectiveVertical, null)
+        if (payload) {
+          await verticalClient
+            .from(venueTable)
+            .update(payload)
+            .eq('id', venueId)
+        }
+      }
 
       // Create pre-approved claim on vertical
       try {
+        const claimConfig = getVerticalClaimsTable(effectiveVertical)
+        const claimInsertData = {
+          [claimConfig.entityKey]: venueId,
+          [claimConfig.nameKey]: effectiveName,
+          [claimConfig.emailKey]: effectiveEmail,
+          status: 'approved',
+          selected_tier: 'standard',
+          user_id: null,
+        }
+        if (claimConfig.table === 'claims') {
+          claimInsertData.venue_name = listingRecord.name || effectiveName
+        }
+        if (claimConfig.table === 'listing_claims') {
+          claimInsertData.listing_name = listingRecord.name || effectiveName
+        }
         await verticalClient
-          .from('claims')
-          .insert({
-            venue_id: venueId,
-            venue_name: listingRecord.name || effectiveName,
-            contact_name: effectiveName,
-            contact_email: effectiveEmail,
-            status: 'approved',
-            selected_tier: 'standard',
-            user_id: null,
-          })
+          .from(claimConfig.table)
+          .insert(claimInsertData)
       } catch {
         // Non-fatal — not all verticals have a claims table
       }

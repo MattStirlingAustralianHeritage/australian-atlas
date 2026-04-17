@@ -24,11 +24,12 @@ const VERTICAL_COLORS = {
 export default async function ClaimPage() {
   const sb = getSupabaseAdmin()
 
-  // Fetch all active, unclaimed listings for client-side search
+  // Fetch all active listings for client-side search (exclude Field — not claimable)
   const { data: listings } = await sb
     .from('listings')
     .select('id, name, slug, vertical, region, state, is_claimed')
     .eq('status', 'active')
+    .neq('vertical', 'field')
     .order('name')
 
   const serialized = (listings || []).map(l => ({

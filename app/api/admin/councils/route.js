@@ -34,6 +34,7 @@ export async function POST(request) {
         contact_email: contact_email.trim().toLowerCase(),
         tier: ['explorer', 'partner', 'enterprise'].includes(tier) ? tier : 'explorer',
         status: ['active', 'trial', 'suspended', 'cancelled'].includes(status) ? status : 'trial',
+        approved: true,
       })
       .select('id, name, slug')
       .single()

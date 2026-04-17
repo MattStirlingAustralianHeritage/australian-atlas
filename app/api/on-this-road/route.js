@@ -50,11 +50,15 @@ const PREFERENCE_MAP = {
   cellar_doors:    { verticals: ['sba'], visit_types: ['experiential'], label: 'Cellar doors & wineries' },
   great_coffee:    { verticals: ['fine_grounds'], visit_types: [], label: 'Great coffee' },
   history:         { verticals: ['collection'], visit_types: ['attraction'], label: 'History & heritage' },
-  lunch:           { verticals: ['table', 'sba'], visit_types: ['venue'], label: 'Worth stopping for lunch' },
+  lunch:           { verticals: ['table', 'sba'], visit_types: ['venue'], label: 'Good places for lunch' },
   producers:       { verticals: ['sba'], visit_types: ['experiential'], label: 'Producers & farm gates' },
-  accommodation:   { verticals: ['rest'], visit_types: ['venue'], label: 'Somewhere good to stay' },
   art_makers:      { verticals: ['craft'], visit_types: [], label: 'Art & makers' },
-  nature:          { verticals: ['field'], visit_types: [], label: 'Nature & scenery' },
+  nature:          { verticals: ['field'], visit_types: [], label: 'Nature & outdoors' },
+  local_shops:     { verticals: ['corner'], visit_types: [], label: 'Local shops & boutiques' },
+  markets:         { verticals: ['found'], visit_types: [], label: 'Markets & vintage finds' },
+  craft_drinks:    { verticals: ['sba'], visit_types: ['experiential'], label: 'Breweries & distilleries' },
+  fine_dining:     { verticals: ['table'], visit_types: ['venue'], label: 'Fine dining' },
+  scenic:          { verticals: ['field', 'collection'], visit_types: ['attraction'], label: 'Scenic stops & lookouts' },
 }
 
 // ── Multi-day overnight clustering ─────────────────────────────────
@@ -359,13 +363,20 @@ export async function POST(request) {
       if (!route) {
         return NextResponse.json({ error: 'Could not generate a driving loop from this location.' }, { status: 400 })
       }
-      return buildItinerary({
+      const itineraryResponse = await buildItinerary({
         startCoords, endCoords: startCoords, route,
         detourConfig, tripConfig, departureConfig, preferences,
         currentSeason, isMultiDay, isSurpriseLoop, returnDifferentRoad: false,
         startName: start, endName: start,
         preSelectedListings: loopResult.listings,
       })
+      // Inject direction metadata into surprise response for reveal animation
+      if (loopResult.direction && itineraryResponse.status === 200) {
+        const body = await itineraryResponse.json()
+        body.surprise_direction = loopResult.direction
+        return NextResponse.json(body)
+      }
+      return itineraryResponse
     }
 
     // 3. Geocode end
@@ -845,7 +856,7 @@ async function buildItinerary({
     return formatClaudeResult({
       claudeResult, listingMap, routeGeometry, routeDistanceKm,
       routeDurationMinutes, coverageGaps, isLongTrip, isSurpriseLoop,
-      restCandidates, startCoords, endCoords, startName, endName,
+      restCandidates, overnightClusters, startCoords, endCoords, startName, endName,
       tripConfig, isMultiDay,
     })
   }
@@ -1005,7 +1016,7 @@ Return ONLY valid JSON:
 function formatClaudeResult({
   claudeResult, listingMap, routeGeometry, routeDistanceKm,
   routeDurationMinutes, coverageGaps, isLongTrip, isSurpriseLoop,
-  restCandidates, startCoords, endCoords, startName, endName,
+  restCandidates, overnightClusters = [], startCoords, endCoords, startName, endName,
   tripConfig, isMultiDay,
 }) {
   function enrichStop(stop) {
@@ -1064,12 +1075,35 @@ function formatClaudeResult({
       composedStops.push(...discoveryStops)
       if (enrichedDinner) composedStops.push({ ...enrichedDinner, is_dinner: true })
 
+      // Build overnight alternatives from the cluster for this day
+      const cluster = overnightClusters[day.day_number - 1]
+      const overnightAlternatives = cluster
+        ? cluster.rest_candidates
+          .filter(r => r.listing_id !== enrichedOvernight?.listing_id)
+          .map(r => {
+            const altListing = restCandidates.find(rc => rc.id === r.listing_id)
+            return {
+              listing_id: r.listing_id,
+              listing_name: r.listing_name,
+              slug: altListing?.slug || null,
+              region: r.region,
+              suburb: r.suburb,
+              lat: altListing?.lat || null,
+              lng: altListing?.lng || null,
+              hero_image_url: altListing?.hero_image_url || null,
+              position_km: r.position_km,
+              reason: 'Alternative stay option.',
+            }
+          })
+        : []
+
       return {
         day_number: day.day_number,
         label: day.label || `Day ${day.day_number}`,
         day_subtitle: day.day_subtitle || null,
         stops: composedStops,
         overnight: enrichedOvernight,
+        overnight_alternatives: overnightAlternatives,
         dinner: enrichedDinner,
         morning_coffee: enrichedCoffee,
         accommodation_gap: !enrichedOvernight && day.day_number < tripConfig.days,
@@ -1175,28 +1209,67 @@ async function generateSurpriseLoop(startCoords, tripConfig, preferences, detour
     quadrants[ns + ew].push(l)
   }
 
-  // Pick the densest quadrant as the primary direction, second densest as return
-  const sorted = Object.entries(quadrants)
-    .sort((a, b) => b[1].length - a[1].length)
-    .filter(([, v]) => v.length >= 2)
+  // Score quadrants by listing density weighted by preference matches
+  const scoredQuadrants = Object.entries(quadrants)
+    .map(([dir, qListings]) => {
+      const prefScore = qListings.reduce((sum, l) => sum + scoreListingPreferences(l, preferences), 0)
+      const density = qListings.length
+      return { dir, listings: qListings, score: density + (prefScore * 2) }
+    })
+    .filter(q => q.listings.length >= 2)
+    .sort((a, b) => b.score - a.score)
 
-  if (sorted.length < 1) return null
+  if (scoredQuadrants.length < 1) return null
 
-  const primary = sorted[0][1]
-  const secondary = sorted.length > 1 ? sorted[1][1] : primary
+  // Weighted random selection from top quadrants (not always the densest)
+  // Top quadrant gets 50% weight, second 30%, third 15%, fourth 5%
+  const weights = [0.5, 0.3, 0.15, 0.05]
+  const rand = Math.random()
+  let cumulative = 0
+  let primaryIdx = 0
+  for (let i = 0; i < scoredQuadrants.length; i++) {
+    cumulative += weights[i] || 0.05
+    if (rand <= cumulative) { primaryIdx = i; break }
+  }
 
-  // Pick waypoints: farthest high-quality listing in primary direction, then secondary
-  const primaryWp = primary.sort((a, b) => {
+  const primaryQuadrant = scoredQuadrants[primaryIdx]
+  const secondaryIdx = primaryIdx === 0 && scoredQuadrants.length > 1 ? 1
+    : primaryIdx > 0 && scoredQuadrants.length > 1 ? 0 : primaryIdx
+  const secondaryQuadrant = scoredQuadrants[secondaryIdx]
+
+  // Pick waypoints: randomize within the top candidates (not always the same one)
+  const sortByDist = (arr) => arr.sort((a, b) => {
     const distA = haversineKm(startCoords.lat, startCoords.lng, a.lat, a.lng)
     const distB = haversineKm(startCoords.lat, startCoords.lng, b.lat, b.lng)
     return distB - distA
-  })[Math.min(2, primary.length - 1)] // 3rd farthest for a good middle distance
+  })
 
-  const secondaryWp = secondary.sort((a, b) => {
-    const distA = haversineKm(startCoords.lat, startCoords.lng, a.lat, a.lng)
-    const distB = haversineKm(startCoords.lat, startCoords.lng, b.lat, b.lng)
-    return distB - distA
-  })[Math.min(1, secondary.length - 1)]
+  const primarySorted = sortByDist([...primaryQuadrant.listings])
+  const pickIdx = Math.floor(Math.random() * Math.min(4, primarySorted.length))
+  const primaryWp = primarySorted[Math.max(1, pickIdx)] // Never the absolute farthest (could be isolated)
+
+  const secondarySorted = sortByDist([...secondaryQuadrant.listings])
+  const secPickIdx = Math.floor(Math.random() * Math.min(3, secondarySorted.length))
+  const secondaryWp = secondarySorted[Math.max(1, secPickIdx)]
+
+  // Compute compass bearing for direction reveal animation
+  const bearing = Math.atan2(
+    primaryWp.lng - startCoords.lng,
+    primaryWp.lat - startCoords.lat
+  ) * (180 / Math.PI)
+
+  // Human-readable direction
+  const DIRECTION_NAMES = {
+    NE: 'northeast', NW: 'northwest', SE: 'southeast', SW: 'southwest',
+  }
+  const DIRECTION_FLAVOURS = {
+    NE: ['Heading northeast', 'Northeast — into the ranges', 'Pointing northeast'],
+    NW: ['Heading northwest', 'Northwest — inland', 'Pointing northwest'],
+    SE: ['Heading southeast', 'Southeast — toward the coast', 'Pointing southeast'],
+    SW: ['Heading southwest', 'Southwest — into open country', 'Pointing southwest'],
+  }
+  const dirFlavours = DIRECTION_FLAVOURS[primaryQuadrant.dir] || [`Heading ${DIRECTION_NAMES[primaryQuadrant.dir] || 'out'}`]
+  const directionLabel = dirFlavours[Math.floor(Math.random() * dirFlavours.length)]
 
   return {
     waypoints: [
@@ -1204,6 +1277,12 @@ async function generateSurpriseLoop(startCoords, tripConfig, preferences, detour
       { lat: secondaryWp.lat, lng: secondaryWp.lng },
     ],
     listings,
+    direction: {
+      bearing: Math.round(bearing),
+      quadrant: primaryQuadrant.dir,
+      label: directionLabel,
+      name: DIRECTION_NAMES[primaryQuadrant.dir] || 'out',
+    },
   }
 }
 

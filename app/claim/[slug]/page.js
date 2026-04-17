@@ -129,7 +129,19 @@ export default async function ClaimPage({ params }) {
         </div>
 
         {/* Claim form (client component) */}
-        {listing.is_claimed ? (
+        {listing.vertical === 'field' ? (
+          <div
+            className="text-center py-8 px-5 rounded-lg"
+            style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}
+          >
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: '15px', fontWeight: 400, color: 'var(--color-ink)', marginBottom: '4px' }}>
+              This listing cannot be claimed.
+            </p>
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', fontWeight: 300, color: 'var(--color-muted)' }}>
+              Field Atlas features natural landmarks and public spaces that aren&apos;t operated by a single venue.
+            </p>
+          </div>
+        ) : listing.is_claimed ? (
           <div
             className="text-center py-8 px-5 rounded-lg"
             style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}

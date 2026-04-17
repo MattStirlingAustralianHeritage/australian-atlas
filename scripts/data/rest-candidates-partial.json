@@ -1,0 +1,2990 @@
+[
+  {
+    "name": "The Franklin Boutique Hotel",
+    "website": "https://thefranklinhotel.com.au/",
+    "description": "Intimate 7-room boutique hotel on Franklin Street with a black colour palette, salvaged vintage elements, and one of Adelaide's best craft beer venues. Independently operated by Leigh and Luke.",
+    "category": "boutique_hotel",
+    "suburb": "Adelaide CBD",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Mount Lofty House",
+    "website": "https://www.mtloftyhouse.com.au/",
+    "description": "Heritage boutique hotel built in 1852, independently owned by South Australian hotelier David Horbelt, set on 22 acres of native gardens atop Adelaide's highest summit with Hardy's Verandah Restaurant.",
+    "category": "heritage_stay",
+    "suburb": "Crafers",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Sequoia Lodge",
+    "website": "https://www.sequoialodge.com.au/",
+    "description": "Adults-only luxury lodge with 14 suites on 30 acres blending into Adelaide Hills Botanic Gardens, featuring thermal hot pools, eco-certification, and 32 complimentary perks including breakfast.",
+    "category": "eco_lodge",
+    "suburb": "Crafers",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Thorngrove Manor",
+    "website": "https://thorngrove.com.au/",
+    "description": "Fiercely independent artistic haven awarded 2 Michelin keys, offering absolute privacy and exclusivity with exceptional personalized service in South Australia's oldest wine-producing region.",
+    "category": "unique_stay",
+    "suburb": "Stirling",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "North Adelaide Heritage Group",
+    "website": "https://www.adelaideheritage.com/",
+    "description": "Proudly South Australian owned collection of 15 unique heritage self-contained luxury properties including manors, cottages, and spa suites in Adelaide's most prestigious precinct, established 1988.",
+    "category": "heritage_stay",
+    "suburb": "North Adelaide",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Fire Station Inn",
+    "website": "https://www.adelaideheritage.com/fire-station-inn",
+    "description": "Luxurious converted historic fire station with three distinctive suites including the famous Fire Engine Suite featuring an actual fire truck, king-size spa baths, and fireman-themed decor.",
+    "category": "unique_stay",
+    "suburb": "North Adelaide",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Buxton Manor",
+    "website": "https://www.adelaideheritage.com/buxton-manor",
+    "description": "State Heritage Listed 1908 Arts and Crafts manor house with 4 spacious apartments on half an acre of English gardens, individually decorated with bespoke antiques and polished Baltic floors.",
+    "category": "heritage_stay",
+    "suburb": "North Adelaide",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Majestic Roof Garden Hotel",
+    "website": "https://www.majesticroofgardenhotel.com.au/",
+    "description": "Flagship 4.5-star property of the South Australian family-owned Majestic Hotels group (founded by John Culshaw in 1986), featuring a rooftop garden terrace in the Adelaide CBD.",
+    "category": "boutique_hotel",
+    "suburb": "Adelaide CBD",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Majestic Minima Hotel",
+    "website": "https://www.majesticminimahotel.com.au/",
+    "description": "Trendsetting boutique with 46 compact studio art rooms, each uniquely painted by local South Australian artists, featuring king beds and contemporary ensuites in North Adelaide.",
+    "category": "design_hotel",
+    "suburb": "North Adelaide",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Majestic Old Lion Apartments",
+    "website": "https://www.majesticoldlionapartments.com.au/",
+    "description": "66 fully furnished apartments nestled amongst beautifully landscaped gardens in cosmopolitan North Adelaide, part of the SA family-owned Majestic Hotels group.",
+    "category": "boutique_hotel",
+    "suburb": "North Adelaide",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Majestic Tynte Street Apartments",
+    "website": "https://www.majestichotels.com.au/",
+    "description": "Fully self-contained studio apartments in cosmopolitan North Adelaide with free unlimited Wi-Fi, part of the proudly South Australian family-owned Majestic Hotels group.",
+    "category": "boutique_hotel",
+    "suburb": "North Adelaide",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Majestic M Suites",
+    "website": "https://www.majestichotels.com.au/",
+    "description": "Spacious aparthotel rooms with fully-equipped kitchens and an on-site art gallery on Tynte Street, part of the SA-owned Majestic Hotels collection.",
+    "category": "boutique_hotel",
+    "suburb": "North Adelaide",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "NABSA - North Adelaide Boutique Stays Accommodation",
+    "website": "https://nabsa.com.au/",
+    "description": "Modern boutique motel offering 4-star comfort in the heart of historic North Adelaide, minutes from Adelaide Oval and the CBD with wheelchair-friendly facilities.",
+    "category": "independent_motel",
+    "suburb": "North Adelaide",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Greenways Apartments",
+    "website": "https://greenwaysapartments.com.au/",
+    "description": "Serviced apartments in an iconic 1930s heritage building in North Adelaide, managed by South Australian-owned M&G Hotel Group with free WiFi and parking.",
+    "category": "boutique_hotel",
+    "suburb": "North Adelaide",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Princes Lodge Motel",
+    "website": "https://www.princeslodge.com.au/",
+    "description": "Charming century-old colonial-style motel with classic interiors and arch staircase in the centre of North Adelaide, offering complimentary breakfast.",
+    "category": "independent_motel",
+    "suburb": "North Adelaide",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "The George Glenelg",
+    "website": "https://www.georgeglenelg.com.au/",
+    "description": "Glenelg's newest boutique hotel by the SA family-owned Taplin Group (est. 1932), steps from the beach with Soda Rooftop -- Glenelg's first true rooftop destination offering sweeping coastal views.",
+    "category": "boutique_hotel",
+    "suburb": "Glenelg",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Largs Pier Hotel",
+    "website": "https://largspierhotel.com.au/",
+    "description": "Heritage-listed beachfront landmark established 1882, offering 38 air-conditioned rooms including sea-view suites with spa baths and a self-contained beachside apartment on the Lefevre Peninsula.",
+    "category": "heritage_stay",
+    "suburb": "Largs Bay",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Durham Serviced Apartments",
+    "website": "https://www.durhamservicedapartments.com.au/",
+    "description": "56 premium studio apartments blending comfort with cutting-edge design in beachside Glenelg, proudly South Australian owned and operated by Legacy Hotels.",
+    "category": "boutique_hotel",
+    "suburb": "Glenelg",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Seawall Apartments",
+    "website": "https://seawallapartments.theadelaidehotels.com/en/",
+    "description": "Award-winning 4-star aparthotel with 19 rooms offering sea views, just 700m from The Beachouse in Glenelg.",
+    "category": "boutique_hotel",
+    "suburb": "Glenelg",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Marion Hotel",
+    "website": "https://www.marionhotel.com.au/",
+    "description": "Named SA's best hotel in 2020, offering 62 industrial-chic guest rooms with custom king beds, Yoder smoked dishes in the restaurant, and a recently renovated bar and dining complex.",
+    "category": "boutique_hotel",
+    "suburb": "Mitchell Park",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "The Stirling Hotel",
+    "website": "https://www.stirlinghotel.com.au/",
+    "description": "Hidden gem in central Stirling with five elegant white-on-white guest rooms above a buzzy bistro and wine bar, featuring crackling fireplaces and freestanding bathtubs.",
+    "category": "boutique_hotel",
+    "suburb": "Stirling",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "The Crafers Hotel",
+    "website": "https://www.thecrafershotel.com.au/",
+    "description": "Restored 1839 heritage landmark with seven elegant upstairs rooms featuring plush bedding and modern bathrooms, some with freestanding bathtubs, plus a gastro-pub showcasing local produce.",
+    "category": "heritage_stay",
+    "suburb": "Crafers",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Sticky Rice Villas",
+    "website": "https://stickyricevillas.com.au/",
+    "description": "Three uniquely styled luxury villas (Bali, Yoko, Zen) with 6-star energy rating, on-site Sticky Rice Cooking School, underfloor heating and designer furnishings in Stirling.",
+    "category": "design_hotel",
+    "suburb": "Stirling",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Bishops Adelaide Hills",
+    "website": "https://www.bishopsadelaidehills.com.au",
+    "description": "300-acre heritage property owned by the Bishop family since 1871, a working cherry orchard offering two restored heritage cottages -- Henry's and The Waterfalls -- 30 minutes from Adelaide.",
+    "category": "heritage_stay",
+    "suburb": "Basket Range",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "CABN Hahndorf",
+    "website": "https://cabn.life/location/cabn-hahndorf/",
+    "description": "Sustainable off-grid accommodation featuring eight minimalist cabins and one CABN X with in-cabin sauna and outdoor bath, offering a nature escape minutes from historic Hahndorf.",
+    "category": "eco_lodge",
+    "suburb": "Hahndorf",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Hahndorf House Bed & Breakfast",
+    "website": "https://hahndorfhouse.com.au/",
+    "description": "Three fully self-contained private spa cottages with fireplaces, gourmet breakfast provisions, complimentary sparkling and chocolates on arrival, plus Senses Day Spa on site.",
+    "category": "bed_and_breakfast",
+    "suburb": "Hahndorf",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "The Haus Studios",
+    "website": "https://haushahndorf.com.au/accommodation/",
+    "description": "Self-contained studio apartments on Hahndorf's Main Street blending contemporary design with homely comfort, suitable for couples, families, and corporate travellers.",
+    "category": "boutique_hotel",
+    "suburb": "Hahndorf",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "The Stables Boutique Motel",
+    "website": "https://www.facebook.com/stablesmotelhahndorf.com.au/",
+    "description": "Boutique motel in Hahndorf with free WiFi and parking, known for helpful staff and comfortable rooms in the heart of Australia's oldest surviving German settlement.",
+    "category": "independent_motel",
+    "suburb": "Hahndorf",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Amble at Hahndorf",
+    "website": "https://www.booking.com/hotel/au/amble-at-hahndorf.html",
+    "description": "Bed and breakfast in Hahndorf's historical district offering free WiFi and parking in a charming heritage setting.",
+    "category": "bed_and_breakfast",
+    "suburb": "Hahndorf",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Aldgate Valley Bed and Breakfast",
+    "website": "https://aldgatevalleybb.com.au/",
+    "description": "Self-contained country-styled cottage for couples overlooking Aldgate Creek with gourmet cooked breakfast on a private deck, surrounded by majestic gardens and abundant wildlife.",
+    "category": "bed_and_breakfast",
+    "suburb": "Mylor",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Earthship Adelaide Hills",
+    "website": "https://glamadelaide.com.au/top-8-eco-friendly-sustainable-getaways/",
+    "description": "Australia's first council-approved Earthship eco B&B made from recycled car tyres filled with earth, powered by solar panels and batteries with rainwater harvesting.",
+    "category": "eco_lodge",
+    "suburb": "Adelaide Hills",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "The House on Soul Hill",
+    "website": "https://thehouseonsoulhill.com.au/",
+    "description": "Custom-designed luxury 30sqm cabin for two nestled amongst gums with expansive views across the hills, approximately 2km from Lobethal township.",
+    "category": "unique_stay",
+    "suburb": "Lobethal",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "1965 Lobethal Bed and Breakfast",
+    "website": "https://www.1965lobethalbnb.com.au/",
+    "description": "Cosy mid-century themed accommodation with 1960s mod-era decor and contemporary facilities, perfect for one or two couples in the Adelaide Hills.",
+    "category": "bed_and_breakfast",
+    "suburb": "Lobethal",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Old Brickworks Lobethal",
+    "website": "https://www.airbnb.com/lobethal-australia/stays",
+    "description": "Eclectic and unique accommodation in a converted former mechanic shed alongside heritage brick kiln ruins, offering 2 beds with kitchenette just 2 minutes from Lobethal centre.",
+    "category": "unique_stay",
+    "suburb": "Lobethal",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Jura House",
+    "website": "http://www.jurahouse.com.au/",
+    "description": "Premium homestead sleeping 10 on 65 stunning acres overlooking valleys across Woodside and Lobethal with views to the Ranges, offering intimate luxury for couples or groups.",
+    "category": "heritage_stay",
+    "suburb": "Woodside",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Barristers Block Vigneron Villa",
+    "website": "https://barristersblock.com.au/pages/accommodation",
+    "description": "Fully renovated house adjacent to Barristers Block Cellar Door and Vineyard in Woodside, surrounded by vineyards, landscaped gardens, and farm life.",
+    "category": "unique_stay",
+    "suburb": "Woodside",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Camellia Cottage",
+    "website": "https://southaustralia.com/products/adelaide-hills/accommodation/adelaide-hills-camellia-cottage-with-wifi",
+    "description": "Tranquil one-bedroom retreat in leafy Crafers perched above a historic red gum cottage, blending rustic charm with modern comfort minutes from Stirling Village.",
+    "category": "heritage_stay",
+    "suburb": "Crafers",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Crafers Cottages",
+    "website": "https://www.tripadvisor.com/Hotel_Review-g1049626-d4536797-Reviews-Crafers_Cottages",
+    "description": "Self-contained brick cottages including Cherrytree Cottage set in extensive English gardens with mature eucalypts, walking distance to Stirling shopping centre.",
+    "category": "heritage_stay",
+    "suburb": "Crafers",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Studio One Crafers",
+    "website": "https://www.studio1accommodation.com/",
+    "description": "Beautifully appointed fully self-contained holiday accommodation nestled in the heart of one of the oldest towns in the Adelaide Hills.",
+    "category": "boutique_hotel",
+    "suburb": "Crafers",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Adelaide Hills House",
+    "website": "https://adelaidehillshouse.com.au/",
+    "description": "Luxury private retreat in the Adelaide Hills offering a premium accommodation experience as a curated escape.",
+    "category": "unique_stay",
+    "suburb": "Adelaide Hills",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Naiko Retreat",
+    "website": "https://naikoretreat.com.au/",
+    "description": "Eco-accredited off-grid retreat on a 2000-acre farm perched on cliffs overlooking a private beach, designed by Max Pritchard with solar power, chef-prepared dining, and a rare Futuro pod spa.",
+    "category": "eco_lodge",
+    "suburb": "Deep Creek",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "The Louise",
+    "website": "https://thelouise.com.au/",
+    "description": "Luxury lodge with 15 villa-style suites opening onto private courtyards with vineyard views, birthplace of Luxury Lodges of Australia, home to acclaimed Appellation restaurant.",
+    "category": "boutique_hotel",
+    "suburb": "Marananga",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Kingsford The Barossa",
+    "website": "https://kingsfordbarossa.com.au/",
+    "description": "Award-winning heritage-listed luxury retreat on 225 acres with 13 rooms and suites, a 25-metre wine tunnel, Peppertree Pool & Bar, and Orleana Restaurant.",
+    "category": "heritage_stay",
+    "suburb": "Kingsford",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Chateau Tanunda Guesthouses",
+    "website": "https://chateautanunda.com/accommodation/",
+    "description": "Exclusive heritage guesthouses nestled within the picturesque Chateau Tanunda wine estate, offering an exquisite retreat in the heart of the Barossa.",
+    "category": "heritage_stay",
+    "suburb": "Tanunda",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Tanunda House",
+    "website": "https://www.tanundahouse.com/",
+    "description": "Private exclusive-use 1910 sandstone luxury property on an acre of immaculate gardens with five king bedrooms, swimming pool, and tennis court.",
+    "category": "heritage_stay",
+    "suburb": "Tanunda",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Stonewell Cottages & Vineyards",
+    "website": "https://stonewellcottages.com.au/",
+    "description": "Established 1987 as one of the Barossa's first purpose-built vineyard accommodations, offering Haven Spa Suites and cottages overlooking a lake with generous Barossa produce breakfast.",
+    "category": "bed_and_breakfast",
+    "suburb": "Tanunda",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Seppeltsfield Vineyard Cottage & Retreat",
+    "website": "https://www.seppeltsfieldvineyardcottage.com.au/",
+    "description": "Luxury three-bedroom heritage property first settled in 1852, nestled in Seppeltsfield surrounded by beautiful vineyards and tranquil gardens.",
+    "category": "heritage_stay",
+    "suburb": "Seppeltsfield",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "The Villas Barossa",
+    "website": "https://www.thevillasbarossa.com.au/",
+    "description": "Two environmentally-sensitive vineyard villas in Marananga on Seppeltsfield Road with CULTIVER linen, soak tubs, and a heritage fruit orchard amid 150-year-old sugar gums.",
+    "category": "eco_lodge",
+    "suburb": "Marananga",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Marananga Cottages",
+    "website": "https://www.maranangacottages.com.au/",
+    "description": "Two beautiful bluestone self-contained studio cottages, Kate's and Oscar's, offering continental breakfast and ideal for couples in the heart of Marananga village.",
+    "category": "bed_and_breakfast",
+    "suburb": "Marananga",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Rogasch Cottage",
+    "website": "https://rogaschcottage.com.au/",
+    "description": "Two-bedroom fully-equipped house on a small vineyard with private plunge pool, driving range, micro-winery cellar, and lo-fi charm with experiences from fireside suppers to grape picking.",
+    "category": "unique_stay",
+    "suburb": "Barossa Valley",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Barossa Guesthouse",
+    "website": "https://www.barossaguesthousestay.com/",
+    "description": "Two heritage buildings in the heart of Tanunda offering four bedrooms and elegant living spaces for exploring the world-class wine region.",
+    "category": "guesthouse",
+    "suburb": "Tanunda",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Devitt on French B&B",
+    "website": "https://www.barossa.com/visit/accommodation/",
+    "description": "Built in 1860, offering old-world charms with modern amenities among the oldest houses in Angaston, walking distance to coffee shops, wine tasting rooms, and restaurants.",
+    "category": "bed_and_breakfast",
+    "suburb": "Angaston",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Angaston Mews",
+    "website": "https://www.angastonmews.com.au/",
+    "description": "Four self-contained two-bedroom apartments with all amenities including fully equipped kitchens, ideal for families or couples in the historic town of Angaston.",
+    "category": "boutique_hotel",
+    "suburb": "Angaston",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Marble Lodge",
+    "website": "https://www.tripadvisor.com/Hotel_Review-g495008-d456775-Reviews-Marble_Lodge",
+    "description": "Built of local marble 100m from the street, across gardens from a State and Federal Heritage-Listed homestead in Angaston, ensuring total privacy for B&B guests.",
+    "category": "bed_and_breakfast",
+    "suburb": "Angaston",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Abbotsford Country House",
+    "website": "https://www.agfg.com.au/accommodation/abbotsford-country-house-barossa-valley-24358",
+    "description": "Georgian-style farmhouse on 50 acres near Lyndoch with 8 individually decorated suites, wide verandas, and superb country breakfast using local produce.",
+    "category": "guesthouse",
+    "suburb": "Lyndoch",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Barossa Country Cottages",
+    "website": "https://barossacountrycottages.com/",
+    "description": "Two fully self-contained cottages, Geranium and Jacaranda, in an Australian bush garden setting in Lyndoch accommodating up to 10 guests with equipped kitchens.",
+    "category": "heritage_stay",
+    "suburb": "Lyndoch",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Barossa Pavilions & Glasshouse",
+    "website": "https://southaustralia.com/products/barossa/accommodation/barossa-pavilions-glasshouse",
+    "description": "Six independent self-contained villas alongside the iconic multi-award-winning Barossa Glasshouse as featured on Grand Designs Australia.",
+    "category": "design_hotel",
+    "suburb": "Lyndoch",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Barossa Shiraz Estate",
+    "website": "https://www.barossashirazestate.com.au/",
+    "description": "Six luxurious cottages accommodating two to six guests each in the Southern Barossa, offering vineyard views and wine-country immersion.",
+    "category": "boutique_hotel",
+    "suburb": "Lyndoch",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "The Dairyman Barossa",
+    "website": "https://southaustralia.com/products/barossa/accommodation/the-dairyman-barossa",
+    "description": "Exclusive self-contained on-farm accommodation in two buildings set in the foothills of the Barossa Ranges between Lyndoch and Williamstown.",
+    "category": "unique_stay",
+    "suburb": "Williamstown",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Cambourne Boutique Accommodation",
+    "website": "https://sitchu.com.au/accommodation/luxury-accommodation-barossa-valley",
+    "description": "Luxury self-contained cottage on 25 acres of premium shiraz vineyard with 3 bedrooms with ensuites and a beautifully appointed kitchen in the Barossa.",
+    "category": "boutique_hotel",
+    "suburb": "Barossa Valley",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Benbullen Retreat",
+    "website": "https://bgrsa.com.au/",
+    "description": "Five-bedroom bluestone homestead on 10 acres of immaculate parkland, operated by Barossa Grand Retreats, with Hamptons-style kitchen and newly completed pavilion suites.",
+    "category": "heritage_stay",
+    "suburb": "Barossa Valley",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "The Vineyard Retreat McLaren Vale",
+    "website": "https://thevineyardmv.com.au/",
+    "description": "Fifteen-acre working vineyard offering six boutique accommodation choices with breathtaking views including the d'Arenberg Cube and Gulf St Vincent, 50 minutes from Adelaide.",
+    "category": "boutique_hotel",
+    "suburb": "McLaren Flat",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Oxenberry Farm Cottages",
+    "website": "https://oxenberry.com/",
+    "description": "Award-winning winery accommodation on the site of McLaren Vale's 1839 first settlers, with luxury self-contained cottages featuring rolling vineyard views, open fireplaces, and claw-footed bathtubs on the Shiraz Trail.",
+    "category": "heritage_stay",
+    "suburb": "McLaren Vale",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Karawatha Cottages",
+    "website": "https://www.karawathacottages.com.au",
+    "description": "Top-ranked McLaren Vale accommodation on TripAdvisor, one of Australia's top 25 B&Bs for 5 consecutive years, nestled on a hillside in Blewitt Springs with stunning views.",
+    "category": "bed_and_breakfast",
+    "suburb": "Blewitt Springs",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Hotel California Road at Inkwell Wines",
+    "website": "https://www.inkwellwines.com/hotel",
+    "description": "Adults-only eco-retreat with three suites crafted from upcycled wine shipping containers floating above certified organic and regenerative vines with soaking tubs and vineyard views.",
+    "category": "eco_lodge",
+    "suburb": "McLaren Vale",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Serafino McLaren Vale",
+    "website": "https://serafinowines.com.au/accommodation/",
+    "description": "Family-owned winery hotel with 30 self-contained rooms set among impressive vines and 200-year-old gum trees, with Chef's Hat restaurant and cellar door on grounds.",
+    "category": "boutique_hotel",
+    "suburb": "McLaren Vale",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Shadow Creek",
+    "website": "https://shadowcreek.com.au/",
+    "description": "Private one-bedroom luxurious hideaway overlooking a McLaren Vale vineyard with stunning views from every room, garden, and terrace.",
+    "category": "unique_stay",
+    "suburb": "McLaren Vale",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "The Old Chaff Mill",
+    "website": "https://mclarenvale.info/stay",
+    "description": "Restored 19th-century mill in McLaren Vale with two totally private luxury suites, sink-into tubs, modern kitchens, and views of the organic vineyards.",
+    "category": "heritage_stay",
+    "suburb": "McLaren Vale",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Beresford Estate",
+    "website": "https://beresfordestate.com.au/accommodation",
+    "description": "70-acre vineyard in Blewitt Springs offering 15 modern accommodations from studios to Grand Reserve Suites with private plunge pools, including the remodelled 19th-century Grenache Villa.",
+    "category": "boutique_hotel",
+    "suburb": "Blewitt Springs",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Divine Domes McLaren Vale",
+    "website": "https://divinedomesmv.com.au/",
+    "description": "South Australia's first luxury geodesic domes set in the heart of McLaren Vale with king beds, private ensuites, fireplaces, and claw-foot baths.",
+    "category": "unique_stay",
+    "suburb": "McLaren Vale",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Altamira Retreat",
+    "website": "https://www.altamiraretreat.com/",
+    "description": "Luxury retreat tucked amongst McLaren Vale's rolling hills and Fleurieu coastline waters, featuring four bedrooms, chef's kitchen, and spacious entertaining areas for up to eight guests.",
+    "category": "boutique_hotel",
+    "suburb": "McLaren Vale",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Rare Earth Retreats",
+    "website": "https://www.rareearthretreats.com.au/",
+    "description": "Three immersive off-grid retreat villas (Stone, Slate, Clay) celebrating McLaren Vale's terroir with outdoor baths, indoor and outdoor fireplaces, and concierge service.",
+    "category": "eco_lodge",
+    "suburb": "McLaren Vale",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "McLaren Eye",
+    "website": "https://mclareneye.com.au/",
+    "description": "Architectural masterpiece hovering on a hillside in Kangarilla on 50 acres, designed for couples with glass walls providing uninterrupted views and a private helicopter pad.",
+    "category": "unique_stay",
+    "suburb": "Kangarilla",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Ivybrook Farm",
+    "website": "https://ivybrook.com.au/",
+    "description": "Small family winery and cellar door in rural McLaren Vale offering boutique wine tastings, platters, gourmet pizza, and cottage accommodation.",
+    "category": "bed_and_breakfast",
+    "suburb": "McLaren Vale",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Amanda's Cottage 1899",
+    "website": "https://amandascottage.com.au/",
+    "description": "Historic 1899 cottage in complete seclusion in the Kangarilla foothills, welcoming guests since 1995 with fully equipped kitchen, fireplace, and private patio.",
+    "category": "heritage_stay",
+    "suburb": "Kangarilla",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Bellevue Bed and Breakfast",
+    "website": "https://mclarenvale.info/stay",
+    "description": "McLaren Vale bed and breakfast offering cooked breakfast, free WiFi, TV, and air conditioning in each room.",
+    "category": "bed_and_breakfast",
+    "suburb": "McLaren Vale",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Vale 194",
+    "website": "https://vale194.com.au/",
+    "description": "Five Kanmantoo bluestone-fronted holiday homes ranked #1 specialty lodging in McLaren Vale, with polished concrete floors, floating steel staircases, and three bedrooms each.",
+    "category": "design_hotel",
+    "suburb": "McLaren Vale",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "McLaren Vale Motel & Apartments",
+    "website": "https://www.mclarenvalemotel.com.au/",
+    "description": "Family-owned and operated since 1981, offering Executive and Deluxe rooms plus studio and 2-bedroom apartments wrapped around by vineyards, 30 minutes from Adelaide CBD.",
+    "category": "independent_motel",
+    "suburb": "McLaren Vale",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "McLaren Vale Studio Apartments",
+    "website": "https://southaustralia.com/products/fleurieu-peninsula/accommodation/mclaren-vale-studio-apartments",
+    "description": "Highly rated (9.1 Excellent) studio apartments with kitchen, terrace/patio, and outdoor dining area in the heart of McLaren Vale wine country.",
+    "category": "boutique_hotel",
+    "suburb": "McLaren Vale",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "The Guest House at Chapel Hill Winery",
+    "website": "https://mclarenvale.info/stay",
+    "description": "Guest house set within the grounds of one of McLaren Vale's most celebrated wineries, offering vineyard immersion and wine-country lifestyle.",
+    "category": "guesthouse",
+    "suburb": "McLaren Vale",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Sellicks Chills Vineyard Retreats - The Treehouse",
+    "website": "https://www.sellickschills.com/",
+    "description": "Max Pritchard-designed two-storey luxury treehouse in an organic vineyard with unrestricted sea views, king bed, fireplace, and spa-jet bath on deck.",
+    "category": "unique_stay",
+    "suburb": "Sellicks Hill",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Sellicks Chills Vineyard Retreats - The Elephant Door",
+    "website": "https://www.sellickschills.com/",
+    "description": "Romantic BOHO space on a working organic vineyard with 4-poster bed, open fireplace, pool table, and round spa-jet bath for two overlooking vineyards and sea.",
+    "category": "unique_stay",
+    "suburb": "Sellicks Hill",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Mulberry Lodge Country Retreat",
+    "website": "https://www.mulberrylodgewillunga.com/",
+    "description": "Award-winning hosted luxury retreat in Willunga where owners Hazel and Nik host only one couple or group at a time on 2 acres with gourmet breakfast, complimentary E-Bikes, and vineyard views.",
+    "category": "bed_and_breakfast",
+    "suburb": "Willunga",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "McCaffrey Cottage",
+    "website": "http://www.mccaffreycottage.com.au/",
+    "description": "Historic cottage B&B in a beautiful country garden in Willunga, walking distance to the famous Willunga Farmers Market and golf course.",
+    "category": "bed_and_breakfast",
+    "suburb": "Willunga",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "The Farm Willunga",
+    "website": "https://www.mclarenvaleandfleurieucoast.com.au/the-farm-willunga",
+    "description": "Luxurious self-contained accommodation overlooking a certified organic biodynamic olive grove and vineyard with sea views, licensed cafe/restaurant, and two high-end B&B apartments.",
+    "category": "bed_and_breakfast",
+    "suburb": "Willunga",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Ukiyo House",
+    "website": "https://www.ukiyo.house/",
+    "description": "Japanese and Scandinavian-inspired 100sqm designer home on a hideaway hill in Port Willunga with shou sugi ban timber, gin bar, Japanese ceramics, and French linen king bed.",
+    "category": "design_hotel",
+    "suburb": "Port Willunga",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Eagle Foundry Bed & Breakfast",
+    "website": "https://www.wotif.com/Adelaide-Hotels-Eagle-Foundry-Bed-Breakfast.h9624860.Hotel-Information",
+    "description": "Warm heritage B&B in Gawler offering full breakfast, free WiFi, sunny terrace, garden views, and billiards in a converted foundry building.",
+    "category": "bed_and_breakfast",
+    "suburb": "Gawler",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "The Chancellor on Currie",
+    "website": "https://www.grandchancellorhotels.com/the-chancellor-on-currie",
+    "description": "64-room boutique hotel in a near century-old Neo-Georgian building on the corner of Gilbert Place, with heated indoor pool, spa, gym, and personalised service.",
+    "category": "boutique_hotel",
+    "suburb": "Adelaide CBD",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "MacStays",
+    "website": "https://macstays.com/",
+    "description": "Modern quality accommodation in a quiet Woodside location within walking distance of hotels, bakeries, and amenities in the Adelaide Hills.",
+    "category": "boutique_hotel",
+    "suburb": "Woodside",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Aldgate Creek Cottage",
+    "website": "https://aldgatecreekbnb.com/",
+    "description": "Relaxing cottage retreat in the heart of the Adelaide Hills at Aldgate, perfect for unwinding and exploring the region's wineries and villages.",
+    "category": "bed_and_breakfast",
+    "suburb": "Aldgate",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "McLaren Vale Getaways",
+    "website": "https://mclarenvale.info/stay",
+    "description": "Holiday rental accommodation in the McLaren Vale wine region offering self-contained stays surrounded by world-class wineries.",
+    "category": "unique_stay",
+    "suburb": "McLaren Vale",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Barossa Grand Retreats - Gawler Park Estate",
+    "website": "https://bgrsa.com.au/",
+    "description": "Luxury residential-style accommodation in the Barossa Valley alongside their Benbullen property, offering curated wellness and corporate retreat experiences.",
+    "category": "boutique_hotel",
+    "suburb": "Barossa Valley",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Queen's Cottage Barossa Valley",
+    "website": "https://www.booking.com/hotel/au/queen-s-cottage-barossa-valley.html",
+    "description": "Heritage cottage accommodation in Williamstown, 39km from Adelaide, featuring air-conditioned rooms and free private parking.",
+    "category": "heritage_stay",
+    "suburb": "Williamstown",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Razorback Road Retreat",
+    "website": "https://lifeunhurried.com/best-slow-stays-south-australia/",
+    "description": "Three self-contained cabins in the Kangarilla countryside with full kitchens accommodating up to four guests each, perfect for slow-paced wine country escapes.",
+    "category": "unique_stay",
+    "suburb": "Kangarilla",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Monarto Safari Resort",
+    "website": "https://www.theurbanlist.com/adelaide/a-list/Best-Hotels-In-Adelaide",
+    "description": "Safari-style accommodation with 78 rooms overlooking the Wild Africa precinct at Monarto Safari Park, about 60 minutes from Adelaide.",
+    "category": "unique_stay",
+    "suburb": "Monarto",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "The Nook",
+    "website": "https://www.airbnb.com/lobethal-australia/stays",
+    "description": "Cozy modern cottage studio retreat in the Adelaide Hills offering a seamless blend of contemporary living and rustic charm amidst nature.",
+    "category": "unique_stay",
+    "suburb": "Adelaide Hills",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Adelaide Meridien Hotel & Apartments",
+    "website": "https://www.adelaidemeridien.com.au/",
+    "description": "Practical comfortable rooms and spacious apartments with outdoor swimming pool and hot tub in North Adelaide, offering great value for city breaks and family stays.",
+    "category": "independent_motel",
+    "suburb": "North Adelaide",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Peaceful Eco Retreat",
+    "website": "https://australian.com/accommodation/south-australia/echunga/peaceful-eco-retreat-in-the-adelaide-hills-2/",
+    "description": "Eco-friendly retreat in Echunga in the Adelaide Hills offering a sustainable getaway surrounded by native bushland.",
+    "category": "eco_lodge",
+    "suburb": "Echunga",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "The Lane Vineyard Accommodation",
+    "website": "https://www.thelane.com.au/accommodation-book-your-adelaide-hills-adventure/",
+    "description": "Accommodation set within the celebrated Lane Vineyard in the Adelaide Hills, offering immersive wine-country experiences.",
+    "category": "unique_stay",
+    "suburb": "Adelaide Hills",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Ramsgate Hotel by Nightcap Social",
+    "website": "https://www.tripadvisor.com.au/Hotels-g3666121-Henley_Beach",
+    "description": "3-star LGBTQIA-friendly hotel near Henley Beach with stylish accommodations and vibrant communal spaces near Adelaide's nearest beach to the CBD.",
+    "category": "boutique_hotel",
+    "suburb": "Henley Beach",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "Glenelg Beachside Apartments",
+    "website": "https://glenelg-beachside-apartments.south-australia-hotels.com/en/",
+    "description": "4-star apartments only 150 metres from Glenelg Pier and right near sandy beach, offering self-contained beachside living.",
+    "category": "boutique_hotel",
+    "suburb": "Glenelg",
+    "city": "Adelaide",
+    "region": "Adelaide"
+  },
+  {
+    "name": "COMO The Treasury",
+    "website": "https://www.comohotels.com/australia/como-the-treasury",
+    "description": "Luxury 48-room hotel within Perth's restored 19th-century State Buildings designed by Kerry Hill, blending heritage architecture with minimalist contemporary interiors and featuring the acclaimed Wildflower restaurant.",
+    "category": "boutique_hotel",
+    "suburb": "Perth CBD",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "The Melbourne Hotel",
+    "website": "https://www.melbournehotel.com.au/",
+    "description": "Heritage-listed hotel established in 1897 during the gold rush era, offering 73 rooms that blend original features like exposed stone walls with contemporary design across five food and drink venues.",
+    "category": "heritage_stay",
+    "suburb": "Perth CBD",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Quay Perth",
+    "website": "https://louistcollection.com/en/quay-perth.html",
+    "description": "Independent 80-room boutique hotel by Singapore's Louis T Collection overlooking Elizabeth Quay, with interiors inspired by WA's landscape using Victorian ash wood and a rooftop restaurant called HQ.",
+    "category": "boutique_hotel",
+    "suburb": "Perth CBD",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "European Hotel (formerly Miss Maud Swedish Hotel)",
+    "website": "https://www.booking.com/hotel/au/miss-maud-swedish.html",
+    "description": "Charming 52-room hotel in Perth's heart established in 1973, offering a taste of Sweden in Australia with its famous buffet breakfast and central location on Murray Street.",
+    "category": "boutique_hotel",
+    "suburb": "Perth CBD",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Kings Park Motel",
+    "website": "https://kingsparkmotel.com.au/",
+    "description": "Independently owned motel nestled between Kings Park bushland and botanical gardens, offering convenient access to Perth's hospitals, UWA, and the Subiaco precinct.",
+    "category": "independent_motel",
+    "suburb": "Shenton Park",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Hostel G Perth",
+    "website": "https://www.destinationperth.com.au/listing/hostel-g-perth/373/",
+    "description": "Modern design-led hostel with video game-inspired interiors, offering affordable dorms and private rooms with community activities in the heart of Northbridge.",
+    "category": "unique_stay",
+    "suburb": "Northbridge",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Garde Hotel",
+    "website": "https://gardehotel.com.au/",
+    "description": "83-room five-star boutique hotel by W1 Hospitality and Silverleaf Investments in the former Fremantle Police Headquarters, featuring a wellness centre and Japanese-Korean inspired restaurant Anglesea.",
+    "category": "boutique_hotel",
+    "suburb": "Fremantle",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Warders Hotel",
+    "website": "https://www.wardershotel.com.au/",
+    "description": "Intimate boutique hotel in restored 1851 limestone warders' cottages near Fremantle Prison, now absorbed into the Garde Hotel complex with heritage details and the Gimlet cocktail bar.",
+    "category": "heritage_stay",
+    "suburb": "Fremantle",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Hougoumont Hotel",
+    "website": "https://www.hougoumonthotel.com/",
+    "description": "Innovative boutique hotel constructed from repurposed shipping containers creating ship cabin-inspired rooms, with complimentary wine and cheese evenings and a prime Bannister Street location.",
+    "category": "design_hotel",
+    "suburb": "Fremantle",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "The National Hotel",
+    "website": "https://nationalhotelfremantle.com.au/",
+    "description": "Award-winning restored heritage pub with 12 individually styled luxury ensuite rooms, a spectacular rooftop bar, wrap-around verandas, and live music daily on High Street.",
+    "category": "heritage_stay",
+    "suburb": "Fremantle",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "The Local Hotel",
+    "website": "https://www.thelocalhotel.com.au/",
+    "description": "Refurbished pub with eight individually styled boutique rooms designed by local creatives above a ground-floor restaurant and bar on South Terrace near the beach.",
+    "category": "boutique_hotel",
+    "suburb": "South Fremantle",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "The Federal Boutique Hotel",
+    "website": "https://www.visitfremantle.com.au/hotel/federal-boutique-hotel",
+    "description": "Heritage hotel in the heart of Fremantle across from Town Hall, offering 18 elegant rooms with classic wooden furniture, communal self-catering facilities, and a furnished common balcony.",
+    "category": "heritage_stay",
+    "suburb": "Fremantle",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Owston Hotel",
+    "website": "https://www.owstonhotel.com/",
+    "description": "Intimate 11-room boutique retreat on heritage High Street by the team behind Vin Populi and Common Bakery, blending heritage restoration with locally curated interiors by Rezen Studio.",
+    "category": "boutique_hotel",
+    "suburb": "Fremantle",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "New Haus",
+    "website": "https://www.visitfremantle.com.au/hotel/new-haus",
+    "description": "Modern executive-style hotel in Fremantle's heritage-listed West End, recently refurbished with king beds, new lighting, and smart TVs throughout spacious rooms and suites.",
+    "category": "boutique_hotel",
+    "suburb": "Fremantle",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Port Mill Bed & Breakfast",
+    "website": "https://portmillbb.com.au/",
+    "description": "Luxury B&B in a restored 1862 flour mill housing four well-appointed suites with private balconies and views over Fremantle and the ocean marina, steps from the Cappuccino Strip.",
+    "category": "bed_and_breakfast",
+    "suburb": "Fremantle",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Fothergills of Fremantle",
+    "website": "https://www.fothergills.net.au/",
+    "description": "Four-star B&B across three grand State Heritage-listed 19th-century colonial houses on Monument Hill, filled with art from local and international artists, with breakfast in a sun-filled conservatory.",
+    "category": "bed_and_breakfast",
+    "suburb": "Fremantle",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Fremantle Bed and Breakfast",
+    "website": "https://www.westernaustralia.com/en/accommodation/fremantle-bed-and-breakfast/56b26934aeeeaaf773cfbc5f",
+    "description": "Heritage-listed accommodation with a spectacular Bavarian Castle-style exterior complete with tower, offering a quixotic and unique stay right in the heart of historic Fremantle.",
+    "category": "bed_and_breakfast",
+    "suburb": "Fremantle",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Terrace Central B&B Hotel",
+    "website": "https://www.facebook.com/terracecentralfreo/",
+    "description": "Boutique-style hotel at the cafe-quarter of South Terrace offering a mix of ensuite hotel rooms, studios, and self-contained apartments with daily continental breakfast.",
+    "category": "bed_and_breakfast",
+    "suburb": "Fremantle",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Fremantle Colonial Cottages",
+    "website": "https://au.hotels.com/ho626349/fremantle-colonial-cottages-perth-australia/",
+    "description": "Renovated 19th-century prison warder's cottages accommodating up to six people with gardens and full kitchens, offering a genuine heritage Fremantle experience.",
+    "category": "heritage_stay",
+    "suburb": "Fremantle",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Be. Fremantle",
+    "website": "https://www.befremantle.com.au",
+    "description": "Aparthotel offering spacious studio to three-bedroom apartments where every unit enjoys spectacular water views, the only Fremantle accommodation with guaranteed waterfront outlook.",
+    "category": "boutique_hotel",
+    "suburb": "Fremantle",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Tradewinds Hotel",
+    "website": "https://tradewindshotel.com.au/",
+    "description": "Victorian Georgian architecture hotel overlooking the Swan River with 83 refurbished rooms and suites, seasonal modern Australian cuisine, and decades of Fremantle hospitality tradition.",
+    "category": "boutique_hotel",
+    "suburb": "East Fremantle",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Norfolk Hotel",
+    "website": "https://www.facebook.com/norfolkfreo/",
+    "description": "Fremantle icon since 1887 with a magnificent limestone-walled alfresco courtyard, comfortable accommodation, and the best intimate live music venue in Freo.",
+    "category": "heritage_stay",
+    "suburb": "Fremantle",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Pier 21 Apartment Hotel",
+    "website": "https://www.pier21.com.au/",
+    "description": "Prendiville Group riverside apartment hotel in North Fremantle offering spacious self-contained apartments with Swan River views and easy access to Fremantle's attractions.",
+    "category": "boutique_hotel",
+    "suburb": "North Fremantle",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Cottesloe Beach Hotel",
+    "website": "https://www.prendiville.com.au/establishment/cottesloe-beach-hotel",
+    "description": "Prendiville Group beachside hotel 200 metres from Cottesloe Beach with three ocean-view restaurants, outdoor areas, and classic coastal Australian pub character.",
+    "category": "heritage_stay",
+    "suburb": "Cottesloe",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Ocean Beach Hotel",
+    "website": "https://www.obh.com.au/",
+    "description": "Western Australian landmark on Marine Parade intertwining coastal living with refined comfort, featuring boutique rooms with sea views, C Blu oceanfront restaurant, and the famous Sunday Session.",
+    "category": "heritage_stay",
+    "suburb": "Cottesloe",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "RoseMoore Bed & Breakfast",
+    "website": "https://rosemoore-bed-breakfast.hotelsperth.org/en/",
+    "description": "Independently run B&B in Mosman Park, a short drive from Cottesloe Beach and Fremantle, with highly rated breakfast service, free WiFi and private parking.",
+    "category": "bed_and_breakfast",
+    "suburb": "Mosman Park",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Sorrento Beach Bed & Breakfast",
+    "website": "https://www.sorrentobeachbb.com.au/",
+    "description": "Boutique B&B only 600 metres from Sorrento Beach offering spacious accommodation with free parking and WiFi, just 20 minutes from Perth city centre.",
+    "category": "bed_and_breakfast",
+    "suburb": "Sorrento",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Seashells Scarborough",
+    "website": "https://seashells.com.au/resorts/scarborough/resort-overview/",
+    "description": "Beachfront apartment resort overlooking Scarborough Beach with ocean-view rooms, private balconies, outdoor pool, and proximity to the revitalised Scarborough foreshore.",
+    "category": "boutique_hotel",
+    "suburb": "Scarborough",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Durham Lodge Bed & Breakfast",
+    "website": "https://www.durhamlodge.com/",
+    "description": "Boutique B&B in the heart of Victoria Park offering short and long stay accommodation for professionals and couples, with continental breakfast including fresh fruits and yoghurt.",
+    "category": "bed_and_breakfast",
+    "suburb": "Victoria Park",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Durack House Bed & Breakfast",
+    "website": "https://www.durackhouse.com.au/",
+    "description": "Elegant Edwardian home in leafy Mount Lawley offering two ensuite rooms with quality linen, just 3km from the city and walking distance to Beaufort Street's vibrant cafe strip.",
+    "category": "bed_and_breakfast",
+    "suburb": "Mount Lawley",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Palms Bed & Breakfast",
+    "website": "https://www.accommodationperth.org/bnb-palms.en.html",
+    "description": "Four-star B&B near Perth's entertainment district with air-conditioned rooms, outdoor swimming pool, free continental breakfast, and WiFi in public areas.",
+    "category": "bed_and_breakfast",
+    "suburb": "Perth",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Epsom on Swan Bed & Breakfast",
+    "website": "https://epsomononly.hotels-perth.com/en/",
+    "description": "Adults-only charming retreat along the Swan River in Ascot run by hosts Ann and Jordan, offering daily continental breakfast and a peaceful riverside setting.",
+    "category": "bed_and_breakfast",
+    "suburb": "Ascot",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Rosebridge House Bed & Breakfast",
+    "website": "https://rosebridgehouse.com.au/",
+    "description": "Five-star adults-only boutique B&B in the Perth Hills within a heritage-listed 1920s house, featuring vintage-decorated rooms, lush gardens, French doors opening to verandas, and gourmet breakfast.",
+    "category": "bed_and_breakfast",
+    "suburb": "Bickley",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Witch's Hat Backpackers",
+    "website": "https://www.tripadvisor.com/Hotel_Review-g255103-d1062398-Reviews-Witch_s_Hat_Backpackers_Hostel-Perth_Greater_Perth_Western_Australia.html",
+    "description": "Beautifully restored federation-style house on a quiet Northbridge street offering characterful backpacker accommodation with free breakfast and a homey atmosphere.",
+    "category": "guesthouse",
+    "suburb": "Northbridge",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Samphire Rottnest",
+    "website": "https://www.prendiville.com.au/establishment/samphire-rottnest",
+    "description": "Prendiville Group's luxury 80-room beachfront resort at Thomson Bay with rooms designed to complement natural surrounds, featuring Lontara restaurant and Bayside Bar.",
+    "category": "boutique_hotel",
+    "suburb": "Rottnest Island",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Hotel Rottnest",
+    "website": "https://www.prendiville.com.au/establishment/hotel-rottnest",
+    "description": "Prendiville Group's iconic island pub and 18-room hotel at Thomson Bay offering relaxed dining and accommodation steps from the Rottnest ferry terminal.",
+    "category": "heritage_stay",
+    "suburb": "Rottnest Island",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Discovery Rottnest Island",
+    "website": "https://www.rottnestisland.com/stay/accommodation/discovery-rottnest-island",
+    "description": "Eco-sustainable glamping resort behind the dunes of Pinky Beach with 83 fully furnished eco-tents ranging from deluxe hideaways to simpler setups amid native quokka habitat.",
+    "category": "eco_lodge",
+    "suburb": "Rottnest Island",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "The Lodge Wadjemup",
+    "website": "https://www.thelodgewadjemup.com/",
+    "description": "New lakeside resort by the team behind Little Creatures and Social Grounds Hospitality, with courtyard rooms in the historic reformatory, lake rooms, and poolhouse rooms.",
+    "category": "boutique_hotel",
+    "suburb": "Rottnest Island",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Hidden Valley Eco Lodges & Day Spa",
+    "website": "https://hiddenvalleyeco.com.au/",
+    "description": "Adults-only luxury retreat in Perth Hills with self-contained lodges featuring private heated jacuzzis, king beds, log fireplaces, and an onsite day spa set in Jarrah forest.",
+    "category": "eco_lodge",
+    "suburb": "Pickering Brook",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Quenda Guesthouse",
+    "website": "https://www.quendaguesthouse.com/",
+    "description": "Luxury eco guesthouse in the Perth Hills with incredible breakfasts, freshwater infinity pool, and John Forrest National Park a short walk away.",
+    "category": "guesthouse",
+    "suburb": "Perth Hills",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Amaroo Retreat & Spa",
+    "website": "https://amarooretreat.com.au/",
+    "description": "Award-winning adults-only luxury escape on 52 acres with eight private chalets, an onsite day spa, restaurant and bar, swimming pool, and extensive Perth Hills bushland views.",
+    "category": "eco_lodge",
+    "suburb": "Mount Helena",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Kalamunda Carriages & Three Gums Cottage",
+    "website": "https://www.perthhillsaccommodation.com.au/",
+    "description": "Award-winning B&B offering a restored romantic railway carriage with open-air Balinese riverstone bath and a character-filled cottage, on the doorstep of Perth Hills wine country.",
+    "category": "unique_stay",
+    "suburb": "Kalamunda",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Heyscape Tiny Cabins",
+    "website": "https://heyscape.com.au/",
+    "description": "Sustainably designed off-grid tiny homes across 25 locations in WA including Perth Hills, Chittering, and Kings Park, each with queen bed, kitchenette, hot shower, and outdoor bath.",
+    "category": "eco_lodge",
+    "suburb": "Various (Perth region)",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Hidden Cabins",
+    "website": "https://www.destinationperth.com.au/listing/hidden-cabins/3445/",
+    "description": "Secluded eco-designed 15sqm tiny homes in National Park settings with hot rainwater showers, composting eco toilets, solar-powered fridges, and complete privacy among native trees.",
+    "category": "eco_lodge",
+    "suburb": "Perth surrounds",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Unyoked Gidgegannup",
+    "website": "https://www.unyoked.co/",
+    "description": "Dog-friendly tiny cabins tucked away in gorgeous Gidgegannup bushland and farmland offering a chance to disconnect from the world and reconnect with nature.",
+    "category": "eco_lodge",
+    "suburb": "Gidgegannup",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Guildford River Retreat",
+    "website": "https://guildfordriverretreat.com.au/",
+    "description": "Family-run eco-friendly boutique hotel in a heritage-listed Federation house alongside the Swan River in historic Guildford, with rooms featuring Nespresso machines and private entrances.",
+    "category": "guesthouse",
+    "suburb": "Guildford",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Maya Maya at Mandoon Estate",
+    "website": "https://mandoonestate.com.au/maya-maya",
+    "description": "32 luxury rooms and suites on a working winery overlooking historic 1895 Verdelho vineyards and the Swan River, with fine dining at Wild Swan and casual meals at Homestead Brewery.",
+    "category": "boutique_hotel",
+    "suburb": "Caversham",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Chapel Farm Getaways",
+    "website": "https://www.swanvalley.com.au/products/chapel-farm-getaways",
+    "description": "Six boutique rooms in the Swan Valley each with queen or king beds, compact lounge, large bathroom, and private terrace amid vineyard and garden surrounds.",
+    "category": "boutique_hotel",
+    "suburb": "Swan Valley",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "The Otium at Caversham House",
+    "website": "https://www.swanvalley.com.au/products/the-otium-at-caversham-house",
+    "description": "Swan Valley's newest luxury lifestyle accommodation within the iconic Caversham House grounds, sleeping eight guests with a pool, cabana, games room, and pizza oven.",
+    "category": "unique_stay",
+    "suburb": "Caversham",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Brookleigh Estate",
+    "website": "https://www.brookleigh.com.au/accommodation/",
+    "description": "Luxury accommodation in a stunning Swan Valley setting offering lakeside and courtyard apartments plus a three-bedroom gatehouse cottage amid beautiful estate grounds.",
+    "category": "boutique_hotel",
+    "suburb": "Swan Valley",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Upper Reach Spa Cottage",
+    "website": "https://www.swanvalley.com.au/stay",
+    "description": "The only accommodation directly on a vineyard in the Swan Valley, a historic two-bedroom cottage with assured privacy among the vines.",
+    "category": "unique_stay",
+    "suburb": "Swan Valley",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Lot 113 Vineyard",
+    "website": "https://www.swanvalley.com.au/stay",
+    "description": "Family-run boutique near the Swan River with two suites featuring kitchenettes, a large shared deck with outdoor kitchen and BBQ, and vineyard views.",
+    "category": "unique_stay",
+    "suburb": "Swan Valley",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Cape Lodge",
+    "website": "https://www.capelodge.com.au/",
+    "description": "Premier country guest house and Luxury Lodge of Australia on its own secluded vineyard, with 22 rooms and a five-bedroom private residence nestled on 40 acres of gardens.",
+    "category": "boutique_hotel",
+    "suburb": "Yallingup",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Injidup Spa Retreat",
+    "website": "https://www.walkintoluxury.com/accommodation/injidup-spa-retreat-margaret-river",
+    "description": "Ten luxurious self-contained villas each with private plunge pool and panoramic ocean views, with direct access to the Cape to Cape Track and pristine Margaret River coastline.",
+    "category": "boutique_hotel",
+    "suburb": "Yallingup",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Losari Retreat",
+    "website": "https://www.walkintoluxury.com/accommodation/losari-retreat-margaret-river",
+    "description": "Picturesque property spanning 66 acres with boutique luxury spa villas in a lakeside setting, featuring eco-fires, rain dance showers, and private decks overlooking the lake.",
+    "category": "eco_lodge",
+    "suburb": "Margaret River",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Josephine's Luxury Accommodation",
+    "website": "https://josephines.com.au/",
+    "description": "Adults-only boutique accommodation two minutes walk from Margaret River's main street, with individually styled rooms including Gatsby, Napoleon, Victorian, and Matilda suites.",
+    "category": "boutique_hotel",
+    "suburb": "Margaret River",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Yala Yallingup (formerly Empire Retreat)",
+    "website": "https://www.empireretreat.com/",
+    "description": "2025 Michelin Guide Key recipient, adults-only sanctuary on bushland and vineyard between Yallingup and Dunsborough with 10 individually designed luxurious suites and day spa.",
+    "category": "boutique_hotel",
+    "suburb": "Yallingup",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Windmills Break",
+    "website": "https://www.margaretriver.com/plan-your-trip/accommodation/",
+    "description": "Luxurious accommodation amid rolling hills and vineyards on 10 acres, with spacious suites and cottages featuring private balconies, spa baths, fireplaces, and a stunning pool.",
+    "category": "boutique_hotel",
+    "suburb": "Margaret River",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Burnside Organic Farm",
+    "website": "https://www.accommodationmargaretriver.com/luxury-accommodation-in-margaret-river/",
+    "description": "Boutique luxury farm stay and winery with rammed earth bungalows offering genuine self-guided agritourism, organic wine tastings, and nature experiences 10 minutes from Margaret River.",
+    "category": "eco_lodge",
+    "suburb": "Burnside",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Gilgara Retreat",
+    "website": "https://gilgara.com.au/",
+    "description": "Adults-only hillside retreat just five minutes from Margaret River town, ideal for couples seeking romantic getaways or digital detox weekends among vineyards and beaches.",
+    "category": "boutique_hotel",
+    "suburb": "Margaret River",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Littlewood Chalet",
+    "website": "https://www.littlewoodchalets.com.au",
+    "description": "Brand new two-bedroom boutique chalet with luxury fittings and rustic luxe charm, overlooking 30 acres of private woodland just 10 minutes from Margaret River.",
+    "category": "unique_stay",
+    "suburb": "Margaret River",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Forest Rise Chalets & Lodge",
+    "website": "https://www.forestrise.com.au/",
+    "description": "Australian Eco Tourism Hall of Fame property on 240 acres offering one and two-bedroom chalets plus a family lodge, 20 minutes from both Dunsborough and Margaret River.",
+    "category": "eco_lodge",
+    "suburb": "Margaret River",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Wildwood Valley Cottages",
+    "website": "https://www.wildwoodecoretreat.com/",
+    "description": "Self-contained cottages perched on 120 acres of forest in Yallingup Hills with breathtaking views of Smiths Beach, offering one to three-bedroom options amid natural bushland.",
+    "category": "eco_lodge",
+    "suburb": "Yallingup",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Jarrah Grove Forest Retreat",
+    "website": "https://www.jarrahgroveforestretreat.com.au/",
+    "description": "Adults-only dog-friendly luxury retreat with rammed earth chalets nestled within 86 acres of private Jarrah, Marri, and Karri forest, 15 minutes from Margaret River.",
+    "category": "eco_lodge",
+    "suburb": "Rosa Glen",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Bina Maya Yallingup Escape",
+    "website": "https://binamayayallingupescape.com.au/",
+    "description": "Family-owned boutique property on 7 acres of pristine native bushland in Quedjinup, minutes from Dunsborough, famous Yallingup beaches, and Margaret River wineries.",
+    "category": "unique_stay",
+    "suburb": "Quedjinup",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Arimia Restaurant and Winery Guesthouse",
+    "website": "https://www.agfg.com.au/accommodation/arimia-restaurant-and-winery-guesthouse-72749",
+    "description": "Boutique wine producer in Wilyabrup offering accommodation for up to 8 guests overlooking the Indian Ocean and Cape Clairault National Park, with tasting menu and continental breakfast.",
+    "category": "unique_stay",
+    "suburb": "Wilyabrup",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Aqua Resort",
+    "website": "https://www.margaretriver.com/plan-your-trip/accommodation/aqua-resort/",
+    "description": "Luxury beachfront resort on Geographe Bay with direct beach access, infinity lap pool, gymnasium, steam room, tennis court, paddleboard and bike hire.",
+    "category": "boutique_hotel",
+    "suburb": "Busselton",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Caves House Hotel",
+    "website": "https://www.booking.com/hotel/au/yallingup-caves-house.en-gb.html",
+    "description": "Art deco heritage hotel near Ngilgi Cave established in 1903, serving as a vibrant live music and dining destination in the heart of Yallingup.",
+    "category": "heritage_stay",
+    "suburb": "Yallingup",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Farmers' Home Hotel",
+    "website": "https://farmershomehotel.com/",
+    "description": "Heritage-listed 1860s boutique hotel in Northam with 16 rooms, modern amenities, the Temperance Bar, and over 150 years of continuous history in the Wheatbelt.",
+    "category": "heritage_stay",
+    "suburb": "Northam",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "York Cottages & Burnley House",
+    "website": "https://www.destinationperth.com.au/listing/york-cottages-&-burnley-house/728/",
+    "description": "Self-contained heritage accommodation on 15 acres near York featuring stone cottages with alpaca paddock views and a restored federation-style Burnley House with indoor fires.",
+    "category": "heritage_stay",
+    "suburb": "York",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Premier Mill Hotel",
+    "website": "https://www.booking.com/hotel/au/the-premier-mill.en-gb.html",
+    "description": "Former 1891 flour mill converted to boutique accommodation in Katanning with industrial charm and four unique room categories preserving the building's heritage character.",
+    "category": "heritage_stay",
+    "suburb": "Katanning",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Executive Escapes",
+    "website": "https://executiveescapes.com.au/",
+    "description": "Accredited Australian tourism company offering curated self-contained beachside homes, villas, and apartments across Cottesloe, Swanbourne, Claremont, and Scarborough.",
+    "category": "unique_stay",
+    "suburb": "Cottesloe",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Residence on Langley Park",
+    "website": "https://www.destinationperth.com.au/listing/residence-on-langley-park/3690/",
+    "description": "Spacious studio to two-bedroom apartments in East Perth with heated pool, gym, free parking, and Swan River proximity with free bus access to the CBD.",
+    "category": "boutique_hotel",
+    "suburb": "East Perth",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Yallingup Glamping Retreat",
+    "website": "https://www.booking.com/hotel/au/yallingup-lodge-spa-retreat.en.html",
+    "description": "Powered bell tents among lemon and grapefruit trees on 7 acres with onsite spa, yoga instructor, pool, and microbrewery in the Margaret River wine region.",
+    "category": "eco_lodge",
+    "suburb": "Yallingup",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Old Picture Theatre",
+    "website": "https://perthisok.com/best-of-wa/8-unique-places-to-stay-in-perth-and-surrounds/",
+    "description": "Heritage-listed former cinema in Pemberton offering stays in the projection room, dress circle, or stage area near national parks and tall timber forests.",
+    "category": "unique_stay",
+    "suburb": "Pemberton",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Standing Stone House",
+    "website": "https://perthisok.com/best-of-wa/8-unique-places-to-stay-in-perth-and-surrounds/",
+    "description": "Architectural property in Yallingup with pink walls, exposed brick, art-deco tiles, stone fire pit, and indoor greenery creating a distinctive design retreat.",
+    "category": "design_hotel",
+    "suburb": "Yallingup",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "The Lily",
+    "website": "https://www.thelily.com.au",
+    "description": "Extraordinary property featuring a 24.6-metre Dutch Windmill replica and a fully renovated Dakota DC-3 military aircraft converted to sleeping quarters with beds, TV, and dining.",
+    "category": "unique_stay",
+    "suburb": "Stirling Range",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Settlers' Cottage at Ampersand Estates",
+    "website": "https://www.historicstays.com/stays/settlers-cottage-ampersand-estates-peerabeelup-western-australia",
+    "description": "Heritage 1870s four-guest cottage within Ampersand Estates featuring on-site winery and stargazing lookout near Pemberton's tall timber country.",
+    "category": "heritage_stay",
+    "suburb": "Peerabeelup",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Island Brook Estate Vineyard and Chalets",
+    "website": "https://www.islandbrook.com.au/",
+    "description": "Vineyard-set self-contained chalets in the Margaret River region offering a peaceful wine country retreat surrounded by native bush and working vines.",
+    "category": "unique_stay",
+    "suburb": "Margaret River",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Aravina Estate",
+    "website": "https://aravinaestate.com/",
+    "description": "Margaret River winery estate offering luxury accommodation alongside cellar door, restaurant, and a unique collection of vintage cars in a stunning rural setting.",
+    "category": "unique_stay",
+    "suburb": "Yallingup",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Citadines St Georges Terrace",
+    "website": "https://www.discoverasr.com/en/citadines/australia/citadines-st-georges-terrace-perth",
+    "description": "85 modern studio and one-bedroom serviced apartments on St Georges Terrace within walking distance of Perth's galleries, restaurants, and entertainment precinct.",
+    "category": "boutique_hotel",
+    "suburb": "Perth CBD",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Heyscape Kings Park",
+    "website": "https://heyscape.com.au/explore/our-locations/kings-park/",
+    "description": "Three luxe tiny cabins within Kings Park offering uninterrupted views of the Swan River or Perth city skyline, a unique off-grid urban glamping experience.",
+    "category": "unique_stay",
+    "suburb": "Kings Park",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Nesci Estate Wine Farm Cabin (Heyscape Chittering)",
+    "website": "https://heyscape.com.au/",
+    "description": "Off-grid luxe tiny home on the grounds of Nesci Estates Wine Farm in the Chittering Valley, combining vineyard views with sustainable cabin design.",
+    "category": "eco_lodge",
+    "suburb": "Chittering",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Heyscape Avon Valley",
+    "website": "https://www.destinationperth.com.au/listing/heyscape-tiny-cabin-avon-valley/1358/",
+    "description": "Eco-friendly off-grid tiny cabin farm stay in the Toodyay area with premium amenities, pet-friendly accommodation, and stunning Avon Valley landscape.",
+    "category": "eco_lodge",
+    "suburb": "Toodyay",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Kangaroo Valley Homestead",
+    "website": "https://experienceperthhills.com.au/staycay-in-the-perth-hills-8-boutique-accommodation-ideas/",
+    "description": "Romantic couples retreat near Mundaring with side-by-side outdoor baths and a heritage-style homestead set in the peaceful Perth Hills bushland.",
+    "category": "unique_stay",
+    "suburb": "Mundaring",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Boyup Brook Farmstay",
+    "website": "https://perthisok.com/best-of-wa/8-unique-places-to-stay-in-perth-and-surrounds/",
+    "description": "Tin shed accommodation on a 500-acre property near the Blackwood River offering home-cooked meals, indoor fireplace, and authentic Australian rural life experience.",
+    "category": "unique_stay",
+    "suburb": "Boyup Brook",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "Quay Hotel Perth (by Crown)",
+    "website": "https://www.melbournehotel.com.au/",
+    "description": "Perth CBD hotel overlooking Elizabeth Quay with earthy tones and locally sourced materials, rooftop HQ Bar & Kitchen, and co-working spaces.",
+    "category": "boutique_hotel",
+    "suburb": "Perth CBD",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "HYDE Perth",
+    "website": "https://www.destinationperth.com.au/listing/hyde-perth/4302/",
+    "description": "Lifestyle hotel with 121 naturally-textured rooms, year-round heated outdoor pool with cabanas, and FARRA, a Grecian-inspired restaurant and bar.",
+    "category": "design_hotel",
+    "suburb": "Perth CBD",
+    "city": "Perth",
+    "region": "Perth"
+  },
+  {
+    "name": "East Hotel",
+    "website": "https://easthotel.com.au/",
+    "description": "A 140-room boutique hotel with Italian roots in Kingston, featuring moody and sumptuous interiors, apartment-style rooms, and onsite dining including Italian and Asian restaurants.",
+    "category": "boutique_hotel",
+    "suburb": "Kingston",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Hotel Kurrajong Canberra",
+    "website": "https://hotelkurrajong.com.au/",
+    "description": "Iconic 1926 Art Deco heritage hotel designed by John Smith Murdoch, where Prime Minister Ben Chifley lived during his term in office. Features 147 refurbished rooms with terrace gardens.",
+    "category": "heritage_stay",
+    "suburb": "Barton",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Hotel Realm",
+    "website": "https://hotelrealm.com.au/",
+    "description": "Luxury 163-room hotel by independent Doma Hotels group in the Realm Precinct near Parliament House, with spa, wellness facilities, and 24-hour room service.",
+    "category": "boutique_hotel",
+    "suburb": "Barton",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Little National Hotel",
+    "website": "https://littlenationalhotel.com.au/",
+    "description": "Compact-luxury concept by Doma Hotels with Japanese-influenced design, four-poster beds, floor-to-ceiling windows, and luxurious communal spaces resembling an exclusive executive lounge.",
+    "category": "design_hotel",
+    "suburb": "Barton",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Burbury Hotel & Apartments",
+    "website": "https://burburyhotel.com.au/",
+    "description": "Mixed hotel and apartment accommodation by Doma Hotels in the Realm Precinct, known as a dog-friendly stay with pet amenities and rooftop views.",
+    "category": "boutique_hotel",
+    "suburb": "Barton",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Brassey Hotel",
+    "website": "https://brassey.net.au/",
+    "description": "Heritage-listed hotel by Doma Hotels offering classic elegance in the Parliamentary Triangle area, with a warm, traditional atmosphere.",
+    "category": "heritage_stay",
+    "suburb": "Barton",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Pinnacle Apartments",
+    "website": "https://pinnacleapartments.com.au/",
+    "description": "Doma Hotels property offering one to four bedroom fully serviced apartments in a tree-lined Kingston street, close to boutique shopping and cosmopolitan cafes.",
+    "category": "boutique_hotel",
+    "suburb": "Kingston",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Deco Hotel",
+    "website": "https://decohotel.com.au/",
+    "description": "Art Deco-inspired boutique hotel by Capital Hotels group, blending vintage charm with modern amenities, set moments from Braddon and the CBD.",
+    "category": "design_hotel",
+    "suburb": "Braddon",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Avenue Hotel Canberra",
+    "website": "https://avenuehotel.com.au/",
+    "description": "213-room property by Capital Hotels with New York-inspired design on Northbourne Avenue, featuring Marble and Grain steakhouse and varied room types.",
+    "category": "boutique_hotel",
+    "suburb": "Braddon",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Pavilion on Northbourne",
+    "website": "https://pavilioncanberra.com.au/",
+    "description": "Locally owned hotel by Capital Hotels since 1981, featuring tropical-inspired decor with garden courtyards, outdoor pool, and on-site dining in Dickson.",
+    "category": "boutique_hotel",
+    "suburb": "Dickson",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Jamala Wildlife Lodge",
+    "website": "https://jamalawildlifelodge.com.au/",
+    "description": "Family-owned five-star lodge within the National Zoo, offering safari-style rooms including uShaka Lodge, Giraffe Treehouses, and Jungle Bungalows with close animal encounters.",
+    "category": "unique_stay",
+    "suburb": "Weston Creek",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Canberra Rex Hotel",
+    "website": "https://www.canberrarexhotel.com.au/",
+    "description": "Canberra icon since 1960 combining old-world charm with modern comforts, featuring 121 rooms, the Howling Moon rooftop bar, and a prime Braddon location.",
+    "category": "boutique_hotel",
+    "suburb": "Braddon",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Knightsbridge Canberra",
+    "website": "https://www.knightsbridgecanberra.com.au/",
+    "description": "Sophisticated boutique hotel in the Parliamentary Triangle precinct, 100 metres from Kingston, with complimentary parking and a warm, inviting ambiance.",
+    "category": "boutique_hotel",
+    "suburb": "Kingston",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Forrest Hotel and Apartments",
+    "website": "https://visitcanberra.com.au/accommodation/56b23b2ad270154b4553bf98/forrest-hotel-and-apartments",
+    "description": "Family-owned and operated property with 75 motel-style rooms and 40 serviced apartments, nestled near Parliament House and a short stroll from Manuka village.",
+    "category": "independent_motel",
+    "suburb": "Forrest",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Manuka Park Serviced Apartments",
+    "website": "https://www.manukapark.com.au/",
+    "description": "One of Canberra's first serviced apartment complexes since 1985, offering fully self-contained apartments closest to the Manuka shopping precinct.",
+    "category": "boutique_hotel",
+    "suburb": "Griffith",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Oxley Court Serviced Apartments",
+    "website": "https://oxleycourt.com.au/",
+    "description": "Secluded apartment accommodation between Manuka and Kingston precincts, featuring large kitchens, extended-stay friendly, with free undercover parking.",
+    "category": "boutique_hotel",
+    "suburb": "Kingston",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Green Rooms Braddon",
+    "website": "https://greenroomsbraddon.com.au/",
+    "description": "Three custom-built luxury themed micro apartments inspired by tiny home design, each with unique themes like 'Jungle', featuring bespoke joinery and treeline views.",
+    "category": "unique_stay",
+    "suburb": "Braddon",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "And Apartments",
+    "website": "https://andapartments.com.au/",
+    "description": "Brand-new boutique complex on Lonsdale Street with oversized windows, king-sized beds, gourmet kitchenettes, and ground-floor B-SIDE restaurant.",
+    "category": "design_hotel",
+    "suburb": "Braddon",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Accommodate Canberra - New Acton",
+    "website": "https://accommodatecanberra.com.au/",
+    "description": "Premium independently managed luxury serviced apartments in the New Acton cultural precinct, with resort-style facilities and weekly housekeeping.",
+    "category": "boutique_hotel",
+    "suburb": "New Acton",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Canberra Avenue Villas",
+    "website": "https://canberraavevillas.com.au/",
+    "description": "Self-contained villa accommodation complex with private bathrooms and kitchenettes, ideal for groups, families, couples and long stays.",
+    "category": "independent_motel",
+    "suburb": "Griffith",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "University House ANU",
+    "website": "https://services.anu.edu.au/campus-environment/accommodation",
+    "description": "Elegant 1950s-designed accommodation on the ANU campus with a tranquil garden featuring beautiful trees and a pond in the central quadrangle.",
+    "category": "heritage_stay",
+    "suburb": "Acton",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Canberra Carotel Motel",
+    "website": "https://www.guestreservations.com/canberra-carotel-motel/booking",
+    "description": "Family-friendly independent motel with 23 fully self-contained accommodations featuring two bedrooms, kitchen, and veranda, 10 minutes from the city centre.",
+    "category": "independent_motel",
+    "suburb": "Watson",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "The Evergreen B&B",
+    "website": "https://www.facebook.com/theevergreenBnB/",
+    "description": "Centrally located bed and breakfast on a leafy Braddon street with seasonal outdoor pool, library, free parking, and just a 7-minute walk to the city.",
+    "category": "bed_and_breakfast",
+    "suburb": "Braddon",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "The Pommy Tree Bed & Breakfast",
+    "website": "https://the-pommy-tree.hotels-canberra.com/en/",
+    "description": "Highly rated B&B in Evatt offering full English breakfast, two en-suite rooms, swimming pool, and easy access to Palmerville heritage park.",
+    "category": "bed_and_breakfast",
+    "suburb": "Evatt",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Georgie's Boutique B&B",
+    "website": "https://georgies-boutique-bb-monash.newsouthwaleshotels.net/en/",
+    "description": "Boutique bed and breakfast in Monash near nature reserves, featuring daily English breakfast, soundproof rooms, and premium amenities.",
+    "category": "bed_and_breakfast",
+    "suburb": "Monash",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Canberra Retreat Bed and Breakfast",
+    "website": "https://canberraretreatbnb.com.au/",
+    "description": "Exclusive-use self-contained B&B in a quiet leafy suburb with private entrance, offering home comforts with local knowledge for short breaks or longer getaways.",
+    "category": "bed_and_breakfast",
+    "suburb": "Canberra",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Ivy and Roses Boutique Apartments",
+    "website": "https://ivy-and-roses-boutique-apartments.hotels-canberra.com/en/",
+    "description": "Boutique apartments in Franklin featuring free breakfast, self parking, in-room kitchens, balconies, and complimentary WiFi.",
+    "category": "boutique_hotel",
+    "suburb": "Franklin",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Gooromon Park Cottages",
+    "website": "https://gooromon-park-cottages.hotels-canberra.com/en/",
+    "description": "Rural cottages in the Hall wine-growing hills with private patios overlooking the Brindabella Mountains, near Surveyor's Hill Winery.",
+    "category": "bed_and_breakfast",
+    "suburb": "Wallaroo",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Beltana Farm",
+    "website": "https://beltanafarm.au/stay",
+    "description": "Farm stay in Pialligo's trufferie with over 800 truffle trees, offering cottages and uniquely styled yurts with an onsite restaurant serving seasonal farmhouse-inspired cuisine.",
+    "category": "unique_stay",
+    "suburb": "Pialligo",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Cubby and Co at Mount Majura Vineyard",
+    "website": "https://cubbyand.co/",
+    "description": "Handcrafted tiny homes and bell tents nestled in the vines at Mount Majura Vineyard, offering breathtaking views and a secluded glamping experience.",
+    "category": "unique_stay",
+    "suburb": "Majura",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Abode Murrumbateman",
+    "website": "https://abodehotels.com.au/hotels/murrumbateman/",
+    "description": "Iconic Hotels property with 50 studio rooms in the heart of cool-climate wine country, featuring a pantry stocked with 40+ local wines and free bike hire.",
+    "category": "boutique_hotel",
+    "suburb": "Murrumbateman",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Abode Kingston",
+    "website": "https://abodehotels.com.au/hotels/kingston/",
+    "description": "Iconic Hotels property perfectly located in inner-south Canberra with washer/dryer, kitchenette, TV casting, and ample space in each room.",
+    "category": "boutique_hotel",
+    "suburb": "Kingston",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Abode Woden",
+    "website": "https://abodehotels.com.au/hotels/woden/",
+    "description": "Iconic Hotels property in south Canberra offering 152 stylishly appointed self-contained apartment-style rooms.",
+    "category": "boutique_hotel",
+    "suburb": "Woden",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Abode Belconnen",
+    "website": "https://abodehotels.com.au/hotels/belconnen/",
+    "description": "Iconic Hotels property in Canberra's north offering apartment-style accommodation with gourmet pantry and suburban character.",
+    "category": "boutique_hotel",
+    "suburb": "Belconnen",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Abode Gungahlin",
+    "website": "https://abodehotels.com.au/hotels/gungahlin/",
+    "description": "The original Abode Hotels property opened in 2010, the first in the Iconic Hotels portfolio, offering apartment-style accommodation in Canberra's north.",
+    "category": "boutique_hotel",
+    "suburb": "Gungahlin",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Tallagandra Hill Winery Cottages",
+    "website": "https://tallagandrahill.com.au/vineyard-cottage-accommodation/",
+    "description": "Three self-contained vineyard cottages 30 minutes from Canberra, each with queen bed, kitchen, covered deck, complimentary charcuterie, estate wines, and breakfast.",
+    "category": "unique_stay",
+    "suburb": "Gundaroo",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Lake George Winery Accommodation",
+    "website": "https://www.lakegeorgewinery.com.au/stay/",
+    "description": "Pet-friendly eco-stays within a 300-acre vineyard including tiny houses, Olive Cottage, and Little George, with the Westering onsite restaurant.",
+    "category": "unique_stay",
+    "suburb": "Collector",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Surveyors Hill Vineyards B&B",
+    "website": "https://www.surveyorshill.com.au/stay/",
+    "description": "Family-owned 100-acre vineyard property near Hall offering accommodation with breakfast and dinner on request, 25 minutes from Canberra, with a free bottle of wine per booking.",
+    "category": "bed_and_breakfast",
+    "suburb": "Wallaroo",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Wallaroo Wines and Estate",
+    "website": "https://www.wallaroowines.com.au/accommodation",
+    "description": "Georgian-style homestead accommodation on a vineyard established in 1993, offering private group wine tastings and a venue for getaways and events.",
+    "category": "unique_stay",
+    "suburb": "Wallaroo",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Redbrow Garden Guesthouse",
+    "website": "https://www.adedra.com",
+    "description": "Nature-based accommodation on the outskirts of Canberra near the wine region, set in an ecologically diverse wetland and forest oasis with four themed en-suite rooms and AAA 4.5-star rating.",
+    "category": "guesthouse",
+    "suburb": "Murrumbateman",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "DeVine 2582",
+    "website": "https://devine2582.com/",
+    "description": "Off-grid luxury retreat powered by solar energy at the tip of the Murrumbateman Winery Trail, near acclaimed wineries Clonakilla and Vintner's Daughter.",
+    "category": "unique_stay",
+    "suburb": "Murrumbateman",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Murrumbateman Country Inn",
+    "website": "https://www.murrumbatemaninn.com.au/stay/",
+    "description": "Comfortable 14-room motel with on-site bistro, fireplaces for winter, and shaded verandahs for summer, 10 minutes from Yass and 30 from Canberra.",
+    "category": "independent_motel",
+    "suburb": "Murrumbateman",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Yarrh Wines Accommodation",
+    "website": "https://www.yarrhwines.com.au/pages/accommodation-in-murrumbateman",
+    "description": "Two tiny homes (Mawson and Kira) by Cubby and Co set in scenic Yass River Valley bushland with spectacular views across vineyards and farms.",
+    "category": "unique_stay",
+    "suburb": "Murrumbateman",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "The Nest at Gundaroo",
+    "website": "https://thenestgundaroo.com.au/",
+    "description": "Award-winning family-owned boutique hotel in a historic rural village with five self-contained villas featuring king beds, wood-fired heaters, and a heritage cottage.",
+    "category": "boutique_hotel",
+    "suburb": "Gundaroo",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Gundaroo Colonial Inn",
+    "website": "https://www.facebook.com/GundarooColonialInn/",
+    "description": "Heritage pub established in 1872, also known as Matt Crowe's Wine Bar, offering accommodation with restaurant, bar, and free WiFi, 30 minutes from Canberra.",
+    "category": "heritage_stay",
+    "suburb": "Gundaroo",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "The Old Stone House",
+    "website": "https://www.theoldstonehouse.com.au/",
+    "description": "Boutique hotel built in the 1860s in a heritage village 40km from Canberra, offering characterful accommodation in one of Australia's 2025 Small Tourism Town winners.",
+    "category": "heritage_stay",
+    "suburb": "Bungendore",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "The Carrington Inn",
+    "website": "https://thecarringtoninn.com.au/",
+    "description": "Heritage hotel operating since 1885 with 26 comfortable suites, quality dining, gardens surrounded by mature European Elm trees in the heart of Bungendore.",
+    "category": "heritage_stay",
+    "suburb": "Bungendore",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Butmaroo Station",
+    "website": "https://www.butmaroo.com",
+    "description": "Working 3,000-acre sheep and cattle property offering heritage farm stay accommodation with restored historic buildings in the Bungendore district.",
+    "category": "unique_stay",
+    "suburb": "Bungendore",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "The Doncaster",
+    "website": "https://www.doncasterhouse.com/",
+    "description": "Seven meticulously restored rooms amid Georgian streets of heritage-listed Braidwood, with bespoke botanical bedheads, handmade joinery, and soft wooden floorboards.",
+    "category": "guesthouse",
+    "suburb": "Braidwood",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Mona Farm",
+    "website": "https://monafarm.com.au/stay",
+    "description": "124-acre luxury destination with multiple historic guest houses including the Gardener's Cottage and Long Barn, set among award-winning gardens near Braidwood.",
+    "category": "heritage_stay",
+    "suburb": "Braidwood",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Mona Farm - Shearer's Quarters",
+    "website": "https://monafarm.com.au/the-shearers-quarters",
+    "description": "Luxurious two-person guest house dating to 1873 with original brickwork, Japanese-inspired bath house, heated spa, wood-burning fireplaces, and views of Mona Creek.",
+    "category": "heritage_stay",
+    "suburb": "Braidwood",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Bedervale",
+    "website": "https://bedervale.com/",
+    "description": "Beautifully preserved 1836 homestead B&B on an expansive 450-hectare working cattle and sheep property near Braidwood, immersing guests in history and nature.",
+    "category": "heritage_stay",
+    "suburb": "Braidwood",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Tidmarsh",
+    "website": "https://www.airbnb.com.au/braidwood-australia/stays",
+    "description": "Historic property built in 1856 and modelled on a 19th-century rural Irish inn in heritage-listed Braidwood, sleeping up to 8 guests.",
+    "category": "heritage_stay",
+    "suburb": "Braidwood",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Collector Cottage",
+    "website": "https://collectorcottage.com.au/",
+    "description": "Recently renovated self-contained cottage on 2,000sqm of lush land with 150+ roses and views of the Cullerin Range, including a flower workshop space.",
+    "category": "unique_stay",
+    "suburb": "Collector",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Bushranger Hotel",
+    "website": "https://www.captainsflathotel.com.au/",
+    "description": "Heritage-listed 1860s pub with Victorian-Georgian design on the site of the famous 1865 Ben Hall gang raid, offering 6 rooms with period atmosphere, 40 minutes north of Canberra.",
+    "category": "heritage_stay",
+    "suburb": "Collector",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Colonial Lodge Motor Inn",
+    "website": "https://www.coloniallodge.com.au/",
+    "description": "Family-owned boutique motel in Yass offering updated suites with modern furnishings, friendly hospitality and excellent service.",
+    "category": "independent_motel",
+    "suburb": "Yass",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Swaggers Motor Inn",
+    "website": "https://swaggersmotorinnyass.com.au/",
+    "description": "Independent motel in Yass with BBQ area, landscaped gardens, patio dining, and bar, 15 minutes' walk from the town centre.",
+    "category": "independent_motel",
+    "suburb": "Yass",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Warroo Homestead",
+    "website": "https://www.yassvalley.com.au/stay/self-contained/warroo-homestead/",
+    "description": "Elegantly renovated 1930s farmhouse with stunning views over the Murrumbidgee River, featuring original features, roaring fireplace, and 15-metre pool, sleeping up to 8.",
+    "category": "heritage_stay",
+    "suburb": "Yass",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Hotel Binalong",
+    "website": "https://www.yassvalley.com.au/stay/hotels-and-motels/binalong-hotel/",
+    "description": "Authentic family-run country pub with traditional rooms, genuine country hospitality, cold beer, and generous meals in the Yass Valley.",
+    "category": "heritage_stay",
+    "suburb": "Binalong",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Pialligo Cottage at Pialligo Estate",
+    "website": "https://piagillofarmstay.net/",
+    "description": "Four-bedroom fully furnished private cottage in Pialligo with 150sqm of living space, fully equipped kitchen, sunny courtyard, and proximity to farm-gate venues.",
+    "category": "unique_stay",
+    "suburb": "Pialligo",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Canberra Heritage House",
+    "website": "https://www.expedia.co.uk/Canberra-Hotels-Canberra-Heritage-House.h107032768.Hotel-Information",
+    "description": "Charming heritage residence across from the Australian War Memorial with art-filled walls and plush interiors, near Reid Park and Anzac Parade.",
+    "category": "heritage_stay",
+    "suburb": "Reid",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Snowgums Mountain Retreat",
+    "website": "https://snowgumsretreat.com.au/",
+    "description": "Sleek modern cabin sleeping up to eight in a deep valley with views of Mount Clear, two hours south of Canberra through Namadgi National Park.",
+    "category": "eco_lodge",
+    "suburb": "Yaouk",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Unyoked Cabins Near Canberra",
+    "website": "https://bookings.unyoked.co/au/canberra",
+    "description": "Off-grid tiny house cabins tucked among NSW bushland just outside Canberra, many pet-friendly, designed to feel remote without going far.",
+    "category": "eco_lodge",
+    "suburb": "Canberra Region",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Hillview Farmstay",
+    "website": "https://www.hillviewfarmstay.com.au/",
+    "description": "Working beef farm on nearly 1,000 acres near Gundagai offering 9 self-contained luxury cottages, glamping safari tent, dome tent, pool, and tennis court.",
+    "category": "unique_stay",
+    "suburb": "Gundagai",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Statesman Hotel",
+    "website": "https://www.guestreservations.com/statesman-hotel/booking",
+    "description": "Independent hotel with bistro and bar less than 10 minutes' drive from Parliament House, offering a transfer service and casual dining.",
+    "category": "independent_motel",
+    "suburb": "Curtin",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Hamilton's Queanbeyan Motel",
+    "website": "https://www.hamiltonsmotel.com.au/",
+    "description": "Officially rated 4.5-star independent motel with contemporary features and boutique styling, minutes from Canberra's tourist precinct.",
+    "category": "independent_motel",
+    "suburb": "Queanbeyan",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Hotel Queanbeyan",
+    "website": "https://www.hotelqueanbeyan.com.au/accommodation",
+    "description": "Independent hotel in Queanbeyan with restaurant, free parking, and bar, convenient to Canberra attractions.",
+    "category": "independent_motel",
+    "suburb": "Queanbeyan",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Captains Flat Hotel",
+    "website": "https://www.captainsflathotel.com.au/",
+    "description": "Restored historic country pub about an hour from Canberra, recently renovated with modern amenities, welcoming weekend visitors and cyclists.",
+    "category": "heritage_stay",
+    "suburb": "Captains Flat",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Good Hope Resort",
+    "website": "https://www.goodhoperesort.com.au/",
+    "description": "Natural lake resort on Lake Burrinjuck 15 minutes from Yass, offering cabins and cottages right on the water with pool, tennis court, and swimming.",
+    "category": "unique_stay",
+    "suburb": "Yass",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Saddle Camp Tiny House",
+    "website": "https://glampinghub.com/australia/newsouthwales/braidwood/tiny-house-rental-for-glamping-near-canberra/",
+    "description": "Charming tiny house on a horse farm near Braidwood, one hour from Canberra, where children can feed horses and take riding lessons.",
+    "category": "unique_stay",
+    "suburb": "Braidwood",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Mona Farm - Long Barn",
+    "website": "https://monafarm.com.au/stay",
+    "description": "Restored luxury accommodation based on the original 1860s building design at Mona Farm, sleeping up to 8 guests in heritage surrounds near Braidwood.",
+    "category": "heritage_stay",
+    "suburb": "Braidwood",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Mona Farm - Gardener's Cottage",
+    "website": "https://monafarm.com.au/stay",
+    "description": "Charming weatherboard cottage in the heart of Braidwood at Mona Farm, sleeping up to 10 guests with access to the 124-acre property and award-winning gardens.",
+    "category": "heritage_stay",
+    "suburb": "Braidwood",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Grevillea Cottage",
+    "website": "https://www.airbnb.com.au/rooms/1147469234550926269",
+    "description": "Private self-contained 2-bedroom cottage on 1-acre property near Murrumbateman wineries, with ensuite, modern kitchen, deck overlooking paddocks, and breakfast basket.",
+    "category": "unique_stay",
+    "suburb": "Murrumbateman",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Kimo Estate Ecohuts",
+    "website": "https://www.kimoestate.com/ecohut-glamping-accommodation/",
+    "description": "Off-grid eco-luxurious huts on a stunning rural estate near Gundagai, offering romantic and secluded getaways powered by sustainable energy.",
+    "category": "eco_lodge",
+    "suburb": "Gundagai",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Warrambui Retreat",
+    "website": "https://www.warrambui.com.au/",
+    "description": "Unique retreat and conference centre 40 minutes north of Canberra with full catering and accommodation, set in a natural bush setting.",
+    "category": "unique_stay",
+    "suburb": "Murrumbateman",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Crafters Cabin",
+    "website": "https://crafters.au",
+    "description": "Two eco-friendly cabins near Jindabyne with minimalist stone design and wood-fired hot tubs on deck, a 2-hour drive from Canberra in the alpine valley.",
+    "category": "eco_lodge",
+    "suburb": "Jindabyne",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Abode Malua Bay",
+    "website": "https://abodehotels.com.au/",
+    "description": "Iconic Hotels property extending the Abode brand to the NSW South Coast, offering the group's signature apartment-style accommodation by the beach.",
+    "category": "boutique_hotel",
+    "suburb": "Malua Bay",
+    "city": "Canberra",
+    "region": "Canberra"
+  },
+  {
+    "name": "Argus Hotel Darwin",
+    "website": "https://argusaccommodation.com.au/argus-hotel/",
+    "description": "Independently owned boutique hotel in Darwin CBD offering modern contemporary rooms with Juliet balconies, Aboriginal artwork by Merrepen Arts, and views over the city. Close to Smith Street Mall and Darwin Waterfront.",
+    "category": "boutique_hotel",
+    "suburb": "Darwin CBD",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Darwin City Hotel",
+    "website": "https://www.darwincityhotel.com/",
+    "description": "Family-owned and operated 4-star boutique hotel on Smith Street with a distinctive frosted glass geometric facade. Offers 91 rooms including self-contained apartments with city views.",
+    "category": "boutique_hotel",
+    "suburb": "Darwin CBD",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "DCH on Mitchell",
+    "website": "https://www.dchonmitchell.com/",
+    "description": "The newest addition from the family behind Darwin City Hotel, located on Mitchell Street in the heart of Darwin's entertainment precinct. Boutique rooms with walk-in showers and LCD TVs.",
+    "category": "boutique_hotel",
+    "suburb": "Darwin CBD",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "The Heritage Darwin",
+    "website": "https://www.heritagedarwin.com.au/",
+    "description": "Recently refurbished independent hotel in Darwin CBD opposite the Entertainment Centre. Heritage King and Twin rooms with plush beds, pool, and garden terrace.",
+    "category": "heritage_stay",
+    "suburb": "Darwin CBD",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "H on Mitchell Apartment Hotel",
+    "website": "https://www.h105mitchell.com.au/",
+    "description": "4-star apartment hotel in the heart of Darwin CBD with over 180 rooms from studios to two-bedroom apartments. Features pool, fitness centre, and conference facilities.",
+    "category": "boutique_hotel",
+    "suburb": "Darwin CBD",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Palms City Resort",
+    "website": "https://palmscityresort.com/",
+    "description": "Boutique tropical resort in central Darwin with 89 rooms including hotel rooms and private garden bungalows set among lush tropical gardens and an oasis-style pool.",
+    "category": "boutique_hotel",
+    "suburb": "Darwin CBD",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Darwin Waterfront Luxury Suites",
+    "website": "https://www.darwinwaterfrontluxurysuites.com.au/",
+    "description": "Independent luxury apartment suites at Kitchener Drive with harbour views, Nespresso machines, and contemporary art. TripAdvisor's number one ranked Darwin accommodation since 2015.",
+    "category": "boutique_hotel",
+    "suburb": "Darwin Waterfront",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Mandalay Luxury Stay",
+    "website": "https://mandalayluxurystay.com/",
+    "description": "NT Tourism Brolga Award-winning colonial stone cottage on Darwin's Esplanade, originally built by Lord McAlpine. Three luxury bedrooms, private pool, and sweeping harbour views from wraparound balcony.",
+    "category": "heritage_stay",
+    "suburb": "Darwin CBD",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Darwin City B&B",
+    "website": "https://city-bb.innorthernterritory.com/en/",
+    "description": "Intimate bed and breakfast in Larrakeyah with swimming pool and garden, a ten-minute walk to Mindil Beach Markets and Cullen Bay. Complimentary breakfast included.",
+    "category": "bed_and_breakfast",
+    "suburb": "Larrakeyah",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Darwin City Bed & Breakfast (formerly Steeles at Larrakeyah)",
+    "website": "https://www.bedandbreakfast.com.au/northern-territory/darwin/darwin/darwin-city-bb",
+    "description": "Quiet, centrally located B&B in inner Darwin run by Janette and Roger Steele. Three air-conditioned rooms opening onto a guest verandah overlooking a saltwater pool and tropical gardens.",
+    "category": "bed_and_breakfast",
+    "suburb": "Larrakeyah",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Frangipanni Bed & Breakfast",
+    "website": "https://www.enjoy-darwin.com/darwin-accommodation-bed.html",
+    "description": "Single-room tropical B&B in Rapid Creek beneath the family home, offering private access with no other guests. Walking distance to shops and beach with home-style breakfast provisions.",
+    "category": "bed_and_breakfast",
+    "suburb": "Rapid Creek",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Elsey on Parap",
+    "website": "https://www.elseyonparap.com.au/",
+    "description": "Proudly independent and 100% Australian-owned apartment hotel since 2005. Twenty-eight executive one and two-bedroom apartments opposite Parap Village with pool and secure parking.",
+    "category": "boutique_hotel",
+    "suburb": "Parap",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Casa on Gregory",
+    "website": "https://www.casaongregory.com.au/",
+    "description": "Independent boutique motel in vibrant Parap opposite the shopping centre, featuring a tropical swimming pool, BBQ area, and sea breezes. Close to Fannie Bay and Mindil Beach Markets.",
+    "category": "independent_motel",
+    "suburb": "Parap",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Paravista Motel",
+    "website": "https://www.expedia.com/Darwin-Hotels-Paravista-Motel.h43476.Hotel-Information",
+    "description": "Independent motel near Cullen Bay Marina with outdoor pool surrounded by garden greenery, free in-room WiFi, and air-conditioned rooms. Close to Smith Street Mall.",
+    "category": "independent_motel",
+    "suburb": "Stuart Park",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Cullen Bay Resorts",
+    "website": "https://cullenbayresorts.com.au/",
+    "description": "Waterfront resort apartments overlooking Darwin Harbour and Cullen Bay Marina. Self-contained one and two-bedroom apartments with kitchen and laundry, walking distance to restaurants and Mindil Beach.",
+    "category": "boutique_hotel",
+    "suburb": "Cullen Bay",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Alkira Darwin",
+    "website": "https://www.letsbookhotel.com/en/australia/darwin/hotel/alkira-apartments-darwin.aspx",
+    "description": "Four-star complex in Parap with landscaped tropical gardens and saltwater pool. Spacious rooms from standard to spa suites with modern amenities.",
+    "category": "independent_motel",
+    "suburb": "Parap",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "The Leprechaun Resort",
+    "website": "https://www.theleprechaunresort.com/",
+    "description": "Independent resort in Winnellie offering hotel and self-catering accommodation with two outdoor pools, 24-hour fitness centre, communal kitchen, and concierge services.",
+    "category": "independent_motel",
+    "suburb": "Winnellie",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Vitina Studio Motel",
+    "website": "https://www.kayak.com/Darwin-Hotels_Motel.Tmotel.28517.hotel.ksp",
+    "description": "Business-friendly independent 3-star motel near Darwin airport with free WiFi and free parking. Practical base for both leisure and corporate travellers.",
+    "category": "independent_motel",
+    "suburb": "Stuart Park",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Capricornia Motel",
+    "website": "https://www.expedia.com/Fannie-Bay-Darwin-Hotels.0-n6216390-0.Travel-Guide-Filter-Hotels",
+    "description": "Pet-friendly independent motel on East Point Road in Fannie Bay with free WiFi and pool. Relaxed atmosphere close to Fannie Bay Gaol Museum and East Point Reserve.",
+    "category": "independent_motel",
+    "suburb": "Fannie Bay",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "9at Peninsular",
+    "website": "https://www.facebook.com/9atPeninsular/",
+    "description": "Short-term accommodation in Larrakeyah offering a great location as a base for holidays or work in Darwin. Ideal inner-city position between CBD and Mindil Beach.",
+    "category": "boutique_hotel",
+    "suburb": "Larrakeyah",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Top End Safari Camp",
+    "website": "https://topendsafaricamp.com.au/",
+    "description": "Created by National Geographic's Outback Wrangler Matt Wright, this glamping camp on a floodplain north of Darwin features 15 Lotus Belle tents, helicopter flights, airboat rides, and croc encounters.",
+    "category": "unique_stay",
+    "suburb": "Point Stuart (90min north of Darwin)",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Bamurru Plains",
+    "website": "https://www.bamurruplains.com/",
+    "description": "Exclusive wild bush luxury safari camp on the Mary River floodplain adjacent to Kakadu. Ten bungalows and two retreats with mesh walls to immerse guests in wildlife. Airboat safaris and guided experiences included.",
+    "category": "eco_lodge",
+    "suburb": "Mary River",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Wildman Wilderness Lodge",
+    "website": "https://wildmanlodge-pointstuart.h-rez.com/",
+    "description": "Premium wetlands safari lodge on the Mary River between Darwin and Kakadu. Twenty-five rooms in Safari Tents or Habitats with infinity pool, fire pit, and fine dining featuring barramundi, crocodile, and bush spices.",
+    "category": "eco_lodge",
+    "suburb": "Mary River",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Finniss River Lodge",
+    "website": "https://finnissriverlodge.com.au/",
+    "description": "Family-owned luxury lodge on a 50,000-acre cattle station, 90 minutes from Darwin. Six suites with all meals, beverages, and daily touring included. Third-generation pastoralists as hosts.",
+    "category": "eco_lodge",
+    "suburb": "Dundee Beach",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Point Stuart Wilderness Lodge",
+    "website": "https://www.pointstuart.com.au/",
+    "description": "Independent lodge in the Mary River Wetlands offering ensuite rooms, safari tents, and caravan sites. Licensed saloon bar and bistro plus Mary River cruises and barramundi fishing tours.",
+    "category": "eco_lodge",
+    "suburb": "Point Stuart",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Mary River Wilderness Retreat",
+    "website": "https://maryriverwildernessretreat.com.au/",
+    "description": "Retreat in the heart of the Mary River wetlands, 90 minutes from Darwin. Safari tents, bungalows, and camping sites set among the iconic Top End wildlife and birdlife.",
+    "category": "eco_lodge",
+    "suburb": "Mount Bundey",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Mt Bundy Station",
+    "website": "https://northernterritory.com/darwin-and-surrounds/accommodation/mt-bundy-station",
+    "description": "Historical rural retreat on the banks of the Adelaide River, just over an hour from Darwin. Choose from Cook's Cottage, Stockman's Quarters, Billabong House, Monsoon Cabin, or Brahman Bungalow.",
+    "category": "unique_stay",
+    "suburb": "Adelaide River",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Bark Hut Inn",
+    "website": "https://barkhutnt.com.au/",
+    "description": "Historic Northern Territory icon on the Arnhem Highway at the western edge of Kakadu. Built in the wild era of buffalo and crocodile hunting, now a hub for Mary River Wetlands exploration.",
+    "category": "heritage_stay",
+    "suburb": "Annaburroo",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Cobourg Coastal Camp",
+    "website": "https://cobourgcoastalcamp.com.au/",
+    "description": "Exclusive eco-glamping on the northernmost tip of Arnhem Land within Garig Gunak Barlu National Park. Eight solar-powered safari tents for a maximum of 18 guests with freshly caught seafood dinners.",
+    "category": "eco_lodge",
+    "suburb": "Cobourg Peninsula",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Seven Spirit Bay Wilderness Lodge",
+    "website": "https://sevenspiritbay.com.au/",
+    "description": "Iconic and remote wilderness lodge on the Cobourg Peninsula accessible only by boat or private airstrip. Habitat villas with king-size beds overlooking Coral Bay. All-inclusive with marine adventures and wildlife encounters.",
+    "category": "eco_lodge",
+    "suburb": "Cobourg Peninsula",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Davidson's Arnhemland Safaris",
+    "website": "https://davidsonsarnhemland.com.au/",
+    "description": "Remote safari lodge at sacred Mt Borradaile on an exclusive 700 sq km lease in northwest Arnhem Land. Private cabins with all touring, meals, and Arnhem Land permits included. Over 20 years of operation.",
+    "category": "eco_lodge",
+    "suburb": "West Arnhem Land",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Tiwi Island Retreat",
+    "website": "https://tiwiislandretreat.com.au/",
+    "description": "Beachfront retreat on Bathurst Island, 30-minute flight from Darwin. Village rooms, ocean rooms, and luxury glamping tents with spa. Ocean-to-plate dining, world-class fishing, and Indigenous culture tours.",
+    "category": "eco_lodge",
+    "suburb": "Bathurst Island (Tiwi Islands)",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Batchelor Butterfly Farm",
+    "website": "https://butterflyfarm.net.au/",
+    "description": "Unique accommodation on a butterfly and animal farm 90 minutes from Darwin near Litchfield National Park. Freestanding cabins with ensuite, plus a 3-bedroom homestay sleeping up to 12.",
+    "category": "unique_stay",
+    "suburb": "Batchelor",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Litchfield Safari Camp",
+    "website": "https://litchfieldsafaricamp.com.au/",
+    "description": "Located on the western edge of Litchfield National Park just 4km from Wangi Falls. Family cabins, studio-ensuite cabins, and luxury glamping tents on fully grassed, shaded sites.",
+    "category": "eco_lodge",
+    "suburb": "Batchelor",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Rum Jungle Bungalows",
+    "website": "https://www.rumjunglebungalows.com.au/",
+    "description": "Six detached bungalow rooms set on one acre of tropical gardens in Batchelor, 18km from Litchfield National Park entrance. Queen beds, ensuite, and gourmet tropical breakfast by the pool.",
+    "category": "bed_and_breakfast",
+    "suburb": "Batchelor",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Litchfield Outback Resort",
+    "website": "https://litchfieldoutbackresort.com.au/",
+    "description": "Independent motel and resort in Batchelor at the gateway to Litchfield. Rooms with private balconies overlooking pool and gardens, on-site Lil'Ripper Cafe with chef-prepared meals.",
+    "category": "independent_motel",
+    "suburb": "Batchelor",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Aurora Kakadu Lodge",
+    "website": "https://aurorakakadulodge.com.au/",
+    "description": "Independent lodge and caravan park in the heart of Kakadu National Park at Jabiru. Self-contained cabins, lodge rooms, and extensive camping sites with poolside bar and bistro.",
+    "category": "eco_lodge",
+    "suburb": "Jabiru (Kakadu)",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Cicada Lodge",
+    "website": "https://cicadalodge.com.au/",
+    "description": "100% Indigenous-owned luxury lodge by the Jawoyn people inside Nitmiluk National Park on the Katherine River. Eighteen elegant rooms with local Aboriginal artwork, award-winning restaurant, and gorge experiences.",
+    "category": "boutique_hotel",
+    "suburb": "Nitmiluk (Katherine)",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Nitmiluk Cabins",
+    "website": "https://www.nitmiluktours.com.au/accommodation/nitmiluk-cabins/",
+    "description": "Self-contained chalets positioned below the escarpment entrance to Nitmiluk Gorge, 600m from cruise departures. One and two-bedroom cabins with resort pool and poolside bar.",
+    "category": "unique_stay",
+    "suburb": "Nitmiluk (Katherine)",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Knotts Crossing Resort",
+    "website": "https://www.knottscrossing.com.au/stay",
+    "description": "Independent resort set among acres of tropical gardens on the road to Nitmiluk Gorge, 2km from Katherine town centre. Village units, cabins, and camping amid lush surroundings.",
+    "category": "independent_motel",
+    "suburb": "Katherine",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Paraway Motel",
+    "website": "https://www.visitkatherine.com.au/accommodation",
+    "description": "Independent motel on O'Shea Terrace in central Katherine, a practical and affordable base for exploring Nitmiluk Gorge, Edith Falls, and Cutta Cutta Caves.",
+    "category": "independent_motel",
+    "suburb": "Katherine",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Djakanimba Pavilions",
+    "website": "https://www.djilpinarts.org.au/stay",
+    "description": "Four elevated pavilion rooms run by Djilpin Arts Aboriginal Corporation in the community of Beswick, 100km from Katherine. Revenue supports the local community. Custom Indigenous cultural tours available.",
+    "category": "unique_stay",
+    "suburb": "Beswick (Wugularr)",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Manbulloo Homestead Caravan Park",
+    "website": "https://manbulloohomesteadcaravanpark.com.au/",
+    "description": "Independent homestead on the banks of the Katherine River with cabins, motel rooms, and caravan sites. Just 12km from Katherine town centre in a peaceful riverside setting.",
+    "category": "unique_stay",
+    "suburb": "Katherine",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Pine Creek Railway Resort",
+    "website": "https://northernterritory.com/katherine-and-surrounds/accommodation/pine-creek-railway-resort",
+    "description": "Eighteen stylishly furnished cabins with a restaurant built in the shape of two trains at a railway station. Lagoon-style pool in historic Pine Creek at the gateway to Kakadu.",
+    "category": "heritage_stay",
+    "suburb": "Pine Creek",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Lazy Lizard Tavern and Caravan Park",
+    "website": "https://lazylizardpinecreek.com.au/",
+    "description": "Outback pub and accommodation in historic Pine Creek built from mud brick (termite mounds) and local timber. Relaxed Top End atmosphere with restaurant and birdwatching at Kakadu's doorstep.",
+    "category": "unique_stay",
+    "suburb": "Pine Creek",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Mataranka Homestead",
+    "website": "https://www.matarankahomestead.com.au",
+    "description": "Iconic outback resort next to thermal pools set in lush tropical rainforest maintaining 34 degrees year-round. Cabins, motel rooms, and camping with genuine outback hospitality.",
+    "category": "heritage_stay",
+    "suburb": "Mataranka",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Territory Manor Motel",
+    "website": "https://territorymanor.com.au/",
+    "description": "Unique rammed-earth motel accommodation in Mataranka, 100km south of Katherine. Twenty-six rooms with outdoor pool, licensed restaurant, and walking distance to Bitter Springs thermal pools.",
+    "category": "independent_motel",
+    "suburb": "Mataranka",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Bullo River Station",
+    "website": "https://www.bulloriver.com.au/",
+    "description": "400,000-acre working cattle property and luxury lodge in the Victoria River region near the WA border. Twelve guest rooms plus a remote hilltop hut accessible only by helicopter. Conservation at its core.",
+    "category": "eco_lodge",
+    "suburb": "Victoria River",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Lorella Springs Wilderness Park",
+    "website": "https://www.lorellasprings.com.au/",
+    "description": "One-million-acre privately run station in the Gulf of Carpentaria with accommodation and camping amid dramatic landscapes. Remote wilderness with thermal springs and waterfalls.",
+    "category": "unique_stay",
+    "suburb": "Gulf Region",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Longitude 131",
+    "website": "https://longitude131.com.au/",
+    "description": "Sixteen luxury tented pavilions perched on red sand dunes with uninterrupted Uluru views from every bed. Owned by Baillie Lodges, combining sustainable design with gourmet dining and private touring.",
+    "category": "eco_lodge",
+    "suburb": "Yulara (Uluru)",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Curtin Springs Wayside Inn",
+    "website": "https://www.curtinsprings.com/",
+    "description": "Multi-generational family cattle station and wayside inn one hour from Uluru. Ensuite rooms, budget rooms, and camping offering a genuine Central Australian pastoral experience.",
+    "category": "unique_stay",
+    "suburb": "Curtin Springs",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Kings Creek Station",
+    "website": "https://kingscreekstation.com.au/",
+    "description": "Working cattle station 36km from Kings Canyon offering luxury glamping in the Dreamtime Escarpment and Drovers Dream tents with king beds and air conditioning, set among majestic desert oaks.",
+    "category": "unique_stay",
+    "suburb": "Kings Canyon",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Wilmots on Dixon",
+    "website": "https://wilmots-on-dixon.com-stay.com/",
+    "description": "Family-owned B&B in Alice Springs run by hosts Ian and Helen since 1996. Private rooms with garden or pool views, complimentary bikes, outdoor pool, and highly praised buffet breakfast.",
+    "category": "bed_and_breakfast",
+    "suburb": "Alice Springs",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Squeakywindmill Boutique Tent B&B",
+    "website": "https://www.booking.com/hotel/au/squeakywindmill-boutique-tent-b-amp-b.en-gb.html",
+    "description": "Luxury glamping tent B&B outside Alice Springs with mountain views, private terrace, fully equipped kitchenette, walk-in shower, and bathrobes. A unique outback experience.",
+    "category": "bed_and_breakfast",
+    "suburb": "Alice Springs (Ilparpa)",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Over the Hump",
+    "website": "https://www.alicesprings.com/unique-accommodation-in-alice-springs/",
+    "description": "Unique self-contained stable accommodation in Alice Springs where guests enjoy visits from local kangaroos, goannas, and dingoes. A truly distinctive outback stay.",
+    "category": "unique_stay",
+    "suburb": "Alice Springs",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Desert Palms Alice Springs",
+    "website": "https://desertpalms.com.au/",
+    "description": "Eighty individual studio villas set around a free-form pool with waterfall, surrounded by tropical gardens on the banks of the Todd River. Each villa has ensuite, kitchenette, and verandah.",
+    "category": "independent_motel",
+    "suburb": "Alice Springs",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Alice on Todd Apartments",
+    "website": "https://www.aliceontodd.com/",
+    "description": "Fifty-seven self-contained apartments overlooking the Todd River, from studios to two-bedroom deluxe. Independent property with outdoor pool and home-away-from-home feel.",
+    "category": "boutique_hotel",
+    "suburb": "Alice Springs",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Desert Rose Inn",
+    "website": "http://desertroseinn.com.au/",
+    "description": "Budget-friendly independent motel in the heart of Alice Springs with saltwater pool, communal kitchen, BBQ area, and guest lounge. Practical outback base near Alice Springs Train Station.",
+    "category": "independent_motel",
+    "suburb": "Alice Springs",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Elkira Court Motel",
+    "website": "https://northernterritory.com/alice-springs-and-surrounds/accommodation/elkira-court-motel",
+    "description": "Independent motel in downtown Alice Springs at the Todd Mall with 58 rooms, outdoor pool, barbecue facilities, and on-site restaurant. Central location near Aboriginal art galleries.",
+    "category": "independent_motel",
+    "suburb": "Alice Springs",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Annie's Place",
+    "website": "https://www.alicesprings.com/unique-accommodation-in-alice-springs/",
+    "description": "Independent guesthouse on Traeger Avenue in The Gap, about 1.2km from Alice Springs centre. Affordable and characterful accommodation in the Red Centre.",
+    "category": "guesthouse",
+    "suburb": "Alice Springs (The Gap)",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Heavitree Gap Outback Lodge",
+    "website": "https://nttravel.com.au/alice-springs/heavitree-gap-outback-lodge-aurora/",
+    "description": "Independent lodge at the southern entrance to Alice Springs nestled at the base of the MacDonnell Ranges. Hand-feed wild black-footed rock wallabies at sunset. Eighty rooms with balconies and caravan sites.",
+    "category": "eco_lodge",
+    "suburb": "Alice Springs (Heavitree Gap)",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Safari Lodge Motel",
+    "website": "https://www.safarilodgemotel.com.au/",
+    "description": "Award-winning, proudly 100% Aboriginal-owned motel in the heart of Tennant Creek. A genuine outback stay supporting Indigenous enterprise on the Stuart Highway.",
+    "category": "independent_motel",
+    "suburb": "Tennant Creek",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Bluestone Motor Inn",
+    "website": "https://bluestonemotorinn.com.au/",
+    "description": "Independent motor inn in Tennant Creek with outdoor pool and restaurant. A comfortable and practical stop on the Stuart Highway between Alice Springs and Darwin.",
+    "category": "independent_motel",
+    "suburb": "Tennant Creek",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Goldfields Hotel Motel",
+    "website": "https://goldfields-hotel-motel.innorthernterritory.com/en/",
+    "description": "Independent 3-star venue in Tennant Creek with 24 air-conditioned rooms, two pubs, and a dining room. Classic outback hotel on the Stuart Highway.",
+    "category": "independent_motel",
+    "suburb": "Tennant Creek",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Tilmouth Well Roadhouse",
+    "website": "https://northernterritory.com/alice-springs-and-surrounds/accommodation/tilmouth-well-roadhouse",
+    "description": "Remote outback roadhouse on the iconic Tanami Road, 200km northwest of Alice Springs. Air-conditioned rooms, restaurant and bar, pool, and sprawling lawns under vast outback skies.",
+    "category": "unique_stay",
+    "suburb": "Tanami Road",
+    "city": "Darwin",
+    "region": "Darwin"
+  },
+  {
+    "name": "Batchelor Holiday Park",
+    "website": "https://www.batchelorholidaypark.com.au/",
+    "description": "Independent holiday park at the gateway to Litchfield National Park, 98km south of Darwin. Family cabins, luxury two-bedroom villas, and a range of caravan and camping sites.",
+    "category": "unique_stay",
+    "suburb": "Batchelor",
+    "city": "Darwin",
+    "region": "Darwin"
+  }
+]
