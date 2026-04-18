@@ -167,26 +167,12 @@ async function cleanMaster() {
 
   let cleaned = 0
   for (const l of external) {
-    // Move to hero_image_candidate_url for admin reference, null out hero_image_url
     const { error: updateErr } = await sb
       .from('listings')
-      .update({
-        hero_image_url: null,
-        hero_image_candidate_url: l.hero_image_url,
-      })
+      .update({ hero_image_url: null })
       .eq('id', l.id)
 
-    if (updateErr) {
-      // hero_image_candidate_url might not exist — fall back to just nulling
-      const { error: fallbackErr } = await sb
-        .from('listings')
-        .update({ hero_image_url: null })
-        .eq('id', l.id)
-
-      if (!fallbackErr) cleaned++
-    } else {
-      cleaned++
-    }
+    if (!updateErr) cleaned++
   }
 
   console.log(`  Cleaned: ${cleaned}/${external.length}`)

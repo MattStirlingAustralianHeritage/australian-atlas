@@ -1,5 +1,4 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
-import ImageCandidateActions from './ImageCandidateActions'
 
 export const metadata = { title: 'Dead Images — Admin' }
 export const dynamic = 'force-dynamic'
@@ -30,16 +29,6 @@ export default async function DeadImagesPage() {
 
   const dead = deadListings || []
 
-  // Section 2: Image candidates awaiting review
-  const { data: candidateListings } = await sb
-    .from('listings')
-    .select('id, name, vertical, region, state, hero_image_candidate_url')
-    .not('hero_image_candidate_url', 'is', null)
-    .order('vertical')
-    .order('name')
-
-  const candidates = candidateListings || []
-
   // Group dead by vertical for summary badges
   const deadByVertical = {}
   for (const l of dead) {
@@ -66,7 +55,7 @@ export default async function DeadImagesPage() {
           fontSize: 14,
           color: 'var(--color-muted)',
         }}>
-          Broken hero images flagged by the Dead Image Agent, and OG image candidates discovered from listing websites.
+          Broken hero images flagged by the Dead Image Agent.
         </p>
       </div>
 
@@ -90,20 +79,6 @@ export default async function DeadImagesPage() {
           </p>
           <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-muted)', margin: '4px 0 0' }}>
             Broken Images
-          </p>
-        </div>
-        <div style={{
-          padding: '14px 20px',
-          borderRadius: 8,
-          background: '#FCE4B8',
-          textAlign: 'center',
-          minWidth: 120,
-        }}>
-          <p style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 400, color: '#C49A3C', margin: 0 }}>
-            {candidates.length}
-          </p>
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-muted)', margin: '4px 0 0' }}>
-            Candidates
           </p>
         </div>
         {Object.entries(deadByVertical).map(([vert, arr]) => (
@@ -222,120 +197,6 @@ export default async function DeadImagesPage() {
         )}
       </div>
 
-      {/* ── Section 2: Image Candidates ───────────────────────── */}
-      <div>
-        <h2 style={{
-          fontFamily: 'var(--font-display)',
-          fontWeight: 400,
-          fontSize: 20,
-          color: 'var(--color-ink)',
-          marginBottom: 12,
-        }}>
-          Image Candidates
-        </h2>
-
-        {candidates.length === 0 ? (
-          <div style={{
-            textAlign: 'center',
-            padding: '2rem 0',
-            border: '1px dashed var(--color-border, #e5e5e5)',
-            borderRadius: 8,
-          }}>
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--color-muted)', margin: 0 }}>
-              No image candidates awaiting review.
-            </p>
-          </div>
-        ) : (
-          <div style={{ display: 'grid', gap: 12 }}>
-            {candidates.map(listing => (
-              <div
-                key={listing.id}
-                style={{
-                  padding: '16px 20px',
-                  borderRadius: 8,
-                  border: '1px solid var(--color-border, #e5e5e5)',
-                  background: '#fff',
-                }}
-              >
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'baseline',
-                  marginBottom: 12,
-                  flexWrap: 'wrap',
-                  gap: 8,
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{
-                      fontFamily: 'var(--font-body)',
-                      fontWeight: 600,
-                      fontSize: 14,
-                      color: 'var(--color-ink)',
-                    }}>
-                      {listing.name}
-                    </span>
-                    <span style={{
-                      fontFamily: 'var(--font-body)',
-                      fontWeight: 600,
-                      fontSize: 9,
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
-                      color: VERT_COLORS[listing.vertical] || '#888',
-                      background: (VERT_COLORS[listing.vertical] || '#888') + '18',
-                      padding: '2px 8px',
-                      borderRadius: 100,
-                      whiteSpace: 'nowrap',
-                    }}>
-                      {VERT_NAMES[listing.vertical] || listing.vertical}
-                    </span>
-                  </div>
-                  <span style={{
-                    fontFamily: 'var(--font-body)',
-                    fontWeight: 400,
-                    fontSize: 12,
-                    color: 'var(--color-muted)',
-                  }}>
-                    {listing.region ? `${listing.region}, ` : ''}{listing.state}
-                  </span>
-                </div>
-
-                {/* Candidate image preview */}
-                <div style={{
-                  marginBottom: 12,
-                  borderRadius: 6,
-                  overflow: 'hidden',
-                  border: '1px solid var(--color-border, #e5e5e5)',
-                  background: '#f5f5f5',
-                  maxHeight: 200,
-                }}>
-                  <img
-                    src={listing.hero_image_candidate_url}
-                    alt={`Candidate image for ${listing.name}`}
-                    style={{
-                      width: '100%',
-                      height: 200,
-                      objectFit: 'cover',
-                      display: 'block',
-                    }}
-                  />
-                </div>
-
-                <p style={{
-                  fontFamily: 'var(--font-body)',
-                  fontSize: 11,
-                  color: 'var(--color-muted)',
-                  margin: '0 0 10px',
-                  wordBreak: 'break-all',
-                }}>
-                  {listing.hero_image_candidate_url}
-                </p>
-
-                <ImageCandidateActions listingId={listing.id} />
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   )
 }
