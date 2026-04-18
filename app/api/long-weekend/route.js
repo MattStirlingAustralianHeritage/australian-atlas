@@ -134,22 +134,19 @@ export async function POST(request) {
     // ── Step 2: Group by region, pick richest cluster ──────
     const regionGroups = {}
     for (const listing of listings) {
-      const region = listing.region || null
-      if (!region) continue // Skip listings with no region — "Unknown" is not a destination
+      const region = listing.region || 'Unknown'
       if (!regionGroups[region]) regionGroups[region] = []
       regionGroups[region].push(listing)
     }
 
     // Pick region that best matches the traveller's vibes and specifics
     // Score = (unique verticals × 1000) + listing count + (preference matches × 500)
-    // When "anywhere" fell back to no geo filter, penalise distant regions
-    // Departure city region is penalised — a long weekend should take you somewhere new
+    // Penalties: departure city (×0.15), "Unknown" (×0.1), distance (for anywhere fallback)
     const allPreferences = [...(vibes || []), ...(subVibes || [])]
     const preferenceVerticals = new Set(
       allPreferences.flatMap(pref => VIBE_VERTICAL_MAP[pref] || [])
     )
 
-    // Departure city name → region names to penalise (city itself is a region in some cases)
     const cityLower = city.toLowerCase()
 
     let bestRegion = null
@@ -168,6 +165,11 @@ export async function POST(request) {
       }
 
       let score = (uniqueVerticals * 1000) + regionListings.length + (preferenceMatches * 500)
+
+      // "Unknown" is not a destination — heavy penalty so real regions always win
+      if (region === 'Unknown') {
+        score = score * 0.1
+      }
 
       // Penalise the departure city's own region — long weekends go somewhere new
       const regionLower = region.toLowerCase()
@@ -189,17 +191,23 @@ export async function POST(request) {
       }
     }
 
-    // Safety net: if no regions survived (all listings had null region), fall back to all listings
-    if (!bestRegion) {
-      // Re-group including null-region listings under first non-null region, or use 'Unknown'
-      const allRegions = [...new Set(listings.map(l => l.region).filter(Boolean))]
-      bestRegion = allRegions[0] || 'Unknown'
-      if (!regionGroups[bestRegion]) {
-        regionGroups[bestRegion] = listings
+    let regionListings = regionGroups[bestRegion] || []
+
+    // If the winning region has few listings, supplement with nearby "Unknown" listings
+    // (many listings lack a region field — include them when they're geographically close)
+    if (regionListings.length < 15 && regionGroups['Unknown']?.length > 0 && bestRegion !== 'Unknown') {
+      const regionCenter = {
+        lat: regionListings.reduce((sum, l) => sum + l.lat, 0) / regionListings.length,
+        lng: regionListings.reduce((sum, l) => sum + l.lng, 0) / regionListings.length,
+      }
+      const nearbyUnknown = regionGroups['Unknown'].filter(l =>
+        haversineKm(regionCenter.lat, regionCenter.lng, l.lat, l.lng) < 80
+      )
+      if (nearbyUnknown.length > 0) {
+        regionListings = [...regionListings, ...nearbyUnknown]
+        console.log(`[long-weekend] Supplemented ${bestRegion} with ${nearbyUnknown.length} nearby unassigned listings (total: ${regionListings.length})`)
       }
     }
-
-    const regionListings = regionGroups[bestRegion] || []
     // Cap at 50 for the Claude prompt
     const listingsForPrompt = regionListings.slice(0, 50)
 
