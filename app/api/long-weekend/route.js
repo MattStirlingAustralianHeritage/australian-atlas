@@ -67,17 +67,26 @@ export async function POST(request) {
     }
 
     const cityCoords = CITY_COORDS[city]
-    const radiusKm = RADIUS_KM[radius]
+    const isAnywhere = radius === 'anywhere'
+    let radiusKm = isAnywhere ? 500 : RADIUS_KM[radius]
+    let usedFallback = false
 
     // ── Step 1: Query listings within bounding box ─────────
     const sb = getSupabaseAdmin()
     let listings = await fetchListingsInRadius(sb, cityCoords, radiusKm)
 
-    // If fewer than 10, expand radius by 50% and retry once
+    // If fewer than 10, expand radius and retry
     if (listings.length < 10 && radiusKm) {
-      const expandedKm = Math.round(radiusKm * 1.5)
+      const expandedKm = isAnywhere ? 1000 : Math.round(radiusKm * 1.5)
       console.log(`[long-weekend] Only ${listings.length} listings within ${radiusKm}km, expanding to ${expandedKm}km`)
       listings = await fetchListingsInRadius(sb, cityCoords, expandedKm)
+    }
+
+    // Final fallback for "anywhere": no geographic filter, but distance-weight scoring
+    if (listings.length < 10 && isAnywhere) {
+      console.log(`[long-weekend] Still only ${listings.length} listings, falling back to no geo filter`)
+      listings = await fetchListingsInRadius(sb, cityCoords, null)
+      usedFallback = true
     }
 
     if (listings.length === 0) {
@@ -95,11 +104,21 @@ export async function POST(request) {
     }
 
     // Pick region with most vertical diversity (unique verticals), break ties by listing count
+    // When "anywhere" fell back to no geo filter, penalise distant regions
     let bestRegion = null
     let bestScore = -1
     for (const [region, regionListings] of Object.entries(regionGroups)) {
       const uniqueVerticals = new Set(regionListings.map(l => l.vertical)).size
-      const score = uniqueVerticals * 1000 + regionListings.length
+      let score = uniqueVerticals * 1000 + regionListings.length
+
+      if (usedFallback) {
+        const avgLat = regionListings.reduce((sum, l) => sum + l.lat, 0) / regionListings.length
+        const avgLng = regionListings.reduce((sum, l) => sum + l.lng, 0) / regionListings.length
+        const distanceKm = haversineKm(cityCoords.lat, cityCoords.lng, avgLat, avgLng)
+        const distancePenalty = Math.max(0.2, 1 - (distanceKm / 2000))
+        score = score * distancePenalty
+      }
+
       if (score > bestScore) {
         bestScore = score
         bestRegion = region
@@ -146,6 +165,7 @@ Requirements:
 - Arrival times should be realistic (Day 1 starts no earlier than 2pm, Day 2 from 9am, Day 3 from 8:30am).
 - Day 3 MUST end with a closing note — a single editorial sentence that gives a sense of completion and goodbye to the area. Like closing a chapter. Examples: "From here, the drive home feels earned." or "Leave enough time to stop for one last coffee before the highway." Be specific to the region if possible.
 - Include a "head_home" field on Day 3 with the nearest town/suburb to depart from.
+- NEVER repeat a venue. Every stop in the itinerary must be a unique listing. Do not use the same venue on multiple days, even in different contexts (e.g. morning coffee vs evening drinks).
 
 Return ONLY valid JSON with no markdown formatting, no code fences:
 {
@@ -217,6 +237,16 @@ Return ONLY valid JSON with no markdown formatting, no code fences:
       console.error('[long-weekend] Failed to parse Claude response:', parseErr.message)
       console.error('[long-weekend] Raw response:', rawText.slice(0, 500))
       return NextResponse.json({ error: 'Failed to parse itinerary. Please try again.' }, { status: 502 })
+    }
+
+    // ── Deduplicate stops ─────────────────────────────────
+    const usedIds = new Set()
+    for (const day of itinerary.days || []) {
+      day.stops = (day.stops || []).filter(stop => {
+        if (usedIds.has(stop.listing_id)) return false
+        usedIds.add(stop.listing_id)
+        return true
+      })
     }
 
     // ── Step 6: Enrich with full listing data ──────────────
@@ -333,7 +363,7 @@ async function fetchListingsInRadius(sb, center, radiusKm) {
       .lte('lng', center.lng + lngOffset)
   }
 
-  query = query.limit(200)
+  query = query.order('quality_score', { ascending: false }).limit(200)
 
   const { data, error } = await query
 
@@ -343,4 +373,17 @@ async function fetchListingsInRadius(sb, center, radiusKm) {
   }
 
   return data || []
+}
+
+/**
+ * Haversine distance in kilometres between two lat/lng points.
+ */
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLng = (lng2 - lng1) * Math.PI / 180
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
