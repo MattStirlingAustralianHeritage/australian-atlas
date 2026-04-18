@@ -415,11 +415,14 @@ export async function POST(request) {
     const currentSeason = getCurrentSeason()
     const isMultiDay = tripConfig.days >= 2
 
+    const t0 = Date.now()
+
     // 1. Geocode start
     const startCoords = await geocode(start)
     if (!startCoords) {
       return NextResponse.json({ error: 'Could not find start location. Try a more specific Australian place name.' }, { status: 400 })
     }
+    console.log(`[on-this-road] [${rid}] ⏱ Geocode start: ${Date.now() - t0}ms`)
 
     let endCoords = null
     let isSurpriseLoop = false
@@ -455,6 +458,7 @@ export async function POST(request) {
 
     // 3. Geocode end
     endCoords = await geocode(end)
+    console.log(`[on-this-road] [${rid}] ⏱ Geocode end: ${Date.now() - t0}ms`)
     if (!endCoords) {
       return NextResponse.json({ error: 'Could not find end location. Try a more specific Australian place name.' }, { status: 400 })
     }
@@ -475,7 +479,7 @@ export async function POST(request) {
     if (!route) {
       return NextResponse.json({ error: 'No driving route found between these locations.' }, { status: 400 })
     }
-    console.log(`[on-this-road] [${rid}] Route: ${Math.round(route.distance / 1000)}km, ${route.geometry?.coordinates?.length} coords, first: [${route.geometry?.coordinates?.[0]}], last: [${route.geometry?.coordinates?.[route.geometry?.coordinates?.length - 1]}]`)
+    console.log(`[on-this-road] [${rid}] ⏱ Route fetched: ${Date.now() - t0}ms | ${Math.round(route.distance / 1000)}km, ${route.geometry?.coordinates?.length} coords`)
 
     // 5. Build outbound itinerary
     const result = await buildItinerary({
@@ -557,6 +561,7 @@ async function buildItinerary({
   currentSeason, isMultiDay, isSurpriseLoop, returnDifferentRoad,
   startName, endName, preSelectedListings,
 }) {
+  const _bt = Date.now()
   const routeGeometry = route.geometry
   const routeCoords = routeGeometry.coordinates
   const routeDurationMinutes = Math.round(route.duration / 60)
@@ -565,9 +570,11 @@ async function buildItinerary({
 
   const routeDistances = buildRouteDistances(routeCoords)
   const totalRouteKm = routeDistances[routeDistances.length - 1] || routeDistanceKm
+  console.log(`[on-this-road] ⏱ buildRouteDistances: ${Date.now() - _bt}ms | ${routeCoords.length} coords`)
 
   // Query listings along route — batched for performance
   const samplePoints = sampleRoutePoints(routeCoords, 30)
+  console.log(`[on-this-road] ⏱ samplePoints: ${samplePoints.length} points for ${Math.round(totalRouteKm)}km route`)
   const sb = getSupabaseAdmin()
   const seenIds = new Set()
   const allListings = []
@@ -603,6 +610,8 @@ async function buildItinerary({
       }
     }
   }
+
+  console.log(`[on-this-road] ⏱ Corridor queries done: ${Date.now() - _bt}ms | ${allListings.length} unique listings from ${samplePoints.length} points (${Math.ceil(samplePoints.length / BATCH_SIZE)} batches)`)
 
   // If multi-day, also query Rest Atlas listings with expanded buffer — batched
   let restCandidates = []
@@ -674,6 +683,7 @@ async function buildItinerary({
       const proj = projectOntoRoute(l.lat, l.lng, routeCoords)
       return { ...l, distanceFromRoute: proj.distance, routeIndex: proj.routeIndex, positionKm: Math.round(routeDistances[proj.routeIndex] || 0) }
     }).sort((a, b) => a.positionKm - b.positionKm)
+    console.log(`[on-this-road] ⏱ Rest queries + projection done: ${Date.now() - _bt}ms | ${restCandidates.length} rest candidates`)
   }
 
   // Project all listings onto route + filter by detour tolerance
@@ -699,6 +709,8 @@ async function buildItinerary({
       return true
     })
     .sort((a, b) => a.routeIndex - b.routeIndex)
+
+  console.log(`[on-this-road] ⏱ Route projection + filter done: ${Date.now() - _bt}ms | ${routeListings.length} route listings from ${allListings.length} raw`)
 
   // Coverage gaps
   const allRouteListings = allListings
@@ -926,6 +938,8 @@ async function buildItinerary({
       }))
   }
 
+  console.log(`[on-this-road] ⏱ Segment distribution done: ${Date.now() - _bt}ms`)
+
   // Build prompt
   const startNameFull = startCoords.text || startName
   const endNameFull = endCoords.text || endName
@@ -951,6 +965,8 @@ async function buildItinerary({
   }
 
   // Call Claude
+  const _claudeStart = Date.now()
+  console.log(`[on-this-road] ⏱ Claude API call start: ${_claudeStart - _bt}ms | prompt length: ${prompt.length} chars`)
   let claudeResult = null
   try {
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
@@ -966,6 +982,7 @@ async function buildItinerary({
         messages: [{ role: 'user', content: prompt }],
       }),
     })
+    console.log(`[on-this-road] ⏱ Claude API response: ${Date.now() - _bt}ms (Claude took ${Date.now() - _claudeStart}ms)`)
     if (!claudeRes.ok) {
       const errBody = await claudeRes.text().catch(() => '')
       console.error('[on-this-road] Claude API non-200:', claudeRes.status, errBody.slice(0, 300))
@@ -977,6 +994,7 @@ async function buildItinerary({
   } catch (err) {
     console.error('[on-this-road] Claude API error:', err?.message, '| Route:', routeDistanceKm, 'km', '| Multi-day:', isMultiDay)
   }
+  console.log(`[on-this-road] ⏱ Total buildItinerary: ${Date.now() - _bt}ms`)
 
   // Build response
   const listingMap = new Map(routeListings.map(l => [l.id, l]))
