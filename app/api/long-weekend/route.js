@@ -134,7 +134,8 @@ export async function POST(request) {
     // ── Step 2: Group by region, pick richest cluster ──────
     const regionGroups = {}
     for (const listing of listings) {
-      const region = listing.region || 'Unknown'
+      const region = listing.region || null
+      if (!region) continue // Skip listings with no region — "Unknown" is not a destination
       if (!regionGroups[region]) regionGroups[region] = []
       regionGroups[region].push(listing)
     }
@@ -142,17 +143,21 @@ export async function POST(request) {
     // Pick region that best matches the traveller's vibes and specifics
     // Score = (unique verticals × 1000) + listing count + (preference matches × 500)
     // When "anywhere" fell back to no geo filter, penalise distant regions
+    // Departure city region is penalised — a long weekend should take you somewhere new
     const allPreferences = [...(vibes || []), ...(subVibes || [])]
     const preferenceVerticals = new Set(
       allPreferences.flatMap(pref => VIBE_VERTICAL_MAP[pref] || [])
     )
+
+    // Departure city name → region names to penalise (city itself is a region in some cases)
+    const cityLower = city.toLowerCase()
 
     let bestRegion = null
     let bestScore = -1
     for (const [region, regionListings] of Object.entries(regionGroups)) {
       const uniqueVerticals = new Set(regionListings.map(l => l.vertical)).size
 
-      // Count listings matching any preference vertical or sub_type
+      // Count listings matching any preference vertical
       let preferenceMatches = 0
       if (preferenceVerticals.size > 0) {
         for (const l of regionListings) {
@@ -163,6 +168,12 @@ export async function POST(request) {
       }
 
       let score = (uniqueVerticals * 1000) + regionListings.length + (preferenceMatches * 500)
+
+      // Penalise the departure city's own region — long weekends go somewhere new
+      const regionLower = region.toLowerCase()
+      if (regionLower === cityLower || regionLower.startsWith(cityLower + ' ') || regionLower.includes(cityLower)) {
+        score = score * 0.15
+      }
 
       if (usedFallback) {
         const avgLat = regionListings.reduce((sum, l) => sum + l.lat, 0) / regionListings.length
@@ -175,6 +186,16 @@ export async function POST(request) {
       if (score > bestScore) {
         bestScore = score
         bestRegion = region
+      }
+    }
+
+    // Safety net: if no regions survived (all listings had null region), fall back to all listings
+    if (!bestRegion) {
+      // Re-group including null-region listings under first non-null region, or use 'Unknown'
+      const allRegions = [...new Set(listings.map(l => l.region).filter(Boolean))]
+      bestRegion = allRegions[0] || 'Unknown'
+      if (!regionGroups[bestRegion]) {
+        regionGroups[bestRegion] = listings
       }
     }
 
