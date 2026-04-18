@@ -4,6 +4,8 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getVerticalUrl, getVerticalBadge } from '@/lib/verticalUrl'
 import TrailMap from '../../trails/[slug]/TrailMap'
 import ShareButton from '../../trails/[slug]/ShareButton'
+import TrailLegCard from '@/components/TrailLegCard'
+import GettingThereCard from '@/components/GettingThereCard'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,7 +36,7 @@ export default async function SharedTrailPage({ params }) {
 
   const { data: trail } = await sb
     .from('trails')
-    .select('id, title, slug, short_code, description, type, region, cover_image_url, hero_intro, curator_name, duration, best_season')
+    .select('id, title, slug, short_code, description, type, region, cover_image_url, hero_intro, curator_name, duration, best_season, transport_mode, neighbourhood_label, getting_there_origin')
     .eq('short_code', shortcode)
     .in('visibility', ['link', 'public'])
     .single()
@@ -76,6 +78,12 @@ export default async function SharedTrailPage({ params }) {
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 13, color: 'rgba(255,255,255,0.4)', fontFamily: 'var(--font-body)', flexWrap: 'wrap' }}>
             <span>{validStops.length} stops</span>
+            {trail.transport_mode === 'transit' && (
+              <><span>·</span><span style={{ color: 'var(--color-sage)' }}>Car-free trail</span></>
+            )}
+            {trail.transport_mode === 'neighbourhood' && (
+              <><span>·</span><span style={{ color: '#5A8A9A' }}>Neighbourhood walk{trail.neighbourhood_label ? ` · ${trail.neighbourhood_label}` : ''}</span></>
+            )}
             {trail.duration && <><span>·</span><span>{trail.duration}</span></>}
             {trail.curator_name && <><span>·</span><span>Curated by {trail.curator_name}</span></>}
           </div>
@@ -102,13 +110,24 @@ export default async function SharedTrailPage({ params }) {
 
           {/* Stops */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {/* Getting There card for neighbourhood trails */}
+            {trail.transport_mode === 'neighbourhood' && validStops.length > 0 && (
+              <GettingThereCard
+                neighbourhoodLabel={trail.neighbourhood_label || null}
+                firstStopLat={validStops[0].venue_lat}
+                firstStopLng={validStops[0].venue_lng}
+                customOrigin={trail.getting_there_origin || null}
+                state={null}
+              />
+            )}
             {validStops.map((stop, i) => {
               const verticalColor = VERTICAL_COLORS[stop.vertical] || 'var(--color-sage)'
               const listingSlug = stop.listings?.slug || null
               const venueUrl = listingSlug ? `/place/${listingSlug}` : null
 
               return (
-                <div key={stop.id} style={{ display: 'flex', gap: 16, position: 'relative' }}>
+                <div key={stop.id}>
+                <div style={{ display: 'flex', gap: 16, position: 'relative' }}>
                   {i < validStops.length - 1 && (
                     <div style={{ position: 'absolute', left: 17, top: 40, width: 1, height: 'calc(100% + 8px)', background: 'var(--color-border)' }} />
                   )}
@@ -163,6 +182,18 @@ export default async function SharedTrailPage({ params }) {
                     </div>
                   </div>
                 </div>
+                {/* Walking leg card for no-car modes */}
+                {trail.transport_mode && trail.transport_mode !== 'drive' && i < validStops.length - 1 && (
+                  <div style={{ margin: '8px 0 0 0' }}>
+                    <TrailLegCard
+                      fromLat={stop.venue_lat}
+                      fromLng={stop.venue_lng}
+                      toLat={validStops[i + 1].venue_lat}
+                      toLng={validStops[i + 1].venue_lng}
+                    />
+                  </div>
+                )}
+                </div>
               )
             })}
           </div>
@@ -187,7 +218,7 @@ export default async function SharedTrailPage({ params }) {
             {[
               { label: 'Stops', value: `${validStops.length} venues`, sub: 'All independently operated' },
               { label: 'Duration', value: trail.duration || 'Allow a full day', sub: 'Adjust pace between stops' },
-              { label: 'Getting there', value: 'Car recommended', sub: 'Check venue hours before going' },
+              { label: 'Getting there', value: trail.transport_mode === 'neighbourhood' ? 'Walk' : trail.transport_mode === 'transit' ? 'Transit + walking' : 'Car recommended', sub: trail.transport_mode === 'neighbourhood' ? 'All stops walkable' : 'Check venue hours before going' },
               { label: 'Best visited', value: trail.best_season || 'Year round', sub: 'Weather varies by region' },
             ].map(item => (
               <div key={item.label} style={{ padding: '20px 24px', background: 'var(--color-card-bg)', border: '1px solid var(--color-border)', borderRadius: 3 }}>

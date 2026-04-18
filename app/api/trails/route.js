@@ -22,7 +22,7 @@ export async function GET(request) {
 
     let query = sb
       .from('trails')
-      .select('id, title, slug, short_code, description, type, visibility, region, vertical_focus, stop_count, created_by, created_at, updated_at')
+      .select('id, title, slug, short_code, description, type, visibility, region, vertical_focus, stop_count, created_by, created_at, updated_at, transport_mode, neighbourhood_label')
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
@@ -72,7 +72,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { title, description, type, visibility, region, vertical_focus, stops, saved_via } = body
+    const { title, description, type, visibility, region, vertical_focus, stops, saved_via, transport_mode, neighbourhood_label } = body
 
     // Auth check — share saves allow anonymous creation
     const supabase = await createAuthServerClient()
@@ -132,6 +132,8 @@ export async function POST(request) {
         stop_count: stops?.length || 0,
         created_by: user?.id || null,
         saved_via: saved_via || null,
+        transport_mode: transport_mode || 'drive',
+        neighbourhood_label: neighbourhood_label || null,
       })
       .select('id, title, slug, short_code, description, type, visibility, region, vertical_focus, stop_count, published, created_by, created_at, updated_at')
       .single()

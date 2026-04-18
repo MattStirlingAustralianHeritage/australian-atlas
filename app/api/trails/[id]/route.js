@@ -17,7 +17,7 @@ export async function GET(request, { params }) {
 
     let query = sb
       .from('trails')
-      .select('id, title, slug, short_code, description, type, visibility, region, vertical_focus, stop_count, published, created_by, created_at, updated_at, cover_image_url, hero_intro, curator_name, curator_note, duration, best_season')
+      .select('id, title, slug, short_code, description, type, visibility, region, vertical_focus, stop_count, published, created_by, created_at, updated_at, cover_image_url, hero_intro, curator_name, curator_note, duration, best_season, transport_mode, neighbourhood_label, getting_there_origin')
 
     if (isUuid) {
       query = query.eq('id', id)
@@ -96,7 +96,7 @@ export async function PUT(request, { params }) {
     }
 
     const body = await request.json()
-    const { title, description, type, visibility, region, vertical_focus, published, stops } = body
+    const { title, description, type, visibility, region, vertical_focus, published, stops, transport_mode, neighbourhood_label } = body
 
     // Build update object — only include provided fields
     const updates = { updated_at: new Date().toISOString() }
@@ -107,6 +107,8 @@ export async function PUT(request, { params }) {
     if (region !== undefined) updates.region = region
     if (vertical_focus !== undefined) updates.vertical_focus = vertical_focus
     if (published !== undefined) updates.published = published
+    if (transport_mode !== undefined) updates.transport_mode = transport_mode
+    if (neighbourhood_label !== undefined) updates.neighbourhood_label = neighbourhood_label
     if (stops !== undefined) updates.stop_count = stops.length
 
     // Re-generate slug if title changed
@@ -140,7 +142,7 @@ export async function PUT(request, { params }) {
       .from('trails')
       .update(updates)
       .eq('id', id)
-      .select('id, title, slug, short_code, description, type, visibility, region, vertical_focus, stop_count, published, created_by, created_at, updated_at, cover_image_url, hero_intro, curator_name, curator_note, duration, best_season')
+      .select('id, title, slug, short_code, description, type, visibility, region, vertical_focus, stop_count, published, created_by, created_at, updated_at, cover_image_url, hero_intro, curator_name, curator_note, duration, best_season, transport_mode, neighbourhood_label, getting_there_origin')
       .single()
 
     if (updateError) {

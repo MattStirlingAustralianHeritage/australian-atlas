@@ -6,6 +6,8 @@ import { getVerticalUrl, getVerticalBadge } from '@/lib/verticalUrl'
 import { isApprovedImageSource } from '@/lib/image-utils'
 import TrailInteractive from './TrailInteractive'
 import ShareButton from './ShareButton'
+import TrailLegCard from '@/components/TrailLegCard'
+import GettingThereCard from '@/components/GettingThereCard'
 
 export const revalidate = 3600
 
@@ -18,7 +20,7 @@ const getTrail = cache(async function getTrail(slug) {
   const sb = getSupabaseAdmin()
   const { data } = await sb
     .from('trails')
-    .select('id, title, description, short_code, slug, type, visibility, hero_intro, cover_image_url, region, duration, curator_name, curator_note, vertical_focus, best_season, published')
+    .select('id, title, description, short_code, slug, type, visibility, hero_intro, cover_image_url, region, duration, curator_name, curator_note, vertical_focus, best_season, published, transport_mode, neighbourhood_label, getting_there_origin')
     .eq('slug', slug)
     .eq('published', true)
     .single()
@@ -83,6 +85,12 @@ export default async function TrailPage({ params }) {
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 13, color: 'rgba(255,255,255,0.45)', fontFamily: 'var(--font-body)', flexWrap: 'wrap' }}>
             <span>{validStops.length} stops</span>
+            {trail.transport_mode === 'transit' && (
+              <><span>·</span><span style={{ color: 'var(--color-sage)' }}>Car-free trail</span></>
+            )}
+            {trail.transport_mode === 'neighbourhood' && (
+              <><span>·</span><span style={{ color: '#5A8A9A' }}>Neighbourhood walk{trail.neighbourhood_label ? ` · ${trail.neighbourhood_label}` : ''}</span></>
+            )}
             {trail.duration && <><span>·</span><span>{trail.duration}</span></>}
             {trail.curator_name && <><span>·</span><span>Curated by {trail.curator_name}</span></>}
             {trail.vertical_focus && (
@@ -126,8 +134,31 @@ export default async function TrailPage({ params }) {
                 <p style={{ fontSize: 14, color: 'var(--color-muted)', lineHeight: 1.7, fontFamily: 'var(--font-body)' }}>{trail.curator_note}</p>
               </div>
             )}
+            {/* Getting There card for neighbourhood trails */}
+            {trail.transport_mode === 'neighbourhood' && validStops.length > 0 && (
+              <GettingThereCard
+                neighbourhoodLabel={trail.neighbourhood_label || null}
+                firstStopLat={validStops[0].venue_lat}
+                firstStopLng={validStops[0].venue_lng}
+                customOrigin={trail.getting_there_origin || null}
+                state={validStops[0].state || null}
+              />
+            )}
             {validStops.map((stop, index) => (
-              <StopCard key={stop.id} stop={stop} index={index} isLast={index === validStops.length - 1} />
+              <div key={stop.id}>
+                <StopCard stop={stop} index={index} isLast={index === validStops.length - 1 && trail.transport_mode === 'drive'} />
+                {/* Walking leg card for no-car modes */}
+                {trail.transport_mode && trail.transport_mode !== 'drive' && index < validStops.length - 1 && (
+                  <div style={{ margin: '8px 0 0 0' }}>
+                    <TrailLegCard
+                      fromLat={stop.venue_lat}
+                      fromLng={stop.venue_lng}
+                      toLat={validStops[index + 1].venue_lat}
+                      toLng={validStops[index + 1].venue_lng}
+                    />
+                  </div>
+                )}
+              </div>
             ))}
           </div>
 
@@ -151,7 +182,7 @@ export default async function TrailPage({ params }) {
             {[
               { label: 'Duration', value: trail.duration || 'Full day', sub: 'Allow time between stops' },
               { label: 'Best visited', value: trail.best_season || 'Year round', sub: 'Check venue hours before going' },
-              { label: 'Region', value: trail.region || 'Multiple regions', sub: 'A car is recommended' },
+              { label: 'Region', value: trail.region || 'Multiple regions', sub: trail.transport_mode === 'neighbourhood' ? 'Walkable neighbourhood' : trail.transport_mode === 'transit' ? 'Public transport + walking' : 'A car is recommended' },
               { label: 'Stops', value: `${validStops.length} venues`, sub: 'Across multiple verticals' },
             ].map(item => (
               <div key={item.label} style={{ padding: '20px 24px', background: 'var(--color-card-bg)', border: '1px solid var(--color-border)', borderRadius: 3 }}>

@@ -1,11 +1,13 @@
 'use client'
 import 'mapbox-gl/dist/mapbox-gl.css'
 
-import { Suspense, useState, useEffect, useRef, useCallback } from 'react'
+import React, { Suspense, useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { getAuthSupabase } from '@/lib/supabase/auth-clients'
 import { getVerticalUrl, getVerticalBadge } from '@/lib/verticalUrl'
+import TrailLegCard from '@/components/TrailLegCard'
+import GettingThereCard from '@/components/GettingThereCard'
 
 const VERTICAL_COLORS = {
   sba: '#C49A3C', collection: '#7A6B8A', craft: '#C1603A', fine_grounds: '#8A7055',
@@ -43,6 +45,8 @@ function TrailBuilderInner() {
   const [trailName, setTrailName] = useState('')
   const [trailDesc, setTrailDesc] = useState('')
   const [visibility, setVisibility] = useState('private')
+  const [transportMode, setTransportMode] = useState('drive') // drive | transit | neighbourhood
+  const [neighbourhoodLabel, setNeighbourhoodLabel] = useState('')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
   const [mobileTab, setMobileTab] = useState('builder')
@@ -109,7 +113,7 @@ function TrailBuilderInner() {
   }, [search, activeVertical])
 
   // Draw route between stops using Mapbox Directions API
-  const drawRoute = useCallback(async (map, stopsToRender) => {
+  const drawRoute = useCallback(async (map, stopsToRender, mode = 'drive') => {
     // Clear old routes
     routeLayersRef.current.forEach(id => {
       try {
@@ -134,7 +138,8 @@ function TrailBuilderInner() {
       newLayerIds.push(sourceId, layerId)
 
       try {
-        const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${from.longitude},${from.latitude};${to.longitude},${to.latitude}?geometries=geojson&access_token=${token}`
+        const profile = mode === 'drive' ? 'driving' : 'walking'
+        const url = `https://api.mapbox.com/directions/v5/mapbox/${profile}/${from.longitude},${from.latitude};${to.longitude},${to.latitude}?geometries=geojson&access_token=${token}`
         const res = await fetch(url)
         const data = await res.json()
         const route = data.routes?.[0]?.geometry
@@ -316,7 +321,7 @@ function TrailBuilderInner() {
       }
 
       renderStopMarkers(map, mapboxgl, stops)
-      await drawRoute(map, stops)
+      await drawRoute(map, stops, transportMode)
       prevStopsLenRef.current = stops.length
     }
 
@@ -325,7 +330,7 @@ function TrailBuilderInner() {
     } else {
       map.once('load', doUpdate)
     }
-  }, [stops, drawRoute, renderStopMarkers])
+  }, [stops, transportMode, drawRoute, renderStopMarkers])
 
   // Update result markers when search results change
   useEffect(() => {
@@ -384,6 +389,8 @@ function TrailBuilderInner() {
           description: trailDesc.trim(),
           type: 'user',
           visibility,
+          transport_mode: transportMode,
+          neighbourhood_label: transportMode === 'neighbourhood' && neighbourhoodLabel.trim() ? neighbourhoodLabel.trim() : null,
           stops: stops.map((s, i) => ({
             listing_id: s.id,
             vertical: s.vertical,
@@ -486,6 +493,77 @@ function TrailBuilderInner() {
                 resize: 'none', boxSizing: 'border-box', lineHeight: 1.5, marginBottom: 12,
               }}
             />
+
+            {/* Transport mode toggle */}
+            <div style={{ marginBottom: 12 }}>
+              <div style={{
+                display: 'inline-flex', border: '1px solid var(--color-border)', borderRadius: 4, overflow: 'hidden',
+              }}>
+                {[
+                  { key: 'drive', label: 'Drive' },
+                  { key: 'nocar', label: 'No Car' },
+                ].map(m => {
+                  const active = m.key === 'drive' ? transportMode === 'drive' : transportMode !== 'drive'
+                  return (
+                    <button
+                      key={m.key}
+                      onClick={() => {
+                        if (m.key === 'drive') setTransportMode('drive')
+                        else if (transportMode === 'drive') setTransportMode('transit')
+                      }}
+                      style={{
+                        padding: '7px 16px', border: 'none', minHeight: 36,
+                        background: active ? 'var(--color-sage)' : 'transparent',
+                        color: active ? '#fff' : 'var(--color-muted)',
+                        fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 600,
+                        letterSpacing: '0.04em', cursor: 'pointer', transition: 'all 0.12s',
+                      }}
+                    >
+                      {m.label}
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* No Car sub-mode */}
+              {transportMode !== 'drive' && (
+                <div style={{ display: 'inline-flex', marginLeft: 8, border: '1px solid var(--color-border)', borderRadius: 4, overflow: 'hidden' }}>
+                  {[
+                    { key: 'transit', label: 'Transit + Walking' },
+                    { key: 'neighbourhood', label: 'Neighbourhood Walk' },
+                  ].map(m => (
+                    <button
+                      key={m.key}
+                      onClick={() => setTransportMode(m.key)}
+                      style={{
+                        padding: '7px 12px', border: 'none', minHeight: 36,
+                        background: transportMode === m.key ? '#5A8A9A' : 'transparent',
+                        color: transportMode === m.key ? '#fff' : 'var(--color-muted)',
+                        fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600,
+                        cursor: 'pointer', transition: 'all 0.12s',
+                      }}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Neighbourhood label */}
+            {transportMode === 'neighbourhood' && (
+              <input
+                value={neighbourhoodLabel}
+                onChange={e => setNeighbourhoodLabel(e.target.value)}
+                placeholder="Neighbourhood name (e.g. Fitzroy & Collingwood)..."
+                style={{
+                  width: '100%', padding: '8px 0', fontFamily: 'var(--font-body)', fontSize: 13,
+                  color: 'var(--color-ink)', background: 'transparent', border: 'none',
+                  borderBottom: '1px solid var(--color-border)', outline: 'none',
+                  boxSizing: 'border-box', marginBottom: 12,
+                }}
+              />
+            )}
 
             <div style={{ display: 'flex', gap: 8 }}>
               <select
@@ -671,14 +749,37 @@ function TrailBuilderInner() {
                 <div style={{
                   fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase',
                   color: 'var(--color-muted)', fontFamily: 'var(--font-body)', fontWeight: 600, marginBottom: 4,
+                  display: 'flex', alignItems: 'center', gap: 8,
                 }}>
-                  {stops.length} stop{stops.length !== 1 ? 's' : ''}
+                  <span>{stops.length} stop{stops.length !== 1 ? 's' : ''}</span>
+                  {transportMode === 'transit' && (
+                    <span style={{ fontSize: 9, color: 'var(--color-sage)', fontWeight: 600, letterSpacing: '0.06em' }}>
+                      Car-free trail
+                    </span>
+                  )}
+                  {transportMode === 'neighbourhood' && (
+                    <span style={{ fontSize: 9, color: '#5A8A9A', fontWeight: 600, letterSpacing: '0.06em' }}>
+                      Neighbourhood walk{neighbourhoodLabel ? ` · ${neighbourhoodLabel}` : ''}
+                    </span>
+                  )}
                 </div>
+
+                {/* Getting There card for neighbourhood mode */}
+                {transportMode === 'neighbourhood' && stops.length > 0 && stops[0].latitude && stops[0].longitude && (
+                  <GettingThereCard
+                    neighbourhoodLabel={neighbourhoodLabel || null}
+                    firstStopLat={parseFloat(stops[0].latitude)}
+                    firstStopLng={parseFloat(stops[0].longitude)}
+                    state={stops[0].state || null}
+                    compact
+                  />
+                )}
 
                 {stops.map((stop, i) => {
                   const color = VERTICAL_COLORS[stop.vertical] || '#5F8A7E'
                   return (
-                    <div key={stop.id} style={{ background: '#fff', border: '1px solid var(--color-border)', borderRadius: 4, padding: '10px 12px' }}>
+                    <React.Fragment key={stop.id}>
+                    <div style={{ background: '#fff', border: '1px solid var(--color-border)', borderRadius: 4, padding: '10px 12px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <div style={{
                           width: 24, height: 24, borderRadius: '50%', background: color,
@@ -758,8 +859,19 @@ function TrailBuilderInner() {
                         }}
                       />
                     </div>
-                  )
-                })}
+
+                    {/* Walking leg card between stops (no-car modes only) */}
+                    {transportMode !== 'drive' && i < stops.length - 1 && stops[i + 1].latitude && stop.latitude && (
+                      <TrailLegCard
+                        fromLat={parseFloat(stop.latitude)}
+                        fromLng={parseFloat(stop.longitude)}
+                        toLat={parseFloat(stops[i + 1].latitude)}
+                        toLng={parseFloat(stops[i + 1].longitude)}
+                        compact
+                      />
+                    )}
+                  </React.Fragment>
+                ))}
               </div>
             )}
           </div>
