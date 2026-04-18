@@ -29,6 +29,42 @@ const RADIUS_KM = {
   'anywhere': null, // no limit
 }
 
+// ── Vibe/SubVibe → vertical mapping for preference scoring ──
+const VIBE_VERTICAL_MAP = {
+  // Primary vibes
+  'Relaxed':      ['rest', 'field'],
+  'Adventurous':  ['field'],
+  'Cultural':     ['collection', 'found', 'corner'],
+  'Foodie':       ['fine_grounds', 'table', 'sba'],
+  'Nature':       ['field'],
+  // Sub-vibes (specifics)
+  'Boutique stays':           ['rest'],
+  'Coffee & roasters':        ['fine_grounds'],
+  'Cellar doors & tastings':  ['sba'],
+  'Bookshops & browsing':     ['corner'],
+  'Heritage & history':       ['collection', 'found'],
+  'Galleries & studios':      ['craft', 'corner'],
+  'Makers & craft':           ['craft'],
+  'Farm gate & producers':    ['field'],
+  'Distillery tours':         ['sba'],
+  'Providores & delis':       ['fine_grounds', 'table'],
+  'Restaurants & dining':     ['table'],
+  'National parks':           ['field'],
+  'Forests & bushland':       ['field'],
+  'Wildlife encounters':      ['field'],
+  'Antiques & op shopping':   ['found'],
+  'Hiking & walking':         ['field'],
+  'Swimming holes':           ['field'],
+  'Wildlife & nature reserves': ['field'],
+  'Coastal exploration':      ['field'],
+  // These have no direct vertical match — skip
+  // 'Scenic drives', 'Live music & performance', 'Cooking schools',
+  // 'Spa & wellness', 'Beaches & coastline'
+}
+
+// ── Family-unfriendly sub_types (age-restricted venues) ─────
+const FAMILY_EXCLUDED_SUB_TYPES = ['bar', 'distillery', 'brewery', 'cellar door']
+
 // ── Vertical display names ───────────────────────────────────
 const VERTICAL_NAMES = {
   sba: 'Small Batch',
@@ -73,19 +109,19 @@ export async function POST(request) {
 
     // ── Step 1: Query listings within bounding box ─────────
     const sb = getSupabaseAdmin()
-    let listings = await fetchListingsInRadius(sb, cityCoords, radiusKm)
+    let listings = await fetchListingsInRadius(sb, cityCoords, radiusKm, group)
 
     // If fewer than 10, expand radius and retry
     if (listings.length < 10 && radiusKm) {
       const expandedKm = isAnywhere ? 1000 : Math.round(radiusKm * 1.5)
       console.log(`[long-weekend] Only ${listings.length} listings within ${radiusKm}km, expanding to ${expandedKm}km`)
-      listings = await fetchListingsInRadius(sb, cityCoords, expandedKm)
+      listings = await fetchListingsInRadius(sb, cityCoords, expandedKm, group)
     }
 
     // Final fallback for "anywhere": no geographic filter, but distance-weight scoring
     if (listings.length < 10 && isAnywhere) {
       console.log(`[long-weekend] Still only ${listings.length} listings, falling back to no geo filter`)
-      listings = await fetchListingsInRadius(sb, cityCoords, null)
+      listings = await fetchListingsInRadius(sb, cityCoords, null, group)
       usedFallback = true
     }
 
@@ -103,13 +139,30 @@ export async function POST(request) {
       regionGroups[region].push(listing)
     }
 
-    // Pick region with most vertical diversity (unique verticals), break ties by listing count
+    // Pick region that best matches the traveller's vibes and specifics
+    // Score = (unique verticals × 1000) + listing count + (preference matches × 500)
     // When "anywhere" fell back to no geo filter, penalise distant regions
+    const allPreferences = [...(vibes || []), ...(subVibes || [])]
+    const preferenceVerticals = new Set(
+      allPreferences.flatMap(pref => VIBE_VERTICAL_MAP[pref] || [])
+    )
+
     let bestRegion = null
     let bestScore = -1
     for (const [region, regionListings] of Object.entries(regionGroups)) {
       const uniqueVerticals = new Set(regionListings.map(l => l.vertical)).size
-      let score = uniqueVerticals * 1000 + regionListings.length
+
+      // Count listings matching any preference vertical or sub_type
+      let preferenceMatches = 0
+      if (preferenceVerticals.size > 0) {
+        for (const l of regionListings) {
+          if (preferenceVerticals.has(l.vertical)) {
+            preferenceMatches++
+          }
+        }
+      }
+
+      let score = (uniqueVerticals * 1000) + regionListings.length + (preferenceMatches * 500)
 
       if (usedFallback) {
         const avgLat = regionListings.reduce((sum, l) => sum + l.lat, 0) / regionListings.length
@@ -340,8 +393,9 @@ Return ONLY valid JSON with no markdown formatting, no code fences:
  * Fetch active, quality listings within a radius of the given coordinates.
  * Uses bounding box approximation (Haversine shortcut via degree offsets).
  * If radiusKm is null, fetches all listings (no geographic filter).
+ * group: audience type — 'Family with kids' excludes age-restricted venues.
  */
-async function fetchListingsInRadius(sb, center, radiusKm) {
+async function fetchListingsInRadius(sb, center, radiusKm, group) {
   const select = 'id, name, slug, vertical, description, region, state, suburb, lat, lng, hero_image_url, quality_score, sub_type'
 
   let query = sb
@@ -351,6 +405,11 @@ async function fetchListingsInRadius(sb, center, radiusKm) {
     .gte('quality_score', 40)
     .not('lat', 'is', null)
     .not('lng', 'is', null)
+
+  // Family with kids: exclude sba vertical entirely (distilleries/bars/cellar doors)
+  if (group === 'Family with kids') {
+    query = query.neq('vertical', 'sba')
+  }
 
   if (radiusKm) {
     const latOffset = radiusKm / 111
@@ -372,7 +431,18 @@ async function fetchListingsInRadius(sb, center, radiusKm) {
     return []
   }
 
-  return data || []
+  let results = data || []
+
+  // Family with kids: also exclude specific sub_types that are age-restricted
+  if (group === 'Family with kids') {
+    results = results.filter(l => {
+      if (!l.sub_type) return true
+      const st = l.sub_type.toLowerCase()
+      return !FAMILY_EXCLUDED_SUB_TYPES.some(excl => st.includes(excl))
+    })
+  }
+
+  return results
 }
 
 /**
