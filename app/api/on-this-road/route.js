@@ -185,34 +185,70 @@ function computeOvernightWaypoints(routeCoords, routeDistances, totalRouteKm, tr
 }
 
 /**
- * Build overnight clusters: for each overnight waypoint, find the best
- * rest/table/fine_grounds listings within OVERNIGHT_CLUSTER_RADIUS_KM.
- * Returns pre-assembled clusters that Claude can use directly.
+ * Find the route coordinate at a given km distance along the route.
  */
-function buildOvernightClusters(overnightWaypoints, routeListings, restCandidates) {
-  return overnightWaypoints.map(wp => {
-    // Find rest candidates near this waypoint (within cluster radius)
-    const nearbyRest = restCandidates
-      .filter(r => Math.abs(r.positionKm - wp.targetKm) <= OVERNIGHT_CLUSTER_RADIUS_KM * 1.5)
-      .sort((a, b) => {
-        // Prefer closer to waypoint + higher quality
-        const distA = Math.abs(a.positionKm - wp.targetKm)
-        const distB = Math.abs(b.positionKm - wp.targetKm)
-        const scoreA = (a.quality_score > 0 ? a.quality_score : 50) - distA * 0.3
-        const scoreB = (b.quality_score > 0 ? b.quality_score : 50) - distB * 0.3
-        return scoreB - scoreA
-      })
+function getRouteCoordAtKm(routeCoords, routeDistances, targetKm) {
+  const idx = routeDistances.findIndex(d => d >= targetKm)
+  if (idx >= 0 && idx < routeCoords.length) {
+    return { lng: routeCoords[idx][0], lat: routeCoords[idx][1] }
+  }
+  return null
+}
 
-    // Find table/fine_grounds near this waypoint from the main route listings
+/**
+ * Build overnight clusters: for each overnight waypoint, find the best
+ * rest/table/fine_grounds listings using progressive radius expansion.
+ * Falls back to geographic proximity when route-position matching fails.
+ */
+function buildOvernightClusters(overnightWaypoints, routeListings, restCandidates, routeCoords, routeDistances) {
+  // Progressive radii for finding rest candidates (km along route)
+  const CLUSTER_RADII_KM = [37.5, 75, 112.5, 150]
+
+  return overnightWaypoints.map(wp => {
+    // Progressive expansion: try each radius until we find rest candidates
+    let nearbyRest = []
+    let matchedRadius = 0
+    for (const radius of CLUSTER_RADII_KM) {
+      nearbyRest = restCandidates
+        .filter(r => Math.abs(r.positionKm - wp.targetKm) <= radius)
+      matchedRadius = radius
+      if (nearbyRest.length >= 1) break
+    }
+
+    // Geographic fallback: if route-position matching found nothing,
+    // try geographic proximity to the waypoint coordinate
+    if (nearbyRest.length === 0) {
+      const wpCoord = getRouteCoordAtKm(routeCoords, routeDistances, wp.targetKm) || wp
+      nearbyRest = restCandidates.filter(r =>
+        haversineKm(wpCoord.lat, wpCoord.lng, r.lat, r.lng) <= 80
+      )
+      if (nearbyRest.length > 0) matchedRadius = -1 // flag geographic fallback
+    }
+
+    nearbyRest = nearbyRest.sort((a, b) => {
+      const distA = Math.abs(a.positionKm - wp.targetKm)
+      const distB = Math.abs(b.positionKm - wp.targetKm)
+      const scoreA = (a.quality_score > 0 ? a.quality_score : 50) - distA * 0.3
+      const scoreB = (b.quality_score > 0 ? b.quality_score : 50) - distB * 0.3
+      return scoreB - scoreA
+    })
+
+    if (matchedRadius !== 0) {
+      const radiusLabel = matchedRadius === -1 ? 'geographic fallback (80km)' : `±${matchedRadius}km route-position`
+      console.log(`[on-this-road] Night ${wp.night} rest search: ${nearbyRest.length} candidates at ${radiusLabel}`)
+    }
+
+    // Expand dinner/coffee radius to match — sparse regions need wider cluster
+    const effectiveClusterRadius = Math.max(OVERNIGHT_CLUSTER_RADIUS_KM, matchedRadius > 0 ? Math.round(matchedRadius * 0.5) : 40)
+
     const nearbyDining = routeListings
-      .filter(l => l.vertical === 'table' && Math.abs(l.positionKm - wp.targetKm) <= OVERNIGHT_CLUSTER_RADIUS_KM)
+      .filter(l => l.vertical === 'table' && Math.abs(l.positionKm - wp.targetKm) <= effectiveClusterRadius)
       .sort((a, b) => (b.quality_score || 0) - (a.quality_score || 0))
 
     const nearbyCoffee = routeListings
-      .filter(l => l.vertical === 'fine_grounds' && Math.abs(l.positionKm - wp.targetKm) <= OVERNIGHT_CLUSTER_RADIUS_KM)
+      .filter(l => l.vertical === 'fine_grounds' && Math.abs(l.positionKm - wp.targetKm) <= effectiveClusterRadius)
       .sort((a, b) => (b.quality_score || 0) - (a.quality_score || 0))
 
-    // Determine cluster region name from the best rest candidate or nearby listings
     const anchor = nearbyRest[0] || nearbyDining[0] || nearbyCoffee[0]
     const clusterRegion = anchor
       ? (anchor.suburb || anchor.region || `${Math.round(wp.targetKm)}km mark`)
@@ -599,6 +635,40 @@ async function buildItinerary({
         }
       }
     }
+
+    // Sparse region expansion: if route is long and few rest listings found, widen the search
+    if (totalRouteKm > 500 && restCandidates.length < 5) {
+      console.log(`[on-this-road] Sparse rest coverage: only ${restCandidates.length} rest listings on ${Math.round(totalRouteKm)}km route — expanding search`)
+      const expandedRestPoints = sampleRoutePoints(routeCoords, 40)
+      const expandedRestResults = await Promise.all(expandedRestPoints.map(point => {
+        const [pLng, pLat] = point
+        const latDelta = 60 / 111
+        const lngDelta = 60 / (111 * Math.cos(pLat * Math.PI / 180))
+        return sb
+          .from('listings')
+          .select(SELECT_COLS)
+          .eq('status', 'active')
+          .eq('vertical', 'rest')
+          .or('trail_suitable.eq.true,trail_suitable.is.null')
+          .gte('lat', pLat - latDelta)
+          .lte('lat', pLat + latDelta)
+          .gte('lng', pLng - lngDelta)
+          .lte('lng', pLng + lngDelta)
+          .not('lat', 'is', null)
+          .not('lng', 'is', null)
+          .gte('quality_score', 35)
+          .limit(20)
+      }))
+      for (const { data } of expandedRestResults) {
+        if (data) {
+          for (const l of data) {
+            if (!restSeen.has(l.id)) { restSeen.add(l.id); restCandidates.push(l) }
+          }
+        }
+      }
+      console.log(`[on-this-road] After expansion: ${restCandidates.length} rest listings`)
+    }
+
     // Project onto route
     restCandidates = restCandidates.map(l => {
       const proj = projectOntoRoute(l.lat, l.lng, routeCoords)
@@ -678,7 +748,7 @@ async function buildItinerary({
     const overnightWaypoints = computeOvernightWaypoints(routeCoords, routeDistances, totalRouteKm, tripConfig.days)
 
     // 2. Build overnight clusters (rest + table + fine_grounds near each waypoint)
-    overnightClusters = buildOvernightClusters(overnightWaypoints, routeListings, restCandidates)
+    overnightClusters = buildOvernightClusters(overnightWaypoints, routeListings, restCandidates, routeCoords, routeDistances)
 
     // 3. Collect all IDs claimed by overnight clusters so they aren't double-used
     const clusterIds = new Set()
@@ -979,6 +1049,7 @@ const EDITORIAL_VOICE = `WRITING VOICE — you are a travel editor at Australian
 STOP DESCRIPTIONS: Write exactly two sentences per stop. First sentence: a specific sensory detail, what the traveller will notice or do here, grounded in this particular place. Second sentence: why this stop matters on THIS route — connect it to the landscape, the drive, the day's rhythm.
 
 BANNED PHRASES (never use): "hidden gem", "nestled", "boasts", "offers", "perfect for", "whether you're...or...", "no trip to X is complete without", "pre-selected", "segment pick", "a great spot", "must-visit", "don't miss", "something for everyone"
+- Never invent specific offerings, menu items, or experiential details not present in the listing data. Write about what you know: the name, the vertical, the region, and the landscape.
 
 EXEMPLAR STOP DESCRIPTIONS (match this voice):
 - "Sixth-generation land. The vines here predate most Australian wine regions and the approach reflects that continuity — patient, unhurried, low-intervention."
@@ -1002,6 +1073,8 @@ ${departureContext}
 ${seasonContext}
 
 ${EDITORIAL_VOICE}
+
+GROUNDING RULE: Only reference details that are directly stated or clearly implied by the listing's name, description, vertical, or region. You MUST NOT invent specific details about a venue's menu items, tasting experiences, interior atmosphere, staff behaviour, or service style. If the listing description says "family winery" you can say it's a family winery — you cannot say "the cheese plate arrives without ceremony" unless cheese is mentioned in the description. When the description is too sparse to write specifically about the venue itself, write about the landscape, the location on the route, or why this stop matters geographically at this point in the journey. The land is always true — the venue details might not be.
 
 CRITICAL: Select stops that are geographically distributed along the FULL LENGTH of the route. The route is ${routeDistanceKm}km — aim for stops approximately every ${targetSpacingKm}km. Listings marked "is_segment_pick: true" are pre-selected for their route segment — strongly prefer these.
 
@@ -1076,6 +1149,8 @@ ${departureContext}
 ${seasonContext}
 
 ${EDITORIAL_VOICE}
+
+GROUNDING RULE: Only reference details that are directly stated or clearly implied by the listing's name, description, vertical, or region. You MUST NOT invent specific details about a venue's menu items, tasting experiences, interior atmosphere, staff behaviour, or service style. If the listing description says "family winery" you can say it's a family winery — you cannot say "the cheese plate arrives without ceremony" unless cheese is mentioned in the description. When the description is too sparse to write specifically about the venue itself, write about the landscape, the location on the route, or why this stop matters geographically at this point in the journey. The land is always true — the venue details might not be.
 
 This is a ${tripConfig.days}-day trip. The route is ${routeDistanceKm}km total.
 ${dayTargetsSection}
