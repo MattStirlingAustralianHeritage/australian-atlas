@@ -286,6 +286,44 @@ function scoreSeasonalRelevance(listing, currentSeason) {
   return 0
 }
 
+// ── Vertical balancing ─────────────────────────────────────────────
+
+/**
+ * Compute per-vertical stop budget to prevent high-inventory verticals
+ * (e.g. SBA with ~2,170 listings) from crowding out smaller ones.
+ * Returns { caps: { vertical: maxStops }, hardCap: N } or null if no balancing needed.
+ */
+function computeVerticalBudget(preferences, totalStopsTarget) {
+  if (!preferences || preferences.length === 0) return null
+
+  // Count how many preference chips reference each vertical
+  const verticalHits = {}
+  for (const pref of preferences) {
+    const config = PREFERENCE_MAP[pref]
+    if (!config) continue
+    for (const v of config.verticals) {
+      verticalHits[v] = (verticalHits[v] || 0) + 1
+    }
+  }
+
+  const activeVerticals = Object.keys(verticalHits)
+  if (activeVerticals.length <= 1) return null // Single vertical — no balancing needed
+
+  // Hard cap: no single vertical exceeds 30% of stops
+  const MAX_SHARE = 0.3
+  const hardCap = Math.max(2, Math.ceil(totalStopsTarget * MAX_SHARE))
+
+  // Distribute proportionally to preference hits, capped
+  const totalHits = Object.values(verticalHits).reduce((a, b) => a + b, 0)
+  const caps = {}
+  for (const [v, hits] of Object.entries(verticalHits)) {
+    const proportional = Math.max(2, Math.round(totalStopsTarget * (hits / totalHits)))
+    caps[v] = Math.min(proportional, hardCap)
+  }
+
+  return { caps, hardCap }
+}
+
 // ── Request ID generator ────────────────────────────────────────────
 
 function requestId() {
@@ -670,20 +708,33 @@ async function buildItinerary({
       segments[segIdx].push(listing)
     }
 
+    // ── Vertical budget: prevent high-inventory verticals from dominating ──
+    const verticalBudget = computeVerticalBudget(preferences, totalStopsTarget)
+    const verticalCounts = {}
+
     const distributedListings = []
     let lastPositionKm = -Infinity
     for (let i = 0; i < numSegments; i++) {
       const seg = segments[i].sort((a, b) => {
-        const scoreA = (a.quality_score > 0 ? a.quality_score : 50) + (a.preferenceScore * 15) + (a.seasonalScore * 5) - a.zonePenalty
-        const scoreB = (b.quality_score > 0 ? b.quality_score : 50) + (b.preferenceScore * 15) + (b.seasonalScore * 5) - b.zonePenalty
+        // Cap preference contribution to prevent multi-chip vertical stacking
+        const prefA = Math.min(a.preferenceScore || 0, 3)
+        const prefB = Math.min(b.preferenceScore || 0, 3)
+        const scoreA = (a.quality_score > 0 ? a.quality_score : 50) + (prefA * 15) + (a.seasonalScore * 5) - a.zonePenalty
+        const scoreB = (b.quality_score > 0 ? b.quality_score : 50) + (prefB * 15) + (b.seasonalScore * 5) - b.zonePenalty
         return scoreB - scoreA
       })
       for (const listing of seg) {
-        if (listing.positionKm - lastPositionKm >= MIN_SPACING_KM) {
-          distributedListings.push(listing)
-          lastPositionKm = listing.positionKm
-          break
+        if (listing.positionKm - lastPositionKm < MIN_SPACING_KM) continue
+        // Check vertical budget — skip if this vertical has hit its cap
+        const vc = verticalCounts[listing.vertical] || 0
+        if (verticalBudget) {
+          const cap = verticalBudget.caps[listing.vertical] ?? verticalBudget.hardCap
+          if (vc >= cap) continue
         }
+        distributedListings.push(listing)
+        verticalCounts[listing.vertical] = vc + 1
+        lastPositionKm = listing.positionKm
+        break
       }
     }
 
@@ -691,11 +742,26 @@ async function buildItinerary({
     const supplemental = discoveryListings
       .filter(l => !distributedIds.has(l.id))
       .sort((a, b) => {
-        const scoreA = (a.quality_score > 0 ? a.quality_score : 50) + (a.preferenceScore * 15) - a.zonePenalty
-        const scoreB = (b.quality_score > 0 ? b.quality_score : 50) + (b.preferenceScore * 15) - b.zonePenalty
+        const prefA = Math.min(a.preferenceScore || 0, 3)
+        const prefB = Math.min(b.preferenceScore || 0, 3)
+        const scoreA = (a.quality_score > 0 ? a.quality_score : 50) + (prefA * 15) - a.zonePenalty
+        const scoreB = (b.quality_score > 0 ? b.quality_score : 50) + (prefB * 15) - b.zonePenalty
         return scoreB - scoreA
       })
+      .filter(l => {
+        // Respect vertical budget in supplemental picks too
+        if (!verticalBudget) return true
+        const vc = verticalCounts[l.vertical] || 0
+        const cap = verticalBudget.caps[l.vertical] ?? verticalBudget.hardCap
+        if (vc >= cap) return false
+        verticalCounts[l.vertical] = vc + 1
+        return true
+      })
       .slice(0, 15)
+
+    if (verticalBudget) {
+      console.log(`[on-this-road] Multi-day vertical balance: budget=${JSON.stringify(verticalBudget.caps)}, actual=${JSON.stringify(verticalCounts)}`)
+    }
 
     discoveryListingsJson = [...distributedListings, ...supplemental]
       .sort((a, b) => a.positionKm - b.positionKm)
@@ -726,31 +792,56 @@ async function buildItinerary({
       const segIdx = Math.min(numSegments - 1, Math.floor(listing.positionKm / segmentLengthKm))
       segments[segIdx].push(listing)
     }
+    // ── Vertical budget: prevent high-inventory verticals from dominating ──
+    const verticalBudget = computeVerticalBudget(preferences, totalStopsTarget)
+    const verticalCounts = {}
+
     const distributedListings = []
     let lastPositionKm = -Infinity
     for (let i = 0; i < numSegments; i++) {
       const seg = segments[i].sort((a, b) => {
-        const scoreA = (a.quality_score > 0 ? a.quality_score : 50) + (a.preferenceScore * 15) + (a.seasonalScore * 5)
-        const scoreB = (b.quality_score > 0 ? b.quality_score : 50) + (b.preferenceScore * 15) + (b.seasonalScore * 5)
+        const prefA = Math.min(a.preferenceScore || 0, 3)
+        const prefB = Math.min(b.preferenceScore || 0, 3)
+        const scoreA = (a.quality_score > 0 ? a.quality_score : 50) + (prefA * 15) + (a.seasonalScore * 5)
+        const scoreB = (b.quality_score > 0 ? b.quality_score : 50) + (prefB * 15) + (b.seasonalScore * 5)
         return scoreB - scoreA
       })
       for (const listing of seg) {
-        if (listing.positionKm - lastPositionKm >= MIN_SPACING_KM) {
-          distributedListings.push(listing)
-          lastPositionKm = listing.positionKm
-          break
+        if (listing.positionKm - lastPositionKm < MIN_SPACING_KM) continue
+        const vc = verticalCounts[listing.vertical] || 0
+        if (verticalBudget) {
+          const cap = verticalBudget.caps[listing.vertical] ?? verticalBudget.hardCap
+          if (vc >= cap) continue
         }
+        distributedListings.push(listing)
+        verticalCounts[listing.vertical] = vc + 1
+        lastPositionKm = listing.positionKm
+        break
       }
     }
     const distributedIds = new Set(distributedListings.map(l => l.id))
     const supplemental = routeListings
       .filter(l => !distributedIds.has(l.id))
       .sort((a, b) => {
-        const scoreA = (a.quality_score > 0 ? a.quality_score : 50) + (a.preferenceScore * 15) + (a.seasonalScore * 5)
-        const scoreB = (b.quality_score > 0 ? b.quality_score : 50) + (b.preferenceScore * 15) + (b.seasonalScore * 5)
+        const prefA = Math.min(a.preferenceScore || 0, 3)
+        const prefB = Math.min(b.preferenceScore || 0, 3)
+        const scoreA = (a.quality_score > 0 ? a.quality_score : 50) + (prefA * 15) + (a.seasonalScore * 5)
+        const scoreB = (b.quality_score > 0 ? b.quality_score : 50) + (prefB * 15) + (b.seasonalScore * 5)
         return scoreB - scoreA
       })
+      .filter(l => {
+        if (!verticalBudget) return true
+        const vc = verticalCounts[l.vertical] || 0
+        const cap = verticalBudget.caps[l.vertical] ?? verticalBudget.hardCap
+        if (vc >= cap) return false
+        verticalCounts[l.vertical] = vc + 1
+        return true
+      })
       .slice(0, 20)
+
+    if (verticalBudget) {
+      console.log(`[on-this-road] Single-day vertical balance: budget=${JSON.stringify(verticalBudget.caps)}, actual=${JSON.stringify(verticalCounts)}`)
+    }
     listingsJson = [...distributedListings, ...supplemental]
       .sort((a, b) => a.positionKm - b.positionKm)
       .map(l => ({
@@ -918,7 +1009,7 @@ From the listings below, select the best ${targetStops} stops in order along the
 1. Geographic distribution (most important)
 2. Preference matches (listings with preference_match: true)
 3. Quality score and genuine interest
-4. Vertical diversity (at least 3 different verticals)
+4. Vertical diversity — no single vertical should exceed 30% of stops. Aim for 2+ stops per selected interest vertical. Do NOT over-represent any one vertical just because it has more available listings.
 5. No two consecutive stops less than ${MIN_SPACING_KM}km apart
 
 Write a 2–3 sentence route introduction that captures this particular drive — specific landscape, the road, the places. No generic travel writing.
@@ -996,7 +1087,7 @@ CRITICAL RULES:
 2. Overnight, dinner, and morning_coffee MUST be selected from the pre-assembled clusters below. Do NOT invent names or IDs.
 3. Each day must end meaningfully closer to the destination than the previous day.
 4. Listings marked "is_segment_pick: true" are pre-selected — strongly prefer these.
-5. Prioritise preference matches, quality, vertical diversity across discovery stops.
+5. Prioritise preference matches, quality, and vertical diversity. No single vertical should exceed 30% of discovery stops — distribute across all selected interest verticals.
 6. All listing_ids MUST come from the provided data. Do NOT invent stops.
 ${clustersSection}
 
