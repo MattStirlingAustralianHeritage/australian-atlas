@@ -3,7 +3,8 @@ import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
 import { pushToVerticalWithRetry, updateInVertical, getVerticalListingUrl, VERTICAL_DISPLAY_NAMES, VERTICAL_CATEGORIES } from '@/lib/sync/pushToVertical'
-import { isApprovedImageSource } from '@/lib/image-utils'
+// Hero image scraping removed — all new listings use the default fallback hero.
+// Venue owners upload their own hero image when they claim the listing.
 
 /** Normalise a URL to include https:// prefix */
 function normaliseUrl(url) {
@@ -448,16 +449,14 @@ export async function POST(request, { params }) {
         opening_hours: enriched.opening_hours || null,
         instagram_handle: enriched.instagram_handle || null,
         category: effectiveCategory,
-        hero_image_url: (ogImage && isApprovedImageSource(ogImage)) ? ogImage : null,
-        hero_image_candidate_url: (ogImage && !isApprovedImageSource(ogImage)) ? ogImage : null,
+        // Hero image: always null for new listings.
+        // Unclaimed listings use the designed fallback — no scraping, no og:image.
+        // Venue owners upload their own hero image when they claim the listing.
+        hero_image_url: null,
       }
 
       if (ogImage) {
-        if (isApprovedImageSource(ogImage)) {
-          console.log(`[approve] Using og:image as hero (approved domain): ${ogImage}`)
-        } else {
-          console.log(`[approve] og:image stored as candidate (external domain, needs review): ${ogImage}`)
-        }
+        console.log(`[approve] Ignoring og:image (${ogImage}) — new listings use default hero. Owner uploads on claim.`)
       }
 
       // 6. Push to the vertical's own database (synchronous with retries)
@@ -493,8 +492,7 @@ export async function POST(request, { params }) {
         website: fullData.website,
         phone: fullData.phone,
         address: fullData.address,
-        hero_image_url: (ogImage && isApprovedImageSource(ogImage)) ? ogImage : null,
-        hero_image_candidate_url: (ogImage && !isApprovedImageSource(ogImage)) ? ogImage : null,
+        hero_image_url: null, // Default hero — owner uploads on claim
         sub_type: fullData.category || null,
         sub_type_secondary: effectiveSecondary,
         sub_types: subTypes,
@@ -559,12 +557,7 @@ export async function POST(request, { params }) {
           data_source: listingData.data_source,
           needs_review: listingData.needs_review,
         }
-        // Only overwrite hero_image_url if we have a new approved-domain image
-        if (ogImage && isApprovedImageSource(ogImage)) {
-          updatePayload.hero_image_url = ogImage
-        } else if (ogImage) {
-          updatePayload.hero_image_candidate_url = ogImage
-        }
+        // Never overwrite hero_image_url from scraping — owner uploads on claim
 
         await sb.from('listings').update(updatePayload).eq('id', listingId)
         console.log(`[approve] Updated existing master listing ${listingId} (matched by ${matchedBy}: "${existingListing[matchedBy]}" → new slug: "${slug}")`)
