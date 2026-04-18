@@ -871,7 +871,8 @@ function TrailBuilderInner() {
                       />
                     )}
                   </React.Fragment>
-                ))}
+                )
+              })}
               </div>
             )}
           </div>
