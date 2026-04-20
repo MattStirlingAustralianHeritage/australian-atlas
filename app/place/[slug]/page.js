@@ -123,14 +123,21 @@ const getListing = cache(async function getListing(slug) {
   const metaLookup = META_CATEGORY_LOOKUP[data.vertical]
   if (metaLookup) {
     try {
+      const metaFields = metaLookup.table === 'craft_meta'
+        ? `${metaLookup.key}, offers_classes, classes`
+        : metaLookup.key
       const { data: metaRow } = await sb
         .from(metaLookup.table)
-        .select(metaLookup.key)
+        .select(metaFields)
         .eq('listing_id', data.id)
         .maybeSingle()
 
       if (metaRow?.[metaLookup.key]) {
         data._subcategory = metaRow[metaLookup.key]
+      }
+      if (metaRow?.offers_classes) {
+        data._offers_classes = true
+        data._classes = metaRow.classes
       }
     } catch {
       // Meta fetch failure is non-blocking
@@ -666,6 +673,54 @@ export default async function PlacePage({ params }) {
               Claim this listing
             </Link>
           </div>
+        )}
+
+        {/* ── Classes & Workshops (craft only) ────────────── */}
+        {listing._offers_classes && listing._classes?.length > 0 && (
+          <section className="mb-10">
+            <h2 className="mb-4" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)' }}>
+              Classes & Workshops
+            </h2>
+            <div className="flex flex-col gap-3">
+              {listing._classes.map((cls, i) => {
+                const skillColors = { beginner: '#4a7c59', intermediate: '#b8860b', advanced: '#c04b4b', all_levels: '#4a6fa5' }
+                const skillLabels = { beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced', all_levels: 'All Levels' }
+                const typeLabels = { workshop: 'Workshop', course: 'Course', class: 'Class', masterclass: 'Masterclass', tasting: 'Tasting', tour: 'Tour' }
+                return (
+                  <div key={i} className="p-4 rounded-lg" style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}>
+                    <div className="flex items-center gap-2 flex-wrap mb-2">
+                      <span style={{ fontFamily: 'var(--font-display)', fontSize: 17, color: 'var(--color-ink)' }}>{cls.title}</span>
+                      {cls.type && (
+                        <span className="text-xs font-semibold uppercase px-2 py-0.5 rounded" style={{ background: `${vertColor}15`, color: vertColor, letterSpacing: '0.06em' }}>
+                          {typeLabels[cls.type] || cls.type}
+                        </span>
+                      )}
+                      {cls.skill_level && (
+                        <span className="text-xs font-semibold uppercase px-2 py-0.5 rounded" style={{ background: `${skillColors[cls.skill_level] || '#666'}15`, color: skillColors[cls.skill_level] || '#666', letterSpacing: '0.06em' }}>
+                          {skillLabels[cls.skill_level] || cls.skill_level}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-wrap text-xs mb-2" style={{ color: 'var(--color-muted)', fontFamily: 'var(--font-body)' }}>
+                      {cls.duration && <span>{cls.duration}</span>}
+                      {cls.duration && cls.frequency && <span style={{ opacity: 0.4 }}>&middot;</span>}
+                      {cls.frequency && <span>{cls.frequency}</span>}
+                      {cls.group_size && <><span style={{ opacity: 0.4 }}>&middot;</span><span>Max {cls.group_size}</span></>}
+                    </div>
+                    {cls.price && <div className="text-sm font-semibold mb-2" style={{ color: 'var(--color-ink)', fontFamily: 'var(--font-body)' }}>{cls.price}</div>}
+                    {cls.description && <p className="text-sm mb-3" style={{ color: 'var(--color-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.6 }}>{cls.description}</p>}
+                    {cls.booking_url && (
+                      <a href={cls.booking_url} target="_blank" rel="noopener noreferrer"
+                        className="inline-block text-xs font-bold uppercase px-3 py-1.5 rounded text-white"
+                        style={{ background: vertColor, letterSpacing: '0.04em', textDecoration: 'none' }}>
+                        Book this class &rarr;
+                      </a>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </section>
         )}
 
         {/* ── In the Same Spirit ─────────────────────────── */}
