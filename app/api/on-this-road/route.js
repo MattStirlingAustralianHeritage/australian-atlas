@@ -47,18 +47,18 @@ const DEPARTURE_CONFIG = {
 
 // ── Preference chips → listing filters (soft weights) ───────────────
 const PREFERENCE_MAP = {
-  cellar_doors:    { verticals: ['sba'], visit_types: ['experiential'], label: 'Cellar doors & wineries' },
-  great_coffee:    { verticals: ['fine_grounds'], visit_types: [], label: 'Great coffee' },
-  history:         { verticals: ['collection'], visit_types: ['attraction'], label: 'History & heritage' },
-  lunch:           { verticals: ['table', 'sba'], visit_types: ['venue'], label: 'Good places for lunch' },
-  producers:       { verticals: ['sba'], visit_types: ['experiential'], label: 'Producers & farm gates' },
-  art_makers:      { verticals: ['craft'], visit_types: [], label: 'Art & makers' },
-  nature:          { verticals: ['field'], visit_types: [], label: 'Nature & outdoors' },
-  local_shops:     { verticals: ['corner'], visit_types: [], label: 'Local shops & boutiques' },
-  markets:         { verticals: ['found'], visit_types: [], label: 'Markets & vintage finds' },
-  craft_drinks:    { verticals: ['sba'], visit_types: ['experiential'], label: 'Breweries & distilleries' },
-  fine_dining:     { verticals: ['table'], visit_types: ['venue'], label: 'Fine dining' },
-  scenic:          { verticals: ['field', 'collection'], visit_types: ['attraction'], label: 'Scenic stops & lookouts' },
+  cellar_doors:    { verticals: ['sba'], visit_types: ['experiential'], sub_types: ['winery', 'cellar_door'], label: 'Cellar doors & wineries' },
+  great_coffee:    { verticals: ['fine_grounds'], visit_types: [], sub_types: [], label: 'Great coffee' },
+  history:         { verticals: ['collection'], visit_types: ['attraction'], sub_types: [], label: 'History & heritage' },
+  lunch:           { verticals: ['table'], visit_types: ['venue'], sub_types: [], label: 'Good places for lunch' },
+  producers:       { verticals: ['sba'], visit_types: ['experiential'], sub_types: [], label: 'Producers & farm gates' },
+  art_makers:      { verticals: ['craft'], visit_types: [], sub_types: [], label: 'Art & makers' },
+  nature:          { verticals: ['field'], visit_types: [], sub_types: [], label: 'Nature & outdoors' },
+  local_shops:     { verticals: ['corner'], visit_types: [], sub_types: [], label: 'Local shops & boutiques' },
+  markets:         { verticals: ['found'], visit_types: [], sub_types: [], label: 'Markets & vintage finds' },
+  craft_drinks:    { verticals: ['sba'], visit_types: ['experiential'], sub_types: ['brewery', 'distillery', 'cidery', 'meadery', 'sour_brewery', 'non_alcoholic'], label: 'Breweries & distilleries' },
+  fine_dining:     { verticals: ['table'], visit_types: ['venue'], sub_types: [], label: 'Fine dining' },
+  scenic:          { verticals: ['field', 'collection'], visit_types: ['attraction'], sub_types: [], label: 'Scenic stops & lookouts' },
 }
 
 // ── Multi-day overnight clustering ─────────────────────────────────
@@ -320,6 +320,58 @@ function scoreSeasonalRelevance(listing, currentSeason) {
   if (listing.best_season === currentSeason) return 2
   if (listing.best_season === 'Year-round') return 1
   return 0
+}
+
+function isExcludedByPreferences(listing, preferences) {
+  if (!preferences || preferences.length === 0) return false
+  for (const pref of preferences) {
+    const config = PREFERENCE_MAP[pref]
+    if (!config) continue
+    if (!config.verticals.includes(listing.vertical)) continue
+    if (!config.sub_types || config.sub_types.length === 0) return false
+    if (!listing.sub_type) return false
+    if (config.sub_types.includes(listing.sub_type)) return false
+  }
+  return true
+}
+
+const DAY_PHASE_SUITABILITY = {
+  morning: {
+    verticals: { fine_grounds: 3, field: 2 },
+    sub_types: { cafe: 3, roaster: 2, lookout: 2, bush_walk: 2, swimming_hole: 1, botanical_garden: 2 },
+  },
+  midday: {
+    verticals: { collection: 2, craft: 2, corner: 2, table: 1 },
+    sub_types: { museum: 2, gallery: 2, heritage_site: 2, winery: 2, cellar_door: 2 },
+  },
+  afternoon: {
+    verticals: { sba: 2, found: 2, craft: 1 },
+    sub_types: { brewery: 2, distillery: 2, cidery: 2, market: 2, winery: 1 },
+  },
+  evening: {
+    verticals: { table: 3, rest: 2 },
+    sub_types: { destination: 3 },
+  },
+}
+
+function getDayPhase(positionKm, dayStartKm, dayEndKm) {
+  const dayLength = dayEndKm - dayStartKm
+  if (dayLength <= 0) return 'midday'
+  const progress = (positionKm - dayStartKm) / dayLength
+  if (progress < 0.2) return 'morning'
+  if (progress < 0.5) return 'midday'
+  if (progress < 0.8) return 'afternoon'
+  return 'evening'
+}
+
+function scoreDayPhase(listing, phase) {
+  const config = DAY_PHASE_SUITABILITY[phase]
+  if (!config) return 0
+  let score = config.verticals[listing.vertical] || 0
+  if (listing.sub_type && config.sub_types[listing.sub_type]) {
+    score = Math.max(score, config.sub_types[listing.sub_type])
+  }
+  return score
 }
 
 // ── Vertical balancing ─────────────────────────────────────────────
@@ -676,7 +728,8 @@ async function buildItinerary({
     }).sort((a, b) => a.positionKm - b.positionKm)
   }
 
-  // Project all listings onto route + filter by detour tolerance
+  // Project all listings onto route + filter by detour tolerance + interest exclusion
+  let prefExcludedCount = 0
   const routeListings = allListings
     .map(listing => {
       const proj = projectOntoRoute(listing.lat, listing.lng, routeCoords)
@@ -691,14 +744,16 @@ async function buildItinerary({
     })
     .filter(l => {
       if (l.distanceFromRoute > detourConfig.bufferKm) return false
-      // Unscored listings (quality_score 0 or null) get a baseline of 50
-      // so they aren't excluded before Claude can evaluate them.
-      // The composite scoring in segment selection still weights quality.
       const effectiveQuality = l.quality_score > 0 ? l.quality_score : 50
       if (effectiveQuality < detourConfig.minQuality) return false
+      if (isExcludedByPreferences(l, preferences)) { prefExcludedCount++; return false }
       return true
     })
     .sort((a, b) => a.routeIndex - b.routeIndex)
+
+  if (prefExcludedCount > 0) {
+    console.log(`[on-this-road] Interest filter excluded ${prefExcludedCount} listings not matching selected preferences`)
+  }
 
 
   // Coverage gaps
@@ -731,7 +786,7 @@ async function buildItinerary({
   // Build preference + seasonal context (shared by both paths)
   const prefLabels = preferences.map(p => PREFERENCE_MAP[p]?.label).filter(Boolean)
   const prefContext = prefLabels.length > 0
-    ? `The traveller has expressed interest in: ${prefLabels.join(', ')}. Strongly prefer listings that match these interests.`
+    ? `The traveller has expressed interest in: ${prefLabels.join(', ')}. The listings below have been pre-filtered to match these interests.`
     : ''
   const departureContext = departureConfig
     ? `They are leaving ${departureConfig.label}. The first stop should be roughly ${departureConfig.minFirstStopKm}-${departureConfig.maxFirstStopKm} km from the start — don't suggest anything too close to departure.`
@@ -750,6 +805,14 @@ async function buildItinerary({
 
     // 2. Build overnight clusters (rest + table + fine_grounds near each waypoint)
     overnightClusters = buildOvernightClusters(overnightWaypoints, routeListings, restCandidates, routeCoords, routeDistances)
+
+    // Build per-day distance targets (needed for phase scoring in segment distribution)
+    const kmPerDay = Math.round(totalRouteKm / tripConfig.days)
+    for (let d = 1; d <= tripConfig.days; d++) {
+      const startKm = (d - 1) * kmPerDay
+      const endKm = d === tripConfig.days ? totalRouteKm : d * kmPerDay
+      dayTargets.push({ day: d, startKm, endKm, overnightTargetKm: endKm })
+    }
 
     // 3. Collect all IDs claimed by overnight clusters so they aren't double-used
     const clusterIds = new Set()
@@ -786,12 +849,19 @@ async function buildItinerary({
     const distributedListings = []
     let lastPositionKm = -Infinity
     for (let i = 0; i < numSegments; i++) {
+      const segMidKm = (i + 0.5) * segmentLengthKm
+      let dayStartKm = 0, dayEndKm = totalRouteKm
+      for (const dt of dayTargets) {
+        if (segMidKm >= dt.startKm && segMidKm <= dt.endKm) { dayStartKm = dt.startKm; dayEndKm = dt.endKm; break }
+      }
+      const dayPhase = getDayPhase(segMidKm, dayStartKm, dayEndKm)
       const seg = segments[i].sort((a, b) => {
-        // Cap preference contribution to prevent multi-chip vertical stacking
         const prefA = Math.min(a.preferenceScore || 0, 3)
         const prefB = Math.min(b.preferenceScore || 0, 3)
-        const scoreA = (a.quality_score > 0 ? a.quality_score : 50) + (prefA * 15) + (a.seasonalScore * 5) - a.zonePenalty
-        const scoreB = (b.quality_score > 0 ? b.quality_score : 50) + (prefB * 15) + (b.seasonalScore * 5) - b.zonePenalty
+        const phaseA = scoreDayPhase(a, dayPhase)
+        const phaseB = scoreDayPhase(b, dayPhase)
+        const scoreA = (a.quality_score > 0 ? a.quality_score : 50) + (prefA * 15) + (a.seasonalScore * 5) - a.zonePenalty + (phaseA * 8)
+        const scoreB = (b.quality_score > 0 ? b.quality_score : 50) + (prefB * 15) + (b.seasonalScore * 5) - b.zonePenalty + (phaseB * 8)
         return scoreB - scoreA
       })
       for (const listing of seg) {
@@ -844,14 +914,6 @@ async function buildItinerary({
         preference_match: l.preferenceScore > 0, is_segment_pick: distributedIds.has(l.id),
       }))
 
-    // 6. Build per-day distance targets
-    const kmPerDay = Math.round(totalRouteKm / tripConfig.days)
-    for (let d = 1; d <= tripConfig.days; d++) {
-      const startKm = (d - 1) * kmPerDay
-      const endKm = d === tripConfig.days ? totalRouteKm : d * kmPerDay
-      dayTargets.push({ day: d, startKm, endKm, overnightTargetKm: endKm })
-    }
-
   }
 
   // ── Single-day: standard segment distribution (all verticals) ─────
@@ -870,11 +932,15 @@ async function buildItinerary({
     const distributedListings = []
     let lastPositionKm = -Infinity
     for (let i = 0; i < numSegments; i++) {
+      const segMidKm = (i + 0.5) * segmentLengthKm
+      const dayPhase = getDayPhase(segMidKm, 0, totalRouteKm)
       const seg = segments[i].sort((a, b) => {
         const prefA = Math.min(a.preferenceScore || 0, 3)
         const prefB = Math.min(b.preferenceScore || 0, 3)
-        const scoreA = (a.quality_score > 0 ? a.quality_score : 50) + (prefA * 15) + (a.seasonalScore * 5)
-        const scoreB = (b.quality_score > 0 ? b.quality_score : 50) + (prefB * 15) + (b.seasonalScore * 5)
+        const phaseA = scoreDayPhase(a, dayPhase)
+        const phaseB = scoreDayPhase(b, dayPhase)
+        const scoreA = (a.quality_score > 0 ? a.quality_score : 50) + (prefA * 15) + (a.seasonalScore * 5) + (phaseA * 8)
+        const scoreB = (b.quality_score > 0 ? b.quality_score : 50) + (prefB * 15) + (b.seasonalScore * 5) + (phaseB * 8)
         return scoreB - scoreA
       })
       for (const listing of seg) {
@@ -1057,6 +1123,8 @@ EXEMPLAR STOP DESCRIPTIONS (match this voice):
 - "A Hills institution that has earned its reputation through consistency rather than reinvention. The kind of place where regulars outnumber tourists ten to one."
 `
 
+const DAY_RHYTHM = `DAY RHYTHM: Order stops to match the natural rhythm of a road trip day — coffee and nature walks in the morning, culture and producers at midday, breweries and markets in the afternoon. A brewery or distillery should not be the first stop of the day.`
+
 function buildSingleDayPrompt({
   startNameFull, endNameFull, routeDistanceKm, routeDurationMinutes,
   detourConfig, tripConfig, prefContext, departureContext, seasonContext,
@@ -1075,6 +1143,8 @@ ${seasonContext}
 ${EDITORIAL_VOICE}
 
 GROUNDING RULE: Only reference details that are directly stated or clearly implied by the listing's name, description, vertical, or region. You MUST NOT invent specific details about a venue's menu items, tasting experiences, interior atmosphere, staff behaviour, or service style. If the listing description says "family winery" you can say it's a family winery — you cannot say "the cheese plate arrives without ceremony" unless cheese is mentioned in the description. When the description is too sparse to write specifically about the venue itself, write about the landscape, the location on the route, or why this stop matters geographically at this point in the journey. The land is always true — the venue details might not be.
+
+${DAY_RHYTHM}
 
 CRITICAL: Select stops that are geographically distributed along the FULL LENGTH of the route. The route is ${routeDistanceKm}km — aim for stops approximately every ${targetSpacingKm}km. Listings marked "is_segment_pick: true" are pre-selected for their route segment — strongly prefer these.
 
@@ -1151,6 +1221,8 @@ ${seasonContext}
 ${EDITORIAL_VOICE}
 
 GROUNDING RULE: Only reference details that are directly stated or clearly implied by the listing's name, description, vertical, or region. You MUST NOT invent specific details about a venue's menu items, tasting experiences, interior atmosphere, staff behaviour, or service style. If the listing description says "family winery" you can say it's a family winery — you cannot say "the cheese plate arrives without ceremony" unless cheese is mentioned in the description. When the description is too sparse to write specifically about the venue itself, write about the landscape, the location on the route, or why this stop matters geographically at this point in the journey. The land is always true — the venue details might not be.
+
+${DAY_RHYTHM}
 
 This is a ${tripConfig.days}-day trip. The route is ${routeDistanceKm}km total.
 ${dayTargetsSection}

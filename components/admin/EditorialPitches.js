@@ -20,12 +20,17 @@ const VERTICAL_TOKENS = {
   portal: { bg: '#1a1a1a', text: '#e8e8e8', label: 'Australian Atlas' },
 }
 
+const CONFIDENCE_COLORS = {
+  HIGH: { bg: 'rgba(22,163,74,0.2)', border: 'rgba(22,163,74,0.4)', text: '#4ade80' },
+  MEDIUM: { bg: 'rgba(196,154,60,0.2)', border: 'rgba(196,154,60,0.4)', text: '#C49A3C' },
+  LOW: { bg: 'rgba(220,38,38,0.15)', border: 'rgba(220,38,38,0.3)', text: '#f87171' },
+}
+
 export default function EditorialPitches() {
   const [pitches, setPitches] = useState({})
   const [loadingVerticals, setLoadingVerticals] = useState(new Set())
   const [initialLoading, setInitialLoading] = useState(true)
 
-  // Fetch existing active pitches on mount
   useEffect(() => {
     let cancelled = false
 
@@ -38,11 +43,9 @@ export default function EditorialPitches() {
 
         setPitches(data.pitches || {})
 
-        // Find verticals that need generation
         const existing = data.pitches || {}
         const missing = VERTICALS.filter(v => !existing[v])
 
-        // Generate missing pitches sequentially with delay
         for (const vertical of missing) {
           if (cancelled) break
           setLoadingVerticals(prev => new Set([...prev, vertical]))
@@ -59,7 +62,7 @@ export default function EditorialPitches() {
               }
             }
           } catch {
-            // Silent — card will remain in loading state
+            // Silent
           } finally {
             if (!cancelled) {
               setLoadingVerticals(prev => {
@@ -69,7 +72,6 @@ export default function EditorialPitches() {
               })
             }
           }
-          // 1s delay between generations
           if (missing.indexOf(vertical) < missing.length - 1) {
             await new Promise(r => setTimeout(r, 1000))
           }
@@ -110,7 +112,6 @@ export default function EditorialPitches() {
 
   return (
     <div style={{ padding: '1.25rem 1.5rem 0', maxWidth: 1120, margin: '0 auto' }}>
-      {/* Section header */}
       <div style={{
         marginBottom: '1rem',
         display: 'flex',
@@ -139,7 +140,6 @@ export default function EditorialPitches() {
         )}
       </div>
 
-      {/* 2-column grid */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(2, 1fr)',
@@ -168,6 +168,11 @@ export default function EditorialPitches() {
 }
 
 function PitchCard({ vertical, tokens, pitch, isLoading, onApprove, onReject }) {
+  const confidence = pitch?.confidence
+  const confColors = confidence ? CONFIDENCE_COLORS[confidence] : null
+  const verifiedCount = pitch?.verified_facts?.length || 0
+  const connectionsCount = pitch?.cross_vertical_connections?.length || 0
+
   return (
     <div style={{
       background: tokens.bg,
@@ -181,8 +186,8 @@ function PitchCard({ vertical, tokens, pitch, isLoading, onApprove, onReject }) 
       position: 'relative',
       overflow: 'hidden',
     }}>
-      {/* Vertical label pill */}
-      <div>
+      {/* Vertical label + confidence badge */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
         <span style={{
           display: 'inline-block',
           padding: '0.25rem 0.65rem',
@@ -197,6 +202,22 @@ function PitchCard({ vertical, tokens, pitch, isLoading, onApprove, onReject }) 
         }}>
           {tokens.label}
         </span>
+        {confColors && (
+          <span style={{
+            display: 'inline-block',
+            padding: '0.2rem 0.5rem',
+            borderRadius: '999px',
+            background: confColors.bg,
+            border: `1px solid ${confColors.border}`,
+            fontFamily: 'var(--font-body, system-ui)',
+            fontSize: '0.55rem',
+            fontWeight: 700,
+            color: confColors.text,
+            letterSpacing: '0.06em',
+          }}>
+            {confidence}
+          </span>
+        )}
       </div>
 
       {isLoading ? (
@@ -227,7 +248,7 @@ function PitchCard({ vertical, tokens, pitch, isLoading, onApprove, onReject }) 
             {pitch.angle}
           </p>
 
-          {/* Meta row */}
+          {/* Meta row: venue, read time, grounding stats */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -235,12 +256,23 @@ function PitchCard({ vertical, tokens, pitch, isLoading, onApprove, onReject }) 
             fontFamily: '"DM Sans", system-ui, sans-serif',
             fontSize: '0.675rem',
             color: `${tokens.text}88`,
+            flexWrap: 'wrap',
           }}>
             {pitch.suggested_venue && (
               <span>{pitch.suggested_venue}</span>
             )}
             {pitch.estimated_read_time && (
               <span>{pitch.estimated_read_time} read</span>
+            )}
+            {verifiedCount > 0 && (
+              <span style={{ color: `${tokens.text}66` }}>
+                {verifiedCount} verified fact{verifiedCount !== 1 ? 's' : ''}
+              </span>
+            )}
+            {connectionsCount > 0 && (
+              <span style={{ color: `${tokens.text}66` }}>
+                {connectionsCount} cross-vertical link{connectionsCount !== 1 ? 's' : ''}
+              </span>
             )}
           </div>
 
@@ -384,7 +416,7 @@ function LoadingState({ tokens }) {
         color: `${tokens.text}55`,
         marginTop: '0.25rem',
       }}>
-        Generating pitch...
+        Selecting candidate &amp; generating grounded pitch...
       </span>
     </div>
   )

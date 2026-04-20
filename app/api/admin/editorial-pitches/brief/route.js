@@ -23,7 +23,8 @@ const VERTICAL_LABELS = {
 }
 
 /**
- * POST: Generate or return cached brief for a pitch
+ * POST: Generate or return cached brief for a pitch.
+ * Now uses the listing_data_snapshot stored with the pitch for grounding.
  */
 export async function POST(request) {
   const cookieStore = await cookies()
@@ -35,65 +36,76 @@ export async function POST(request) {
 
   const sb = getSupabaseAdmin()
 
-  // Fetch the pitch
   const { data: pitch, error: pitchErr } = await sb
     .from('editorial_pitches')
-    .select('id, vertical, headline, angle, suggested_venue, suggested_venue_id, estimated_read_time, status, brief, created_at, updated_at')
+    .select('id, vertical, headline, angle, suggested_venue, suggested_venue_id, listing_id, estimated_read_time, status, brief, confidence, verified_facts, research_needed, listing_data_snapshot, created_at, updated_at')
     .eq('id', pitchId)
     .single()
 
   if (pitchErr || !pitch) return NextResponse.json({ error: 'Pitch not found' }, { status: 404 })
 
-  // Return cached brief if it exists
   if (pitch.brief) {
     return NextResponse.json({ brief: pitch.brief, cached: true })
   }
 
-  // Fetch venue data if we have a suggested_venue_id
-  let venueContext = ''
+  // Use the listing data snapshot if available, otherwise fetch fresh
   let venueData = null
-  if (pitch.suggested_venue_id) {
+  let venueContext = ''
+  const listingId = pitch.listing_id || pitch.suggested_venue_id
+
+  if (pitch.listing_data_snapshot) {
+    venueData = pitch.listing_data_snapshot
+  } else if (listingId) {
     const { data: venue } = await sb
       .from('listings')
-      .select('name, description, region, state, lat, lng, vertical, sub_type, address, website')
-      .eq('id', pitch.suggested_venue_id)
+      .select('name, description, region, state, lat, lng, vertical, sub_type, address, website, founded_year, heritage_significance, best_season, is_claimed, phone')
+      .eq('id', listingId)
       .single()
-    if (venue) {
-      venueData = venue
-      venueContext = `\n\nAnchor venue details:\nName: ${venue.name}\nRegion: ${venue.region || 'Unknown'}, ${venue.state || 'Australia'}\nType: ${venue.sub_type || venue.vertical || 'Unknown'}\nDescription: ${(venue.description || '').slice(0, 500)}\nAddress: ${venue.address || 'Not listed'}\nWebsite: ${venue.website || 'Not listed'}`
-    }
+    if (venue) venueData = venue
   }
 
-  // If no venue ID but we have a name, try to find it
   if (!venueData && pitch.suggested_venue) {
     const { data: venues } = await sb
       .from('listings')
-      .select('name, description, region, state, lat, lng, vertical, sub_type, address, website')
+      .select('name, description, region, state, lat, lng, vertical, sub_type, address, website, founded_year, heritage_significance, best_season, is_claimed, phone')
       .ilike('name', `%${pitch.suggested_venue}%`)
       .eq('status', 'active')
       .limit(1)
-    if (venues?.[0]) {
-      venueData = venues[0]
-      venueContext = `\n\nAnchor venue details:\nName: ${venueData.name}\nRegion: ${venueData.region || 'Unknown'}, ${venueData.state || 'Australia'}\nType: ${venueData.sub_type || venueData.vertical || 'Unknown'}\nDescription: ${(venueData.description || '').slice(0, 500)}\nAddress: ${venueData.address || 'Not listed'}\nWebsite: ${venueData.website || 'Not listed'}`
-    }
+    if (venues?.[0]) venueData = venues[0]
   }
 
-  // Fetch nearby listings for the "weave in" section
+  if (venueData) {
+    const lines = [`Name: ${venueData.name}`]
+    if (venueData.region) lines.push(`Region: ${venueData.region}, ${venueData.state || 'Australia'}`)
+    if (venueData.sub_type || venueData.vertical) lines.push(`Type: ${venueData.sub_type || venueData.vertical}`)
+    if (venueData.description) lines.push(`Description: ${venueData.description}`)
+    if (venueData.address) lines.push(`Address: ${venueData.address}`)
+    if (venueData.website) lines.push(`Website: ${venueData.website}`)
+    if (venueData.phone) lines.push(`Phone: ${venueData.phone}`)
+    if (venueData.founded_year) lines.push(`Founded: ${venueData.founded_year}`)
+    if (venueData.heritage_significance) lines.push(`Heritage significance: yes`)
+    if (venueData.best_season) lines.push(`Best season: ${venueData.best_season}`)
+    if (venueData.is_claimed) lines.push(`Claimed by operator: yes`)
+    venueContext = `\n\nANCHOR VENUE DATA (all facts must come from this):\n---\n${lines.join('\n')}\n---`
+  }
+
+  // Fetch nearby listings for cross-vertical weaving
   let nearbyListings = []
-  if (venueData?.lat && venueData?.lng) {
+  const lat = venueData?.lat
+  const lng = venueData?.lng
+  if (lat && lng) {
     const { data: nearby } = await sb
       .from('listings')
       .select('id, name, slug, vertical, region, state, description, hero_image_url')
       .eq('status', 'active')
-      .not('name', 'eq', venueData.name)
-      .gte('lat', venueData.lat - 0.5)
-      .lte('lat', venueData.lat + 0.5)
-      .gte('lng', venueData.lng - 0.5)
-      .lte('lng', venueData.lng + 0.5)
+      .neq('name', venueData.name)
+      .gte('lat', lat - 0.5)
+      .lte('lat', lat + 0.5)
+      .gte('lng', lng - 0.5)
+      .lte('lng', lng + 0.5)
       .limit(20)
 
     if (nearby?.length) {
-      // Diversify by vertical, pick up to 5
       const seen = new Set()
       nearbyListings = nearby.filter(l => {
         if (seen.has(l.vertical) && seen.size < 5) return false
@@ -106,7 +118,21 @@ export async function POST(request) {
   const verticalName = VERTICAL_LABELS[pitch.vertical] || pitch.vertical
   const guidance = VERTICAL_GUIDANCE[pitch.vertical] || ''
 
+  const verifiedFactsContext = pitch.verified_facts?.length > 0
+    ? `\n\nVERIFIED FACTS FROM PITCH (use these as your factual foundation):\n${pitch.verified_facts.map(f => `- ${f.claim} [source: ${f.source_field}]`).join('\n')}`
+    : ''
+
+  const researchContext = pitch.research_needed?.length > 0
+    ? `\n\nIDENTIFIED RESEARCH GAPS:\n${pitch.research_needed.map(r => `- ${r}`).join('\n')}`
+    : ''
+
   const systemPrompt = `You are the editorial director of the Australian Atlas Network, a premium travel and culture publication covering independent Australia. You write in the style of Monocle, Kinfolk, or a quality broadsheet travel section — precise, observational, warm but never effusive.
+
+CRITICAL GROUNDING RULES:
+- Every factual claim in the brief MUST come from the venue data provided below.
+- Do NOT invent operator names, founding dates, backstories, philosophies, or superlative claims.
+- If information is not in the data, say what a writer would need to research — do not fill gaps with speculation.
+- Clearly separate FACTS (from data) from EDITORIAL FRAMING (your suggested angle/approach).
 
 Generate a comprehensive editorial writing brief for this pitch:
 
@@ -114,30 +140,30 @@ Vertical: ${verticalName} (${guidance})
 Headline: ${pitch.headline}
 Angle: ${pitch.angle}
 Suggested venue: ${pitch.suggested_venue || 'None specified'}
-Estimated read time: ${pitch.estimated_read_time}${venueContext}
+Confidence: ${pitch.confidence || 'MEDIUM'}
+Estimated read time: ${pitch.estimated_read_time}${venueContext}${verifiedFactsContext}${researchContext}
 
-${nearbyListings.length > 0 ? `\nNearby listings that could be woven into the story:\n${nearbyListings.map(l => `- ${l.name} (${VERTICAL_LABELS[l.vertical] || l.vertical}, ${l.region || l.state || 'Australia'})`).join('\n')}` : ''}
+${nearbyListings.length > 0 ? `\nNearby verified listings that could be woven into the story:\n${nearbyListings.map(l => `- ${l.name} (${VERTICAL_LABELS[l.vertical] || l.vertical}, ${l.region || l.state || 'Australia'})`).join('\n')}` : ''}
 
 Respond in this exact JSON format:
 {
   "deck": "A single sentence subheading summarising the story angle — punchy, specific, editorial",
-  "the_story": "2-3 paragraphs expanding the pitch angle. What makes this story worth telling, the emotional or cultural hook, why now, why this venue or place specifically. Write as narrative prose, not bullet points.",
+  "the_story": "2-3 paragraphs expanding the pitch angle. What makes this story worth telling, the emotional or cultural hook, why now, why this venue or place specifically. Write as narrative prose, not bullet points. ONLY reference facts from the provided data.",
   "suggested_angles": [
     { "title": "Angle title", "description": "2-3 sentences describing this alternative narrative frame" },
     { "title": "Angle title", "description": "2-3 sentences" },
     { "title": "Angle title", "description": "2-3 sentences" }
   ],
   "key_questions": [
-    "Specific, researched question tailored to this story — not generic",
-    "Another specific question that could only apply to this venue/person/place"
+    "Specific question tailored to this story that a writer would need to answer through reporting"
   ],
-  "research_notes": "2-3 paragraphs of relevant context — history, industry context, similar stories told elsewhere and how this differs, publicly available info worth knowing",
+  "research_notes": "What is known from the data, what gaps exist, and what a writer should investigate. Be explicit about what is FACT vs what needs VERIFICATION.",
   "structural_suggestion": {
     "opening": "Suggested opening scene or lede approach",
     "sections": ["Section 1 description", "Section 2 description", "Section 3 description"],
     "closing": "Suggested ending approach"
   },
-  "tone_reference": "1-2 sentences describing the suggested tone and voice, referencing the Atlas Network editorial positioning"
+  "tone_reference": "1-2 sentences describing the suggested tone and voice"
 }
 
 Generate 8-10 key questions. Make every element specific to THIS story — never generic journalism advice.`
@@ -146,7 +172,6 @@ Generate 8-10 key questions. Make every element specific to THIS story — never
     const { default: Anthropic } = await import('@anthropic-ai/sdk')
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-    // Retry up to 3 times
     let brief = null
     let lastError = null
     for (let attempt = 1; attempt <= 3; attempt++) {
@@ -154,7 +179,7 @@ Generate 8-10 key questions. Make every element specific to THIS story — never
         const message = await anthropic.messages.create({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 6000,
-          messages: [{ role: 'user', content: 'Generate the full editorial brief for this pitch. Respond with ONLY valid JSON, no markdown fences.' }],
+          messages: [{ role: 'user', content: 'Generate the full editorial brief for this pitch. Every fact must come from the provided data. Respond with ONLY valid JSON, no markdown fences.' }],
           system: systemPrompt,
         })
 
@@ -169,12 +194,12 @@ Generate 8-10 key questions. Make every element specific to THIS story — never
         }
 
         brief = JSON.parse(jsonMatch[0])
-        break // Success — exit retry loop
+        break
       } catch (attemptErr) {
         lastError = attemptErr
         console.error(`Brief generation attempt ${attempt}/3 failed:`, attemptErr.message)
         if (attempt < 3) {
-          await new Promise(r => setTimeout(r, 1000 * attempt)) // Back off: 1s, 2s
+          await new Promise(r => setTimeout(r, 1000 * attempt))
         }
       }
     }
@@ -183,7 +208,6 @@ Generate 8-10 key questions. Make every element specific to THIS story — never
       throw lastError || new Error('Brief generation failed after 3 attempts')
     }
 
-    // Add nearby listings to the brief
     brief.nearby_listings = nearbyListings.map(l => ({
       id: l.id,
       name: l.name,
@@ -196,7 +220,6 @@ Generate 8-10 key questions. Make every element specific to THIS story — never
       hero_image_url: l.hero_image_url,
     }))
 
-    // Cache in DB
     await sb
       .from('editorial_pitches')
       .update({ brief, updated_at: new Date().toISOString() })

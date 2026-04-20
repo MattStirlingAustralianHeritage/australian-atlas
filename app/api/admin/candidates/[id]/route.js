@@ -249,7 +249,7 @@ export async function PATCH(request, { params }) {
   try {
     const body = await request.json()
 
-    const allowed = ['name', 'vertical', 'region', 'website_url', 'description', 'notes', 'confidence']
+    const allowed = ['name', 'vertical', 'region', 'website_url', 'description', 'notes', 'confidence', 'pipeline_stage', 'priority', 'sub_type', 'state']
     const updates = {}
     for (const key of allowed) {
       if (key in body) updates[key] = body[key]

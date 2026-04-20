@@ -22,6 +22,8 @@ const PAGE_TITLES = {
   operators: 'Operators',
   'audit-review': 'Data Audit',
   notes: 'Notes',
+  growth: 'Growth',
+  agents: 'Agents',
 }
 
 export default function AdminNavBar() {

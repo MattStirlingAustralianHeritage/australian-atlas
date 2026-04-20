@@ -9,14 +9,14 @@ const TIERS = [
     name: 'Free Listing',
     price: 0,
     description: 'Claim and verify your listing with basic details.',
-    features: ['Verify ownership', 'Update basic info', 'Appear in search & map'],
+    features: ['Verify ownership', 'Basic listing', 'Appear in search & trails'],
   },
   {
     id: 'standard',
     name: 'Standard',
     price: 99,
-    description: 'Enhanced listing with all features.',
-    features: ['Everything in Free', 'Unlimited photos', 'Booking & social links', 'Video, events & promos', 'Analytics dashboard'],
+    description: 'Full listing management with all features.',
+    features: ['Everything in Free', 'Photo gallery', 'Website & social links', 'Listing Insights', 'Producer Picks'],
     recommended: true,
   },
 ]

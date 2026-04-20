@@ -16,6 +16,7 @@ const ALLOWED_ENDPOINTS = [
   '/api/cron/content-recycling-agent',
   '/api/cron/user-reactivation-agent',
   '/api/cron/listing-velocity-agent',
+  '/api/cron/prospect',
 ]
 
 /**

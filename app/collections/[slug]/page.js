@@ -2,9 +2,10 @@ import { cache } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
-import { breadcrumbJsonLd } from '@/lib/jsonLd'
+import { breadcrumbJsonLd, collectionJsonLd } from '@/lib/jsonLd'
 import ListingCard from '@/components/ListingCard'
 import VerticalBadge from '@/components/VerticalBadge'
+import { RelatedCollections, RelatedArticles } from '@/components/RelatedContent'
 
 export const revalidate = 7200
 
@@ -73,24 +74,21 @@ export default async function CollectionPage({ params }) {
     }
   }
 
+  // Resolve region slug for linking
+  let regionSlug = null
+  if (collection.region) {
+    const { data: regionRow } = await sb
+      .from('regions')
+      .select('slug')
+      .eq('name', collection.region)
+      .single()
+    if (regionRow) regionSlug = regionRow.slug
+  }
+
   const locationParts = [collection.region].filter(Boolean)
   const locationLabel = locationParts.join(', ')
 
-  // JSON-LD: ItemList
-  const itemListJsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'ItemList',
-    name: collection.title,
-    description: collection.description || '',
-    url: `${SITE_URL}/collections/${slug}`,
-    numberOfItems: listings.length,
-    itemListElement: listings.map((listing, index) => ({
-      '@type': 'ListItem',
-      position: index + 1,
-      name: listing.name,
-      url: `${SITE_URL}/place/${listing.slug}`,
-    })),
-  }
+  const itemListJsonLd = collectionJsonLd(collection, listings)
 
   // Breadcrumb JSON-LD
   const breadcrumbLd = breadcrumbJsonLd([
@@ -187,7 +185,13 @@ export default async function CollectionPage({ params }) {
             {locationLabel && (
               <>
                 <span>&middot;</span>
-                <span>{locationLabel}</span>
+                {regionSlug ? (
+                  <Link href={`/regions/${regionSlug}`} style={{ color: 'rgba(255,255,255,0.45)', textDecoration: 'none' }}>
+                    {locationLabel} &#x2197;
+                  </Link>
+                ) : (
+                  <span>{locationLabel}</span>
+                )}
               </>
             )}
           </div>
@@ -226,6 +230,10 @@ export default async function CollectionPage({ params }) {
             </div>
           </>
         )}
+
+        {/* Related content */}
+        <RelatedCollections region={collection.region} vertical={collection.vertical} limit={3} excludeSlug={slug} />
+        <RelatedArticles regionName={collection.region} vertical={collection.vertical} limit={3} />
 
         {/* Back to collections */}
         <div style={{

@@ -1,6 +1,36 @@
 import { NextResponse } from 'next/server'
 import { createAuthServerClient } from '@/lib/supabase/auth-clients'
-import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { getSupabaseAdmin, getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
+
+const PICKS_CONFIG = [
+  {
+    vertical: 'sba',
+    picksTable: 'producer_picks',
+    junctionTable: 'producer_pick_venues',
+    curatorFk: 'curator_venue_id',
+    pickedFk: 'venue_id',
+    venueTable: 'venues',
+    label: 'Small Batch',
+  },
+  {
+    vertical: 'rest',
+    picksTable: 'host_picks',
+    junctionTable: 'host_pick_properties',
+    curatorFk: 'curator_property_id',
+    pickedFk: 'property_id',
+    venueTable: 'properties',
+    label: 'Rest',
+  },
+  {
+    vertical: 'fine_grounds',
+    picksTable: 'roaster_picks',
+    junctionTable: 'roaster_pick_entities',
+    curatorFk: 'curator_entity_id',
+    pickedFk: 'entity_id',
+    venueTable: 'roasters',
+    label: 'Fine Grounds',
+  },
+]
 
 export async function GET() {
   const supabase = await createAuthServerClient()
@@ -9,51 +39,97 @@ export async function GET() {
 
   const admin = getSupabaseAdmin()
 
-  // Get the user's claimed venues from master listings
   const { data: userListings } = await admin
     .from('listings')
     .select('id, name, slug, vertical, source_id, region')
     .eq('is_claimed', true)
 
-  // Query picks tables across verticals that support them
-  const picksConfig = [
-    { metaTable: 'sba_meta', picksTable: 'producer_picks', vertical: 'sba' },
-    { metaTable: 'fine_grounds_meta', picksTable: 'roaster_picks', vertical: 'fine_grounds' },
-    { metaTable: 'rest_meta', picksTable: 'host_picks', vertical: 'rest' },
-  ]
+  if (!userListings?.length) return NextResponse.json({ outgoing: [], incoming: [] })
 
   const outgoing = []
   const incoming = []
 
-  for (const config of picksConfig) {
+  for (const cfg of PICKS_CONFIG) {
+    const myListings = userListings.filter(l => l.vertical === cfg.vertical)
+    if (!myListings.length) continue
+
     try {
-      // Check for picks made by the user's venues (outgoing)
-      const { data: outPicks } = await admin
-        .from(config.picksTable)
-        .select('id, venue_id, picked_venue_id, picked_venue_name, note, created_at')
-        .limit(50)
+      const vClient = getVerticalClient(cfg.vertical)
+      const sourceIds = myListings.map(l => l.source_id)
 
-      if (outPicks) {
-        for (const pick of outPicks) {
-          // Check if this pick was made by one of the user's venues
-          const userVenue = userListings?.find(
-            (l) => l.vertical === config.vertical && String(l.source_id) === String(pick.venue_id)
-          )
-          if (userVenue) {
-            outgoing.push({ ...pick, vertical: config.vertical, venueName: userVenue.name })
-          }
+      const { data: outPicks } = await vClient
+        .from(cfg.picksTable)
+        .select(`id, slug, framing_line, published_at, ${cfg.curatorFk}`)
+        .in(cfg.curatorFk, sourceIds)
+        .eq('status', 'published')
 
-          // Check if this pick references one of the user's venues (incoming)
-          const targetVenue = userListings?.find(
-            (l) => String(l.source_id) === String(pick.picked_venue_id)
-          )
-          if (targetVenue) {
-            incoming.push({ ...pick, vertical: config.vertical, venueName: targetVenue.name })
-          }
+      for (const pick of (outPicks || [])) {
+        const myListing = myListings.find(l => String(l.source_id) === String(pick[cfg.curatorFk]))
+        if (!myListing) continue
+
+        const { data: pickedVenues } = await vClient
+          .from(cfg.junctionTable)
+          .select(`position, curator_note, ${cfg.pickedFk}`)
+          .eq('pick_id', pick.id)
+          .order('position')
+
+        for (const pv of (pickedVenues || [])) {
+          const { data: venue } = await vClient
+            .from(cfg.venueTable)
+            .select('name, slug')
+            .eq('id', pv[cfg.pickedFk])
+            .single()
+
+          outgoing.push({
+            vertical: cfg.vertical,
+            verticalLabel: cfg.label,
+            curatorVenueName: myListing.name,
+            pickedVenueName: venue?.name || 'Unknown',
+            pickedVenueSlug: venue?.slug,
+            note: pv.curator_note,
+            position: pv.position,
+            pickSlug: pick.slug,
+          })
         }
       }
+
+      const { data: inPicks } = await vClient
+        .from(cfg.junctionTable)
+        .select(`pick_id, curator_note, position, ${cfg.pickedFk}`)
+        .in(cfg.pickedFk, sourceIds)
+
+      for (const pv of (inPicks || [])) {
+        const myListing = myListings.find(l => String(l.source_id) === String(pv[cfg.pickedFk]))
+        if (!myListing) continue
+
+        const { data: pick } = await vClient
+          .from(cfg.picksTable)
+          .select(`id, slug, framing_line, ${cfg.curatorFk}`)
+          .eq('id', pv.pick_id)
+          .eq('status', 'published')
+          .single()
+
+        if (!pick) continue
+
+        const { data: curatorVenue } = await vClient
+          .from(cfg.venueTable)
+          .select('name, slug')
+          .eq('id', pick[cfg.curatorFk])
+          .single()
+
+        incoming.push({
+          vertical: cfg.vertical,
+          verticalLabel: cfg.label,
+          curatorVenueName: curatorVenue?.name || 'Unknown',
+          curatorVenueSlug: curatorVenue?.slug,
+          pickedVenueName: myListing.name,
+          note: pv.curator_note,
+          framingLine: pick.framing_line,
+          pickSlug: pick.slug,
+        })
+      }
     } catch {
-      // Picks table may not exist yet for this vertical
+      // Vertical DB may be unreachable or picks table may not exist
     }
   }
 

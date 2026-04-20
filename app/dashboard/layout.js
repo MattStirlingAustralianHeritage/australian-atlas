@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { getAuthSupabase } from '@/lib/supabase/auth-clients'
+import { getVerticalFeatures } from '@/lib/vertical-features'
 
 const AuthContext = createContext(null)
 
@@ -16,11 +17,13 @@ export function useAuth() {
 const NAV_ITEMS = [
   { label: 'Overview', href: '/dashboard', icon: 'home' },
   { label: 'My Listings', href: '/dashboard/listings', icon: 'list' },
-  { label: 'Analytics', href: '/dashboard/analytics', icon: 'chart' },
-  { label: 'Producer Picks', href: '/dashboard/picks', icon: 'star' },
+  { label: 'Listing Insights', href: '/dashboard/analytics', icon: 'chart' },
+  { label: 'Producer Picks', href: '/dashboard/picks', icon: 'star', picksOnly: true },
   { label: 'Editorial', href: '/dashboard/editorial', icon: 'pen' },
   { label: 'Subscription', href: '/dashboard/subscription', icon: 'card' },
 ]
+
+const PICKS_VERTICALS = new Set(['sba', 'fine_grounds', 'rest'])
 
 function NavIcon({ type, size = 18 }) {
   const s = { width: size, height: size, strokeWidth: 1.5, stroke: 'currentColor', fill: 'none' }
@@ -52,6 +55,7 @@ export default function DashboardLayout({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [vendorVerticals, setVendorVerticals] = useState({})
   const router = useRouter()
   const pathname = usePathname()
   const supabase = getAuthSupabase()
@@ -61,6 +65,14 @@ export default function DashboardLayout({ children }) {
       setUser(user)
       setLoading(false)
     })
+
+    const token = typeof window !== 'undefined' ? localStorage.getItem('atlas_auth_token') : null
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]))
+        setVendorVerticals(payload.verticals || {})
+      } catch { /* silent */ }
+    }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
@@ -127,8 +139,21 @@ export default function DashboardLayout({ children }) {
 
       {/* Nav */}
       <nav style={{ flex: 1, padding: '0.5rem 0' }}>
-        {NAV_ITEMS.map((item) => {
+        {NAV_ITEMS.filter(item => {
+          if (!item.picksOnly) return true
+          const activeVerts = Object.entries(vendorVerticals).filter(([, v]) => v).map(([k]) => k)
+          return activeVerts.some(v => PICKS_VERTICALS.has(v)) || activeVerts.length === 0
+        }).map((item) => {
           const active = isActive(item.href)
+          let label = item.label
+          if (item.picksOnly) {
+            const activeVerts = Object.entries(vendorVerticals).filter(([, v]) => v).map(([k]) => k)
+            const picksVert = activeVerts.find(v => PICKS_VERTICALS.has(v))
+            if (picksVert) {
+              const vf = getVerticalFeatures(picksVert)
+              if (vf.picksLabel) label = vf.picksLabel
+            }
+          }
           return (
             <Link
               key={item.href}
@@ -149,7 +174,7 @@ export default function DashboardLayout({ children }) {
               }}
             >
               <NavIcon type={item.icon} />
-              {item.label}
+              {label}
             </Link>
           )
         })}

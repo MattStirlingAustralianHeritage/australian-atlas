@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
-import { isApprovedDomain } from '@/lib/council-config'
+// Domain whitelist removed from login flow — admin approval is the security gate.
+// isApprovedDomain still available in lib/council-config.js if needed elsewhere.
 import { createSessionValue } from '@/lib/council-session'
 import crypto from 'crypto'
 
@@ -84,15 +85,9 @@ export async function POST(req) {
         await logAuthAttempt(sb, { email: normalised, success: false, failureReason: 'not_approved', ip })
         return NextResponse.json({
           ok: true,
-          message: 'Your account is pending approval. We\'ll email you when it\'s ready.',
+          message: 'Your account is pending approval. Contact councils@australianatlas.com.au if you\'ve recently enquired.',
           pending: true,
         })
-      }
-
-      // Domain not whitelisted — return generic message, log failure
-      if (!isApprovedDomain(normalised)) {
-        await logAuthAttempt(sb, { email: normalised, success: false, failureReason: 'domain_not_whitelisted', ip })
-        return genericResponse
       }
 
       // Account suspended or cancelled — return generic message, log failure

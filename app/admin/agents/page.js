@@ -118,6 +118,14 @@ const AGENTS = [
     endpoint: '/api/cron/listing-velocity-agent',
     description: 'Monthly snapshot of listing growth by vertical and region. Identifies momentum, stagnation, and gaps.',
   },
+  {
+    key: 'prospect',
+    name: 'Prospector',
+    schedule: 'Daily 4 AM AEST',
+    endpoint: '/api/cron/prospect',
+    description: 'Discovers venue candidates via Google Places API, deduplicates against master DB, and runs 5-gate quality verification pipeline.',
+    reviewLink: '/admin/growth',
+  },
 ]
 
 const STATUS_STYLES = {

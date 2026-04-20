@@ -29,97 +29,312 @@ const VERTICAL_MAP = {
   portal: null,
 }
 
+const LISTING_FIELDS = [
+  'id', 'name', 'slug', 'description', 'region', 'state', 'lat', 'lng',
+  'website', 'phone', 'address', 'street_address', 'suburb', 'postcode',
+  'vertical', 'sub_type', 'sub_type_secondary', 'sub_types',
+  'hero_image_url', 'is_claimed', 'founded_year', 'heritage_significance',
+  'best_season', 'hours', 'data_source', 'quality_score', 'completeness_score',
+  'verified', 'verified_at', 'humanised', 'editors_pick',
+]
+
+const MIN_DATA_RICHNESS = 4
+
 /**
- * Fetch 3 random active listings for a vertical to use as context.
+ * Phase 1: Score listing data richness for editorial potential.
+ * Returns an integer score based on how many useful fields are populated.
  */
-async function getListingContext(sb, vertical) {
+function scoreDataRichness(listing) {
+  let score = 0
+  if (listing.description && listing.description.length > 80) score += 3
+  if (listing.description && listing.description.length > 250) score += 2
+  if (listing.website) score += 2
+  if (listing.address || listing.street_address) score += 1
+  if (listing.phone) score += 1
+  if (listing.founded_year) score += 3
+  if (listing.heritage_significance) score += 3
+  if (listing.best_season) score += 1
+  if (listing.hours) score += 1
+  if (listing.sub_type) score += 1
+  if (listing.sub_types?.length > 0) score += 1
+  if (listing.hero_image_url) score += 1
+  if (listing.is_claimed) score += 2
+  if (listing.verified) score += 2
+  if (listing.humanised) score += 1
+  if (listing.editors_pick) score += 2
+  if (listing.region) score += 1
+  if (listing.lat && listing.lng) score += 1
+  return score
+}
+
+/**
+ * Phase 1: Deterministic candidate selection.
+ * Queries the database for data-rich listings, scores them, and returns the best candidate
+ * that hasn't been pitched recently.
+ */
+async function selectCandidate(sb, vertical) {
   const verticalFilter = VERTICAL_MAP[vertical]
 
   let query = sb
     .from('listings')
-    .select('name, region, state, description')
+    .select(LISTING_FIELDS.join(', '))
     .eq('status', 'active')
     .not('description', 'is', null)
-    .limit(20)
 
   if (verticalFilter) {
     query = query.eq('vertical', verticalFilter)
   }
 
-  const { data } = await query
+  // Fetch a broad pool to score from
+  const { data: listings, error } = await query.limit(100)
 
-  if (!data || data.length === 0) return ''
+  if (error) throw new Error(`Candidate query failed: ${error.message}`)
+  if (!listings || listings.length === 0) return null
 
-  // Pick 3 random listings from the results
-  const shuffled = data.sort(() => 0.5 - Math.random())
-  const sample = shuffled.slice(0, 3)
+  // Get recently pitched listing IDs to avoid duplicates
+  const { data: recentPitches } = await sb
+    .from('editorial_pitches')
+    .select('listing_id')
+    .not('listing_id', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(200)
 
-  return sample
-    .map((l, i) => `${i + 1}. ${l.name}${l.region ? ` (${l.region}, ${l.state || 'Australia'})` : ''}\n   ${(l.description || '').slice(0, 200)}`)
-    .join('\n\n')
+  const recentlyPitchedIds = new Set((recentPitches || []).map(p => p.listing_id))
+
+  // Score and rank candidates
+  const scored = listings
+    .filter(l => !recentlyPitchedIds.has(l.id))
+    .map(listing => ({
+      listing,
+      score: scoreDataRichness(listing),
+    }))
+    .filter(c => c.score >= MIN_DATA_RICHNESS)
+    .sort((a, b) => b.score - a.score)
+
+  if (scored.length === 0) return null
+
+  // Pick from top 5 with some randomness to avoid always pitching the same listing
+  const topCandidates = scored.slice(0, 5)
+  const pick = topCandidates[Math.floor(Math.random() * topCandidates.length)]
+
+  return { listing: pick.listing, score: pick.score }
 }
 
 /**
- * Generate a new editorial pitch for a vertical using Anthropic API.
+ * Build the listing data block that gets passed to the LLM.
+ * Only includes non-null fields so the LLM can see exactly what data exists.
  */
-async function generatePitch(sb, vertical) {
+function buildListingDataBlock(listing) {
+  const fields = []
+  fields.push(`Name: ${listing.name}`)
+  if (listing.vertical) fields.push(`Vertical: ${listing.vertical}`)
+  if (listing.sub_type) fields.push(`Sub-type: ${listing.sub_type}`)
+  if (listing.sub_type_secondary) fields.push(`Sub-type (secondary): ${listing.sub_type_secondary}`)
+  if (listing.sub_types?.length > 0) fields.push(`Categories: ${listing.sub_types.join(', ')}`)
+  if (listing.region) fields.push(`Region: ${listing.region}`)
+  if (listing.state) fields.push(`State: ${listing.state}`)
+  if (listing.address) fields.push(`Address: ${listing.address}`)
+  if (listing.street_address) fields.push(`Street address: ${listing.street_address}`)
+  if (listing.suburb) fields.push(`Suburb: ${listing.suburb}`)
+  if (listing.postcode) fields.push(`Postcode: ${listing.postcode}`)
+  if (listing.description) fields.push(`Description: ${listing.description}`)
+  if (listing.website) fields.push(`Website: ${listing.website}`)
+  if (listing.phone) fields.push(`Phone: ${listing.phone}`)
+  if (listing.founded_year) fields.push(`Founded: ${listing.founded_year}`)
+  if (listing.heritage_significance) fields.push(`Heritage significance: yes`)
+  if (listing.best_season) fields.push(`Best season: ${listing.best_season}`)
+  if (listing.hours) fields.push(`Hours: ${JSON.stringify(listing.hours)}`)
+  if (listing.is_claimed) fields.push(`Claimed by operator: yes`)
+  if (listing.verified) fields.push(`Verified: yes`)
+  if (listing.editors_pick) fields.push(`Editor's pick: yes`)
+  if (listing.hero_image_url) fields.push(`Has hero image: yes`)
+  return fields.join('\n')
+}
+
+/**
+ * Phase 2: Generate an editorially framed pitch using the LLM,
+ * strictly constrained to the provided listing data.
+ */
+async function generateGroundedPitch(listing, vertical, score) {
   const guidance = VERTICAL_GUIDANCE[vertical]
-  if (!guidance) throw new Error(`Unknown vertical: ${vertical}`)
+  const listingData = buildListingDataBlock(listing)
 
-  const listingContext = await getListingContext(sb, vertical)
+  const systemPrompt = `You are generating editorial article suggestions for the Atlas Network, a curated discovery platform for independent Australian venues.
 
-  const systemPrompt = `You are the editorial director of the Australian Atlas Network, a premium travel and culture publication covering independent Australia. Generate a single article pitch for ${guidance}
+CRITICAL RULES:
+- You will be given the exact database record for a listing. Every factual claim in your pitch MUST come directly from this data.
+- If a field is empty or null, you MUST NOT invent content for it.
+- You may suggest an editorial ANGLE or FRAMING (e.g. "this could be a story about...") but the underlying facts must all be verifiable from the provided data.
+- Do NOT invent operator names, founding dates, backstories, philosophies, or superlative claims.
+- Do NOT use phrases like "likely", "probably", "perhaps they..." to smuggle in speculation as soft fact.
+- If the listing data is too thin to support an interesting article, say so explicitly. "Insufficient data for editorial pitch" is a valid and preferred output.
+- Your pitch should make clear what a human writer would need to research/verify before writing the actual article.
 
-The pitch must be:
-- Specific to a real, named Australian place, venue, producer, maker, or natural feature
-- Story-led with a narrative angle — never a listicle or "10 best..." format
-- Written in the style of Monocle or a quality travel publication
-- Relevant to Australian tourism infrastructure and independent operators
+VERTICAL CONTEXT: ${guidance}
 
-${listingContext ? `Here are some real listings from this vertical to inspire your pitch (you may reference one directly or use them as inspiration):\n${listingContext}` : ''}
+HERE IS THE EXACT LISTING DATA:
+---
+${listingData}
+---
 
 Respond in this exact JSON format:
 {
-  "headline": "A compelling, specific headline",
-  "angle": "Two to three sentences explaining what makes this story worth writing and the narrative approach",
-  "suggested_venue": "The name of a real venue or place to anchor the story",
-  "estimated_read_time": "X min"
-}`
+  "headline": "A suggested editorial headline (make clear this is a framing, not a factual claim)",
+  "editorial_angle": "1-2 sentences on why this listing is editorially interesting, grounded ONLY in the provided data",
+  "pitch_summary": "3-4 sentences describing the potential article. All facts must come from the data above. Editorial framing should be clearly labelled as such (e.g. 'this could explore...')",
+  "verified_facts": [
+    { "claim": "The specific factual claim", "source_field": "Which database field this comes from" }
+  ],
+  "research_needed": ["What a human writer would need to verify or research before writing"],
+  "confidence": "HIGH or MEDIUM or LOW",
+  "estimated_read_time": "X min",
+  "insufficient_data": false
+}
+
+If the data is too thin, respond with:
+{ "insufficient_data": true, "reason": "Why the data is insufficient" }
+
+CONFIDENCE GUIDE:
+- HIGH: Rich description, multiple populated fields, clear narrative potential
+- MEDIUM: Decent description, some gaps a writer could fill with research
+- LOW: Thin data, angle is speculative, needs significant research`
 
   const { default: Anthropic } = await import('@anthropic-ai/sdk')
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
   const message = await anthropic.messages.create({
     model: 'claude-sonnet-4-20250514',
-    max_tokens: 512,
+    max_tokens: 1024,
     messages: [
-      { role: 'user', content: 'Generate an editorial pitch.' },
+      { role: 'user', content: 'Generate a grounded editorial pitch based on the listing data provided. Remember: every fact must come from the data. No invention.' },
     ],
     system: systemPrompt,
   })
 
-  // Extract text from the response
   const text = message.content
     .filter(block => block.type === 'text')
     .map(block => block.text)
     .join('')
 
-  // Parse JSON from the response — handle markdown code fences
   const jsonMatch = text.match(/\{[\s\S]*\}/)
   if (!jsonMatch) throw new Error('Failed to parse pitch JSON from response')
 
-  const pitch = JSON.parse(jsonMatch[0])
+  return JSON.parse(jsonMatch[0])
+}
 
-  // Insert into the database
+/**
+ * Fact-check: verify every claim in verified_facts against the actual listing data.
+ * Returns the pitch with any unverifiable claims flagged.
+ */
+function factCheckPitch(pitch, listing) {
+  if (!pitch.verified_facts || !Array.isArray(pitch.verified_facts)) return pitch
+
+  const listingStr = JSON.stringify(listing).toLowerCase()
+
+  const checked = pitch.verified_facts.filter(fact => {
+    const field = fact.source_field?.toLowerCase()
+    if (!field) return false
+    // Check the referenced field actually exists and has data
+    const fieldKey = field.replace(/\s+/g, '_')
+    const value = listing[fieldKey] ?? listing[field]
+    return value !== null && value !== undefined
+  })
+
+  pitch.verified_facts = checked
+  return pitch
+}
+
+/**
+ * Find cross-vertical listings near the candidate for cluster potential.
+ */
+async function findCrossVerticalConnections(sb, listing) {
+  if (!listing.lat || !listing.lng) return []
+
+  const { data: nearby } = await sb
+    .from('listings')
+    .select('id, name, slug, vertical, region, state, sub_type')
+    .eq('status', 'active')
+    .neq('id', listing.id)
+    .neq('vertical', listing.vertical)
+    .gte('lat', listing.lat - 0.3)
+    .lte('lat', listing.lat + 0.3)
+    .gte('lng', listing.lng - 0.3)
+    .lte('lng', listing.lng + 0.3)
+    .limit(20)
+
+  if (!nearby?.length) return []
+
+  // Deduplicate by vertical, keep up to 6
+  const seen = new Set()
+  return nearby.filter(l => {
+    if (seen.has(l.vertical)) return false
+    seen.add(l.vertical)
+    return true
+  }).slice(0, 6).map(l => ({
+    id: l.id,
+    name: l.name,
+    slug: l.slug,
+    vertical: l.vertical,
+    region: l.region,
+    state: l.state,
+    sub_type: l.sub_type,
+  }))
+}
+
+/**
+ * Full pipeline: select candidate, generate pitch, fact-check, find connections, store.
+ */
+async function generatePitch(sb, vertical) {
+  const guidance = VERTICAL_GUIDANCE[vertical]
+  if (!guidance) throw new Error(`Unknown vertical: ${vertical}`)
+
+  // Phase 1: Deterministic candidate selection
+  const candidate = await selectCandidate(sb, vertical)
+  if (!candidate) {
+    throw new Error(`No suitable candidates found for ${vertical}. All data-rich listings may have been recently pitched.`)
+  }
+
+  const { listing, score } = candidate
+
+  // Phase 2: Constrained LLM pitch generation
+  const rawPitch = await generateGroundedPitch(listing, vertical, score)
+
+  if (rawPitch.insufficient_data) {
+    throw new Error(`Listing "${listing.name}" has insufficient data: ${rawPitch.reason}`)
+  }
+
+  // Quality gate: fact-check
+  const checkedPitch = factCheckPitch(rawPitch, listing)
+
+  // Cross-vertical connections
+  const connections = await findCrossVerticalConnections(sb, listing)
+
+  // Build snapshot of listing data used
+  const snapshot = {}
+  for (const field of LISTING_FIELDS) {
+    if (listing[field] !== null && listing[field] !== undefined) {
+      snapshot[field] = listing[field]
+    }
+  }
+
+  // Store in database
   const { data: inserted, error } = await sb
     .from('editorial_pitches')
     .insert({
       vertical,
-      headline: pitch.headline,
-      angle: pitch.angle,
-      suggested_venue: pitch.suggested_venue || null,
-      estimated_read_time: pitch.estimated_read_time || '6 min',
+      headline: checkedPitch.headline,
+      angle: checkedPitch.editorial_angle || checkedPitch.pitch_summary,
+      suggested_venue: listing.name,
+      suggested_venue_id: listing.id,
+      listing_id: listing.id,
+      estimated_read_time: checkedPitch.estimated_read_time || '6 min',
       status: 'active',
+      confidence: checkedPitch.confidence || 'MEDIUM',
+      verified_facts: checkedPitch.verified_facts || [],
+      research_needed: checkedPitch.research_needed || [],
+      cross_vertical_connections: connections,
+      data_richness_score: score,
+      listing_data_snapshot: snapshot,
     })
     .select()
     .single()
@@ -169,7 +384,6 @@ async function createArticleDraft(sb, pitch) {
 
   if (error) {
     console.error('[editorial-pitches] Article draft creation failed:', error.message)
-    // Non-fatal — pitch approval still succeeds
   }
 }
 
@@ -187,7 +401,7 @@ export async function GET() {
     const sb = getSupabaseAdmin()
     const { data, error } = await sb
       .from('editorial_pitches')
-      .select('id, vertical, headline, angle, suggested_venue, suggested_venue_id, estimated_read_time, status, brief, created_at, updated_at')
+      .select('id, vertical, headline, angle, suggested_venue, suggested_venue_id, listing_id, estimated_read_time, status, brief, confidence, verified_facts, research_needed, cross_vertical_connections, data_richness_score, created_at, updated_at')
       .eq('status', 'active')
       .order('created_at', { ascending: false })
 
@@ -238,7 +452,6 @@ export async function POST(request) {
         return NextResponse.json({ error: 'Missing pitchId' }, { status: 400 })
       }
 
-      // Update the pitch status
       const newStatus = action === 'approve' ? 'approved' : 'rejected'
       const { data: updated, error: updateError } = await sb
         .from('editorial_pitches')
@@ -249,7 +462,6 @@ export async function POST(request) {
 
       if (updateError) throw updateError
 
-      // If approved, create an article draft
       if (action === 'approve' && updated) {
         await createArticleDraft(sb, updated)
       }

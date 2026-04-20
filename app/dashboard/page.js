@@ -21,16 +21,12 @@ const VERTICAL_URLS = {
   table:        { base: 'https://tableatlas.com.au',         path: '/listings' },
 }
 
-const VERTICAL_VENDOR_PATHS = {
-  sba:          '/vendor',
-  collection:   '/vendor',
-  craft:        '/vendor',
-  fine_grounds: '/vendor',
-  rest:         '/vendor',
-  field:        '/vendor',
-  corner:       '/vendor',
-  found:        '/vendor',
-  table:        '/vendor',
+const VERTICAL_EDIT_PATHS = {
+  sba:          '/vendor/edit',
+  collection:   '/vendor/edit',
+  craft:        '/vendor/edit',
+  fine_grounds: '/vendor/edit',
+  rest:         '/vendor/edit',
 }
 
 function getPublicUrl(vertical, slug) {
@@ -39,11 +35,11 @@ function getPublicUrl(vertical, slug) {
   return `${config.base}${config.path}/${slug}`
 }
 
-function getVendorDashboardUrl(vertical) {
+function getEditUrl(vertical) {
   const config = VERTICAL_URLS[vertical]
-  const vendorPath = VERTICAL_VENDOR_PATHS[vertical] || '/vendor'
-  if (!config) return '#'
-  return `${config.base}${vendorPath}`
+  const editPath = VERTICAL_EDIT_PATHS[vertical]
+  if (!config || !editPath) return null
+  return `${config.base}${editPath}`
 }
 
 function decodeJWT(token) {
@@ -76,7 +72,7 @@ function ScoreBar({ score }) {
 }
 
 function CompletenessChecklist({ listing }) {
-  const vendorUrl = getVendorDashboardUrl(listing.vertical)
+  const vendorUrl = getEditUrl(listing.vertical)
 
   const checks = [
     {
@@ -177,7 +173,7 @@ function CompletenessChecklist({ listing }) {
                 }}>
                   {check.label} added
                 </span>
-              ) : (
+              ) : vendorUrl ? (
                 <a
                   href={vendorUrl}
                   target="_blank"
@@ -202,6 +198,17 @@ function CompletenessChecklist({ listing }) {
                     &mdash; {check.hint}
                   </span>
                 </a>
+              ) : (
+                <span style={{
+                  fontFamily: 'var(--font-body, system-ui)',
+                  fontSize: 12,
+                  color: '#dc2626',
+                  fontWeight: 500,
+                  display: 'block',
+                  lineHeight: '18px',
+                }}>
+                  {check.label} missing
+                </span>
               )}
             </div>
           </div>
@@ -378,7 +385,7 @@ function ListingCard({ listing, liveStats }) {
               color: 'var(--color-ink, #2D2A26)',
               margin: 0,
             }}>
-              {stats.search_appearances}
+              {live ? live.search_count : stats.search_appearances}
             </p>
             <p style={{
               fontFamily: 'var(--font-body, system-ui)',
@@ -389,7 +396,7 @@ function ListingCard({ listing, liveStats }) {
               color: 'var(--color-muted, #888)',
               margin: '2px 0 0',
             }}>
-              Searches
+              {live ? 'Searches (30d)' : 'Searches'}
             </p>
           </div>
           <div style={{ textAlign: 'center' }}>
@@ -443,26 +450,45 @@ function ListingCard({ listing, liveStats }) {
 
         {/* Quick links */}
         <div style={{ display: 'flex', gap: 8 }}>
-          <a
-            href={getVendorDashboardUrl(listing.vertical)}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              flex: 1,
-              display: 'block',
-              textAlign: 'center',
-              padding: '10px 12px',
-              borderRadius: 8,
-              background: 'var(--color-ink, #2D2A26)',
-              color: '#fff',
-              fontFamily: 'var(--font-body, system-ui)',
-              fontSize: 12,
-              fontWeight: 500,
-              textDecoration: 'none',
-            }}
-          >
-            Edit listing
-          </a>
+          {getEditUrl(listing.vertical) ? (
+            <a
+              href={getEditUrl(listing.vertical)}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                flex: 1,
+                display: 'block',
+                textAlign: 'center',
+                padding: '10px 12px',
+                borderRadius: 8,
+                background: 'var(--color-ink, #2D2A26)',
+                color: '#fff',
+                fontFamily: 'var(--font-body, system-ui)',
+                fontSize: 12,
+                fontWeight: 500,
+                textDecoration: 'none',
+              }}
+            >
+              Edit listing
+            </a>
+          ) : (
+            <span
+              style={{
+                flex: 1,
+                display: 'block',
+                textAlign: 'center',
+                padding: '10px 12px',
+                borderRadius: 8,
+                background: '#f3f4f6',
+                color: 'var(--color-muted, #888)',
+                fontFamily: 'var(--font-body, system-ui)',
+                fontSize: 12,
+                fontWeight: 500,
+              }}
+            >
+              Edit coming soon
+            </span>
+          )}
           <a
             href={getPublicUrl(listing.vertical, listing.slug)}
             target="_blank"
@@ -486,35 +512,6 @@ function ListingCard({ listing, liveStats }) {
           </a>
         </div>
 
-        {/* Upgrade CTA for free/basic tier */}
-        {!listing.is_featured && (
-          <div style={{
-            marginTop: 12,
-            padding: '10px 14px',
-            borderRadius: 8,
-            background: 'linear-gradient(135deg, #FAF8F5 0%, #f0ebe4 100%)',
-            border: '1px solid var(--color-border, #e5e5e5)',
-          }}>
-            <p style={{
-              fontFamily: 'var(--font-body, system-ui)',
-              fontSize: 12,
-              fontWeight: 500,
-              color: 'var(--color-ink, #2D2A26)',
-              margin: '0 0 2px',
-            }}>
-              Upgrade to Featured
-            </p>
-            <p style={{
-              fontFamily: 'var(--font-body, system-ui)',
-              fontSize: 11,
-              color: 'var(--color-muted, #888)',
-              margin: 0,
-              lineHeight: 1.4,
-            }}>
-              Get priority placement in search results, trails, and region pages.
-            </p>
-          </div>
-        )}
       </div>
     </div>
   )

@@ -308,6 +308,7 @@ async function handleApprove({ claimId, vertical, sourceClaimId, usingPortalTabl
 
       await resend.emails.send({
         from: 'Australian Atlas <noreply@australianatlas.com.au>',
+        replyTo: 'listings@australianatlas.com.au',
         to: email,
         subject: `Your claim for ${venueName || 'your listing'} has been approved`,
         html: `
@@ -320,6 +321,13 @@ async function handleApprove({ claimId, vertical, sourceClaimId, usingPortalTabl
           <p style="color:#888;font-size:13px;margin-top:24px;">Thanks for being part of the Australian Atlas network.</p>
         `,
       }).catch(err => console.error('[admin/claims] Email error:', err.message))
+
+      await sb.from('claim_audit_log').insert({
+        claim_id: claimId,
+        action: 'notification_sent',
+        actor: 'system',
+        details: { type: 'approval_email', to: email },
+      }).then(null, () => {})
     }
   } catch {
     // Non-fatal
@@ -389,30 +397,53 @@ async function handleReject({ claimId, vertical, sourceClaimId, usingPortalTable
 
   // 3. Send rejection notification email
   try {
-    let email = null
+    let claimRecord = null
+    let listingRecord = null
     if (usingPortalTable) {
       const { data } = await sb
         .from('claims_review')
-        .select('claimant_email')
+        .select('claimant_email, claimant_name, listing_id, vertical')
         .eq('id', claimId)
         .single()
-      email = data?.claimant_email
+      claimRecord = data
+      if (data?.listing_id) {
+        const { data: listing } = await sb
+          .from('listings')
+          .select('name')
+          .eq('id', data.listing_id)
+          .single()
+        listingRecord = listing
+      }
     }
 
+    const email = claimRecord?.claimant_email
     if (email && process.env.RESEND_API_KEY) {
       const { Resend } = await import('resend')
       const resend = new Resend(process.env.RESEND_API_KEY)
+      const venueName = listingRecord?.name || 'your venue'
+      const verticalName = VERTICAL_NAMES[claimRecord?.vertical || vertical] || 'Australian Atlas'
+
       await resend.emails.send({
         from: 'Australian Atlas <noreply@australianatlas.com.au>',
+        replyTo: 'listings@australianatlas.com.au',
         to: email,
-        subject: 'Update on your venue claim',
+        subject: `Update on your claim for ${venueName}`,
         html: `
           <h2>Claim update</h2>
-          <p>Unfortunately, your venue claim was not approved at this time.</p>
+          <p>Hi ${claimRecord?.claimant_name || 'there'},</p>
+          <p>We've reviewed your claim for <strong>${venueName}</strong> on <strong>${verticalName}</strong> and were unable to verify it at this time.</p>
           ${admin_notes ? `<p><em>${admin_notes}</em></p>` : ''}
-          <p>If you have questions, please reply to this email.</p>
+          <p>If you believe this is an error, please reply to this email or contact us at <a href="mailto:listings@australianatlas.com.au">listings@australianatlas.com.au</a>. You're welcome to submit a new claim with additional verification details.</p>
+          <p style="color:#888;font-size:13px;margin-top:24px;">Australian Atlas</p>
         `,
       }).catch(err => console.error('[admin/claims] Email error:', err.message))
+
+      await sb.from('claim_audit_log').insert({
+        claim_id: claimId,
+        action: 'notification_sent',
+        actor: 'system',
+        details: { type: 'rejection_email', to: email },
+      }).then(null, () => {})
     }
   } catch {
     // Non-fatal

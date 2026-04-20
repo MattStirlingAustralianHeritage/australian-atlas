@@ -24,6 +24,17 @@ function logSearch(request, { queryText, verticalFilter, resultCount }) {
   } catch { /* silent */ }
 }
 
+/** Fire-and-forget: record which claimed listings appeared in search results */
+function trackSearchAppearances(listings) {
+  try {
+    const claimedIds = listings.filter(l => l.is_claimed).map(l => l.id)
+    if (!claimedIds.length) return
+    const sb = getSupabaseAdmin()
+    const rows = claimedIds.map(id => ({ listing_id: id }))
+    sb.from('listing_search_appearances').insert(rows).then(() => {}).catch(() => {})
+  } catch { /* silent */ }
+}
+
 // Map natural-language keywords to vertical keys
 const VERTICAL_KEYWORDS = {
   sba: ['brewery', 'breweries', 'winery', 'wineries', 'distillery', 'distilleries', 'cidery', 'cideries', 'cellar door', 'wine', 'beer', 'craft beer', 'spirits', 'gin', 'whisky', 'whiskey', 'vermouth', 'cider', 'small batch', 'natural wine'],
@@ -529,6 +540,7 @@ export async function GET(request) {
       // Strip internal scoring fields before returning
       const listings = paged.map(({ _score, _boost, ...rest }) => rest)
 
+      trackSearchAppearances(listings)
       logSearch(request, { queryText: q, verticalFilter: vertical, resultCount: total })
 
       return NextResponse.json({
@@ -556,7 +568,8 @@ export async function GET(request) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Only log filter-based browsing when explicit filters are present
+    trackSearchAppearances(data || [])
+
     if (vertical || state || region) {
       logSearch(request, { queryText: vertical || state || region || '', verticalFilter: vertical, resultCount: (data || []).length })
     }

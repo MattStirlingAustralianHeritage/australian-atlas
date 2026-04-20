@@ -69,11 +69,10 @@ const STEPS = [
 ]
 
 const FEATURES = [
-  'Listing management dashboard',
-  'Analytics — views, trail appearances, search impressions',
+  'Full listing management — photos, hours, description',
+  'Listing Insights — views, search appearances, saves, trail inclusions',
   'Producer Picks — recommend other venues you love',
   'Direct link to your website (we never act as a booking intermediary)',
-  'Community reports flagged directly to you',
   'Appear in curated editorial trails and regional collections',
 ]
 

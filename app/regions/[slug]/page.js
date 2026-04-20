@@ -5,6 +5,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { regionJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
 import RegionMapHero from '@/components/RegionMapHero'
 import RegionTrailCTA from '@/components/RegionTrailCTA'
+import { RelatedCollections, RelatedArticles } from '@/components/RelatedContent'
 
 export const revalidate = 21600
 
@@ -571,6 +572,10 @@ export default async function RegionPage({ params }) {
 
         {/* ── 5. TRAIL PROMPT ──────────────────────────── */}
         <RegionTrailCTA regionName={region.name} />
+
+        {/* ── 6. INTERNAL LINKS ──────────────────────────── */}
+        <RelatedCollections region={region.name} />
+        <RelatedArticles regionName={region.name} />
       </div>
     </div>
   )

@@ -55,6 +55,7 @@ export async function GET(request) {
       viewsTotalRes,
       trailCountRes,
       saveCountRes,
+      searchCountRes,
     ] = await Promise.all([
       // Page views last 30 days
       sb
@@ -80,17 +81,20 @@ export async function GET(request) {
         .from('user_saves')
         .select('id', { count: 'exact', head: true })
         .eq('listing_id', listingId),
-    ])
 
-    // Search appearances: search_logs doesn't track which listings appeared
-    // in results, so we return 0 for now until that tracking is added
-    const searchCount = 0
+      // Search appearances (last 30 days)
+      sb
+        .from('listing_search_appearances')
+        .select('id', { count: 'exact', head: true })
+        .eq('listing_id', listingId)
+        .gte('appeared_at', thirtyDaysAgo),
+    ])
 
     return NextResponse.json({
       views_30d: views30dRes.count || 0,
       views_total: viewsTotalRes.count || 0,
       trail_count: trailCountRes.count || 0,
-      search_count: searchCount,
+      search_count: searchCountRes.count || 0,
       save_count: saveCountRes.count || 0,
     })
   } catch (err) {

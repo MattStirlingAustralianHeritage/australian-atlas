@@ -16,6 +16,7 @@ import ReportIssueButton from '@/components/ReportIssueButton'
 import OpeningHours from '@/components/OpeningHours'
 import PlaceMemories from '@/components/PlaceMemories'
 import SameSpirit from '@/components/SameSpirit'
+import { RelatedCollections } from '@/components/RelatedContent'
 import VerificationBadge from '@/components/VerificationBadge'
 
 export const revalidate = 3600
@@ -761,6 +762,9 @@ export default async function PlacePage({ params }) {
             </div>
           </section>
         )}
+
+        {/* ── Collections from this region ─────────────────── */}
+        <RelatedCollections region={listing.region} vertical={listing.vertical} limit={2} />
 
         {/* ── Semantically similar ── cluster-aware recommendations */}
         {clusterSiblings.length > 0 && (

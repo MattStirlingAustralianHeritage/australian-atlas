@@ -2,6 +2,7 @@
 
 import { useAuth } from '../layout'
 import { useState, useEffect } from 'react'
+import { getVerticalFeatures, getStandardFeatures } from '@/lib/vertical-features'
 
 const VERTICAL_COLORS = {
   sba: '#C49A3C',
@@ -15,29 +16,15 @@ const VERTICAL_COLORS = {
   table: '#C4634F',
 }
 
-const VERTICAL_LABELS = {
-  sba: 'Small Batch Atlas',
-  collection: 'Culture Atlas',
-  craft: 'Craft Atlas',
-  fine_grounds: 'Fine Grounds Atlas',
-  rest: 'Rest Atlas',
-  field: 'Field Atlas',
-  corner: 'Corner Atlas',
-  found: 'Found Atlas',
-  table: 'Table Atlas',
-}
-
-const TIER_FEATURES = {
-  free: ['Basic listing', 'Map pin', 'Contact info'],
-  standard: ['Enhanced listing', 'Photo gallery', 'Opening hours', 'Website link', 'Producer picks'],
-  premium: ['Priority placement', 'Featured badge', 'Full photo gallery', 'Events calendar', 'Analytics dashboard', 'Producer picks', 'Editorial mentions'],
-}
+const FREE_FEATURES = ['Basic listing', 'Map pin', 'Appear in search & trails']
 
 function SubscriptionCard({ vertical, data }) {
   const color = VERTICAL_COLORS[vertical]
-  const label = VERTICAL_LABELS[vertical]
+  const vf = getVerticalFeatures(vertical)
+  const label = vf.label
   const tier = data.tier || 'free'
   const status = data.venue?.subscription_status || 'active'
+  const features = tier === 'standard' ? getStandardFeatures(vertical) : FREE_FEATURES
 
   return (
     <div style={{
@@ -99,8 +86,8 @@ function SubscriptionCard({ vertical, data }) {
       <div style={{
         padding: '0.75rem',
         borderRadius: '8px',
-        background: tier === 'premium' ? '#fffbeb' : tier === 'standard' ? '#eff6ff' : '#f9fafb',
-        border: `1px solid ${tier === 'premium' ? '#fde68a' : tier === 'standard' ? '#bfdbfe' : 'var(--color-border)'}`,
+        background: tier === 'standard' ? '#eff6ff' : '#f9fafb',
+        border: `1px solid ${tier === 'standard' ? '#bfdbfe' : 'var(--color-border)'}`,
       }}>
         <p style={{
           fontFamily: 'var(--font-sans)',
@@ -117,7 +104,7 @@ function SubscriptionCard({ vertical, data }) {
           padding: '0 0 0 1rem',
           listStyle: 'disc',
         }}>
-          {(TIER_FEATURES[tier] || TIER_FEATURES.free).map((feature, i) => (
+          {features.map((feature, i) => (
             <li key={i} style={{
               fontFamily: 'var(--font-sans)',
               fontSize: '0.75rem',
@@ -130,11 +117,11 @@ function SubscriptionCard({ vertical, data }) {
         </ul>
       </div>
 
-      {/* Upgrade prompt for free tier */}
       {tier === 'free' && (
-        <button
-          onClick={() => alert('Upgrade options coming soon. Contact hello@australianatlas.com.au for early access.')}
+        <a
+          href="mailto:hello@australianatlas.com.au?subject=Upgrade to Standard"
           style={{
+            display: 'inline-block',
             padding: '0.6rem 1rem',
             borderRadius: '8px',
             border: 'none',
@@ -143,43 +130,13 @@ function SubscriptionCard({ vertical, data }) {
             fontSize: '0.825rem',
             fontWeight: 500,
             color: '#fff',
-            cursor: 'pointer',
+            textDecoration: 'none',
             transition: 'opacity 0.15s',
             alignSelf: 'flex-start',
           }}
-          onMouseOver={(e) => e.currentTarget.style.opacity = '0.85'}
-          onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
         >
-          Upgrade to Standard
-        </button>
-      )}
-      {tier === 'standard' && (
-        <button
-          onClick={() => alert('Premium upgrade options coming soon. Contact hello@australianatlas.com.au for early access.')}
-          style={{
-            padding: '0.6rem 1rem',
-            borderRadius: '8px',
-            border: '1px solid var(--color-border)',
-            background: '#fff',
-            fontFamily: 'var(--font-sans)',
-            fontSize: '0.825rem',
-            fontWeight: 500,
-            color: 'var(--color-ink)',
-            cursor: 'pointer',
-            transition: 'all 0.15s',
-            alignSelf: 'flex-start',
-          }}
-          onMouseOver={(e) => {
-            e.currentTarget.style.background = 'var(--color-ink)'
-            e.currentTarget.style.color = '#fff'
-          }}
-          onMouseOut={(e) => {
-            e.currentTarget.style.background = '#fff'
-            e.currentTarget.style.color = 'var(--color-ink)'
-          }}
-        >
-          Upgrade to Premium
-        </button>
+          Upgrade to Standard — $99/yr
+        </a>
       )}
     </div>
   )

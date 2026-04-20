@@ -88,7 +88,7 @@ export default function DashboardPicks() {
               color: 'var(--color-muted)',
               margin: 0,
             }}>
-              Producer picks let you recommend other venues in the network. Once your listing is claimed, you can share your favourite producers, cafes, stays, and more.
+              Producer picks let your venue recommend other venues in the network. Once your listing is claimed, you can share your favourite producers, cafes, stays, and more.
             </p>
           </div>
         ) : (
@@ -107,7 +107,7 @@ export default function DashboardPicks() {
                   margin: '0 0 0.25rem',
                   fontWeight: 500,
                 }}>
-                  {pick.venueName}
+                  {pick.pickedVenueName}
                 </p>
                 <p style={{
                   fontFamily: 'var(--font-sans)',
@@ -115,7 +115,16 @@ export default function DashboardPicks() {
                   color: 'var(--color-muted)',
                   margin: 0,
                 }}>
-                  {pick.pick_note || pick.vertical}
+                  {pick.note || pick.verticalLabel}
+                </p>
+                <p style={{
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: '0.7rem',
+                  color: 'var(--color-muted)',
+                  margin: '0.375rem 0 0',
+                  fontStyle: 'italic',
+                }}>
+                  Picked by {pick.curatorVenueName}
                 </p>
               </div>
             ))}
@@ -183,20 +192,33 @@ export default function DashboardPicks() {
               }}>
                 <p style={{
                   fontFamily: 'var(--font-sans)',
-                  fontSize: '0.875rem',
-                  color: 'var(--color-ink)',
-                  margin: '0 0 0.25rem',
-                  fontWeight: 500,
+                  fontSize: '0.7rem',
+                  color: 'var(--color-accent)',
+                  margin: '0 0 0.375rem',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
                 }}>
-                  {pick.venueName}
+                  Picked by {pick.curatorVenueName}
                 </p>
+                {pick.note && (
+                  <p style={{
+                    fontFamily: 'var(--font-serif)',
+                    fontSize: '0.875rem',
+                    color: 'var(--color-ink)',
+                    margin: '0 0 0.25rem',
+                    fontStyle: 'italic',
+                  }}>
+                    &ldquo;{pick.note}&rdquo;
+                  </p>
+                )}
                 <p style={{
                   fontFamily: 'var(--font-sans)',
                   fontSize: '0.8rem',
                   color: 'var(--color-muted)',
                   margin: 0,
                 }}>
-                  {pick.pick_note || `Picked via ${pick.vertical}`}
+                  {pick.pickedVenueName} &middot; {pick.verticalLabel}
                 </p>
               </div>
             ))}

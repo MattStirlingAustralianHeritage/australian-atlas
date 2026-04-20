@@ -88,14 +88,12 @@ export async function GET(request) {
         .eq('listing_id', listing.id)
         .single()
 
-      // Search appearances (last 30 days)
-      // Count search_logs where query_text matches listing name (case-insensitive partial match)
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
       const { count: searchCount } = await sb
-        .from('search_logs')
+        .from('listing_search_appearances')
         .select('id', { count: 'exact', head: true })
-        .ilike('query_text', `%${listing.name.split(' ')[0]}%`)
-        .gte('created_at', thirtyDaysAgo)
+        .eq('listing_id', listing.id)
+        .gte('appeared_at', thirtyDaysAgo)
 
       // Trail appearances (count of trail_stops referencing this listing)
       const { count: trailCount } = await sb

@@ -554,18 +554,26 @@ async function handlePaidClaimAutoApprove(sb, {
 
       await resend.emails.send({
         from: 'Australian Atlas <noreply@australianatlas.com.au>',
+        replyTo: 'listings@australianatlas.com.au',
         to: effectiveEmail,
-        subject: `Your claim for ${displayName} has been approved`,
+        subject: `Your claim for ${displayName} is confirmed`,
         html: `
-          <h2>Claim approved</h2>
+          <h2>Claim confirmed</h2>
           <p>Hi ${effectiveName || 'there'},</p>
-          <p>Great news! Your claim for <strong>${displayName}</strong> on <strong>${verticalName}</strong> has been approved.</p>
-          <p>You selected the <strong>Standard tier ($99/yr)</strong> and your subscription is now active.</p>
+          <p>Great news! Your Standard plan claim for <strong>${displayName}</strong> on <strong>${verticalName}</strong> has been automatically approved.</p>
+          <p>Your subscription is now active and will renew in 12 months.</p>
           ${vendorLink}
           <p>From your dashboard you can update your listing details, add photos, manage your subscription, and track page views.</p>
           <p style="color:#888;font-size:13px;margin-top:24px;">Thanks for being part of the Australian Atlas network.</p>
         `,
       }).catch(err => console.error('[stripe-webhook] Email error:', err.message))
+
+      await sb.from('claim_audit_log').insert({
+        claim_id: resolvedClaimId,
+        action: 'notification_sent',
+        actor: 'system',
+        details: { type: 'auto_approval_email', to: effectiveEmail },
+      }).then(null, () => {})
     }
   } catch {
     // Non-fatal

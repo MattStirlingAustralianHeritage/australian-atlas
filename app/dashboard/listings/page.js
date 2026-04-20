@@ -27,12 +27,35 @@ const VERTICAL_LABELS = {
   table: 'Table Atlas',
 }
 
-function ListingCard({ vertical, data }) {
+const VERTICAL_EDIT_CONFIG = {
+  sba:          { baseUrl: 'https://smallbatchatlas.com.au',  path: '/vendor/edit' },
+  collection:   { baseUrl: 'https://collectionatlas.com.au',  path: '/vendor/edit' },
+  craft:        { baseUrl: 'https://craftatlas.com.au',       path: '/vendor/edit' },
+  fine_grounds: { baseUrl: 'https://finegroundsatlas.com.au', path: '/vendor/edit' },
+  rest:         { baseUrl: 'https://restatlas.com.au',        path: '/vendor/edit' },
+}
+
+function getEditUrl(vertical) {
+  const config = VERTICAL_EDIT_CONFIG[vertical]
+  if (!config) return null
+  return `${config.baseUrl}${config.path}`
+}
+
+function ListingCard({ vertical, data, onToast }) {
   const color = VERTICAL_COLORS[vertical]
   const label = VERTICAL_LABELS[vertical]
   const venue = data.venue
   const master = data.masterListing
   const tier = data.tier || 'free'
+  const editUrl = getEditUrl(vertical)
+
+  function handleEdit() {
+    if (editUrl) {
+      window.open(editUrl, '_blank')
+    } else {
+      onToast(`Listing editing for ${label} is coming soon`)
+    }
+  }
 
   return (
     <div style={{
@@ -134,7 +157,7 @@ function ListingCard({ vertical, data }) {
 
       {/* Edit button */}
       <button
-        onClick={() => alert('Listing editor coming soon. Contact listings@australianatlas.com.au to update your listing.')}
+        onClick={handleEdit}
         style={{
           marginTop: '0.25rem',
           padding: '0.5rem 1rem',
@@ -168,6 +191,7 @@ export default function DashboardListings() {
   const { user } = useAuth()
   const [network, setNetwork] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [toast, setToast] = useState(null)
 
   useEffect(() => {
     fetch('/api/dashboard/network')
@@ -178,6 +202,11 @@ export default function DashboardListings() {
       })
       .catch(() => setLoading(false))
   }, [])
+
+  function showToast(message) {
+    setToast(message)
+    setTimeout(() => setToast(null), 3500)
+  }
 
   const claimedVerticals = network
     ? Object.entries(network).filter(([, d]) => d.claimed)
@@ -256,8 +285,27 @@ export default function DashboardListings() {
           gap: '1rem',
         }}>
           {claimedVerticals.map(([v, data]) => (
-            <ListingCard key={v} vertical={v} data={data} />
+            <ListingCard key={v} vertical={v} data={data} onToast={showToast} />
           ))}
+        </div>
+      )}
+
+      {toast && (
+        <div style={{
+          position: 'fixed',
+          bottom: '2rem',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'var(--color-ink)',
+          color: '#fff',
+          padding: '0.75rem 1.5rem',
+          borderRadius: '8px',
+          fontFamily: 'var(--font-sans)',
+          fontSize: '0.875rem',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          zIndex: 1000,
+        }}>
+          {toast}
         </div>
       )}
     </div>
