@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import NewsletterSignup from './NewsletterSignup'
 
 const verticals = [
   { name: 'Small Batch Atlas', url: 'https://smallbatchatlas.com.au' },
@@ -123,8 +124,28 @@ export default function Footer() {
           </div>
         </div>
 
+        {/* Newsletter */}
         <div
-          className="mt-10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-2"
+          className="mt-10 pt-6"
+          style={{ borderTop: '0.5px solid var(--color-border)' }}
+        >
+          <h4
+            className="mb-1 uppercase"
+            style={{
+              fontFamily: 'var(--font-body)',
+              fontWeight: 500,
+              fontSize: '11px',
+              letterSpacing: '0.1em',
+              color: 'var(--color-muted)',
+            }}
+          >
+            Stay in the loop
+          </h4>
+          <NewsletterSignup variant="footer" />
+        </div>
+
+        <div
+          className="mt-6 pt-6 flex flex-col sm:flex-row items-center justify-between gap-2"
           style={{ borderTop: '0.5px solid var(--color-border)' }}
         >
           <p className="text-xs text-[var(--color-muted)]">

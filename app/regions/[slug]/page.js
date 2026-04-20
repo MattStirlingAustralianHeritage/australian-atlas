@@ -91,48 +91,33 @@ async function getRegionNarrative(regionId) {
   return data
 }
 
-function zoomToRadiusDeg(zoom) {
-  const lookup = { 6: 3.0, 7: 1.5, 8: 0.75, 9: 0.5, 10: 0.3, 11: 0.15, 12: 0.08 }
-  return lookup[zoom] || 0.5
-}
-
 async function getRegionListings(region) {
   const sb = getSupabaseAdmin()
+  const select = 'id, vertical, source_id, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website'
 
-  if (region.center_lat && region.center_lng) {
-    const radius = zoomToRadiusDeg(region.map_zoom || 9)
-    const { data } = await sb
-      .from('listings')
-      .select('id, vertical, source_id, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website')
-      .eq('status', 'active')
-      .not('lat', 'is', null)
-      .not('lng', 'is', null)
-      .gte('lat', region.center_lat - radius)
-      .lte('lat', region.center_lat + radius)
-      .gte('lng', region.center_lng - radius)
-      .lte('lng', region.center_lng + radius)
-      .order('editors_pick', { ascending: false })
-      .order('is_featured', { ascending: false })
-      .order('name')
-      .limit(200)
-    if (data && data.length > 0) return data
-  }
-
-  const regionName = region.name
-  let query = sb
+  const { data } = await sb
     .from('listings')
-    .select('id, vertical, source_id, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website')
+    .select(select)
     .eq('status', 'active')
-
-  if (region.state) query = query.eq('state', region.state)
-  query = query.or(`region.ilike.%${regionName}%,address.ilike.%${regionName}%`)
-
-  const { data } = await query
+    .eq('region', region.name)
     .order('editors_pick', { ascending: false })
     .order('is_featured', { ascending: false })
     .order('name')
     .limit(200)
-  return data || []
+
+  if (data && data.length > 0) return data
+
+  // Fallback: fuzzy match on region name or address (handles alias mismatches)
+  let query = sb.from('listings').select(select).eq('status', 'active')
+  if (region.state) query = query.eq('state', region.state)
+  query = query.or(`region.ilike.%${region.name}%,address.ilike.%${region.name}%`)
+
+  const { data: fallback } = await query
+    .order('editors_pick', { ascending: false })
+    .order('is_featured', { ascending: false })
+    .order('name')
+    .limit(200)
+  return fallback || []
 }
 
 function truncateEditorial(text) {

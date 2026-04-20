@@ -34,21 +34,39 @@ export default function Nav() {
   }, [menuOpen])
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const moreRef = useRef(null)
 
-  const navLinks = [
+  useEffect(() => {
+    function handleMoreClick(e) {
+      if (moreRef.current && !moreRef.current.contains(e.target)) {
+        setMoreOpen(false)
+      }
+    }
+    if (moreOpen) document.addEventListener('mousedown', handleMoreClick)
+    return () => document.removeEventListener('mousedown', handleMoreClick)
+  }, [moreOpen])
+
+  const primaryLinks = [
     { href: '/explore', label: 'Explore' },
     { href: '/map', label: 'Map' },
+    { href: '/regions', label: 'Regions' },
+    { href: '/journal', label: 'Journal' },
+    { href: '/search', label: 'Search' },
+  ]
+
+  const secondaryLinks = [
+    { href: '/near-me', label: 'Near Me' },
     { href: '/trails', label: 'Trails' },
     { href: '/discover', label: 'Discover' },
     { href: '/collections', label: 'Collections' },
-    { href: '/journal', label: 'Journal' },
-    { href: '/regions', label: 'Regions' },
     { href: '/events', label: 'Events' },
     { href: '/atlas-index', label: 'Index' },
     { href: '/for-councils', label: 'For Councils' },
     { href: '/operators', label: 'For Operators' },
-    { href: '/search', label: 'Search' },
   ]
+
+  const navLinks = [...primaryLinks, ...secondaryLinks]
 
   const linkStyle = {
     fontFamily: 'var(--font-body)',
@@ -83,7 +101,7 @@ export default function Nav() {
           Australian Atlas
         </Link>
         <div className="flex items-center gap-6">
-          {navLinks.map(link => (
+          {primaryLinks.map(link => (
             <Link
               key={link.href}
               href={link.href}
@@ -93,6 +111,67 @@ export default function Nav() {
               {link.label}
             </Link>
           ))}
+
+          {/* More dropdown */}
+          <div ref={moreRef} style={{ position: 'relative' }} className="hidden sm:block">
+            <button
+              onClick={() => setMoreOpen(!moreOpen)}
+              className="hover:text-[var(--color-ink)] transition-colors"
+              style={{
+                ...linkStyle,
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '3px',
+                padding: 0,
+              }}
+            >
+              More
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: moreOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </button>
+            {moreOpen && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                right: 0,
+                marginTop: '0.625rem',
+                width: '180px',
+                background: '#fff',
+                borderRadius: '10px',
+                border: '1px solid var(--color-border)',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+                overflow: 'hidden',
+                zIndex: 100,
+                padding: '0.375rem 0',
+              }}>
+                {secondaryLinks.map(link => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setMoreOpen(false)}
+                    style={{
+                      display: 'block',
+                      padding: '0.5rem 1rem',
+                      fontFamily: 'var(--font-body)',
+                      fontSize: '13px',
+                      fontWeight: 400,
+                      color: 'var(--color-ink)',
+                      textDecoration: 'none',
+                      transition: 'background 0.1s',
+                    }}
+                    onMouseOver={(e) => e.currentTarget.style.background = 'var(--color-cream)'}
+                    onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Mobile hamburger */}
           <button

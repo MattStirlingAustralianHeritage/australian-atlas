@@ -166,6 +166,40 @@ async function getLatestArticles() {
   return allArticles.slice(0, 3)
 }
 
+async function getDiscoverClusters() {
+  try {
+    const sb = getSupabaseAdmin()
+    const clusterRegions = ['Barossa Valley', 'Mornington Peninsula', 'Hobart & Southern Tasmania', 'Byron Hinterland', 'Adelaide', 'Melbourne']
+    const results = await Promise.all(
+      clusterRegions.map(async (region) => {
+        const { data } = await sb
+          .from('listings')
+          .select('id, name, vertical, slug, region, hero_image_url')
+          .eq('status', 'active')
+          .eq('region', region)
+          .order('is_featured', { ascending: false })
+          .order('editors_pick', { ascending: false })
+          .limit(12)
+        if (!data || data.length < 4) return null
+        const verticalSet = new Set(data.map(d => d.vertical))
+        if (verticalSet.size < 3) return null
+        const picks = []
+        const usedVerticals = new Set()
+        for (const l of data) {
+          if (!usedVerticals.has(l.vertical) && picks.length < 4) {
+            picks.push(l)
+            usedVerticals.add(l.vertical)
+          }
+        }
+        return { region, verticalCount: verticalSet.size, total: data.length, picks }
+      })
+    )
+    return results.filter(Boolean).slice(0, 3)
+  } catch {
+    return []
+  }
+}
+
 async function getFeaturedByVertical() {
   try {
     const sb = getSupabaseAdmin()
@@ -194,7 +228,7 @@ const VERTICAL_LABELS = {
 }
 
 export default async function Home() {
-  const [stats, articlesRaw, featuredByVertical] = await Promise.all([getStats(), getLatestArticles(), getFeaturedByVertical()])
+  const [stats, articlesRaw, featuredByVertical, clusters] = await Promise.all([getStats(), getLatestArticles(), getFeaturedByVertical(), getDiscoverClusters()])
   const articles = articlesRaw.length > 0 ? articlesRaw : []
 
   return (
@@ -478,6 +512,74 @@ export default async function Home() {
           </div>
         </div>
       </section>
+
+      {/* Discover a Cluster */}
+      {clusters.length > 0 && (
+        <section className="py-16 px-4 sm:px-6" style={{ background: 'var(--color-cream)' }}>
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-10">
+              <p style={{ fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--color-sage)', marginBottom: 8, fontFamily: 'var(--font-body)', fontWeight: 600 }}>
+                Cross-Vertical
+              </p>
+              <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400 }} className="text-3xl sm:text-4xl text-[var(--color-ink)]">
+                Discover a cluster
+              </h2>
+              <p className="mt-3 max-w-xl mx-auto" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px', color: 'var(--color-muted)' }}>
+                Regions where makers, stays, culture, and food overlap. One place, many reasons to go.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+              {clusters.map(cluster => (
+                <Link
+                  key={cluster.region}
+                  href={`/regions/${cluster.region.toLowerCase().replace(/\s+&\s+/g, '-').replace(/\s+/g, '-')}`}
+                  className="group block rounded-xl overflow-hidden hover:shadow-sm transition-all"
+                  style={{ background: '#fff', border: '1px solid var(--color-border)' }}
+                >
+                  <div className="p-6">
+                    <h3 style={{
+                      fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 20,
+                      color: 'var(--color-ink)', lineHeight: 1.25, marginBottom: 6,
+                    }}>
+                      {cluster.region}
+                    </h3>
+                    <p style={{
+                      fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12,
+                      color: 'var(--color-muted)', marginBottom: 16,
+                    }}>
+                      {cluster.total} listings across {cluster.verticalCount} atlases
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      {cluster.picks.map(pick => {
+                        const color = VERTICAL_CARD_COLORS[pick.vertical]?.bg || '#333'
+                        return (
+                          <div key={pick.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span style={{
+                              fontFamily: 'var(--font-body)', fontSize: 9, fontWeight: 600,
+                              letterSpacing: '0.1em', textTransform: 'uppercase',
+                              color: color, minWidth: 65,
+                            }}>
+                              {VERTICAL_LABELS[pick.vertical] || pick.vertical}
+                            </span>
+                            <span style={{
+                              fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 400,
+                              color: 'var(--color-ink)',
+                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                            }}>
+                              {pick.name}
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* From the Journal */}
       {articles.length > 0 && (
