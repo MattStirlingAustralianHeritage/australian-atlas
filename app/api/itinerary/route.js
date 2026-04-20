@@ -1012,6 +1012,8 @@ export async function GET(request) {
         .from('listings')
         .select(LISTING_COLS)
         .eq('status', 'active')
+        .or('address_on_request.eq.false,address_on_request.is.null')
+        .or('visitable.eq.true,visitable.is.null,presence_type.eq.by_appointment')
         .or('trail_suitable.eq.true,trail_suitable.is.null')
         .not('lat', 'is', null)
         .not('lng', 'is', null)

@@ -543,6 +543,8 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
   })
   const [subcategorySecondary, setSubcategorySecondary] = useState('')
   const [addressOnRequest, setAddressOnRequest] = useState(false)
+  const [visitable, setVisitable] = useState(true)
+  const [presenceType, setPresenceType] = useState('permanent')
 
   const vertical = candidate.vertical || 'sba'
   const color = VERTICAL_COLORS[vertical] || '#5F8A7E'
@@ -645,6 +647,8 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
           subcategory: subcategory || undefined,
           subcategory_secondary: subcategorySecondary || undefined,
           address_on_request: addressOnRequest,
+          visitable,
+          presence_type: presenceType,
           reviewerOverrides: {
             name: candidate.name || undefined,
             description: candidate.description || undefined,
@@ -757,6 +761,41 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
             />
             AOR
           </label>
+          <label style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 500,
+            color: !visitable ? '#7C3AED' : 'var(--color-muted)',
+            cursor: 'pointer', userSelect: 'none',
+          }}>
+            <input
+              type="checkbox"
+              checked={!visitable}
+              onChange={e => {
+                setVisitable(!e.target.checked)
+                if (!e.target.checked) setPresenceType('permanent')
+              }}
+              style={{ margin: 0, accentColor: '#7C3AED' }}
+            />
+            Non-visitable
+          </label>
+          {!visitable && (
+            <select
+              value={presenceType}
+              onChange={e => setPresenceType(e.target.value)}
+              style={{
+                fontFamily: 'var(--font-body)', fontSize: 10,
+                padding: '2px 4px', borderRadius: 4,
+                border: '1px solid var(--color-border)',
+                background: 'white',
+              }}
+            >
+              <option value="by_appointment">By appointment</option>
+              <option value="markets">Markets</option>
+              <option value="online">Online only</option>
+              <option value="seasonal">Seasonal</option>
+              <option value="mobile">Mobile</option>
+            </select>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
           <button data-action="approve" onClick={() => handleAction('approve')} disabled={buttonsDisabled || noSubcategory}

@@ -290,7 +290,7 @@ export async function POST(request, { params }) {
   }
 
   try {
-    const { action, subcategory, subcategory_secondary, address_on_request, reviewerOverrides } = await request.json()
+    const { action, subcategory, subcategory_secondary, address_on_request, visitable, presence_type, reviewerOverrides } = await request.json()
 
     if (!['approve', 'reject'].includes(action)) {
       return NextResponse.json({ error: 'Invalid action — must be approve or reject' }, { status: 400 })
@@ -451,6 +451,8 @@ export async function POST(request, { params }) {
         category: effectiveCategory,
         hero_image_url: null,
         address_on_request: !!address_on_request,
+        visitable: visitable ?? true,
+        presence_type: presence_type || 'permanent',
       }
 
       if (ogImage) {
@@ -500,6 +502,8 @@ export async function POST(request, { params }) {
         data_source: isAiOriginated ? 'ai_generated' : 'manually_curated',
         needs_review: isAiOriginated,
         address_on_request: fullData.address_on_request,
+        visitable: fullData.visitable,
+        presence_type: fullData.presence_type,
       }
 
       // Check if listing already exists — match by slug OR source_id to catch:
@@ -555,6 +559,9 @@ export async function POST(request, { params }) {
           status: 'active',
           data_source: listingData.data_source,
           needs_review: listingData.needs_review,
+          address_on_request: fullData.address_on_request,
+          visitable: fullData.visitable,
+          presence_type: fullData.presence_type,
         }
         // Never overwrite hero_image_url from scraping — owner uploads on claim
 
