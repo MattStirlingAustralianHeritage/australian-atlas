@@ -290,7 +290,7 @@ export async function POST(request, { params }) {
   }
 
   try {
-    const { action, subcategory, subcategory_secondary, address_on_request, visitable, presence_type, reviewerOverrides } = await request.json()
+    const { action, subcategory, subcategory_secondary, address_on_request, visitable, presence_type, offers_classes, reviewerOverrides } = await request.json()
 
     if (!['approve', 'reject'].includes(action)) {
       return NextResponse.json({ error: 'Invalid action — must be approve or reject' }, { status: 400 })
@@ -453,6 +453,7 @@ export async function POST(request, { params }) {
         address_on_request: !!address_on_request,
         visitable: visitable ?? true,
         presence_type: presence_type || 'permanent',
+        offers_classes: !!offers_classes,
       }
 
       if (ogImage) {

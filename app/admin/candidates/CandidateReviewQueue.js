@@ -545,6 +545,7 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
   const [addressOnRequest, setAddressOnRequest] = useState(false)
   const [visitable, setVisitable] = useState(true)
   const [presenceType, setPresenceType] = useState('permanent')
+  const [offersClasses, setOffersClasses] = useState(false)
 
   const vertical = candidate.vertical || 'sba'
   const color = VERTICAL_COLORS[vertical] || '#5F8A7E'
@@ -649,6 +650,7 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
           address_on_request: addressOnRequest,
           visitable,
           presence_type: presenceType,
+          offers_classes: offersClasses,
           reviewerOverrides: {
             name: candidate.name || undefined,
             description: candidate.description || undefined,
@@ -778,6 +780,22 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
             />
             Non-visitable
           </label>
+          {vertical === 'craft' && (
+            <label style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 500,
+              color: offersClasses ? '#C1603A' : 'var(--color-muted)',
+              cursor: 'pointer', userSelect: 'none',
+            }}>
+              <input
+                type="checkbox"
+                checked={offersClasses}
+                onChange={e => setOffersClasses(e.target.checked)}
+                style={{ margin: 0, accentColor: '#C1603A' }}
+              />
+              Classes
+            </label>
+          )}
           {!visitable && (
             <select
               value={presenceType}
