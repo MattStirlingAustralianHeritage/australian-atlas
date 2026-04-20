@@ -9,7 +9,7 @@ import {
   Palette, Mountain, Compass, CornerDownLeft, ArrowUpDown,
   Check, Moon, ChevronDown, AlertTriangle, ArrowRight,
   Upload, MapPin, RefreshCw, Route, Store, Tag, Beer,
-  Star, Camera, ChevronRight,
+  Star, Camera, ChevronRight, Bike, Car, Download,
 } from 'lucide-react'
 import './on-this-road.css'
 
@@ -34,6 +34,24 @@ const TRIP_LENGTH_OPTIONS = [
   { value: '2_days', label: '2 days' },
   { value: '3_days', label: '3 days' },
   { value: '4_plus', label: '4+ days' },
+]
+
+const BIKE_TRIP_LENGTH_OPTIONS = [
+  { value: 'half_day', label: 'Half day', sublabel: '2\u20133 hrs riding' },
+  { value: 'full_day', label: 'Full day', sublabel: '4\u20136 hrs riding' },
+  { value: 'weekend', label: 'Weekend', sublabel: '2 days, overnight' },
+]
+
+const BIKE_TYPE_OPTIONS = [
+  { value: 'road', label: 'Road bike' },
+  { value: 'gravel', label: 'Gravel bike' },
+  { value: 'any', label: 'Any bike' },
+]
+
+const FITNESS_OPTIONS = [
+  { value: 'relaxed', label: 'Relaxed', sublabel: 'Flat & easy' },
+  { value: 'moderate', label: 'Moderate', sublabel: 'Some hills' },
+  { value: 'strong', label: 'Strong', sublabel: 'Bring the climbs' },
 ]
 
 const DEPARTURE_OPTIONS = [
@@ -160,9 +178,12 @@ function PlaceInput({ value, onChange, placeholder, label }) {
 
 export default function OnThisRoadClient() {
   const [mode, setMode] = useState('plan') // 'plan' | 'surprise'
+  const [transportMode, setTransportMode] = useState('driving') // 'driving' | 'cycling'
   const [startPlace, setStartPlace] = useState('')
   const [endPlace, setEndPlace] = useState('')
   const [tripLength, setTripLength] = useState('day_trip')
+  const [bikeType, setBikeType] = useState('any')
+  const [fitness, setFitness] = useState('moderate')
   const [departureTiming, setDepartureTiming] = useState('tomorrow_morning')
   const [detourTolerance, setDetourTolerance] = useState('happy_to_detour')
   const [preferences, setPreferences] = useState([])
@@ -235,12 +256,14 @@ export default function OnThisRoadClient() {
         body: JSON.stringify({
           start: startPlace,
           end: surpriseMe ? undefined : endPlace,
-          tripLength,
+          tripLength: transportMode === 'cycling' ? tripLength : tripLength,
           departureTiming: isSurpriseMode ? 'tomorrow_morning' : departureTiming,
           detourTolerance: isSurpriseMode ? 'happy_to_detour' : detourTolerance,
           preferences: effectivePrefs,
           surpriseMe: isSurpriseMode,
           returnDifferentRoad: !isSurpriseMode && isMultiDay && returnDifferent,
+          transportMode,
+          ...(transportMode === 'cycling' ? { bikeType, fitness } : {}),
         }),
       })
 
@@ -369,8 +392,25 @@ export default function OnThisRoadClient() {
               )}
             </div>
 
-            {/* Departure timing — Plan mode only */}
-            {mode === 'plan' && (
+            {/* Transport mode */}
+            <div className="otr-selector-group">
+              <p className="otr-selector-label">How Are You Travelling?</p>
+              <div className="otr-pill-row">
+                <button type="button"
+                  className={`otr-pill ${transportMode === 'driving' ? 'active' : ''}`}
+                  onClick={() => { setTransportMode('driving'); setTripLength('day_trip') }}>
+                  <Car size={14} strokeWidth={1.5} style={{ marginRight: 4 }} /> Car
+                </button>
+                <button type="button"
+                  className={`otr-pill ${transportMode === 'cycling' ? 'active' : ''}`}
+                  onClick={() => { setTransportMode('cycling'); setTripLength('full_day') }}>
+                  <Bike size={14} strokeWidth={1.5} style={{ marginRight: 4 }} /> Bike
+                </button>
+              </div>
+            </div>
+
+            {/* Departure timing — Plan mode, driving only */}
+            {mode === 'plan' && transportMode === 'driving' && (
               <div className="otr-selector-group">
                 <p className="otr-selector-label">Leaving</p>
                 <div className="otr-pill-row">
@@ -389,18 +429,50 @@ export default function OnThisRoadClient() {
             <div className="otr-selector-group">
               <p className="otr-selector-label">{mode === 'surprise' ? 'How Long?' : 'Trip Length'}</p>
               <div className="otr-pill-row">
-                {TRIP_LENGTH_OPTIONS.map(opt => (
+                {(transportMode === 'cycling' ? BIKE_TRIP_LENGTH_OPTIONS : TRIP_LENGTH_OPTIONS).map(opt => (
                   <button key={opt.value} type="button"
-                    className={`otr-pill ${tripLength === opt.value ? 'active' : ''}`}
+                    className={`otr-pill ${opt.sublabel ? 'otr-pill--detour' : ''} ${tripLength === opt.value ? 'active' : ''}`}
                     onClick={() => setTripLength(opt.value)}>
-                    {opt.label}
+                    <span>{opt.label}</span>
+                    {opt.sublabel && <span className="otr-pill__sublabel">{opt.sublabel}</span>}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Detour tolerance — Plan mode only */}
-            {mode === 'plan' && (
+            {/* Bike type + fitness — cycling only */}
+            {transportMode === 'cycling' && (
+              <>
+                <div className="otr-selector-group">
+                  <p className="otr-selector-label">What Are You Riding?</p>
+                  <div className="otr-pill-row">
+                    {BIKE_TYPE_OPTIONS.map(opt => (
+                      <button key={opt.value} type="button"
+                        className={`otr-pill ${bikeType === opt.value ? 'active' : ''}`}
+                        onClick={() => setBikeType(opt.value)}>
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="otr-selector-group">
+                  <p className="otr-selector-label">Fitness Level</p>
+                  <div className="otr-pill-row">
+                    {FITNESS_OPTIONS.map(opt => (
+                      <button key={opt.value} type="button"
+                        className={`otr-pill otr-pill--detour ${fitness === opt.value ? 'active' : ''}`}
+                        onClick={() => setFitness(opt.value)}>
+                        <span>{opt.label}</span>
+                        <span className="otr-pill__sublabel">{opt.sublabel}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Detour tolerance — Plan mode, driving only */}
+            {mode === 'plan' && transportMode === 'driving' && (
               <div className="otr-selector-group">
                 <p className="otr-selector-label">Detour Tolerance</p>
                 <div className="otr-pill-row">
@@ -697,20 +769,41 @@ function ResultsView({ result, formRef, onRegenerate, isSurpriseMode, revealPhas
     if (onRegenerate) onRegenerate()
   }
 
+  const isCycling = result.transport_mode === 'cycling'
+
   // Build Google Maps URL with waypoints
   const buildGoogleMapsUrl = () => {
-    const waypoints = taggedStops.filter(s => !s.is_overnight && s.lat && s.lng).slice(0, 9) // Google max 9 waypoints
+    const waypoints = taggedStops.filter(s => !s.is_overnight && s.lat && s.lng).slice(0, 9)
     const origin = start_coords ? `${start_coords.lat},${start_coords.lng}` : encodeURIComponent(start_name)
     const dest = end_coords ? `${end_coords.lat},${end_coords.lng}` : encodeURIComponent(end_name)
     const wp = waypoints.map(s => `${s.lat},${s.lng}`).join('|')
-    return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}${wp ? `&waypoints=${wp}` : ''}&travelmode=driving`
+    return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}${wp ? `&waypoints=${wp}` : ''}&travelmode=${isCycling ? 'bicycling' : 'driving'}`
   }
 
   const buildAppleMapsUrl = () => {
-    const allPoints = taggedStops.filter(s => !s.is_overnight && s.lat && s.lng)
     const origin = start_coords ? `${start_coords.lat},${start_coords.lng}` : ''
     const dest = end_coords ? `${end_coords.lat},${end_coords.lng}` : ''
-    return `maps://?saddr=${origin}&daddr=${dest}&dirflg=d`
+    return `maps://?saddr=${origin}&daddr=${dest}&dirflg=${isCycling ? 'b' : 'd'}`
+  }
+
+  const handleDownloadGpx = () => {
+    const coords = route_geometry?.coordinates || []
+    const escXml = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+    const gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Australian Atlas Network" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata><name>${escXml(title)}</name><desc>${escXml(subtitle || '')}</desc></metadata>
+  <trk><name>${escXml(title)}</name><trkseg>
+${coords.map(c => `    <trkpt lat="${c[1]}" lon="${c[0]}">${c[2] ? `<ele>${c[2]}</ele>` : ''}</trkpt>`).join('\n')}
+  </trkseg></trk>
+${taggedStops.filter(s => s.lat && s.lng).map(s => `  <wpt lat="${s.lat}" lon="${s.lng}"><name>${escXml(s.listing_name)}</name></wpt>`).join('\n')}
+</gpx>`
+    const blob = new Blob([gpx], { type: 'application/gpx+xml' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${(title || 'trail').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.gpx`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   // Empty state
@@ -748,7 +841,7 @@ function ResultsView({ result, formRef, onRegenerate, isSurpriseMode, revealPhas
         <div className="otr-trip-meta">
           {route_distance_km > 0 && <span>{route_distance_km.toLocaleString()} KM</span>}
           {route_distance_km > 0 && route_duration_minutes > 0 && <span className="otr-meta-dot" aria-hidden="true">&middot;</span>}
-          {route_duration_minutes > 0 && <span>~{Math.round(route_duration_minutes / 60)} HR DRIVE</span>}
+          {route_duration_minutes > 0 && <span>~{Math.round(route_duration_minutes / 60)} HR {result.transport_mode === 'cycling' ? 'RIDE' : 'DRIVE'}</span>}
           <span className="otr-meta-dot" aria-hidden="true">&middot;</span>
           <span>{taggedStops.filter(s => !s.is_overnight).length} STOPS</span>
           {hasDays && <><span className="otr-meta-dot" aria-hidden="true">&middot;</span><span>{days.length} DAYS</span></>}
@@ -780,6 +873,11 @@ function ResultsView({ result, formRef, onRegenerate, isSurpriseMode, revealPhas
         <a className="otr-action-btn otr-action-btn--secondary" href={buildAppleMapsUrl()} target="_blank" rel="noopener noreferrer">
           Apple Maps
         </a>
+        {isCycling && route_geometry && (
+          <button type="button" className="otr-action-btn" onClick={handleDownloadGpx}>
+            <Download size={14} strokeWidth={2} /> Download GPX
+          </button>
+        )}
         <button type="button" className="otr-action-btn otr-action-btn--secondary"
           onClick={() => formRef?.current?.scrollIntoView({ behavior: 'smooth' })}>
           Edit trip

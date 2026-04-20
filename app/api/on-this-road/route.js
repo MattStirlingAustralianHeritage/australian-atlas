@@ -35,6 +35,10 @@ const TRIP_LENGTH_CONFIG = {
   '2_days':        { days: 2, stopsPerDay: 6,  label: '2 days' },
   '3_days':        { days: 3, stopsPerDay: 5,  label: '3 days' },
   '4_plus':        { days: 4, stopsPerDay: 5,  label: '4+ days' },
+  // Cycling-specific trip lengths
+  half_day:        { days: 1, stopsPerDay: 4,  label: 'half-day ride' },
+  full_day:        { days: 1, stopsPerDay: 6,  label: 'full-day ride' },
+  weekend:         { days: 2, stopsPerDay: 5,  label: 'weekend ride' },
 }
 
 // ── Departure timing → first stop distance constraints ──────────────
@@ -288,13 +292,14 @@ async function geocode(text) {
   } catch { return null }
 }
 
-async function getRoute(startCoords, endCoords, waypoints = []) {
+async function getRoute(startCoords, endCoords, waypoints = [], profile = 'driving') {
+  const mapboxProfile = profile === 'cycling' ? 'cycling' : 'driving'
   const coords = [
     `${startCoords.lng},${startCoords.lat}`,
     ...waypoints.map(w => `${w.lng},${w.lat}`),
     `${endCoords.lng},${endCoords.lat}`,
   ].join(';')
-  const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${coords}?geometries=geojson&overview=full&access_token=${MAPBOX_TOKEN}`
+  const url = `https://api.mapbox.com/directions/v5/mapbox/${mapboxProfile}/${coords}?geometries=geojson&overview=full&access_token=${MAPBOX_TOKEN}`
   const res = await fetch(url)
   const data = await res.json()
   if (!data.routes || data.routes.length === 0) return null
@@ -451,6 +456,9 @@ export async function POST(request) {
       preferences = [],        // new
       surpriseMe = false,      // new
       returnDifferentRoad = false, // new
+      transportMode = 'driving', // 'driving' | 'cycling'
+      bikeType = 'any',         // 'road' | 'gravel' | 'any'
+      fitness = 'moderate',     // 'relaxed' | 'moderate' | 'strong'
     } = body
 
     if (!start) {
@@ -485,9 +493,9 @@ export async function POST(request) {
       }
       endCoords = startCoords // Loop back to start
       // Use the loop waypoints for routing
-      const route = await getRoute(startCoords, startCoords, loopResult.waypoints)
+      const route = await getRoute(startCoords, startCoords, loopResult.waypoints, transportMode)
       if (!route) {
-        return NextResponse.json({ error: 'Could not generate a driving loop from this location.' }, { status: 400 })
+        return NextResponse.json({ error: `Could not generate a ${transportMode === 'cycling' ? 'cycling' : 'driving'} loop from this location.` }, { status: 400 })
       }
       const itineraryResponse = await buildItinerary({
         startCoords, endCoords: startCoords, route,
@@ -495,6 +503,7 @@ export async function POST(request) {
         currentSeason, isMultiDay, isSurpriseLoop, returnDifferentRoad: false,
         startName: start, endName: start,
         preSelectedListings: loopResult.listings,
+        transportMode, bikeType, fitness,
       })
       // Inject direction metadata into surprise response for reveal animation
       if (loopResult.direction && itineraryResponse.status === 200) {
@@ -511,21 +520,25 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Could not find end location. Try a more specific Australian place name.' }, { status: 400 })
     }
 
-    // Short trip detection
+    // Short trip detection — cycling trips can be much shorter
     const directDistance = haversineKm(startCoords.lat, startCoords.lng, endCoords.lat, endCoords.lng)
-    if (directDistance < 20) {
+    const isCycling = transportMode === 'cycling'
+    const shortTripThreshold = isCycling ? 3 : 20
+    if (directDistance < shortTripThreshold) {
       return NextResponse.json({
         short_trip: true,
-        message: "That\u2019s a short trip \u2014 try the Long Weekend Engine instead.",
+        message: isCycling
+          ? "That\u2019s a very short ride \u2014 try exploring a bit further afield."
+          : "That\u2019s a short trip \u2014 try the Long Weekend Engine instead.",
         direct_distance_km: Math.round(directDistance),
       })
     }
 
     // 4. Get outbound route
-    console.log(`[on-this-road] [${rid}] Directions request: ${startCoords.lng},${startCoords.lat} → ${endCoords.lng},${endCoords.lat}`)
-    const route = await getRoute(startCoords, endCoords)
+    console.log(`[on-this-road] [${rid}] Directions request (${transportMode}): ${startCoords.lng},${startCoords.lat} → ${endCoords.lng},${endCoords.lat}`)
+    const route = await getRoute(startCoords, endCoords, [], transportMode)
     if (!route) {
-      return NextResponse.json({ error: 'No driving route found between these locations.' }, { status: 400 })
+      return NextResponse.json({ error: `No ${isCycling ? 'cycling' : 'driving'} route found between these locations.` }, { status: 400 })
     }
 
     // 5. Build outbound itinerary
@@ -534,12 +547,13 @@ export async function POST(request) {
       detourConfig, tripConfig, departureConfig, preferences,
       currentSeason, isMultiDay, isSurpriseLoop: false, returnDifferentRoad,
       startName: start, endName: end,
+      transportMode, bikeType, fitness,
     })
 
     // 6. If return different road requested, build return route
     if (returnDifferentRoad && result.status !== 400) {
       const resultData = await result.json()
-      const returnRoute = await getRoute(endCoords, startCoords)
+      const returnRoute = await getRoute(endCoords, startCoords, [], transportMode)
       if (returnRoute) {
         const returnResult = await buildItinerary({
           startCoords: endCoords, endCoords: startCoords, route: returnRoute,
@@ -547,6 +561,7 @@ export async function POST(request) {
           departureConfig: null, preferences, currentSeason,
           isMultiDay: tripConfig.days >= 3, isSurpriseLoop: false, returnDifferentRoad: false,
           startName: end, endName: start,
+          transportMode, bikeType, fitness,
         })
         const returnData = await returnResult.json()
         if (returnData.days) {
@@ -607,21 +622,36 @@ async function buildItinerary({
   detourConfig, tripConfig, departureConfig, preferences,
   currentSeason, isMultiDay, isSurpriseLoop, returnDifferentRoad,
   startName, endName, preSelectedListings,
+  transportMode = 'driving', bikeType = 'any', fitness = 'moderate',
 }) {
+  const isCycling = transportMode === 'cycling'
   const routeGeometry = route.geometry
   const routeCoords = routeGeometry.coordinates
   const routeDurationMinutes = Math.round(route.duration / 60)
   const routeDistanceKm = Math.round(route.distance / 1000)
-  const isLongTrip = routeDistanceKm > 2000
+  const isLongTrip = isCycling ? false : routeDistanceKm > 2000
+
+  // Cycling fitness constraints
+  const CYCLING_FITNESS = {
+    relaxed:  { maxDayKm: 30,  maxElevationM: 200,  stopSpacingKm: 3  },
+    moderate: { maxDayKm: 60,  maxElevationM: 500,  stopSpacingKm: 5  },
+    strong:   { maxDayKm: 100, maxElevationM: 1000, stopSpacingKm: 8  },
+  }
+  const cyclingConfig = isCycling ? CYCLING_FITNESS[fitness] || CYCLING_FITNESS.moderate : null
 
   const routeDistances = buildRouteDistances(routeCoords)
   const totalRouteKm = routeDistances[routeDistances.length - 1] || routeDistanceKm
 
   // Query listings along route — batched for performance
-  const samplePoints = sampleRoutePoints(routeCoords, 30)
+  // Cycling uses tighter sampling intervals and narrower corridor
+  const sampleInterval = isCycling ? 5 : 30
+  const samplePoints = sampleRoutePoints(routeCoords, sampleInterval)
   const sb = getSupabaseAdmin()
   const seenIds = new Set()
   const allListings = []
+
+  // Cycling uses a narrower corridor (cyclists don't detour far off-route)
+  const effectiveBufferKm = isCycling ? Math.min(detourConfig.bufferKm, 5) : detourConfig.bufferKm
 
   const SELECT_COLS = 'id, name, slug, vertical, region, state, suburb, lat, lng, hero_image_url, quality_score, description, sub_type, visit_type, best_season'
 
@@ -631,8 +661,8 @@ async function buildItinerary({
     const batch = samplePoints.slice(batchStart, batchStart + BATCH_SIZE)
     const results = await Promise.all(batch.map(point => {
       const [pLng, pLat] = point
-      const latDelta = detourConfig.bufferKm / 111
-      const lngDelta = detourConfig.bufferKm / (111 * Math.cos(pLat * Math.PI / 180))
+      const latDelta = effectiveBufferKm / 111
+      const lngDelta = effectiveBufferKm / (111 * Math.cos(pLat * Math.PI / 180))
       return sb
         .from('listings')
         .select(SELECT_COLS)
@@ -748,7 +778,7 @@ async function buildItinerary({
       }
     })
     .filter(l => {
-      if (l.distanceFromRoute > detourConfig.bufferKm) return false
+      if (l.distanceFromRoute > effectiveBufferKm) return false
       const effectiveQuality = l.quality_score > 0 ? l.quality_score : 50
       if (effectiveQuality < detourConfig.minQuality) return false
       if (isExcludedByPreferences(l, preferences)) { prefExcludedCount++; return false }
@@ -779,14 +809,19 @@ async function buildItinerary({
       total_listings_found: 0, route_duration_minutes: routeDurationMinutes,
       route_distance_km: routeDistanceKm, coverage_gaps: coverageGaps,
       is_long_trip: isLongTrip, is_surprise_loop: isSurpriseLoop,
+      transport_mode: transportMode,
       start_name: startCoords.place_name || startName,
       end_name: endCoords.place_name || endName,
     })
   }
 
   // ── Stop distribution (multi-day vs single-day) ───────────────────
-  const totalStopsTarget = tripConfig.stopsPerDay * tripConfig.days
-  const MIN_SPACING_KM = Math.max(30, totalRouteKm / (totalStopsTarget + 2))
+  const totalStopsTarget = isCycling
+    ? Math.min(tripConfig.stopsPerDay * tripConfig.days, Math.round(totalRouteKm / (cyclingConfig.stopSpacingKm * 2)))
+    : tripConfig.stopsPerDay * tripConfig.days
+  const MIN_SPACING_KM = isCycling
+    ? Math.max(cyclingConfig.stopSpacingKm, totalRouteKm / (totalStopsTarget + 2))
+    : Math.max(30, totalRouteKm / (totalStopsTarget + 2))
 
   // Build preference + seasonal context (shared by both paths)
   const prefLabels = preferences.map(p => PREFERENCE_MAP[p]?.label).filter(Boolean)
@@ -839,7 +874,8 @@ async function buildItinerary({
       })
 
     // 5. Segment-distribute discovery listings between overnight points
-    const numSegments = Math.max(6, Math.min(totalStopsTarget + 4, Math.round(totalRouteKm / 60)))
+    const multiDaySegDivisor = isCycling ? 10 : 60
+    const numSegments = Math.max(4, Math.min(totalStopsTarget + 4, Math.round(totalRouteKm / multiDaySegDivisor)))
     const segmentLengthKm = totalRouteKm / numSegments
     const segments = Array.from({ length: numSegments }, () => [])
     for (const listing of discoveryListings) {
@@ -923,7 +959,8 @@ async function buildItinerary({
 
   // ── Single-day: standard segment distribution (all verticals) ─────
   if (!isMultiDay) {
-    const numSegments = Math.max(6, Math.min(totalStopsTarget + 4, Math.round(totalRouteKm / 60)))
+    const segmentDivisor = isCycling ? 10 : 60
+    const numSegments = Math.max(4, Math.min(totalStopsTarget + 4, Math.round(totalRouteKm / segmentDivisor)))
     const segmentLengthKm = totalRouteKm / numSegments
     const segments = Array.from({ length: numSegments }, () => [])
     for (const listing of routeListings) {
@@ -1011,14 +1048,14 @@ async function buildItinerary({
       detourConfig, tripConfig, prefContext, departureContext, seasonContext,
       targetStops, targetSpacingKm, MIN_SPACING_KM,
       overnightClusters, discoveryListingsJson,
-      isSurpriseLoop, dayTargets, totalRouteKm,
+      isSurpriseLoop, dayTargets, totalRouteKm, isCycling,
     })
   } else {
     prompt = buildSingleDayPrompt({
       startNameFull, endNameFull, routeDistanceKm, routeDurationMinutes,
       detourConfig, tripConfig, prefContext, departureContext, seasonContext,
       targetStops, targetSpacingKm, MIN_SPACING_KM, listingsJson,
-      isSurpriseLoop,
+      isSurpriseLoop, isCycling,
     })
   }
 
@@ -1089,7 +1126,7 @@ async function buildItinerary({
       claudeResult, listingMap, routeGeometry, routeDistanceKm,
       routeDurationMinutes, coverageGaps, isLongTrip, isSurpriseLoop,
       restCandidates, overnightClusters, startCoords, endCoords, startName, endName,
-      tripConfig, isMultiDay,
+      tripConfig, isMultiDay, transportMode,
     })
   }
 
@@ -1105,6 +1142,7 @@ async function buildItinerary({
     route_distance_km: routeDistanceKm,
     coverage_gaps: coverageGaps,
     is_long_trip: isLongTrip, is_surprise_loop: isSurpriseLoop,
+    transport_mode: transportMode,
     start_name: startCoords.place_name || startName,
     end_name: endCoords.place_name || endName,
     start_coords: { lat: startCoords.lat, lng: startCoords.lng },
@@ -1134,16 +1172,22 @@ function buildSingleDayPrompt({
   startNameFull, endNameFull, routeDistanceKm, routeDurationMinutes,
   detourConfig, tripConfig, prefContext, departureContext, seasonContext,
   targetStops, targetSpacingKm, MIN_SPACING_KM, listingsJson, isSurpriseLoop,
+  isCycling = false,
 }) {
+  const modeVerb = isCycling ? 'cycling' : 'driving'
   const routeDesc = isSurpriseLoop
-    ? `a loop from ${startNameFull} and back (${routeDistanceKm}km, ~${Math.round(routeDurationMinutes / 60)} hours)`
-    : `${startNameFull} to ${endNameFull} (${routeDistanceKm}km, ~${Math.round(routeDurationMinutes / 60)} hours)`
+    ? `a loop from ${startNameFull} and back (${routeDistanceKm}km, ~${Math.round(routeDurationMinutes / 60)} hours ${modeVerb})`
+    : `${startNameFull} to ${endNameFull} (${routeDistanceKm}km, ~${Math.round(routeDurationMinutes / 60)} hours ${modeVerb})`
 
-  return `You are writing for Australian Atlas, a curated guide to independent Australian places. A traveller is driving ${routeDesc}. They are ${detourConfig.label} and want a ${tripConfig.label}.
+  const cyclingContext = isCycling
+    ? `\n\nCYCLING MODE: This is a bike ride, not a car trip. The rider won't want to detour far off-route. Favour stops that are directly on or very close to the route. Prioritise cafés, nature stops, and scenic rest points over venues that require indoor time. Consider that cyclists need water, food, and shade at regular intervals.`
+    : ''
+
+  return `You are writing for Australian Atlas, a curated guide to independent Australian places. A traveller is ${modeVerb} ${routeDesc}. They are ${detourConfig.label} and want a ${tripConfig.label}.
 
 ${prefContext}
 ${departureContext}
-${seasonContext}
+${seasonContext}${cyclingContext}
 
 ${EDITORIAL_VOICE}
 
@@ -1175,11 +1219,12 @@ function buildMultiDayPrompt({
   detourConfig, tripConfig, prefContext, departureContext, seasonContext,
   targetStops, targetSpacingKm, MIN_SPACING_KM,
   overnightClusters, discoveryListingsJson,
-  isSurpriseLoop, dayTargets, totalRouteKm,
+  isSurpriseLoop, dayTargets, totalRouteKm, isCycling = false,
 }) {
+  const modeVerb = isCycling ? 'cycling' : 'driving'
   const routeDesc = isSurpriseLoop
-    ? `a ${tripConfig.days}-day loop from ${startNameFull} (${routeDistanceKm}km total)`
-    : `${startNameFull} to ${endNameFull} over ${tripConfig.days} days (${routeDistanceKm}km, ~${Math.round(routeDurationMinutes / 60)} hours driving)`
+    ? `a ${tripConfig.days}-day ${modeVerb} loop from ${startNameFull} (${routeDistanceKm}km total)`
+    : `${startNameFull} to ${endNameFull} over ${tripConfig.days} days (${routeDistanceKm}km, ~${Math.round(routeDurationMinutes / 60)} hours ${modeVerb})`
 
   // Build per-day distance targets section
   const dayTargetsSection = dayTargets && dayTargets.length > 0
@@ -1217,11 +1262,15 @@ CLUSTER RULES:
     clustersSection = '\n\nNo overnight clusters found along this route. Set overnight, dinner, and morning_coffee to null for all days.'
   }
 
-  return `You are writing for Australian Atlas, a curated guide to independent Australian places. A traveller is driving ${routeDesc}. They are ${detourConfig.label}.
+  const cyclingContext = isCycling
+    ? `\n\nCYCLING MODE: This is a multi-day bike ride. The rider won't detour far off-route. Favour stops directly on or very close to the route — cafés, nature stops, scenic rest points. Consider that cyclists need water, food, and shade at regular intervals.`
+    : ''
+
+  return `You are writing for Australian Atlas, a curated guide to independent Australian places. A traveller is ${modeVerb} ${routeDesc}. They are ${detourConfig.label}.
 
 ${prefContext}
 ${departureContext}
-${seasonContext}
+${seasonContext}${cyclingContext}
 
 ${EDITORIAL_VOICE}
 
@@ -1260,7 +1309,7 @@ function formatClaudeResult({
   claudeResult, listingMap, routeGeometry, routeDistanceKm,
   routeDurationMinutes, coverageGaps, isLongTrip, isSurpriseLoop,
   restCandidates, overnightClusters = [], startCoords, endCoords, startName, endName,
-  tripConfig, isMultiDay,
+  tripConfig, isMultiDay, transportMode = 'driving',
 }) {
   function enrichStop(stop) {
     const listing = listingMap.get(stop.listing_id)
@@ -1373,6 +1422,7 @@ function formatClaudeResult({
       is_long_trip: isLongTrip,
       is_surprise_loop: isSurpriseLoop,
       is_multi_day: true,
+      transport_mode: transportMode,
       trip_days: tripConfig.days,
       start_name: startCoords.place_name || startName,
       end_name: endCoords.place_name || endName,
@@ -1401,6 +1451,7 @@ function formatClaudeResult({
     is_long_trip: isLongTrip,
     is_surprise_loop: isSurpriseLoop,
     is_multi_day: false,
+    transport_mode: transportMode,
     start_name: startCoords.place_name || startName,
     end_name: endCoords.place_name || endName,
     start_coords: { lat: startCoords.lat, lng: startCoords.lng },
@@ -1433,6 +1484,7 @@ async function generateSurpriseLoop(startCoords, tripConfig, preferences, detour
     .select('id, name, slug, vertical, region, state, lat, lng, hero_image_url, quality_score, description, sub_type, visit_type, best_season')
     .eq('status', 'active')
     .or('address_on_request.eq.false,address_on_request.is.null')
+    .or('visitable.eq.true,visitable.is.null,presence_type.eq.by_appointment')
     .or('trail_suitable.eq.true,trail_suitable.is.null')
     .gte('lat', startCoords.lat - latDelta)
     .lte('lat', startCoords.lat + latDelta)
