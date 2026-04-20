@@ -12,13 +12,19 @@ const VERTICAL_STYLES = {
 
 export { VERTICAL_STYLES }
 
-export default function VerticalBadge({ vertical, className = '' }) {
+export default function VerticalBadge({ vertical, className = '', size = 'md' }) {
   const style = VERTICAL_STYLES[vertical]
   if (!style) return null
+  const isSmall = size === 'sm'
   return (
     <span
-      className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${className}`}
-      style={{ backgroundColor: style.bg, color: style.text }}
+      className={`inline-flex items-center rounded-full font-medium ${className}`}
+      style={{
+        backgroundColor: style.bg,
+        color: style.text,
+        fontSize: isSmall ? '9px' : '12px',
+        padding: isSmall ? '2px 8px' : '4px 10px',
+      }}
     >
       {style.label}
     </span>

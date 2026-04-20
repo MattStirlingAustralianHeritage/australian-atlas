@@ -387,6 +387,7 @@ export default async function PlacePage({ params }) {
 
   const vertLabel = getVerticalLabel(listing.vertical)
   const vertColor = VERTICAL_COLORS[listing.vertical] || '#5F8A7E'
+  const tokens = VERTICAL_TOKENS[listing.vertical] || VERTICAL_TOKENS.portal
   const specificSubcategory = formatSubcategory(listing._subcategory || listing.sub_type)
   const categoryLabel = specificSubcategory || VERTICAL_CATEGORY_LABELS[listing.vertical] || 'Place'
   const secondarySubcategories = (listing.sub_types || []).slice(1).map(formatSubcategory).filter(Boolean)
@@ -418,31 +419,86 @@ export default async function PlacePage({ params }) {
 
       {/* ── Hero ────────────────────────────────────────── */}
       {isApprovedImageSource(listing.hero_image_url) ? (
-        <div className="w-full aspect-[21/7] overflow-hidden relative">
+        <div className="w-full relative overflow-hidden" style={{ minHeight: '50vh' }}>
           <img
             src={listing.hero_image_url}
             alt={listing.name}
             loading="eager"
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover absolute inset-0"
           />
-          <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(28,26,23,0.35) 0%, transparent 50%)' }} />
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(28,26,23,0.6) 0%, rgba(28,26,23,0.15) 40%, transparent 70%)' }} />
+          <div className="absolute bottom-0 left-0 right-0 p-8 sm:p-12" style={{ zIndex: 2 }}>
+            <div className="max-w-4xl mx-auto">
+              <p style={{
+                fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 500,
+                letterSpacing: '0.15em', textTransform: 'uppercase',
+                color: 'rgba(255,255,255,0.6)', marginBottom: '12px',
+              }}>
+                {vertLabel} &middot; {categoryLabel}
+              </p>
+              <h1 style={{
+                fontFamily: 'var(--font-display)', fontWeight: 400,
+                fontSize: 'clamp(2rem, 5vw, 3.5rem)', lineHeight: 1.1,
+                color: '#fff', margin: 0,
+              }}>
+                {listing.name}
+              </h1>
+              {location && (
+                <p style={{
+                  fontFamily: 'var(--font-body)', fontSize: '15px', fontWeight: 300,
+                  color: 'rgba(255,255,255,0.7)', marginTop: '8px',
+                }}>
+                  {location}
+                </p>
+              )}
+            </div>
+          </div>
         </div>
       ) : (
-        <TypographicCard
-          name={listing.name}
-          vertical={listing.vertical}
-          region={listing.region}
-          state={listing.state}
-          aspectRatio="21/7"
-          showVerticalTag={true}
-        />
+        <div className="w-full relative" style={{
+          minHeight: '40vh',
+          background: tokens.bg,
+          display: 'flex', flexDirection: 'column',
+          justifyContent: 'center', alignItems: 'center',
+          textAlign: 'center', padding: '3rem 1.5rem',
+        }}>
+          <div style={{
+            position: 'absolute', inset: 0,
+            backgroundImage: `radial-gradient(circle, ${tokens.text} 1px, transparent 1px)`,
+            backgroundSize: '16px 16px', opacity: 0.06, pointerEvents: 'none',
+          }} />
+          <div style={{ position: 'relative', zIndex: 1, maxWidth: '700px' }}>
+            <p style={{
+              fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 500,
+              letterSpacing: '0.15em', textTransform: 'uppercase',
+              color: tokens.text, opacity: 0.5, marginBottom: '16px',
+            }}>
+              {vertLabel} &middot; {categoryLabel}
+            </p>
+            <h1 style={{
+              fontFamily: 'var(--font-display)', fontWeight: 400,
+              fontSize: 'clamp(2rem, 5vw, 3.5rem)', lineHeight: 1.1,
+              color: tokens.text, margin: 0,
+            }}>
+              {listing.name}
+            </h1>
+            {location && (
+              <p style={{
+                fontFamily: 'var(--font-body)', fontSize: '15px', fontWeight: 300,
+                color: tokens.text, opacity: 0.6, marginTop: '10px',
+              }}>
+                {location}
+              </p>
+            )}
+          </div>
+        </div>
       )}
 
       {/* ── Content ───────────────────────────────────────── */}
-      <div className="max-w-3xl mx-auto px-5 pb-20" style={{ marginTop: listing.hero_image_url ? '-48px' : '0' }}>
+      <div className="max-w-4xl mx-auto px-6 sm:px-8 pb-20" style={{ marginTop: '48px' }}>
 
         {/* Breadcrumb */}
-        <nav className="flex items-center gap-1.5 mb-6 text-xs flex-wrap" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)', marginTop: listing.hero_image_url ? '0' : '32px' }}>
+        <nav className="flex items-center gap-1.5 mb-8 text-xs flex-wrap" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)' }}>
           <Link href="/map" className="hover:underline" style={{ padding: '6px 2px', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>Map</Link>
           <span>&rsaquo;</span>
           {listing.state && (
@@ -466,47 +522,6 @@ export default async function PlacePage({ params }) {
           <span style={{ color: 'var(--color-ink)', padding: '6px 2px' }}>{listing.name}</span>
         </nav>
 
-        {/* Vertical badge + category */}
-        <div className="flex items-center gap-2 mb-3 flex-wrap">
-          <VerticalBadge vertical={listing.vertical} />
-          <span className="text-xs" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)' }}>
-            {categoryLabel}
-          </span>
-          {secondarySubcategories.map((sc, i) => (
-            <span key={i} className="text-xs px-2 py-0.5 rounded-full" style={{
-              fontFamily: 'var(--font-body)',
-              color: 'var(--color-muted)',
-              background: 'var(--color-cream, #FAF8F5)',
-              border: '1px solid var(--color-border, #e0dcd4)',
-              fontSize: '10px',
-              letterSpacing: '0.03em',
-            }}>
-              {sc}
-            </span>
-          ))}
-        </div>
-
-        {/* Name */}
-        <h1
-          className="mb-2"
-          style={{
-            fontFamily: 'var(--font-display)',
-            fontWeight: 400,
-            fontSize: 'clamp(28px, 5vw, 40px)',
-            lineHeight: 1.15,
-            color: 'var(--color-ink)',
-          }}
-        >
-          {listing.name}
-        </h1>
-
-        {/* Location */}
-        {location && (
-          <p className="mb-6" style={{ fontFamily: 'var(--font-body)', fontSize: '16px', fontWeight: 300, color: 'var(--color-muted)' }}>
-            {location}
-          </p>
-        )}
-
         {/* Atlas Select / Featured badges */}
         {(listing.editors_pick || (listing.is_featured && listing.is_claimed)) && (
           <div className="flex items-center gap-2 mb-6">
@@ -523,152 +538,153 @@ export default async function PlacePage({ params }) {
           </div>
         )}
 
-        {/* Description */}
-        {listing.description && (
-          <div className="mb-8" style={{ fontFamily: 'var(--font-body)', fontSize: '16px', fontWeight: 300, lineHeight: 1.7, color: 'var(--color-ink)' }}>
-            {listing.description.split('\n').map((p, i) => (
-              p.trim() ? <p key={i} className={i > 0 ? 'mt-4' : ''}>{p}</p> : null
-            ))}
-          </div>
-        )}
+        {/* ── Description + Sidebar layout ──────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-12 mb-12">
+          {/* Description — editorial column */}
+          <div className="lg:col-span-3">
+            {listing.description && (
+              <div style={{
+                fontFamily: 'var(--font-display)', fontSize: '18px',
+                fontWeight: 400, lineHeight: 1.75, color: 'var(--color-ink)',
+              }}>
+                {listing.description.split('\n').map((p, i) => (
+                  p.trim() ? <p key={i} className={i > 0 ? 'mt-5' : ''}>{p}</p> : null
+                ))}
+              </div>
+            )}
 
-        {/* CTA buttons */}
-        <div className="flex flex-wrap items-center gap-3 mb-10">
-          {websiteUrl && (
-            <a
-              href={websiteUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90"
-              style={{ background: vertColor, fontFamily: 'var(--font-body)', minHeight: 44 }}
-            >
-              Visit Website
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-              </svg>
-            </a>
-          )}
-          {hasCoords && (
-            <a
-              href={`https://www.google.com/maps/dir/?api=1&destination=${listing.lat},${listing.lng}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-lg text-sm font-medium transition-colors"
-              style={{ fontFamily: 'var(--font-body)', border: '1px solid var(--color-border)', color: 'var(--color-ink)', background: 'var(--color-card-bg)', minHeight: 44 }}
-            >
-              Get Directions
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </a>
-          )}
-          <StartTrailButton listing={{ id: listing.id, name: listing.name, slug: listing.slug, region: listing.region, state: listing.state, vertical: listing.vertical, lat: listing.lat, lng: listing.lng }} />
-        </div>
-
-        {/* Report issue link */}
-        <ReportIssueButton listingId={listing.id} listingName={listing.name} />
-
-        {/* ── Details + Map card ──────────────────────────── */}
-        <div className="rounded-xl overflow-hidden mb-10" style={{ border: '1px solid var(--color-border)', background: 'var(--color-card-bg)' }}>
-          {/* Map */}
-          {hasCoords ? (
-            <div className="w-full aspect-[16/7] overflow-hidden">
-              <ListingMap
-                lat={listing.lat}
-                lng={listing.lng}
-                name={listing.name}
-                color={vertColor}
-              />
+            {/* CTA buttons */}
+            <div className="flex flex-wrap items-center gap-4 mt-10">
+              {websiteUrl && (
+                <a
+                  href={websiteUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-medium text-white transition-opacity hover:opacity-90"
+                  style={{ background: 'var(--color-accent)', fontFamily: 'var(--font-body)', minHeight: 44 }}
+                >
+                  Visit Website
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </a>
+              )}
+              {hasCoords && (
+                <a
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${listing.lat},${listing.lng}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-sm font-medium transition-colors hover:opacity-70"
+                  style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)', minHeight: 44 }}
+                >
+                  <svg className="w-4 h-4" style={{ color: 'var(--color-accent)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  Get Directions
+                </a>
+              )}
+              <StartTrailButton listing={{ id: listing.id, name: listing.name, slug: listing.slug, region: listing.region, state: listing.state, vertical: listing.vertical, lat: listing.lat, lng: listing.lng }} />
             </div>
-          ) : (
-            <div
-              className="w-full aspect-[16/7] flex items-center justify-center"
-              style={{ background: 'var(--color-surface, #f5f5f0)' }}
-            >
-              <div className="text-center px-4">
-                <svg className="w-8 h-8 mx-auto mb-2" style={{ color: 'var(--color-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                <p className="text-sm" style={{ color: 'var(--color-muted)', fontFamily: 'var(--font-body)' }}>
-                  Map location not yet available
-                </p>
+
+            <ReportIssueButton listingId={listing.id} listingName={listing.name} />
+          </div>
+
+          {/* Sidebar — details + map */}
+          <div className="lg:col-span-2">
+            <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--color-border)', background: 'var(--color-card-bg)' }}>
+              {hasCoords ? (
+                <div className="w-full overflow-hidden" style={{ height: '200px' }}>
+                  <ListingMap lat={listing.lat} lng={listing.lng} name={listing.name} color={vertColor} />
+                </div>
+              ) : null}
+
+              <div className="p-5">
+                <div className="flex flex-col gap-4">
+                  {listing.address && (
+                    <DetailItem icon="pin" label="Address" value={listing.address} />
+                  )}
+                  {websiteUrl && (
+                    <DetailItem icon="globe" label="Website">
+                      <a href={websiteUrl} target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: vertColor }}>
+                        {cleanWebsite(listing.website)}
+                      </a>
+                    </DetailItem>
+                  )}
+                  {listing.phone && (
+                    <DetailItem icon="phone" label="Phone">
+                      <a href={`tel:${listing.phone}`} className="hover:underline" style={{ color: vertColor }}>
+                        {listing.phone}
+                      </a>
+                    </DetailItem>
+                  )}
+                  {listing.region && (
+                    <DetailItem icon="map" label="Region">
+                      <Link
+                        href={regionData ? `/regions/${regionData.slug}` : `/search?region=${encodeURIComponent(listing.region)}`}
+                        className="hover:underline"
+                        style={{ color: vertColor }}
+                      >
+                        {listing.region}
+                      </Link>
+                    </DetailItem>
+                  )}
+                </div>
+
+                {listing.hours && (
+                  <div style={{ marginTop: '16px', borderTop: '1px solid var(--color-border)', paddingTop: '16px' }}>
+                    <OpeningHours hours={listing.hours} />
+                  </div>
+                )}
               </div>
             </div>
-          )}
 
-          {/* Details grid */}
-          <div className="p-6">
-            <h2
-              className="mb-4 text-xs font-semibold tracking-widest uppercase"
-              style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)', letterSpacing: '0.1em' }}
-            >
-              Details
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 gap-x-8">
-              {listing.address && (
-                <DetailItem label="Address" value={listing.address} />
-              )}
-              {listing.phone && (
-                <DetailItem label="Phone">
-                  <a href={`tel:${listing.phone}`} className="hover:underline" style={{ color: vertColor }}>
-                    {listing.phone}
-                  </a>
-                </DetailItem>
-              )}
-              {websiteUrl && (
-                <DetailItem label="Website">
-                  <a href={websiteUrl} target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: vertColor }}>
-                    {cleanWebsite(listing.website)}
-                  </a>
-                </DetailItem>
-              )}
-              {listing.region && (
-                <DetailItem label="Region" value={listing.region} />
-              )}
-              {listing.state && (
-                <DetailItem label="State" value={listing.state} />
-              )}
+            {/* Also listed on */}
+            <div className="flex items-center gap-3 mt-4 py-3 px-4 rounded-lg" style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}>
+              <VerticalBadge vertical={listing.vertical} size="sm" />
+              <span className="text-xs" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)' }}>
+                Also on
+              </span>
+              <a
+                href={verticalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs font-medium hover:underline"
+                style={{ fontFamily: 'var(--font-body)', color: vertColor }}
+              >
+                {vertLabel} &rarr;
+              </a>
             </div>
-
-            {/* Opening hours */}
-            {listing.hours && (
-              <OpeningHours hours={listing.hours} />
-            )}
           </div>
         </div>
 
-        {/* ── Also listed on [Vertical] ──────────────────── */}
-        <div className="flex items-center gap-3 mb-10 py-3 px-5 rounded-lg" style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)', minHeight: 56 }}>
-          <VerticalBadge vertical={listing.vertical} />
-          <span className="text-sm" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)' }}>
-            Also listed on
-          </span>
-          <a
-            href={verticalUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm font-medium hover:underline"
-            style={{ fontFamily: 'var(--font-body)', color: vertColor }}
-          >
-            {vertLabel} &rarr;
-          </a>
-        </div>
-
-        {/* ── Place Memories ──────────────────────────────── */}
-        <PlaceMemories listingId={listing.id} initialMemories={memories || []} />
+        {/* ── Place Memories — only if has memories ───────── */}
+        {memories && memories.length > 0 && (
+          <PlaceMemories listingId={listing.id} initialMemories={memories} />
+        )}
 
         {/* ── Claim CTA (if unclaimed) ───────────────────── */}
         {!listing.is_claimed && (
-          <div className="text-center py-6 px-5 rounded-lg mb-10" style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}>
-            <p className="text-sm mb-2" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)' }}>
-              Own this listing?
+          <div style={{
+            background: '#F5F0E8', margin: '0 -1.5rem', padding: '3rem 2rem',
+            textAlign: 'center', marginBottom: '3rem',
+          }}>
+            <p style={{
+              fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 400,
+              color: 'var(--color-ink)', margin: '0 0 8px',
+            }}>
+              Own {listing.name}?
+            </p>
+            <p className="mb-5" style={{
+              fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 300,
+              color: 'var(--color-muted)', maxWidth: '400px', margin: '0 auto 20px',
+            }}>
+              Claim your free listing to update your details and connect with visitors.
             </p>
             <Link
               href={`/claim/${listing.slug}`}
-              className="inline-flex items-center gap-2 px-5 py-3 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90"
-              style={{ background: vertColor, fontFamily: 'var(--font-body)', minHeight: 44 }}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-medium text-white transition-opacity hover:opacity-90"
+              style={{ background: 'var(--color-accent)', fontFamily: 'var(--font-body)', minHeight: 44 }}
             >
               Claim this listing
             </Link>
@@ -744,7 +760,18 @@ export default async function PlacePage({ params }) {
             >
               Nearby on Australian Atlas
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <style dangerouslySetInnerHTML={{ __html: `
+              .nearby-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+              @media (max-width: 640px) {
+                .nearby-grid {
+                  display: flex; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory;
+                  -webkit-overflow-scrolling: touch; padding-bottom: 8px;
+                }
+                .nearby-grid::-webkit-scrollbar { display: none; }
+                .nearby-grid > * { scroll-snap-align: start; flex-shrink: 0; width: 75vw; max-width: 300px; }
+              }
+            `}} />
+            <div className="nearby-grid">
               {nearby.map(n => (
                 <ListingCard key={n.id} listing={n} />
               ))}
@@ -884,18 +911,32 @@ export default async function PlacePage({ params }) {
 
 // ── Detail item component ─────────────────────────────────────
 
-function DetailItem({ label, value, children }) {
+const DETAIL_ICONS = {
+  pin: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
+  globe: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" /></svg>,
+  phone: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" /></svg>,
+  map: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4zM8 2v16M16 6v16" /></svg>,
+}
+
+function DetailItem({ label, value, children, icon }) {
   return (
-    <div>
-      <dt
-        className="text-xs font-semibold tracking-wider uppercase mb-0.5"
-        style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)', letterSpacing: '0.08em', fontSize: '10px' }}
-      >
-        {label}
-      </dt>
-      <dd className="text-sm" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-ink)' }}>
-        {children || value}
-      </dd>
+    <div className="flex gap-3">
+      {icon && (
+        <span style={{ color: 'var(--color-accent)', flexShrink: 0, marginTop: '2px' }}>
+          {DETAIL_ICONS[icon]}
+        </span>
+      )}
+      <div>
+        <dt
+          className="text-xs font-semibold tracking-wider uppercase mb-0.5"
+          style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)', letterSpacing: '0.08em', fontSize: '10px' }}
+        >
+          {label}
+        </dt>
+        <dd className="text-sm" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-ink)' }}>
+          {children || value}
+        </dd>
+      </div>
     </div>
   )
 }

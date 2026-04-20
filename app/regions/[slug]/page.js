@@ -46,6 +46,12 @@ const VERTICAL_COLORS = {
   table: '#C4634F',
 }
 
+const VERTICAL_CARD_BG = {
+  sba: '#3D2B1F', collection: '#2D3436', craft: '#4A3728',
+  fine_grounds: '#2C1810', rest: '#1B2631', field: '#1E3A2F',
+  corner: '#3B2F2F', found: '#2F2B26', table: '#3A2E1F',
+}
+
 const VERTICAL_DESCRIPTIONS = {
   sba: 'Distilleries, wineries, and artisan producers',
   collection: 'Galleries, museums, and cultural collections',
@@ -76,7 +82,7 @@ const STATE_LABELS = {
 }
 
 const MAX_EDITORIAL_WORDS = 250
-const MAX_PER_SECTION = 6
+const MAX_PER_SECTION = 4
 
 const getRegion = cache(async function getRegion(slug) {
   const sb = getSupabaseAdmin()
@@ -423,10 +429,92 @@ export default async function RegionPage({ params }) {
           </div>
         )}
 
-        {/* ── 3 + 4. VERTICAL SECTIONS WITH LISTING CARDS ── */}
+        {/* ── HIGHLIGHTS: Best listings across all verticals ── */}
+        {listings.length > 0 && (() => {
+          const seen = new Set()
+          const highlights = listings
+            .filter(l => l.editors_pick || l.is_featured)
+            .concat(listings.filter(l => !l.editors_pick && !l.is_featured).sort((a, b) => (b.description?.length || 0) - (a.description?.length || 0)))
+            .filter(l => {
+              if (seen.has(l.vertical)) return false
+              seen.add(l.vertical)
+              return true
+            })
+            .slice(0, 6)
+
+          if (highlights.length < 3) return null
+
+          return (
+            <section style={{ paddingBottom: '3rem' }}>
+              <h2 style={{
+                fontFamily: 'var(--font-display)', fontWeight: 400,
+                fontSize: 'clamp(1.5rem, 3vw, 2rem)', color: 'var(--color-ink)',
+                margin: '0 0 0.5rem',
+              }}>
+                Highlights
+              </h2>
+              <p style={{
+                fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 300,
+                color: 'var(--color-muted)', margin: '0 0 1.5rem',
+              }}>
+                A selection of standout places across {region.name}
+              </p>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+                gap: '1rem',
+              }}>
+                {highlights.map(listing => {
+                  const href = listing.slug ? `/place/${listing.slug}` : '#'
+                  const bg = VERTICAL_CARD_BG[listing.vertical] || '#2d2a24'
+                  const vertLabel = VERTICAL_LABELS[listing.vertical] || listing.vertical
+                  return (
+                    <a
+                      key={listing.id}
+                      href={href}
+                      className="listing-card"
+                      style={{
+                        display: 'block', padding: '1.5rem',
+                        borderRadius: '10px', background: bg,
+                        textDecoration: 'none', minHeight: '140px',
+                        position: 'relative',
+                      }}
+                    >
+                      <span style={{
+                        fontFamily: 'var(--font-body)', fontSize: '9px', fontWeight: 500,
+                        letterSpacing: '0.12em', textTransform: 'uppercase',
+                        color: 'rgba(255,255,255,0.45)',
+                      }}>
+                        {vertLabel}
+                      </span>
+                      <h3 style={{
+                        fontFamily: 'var(--font-display)', fontWeight: 400,
+                        fontSize: '1.125rem', color: '#fff',
+                        margin: '0.5rem 0 0.375rem', lineHeight: 1.3,
+                      }}>
+                        {listing.name}
+                      </h3>
+                      {listing.description && (
+                        <p style={{
+                          fontFamily: 'var(--font-body)', fontSize: '13px', fontWeight: 300,
+                          color: 'rgba(255,255,255,0.75)', lineHeight: 1.5, margin: 0,
+                        }}>
+                          {truncateDescription(listing.description, 80)}
+                        </p>
+                      )}
+                    </a>
+                  )
+                })}
+              </div>
+            </section>
+          )
+        })()}
+
+        {/* ── VERTICAL SECTIONS WITH LISTING CARDS ── */}
         {listings.length > 0 ? (
           <div style={{ paddingBottom: '3rem' }}>
-            {activeVerticals.map((vertical, idx) => {
+            {/* Main vertical sections (3+ listings) */}
+            {activeVerticals.filter(v => grouped[v].length >= 3).map((vertical, idx) => {
               const items = grouped[vertical]
               const label = VERTICAL_LABELS[vertical] || vertical
               const color = VERTICAL_COLORS[vertical] || '#888'
@@ -472,16 +560,18 @@ export default async function RegionPage({ params }) {
                     {shown.map(listing => {
                       const href = listing.slug ? `/place/${listing.slug}` : '#'
                       const desc = truncateDescription(listing.description)
+                      const cardBg = VERTICAL_CARD_BG[vertical] || color
 
                       return (
                         <a
                           key={listing.id}
                           href={href}
+                          className="listing-card"
                           style={{
                             display: 'block',
                             padding: '1.25rem 1.5rem',
                             borderRadius: '10px',
-                            background: color,
+                            background: cardBg,
                             textDecoration: 'none',
                             transition: 'transform 0.15s, box-shadow 0.15s',
                             minHeight: '120px',
@@ -543,6 +633,70 @@ export default async function RegionPage({ params }) {
                 </section>
               )
             })}
+
+            {/* "Also in [Region]" — combined section for thin verticals (1-2 listings) */}
+            {(() => {
+              const thinVerticals = activeVerticals.filter(v => grouped[v].length < 3)
+              const thinListings = thinVerticals.flatMap(v => grouped[v])
+              if (thinListings.length === 0) return null
+
+              return (
+                <section style={{ marginTop: '3rem' }}>
+                  <h2 style={{
+                    fontFamily: 'var(--font-display)', fontWeight: 400,
+                    fontSize: '1.5rem', color: 'var(--color-ink)',
+                    margin: '0 0 1.25rem',
+                  }}>
+                    Also in {region.name}
+                  </h2>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                    gap: '1rem',
+                  }}>
+                    {thinListings.map(listing => {
+                      const href = listing.slug ? `/place/${listing.slug}` : '#'
+                      const bg = VERTICAL_CARD_BG[listing.vertical] || '#2d2a24'
+                      const vertLabel = VERTICAL_LABELS[listing.vertical] || listing.vertical
+
+                      return (
+                        <a
+                          key={listing.id}
+                          href={href}
+                          className="listing-card"
+                          style={{
+                            display: 'block', padding: '1.25rem 1.5rem',
+                            borderRadius: '10px', background: bg,
+                            textDecoration: 'none', minHeight: '100px',
+                          }}
+                        >
+                          <span style={{
+                            fontFamily: 'var(--font-body)', fontSize: '9px', fontWeight: 500,
+                            letterSpacing: '0.12em', textTransform: 'uppercase',
+                            color: 'rgba(255,255,255,0.45)',
+                          }}>
+                            {vertLabel}
+                          </span>
+                          <h3 style={{
+                            fontFamily: 'var(--font-display)', fontWeight: 400,
+                            fontSize: '1.125rem', color: '#fff',
+                            margin: '0.375rem 0 0.25rem', lineHeight: 1.3,
+                          }}>
+                            {listing.name}
+                          </h3>
+                          <p style={{
+                            fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 400,
+                            color: 'rgba(255,255,255,0.6)', margin: 0,
+                          }}>
+                            {[listing.region, listing.state].filter(Boolean).join(', ')}
+                          </p>
+                        </a>
+                      )
+                    })}
+                  </div>
+                </section>
+              )
+            })()}
           </div>
         ) : (
           <div style={{ textAlign: 'center', padding: '4rem 0' }}>

@@ -1,8 +1,8 @@
 import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import HomeSearchBar from '@/components/HomeSearchBar'
-import TrailPromptInput from '@/components/TrailPromptInput'
-import HomeMapSection from '@/components/HomeMapSection'
+import NewsletterSignup from '@/components/NewsletterSignup'
+import ScrollReveal from '@/components/ScrollReveal'
 import { getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
 
 export const revalidate = 1800
@@ -20,15 +20,15 @@ const verticals = [
 ]
 
 const VERTICAL_CARD_COLORS = {
-  sba:          { bg: '#1a2e1f', text: '#e8f0e9' },
-  collection:   { bg: '#1e1a35', text: '#e9e7f5' },
-  craft:        { bg: '#2a1f14', text: '#f2ebe0' },
-  fine_grounds: { bg: '#141210', text: '#f0ebe3' },
-  rest:         { bg: '#162233', text: '#e4edf5' },
-  field:        { bg: '#2b2010', text: '#f5edda' },
-  corner:       { bg: '#191919', text: '#eeeeee' },
-  found:        { bg: '#2a1a1f', text: '#f5e8ec' },
-  table:        { bg: '#1c2415', text: '#eaf0e2' },
+  sba:          { bg: '#3D2B1F', text: '#FAF8F4' },
+  collection:   { bg: '#2D3436', text: '#FAF8F4' },
+  craft:        { bg: '#4A3728', text: '#FAF8F4' },
+  fine_grounds: { bg: '#2C1810', text: '#FAF8F4' },
+  rest:         { bg: '#1B2631', text: '#FAF8F4' },
+  field:        { bg: '#1E3A2F', text: '#FAF8F4' },
+  corner:       { bg: '#3B2F2F', text: '#FAF8F4' },
+  found:        { bg: '#2F2B26', text: '#FAF8F4' },
+  table:        { bg: '#3A2E1F', text: '#FAF8F4' },
 }
 
 const REGION_ACCENT_COLORS = {
@@ -231,19 +231,27 @@ export default async function Home() {
   const [stats, articlesRaw, featuredByVertical, clusters] = await Promise.all([getStats(), getLatestArticles(), getFeaturedByVertical(), getDiscoverClusters()])
   const articles = articlesRaw.length > 0 ? articlesRaw : []
 
+  const featuredArticle = articles.find(a => a.hero_image_url) || articles[0]
+
   return (
     <>
-      {/* Hero */}
-      <section className="relative text-center px-4 sm:px-6 pt-24 pb-8 max-w-4xl mx-auto">
-        <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, letterSpacing: '-0.01em' }} className="text-4xl sm:text-5xl md:text-6xl leading-[1.1] text-[var(--color-ink)]">
-          Nine atlases. One guide to<br /><em className="not-italic" style={{ fontStyle: 'italic' }}>independent</em> Australia.
+      {/* ── 1. Hero ─────────────────────────────────────── */}
+      <section className="relative text-center flex flex-col items-center justify-center px-6 sm:px-12" style={{ minHeight: 'min(88vh, 800px)', paddingTop: '3rem', paddingBottom: '3rem' }}>
+        <h1 style={{
+          fontFamily: 'var(--font-display)', fontWeight: 400, letterSpacing: '-0.01em',
+          fontSize: 'clamp(2.5rem, 6vw, 5rem)', lineHeight: 1.1,
+          color: 'var(--color-ink)', maxWidth: '900px',
+        }}>
+          Nine atlases. One guide to<br /><em style={{ fontStyle: 'italic' }}>independent</em> Australia.
         </h1>
 
-        <p className="mt-5 max-w-2xl mx-auto" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '17px', lineHeight: 1.65, color: 'var(--color-muted)' }}>
-          A curated guide to the makers, producers, restaurants, galleries, shops, stays, and natural places worth knowing about &mdash; across nine specialist atlases and {stats.regions || '46'} regions.
+        <p className="mt-6" style={{
+          fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '17px',
+          lineHeight: 1.65, color: 'var(--color-muted)', maxWidth: '580px',
+        }}>
+          A curated guide to the makers, producers, restaurants, galleries, shops, stays, and natural places worth knowing about.
         </p>
 
-        {/* Stats as credentials */}
         {stats.listings > 0 && (
           <div className="mt-5 flex items-center justify-center gap-4 sm:gap-6" style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '13px', letterSpacing: '0.02em' }}>
             <span className="text-[var(--color-ink)]">{stats.listings.toLocaleString()} verified listings</span>
@@ -254,287 +262,110 @@ export default async function Home() {
           </div>
         )}
 
-        {/* Search bar */}
         <HomeSearchBar />
 
-        {/* CTA */}
         <div className="mt-6 flex items-center justify-center gap-4 flex-wrap">
           <Link
-            href="/explore"
-            className="inline-flex items-center gap-2 bg-[var(--color-sage)] text-white px-7 py-3 rounded-full hover:opacity-90 transition-opacity"
-            style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px' }}
+            href="/map"
+            className="inline-flex items-center gap-2 text-white px-7 py-3 rounded-full hover:opacity-90 transition-opacity"
+            style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px', background: 'var(--color-ink)' }}
           >
-            Start exploring
+            Explore the map
           </Link>
           <Link
-            href="/about"
-            className="inline-flex items-center gap-2 text-[var(--color-muted)] hover:text-[var(--color-ink)] transition-colors"
-            style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '14px', padding: '12px 4px' }}
-          >
-            What is this?
-          </Link>
-        </div>
-      </section>
-
-      {/* Interactive Map — centrepiece */}
-      <HomeMapSection listingCount={stats.listings} />
-
-      {/* Trip Planning Cards — dual card layout */}
-      <section className="px-4 sm:px-6 py-12 max-w-5xl mx-auto">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Long Weekend Engine */}
-          <Link
-            href="/long-weekend"
-            className="group block rounded-2xl overflow-hidden hover:shadow-md transition-all"
+            href="/near-me"
+            className="inline-flex items-center gap-2 px-7 py-3 rounded-full transition-colors hover:border-[var(--color-ink)]"
             style={{
-              background: 'var(--color-ink)',
-              border: '1px solid transparent',
+              fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px',
+              color: 'var(--color-ink)', border: '1px solid var(--color-border)',
             }}
           >
-            <div className="relative p-7 sm:p-8 flex flex-col min-h-[220px]">
-              <div className="absolute inset-0 pointer-events-none" style={{
-                opacity: 0.06,
-                backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)',
-                backgroundSize: '20px 20px',
-              }} />
-
-              <div className="relative flex-1">
-                <p style={{
-                  fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 10,
-                  letterSpacing: '0.16em', textTransform: 'uppercase',
-                  color: 'var(--color-sage)', marginBottom: 10, lineHeight: 1,
-                }}>
-                  Long Weekend Engine
-                </p>
-                <h2 style={{
-                  fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 'clamp(20px, 2.5vw, 24px)',
-                  color: '#fff', lineHeight: 1.25, marginBottom: 8,
-                }}>
-                  Where should I go this long weekend?
-                </h2>
-                <p style={{
-                  fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 14,
-                  color: 'rgba(255,255,255,0.55)', lineHeight: 1.6, marginBottom: 0,
-                }}>
-                  Tell us where you are and what you&apos;re into. We&apos;ll build a 3-day plan from real places across the network.
-                </p>
-              </div>
-
-              <div className="relative mt-4">
-                <span
-                  className="inline-flex items-center gap-2 text-white border border-white/20 px-4 py-2 rounded-full group-hover:border-white/40 transition-colors"
-                  style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12 }}
-                >
-                  Plan a weekend
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                </span>
-              </div>
-            </div>
-          </Link>
-
-          {/* On This Road */}
-          <Link
-            href="/on-this-road"
-            className="group block rounded-2xl overflow-hidden hover:shadow-md transition-all"
-            style={{
-              background: 'var(--color-ink)',
-              border: '1px solid transparent',
-            }}
-          >
-            <div className="relative p-7 sm:p-8 flex flex-col min-h-[220px]">
-              <div className="absolute inset-0 pointer-events-none" style={{
-                opacity: 0.05,
-                backgroundImage: 'repeating-linear-gradient(90deg, #fff 0px, #fff 1px, transparent 1px, transparent 24px)',
-                backgroundSize: '24px 100%',
-              }} />
-
-              <div className="relative flex-1">
-                <p style={{
-                  fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 10,
-                  letterSpacing: '0.16em', textTransform: 'uppercase',
-                  color: '#d4a843', marginBottom: 10, lineHeight: 1,
-                }}>
-                  On This Road
-                </p>
-                <h2 style={{
-                  fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 'clamp(20px, 2.5vw, 24px)',
-                  color: '#fff', lineHeight: 1.25, marginBottom: 8,
-                }}>
-                  Every drive is better with somewhere worth stopping.
-                </h2>
-                <p style={{
-                  fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 14,
-                  color: 'rgba(255,255,255,0.55)', lineHeight: 1.6, marginBottom: 0,
-                }}>
-                  You know where you&apos;re going. We&apos;ll find independent makers, stays, and cultural spaces on the way.
-                </p>
-              </div>
-
-              <div className="relative mt-4">
-                <span
-                  className="inline-flex items-center gap-2 text-white border border-white/20 px-4 py-2 rounded-full group-hover:border-white/40 transition-colors"
-                  style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12 }}
-                >
-                  Plan a road trip
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                </span>
-              </div>
-            </div>
+            What&apos;s near me?
           </Link>
         </div>
       </section>
 
-      {/* Atlas Grid */}
-      <section className="px-4 sm:px-6 py-16 max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {verticals.map(v => {
-            const colors = VERTICAL_CARD_COLORS[v.key]
-            return (
-              <a
-                key={v.key}
-                href={v.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group relative block rounded-xl overflow-hidden"
-                style={{ background: colors.bg }}
-              >
-                {/* Dot-grid texture overlay */}
-                <div className="absolute inset-0 pointer-events-none" style={{
-                  opacity: 0.1,
-                  backgroundImage: 'radial-gradient(circle, currentColor 1px, transparent 1px)',
-                  backgroundSize: '16px 16px',
-                  color: colors.text,
-                }} />
-                <div className="relative p-6 flex flex-col" style={{ minHeight: 200 }}>
-                  {/* Tag */}
-                  <p style={{
-                    fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 10,
-                    letterSpacing: '0.16em', textTransform: 'uppercase',
-                    color: colors.text, opacity: 0.5, marginBottom: 16, lineHeight: 1,
-                  }}>
-                    {v.tag}
-                  </p>
-                  {/* Name */}
-                  <h2 style={{
-                    fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22,
-                    color: colors.text, lineHeight: 1.2, marginBottom: 6,
-                  }}>
-                    {v.name}
-                  </h2>
-                  {/* Description */}
-                  <p style={{
-                    fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 13,
-                    color: colors.text, opacity: 0.65, lineHeight: 1.5, marginBottom: 0,
-                  }}>
-                    {v.desc}
-                  </p>
-                  {/* Spacer */}
-                  <div style={{ flex: 1, minHeight: 20 }} />
-                  {/* Footer: count + links */}
-                  <div className="flex items-end justify-between">
-                    {stats.verticalCounts[v.key] > 0 && (
-                      <span style={{
-                        fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12,
-                        color: colors.text, opacity: 0.4,
-                      }}>
-                        {stats.verticalCounts[v.key].toLocaleString()} listings
-                      </span>
-                    )}
-                    <div className="flex items-center gap-4">
-                      <Link
-                        href={`/search?vertical=${v.key}`}
-                        className="relative z-10 transition-opacity hover:opacity-70"
-                        style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, color: colors.text, padding: '8px 4px', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}
-                      >
-                        Browse
-                      </Link>
-                      <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12, color: colors.text, opacity: 0.5 }} className="group-hover:opacity-80 transition-opacity">
-                        Visit &nearr;
-                      </span>
-                    </div>
-                  </div>
+      {/* ── 2. Journal Feature ──────────────────────────── */}
+      {featuredArticle && (
+        <ScrollReveal as="section" style={{ paddingBlock: '120px' }}>
+          <div className="max-w-5xl mx-auto px-6 sm:px-12">
+            <a
+              href={featuredArticle.article_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group block"
+            >
+              {featuredArticle.hero_image_url && (
+                <div className="reveal relative overflow-hidden rounded-xl" style={{ aspectRatio: '21/9' }}>
+                  <img
+                    src={featuredArticle.hero_image_url}
+                    alt=""
+                    className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700"
+                  />
                 </div>
-              </a>
-            )
-          })}
-        </div>
-      </section>
-
-      {/* Trail Builder Section */}
-      <section className="py-20 px-4 sm:px-6 bg-white border-t border-[var(--color-border)]">
-        <div className="max-w-4xl mx-auto text-center">
-          <p style={{ fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--color-sage)', marginBottom: 12, fontFamily: 'var(--font-body)', fontWeight: 600 }}>Discovery Trails</p>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400 }} className="text-3xl sm:text-4xl text-[var(--color-ink)]">
-            Plan a trip in plain English
-          </h2>
-          <p className="mt-4 max-w-xl mx-auto leading-relaxed" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px', color: 'var(--color-muted)' }}>
-            Tell us where you want to go and what you&apos;re into. We&apos;ll build a day-by-day itinerary from real, verified venues across all nine atlases.
-          </p>
-
-          {/* Trail prompt input */}
-          <TrailPromptInput />
-
-          {/* Example trails */}
-          <div className="mt-14 grid grid-cols-1 sm:grid-cols-3 gap-5 text-left">
-            {[
-              { query: 'Weekend wine trail through the Barossa', region: 'Barossa Valley, SA', days: '2 days', stops: '8 stops', verticals: ['Small Batch', 'Table', 'Rest'] },
-              { query: 'Three day art and makers tour of Hobart', region: 'Hobart, TAS', days: '3 days', stops: '12 stops', verticals: ['Culture', 'Craft', 'Fine Grounds'] },
-              { query: 'Day trip to Mornington Peninsula wineries', region: 'Mornington Peninsula, VIC', days: '1 day', stops: '5 stops', verticals: ['Small Batch', 'Table'] },
-            ].map((example, i) => (
-              <Link
-                key={i}
-                href={`/itinerary?q=${encodeURIComponent(example.query)}`}
-                className="group block rounded-xl border border-[var(--color-border)] p-5 hover:border-[var(--color-sage)] hover:shadow-sm transition-all"
-                style={{ background: 'var(--color-bg)' }}
-              >
-                <div className="flex items-center gap-2 mb-3">
-                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '11px', color: 'var(--color-sage)' }}>{example.region}</span>
-                  <span style={{ color: 'var(--color-border)', fontSize: 10 }}>&middot;</span>
-                  <span style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '11px', color: 'var(--color-muted)' }}>{example.days}</span>
-                </div>
-                <p style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '17px', color: 'var(--color-ink)', lineHeight: 1.35, marginBottom: 10 }}>
-                  {example.query}
+              )}
+              <div className="reveal" data-reveal-index="1" style={{ maxWidth: '640px', marginTop: '2rem' }}>
+                <p style={{
+                  fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 600,
+                  letterSpacing: '0.15em', textTransform: 'uppercase',
+                  color: 'var(--color-muted)', marginBottom: '10px',
+                }}>
+                  {VERTICAL_LABELS[featuredArticle.vertical] || 'Atlas'}
+                  {featuredArticle.category && ` · ${featuredArticle.category}`}
                 </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {example.verticals.map(v => (
-                    <span key={v} style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '10px', color: 'var(--color-muted)', background: 'var(--color-cream)', padding: '4px 10px', borderRadius: 100 }}>{v}</span>
-                  ))}
-                </div>
-              </Link>
-            ))}
+                <h2 style={{
+                  fontFamily: 'var(--font-display)', fontWeight: 400,
+                  fontSize: 'clamp(24px, 3vw, 36px)', lineHeight: 1.2,
+                  color: 'var(--color-ink)', margin: '0 0 12px',
+                }}>
+                  {featuredArticle.title}
+                </h2>
+                {featuredArticle.excerpt && (
+                  <p style={{
+                    fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
+                    lineHeight: 1.65, color: 'var(--color-muted)', margin: '0 0 16px',
+                  }}>
+                    {featuredArticle.excerpt}
+                  </p>
+                )}
+                <span style={{
+                  fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
+                  color: 'var(--color-accent)',
+                }}>
+                  Read the story &rarr;
+                </span>
+              </div>
+            </a>
           </div>
+        </ScrollReveal>
+      )}
 
-          <div className="mt-8">
-            <Link href="/trails" className="inline-flex items-center gap-2 text-[var(--color-accent)] hover:opacity-80 transition-opacity" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', padding: '10px 4px', minHeight: 44 }}>
-              Browse all trails
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Discover a Cluster */}
+      {/* ── 3. Cross-Vertical Cluster ──────────────────── */}
       {clusters.length > 0 && (
-        <section className="py-16 px-4 sm:px-6" style={{ background: 'var(--color-cream)' }}>
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center mb-10">
-              <p style={{ fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--color-sage)', marginBottom: 8, fontFamily: 'var(--font-body)', fontWeight: 600 }}>
-                Cross-Vertical
-              </p>
-              <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400 }} className="text-3xl sm:text-4xl text-[var(--color-ink)]">
+        <ScrollReveal as="section" style={{ paddingBlock: '96px', background: 'var(--color-cream)' }}>
+          <div className="max-w-5xl mx-auto px-6 sm:px-12">
+            <div className="reveal text-center mb-12">
+              <h2 style={{
+                fontFamily: 'var(--font-display)', fontWeight: 400,
+                fontSize: 'clamp(24px, 3vw, 36px)', color: 'var(--color-ink)',
+              }}>
                 Discover a cluster
               </h2>
-              <p className="mt-3 max-w-xl mx-auto" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px', color: 'var(--color-muted)' }}>
+              <p className="mt-3" style={{
+                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
+                color: 'var(--color-muted)', maxWidth: '480px', margin: '12px auto 0',
+              }}>
                 Regions where makers, stays, culture, and food overlap. One place, many reasons to go.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-              {clusters.map(cluster => (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+              {clusters.map((cluster, ci) => (
                 <Link
                   key={cluster.region}
                   href={`/regions/${cluster.region.toLowerCase().replace(/\s+&\s+/g, '-').replace(/\s+/g, '-')}`}
-                  className="group block rounded-xl overflow-hidden hover:shadow-sm transition-all"
+                  className="reveal group listing-card block rounded-xl overflow-hidden"
+                  data-reveal-index={ci + 1}
                   style={{ background: '#fff', border: '1px solid var(--color-border)' }}
                 >
                   <div className="p-6">
@@ -578,132 +409,85 @@ export default async function Home() {
               ))}
             </div>
           </div>
-        </section>
+        </ScrollReveal>
       )}
 
-      {/* From the Journal */}
-      {articles.length > 0 && (
-      <section className="py-20 px-4 sm:px-6" style={{ background: 'var(--color-cream)' }}>
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-10">
-            <p style={{ fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--color-sage)', marginBottom: 8, fontFamily: 'var(--font-body)', fontWeight: 600 }}>
-              From the Journal
-            </p>
-            <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400 }} className="text-3xl sm:text-4xl text-[var(--color-ink)]">
-              Dispatches from the network
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            {articles.map(article => {
-                const artColors = VERTICAL_CARD_COLORS[article.vertical] || { bg: '#0f0e0c', text: '#f0ece4' }
-                return (
-                  <a
-                    key={article.id}
-                    href={article.article_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group block rounded-xl overflow-hidden"
-                    style={{ background: '#fff', border: '1px solid var(--color-border)' }}
-                  >
-                    {/* Article card — hero image with gradient, or typographic fallback */}
-                    <div
-                      className="relative overflow-hidden"
-                      style={{
-                        aspectRatio: '16/10',
-                        background: artColors.bg,
-                        color: article.hero_image_url ? '#fff' : artColors.text,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'flex-end',
-                        padding: '1.25rem',
-                      }}
-                    >
-                      {article.hero_image_url ? (
-                        <>
-                          <img
-                            src={article.hero_image_url}
-                            alt=""
-                            style={{
-                              position: 'absolute', inset: 0,
-                              width: '100%', height: '100%',
-                              objectFit: 'cover',
-                            }}
-                          />
-                          <div style={{
-                            position: 'absolute', inset: 0,
-                            background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.2) 50%, transparent 100%)',
-                            pointerEvents: 'none',
-                          }} />
-                        </>
-                      ) : (
-                        <div style={{
-                          position: 'absolute', inset: 0,
-                          backgroundImage: `radial-gradient(circle, ${artColors.text} 1px, transparent 1px)`,
-                          backgroundSize: '16px 16px',
-                          opacity: 0.1, pointerEvents: 'none',
-                        }} />
-                      )}
-                      <div style={{ position: 'relative', zIndex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                          {article.vertical && (
-                            <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '8px', letterSpacing: '0.14em', textTransform: 'uppercase', opacity: article.hero_image_url ? 0.85 : 0.55 }}>
-                              {VERTICAL_LABELS[article.vertical] || article.vertical}
-                            </span>
-                          )}
-                          {article.category && (
-                            <>
-                              <span style={{ opacity: 0.3, fontSize: 6 }}>&middot;</span>
-                              <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '8px', letterSpacing: '0.12em', textTransform: 'uppercase', opacity: article.hero_image_url ? 0.7 : 0.45 }}>
-                                {article.category}
-                              </span>
-                            </>
-                          )}
-                        </div>
-                        <div style={{ width: 20, height: 1, background: article.hero_image_url ? '#fff' : artColors.text, opacity: 0.35, marginBottom: 8 }} />
-                        <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '17px', lineHeight: 1.3, margin: 0 }}>
-                          {article.title}
-                        </h3>
-                      </div>
-                    </div>
-
-                    {article.excerpt && (
-                      <div className="px-5 py-4">
-                        <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '13px', color: 'var(--color-muted)', lineHeight: 1.5, margin: 0 }}>
-                          {article.excerpt}
-                        </p>
-                      </div>
-                    )}
-                  </a>
-                )
-              })}
-          </div>
-
-          <div className="mt-8 text-center">
+      {/* ── 4. Plan a Trip ─────────────────────────────── */}
+      <ScrollReveal as="section" style={{ paddingBlock: '96px' }}>
+        <div className="max-w-4xl mx-auto px-6 sm:px-12">
+          <h2 className="reveal text-center mb-10" style={{
+            fontFamily: 'var(--font-display)', fontWeight: 400,
+            fontSize: 'clamp(24px, 3vw, 36px)', color: 'var(--color-ink)',
+          }}>
+            Plan a trip
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <Link
-              href="/journal"
-              className="inline-flex items-center gap-2 text-[var(--color-accent)] hover:opacity-80 transition-opacity"
-              style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', padding: '10px 4px', minHeight: 44 }}
+              href="/long-weekend"
+              className="reveal group listing-card block rounded-xl p-8"
+              data-reveal-index="1"
+              style={{ background: 'var(--color-ink)', border: '1px solid transparent' }}
             >
-              Read the Journal
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+              <h3 style={{
+                fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px',
+                color: '#fff', lineHeight: 1.25, marginBottom: 8,
+              }}>
+                Long weekend
+              </h3>
+              <p style={{
+                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px',
+                color: 'rgba(255,255,255,0.55)', lineHeight: 1.6, marginBottom: 20,
+              }}>
+                Tell us where you are and what you&apos;re into.
+              </p>
+              <span style={{
+                fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
+                color: 'rgba(255,255,255,0.7)',
+              }}>
+                Plan a weekend &rarr;
+              </span>
+            </Link>
+
+            <Link
+              href="/on-this-road"
+              className="reveal group listing-card block rounded-xl p-8"
+              data-reveal-index="2"
+              style={{ background: 'var(--color-ink)', border: '1px solid transparent' }}
+            >
+              <h3 style={{
+                fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px',
+                color: '#fff', lineHeight: 1.25, marginBottom: 8,
+              }}>
+                Road trip
+              </h3>
+              <p style={{
+                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px',
+                color: 'rgba(255,255,255,0.55)', lineHeight: 1.6, marginBottom: 20,
+              }}>
+                You know where you&apos;re going. We&apos;ll find the stops.
+              </p>
+              <span style={{
+                fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
+                color: 'rgba(255,255,255,0.7)',
+              }}>
+                Plan a road trip &rarr;
+              </span>
             </Link>
           </div>
         </div>
-      </section>
-      )}
+      </ScrollReveal>
 
-      {/* Explore by Region */}
-      <section className="py-16 px-4 sm:px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-10">
-            <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400 }} className="text-3xl sm:text-4xl text-[var(--color-ink)]">Explore by region</h2>
-            <p className="mt-3 max-w-xl mx-auto" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px', color: 'var(--color-muted)' }}>
-              Every listing in every region, across all nine atlases.
-            </p>
-          </div>
+      {/* ── 5. Regions ────────────────────────────────── */}
+      <ScrollReveal as="section" style={{ paddingBlock: '96px' }}>
+        <div className="max-w-5xl mx-auto px-6 sm:px-12">
+          <h2 className="reveal text-center mb-10" style={{
+            fontFamily: 'var(--font-display)', fontWeight: 400,
+            fontSize: 'clamp(24px, 3vw, 36px)', color: 'var(--color-ink)',
+          }}>
+            Explore by region
+          </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
               { name: 'Barossa Valley', state: 'SA' },
               { name: 'Mornington Peninsula', state: 'VIC' },
@@ -711,40 +495,37 @@ export default async function Home() {
               { name: 'Byron Hinterland', state: 'NSW' },
               { name: 'Blue Mountains', state: 'NSW' },
               { name: 'Adelaide Hills', state: 'SA' },
-            ].map(r => {
+            ].map((r, ri) => {
               const count = stats.regionCounts[r.name]
-              const accent = REGION_ACCENT_COLORS[r.name] || 'var(--color-sage)'
               return (
                 <Link
                   key={r.name}
                   href={`/regions/${r.name.toLowerCase().replace(/\s+/g, '-')}`}
-                  className="group block rounded-xl overflow-hidden hover:shadow-sm transition-all"
-                  style={{
-                    background: '#fff',
-                    border: '1px solid var(--color-border, #e8e3da)',
-                    borderTop: `3px solid ${accent}`,
-                  }}
+                  className="reveal group listing-card block rounded-xl overflow-hidden"
+                  data-reveal-index={ri + 1}
+                  style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}
                 >
                   <div className="p-6 flex flex-col" style={{ minHeight: 140 }}>
                     <h3 style={{
-                      fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 20,
+                      fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22,
                       color: 'var(--color-ink)', lineHeight: 1.25, marginBottom: 4,
                     }}>
                       {r.name}
                     </h3>
                     <p style={{
-                      fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12,
-                      color: 'var(--color-muted)', letterSpacing: '0.04em', marginBottom: 0,
+                      fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '10px',
+                      letterSpacing: '0.12em', textTransform: 'uppercase',
+                      color: 'var(--color-muted)', marginBottom: 0,
                     }}>
                       {r.state}
                     </p>
                     <div style={{ flex: 1, minHeight: 16 }} />
                     {count > 0 && (
                       <span style={{
-                        fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11,
-                        color: 'var(--color-muted)', opacity: 0.7,
+                        fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12,
+                        color: 'var(--color-muted)',
                       }}>
-                        {count} listings across the network
+                        {count} listings
                       </span>
                     )}
                   </div>
@@ -755,53 +536,31 @@ export default async function Home() {
 
           <div className="mt-8 text-center">
             <Link href="/regions" className="inline-flex items-center gap-2 text-[var(--color-accent)] hover:opacity-80 transition-opacity" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', padding: '10px 4px', minHeight: 44 }}>
-              Browse all regions
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+              Browse all regions &rarr;
             </Link>
           </div>
         </div>
-      </section>
+      </ScrollReveal>
 
-      {/* For Partners */}
-      <section className="bg-[var(--color-ink)] text-white py-20 px-4 sm:px-6">
-        <div className="max-w-3xl mx-auto">
-          <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400 }} className="text-2xl sm:text-3xl">For tourism partners and regional councils</h2>
-
-          <div className="mt-8 space-y-5">
-            <p className="text-white/70 leading-relaxed" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px' }}>
-              Nine curated atlases. {stats.listings > 0 ? stats.listings.toLocaleString() : '6,881'} verified listings. {stats.regions || 46} regions. Australian Atlas maps the independent businesses and cultural spaces that make regions worth visiting &mdash; the layer that ATDW and council tourism sites typically don&apos;t cover.
-            </p>
-            <p className="text-white/70 leading-relaxed" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px' }}>
-              Council partnerships start with understanding what&apos;s already in your region on the network, then extend into content co-creation, editorial trails, regional analytics, and verified data access. Plans run annually from $249.
-            </p>
-          </div>
-
-          <div className="mt-8 flex flex-wrap items-center gap-4">
-            <Link
-              href="/for-councils"
-              className="inline-flex items-center gap-2 bg-[var(--color-accent)] text-white px-6 py-3 rounded-full hover:opacity-90 transition-opacity"
-              style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px' }}
-            >
-              Learn more
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-            </Link>
-            <a
-              href="mailto:councils@australianatlas.com.au"
-              className="inline-flex items-center gap-2 text-white/70 hover:text-white px-6 py-3 rounded-full border border-white/20 transition-colors"
-              style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px' }}
-            >
-              councils@australianatlas.com.au
-            </a>
-            <a
-              href="/council/login"
-              className="text-white/50 hover:text-white/80 transition-colors"
-              style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '13px', textDecoration: 'underline', textUnderlineOffset: '3px', padding: '10px 4px', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}
-            >
-              Council login
-            </a>
-          </div>
+      {/* ── 6. Newsletter ─────────────────────────────── */}
+      <ScrollReveal as="section" style={{ paddingBlock: '96px', background: 'var(--color-cream)' }}>
+        <div className="reveal max-w-xl mx-auto px-6 sm:px-12 text-center">
+          <h2 style={{
+            fontFamily: 'var(--font-display)', fontWeight: 400,
+            fontSize: 'clamp(22px, 3vw, 32px)', color: 'var(--color-ink)',
+            marginBottom: '8px',
+          }}>
+            One independent place, every week.
+          </h2>
+          <p style={{
+            fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px',
+            color: 'var(--color-muted)', marginBottom: '24px',
+          }}>
+            A short email with a single place worth knowing about.
+          </p>
+          <NewsletterSignup variant="inline" />
         </div>
-      </section>
+      </ScrollReveal>
     </>
   )
 }
