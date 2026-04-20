@@ -27,6 +27,7 @@ export async function GET(request) {
       .from('listings')
       .select('id, name, vertical, slug, lat, lng, region, hero_image_url')
       .eq('status', 'active')
+      .or('address_on_request.eq.false,address_on_request.is.null')
       .ilike('name', `%${q.trim()}%`)
       .not('lat', 'is', null)
       .not('lng', 'is', null)

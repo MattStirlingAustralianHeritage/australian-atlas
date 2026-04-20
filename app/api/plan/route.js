@@ -145,6 +145,7 @@ async function fetchVenues(intent) {
       .from('listings')
       .select('id, name, slug, vertical, region, state, description, lat, lng, sub_type, hero_image_url, quality_score, website')
       .eq('status', 'active')
+      .or('address_on_request.eq.false,address_on_request.is.null')
       .order('quality_score', { ascending: false, nullsFirst: false })
       .limit(40)
 
@@ -172,6 +173,7 @@ async function fetchVenues(intent) {
       .from('listings')
       .select('id, name, slug, vertical, region, state, description, lat, lng, sub_type, hero_image_url, quality_score, website')
       .eq('status', 'active')
+      .or('address_on_request.eq.false,address_on_request.is.null')
       .order('quality_score', { ascending: false, nullsFirst: false })
       .limit(20)
 
