@@ -290,7 +290,7 @@ export async function POST(request, { params }) {
   }
 
   try {
-    const { action, subcategory, subcategory_secondary, reviewerOverrides } = await request.json()
+    const { action, subcategory, subcategory_secondary, address_on_request, reviewerOverrides } = await request.json()
 
     if (!['approve', 'reject'].includes(action)) {
       return NextResponse.json({ error: 'Invalid action — must be approve or reject' }, { status: 400 })
@@ -449,10 +449,8 @@ export async function POST(request, { params }) {
         opening_hours: enriched.opening_hours || null,
         instagram_handle: enriched.instagram_handle || null,
         category: effectiveCategory,
-        // Hero image: always null for new listings.
-        // Unclaimed listings use the designed fallback — no scraping, no og:image.
-        // Venue owners upload their own hero image when they claim the listing.
         hero_image_url: null,
+        address_on_request: !!address_on_request,
       }
 
       if (ogImage) {
@@ -501,6 +499,7 @@ export async function POST(request, { params }) {
         is_featured: false,
         data_source: isAiOriginated ? 'ai_generated' : 'manually_curated',
         needs_review: isAiOriginated,
+        address_on_request: fullData.address_on_request,
       }
 
       // Check if listing already exists — match by slug OR source_id to catch:

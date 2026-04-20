@@ -542,6 +542,7 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
     return ''
   })
   const [subcategorySecondary, setSubcategorySecondary] = useState('')
+  const [addressOnRequest, setAddressOnRequest] = useState(false)
 
   const vertical = candidate.vertical || 'sba'
   const color = VERTICAL_COLORS[vertical] || '#5F8A7E'
@@ -643,8 +644,7 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
           action: 'approve',
           subcategory: subcategory || undefined,
           subcategory_secondary: subcategorySecondary || undefined,
-          // Reviewer edits always win — send current card state so the API
-          // uses these as the authoritative values over enriched/AI data
+          address_on_request: addressOnRequest,
           reviewerOverrides: {
             name: candidate.name || undefined,
             description: candidate.description || undefined,
@@ -743,6 +743,20 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
               ⚠ Also in {crossMatches.map(m => m.verticalName).filter((v, i, a) => a.indexOf(v) === i).join(', ')}
             </span>
           )}
+          <label style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 500,
+            color: addressOnRequest ? '#7C3AED' : 'var(--color-muted)',
+            cursor: 'pointer', userSelect: 'none',
+          }}>
+            <input
+              type="checkbox"
+              checked={addressOnRequest}
+              onChange={e => setAddressOnRequest(e.target.checked)}
+              style={{ margin: 0, accentColor: '#7C3AED' }}
+            />
+            AOR
+          </label>
         </div>
         <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
           <button data-action="approve" onClick={() => handleAction('approve')} disabled={buttonsDisabled || noSubcategory}
