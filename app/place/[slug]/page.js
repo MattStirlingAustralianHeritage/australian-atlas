@@ -151,14 +151,13 @@ function haversineKm(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
-async function getNearbyListings(listing, limit = 6) {
+async function getNearbyListings(listing, limit = 4) {
   if (!listing.lat || !listing.lng) return []
   const sb = getSupabaseAdmin()
 
-  const PRIMARY_RADIUS_KM = 15
-  const MAX_RADIUS_KM = 30
+  const PRIMARY_RADIUS_KM = 25
+  const MAX_RADIUS_KM = 50
 
-  // Bounding box sized to hard cap (30km) — no results beyond this ever shown
   const latDelta = MAX_RADIUS_KM / 111
   const lngDelta = MAX_RADIUS_KM / (111 * Math.cos(listing.lat * Math.PI / 180))
 
@@ -167,6 +166,9 @@ async function getNearbyListings(listing, limit = 6) {
     .select('id, name, slug, vertical, region, state, lat, lng, hero_image_url, description, is_featured, is_claimed, editors_pick')
     .eq('status', 'active')
     .neq('id', listing.id)
+    .neq('vertical', listing.vertical)
+    .or('address_on_request.eq.false,address_on_request.is.null')
+    .or('visitable.eq.true,visitable.is.null,presence_type.eq.by_appointment')
     .gte('lat', listing.lat - latDelta)
     .lte('lat', listing.lat + latDelta)
     .gte('lng', listing.lng - lngDelta)
@@ -177,7 +179,6 @@ async function getNearbyListings(listing, limit = 6) {
 
   if (!data || data.length === 0) return []
 
-  // Calculate actual Haversine distances and hard-cap at MAX_RADIUS_KM
   const withDist = data
     .map(l => ({ ...l, _dist: haversineKm(listing.lat, listing.lng, l.lat, l.lng) }))
     .filter(l => l._dist <= MAX_RADIUS_KM)
@@ -185,18 +186,12 @@ async function getNearbyListings(listing, limit = 6) {
 
   if (withDist.length === 0) return []
 
-  // Try primary radius first (15km)
   let pool = withDist.filter(l => l._dist <= PRIMARY_RADIUS_KM)
-
-  // Expand to 30km if fewer than 3 results within 15km
-  if (pool.length < 3) {
+  if (pool.length < limit) {
     pool = withDist
   }
 
-  // Pick closest, but cap per-vertical to ensure cross-vertical diversity.
-  // Pass 1: strict cap (max 2 per vertical) — prioritises variety
-  // Pass 2: relaxed cap (max 3 per vertical) — fills remaining slots
-  // Pass 3: no cap — only if still short (very sparse areas)
+  // Cap per-vertical to ensure cross-vertical diversity
   const result = []
   const verticalCounts = {}
   const usedIds = new Set()
@@ -213,9 +208,9 @@ async function getNearbyListings(listing, limit = 6) {
     }
   }
 
-  addFromPool(2)  // strict: max 2 per vertical
-  addFromPool(3)  // relaxed: max 3 per vertical
-  addFromPool(null)  // uncapped: fill remaining if needed
+  addFromPool(1)
+  addFromPool(2)
+  addFromPool(null)
 
   return result
 }
@@ -366,27 +361,33 @@ export default async function PlacePage({ params }) {
     .order('created_at', { ascending: false })
     .limit(5)
 
-  // Look up region slug for linking
+  // Strip state suffix from region if already present (e.g. "Mornington Peninsula, VIC" → "Mornington Peninsula")
+  const cleanRegion = listing.region && listing.state && listing.region.endsWith(`, ${listing.state}`)
+    ? listing.region.slice(0, -(listing.state.length + 2))
+    : listing.region
+
+  // Look up region slug for linking — try clean name first, then raw
   const sb = getSupabaseAdmin()
-  const regionData = listing.region
-    ? (await sb.from('regions').select('slug, name').ilike('name', listing.region).maybeSingle()).data
-    : null
+  let regionData = null
+  if (cleanRegion) {
+    const { data: rd } = await sb.from('regions').select('slug, name').ilike('name', cleanRegion).maybeSingle()
+    regionData = rd
+    if (!regionData && cleanRegion !== listing.region) {
+      const { data: rd2 } = await sb.from('regions').select('slug, name').ilike('name', listing.region).maybeSingle()
+      regionData = rd2
+    }
+  }
 
   const vertLabel = getVerticalLabel(listing.vertical)
   const vertColor = VERTICAL_COLORS[listing.vertical] || '#5F8A7E'
-  // Prefer the specific subcategory from meta (e.g. "Glamping", "Farm Stay")
-  // over the generic vertical label (e.g. "Boutique Stay")
   const specificSubcategory = formatSubcategory(listing._subcategory || listing.sub_type)
   const categoryLabel = specificSubcategory || VERTICAL_CATEGORY_LABELS[listing.vertical] || 'Place'
-  // Secondary subcategories — sub_types[1+] (skip the primary which is already shown)
   const secondarySubcategories = (listing.sub_types || []).slice(1).map(formatSubcategory).filter(Boolean)
   const verticalUrl = getVerticalUrl(listing.vertical, listing.slug)
-  // Build location subtitle — prefer address when region looks like a street
-  // (data quality issue: some listings have street address stored as region)
   const regionIsStreet = listing.region && /\d/.test(listing.region)
   const location = regionIsStreet
-    ? (listing.address || [listing.region, listing.state].filter(Boolean).join(', '))
-    : [listing.region, listing.state].filter(Boolean).join(', ')
+    ? (listing.address || [cleanRegion, listing.state].filter(Boolean).join(', '))
+    : [cleanRegion, listing.state].filter(Boolean).join(', ')
   const hasCoords = listing.lat && listing.lng
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''
   const websiteUrl = listing.website?.startsWith('http') ? listing.website : listing.website ? `https://${listing.website}` : null
@@ -443,14 +444,14 @@ export default async function PlacePage({ params }) {
               <span>&rsaquo;</span>
             </>
           )}
-          {listing.region && (
+          {cleanRegion && (
             <>
               <Link
                 href={regionData ? `/regions/${regionData.slug}` : `/search?region=${encodeURIComponent(listing.region)}`}
                 className="hover:underline"
                 style={{ padding: '6px 2px', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}
               >
-                {listing.region}
+                {cleanRegion}
               </Link>
               <span>&rsaquo;</span>
             </>
@@ -697,7 +698,7 @@ export default async function PlacePage({ params }) {
         )}
 
         {/* ── More in region ─────────────────────────────── */}
-        {listing.region && regionListings.length > 0 && (
+        {cleanRegion && regionListings.length > 0 && (
           <section className="mt-12">
             <h2
               className="mb-5"
@@ -708,7 +709,7 @@ export default async function PlacePage({ params }) {
                 color: 'var(--color-ink)',
               }}
             >
-              More in {listing.region}
+              More in {cleanRegion}
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {regionListings.map(r => (
@@ -719,7 +720,7 @@ export default async function PlacePage({ params }) {
         )}
 
         {/* ── Explore this region ────────────────────────── */}
-        {listing.region && (
+        {cleanRegion && (
           <Link
             href={regionData ? `/regions/${regionData.slug}` : `/search?region=${encodeURIComponent(listing.region)}`}
             className="block mt-10 py-5 px-6 rounded-lg transition-colors"
@@ -731,7 +732,7 @@ export default async function PlacePage({ params }) {
                   Explore Region
                 </p>
                 <p className="text-base font-medium" style={{ fontFamily: 'var(--font-display)', color: 'var(--color-ink)' }}>
-                  Explore all of {listing.region}
+                  Explore all of {cleanRegion}, {listing.state}
                 </p>
               </div>
               <svg className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--color-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -742,7 +743,7 @@ export default async function PlacePage({ params }) {
         )}
 
         {/* ── Cross-vertical discovery ───────────────────── */}
-        {listing.region && crossVerticalListings.length > 0 && (
+        {cleanRegion && crossVerticalListings.length > 0 && (
           <section className="mt-12">
             <h3
               className="mb-4"
@@ -753,7 +754,7 @@ export default async function PlacePage({ params }) {
                 color: 'var(--color-muted)',
               }}
             >
-              While you&rsquo;re in {listing.region}, also discover
+              While you&rsquo;re in {cleanRegion}, also discover
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {crossVerticalListings.map(c => (

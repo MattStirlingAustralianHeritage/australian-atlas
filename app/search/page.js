@@ -217,6 +217,7 @@ function SearchPageInner() {
   const [query, setQuery] = useState(searchParams.get('q') || '')
   const [vertical, setVertical] = useState(searchParams.get('vertical') || '')
   const [state, setState] = useState(searchParams.get('state') || '')
+  const [region, setRegion] = useState(searchParams.get('region') || '')
   const [autoState, setAutoState] = useState('')  // State detected from query text by API
   const [results, setResults] = useState([])
   const [total, setTotal] = useState(0)
@@ -227,11 +228,12 @@ function SearchPageInner() {
   const [detectedVertical, setDetectedVertical] = useState(null)
 
   // Sync URL when filters change (debounced alongside search)
-  const updateUrl = useCallback((q, v, s) => {
+  const updateUrl = useCallback((q, v, s, r) => {
     const params = new URLSearchParams()
     if (q) params.set('q', q)
     if (v) params.set('vertical', v)
     if (s) params.set('state', s)
+    if (r) params.set('region', r)
     const qs = params.toString()
     router.replace(qs ? `/search?${qs}` : '/search', { scroll: false })
   }, [router])
@@ -242,6 +244,7 @@ function SearchPageInner() {
     if (query) params.set('q', query)
     if (vertical) params.set('vertical', vertical)
     if (state) params.set('state', state)
+    if (region) params.set('region', region)
     params.set('page', p.toString())
     params.set('limit', '24')
 
@@ -266,7 +269,7 @@ function SearchPageInner() {
       setLoading(false)
       setInitialLoad(false)
     }
-  }, [query, vertical, state])
+  }, [query, vertical, state, region])
 
   // Check for itinerary intent on initial load (from homepage submission)
   useEffect(() => {
@@ -277,7 +280,7 @@ function SearchPageInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Only run once on mount
 
-  // Debounced search + URL sync when query/vertical/state change
+  // Debounced search + URL sync when query/vertical/state/region change
   useEffect(() => {
     // If itinerary intent detected mid-session, redirect
     if (query && isItineraryIntent(query)) {
@@ -288,11 +291,11 @@ function SearchPageInner() {
     }
 
     const timer = setTimeout(() => {
-      updateUrl(query, vertical, state)
+      updateUrl(query, vertical, state, region)
       search(1)
     }, 300)
     return () => clearTimeout(timer)
-  }, [search, updateUrl, query, vertical, state, router])
+  }, [search, updateUrl, query, vertical, state, region, router])
 
   // Build contextual results message
   function getResultsMessage() {
@@ -300,27 +303,28 @@ function SearchPageInner() {
     const count = total.toLocaleString()
     const vertLabel = VERTICAL_LABEL_MAP[vertical]
     const stateLabel = state || autoState
+    const locationLabel = region || stateLabel
 
-    if (query && vertical && stateLabel) {
-      return `${count} ${vertLabel} results for \u201c${query}\u201d in ${stateLabel}`
+    if (query && vertical && locationLabel) {
+      return `${count} ${vertLabel} results for \u201c${query}\u201d in ${locationLabel}`
     }
     if (query && vertical) {
       return `${count} ${vertLabel} results for \u201c${query}\u201d`
     }
-    if (query && stateLabel) {
-      return `${count} results for \u201c${query}\u201d in ${stateLabel}`
+    if (query && locationLabel) {
+      return `${count} results for \u201c${query}\u201d in ${locationLabel}`
     }
     if (query) {
       return `${count} results for \u201c${query}\u201d`
     }
-    if (vertical && stateLabel) {
-      return `${count} ${vertLabel} listings in ${stateLabel}`
+    if (vertical && locationLabel) {
+      return `${count} ${vertLabel} listings in ${locationLabel}`
     }
     if (vertical) {
       return `${count} ${vertLabel} listings`
     }
-    if (stateLabel) {
-      return `${count} listings in ${stateLabel}`
+    if (locationLabel) {
+      return `${count} listings in ${locationLabel}`
     }
     return `${count} listings across nine atlases`
   }
@@ -481,6 +485,33 @@ function SearchPageInner() {
           })}
         </div>
       </div>
+
+      {/* Active region filter */}
+      {region && (
+        <div className="mt-3 flex items-center gap-2">
+          <span
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm"
+            style={{
+              fontFamily: 'var(--font-body)',
+              fontWeight: 500,
+              fontSize: '13px',
+              background: 'var(--color-ink)',
+              color: '#fff',
+            }}
+          >
+            {region}
+            <button
+              onClick={() => setRegion('')}
+              className="hover:opacity-70 transition-opacity flex items-center justify-center"
+              style={{ marginLeft: '2px' }}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </span>
+        </div>
+      )}
 
       {/* Contextual header when query maps to a vertical + location */}
       {contextualHeader && !loading && results.length > 0 && (
