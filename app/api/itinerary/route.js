@@ -360,6 +360,8 @@ const REGION_KEYWORDS = {
   'whitsundays': 'Central Queensland', 'atherton tablelands': 'Far North Queensland',
   'daintree': 'Far North Queensland', 'tweed': 'Northern Rivers',
   'mullumbimby': 'Northern Rivers', 'bangalow': 'Northern Rivers',
+  'otways': 'Great Ocean Road', 'otway': 'Great Ocean Road', 'otway ranges': 'Great Ocean Road',
+  'colac otway': 'Great Ocean Road', 'forrest': 'Great Ocean Road',
 }
 
 // City-to-region mapping: maps common Australian cities/towns to their nearest
