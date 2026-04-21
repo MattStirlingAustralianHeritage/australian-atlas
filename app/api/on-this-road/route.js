@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { getDistanceBudget, getStopLimits } from '@/lib/route-budgets'
 
 export const maxDuration = 120
 
@@ -487,7 +488,8 @@ export async function POST(request) {
     // 2. Surprise Me: generate a loop route
     if (surpriseMe && !end) {
       isSurpriseLoop = true
-      const loopResult = await generateSurpriseLoop(startCoords, tripConfig, preferences, detourConfig)
+      const distanceBudget = getDistanceBudget(transportMode, tripLength, fitness)
+      const loopResult = await generateSurpriseLoop(startCoords, tripConfig, preferences, detourConfig, transportMode, fitness, distanceBudget)
       if (!loopResult) {
         return NextResponse.json({ error: 'Could not find enough listings to build a surprise loop. Try different preferences.' }, { status: 400 })
       }
@@ -497,6 +499,22 @@ export async function POST(request) {
       if (!route) {
         return NextResponse.json({ error: `Could not generate a ${transportMode === 'cycling' ? 'cycling' : 'driving'} loop from this location.` }, { status: 400 })
       }
+
+      // Validate route distance against budget — retry with tighter radius if over
+      if (distanceBudget) {
+        const routeKm = Math.round(route.distance / 1000)
+        if (routeKm > distanceBudget * 1.2) {
+          const tighterResult = await generateSurpriseLoop(startCoords, tripConfig, preferences, detourConfig, transportMode, fitness, distanceBudget * 0.4)
+          if (tighterResult) {
+            const tighterRoute = await getRoute(startCoords, startCoords, tighterResult.waypoints, transportMode)
+            if (tighterRoute && Math.round(tighterRoute.distance / 1000) <= distanceBudget * 1.2) {
+              Object.assign(loopResult, tighterResult)
+              Object.assign(route, tighterRoute)
+            }
+          }
+        }
+      }
+
       const itineraryResponse = await buildItinerary({
         startCoords, endCoords: startCoords, route,
         detourConfig, tripConfig, departureConfig, preferences,
@@ -504,6 +522,7 @@ export async function POST(request) {
         startName: start, endName: start,
         preSelectedListings: loopResult.listings,
         transportMode, bikeType, fitness,
+        tripLengthKey: tripLength,
       })
       // Inject direction metadata into surprise response for reveal animation
       if (loopResult.direction && itineraryResponse.status === 200) {
@@ -548,6 +567,7 @@ export async function POST(request) {
       currentSeason, isMultiDay, isSurpriseLoop: false, returnDifferentRoad,
       startName: start, endName: end,
       transportMode, bikeType, fitness,
+      tripLengthKey: tripLength,
     })
 
     // 6. If return different road requested, build return route
@@ -562,6 +582,7 @@ export async function POST(request) {
           isMultiDay: tripConfig.days >= 3, isSurpriseLoop: false, returnDifferentRoad: false,
           startName: end, endName: start,
           transportMode, bikeType, fitness,
+          tripLengthKey: tripLength,
         })
         const returnData = await returnResult.json()
         if (returnData.days) {
@@ -623,6 +644,7 @@ async function buildItinerary({
   currentSeason, isMultiDay, isSurpriseLoop, returnDifferentRoad,
   startName, endName, preSelectedListings,
   transportMode = 'driving', bikeType = 'any', fitness = 'moderate',
+  tripLengthKey = 'day_trip',
 }) {
   const isCycling = transportMode === 'cycling'
   const routeGeometry = route.geometry
@@ -638,6 +660,10 @@ async function buildItinerary({
     strong:   { maxDayKm: 100, maxElevationM: 1000, stopSpacingKm: 8  },
   }
   const cyclingConfig = isCycling ? CYCLING_FITNESS[fitness] || CYCLING_FITNESS.moderate : null
+
+  // Distance budget and stop count limits
+  const distanceBudget = getDistanceBudget(transportMode, tripLengthKey, fitness)
+  const stopLimits = getStopLimits(tripLengthKey)
 
   const routeDistances = buildRouteDistances(routeCoords)
   const totalRouteKm = routeDistances[routeDistances.length - 1] || routeDistanceKm
@@ -687,6 +713,12 @@ async function buildItinerary({
     }
   }
 
+  // Merge pre-selected listings from surprise loop (they may be outside the narrow route corridor)
+  if (preSelectedListings && preSelectedListings.length > 0) {
+    for (const listing of preSelectedListings) {
+      if (!seenIds.has(listing.id)) { seenIds.add(listing.id); allListings.push(listing) }
+    }
+  }
 
   // If multi-day, also query Rest Atlas listings with expanded buffer — batched
   let restCandidates = []
@@ -764,6 +796,9 @@ async function buildItinerary({
   }
 
   // Project all listings onto route + filter by detour tolerance + interest exclusion
+  // For surprise loops, use a wider corridor since pre-selected listings may be off-route
+  const preSelectedIds = preSelectedListings ? new Set(preSelectedListings.map(l => l.id)) : new Set()
+  const corridorKm = (isSurpriseLoop && isCycling) ? Math.max(effectiveBufferKm, 15) : effectiveBufferKm
   let prefExcludedCount = 0
   const routeListings = allListings
     .map(listing => {
@@ -778,7 +813,8 @@ async function buildItinerary({
       }
     })
     .filter(l => {
-      if (l.distanceFromRoute > effectiveBufferKm) return false
+      const maxBuffer = preSelectedIds.has(l.id) ? corridorKm : effectiveBufferKm
+      if (l.distanceFromRoute > maxBuffer) return false
       const effectiveQuality = l.quality_score > 0 ? l.quality_score : 50
       if (effectiveQuality < detourConfig.minQuality) return false
       if (isExcludedByPreferences(l, preferences)) { prefExcludedCount++; return false }
@@ -810,15 +846,19 @@ async function buildItinerary({
       route_distance_km: routeDistanceKm, coverage_gaps: coverageGaps,
       is_long_trip: isLongTrip, is_surprise_loop: isSurpriseLoop,
       transport_mode: transportMode,
+      distance_budget_km: distanceBudget || null,
+      budget_exceeded: distanceBudget ? routeDistanceKm > distanceBudget * 1.2 : false,
       start_name: startCoords.place_name || startName,
       end_name: endCoords.place_name || endName,
     })
   }
 
   // ── Stop distribution (multi-day vs single-day) ───────────────────
-  const totalStopsTarget = isCycling
+  let totalStopsTarget = isCycling
     ? Math.min(tripConfig.stopsPerDay * tripConfig.days, Math.round(totalRouteKm / (cyclingConfig.stopSpacingKm * 2)))
     : tripConfig.stopsPerDay * tripConfig.days
+  // Clamp to stop count limits based on trip duration
+  totalStopsTarget = Math.max(stopLimits.min, Math.min(stopLimits.max, totalStopsTarget))
   const MIN_SPACING_KM = isCycling
     ? Math.max(cyclingConfig.stopSpacingKm, totalRouteKm / (totalStopsTarget + 2))
     : Math.max(30, totalRouteKm / (totalStopsTarget + 2))
@@ -1126,7 +1166,7 @@ async function buildItinerary({
       claudeResult, listingMap, routeGeometry, routeDistanceKm,
       routeDurationMinutes, coverageGaps, isLongTrip, isSurpriseLoop,
       restCandidates, overnightClusters, startCoords, endCoords, startName, endName,
-      tripConfig, isMultiDay, transportMode,
+      tripConfig, isMultiDay, transportMode, distanceBudget,
     })
   }
 
@@ -1180,7 +1220,7 @@ function buildSingleDayPrompt({
     : `${startNameFull} to ${endNameFull} (${routeDistanceKm}km, ~${Math.round(routeDurationMinutes / 60)} hours ${modeVerb})`
 
   const cyclingContext = isCycling
-    ? `\n\nCYCLING MODE: This is a bike ride, not a car trip. The rider won't want to detour far off-route. Favour stops that are directly on or very close to the route. Prioritise cafés, nature stops, and scenic rest points over venues that require indoor time. Consider that cyclists need water, food, and shade at regular intervals.`
+    ? `\n\nCYCLING MODE: This is a bike ride, not a car trip. The total route is only ${routeDistanceKm}km. The rider won't want to detour far off-route. Favour stops that are directly on or very close to the route. Prioritise cafés, nature stops, and scenic rest points over venues that require indoor time. Consider that cyclists need water, food, and shade at regular intervals. Select only ${targetStops} stops — fewer stops mean more time riding.`
     : ''
 
   return `You are writing for Australian Atlas, a curated guide to independent Australian places. A traveller is ${modeVerb} ${routeDesc}. They are ${detourConfig.label} and want a ${tripConfig.label}.
@@ -1309,8 +1349,9 @@ function formatClaudeResult({
   claudeResult, listingMap, routeGeometry, routeDistanceKm,
   routeDurationMinutes, coverageGaps, isLongTrip, isSurpriseLoop,
   restCandidates, overnightClusters = [], startCoords, endCoords, startName, endName,
-  tripConfig, isMultiDay, transportMode = 'driving',
+  tripConfig, isMultiDay, transportMode = 'driving', distanceBudget = null,
 }) {
+  const budgetExceeded = distanceBudget ? routeDistanceKm > distanceBudget * 1.2 : false
   function enrichStop(stop) {
     const listing = listingMap.get(stop.listing_id)
     if (!listing) return null
@@ -1424,6 +1465,8 @@ function formatClaudeResult({
       is_multi_day: true,
       transport_mode: transportMode,
       trip_days: tripConfig.days,
+      distance_budget_km: distanceBudget || null,
+      budget_exceeded: budgetExceeded,
       start_name: startCoords.place_name || startName,
       end_name: endCoords.place_name || endName,
       start_coords: { lat: startCoords.lat, lng: startCoords.lng },
@@ -1452,6 +1495,8 @@ function formatClaudeResult({
     is_surprise_loop: isSurpriseLoop,
     is_multi_day: false,
     transport_mode: transportMode,
+    distance_budget_km: distanceBudget || null,
+    budget_exceeded: budgetExceeded,
     start_name: startCoords.place_name || startName,
     end_name: endCoords.place_name || endName,
     start_coords: { lat: startCoords.lat, lng: startCoords.lng },
@@ -1468,38 +1513,59 @@ function formatClaudeResult({
 
 // ── Surprise Me loop generation ─────────────────────────────────────
 
-async function generateSurpriseLoop(startCoords, tripConfig, preferences, detourConfig) {
+async function generateSurpriseLoop(startCoords, tripConfig, preferences, detourConfig, transportMode = 'driving', fitness = 'moderate', distanceBudget = null) {
   const sb = getSupabaseAdmin()
+  const isCycling = transportMode === 'cycling'
 
-  // Radius based on trip length
-  const radiusKm = {
+  // Radius derived from distance budget: a loop through 2 waypoints covers roughly 3x the radius
+  // Use a reasonable minimum so sparse regional areas still find listings
+  const budgetRadius = distanceBudget ? Math.round(distanceBudget / 3) : null
+  const defaultRadius = {
     passing_through: 100, day_trip: 150, '2_days': 250, '3_days': 350, '4_plus': 450,
-  }[tripConfig.label?.replace(/ /g, '_')] || 200
+    half_day_ride: 60, full_day_ride: 100, weekend_ride: 150,
+  }[tripConfig.label?.replace(/ /g, '_').replace(/-/g, '_')] || 200
+  const minRadius = isCycling ? 15 : 40
+  const targetRadius = budgetRadius ? Math.max(minRadius, Math.min(budgetRadius, defaultRadius)) : defaultRadius
 
-  const latDelta = radiusKm / 111
-  const lngDelta = radiusKm / (111 * Math.cos(startCoords.lat * Math.PI / 180))
-
-  const { data: listings } = await sb
-    .from('listings')
-    .select('id, name, slug, vertical, region, state, lat, lng, hero_image_url, quality_score, description, sub_type, visit_type, best_season')
-    .eq('status', 'active')
-    .or('address_on_request.eq.false,address_on_request.is.null')
-    .or('visitable.eq.true,visitable.is.null,presence_type.eq.by_appointment')
-    .or('trail_suitable.eq.true,trail_suitable.is.null')
-    .gte('lat', startCoords.lat - latDelta)
-    .lte('lat', startCoords.lat + latDelta)
-    .gte('lng', startCoords.lng - lngDelta)
-    .lte('lng', startCoords.lng + lngDelta)
-    .not('lat', 'is', null)
-    .not('lng', 'is', null)
-    .gte('quality_score', 45)
-    .limit(200)
+  // Query with target radius first; expand if too few results
+  let listings = null
+  let radiusKm = targetRadius
+  for (const tryRadius of [targetRadius, Math.min(targetRadius * 2, defaultRadius), defaultRadius]) {
+    radiusKm = tryRadius
+    const latDelta = radiusKm / 111
+    const lngDelta = radiusKm / (111 * Math.cos(startCoords.lat * Math.PI / 180))
+    const { data } = await sb
+      .from('listings')
+      .select('id, name, slug, vertical, region, state, lat, lng, hero_image_url, quality_score, description, sub_type, visit_type, best_season')
+      .eq('status', 'active')
+      .or('address_on_request.eq.false,address_on_request.is.null')
+      .or('visitable.eq.true,visitable.is.null,presence_type.eq.by_appointment')
+      .or('trail_suitable.eq.true,trail_suitable.is.null')
+      .gte('lat', startCoords.lat - latDelta)
+      .lte('lat', startCoords.lat + latDelta)
+      .gte('lng', startCoords.lng - lngDelta)
+      .lte('lng', startCoords.lng + lngDelta)
+      .not('lat', 'is', null)
+      .not('lng', 'is', null)
+      .gte('quality_score', 45)
+      .limit(200)
+    if (data && data.length >= 5) { listings = data; break }
+    listings = data
+  }
 
   if (!listings || listings.length < 5) return null
 
+  // For budget-constrained routes, filter listings to within budget distance
+  const maxWaypointDist = distanceBudget ? distanceBudget / 2 : radiusKm
+  const reachableListings = listings.filter(l => {
+    const dist = haversineKm(startCoords.lat, startCoords.lng, l.lat, l.lng)
+    return dist <= maxWaypointDist
+  })
+  const usableListings = reachableListings.length >= 5 ? reachableListings : listings
+
   // Find listing-dense clusters by dividing into quadrants
   const quadrants = { NE: [], NW: [], SE: [], SW: [] }
-  for (const l of listings) {
+  for (const l of usableListings) {
     const ns = l.lat >= startCoords.lat ? 'N' : 'S'
     const ew = l.lng >= startCoords.lng ? 'E' : 'W'
     quadrants[ns + ew].push(l)
@@ -1534,19 +1600,29 @@ async function generateSurpriseLoop(startCoords, tripConfig, preferences, detour
   const secondaryQuadrant = scoredQuadrants[secondaryIdx]
 
   // Pick waypoints: randomize within the top candidates (not always the same one)
+  // Enforce minimum waypoint distance so loops aren't trivially small
+  const minWpDist = isCycling ? 5 : 20
   const sortByDist = (arr) => arr.sort((a, b) => {
     const distA = haversineKm(startCoords.lat, startCoords.lng, a.lat, a.lng)
     const distB = haversineKm(startCoords.lat, startCoords.lng, b.lat, b.lng)
     return distB - distA
   })
 
-  const primarySorted = sortByDist([...primaryQuadrant.listings])
+  let primarySorted = sortByDist([...primaryQuadrant.listings])
+    .filter(l => haversineKm(startCoords.lat, startCoords.lng, l.lat, l.lng) >= minWpDist)
+  if (primarySorted.length === 0) {
+    primarySorted = sortByDist([...primaryQuadrant.listings])
+  }
   const pickIdx = Math.floor(Math.random() * Math.min(4, primarySorted.length))
-  const primaryWp = primarySorted[Math.max(1, pickIdx)] // Never the absolute farthest (could be isolated)
+  const primaryWp = primarySorted[Math.max(1, pickIdx)] || primarySorted[0]
 
-  const secondarySorted = sortByDist([...secondaryQuadrant.listings])
+  let secondarySorted = sortByDist([...secondaryQuadrant.listings])
+    .filter(l => haversineKm(startCoords.lat, startCoords.lng, l.lat, l.lng) >= minWpDist)
+  if (secondarySorted.length === 0) {
+    secondarySorted = sortByDist([...secondaryQuadrant.listings])
+  }
   const secPickIdx = Math.floor(Math.random() * Math.min(3, secondarySorted.length))
-  const secondaryWp = secondarySorted[Math.max(1, secPickIdx)]
+  const secondaryWp = secondarySorted[Math.max(1, secPickIdx)] || secondarySorted[0]
 
   // Compute compass bearing for direction reveal animation
   const bearing = Math.atan2(
@@ -1572,7 +1648,7 @@ async function generateSurpriseLoop(startCoords, tripConfig, preferences, detour
       { lat: primaryWp.lat, lng: primaryWp.lng },
       { lat: secondaryWp.lat, lng: secondaryWp.lng },
     ],
-    listings,
+    listings: usableListings,
     direction: {
       bearing: Math.round(bearing),
       quadrant: primaryQuadrant.dir,
