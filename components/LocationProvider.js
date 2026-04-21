@@ -60,13 +60,20 @@ export function LocationProvider({ children, savedLocation }) {
     // 3. No location yet — stay idle, user must trigger detection
   }, [savedLocation])
 
-  // ── Reverse geocode helper ──
+  // ── Reverse geocode helper (with client-side timeout) ──
   const reverseGeocode = useCallback(async (lat, lng) => {
     try {
-      const res = await fetch(`/api/mapbox/geocode?lat=${lat}&lng=${lng}`)
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 6000)
+      const res = await fetch(`/api/mapbox/geocode?lat=${lat}&lng=${lng}`, {
+        signal: controller.signal,
+      })
+      clearTimeout(timeout)
       const data = await res.json()
+      console.log('[Atlas Location] reverse geocode response:', data)
       return data.features?.[0]?.text || null
-    } catch {
+    } catch (err) {
+      console.warn('[Atlas Location] reverse geocode failed:', err.message || err)
       return null
     }
   }, [])
@@ -92,25 +99,51 @@ export function LocationProvider({ children, savedLocation }) {
   // ── Detect via browser geolocation ──
   const detectLocation = useCallback(() => {
     if (!navigator.geolocation) {
+      console.warn('[Atlas Location] Geolocation API not available')
       setStatus('unavailable')
       return
     }
 
     setStatus('detecting')
+    console.log('[Atlas Location] Requesting browser geolocation...')
 
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
-        const { latitude: lat, longitude: lng } = pos.coords
+        try {
+          const { latitude: lat, longitude: lng } = pos.coords
+          console.log('[Atlas Location] Geolocation success:', { lat, lng })
 
-        if (!isInAustralia(lat, lng)) {
-          setStatus('overseas')
-          return
+          if (!isInAustralia(lat, lng)) {
+            console.log('[Atlas Location] Outside Australia bounds, setting overseas')
+            setStatus('overseas')
+            return
+          }
+
+          // Reverse geocode for a human-readable name — but don't block on it
+          let name = null
+          try {
+            name = await reverseGeocode(lat, lng)
+            console.log('[Atlas Location] Reverse geocode name:', name)
+          } catch (rgErr) {
+            console.warn('[Atlas Location] Reverse geocode error (non-blocking):', rgErr)
+          }
+
+          setLocation(lat, lng, name)
+          console.log('[Atlas Location] Location set, status → ready')
+        } catch (err) {
+          // Catch-all: if anything in the async callback fails,
+          // still try to set location from raw coords
+          console.error('[Atlas Location] Error in geolocation callback:', err)
+          try {
+            const { latitude: lat, longitude: lng } = pos.coords
+            setLocation(lat, lng, null)
+          } catch {
+            setStatus('unavailable')
+          }
         }
-
-        const name = await reverseGeocode(lat, lng)
-        setLocation(lat, lng, name)
       },
       (err) => {
+        console.warn('[Atlas Location] Geolocation error:', err.code, err.message)
         if (err.code === 1) {
           setStatus('denied')
         } else {

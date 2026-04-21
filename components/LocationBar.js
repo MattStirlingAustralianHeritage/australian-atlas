@@ -66,6 +66,11 @@ export default function LocationBar() {
     setSuggestions([])
   }
 
+  // Debug: log state transitions
+  useEffect(() => {
+    console.log('[Atlas LocationBar] status:', status, 'isReady:', isReady, 'location:', location)
+  }, [status, isReady, location])
+
   // ── Not ready: show detect button ──
   if (!isReady) {
     if (status === 'detecting') {

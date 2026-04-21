@@ -25,16 +25,23 @@ export async function GET(request) {
       return NextResponse.json({ features: [] })
     }
     try {
-      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lngF},${latF}.json?types=locality,place&limit=1&access_token=${token}`
+      // Include neighborhood, locality, place, district for broad coverage
+      // (suburb-level in cities, town-level in rural areas)
+      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lngF},${latF}.json?types=neighborhood,locality,place,district&limit=3&access_token=${token}`
       const res = await fetch(url, { signal: AbortSignal.timeout(5000) })
-      if (!res.ok) return NextResponse.json({ features: [] })
+      if (!res.ok) {
+        console.error('[geocode] Mapbox reverse geocode failed:', res.status)
+        return NextResponse.json({ features: [] })
+      }
 
       const data = await res.json()
+      // Pick the most specific result: prefer neighborhood/locality over place/district
       const f = (data.features || [])[0]
       if (!f) return NextResponse.json({ features: [] })
 
-      // Extract region/state from context
-      const region = f.context?.find(c => c.id?.startsWith('region'))?.text || null
+      // Extract region/state from context array
+      const ctx = f.context || []
+      const region = ctx.find(c => c.id?.startsWith('region'))?.text || null
       const place = f.text || f.place_name
 
       return NextResponse.json({
@@ -47,7 +54,8 @@ export async function GET(request) {
       }, {
         headers: { 'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=86400' },
       })
-    } catch {
+    } catch (err) {
+      console.error('[geocode] Reverse geocode error:', err.message || err)
       return NextResponse.json({ features: [] })
     }
   }
