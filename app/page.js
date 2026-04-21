@@ -4,6 +4,7 @@ import HomeSearchBar from '@/components/HomeSearchBar'
 import HomeMapSection from '@/components/HomeMapSection'
 import NewsletterSignup from '@/components/NewsletterSignup'
 import ScrollReveal from '@/components/ScrollReveal'
+import NearbySection from '@/components/NearbySection'
 import { getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
 
 export const revalidate = 1800
@@ -432,6 +433,9 @@ export default async function Home() {
           </div>
         </ScrollReveal>
       )}
+
+      {/* ── 3b. Worth Finding Nearby ─────────────────── */}
+      <NearbySection />
 
       {/* ── 4. Journal Feature ──────────────────────────── */}
       {featuredArticle && (

@@ -112,9 +112,16 @@ export async function GET(request) {
   const sb = getSupabaseAdmin()
   const excludeList = excludeVertical.split(',').filter(Boolean)
 
-  // Hard cap: never return results beyond 30km regardless of requested radius
-  const HARD_CAP_KM = 30
-  const effectiveMaxRadius = Math.min(radiusParam, HARD_CAP_KM)
+  // Adaptive radius: expand outward until we have enough results
+  // Steps: 15 → 30 → 60 → 100km
+  const RADIUS_STEPS = [15, 30, 60, 100]
+  const HARD_CAP_KM = 100
+  const adaptive = searchParams.get('adaptive') === 'true'
+  const minResults = parseInt(searchParams.get('min_results')) || 0
+  const maxPerVertical = parseInt(searchParams.get('max_per_vertical')) || 0
+
+  // For non-adaptive requests, cap at requested radius (backward compat: old 30km cap)
+  const effectiveMaxRadius = adaptive ? HARD_CAP_KM : Math.min(radiusParam, 30)
 
   // Calculate a bounding box for the initial query (rough filter)
   // 1 degree lat ~ 111km, 1 degree lng varies by latitude
@@ -163,21 +170,37 @@ export async function GET(request) {
       return a.distance_km - b.distance_km
     })
 
-  // Distance filtering: start with requested radius (capped at 30km), expand to 30km if sparse
-  let radiusUsed = effectiveMaxRadius
-  let filtered = results.filter(r => r.distance_km <= effectiveMaxRadius)
+  // Detect the region from the nearest listing (for header display)
+  const nearestRegion = results.length > 0
+    ? results.reduce((a, b) => a.distance_km < b.distance_km ? a : b).region
+    : null
 
-  // If fewer than 3 within requested radius, expand to hard cap (30km)
-  if (filtered.length < 3 && effectiveMaxRadius < HARD_CAP_KM) {
-    radiusUsed = HARD_CAP_KM
-    filtered = results.filter(r => r.distance_km <= HARD_CAP_KM)
+  // ── Adaptive radius expansion ──
+  let radiusUsed = effectiveMaxRadius
+  let filtered
+
+  if (adaptive && minResults > 0) {
+    // Walk through radius steps until we have enough results
+    filtered = []
+    for (const step of RADIUS_STEPS) {
+      filtered = results.filter(r => r.distance_km <= step)
+      radiusUsed = step
+      if (filtered.length >= minResults) break
+    }
+  } else {
+    // Legacy behavior: start with requested radius, expand to cap if sparse
+    filtered = results.filter(r => r.distance_km <= effectiveMaxRadius)
+    if (filtered.length < 3 && effectiveMaxRadius < 30) {
+      radiusUsed = 30
+      filtered = results.filter(r => r.distance_km <= 30)
+    }
   }
 
-  // If zero results within 30km, return empty — don't show distant listings
+  // If zero results within radius, return empty
   if (filtered.length === 0) {
     const emptyResponse = groupByVertical
-      ? { verticals: {}, total: 0, radius_used: radiusUsed }
-      : { listings: [], total: 0, radius_used: radiusUsed }
+      ? { verticals: {}, total: 0, radius_used: radiusUsed, region: nearestRegion }
+      : { listings: [], total: 0, radius_used: radiusUsed, region: nearestRegion }
     return NextResponse.json(emptyResponse, {
       headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400', ...CORS_HEADERS },
     })
@@ -211,14 +234,59 @@ export async function GET(request) {
       verticals,
       total: filtered.length,
       radius_used: radiusUsed,
+      region: nearestRegion,
     }, {
       headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400', ...CORS_HEADERS },
     })
   }
 
-  // Flat response (original behaviour, with optional limit_per_vertical)
+  // Flat response (original behaviour, with optional limit_per_vertical or round-robin)
   let finalListings
-  if (limitPerVertical > 0) {
+
+  if (maxPerVertical > 0) {
+    // Cross-vertical round-robin diversification
+    // Group candidates by vertical, then interleave picks
+    const buckets = {}
+    for (const item of filtered) {
+      const v = item.vertical
+      if (!buckets[v]) buckets[v] = []
+      buckets[v].push(item)
+    }
+    const verticalKeys = Object.keys(buckets)
+    finalListings = []
+    let round = 0
+    while (finalListings.length < limit && verticalKeys.length > 0) {
+      const depleted = []
+      for (const vk of verticalKeys) {
+        if (finalListings.length >= limit) break
+        const bucket = buckets[vk]
+        const alreadyFromVertical = finalListings.filter(l => l.vertical === vk).length
+        if (alreadyFromVertical >= maxPerVertical || round >= bucket.length) {
+          depleted.push(vk)
+          continue
+        }
+        finalListings.push(cleanListing(bucket[round]))
+      }
+      round++
+      // Remove depleted verticals
+      for (const d of depleted) {
+        const idx = verticalKeys.indexOf(d)
+        if (idx !== -1) verticalKeys.splice(idx, 1)
+      }
+      if (verticalKeys.length === 0) break
+    }
+    // If still short, fill with remaining (allow more per vertical)
+    if (finalListings.length < limit) {
+      const usedIds = new Set(finalListings.map(l => l.id))
+      for (const item of filtered) {
+        if (finalListings.length >= limit) break
+        if (!usedIds.has(item.id)) {
+          finalListings.push(cleanListing(item))
+          usedIds.add(item.id)
+        }
+      }
+    }
+  } else if (limitPerVertical > 0) {
     const counts = {}
     finalListings = []
     for (const item of filtered) {
@@ -237,6 +305,7 @@ export async function GET(request) {
     listings: finalListings,
     total: filtered.length,
     radius_used: radiusUsed,
+    region: nearestRegion,
   }, {
     headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400', ...CORS_HEADERS },
   })

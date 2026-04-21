@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { getAuthSupabase } from '@/lib/supabase/auth-clients'
+import LocationBar from './LocationBar'
 
 export default function Nav() {
   const [user, setUser] = useState(null)
@@ -171,6 +172,11 @@ export default function Nav() {
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Location indicator (desktop) */}
+          <div className="hidden sm:block" style={{ borderLeft: '1px solid var(--color-border)', paddingLeft: '12px' }}>
+            <LocationBar />
           </div>
 
           {/* Mobile hamburger */}

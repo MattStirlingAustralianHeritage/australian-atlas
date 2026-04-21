@@ -6,6 +6,8 @@ import AtlasAnalytics from "@/components/AtlasAnalytics";
 import PageTracker from "@/components/PageTracker";
 import { websiteJsonLd, organizationJsonLd } from "@/lib/jsonLd";
 import GlobalErrorReporter from "@/components/GlobalErrorReporter";
+import LocationWrapper from "@/components/LocationWrapper";
+import { createAuthServerClient } from "@/lib/supabase/auth-clients";
 
 const playfair = Playfair_Display({
   variable: "--font-display",
@@ -63,7 +65,30 @@ export const metadata = {
   },
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  // Try to load saved location from profile (logged-in users only)
+  let savedLocation = null
+  try {
+    const supabase = await createAuthServerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      const { getSupabaseAdmin } = await import('@/lib/supabase/clients')
+      const sb = getSupabaseAdmin()
+      const { data: profile } = await sb
+        .from('profiles')
+        .select('saved_latitude, saved_longitude, saved_location_name')
+        .eq('id', user.id)
+        .single()
+      if (profile?.saved_latitude && profile?.saved_longitude) {
+        savedLocation = {
+          lat: profile.saved_latitude,
+          lng: profile.saved_longitude,
+          name: profile.saved_location_name,
+        }
+      }
+    }
+  } catch {}
+
   return (
     <html lang="en" className={`${playfair.variable} ${dmSans.variable}`}>
       <body className="min-h-screen flex flex-col">
@@ -78,9 +103,11 @@ export default function RootLayout({ children }) {
         <script dangerouslySetInnerHTML={{ __html: `
           if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(reg){reg.unregister()})})}
         ` }} />
-        <Nav />
-        <main className="flex-1">{children}</main>
-        <Footer />
+        <LocationWrapper savedLocation={savedLocation}>
+          <Nav />
+          <main className="flex-1">{children}</main>
+          <Footer />
+        </LocationWrapper>
         <AtlasAnalytics />
         <PageTracker vertical="portal" />
         <GlobalErrorReporter />
