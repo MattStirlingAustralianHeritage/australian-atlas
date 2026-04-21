@@ -25,12 +25,13 @@ export async function GET(request) {
       return NextResponse.json({ features: [] })
     }
     try {
-      // Include neighborhood, locality, place, district for broad coverage
-      // (suburb-level in cities, town-level in rural areas)
-      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lngF},${latF}.json?types=neighborhood,locality,place,district&limit=3&access_token=${token}`
+      // Reverse geocode: multiple types, NO limit param.
+      // Mapbox v5 returns 422 if limit is combined with multiple types on reverse geocode.
+      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lngF},${latF}.json?types=neighborhood,locality,place,district&access_token=${token}`
       const res = await fetch(url, { signal: AbortSignal.timeout(5000) })
       if (!res.ok) {
-        console.error('[geocode] Mapbox reverse geocode failed:', res.status)
+        const body = await res.text().catch(() => '')
+        console.error(`[geocode] Mapbox reverse geocode failed: ${res.status} ${body}`)
         return NextResponse.json({ features: [] })
       }
 
