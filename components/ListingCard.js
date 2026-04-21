@@ -39,8 +39,8 @@ const CATEGORY_LABELS = {
   clothing: 'Clothing', gift_shop: 'Gift Shop', general_store: 'General Store',
   stationery: 'Stationery', art_supplies: 'Art Supplies', lifestyle: 'Lifestyle',
   vintage_clothing: 'Vintage Clothing', vintage_furniture: 'Vintage Furniture',
-  antiques: 'Antiques', op_shop: 'Op Shop', books_ephemera: 'Books & Ephemera',
-  art_objects: 'Art Objects', market: 'Market',
+  vintage_store: 'Vintage Store', antiques: 'Antiques', op_shop: 'Op Shop',
+  books_ephemera: 'Books & Ephemera', art_objects: 'Art Objects', market: 'Market',
   farm_gate: 'Farm Gate', artisan_producer: 'Artisan Producer',
   specialty_retail: 'Specialty Retail', destination: 'Destination', restaurant: 'Restaurant',
 }

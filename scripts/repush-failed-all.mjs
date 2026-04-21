@@ -142,7 +142,7 @@ const VERTICALS = {
   found: {
     env: ['FOUND_SUPABASE_URL', 'FOUND_SUPABASE_SERVICE_KEY'],
     table: 'shops',
-    categories: ['vintage_clothing', 'vintage_furniture', 'antiques', 'op_shop', 'books_ephemera', 'art_objects', 'market'],
+    categories: ['vintage_clothing', 'vintage_furniture', 'vintage_store', 'antiques', 'op_shop', 'books_ephemera', 'art_objects', 'market'],
     defaultCat: 'vintage_clothing',
     metaTable: 'found_meta', metaKey: 'shop_type',
     mapRow: (l, cat) => ({

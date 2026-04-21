@@ -98,6 +98,7 @@ const SUBCATEGORY_OPTIONS = {
   found: [
     { value: 'vintage_clothing', label: 'Vintage Clothing' },
     { value: 'vintage_furniture', label: 'Vintage Furniture' },
+    { value: 'vintage_store', label: 'Vintage Store' },
     { value: 'antiques', label: 'Antiques' },
     { value: 'op_shop', label: 'Op Shop' },
     { value: 'books_ephemera', label: 'Books & Ephemera' },

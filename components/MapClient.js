@@ -70,8 +70,8 @@ const SUB_TYPE_LABELS = {
   },
   found: {
     vintage_clothing: 'Vintage Clothing', vintage_furniture: 'Vintage Furniture',
-    antiques: 'Antiques', op_shop: 'Op Shop', books_ephemera: 'Books & Ephemera',
-    art_objects: 'Art & Objects', market: 'Market',
+    vintage_store: 'Vintage Store', antiques: 'Antiques', op_shop: 'Op Shop',
+    books_ephemera: 'Books & Ephemera', art_objects: 'Art & Objects', market: 'Market',
   },
   table: {
     restaurant: 'Restaurant', bakery: 'Bakery', market: 'Market',
