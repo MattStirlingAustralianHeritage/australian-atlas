@@ -99,6 +99,32 @@ function haversineKm(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
+function bearingDeg(lat1, lng1, lat2, lng2) {
+  const dLng = (lng2 - lng1) * Math.PI / 180
+  const y = Math.sin(dLng) * Math.cos(lat2 * Math.PI / 180)
+  const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) -
+    Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos(dLng)
+  return ((Math.atan2(y, x) * 180 / Math.PI) + 360) % 360
+}
+
+function loopFallbackTitle(startName) {
+  return `Loop from ${startName}`
+}
+
+function tripTitle(claudeTitle, startName, endName, isSurpriseLoop) {
+  if (claudeTitle) {
+    const sameName = startName && endName && startName.toLowerCase() === endName.toLowerCase()
+    if ((isSurpriseLoop || sameName) && claudeTitle.toLowerCase().includes(`${startName.toLowerCase()} to ${startName.toLowerCase()}`)) {
+      return loopFallbackTitle(startName)
+    }
+    return claudeTitle
+  }
+  if (isSurpriseLoop || (startName && endName && startName.toLowerCase() === endName.toLowerCase())) {
+    return loopFallbackTitle(startName)
+  }
+  return `${startName} to ${endName}`
+}
+
 function projectOntoRoute(lat, lng, routeCoords) {
   let minDist = Infinity
   let bestIdx = 0
@@ -839,7 +865,7 @@ async function buildItinerary({
 
   if (routeListings.length === 0) {
     return NextResponse.json({
-      title: `${startCoords.place_name || startName} to ${endCoords.place_name || endName}`,
+      title: tripTitle(null, startCoords.place_name || startName, endCoords.place_name || endName, isSurpriseLoop),
       intro: null, route_geometry: routeGeometry,
       stops: [], days: [{ day_number: 1, label: 'Day 1', stops: [], overnight: null }],
       total_listings_found: 0, route_duration_minutes: routeDurationMinutes,
@@ -1173,7 +1199,7 @@ async function buildItinerary({
   // Fallback: build without Claude
   const fallbackStops = buildFallbackStops(routeListings, targetStops, preferences)
   return NextResponse.json({
-    title: `${startNameFull} to ${endNameFull}`,
+    title: tripTitle(null, startNameFull, endNameFull, isSurpriseLoop),
     intro: null, route_geometry: routeGeometry,
     stops: fallbackStops,
     days: [{ day_number: 1, label: 'Day 1', stops: fallbackStops, overnight: null }],
@@ -1244,6 +1270,9 @@ From the listings below, select the best ${targetStops} stops in order along the
 4. Vertical diversity — no single vertical should exceed 30% of stops. Aim for 2+ stops per selected interest vertical. Do NOT over-represent any one vertical just because it has more available listings.
 5. No two consecutive stops less than ${MIN_SPACING_KM}km apart
 
+Write a short, evocative trip title (max 10 words). ${isSurpriseLoop
+    ? `This is a LOOP trip returning to ${startNameFull} — do NOT write "${startNameFull} to ${startNameFull}". Instead, title it after the landscape, regions, or character of the drive. Examples: "The High Country Loop from ${startNameFull}", "Gold Country and Granite Towns", "Cellar Doors and River Roads".`
+    : `Examples: "${startNameFull} to ${endNameFull} via the Ranges", "Coast Road South".`}
 Write a 2–3 sentence route introduction that captures this particular drive — specific landscape, the road, the places. No generic travel writing.
 Also write an evocative subtitle (max 8 words) that captures the character of this drive — e.g. "Through the Old Gold Towns" or "Where the Vines Meet the Coast".
 
@@ -1251,7 +1280,7 @@ Available listings in order along route (position_km = distance from start):
 ${JSON.stringify(listingsJson, null, 1)}
 
 Return ONLY valid JSON, no markdown:
-{"intro":"2-3 sentence editorial intro","subtitle":"Evocative subtitle","stops":[{"listing_id":"uuid","listing_name":"Name","cluster":"Region name","position_km":123,"reason":"Two sentences, editorial voice"}]}`
+{"title":"Trip title","intro":"2-3 sentence editorial intro","subtitle":"Evocative subtitle","stops":[{"listing_id":"uuid","listing_name":"Name","cluster":"Region name","position_km":123,"reason":"Two sentences, editorial voice"}]}`
 }
 
 function buildMultiDayPrompt({
@@ -1335,12 +1364,15 @@ ${clustersSection}
 DAYTIME DISCOVERY STOPS (distribute across days by position_km — these are for the driving segments between overnight points):
 ${JSON.stringify(discoveryListingsJson, null, 1)}
 
+Write a short, evocative trip title (max 10 words). ${isSurpriseLoop
+    ? `This is a LOOP trip returning to ${startNameFull} — do NOT write "${startNameFull} to ${startNameFull}". Instead, title it after the landscape, regions, or character of the drive. Examples: "The High Country Loop from ${startNameFull}", "Gold Country and Granite Towns", "Cellar Doors and River Roads".`
+    : `Examples: "${startNameFull} to ${endNameFull} via the Ranges", "Coast Road South".`}
 Write a 2–3 sentence route introduction capturing this particular drive — specific landscape, road character, the places. No generic travel writing.
 Also write an evocative subtitle (max 8 words) — e.g. "Through the Old Gold Towns" or "Where the Vines Meet the Coast".
 For each day label, write "Day N — [start place] to [end place]" AND a "day_subtitle" (max 8 words).
 
 Return ONLY valid JSON:
-{"intro":"2-3 sentence editorial intro","subtitle":"Evocative subtitle","days":[{"day_number":1,"label":"Day 1 — [place] to [place]","day_subtitle":"Character of the day","stops":[{"listing_id":"uuid","listing_name":"Name","cluster":"Region","position_km":123,"reason":"Two sentences, editorial voice"}],"dinner":{"listing_id":"uuid","listing_name":"Name","reason":"Two sentences"},"overnight":{"listing_id":"uuid","listing_name":"Name","position_km":456,"reason":"Two sentences about this stay"},"morning_coffee":null},{"day_number":2,"label":"Day 2 — ...","day_subtitle":"...","morning_coffee":{"listing_id":"uuid","listing_name":"Name","reason":"One sentence"},"stops":[...],"dinner":null,"overnight":null}]}`
+{"title":"Trip title","intro":"2-3 sentence editorial intro","subtitle":"Evocative subtitle","days":[{"day_number":1,"label":"Day 1 — [place] to [place]","day_subtitle":"Character of the day","stops":[{"listing_id":"uuid","listing_name":"Name","cluster":"Region","position_km":123,"reason":"Two sentences, editorial voice"}],"dinner":{"listing_id":"uuid","listing_name":"Name","reason":"Two sentences"},"overnight":{"listing_id":"uuid","listing_name":"Name","position_km":456,"reason":"Two sentences about this stay"},"morning_coffee":null},{"day_number":2,"label":"Day 2 — ...","day_subtitle":"...","morning_coffee":{"listing_id":"uuid","listing_name":"Name","reason":"One sentence"},"stops":[...],"dinner":null,"overnight":null}]}`
 }
 
 // ── Format Claude result into response ──────────────────────────────
@@ -1449,7 +1481,7 @@ function formatClaudeResult({
     const additionalHours = Math.round((allStops.length * avgStopMinutes) / 60 * 10) / 10
 
     return NextResponse.json({
-      title: claudeResult.title || `${startCoords.text || startName} to ${endCoords.text || endName}`,
+      title: tripTitle(claudeResult.title, startCoords.text || startName, endCoords.text || endName, isSurpriseLoop),
       subtitle: claudeResult.subtitle || null,
       intro: claudeResult.intro || null,
       route_geometry: routeGeometry,
@@ -1480,7 +1512,7 @@ function formatClaudeResult({
   const additionalHours = Math.round((enrichedStops.length * avgStopMinutes) / 60 * 10) / 10
 
   return NextResponse.json({
-    title: claudeResult.title || `${startCoords.text || startName} to ${endCoords.text || endName}`,
+    title: tripTitle(claudeResult.title, startCoords.text || startName, endCoords.text || endName, isSurpriseLoop),
     subtitle: claudeResult.subtitle || null,
     intro: claudeResult.intro || null,
     route_geometry: routeGeometry,
@@ -1643,11 +1675,14 @@ async function generateSurpriseLoop(startCoords, tripConfig, preferences, detour
   const dirFlavours = DIRECTION_FLAVOURS[primaryQuadrant.dir] || [`Heading ${DIRECTION_NAMES[primaryQuadrant.dir] || 'out'}`]
   const directionLabel = dirFlavours[Math.floor(Math.random() * dirFlavours.length)]
 
+  // Sort waypoints by bearing (clockwise) to form a clean circuit without crossings
+  const wps = [
+    { lat: primaryWp.lat, lng: primaryWp.lng, bearing: bearingDeg(startCoords.lat, startCoords.lng, primaryWp.lat, primaryWp.lng) },
+    { lat: secondaryWp.lat, lng: secondaryWp.lng, bearing: bearingDeg(startCoords.lat, startCoords.lng, secondaryWp.lat, secondaryWp.lng) },
+  ].sort((a, b) => a.bearing - b.bearing)
+
   return {
-    waypoints: [
-      { lat: primaryWp.lat, lng: primaryWp.lng },
-      { lat: secondaryWp.lat, lng: secondaryWp.lng },
-    ],
+    waypoints: wps.map(w => ({ lat: w.lat, lng: w.lng })),
     listings: usableListings,
     direction: {
       bearing: Math.round(bearing),
