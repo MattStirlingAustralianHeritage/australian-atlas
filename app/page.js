@@ -4,7 +4,7 @@ import HomeSearchBar from '@/components/HomeSearchBar'
 import HomeMapSection from '@/components/HomeMapSection'
 import NewsletterSignup from '@/components/NewsletterSignup'
 import ScrollReveal from '@/components/ScrollReveal'
-import { getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
+import { getVerticalClient } from '@/lib/supabase/clients'
 
 export const revalidate = 1800
 
@@ -34,15 +34,6 @@ const VERTICAL_CARD_COLORS = {
   table:        { bg: '#3A2E1F', text: '#FAF8F4' },
 }
 
-const CLUSTER_REGION_SLUGS = {
-  'Barossa Valley': 'barossa-valley',
-  'Mornington Peninsula': 'mornington-peninsula',
-  'Hobart & Southern Tasmania': 'hobart',
-  'Byron Hinterland': 'byron-hinterland',
-  'Adelaide': null,
-  'Melbourne': null,
-}
-
 const STATE_CARD_GRADIENTS = {
   VIC: 'linear-gradient(135deg, #F0EBE3 0%, #E8E0D4 100%)',
   NSW: 'linear-gradient(135deg, #EDE8E0 0%, #E0D8CC 100%)',
@@ -63,41 +54,10 @@ const REGION_GEO = {
   'Adelaide Hills':        { lat: -35.02, lng: 138.72, r: 0.35 },
 }
 
-async function getStats() {
-  try {
-    const sb = getSupabaseAdmin()
-    const [{ count }, { count: regionCount }] = await Promise.all([
-      sb.from('listings').select('*', { count: 'exact', head: true }).eq('status', 'active').not('name', 'ilike', '\\_%'),
-      sb.from('regions').select('*', { count: 'exact', head: true }),
-    ])
-    const verticalCountResults = await Promise.all(
-      verticals.map(v =>
-        sb.from('listings').select('*', { count: 'exact', head: true }).eq('vertical', v.key).eq('status', 'active').not('name', 'ilike', '\\_%')
-          .then(({ count: c }) => [v.key, c || 0])
-      )
-    )
-    const verticalCounts = Object.fromEntries(verticalCountResults)
-
-    const regionEntries = Object.entries(REGION_GEO)
-    const regionCountResults = await Promise.all(
-      regionEntries.map(([name, geo]) =>
-        sb
-          .from('listings')
-          .select('*', { count: 'exact', head: true })
-          .eq('status', 'active')
-          .gte('lat', geo.lat - geo.r)
-          .lte('lat', geo.lat + geo.r)
-          .gte('lng', geo.lng - geo.r)
-          .lte('lng', geo.lng + geo.r)
-          .then(({ count: rc }) => [name, rc || 0])
-      )
-    )
-    const regionCounts = Object.fromEntries(regionCountResults)
-
-    return { listings: count || 0, regions: regionCount || 0, verticalCounts, regionCounts }
-  } catch {
-    return { listings: 0, regions: 0, verticalCounts: {}, regionCounts: {} }
-  }
+const VERTICAL_LABELS = {
+  sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
+  fine_grounds: 'Fine Grounds', rest: 'Rest', field: 'Field',
+  corner: 'Corner', found: 'Found', table: 'Table', atlas: 'Atlas',
 }
 
 const VERTICAL_JOURNAL_URLS = {
@@ -110,6 +70,172 @@ const VERTICAL_JOURNAL_URLS = {
   corner: 'https://corneratlas.com.au/journal',
   found: 'https://foundatlas.com.au/journal',
   table: 'https://tableatlas.com.au/journal',
+}
+
+function getWeeklySeed() {
+  const now = new Date()
+  return Math.floor(now.getTime() / (7 * 24 * 60 * 60 * 1000))
+}
+
+function seededShuffle(arr, seed) {
+  const shuffled = [...arr]
+  let s = seed
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    s = (s * 1103515245 + 12345) & 0x7fffffff
+    const j = s % (i + 1)
+    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+  return shuffled
+}
+
+function firstSentence(text) {
+  if (!text) return null
+  const match = text.match(/^(.+?[.!?])\s/)
+  return match ? match[1] : text.slice(0, 160)
+}
+
+async function getStats() {
+  try {
+    const sb = getSupabaseAdmin()
+    const [{ count }, { count: regionCount }] = await Promise.all([
+      sb.from('listings').select('*', { count: 'exact', head: true }).eq('status', 'active').not('name', 'ilike', '\\_%'),
+      sb.from('regions').select('*', { count: 'exact', head: true }),
+    ])
+
+    const regionEntries = Object.entries(REGION_GEO)
+    const regionCountResults = await Promise.all(
+      regionEntries.map(([name, geo]) =>
+        sb.from('listings').select('*', { count: 'exact', head: true })
+          .eq('status', 'active')
+          .gte('lat', geo.lat - geo.r).lte('lat', geo.lat + geo.r)
+          .gte('lng', geo.lng - geo.r).lte('lng', geo.lng + geo.r)
+          .then(({ count: rc }) => [name, rc || 0])
+      )
+    )
+    const regionCounts = Object.fromEntries(regionCountResults)
+
+    return { listings: count || 0, regions: regionCount || 0, regionCounts }
+  } catch {
+    return { listings: 0, regions: 0, regionCounts: {} }
+  }
+}
+
+async function getEditorialHero() {
+  const sb = getSupabaseAdmin()
+  const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
+
+  // Priority 1: Recent journal article
+  try {
+    const { data: articles } = await sb
+      .from('articles')
+      .select('id, vertical, title, slug, excerpt, hero_image_url, author, published_at, category')
+      .eq('status', 'published')
+      .gte('published_at', fourteenDaysAgo)
+      .order('published_at', { ascending: false })
+      .limit(1)
+    if (articles?.[0]) {
+      const a = articles[0]
+      return {
+        type: 'article',
+        title: a.title,
+        excerpt: a.excerpt,
+        image: a.hero_image_url,
+        url: `${VERTICAL_JOURNAL_URLS[a.vertical] || VERTICAL_JOURNAL_URLS.sba}/${a.slug}`,
+        label: `${VERTICAL_LABELS[a.vertical] || 'Atlas'}${a.category ? ` · ${a.category}` : ''}`,
+        cta: 'Read the story',
+        external: true,
+      }
+    }
+  } catch {}
+
+  // Priority 2: Featured editorial trail
+  try {
+    const { data: trails } = await sb
+      .from('trails')
+      .select('id, title, slug, hero_intro, cover_image_url, curator_name, duration_hours')
+      .eq('type', 'editorial')
+      .eq('visibility', 'public')
+      .order('created_at', { ascending: false })
+      .limit(1)
+    if (trails?.[0]) {
+      const t = trails[0]
+      return {
+        type: 'trail',
+        title: t.title,
+        excerpt: t.hero_intro,
+        image: t.cover_image_url,
+        url: `/trails/${t.slug}`,
+        label: t.curator_name ? `Trail · Curated by ${t.curator_name}` : 'Trail',
+        cta: 'Explore this trail',
+        external: false,
+      }
+    }
+  } catch {}
+
+  // Priority 3: Featured listing with rich description
+  try {
+    const { data: listings } = await sb
+      .from('listings')
+      .select('id, name, slug, description, hero_image_url, vertical, region')
+      .eq('status', 'active')
+      .eq('is_featured', true)
+      .not('description', 'is', null)
+      .order('updated_at', { ascending: false })
+      .limit(20)
+    const rich = (listings || []).filter(l => (l.description || '').split(/\s+/).length >= 40)
+    if (rich.length > 0) {
+      const seed = getWeeklySeed()
+      const pick = rich[seed % rich.length]
+      return {
+        type: 'listing',
+        title: pick.name,
+        excerpt: firstSentence(pick.description),
+        image: pick.hero_image_url,
+        url: `/place/${pick.slug}`,
+        label: `${VERTICAL_LABELS[pick.vertical] || 'Atlas'}${pick.region ? ` · ${pick.region}` : ''}`,
+        cta: 'Discover this place',
+        external: false,
+      }
+    }
+  } catch {}
+
+  return null
+}
+
+async function getFeaturedListings() {
+  try {
+    const sb = getSupabaseAdmin()
+    const { data } = await sb
+      .from('listings')
+      .select('id, name, slug, description, hero_image_url, vertical, region')
+      .eq('status', 'active')
+      .eq('is_featured', true)
+      .not('description', 'is', null)
+      .limit(50)
+
+    if (!data || data.length === 0) return []
+
+    const withDesc = data.filter(l => (l.description || '').split(/\s+/).length >= 15)
+    const seed = getWeeklySeed()
+    const shuffled = seededShuffle(withDesc, seed)
+
+    const picks = []
+    const usedVerticals = new Set()
+    for (const l of shuffled) {
+      if (!usedVerticals.has(l.vertical) && picks.length < 4) {
+        picks.push(l)
+        usedVerticals.add(l.vertical)
+      }
+    }
+    if (picks.length < 4) {
+      for (const l of shuffled) {
+        if (!picks.includes(l) && picks.length < 4) picks.push(l)
+      }
+    }
+    return picks
+  } catch {
+    return []
+  }
 }
 
 async function getLatestArticles() {
@@ -171,344 +297,222 @@ async function getLatestArticles() {
   return allArticles.slice(0, 3)
 }
 
-async function getDiscoverClusters() {
-  try {
-    const sb = getSupabaseAdmin()
-    const clusterRegions = ['Barossa Valley', 'Mornington Peninsula', 'Hobart & Southern Tasmania', 'Byron Hinterland', 'Adelaide', 'Melbourne']
-    const results = await Promise.all(
-      clusterRegions.map(async (region) => {
-        const { data } = await sb
-          .from('listings')
-          .select('id, name, vertical, slug, region, hero_image_url')
-          .eq('status', 'active')
-          .eq('region', region)
-          .order('is_featured', { ascending: false })
-          .order('editors_pick', { ascending: false })
-          .limit(12)
-        if (!data || data.length < 4) return null
-        const verticalSet = new Set(data.map(d => d.vertical))
-        if (verticalSet.size < 3) return null
-        const picks = []
-        const usedVerticals = new Set()
-        for (const l of data) {
-          if (!usedVerticals.has(l.vertical) && picks.length < 4 && l.slug) {
-            picks.push(l)
-            usedVerticals.add(l.vertical)
-          }
-        }
-        if (picks.length < 3) return null
-        return { region, verticalCount: verticalSet.size, total: data.length, picks }
-      })
-    )
-    return results.filter(Boolean).slice(0, 3)
-  } catch {
-    return []
-  }
-}
-
-const VERTICAL_LABELS = {
-  sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
-  fine_grounds: 'Fine Grounds', rest: 'Rest', field: 'Field',
-  corner: 'Corner', found: 'Found', table: 'Table', atlas: 'Atlas',
-}
-
 export default async function Home() {
-  const [stats, articlesRaw, clusters] = await Promise.all([
-    getStats(), getLatestArticles(), getDiscoverClusters(),
+  const [stats, hero, featured, articles] = await Promise.all([
+    getStats(), getEditorialHero(), getFeaturedListings(), getLatestArticles(),
   ])
-  const articles = articlesRaw.length > 0 ? articlesRaw : []
-  const articlesWithImages = articles.filter(a => a.hero_image_url).slice(0, 2)
-  const featuredArticle = articlesWithImages[0] || articles[0]
+
+  const articlesWithImages = articles.filter(a => a.hero_image_url)
 
   return (
     <>
-      {/* ── 1. Hero ─────────────────────────────────────── */}
-      <section
-        className="relative text-center flex flex-col items-center justify-center px-6 sm:px-12"
-        style={{
-          minHeight: 'clamp(400px, 70vh, 700px)',
-          paddingTop: '3rem',
-          paddingBottom: '2rem',
-          background: 'linear-gradient(180deg, #FAF8F4 0%, #F0EBE3 100%)',
-        }}
-      >
-        <h1 style={{
-          fontFamily: 'var(--font-display)', fontWeight: 400, letterSpacing: '-0.01em',
-          fontSize: 'clamp(2.5rem, 6vw, 5rem)', lineHeight: 1.1,
-          color: 'var(--color-ink)', maxWidth: '820px', textWrap: 'balance',
+      {/* ── 1. Editorial Hero ──────────────────────────── */}
+      {hero ? (
+        <section style={{
+          background: '#1A1A1A',
+          minHeight: 'clamp(480px, 75vh, 760px)',
+          display: 'flex',
+          alignItems: 'center',
+          position: 'relative',
+          overflow: 'hidden',
         }}>
-          Nine atlases. One guide to{' '}
-          <em style={{ fontStyle: 'italic' }}>independent</em> Australia.
-        </h1>
-
-        <p className="mt-6" style={{
-          fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '17px',
-          lineHeight: 1.65, color: 'var(--color-muted)', maxWidth: '580px',
-        }}>
-          A curated guide to the makers, producers, restaurants, galleries, shops, stays, and natural places worth knowing about.
-        </p>
-
-        {stats.listings > 0 && (
-          <div className="mt-5 flex items-center justify-center gap-3 sm:gap-5 flex-wrap" style={{
-            fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '15px', letterSpacing: '0.01em',
+          {hero.image && (
+            <div style={{
+              position: 'absolute', inset: 0,
+              backgroundImage: `url(${hero.image})`,
+              backgroundSize: 'cover', backgroundPosition: 'center',
+              opacity: 0.35,
+            }} />
+          )}
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: hero.image
+              ? 'linear-gradient(180deg, rgba(26,26,26,0.3) 0%, rgba(26,26,26,0.85) 70%, rgba(26,26,26,1) 100%)'
+              : 'none',
+          }} />
+          <div className="relative z-10 max-w-3xl mx-auto px-6 sm:px-12" style={{
+            paddingTop: '120px', paddingBottom: '80px',
           }}>
-            <span>
-              <span style={{ color: GOLD, fontWeight: 500 }}>{stats.listings.toLocaleString()}</span>
-              <span style={{ color: 'var(--color-muted)' }}> verified listings</span>
-            </span>
-            <span style={{ color: GOLD, fontSize: '5px' }}>●</span>
-            <span>
-              <span style={{ color: GOLD, fontWeight: 500 }}>9</span>
-              <span style={{ color: 'var(--color-muted)' }}> atlases</span>
-            </span>
-            <span style={{ color: GOLD, fontSize: '5px' }}>●</span>
-            <span>
-              <span style={{ color: GOLD, fontWeight: 500 }}>{stats.regions || '46'}</span>
-              <span style={{ color: 'var(--color-muted)' }}> regions</span>
-            </span>
+            <p style={{
+              fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
+              letterSpacing: '0.18em', textTransform: 'uppercase',
+              color: GOLD, marginBottom: '20px',
+            }}>
+              {hero.label}
+            </p>
+            <h1 style={{
+              fontFamily: 'var(--font-display)', fontWeight: 400,
+              fontSize: 'clamp(2rem, 5vw, 3.5rem)', lineHeight: 1.15,
+              color: '#FAF8F4', marginBottom: '20px',
+              textWrap: 'balance',
+            }}>
+              {hero.title}
+            </h1>
+            {hero.excerpt && (
+              <p style={{
+                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '17px',
+                lineHeight: 1.7, color: 'rgba(250,248,244,0.7)',
+                maxWidth: '560px', marginBottom: '32px',
+                display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+              }}>
+                {hero.excerpt}
+              </p>
+            )}
+            {hero.external ? (
+              <a
+                href={hero.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-7 py-3 rounded-full hover:opacity-90 transition-opacity"
+                style={{
+                  fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px',
+                  background: GOLD, color: '#1A1A1A',
+                }}
+              >
+                {hero.cta} &rarr;
+              </a>
+            ) : (
+              <Link
+                href={hero.url}
+                className="inline-flex items-center gap-2 px-7 py-3 rounded-full hover:opacity-90 transition-opacity"
+                style={{
+                  fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px',
+                  background: GOLD, color: '#1A1A1A',
+                }}
+              >
+                {hero.cta} &rarr;
+              </Link>
+            )}
           </div>
-        )}
+        </section>
+      ) : (
+        <section
+          className="relative text-center flex flex-col items-center justify-center px-6 sm:px-12"
+          style={{
+            minHeight: 'clamp(400px, 60vh, 600px)',
+            paddingTop: '3rem', paddingBottom: '2rem',
+            background: 'linear-gradient(180deg, #FAF8F4 0%, #F0EBE3 100%)',
+          }}
+        >
+          <h1 style={{
+            fontFamily: 'var(--font-display)', fontWeight: 400, letterSpacing: '-0.01em',
+            fontSize: 'clamp(2.5rem, 6vw, 5rem)', lineHeight: 1.1,
+            color: 'var(--color-ink)', maxWidth: '820px', textWrap: 'balance',
+          }}>
+            Nine atlases. One guide to{' '}
+            <em style={{ fontStyle: 'italic' }}>independent</em> Australia.
+          </h1>
+          <p className="mt-6" style={{
+            fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '17px',
+            lineHeight: 1.65, color: 'var(--color-muted)', maxWidth: '580px',
+          }}>
+            A curated guide to the makers, producers, restaurants, galleries, shops, stays, and natural places worth knowing about.
+          </p>
+          <HomeSearchBar />
+        </section>
+      )}
 
-        <HomeSearchBar />
-
-        <div className="mt-6 flex items-center justify-center gap-4 flex-wrap">
-          <Link
-            href="/map"
-            className="inline-flex items-center gap-2 px-7 py-3 rounded-full hover:opacity-90 transition-opacity"
-            style={{
-              fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px',
-              background: '#1A1A1A', color: '#FAF8F4',
-            }}
-          >
-            Explore the map
-          </Link>
-          <Link
-            href="/near-me"
-            className="inline-flex items-center gap-2 px-7 py-3 rounded-full transition-colors hover:border-[var(--color-ink)]"
-            style={{
-              fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px',
-              color: 'var(--color-ink)', border: '1px solid var(--color-border)',
-            }}
-          >
-            What&apos;s near me?
-          </Link>
+      {/* ── Search + Stats Bar ─────────────────────────── */}
+      <section style={{
+        background: '#FAF8F4',
+        borderBottom: '1px solid rgba(28,26,23,0.08)',
+        paddingBlock: '28px',
+      }}>
+        <div className="max-w-3xl mx-auto px-6 sm:px-12">
+          <HomeSearchBar />
+          {stats.listings > 0 && (
+            <div className="mt-4 flex items-center justify-center gap-3 sm:gap-5 flex-wrap" style={{
+              fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '14px', letterSpacing: '0.01em',
+            }}>
+              <span>
+                <span style={{ color: GOLD, fontWeight: 500 }}>{stats.listings.toLocaleString()}</span>
+                <span style={{ color: 'var(--color-muted)' }}> verified listings</span>
+              </span>
+              <span style={{ color: GOLD, fontSize: '5px' }}>●</span>
+              <span>
+                <span style={{ color: GOLD, fontWeight: 500 }}>9</span>
+                <span style={{ color: 'var(--color-muted)' }}> atlases</span>
+              </span>
+              <span style={{ color: GOLD, fontSize: '5px' }}>●</span>
+              <span>
+                <span style={{ color: GOLD, fontWeight: 500 }}>{stats.regions || '46'}</span>
+                <span style={{ color: 'var(--color-muted)' }}> regions</span>
+              </span>
+            </div>
+          )}
         </div>
       </section>
 
-      {/* ── 2. Map Strip ────────────────────────────────── */}
-      <HomeMapSection listingCount={stats.listings} />
-
-      {/* ── 3. Journal Feature ──────────────────────────── */}
-      {featuredArticle && (
-        <ScrollReveal as="section" style={{
-          background: '#1A1A1A',
-          marginTop: '88px',
-          paddingTop: '48px',
-          paddingBottom: '40px',
-        }}>
+      {/* ── 2. Worth Finding This Week ──────────────────── */}
+      {featured.length > 0 && (
+        <ScrollReveal as="section" style={{ paddingBlock: '80px' }}>
           <div className="max-w-5xl mx-auto px-6 sm:px-12">
-            {articlesWithImages.length >= 2 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {articlesWithImages.map((article, ai) => (
-                  <a
-                    key={article.id || ai}
-                    href={article.article_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="reveal group block"
-                    data-reveal-index={ai}
+            <h2 className="reveal text-center" style={{
+              fontFamily: 'var(--font-display)', fontWeight: 400,
+              fontSize: 'clamp(24px, 3vw, 36px)', color: 'var(--color-ink)',
+              marginBottom: '12px',
+            }}>
+              Worth finding this week
+            </h2>
+            <p className="reveal text-center" style={{
+              fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
+              color: 'var(--color-muted)', marginBottom: '48px',
+            }}>
+              A few of the independent places we think you should know about.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {featured.map((listing, li) => {
+                const colors = VERTICAL_CARD_COLORS[listing.vertical] || { bg: '#333', text: '#FAF8F4' }
+                return (
+                  <Link
+                    key={listing.id}
+                    href={`/place/${listing.slug}`}
+                    className="reveal group listing-card block rounded-xl overflow-hidden"
+                    data-reveal-index={li + 1}
+                    style={{
+                      background: listing.hero_image_url ? '#1A1A1A' : colors.bg,
+                      border: '1px solid transparent',
+                    }}
                   >
-                    <div className="overflow-hidden rounded-lg" style={{
-                      height: '220px',
-                    }}>
-                      <img
-                        src={article.hero_image_url}
-                        alt=""
-                        className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700"
-                      />
-                    </div>
-                    <div style={{ paddingTop: '16px' }}>
+                    {listing.hero_image_url ? (
+                      <div className="overflow-hidden" style={{ height: '180px' }}>
+                        <img
+                          src={listing.hero_image_url}
+                          alt=""
+                          loading="lazy"
+                          className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700"
+                        />
+                      </div>
+                    ) : null}
+                    <div style={{ padding: '20px 20px 24px' }}>
                       <p style={{
-                        fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
+                        fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 600,
                         letterSpacing: '0.15em', textTransform: 'uppercase',
-                        color: GOLD, marginBottom: '6px',
+                        color: listing.hero_image_url ? GOLD : 'rgba(250,248,244,0.5)',
+                        marginBottom: '8px',
                       }}>
-                        {VERTICAL_LABELS[article.vertical] || 'Atlas'}
-                        {article.category && ` · ${article.category}`}
+                        {VERTICAL_LABELS[listing.vertical] || listing.vertical}
+                        {listing.region && ` · ${listing.region}`}
                       </p>
-                      <h2 style={{
+                      <h3 style={{
                         fontFamily: 'var(--font-display)', fontWeight: 400,
-                        fontSize: '22px', lineHeight: 1.25,
-                        color: '#FAF8F4', margin: '0 0 8px',
+                        fontSize: '20px', lineHeight: 1.3,
+                        color: '#FAF8F4', marginBottom: '8px',
                       }}>
-                        {article.title}
-                      </h2>
-                      {article.excerpt && (
+                        {listing.name}
+                      </h3>
+                      {listing.description && (
                         <p style={{
                           fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px',
                           lineHeight: 1.6, color: 'rgba(250,248,244,0.55)',
-                          margin: '0 0 10px',
                           display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
                         }}>
-                          {article.excerpt}
+                          {firstSentence(listing.description)}
                         </p>
                       )}
-                      <span className="group-hover:underline underline-offset-4" style={{
-                        fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
-                        color: GOLD,
-                      }}>
-                        Read the story &rarr;
-                      </span>
                     </div>
-                  </a>
-                ))}
-              </div>
-            ) : (
-              <a
-                href={featuredArticle.article_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group block reveal"
-              >
-                {featuredArticle.hero_image_url && (
-                  <div className="overflow-hidden rounded-xl" style={{
-                    height: 'clamp(220px, 30vw, 350px)',
-                  }}>
-                    <img
-                      src={featuredArticle.hero_image_url}
-                      alt=""
-                      className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700"
-                    />
-                  </div>
-                )}
-                <div className="reveal" data-reveal-index="1" style={{
-                  paddingTop: '20px',
-                  maxWidth: '600px',
-                }}>
-                  <p style={{
-                    fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 600,
-                    letterSpacing: '0.15em', textTransform: 'uppercase',
-                    color: GOLD, marginBottom: '6px',
-                  }}>
-                    {VERTICAL_LABELS[featuredArticle.vertical] || 'Atlas'}
-                    {featuredArticle.category && ` · ${featuredArticle.category}`}
-                  </p>
-                  <h2 style={{
-                    fontFamily: 'var(--font-display)', fontWeight: 400,
-                    fontSize: 'clamp(22px, 2.5vw, 26px)', lineHeight: 1.25,
-                    color: '#FAF8F4', margin: '0 0 8px',
-                  }}>
-                    {featuredArticle.title}
-                  </h2>
-                  {featuredArticle.excerpt && (
-                    <p style={{
-                      fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px',
-                      lineHeight: 1.6, color: 'rgba(250,248,244,0.6)',
-                      margin: '0 0 12px',
-                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                    }}>
-                      {featuredArticle.excerpt}
-                    </p>
-                  )}
-                  <span className="group-hover:underline underline-offset-4" style={{
-                    fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
-                    color: GOLD,
-                  }}>
-                    Read the story &rarr;
-                  </span>
-                </div>
-              </a>
-            )}
-          </div>
-        </ScrollReveal>
-      )}
-
-      {/* ── 4. Cross-Vertical Cluster ──────────────────── */}
-      {clusters.length > 0 && (
-        <ScrollReveal as="section" style={{ paddingBlock: '96px' }}>
-          <div className="max-w-5xl mx-auto px-6 sm:px-12">
-            <div className="reveal text-center mb-14">
-              <h2 style={{
-                fontFamily: 'var(--font-display)', fontWeight: 400,
-                fontSize: 'clamp(24px, 3vw, 36px)', color: 'var(--color-ink)',
-              }}>
-                Discover a cluster
-              </h2>
-              <p className="mt-3" style={{
-                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
-                color: 'var(--color-muted)', maxWidth: '480px', margin: '12px auto 0',
-              }}>
-                Regions where makers, stays, culture, and food overlap. One place, many reasons to go.
-              </p>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '56px' }}>
-              {clusters.map((cluster, ci) => {
-                const regionSlug = CLUSTER_REGION_SLUGS[cluster.region]
-                return (
-                  <div key={cluster.region} className="reveal" data-reveal-index={ci + 1}>
-                    <div style={{ marginBottom: '16px' }}>
-                      {regionSlug ? (
-                        <Link href={`/regions/${regionSlug}`} className="group inline-block">
-                          <h3 style={{
-                            fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 26,
-                            color: 'var(--color-ink)', lineHeight: 1.25,
-                          }}>
-                            {cluster.region}
-                            <span className="inline-block ml-2 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: GOLD, fontSize: 18 }}>&rarr;</span>
-                          </h3>
-                        </Link>
-                      ) : (
-                        <h3 style={{
-                          fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 26,
-                          color: 'var(--color-ink)', lineHeight: 1.25,
-                        }}>
-                          {cluster.region}
-                        </h3>
-                      )}
-                      <p style={{
-                        fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13,
-                        color: 'var(--color-muted)', marginTop: 4,
-                      }}>
-                        {cluster.total} listings across {cluster.verticalCount} atlases
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {cluster.picks.map(pick => {
-                        const colors = VERTICAL_CARD_COLORS[pick.vertical] || { bg: '#333', text: '#FAF8F4' }
-                        return (
-                          <Link
-                            key={pick.id}
-                            href={`/place/${pick.slug}`}
-                            className="listing-card block rounded-xl overflow-hidden"
-                            style={{
-                              background: colors.bg,
-                              padding: '20px 16px',
-                              minHeight: '140px',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              justifyContent: 'space-between',
-                            }}
-                          >
-                            <span style={{
-                              fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 600,
-                              letterSpacing: '0.12em', textTransform: 'uppercase',
-                              color: 'rgba(250,248,244,0.45)',
-                            }}>
-                              {VERTICAL_LABELS[pick.vertical] || pick.vertical}
-                            </span>
-                            <span style={{
-                              fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 400,
-                              color: colors.text, lineHeight: 1.3, marginTop: 'auto',
-                            }}>
-                              {pick.name}
-                            </span>
-                          </Link>
-                        )
-                      })}
-                    </div>
-                  </div>
+                  </Link>
                 )
               })}
             </div>
@@ -516,7 +520,185 @@ export default async function Home() {
         </ScrollReveal>
       )}
 
-      {/* ── 5. Plan a Trip ─────────────────────────────── */}
+      {/* ── 3. Map Teaser ──────────────────────────────── */}
+      <section style={{ position: 'relative' }}>
+        <div style={{
+          background: '#1A1A1A', padding: '48px 0 0',
+        }}>
+          <div className="max-w-5xl mx-auto px-6 sm:px-12 text-center" style={{ marginBottom: '32px' }}>
+            <h2 style={{
+              fontFamily: 'var(--font-display)', fontWeight: 400,
+              fontSize: 'clamp(24px, 3vw, 36px)', color: '#FAF8F4',
+              marginBottom: '12px',
+            }}>
+              The whole network, on one map
+            </h2>
+            <p style={{
+              fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
+              color: 'rgba(250,248,244,0.6)', maxWidth: '500px', margin: '0 auto',
+            }}>
+              {stats.listings > 0
+                ? `${stats.listings.toLocaleString()} independent venues across Australia.`
+                : 'Independent venues across Australia.'}
+            </p>
+          </div>
+        </div>
+        <HomeMapSection listingCount={stats.listings} />
+        <div style={{
+          background: '#1A1A1A', padding: '24px 0 48px',
+          textAlign: 'center',
+        }}>
+          <Link
+            href="/map"
+            className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full hover:opacity-90 transition-opacity"
+            style={{
+              fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '15px',
+              background: GOLD, color: '#1A1A1A',
+            }}
+          >
+            Explore the full map &rarr;
+          </Link>
+        </div>
+      </section>
+
+      {/* ── 4. The Nine Atlases ────────────────────────── */}
+      <ScrollReveal as="section" style={{ paddingBlock: '96px' }}>
+        <div className="max-w-5xl mx-auto px-6 sm:px-12">
+          <div className="reveal text-center mb-12">
+            <h2 style={{
+              fontFamily: 'var(--font-display)', fontWeight: 400,
+              fontSize: 'clamp(24px, 3vw, 36px)', color: 'var(--color-ink)',
+            }}>
+              Nine atlases
+            </h2>
+            <p className="mt-3" style={{
+              fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
+              color: 'var(--color-muted)', maxWidth: '480px', margin: '12px auto 0',
+            }}>
+              Each atlas covers a different kind of independent place. Together, they form the network.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {verticals.map((v, vi) => {
+              const colors = VERTICAL_CARD_COLORS[v.key]
+              return (
+                <a
+                  key={v.key}
+                  href={v.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="reveal group listing-card block rounded-xl"
+                  data-reveal-index={vi + 1}
+                  style={{
+                    background: colors.bg,
+                    padding: '24px 20px',
+                    minHeight: '130px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    border: '1px solid transparent',
+                  }}
+                >
+                  <h3 style={{
+                    fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '20px',
+                    color: colors.text, lineHeight: 1.25, marginBottom: '6px',
+                  }}>
+                    {v.name}
+                  </h3>
+                  <p style={{
+                    fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '13px',
+                    color: 'rgba(250,248,244,0.55)', lineHeight: 1.5,
+                  }}>
+                    {v.desc}
+                  </p>
+                  <div style={{ flex: 1, minHeight: 12 }} />
+                  <span className="group-hover:underline underline-offset-4" style={{
+                    fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '12px',
+                    color: GOLD,
+                  }}>
+                    Visit {v.tag} &rarr;
+                  </span>
+                </a>
+              )
+            })}
+          </div>
+        </div>
+      </ScrollReveal>
+
+      {/* ── 5. Latest from the Journal ──────────────────── */}
+      {articlesWithImages.length > 0 && (
+        <ScrollReveal as="section" style={{
+          background: '#1A1A1A',
+          paddingBlock: '80px',
+        }}>
+          <div className="max-w-5xl mx-auto px-6 sm:px-12">
+            <h2 className="reveal" style={{
+              fontFamily: 'var(--font-display)', fontWeight: 400,
+              fontSize: 'clamp(24px, 3vw, 32px)', color: '#FAF8F4',
+              marginBottom: '40px',
+            }}>
+              From the journal
+            </h2>
+            <div className={`grid grid-cols-1 ${articlesWithImages.length >= 2 ? 'sm:grid-cols-2' : ''} ${articlesWithImages.length >= 3 ? 'lg:grid-cols-3' : ''} gap-6`}>
+              {articlesWithImages.slice(0, 3).map((article, ai) => (
+                <a
+                  key={article.id || ai}
+                  href={article.article_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="reveal group block"
+                  data-reveal-index={ai + 1}
+                >
+                  <div className="overflow-hidden rounded-lg" style={{ height: '200px' }}>
+                    <img
+                      src={article.hero_image_url}
+                      alt=""
+                      loading="lazy"
+                      className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700"
+                    />
+                  </div>
+                  <div style={{ paddingTop: '16px' }}>
+                    <p style={{
+                      fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 600,
+                      letterSpacing: '0.15em', textTransform: 'uppercase',
+                      color: GOLD, marginBottom: '6px',
+                    }}>
+                      {VERTICAL_LABELS[article.vertical] || 'Atlas'}
+                      {article.category && ` · ${article.category}`}
+                    </p>
+                    <h3 style={{
+                      fontFamily: 'var(--font-display)', fontWeight: 400,
+                      fontSize: '20px', lineHeight: 1.25,
+                      color: '#FAF8F4', margin: '0 0 8px',
+                    }}>
+                      {article.title}
+                    </h3>
+                    {article.excerpt && (
+                      <p style={{
+                        fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px',
+                        lineHeight: 1.6, color: 'rgba(250,248,244,0.5)',
+                        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                      }}>
+                        {article.excerpt}
+                      </p>
+                    )}
+                  </div>
+                </a>
+              ))}
+            </div>
+            <div className="mt-10 text-center">
+              <Link href="/journal" className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity" style={{
+                fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
+                color: GOLD, padding: '10px 4px', minHeight: 44,
+              }}>
+                Read the journal &rarr;
+              </Link>
+            </div>
+          </div>
+        </ScrollReveal>
+      )}
+
+      {/* ── 6. Plan a Trip ─────────────────────────────── */}
       <ScrollReveal as="section" style={{ paddingBlock: '80px' }}>
         <div className="max-w-5xl mx-auto px-6 sm:px-12">
           <h2 className="reveal text-center mb-10" style={{
@@ -597,7 +779,7 @@ export default async function Home() {
         </div>
       </ScrollReveal>
 
-      {/* ── 6. Regions ────────────────────────────────── */}
+      {/* ── 7. Regions ────────────────────────────────── */}
       <ScrollReveal as="section" style={{ paddingBlock: '80px' }}>
         <div className="max-w-5xl mx-auto px-6 sm:px-12">
           <h2 className="reveal text-center mb-10" style={{
@@ -669,7 +851,7 @@ export default async function Home() {
         </div>
       </ScrollReveal>
 
-      {/* ── 7. Newsletter ─────────────────────────────── */}
+      {/* ── 8. Newsletter ─────────────────────────────── */}
       <section style={{ paddingBlock: '64px', background: '#F5F0E8' }}>
         <div className="max-w-xl mx-auto px-6 sm:px-12 text-center">
           <h2 style={{
