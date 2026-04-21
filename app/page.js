@@ -1,11 +1,14 @@
 import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import HomeSearchBar from '@/components/HomeSearchBar'
+import HomeMapSection from '@/components/HomeMapSection'
 import NewsletterSignup from '@/components/NewsletterSignup'
 import ScrollReveal from '@/components/ScrollReveal'
 import { getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
 
 export const revalidate = 1800
+
+const GOLD = '#C4973B'
 
 const verticals = [
   { key: 'sba', name: 'Small Batch Atlas', tag: 'Small Batch', desc: 'Craft breweries, wineries, distilleries, cideries and cellar doors', url: 'https://smallbatchatlas.com.au' },
@@ -31,16 +34,26 @@ const VERTICAL_CARD_COLORS = {
   table:        { bg: '#3A2E1F', text: '#FAF8F4' },
 }
 
-const REGION_ACCENT_COLORS = {
-  'Barossa Valley': '#C49A3C',
-  'Mornington Peninsula': '#C49A3C',
-  'Yarra Valley': '#C49A3C',
-  'Byron Hinterland': '#4A7C59',
-  'Blue Mountains': '#7A6B8A',
-  'Adelaide Hills': '#C49A3C',
+const CLUSTER_REGION_SLUGS = {
+  'Barossa Valley': 'barossa-valley',
+  'Mornington Peninsula': 'mornington-peninsula',
+  'Hobart & Southern Tasmania': 'hobart',
+  'Byron Hinterland': 'byron-hinterland',
+  'Adelaide': null,
+  'Melbourne': null,
 }
 
-// Bounding box coordinates for homepage region cards (center + radius in degrees)
+const STATE_CARD_GRADIENTS = {
+  VIC: 'linear-gradient(135deg, #F0EBE3 0%, #E8E0D4 100%)',
+  NSW: 'linear-gradient(135deg, #EDE8E0 0%, #E0D8CC 100%)',
+  QLD: 'linear-gradient(135deg, #F0ECE4 0%, #E4DDD2 100%)',
+  SA:  'linear-gradient(135deg, #EEE8DF 0%, #E2DAD0 100%)',
+  WA:  'linear-gradient(135deg, #F0EAE2 0%, #E6DED4 100%)',
+  TAS: 'linear-gradient(135deg, #ECE8E2 0%, #DED8D0 100%)',
+  ACT: 'linear-gradient(135deg, #EEEAE4 0%, #E0DCD4 100%)',
+  NT:  'linear-gradient(135deg, #F0ECE6 0%, #E4DED6 100%)',
+}
+
 const REGION_GEO = {
   'Barossa Valley':        { lat: -34.56, lng: 138.95, r: 0.35 },
   'Mornington Peninsula':  { lat: -38.37, lng: 145.03, r: 0.30 },
@@ -57,7 +70,6 @@ async function getStats() {
       sb.from('listings').select('*', { count: 'exact', head: true }).eq('status', 'active').not('name', 'ilike', '\\_%'),
       sb.from('regions').select('*', { count: 'exact', head: true }),
     ])
-    // Get per-vertical counts (parallel)
     const verticalCountResults = await Promise.all(
       verticals.map(v =>
         sb.from('listings').select('*', { count: 'exact', head: true }).eq('vertical', v.key).eq('status', 'active').not('name', 'ilike', '\\_%')
@@ -66,7 +78,6 @@ async function getStats() {
     )
     const verticalCounts = Object.fromEntries(verticalCountResults)
 
-    // Get listing counts for homepage region cards — bounding box queries (parallel)
     const regionEntries = Object.entries(REGION_GEO)
     const regionCountResults = await Promise.all(
       regionEntries.map(([name, geo]) =>
@@ -102,12 +113,10 @@ const VERTICAL_JOURNAL_URLS = {
 }
 
 async function getLatestArticles() {
-  // Pull from both master DB (CMS-synced) and SBA vertical in parallel, then deduplicate
   const allArticles = []
   const slugSet = new Set()
 
   const [masterResult, sbaResult] = await Promise.all([
-    // 1. Master DB articles (all verticals, synced from CMS)
     (async () => {
       try {
         const sb = getSupabaseAdmin()
@@ -120,7 +129,6 @@ async function getLatestArticles() {
         return data || []
       } catch { return [] }
     })(),
-    // 2. SBA vertical articles (supplement)
     (async () => {
       try {
         const sbaClient = getVerticalClient('sba')
@@ -135,7 +143,6 @@ async function getLatestArticles() {
     })(),
   ])
 
-  // Merge master articles first (priority)
   for (const a of masterResult) {
     if (!slugSet.has(a.slug)) {
       slugSet.add(a.slug)
@@ -148,7 +155,6 @@ async function getLatestArticles() {
     }
   }
 
-  // Then SBA articles (supplement)
   for (const a of sbaResult) {
     if (!slugSet.has(a.slug)) {
       slugSet.add(a.slug)
@@ -161,7 +167,6 @@ async function getLatestArticles() {
     }
   }
 
-  // Sort all articles by published_at descending, take top 3
   allArticles.sort((a, b) => new Date(b.published_at) - new Date(a.published_at))
   return allArticles.slice(0, 3)
 }
@@ -186,38 +191,18 @@ async function getDiscoverClusters() {
         const picks = []
         const usedVerticals = new Set()
         for (const l of data) {
-          if (!usedVerticals.has(l.vertical) && picks.length < 4) {
+          if (!usedVerticals.has(l.vertical) && picks.length < 4 && l.slug) {
             picks.push(l)
             usedVerticals.add(l.vertical)
           }
         }
+        if (picks.length < 3) return null
         return { region, verticalCount: verticalSet.size, total: data.length, picks }
       })
     )
     return results.filter(Boolean).slice(0, 3)
   } catch {
     return []
-  }
-}
-
-async function getFeaturedByVertical() {
-  try {
-    const sb = getSupabaseAdmin()
-    const { data } = await sb
-      .from('listings')
-      .select('name, vertical')
-      .eq('status', 'active')
-      .eq('is_featured', true)
-      .limit(30)
-    // Group by vertical: { sba: ['Name 1', 'Name 2'], ... }
-    const grouped = {}
-    for (const row of (data || [])) {
-      if (!grouped[row.vertical]) grouped[row.vertical] = []
-      if (grouped[row.vertical].length < 2) grouped[row.vertical].push(row.name)
-    }
-    return grouped
-  } catch {
-    return {}
   }
 }
 
@@ -228,21 +213,31 @@ const VERTICAL_LABELS = {
 }
 
 export default async function Home() {
-  const [stats, articlesRaw, featuredByVertical, clusters] = await Promise.all([getStats(), getLatestArticles(), getFeaturedByVertical(), getDiscoverClusters()])
+  const [stats, articlesRaw, clusters] = await Promise.all([
+    getStats(), getLatestArticles(), getDiscoverClusters(),
+  ])
   const articles = articlesRaw.length > 0 ? articlesRaw : []
-
   const featuredArticle = articles.find(a => a.hero_image_url) || articles[0]
 
   return (
     <>
       {/* ── 1. Hero ─────────────────────────────────────── */}
-      <section className="relative text-center flex flex-col items-center justify-center px-6 sm:px-12" style={{ minHeight: 'min(88vh, 800px)', paddingTop: '3rem', paddingBottom: '3rem' }}>
+      <section
+        className="relative text-center flex flex-col items-center justify-center px-6 sm:px-12"
+        style={{
+          minHeight: 'clamp(400px, 70vh, 700px)',
+          paddingTop: '3rem',
+          paddingBottom: '2rem',
+          background: 'linear-gradient(180deg, #FAF8F4 0%, #F0EBE3 100%)',
+        }}
+      >
         <h1 style={{
           fontFamily: 'var(--font-display)', fontWeight: 400, letterSpacing: '-0.01em',
           fontSize: 'clamp(2.5rem, 6vw, 5rem)', lineHeight: 1.1,
-          color: 'var(--color-ink)', maxWidth: '900px',
+          color: 'var(--color-ink)', maxWidth: '820px', textWrap: 'balance',
         }}>
-          Nine atlases. One guide to<br /><em style={{ fontStyle: 'italic' }}>independent</em> Australia.
+          Nine atlases. One guide to{' '}
+          <em style={{ fontStyle: 'italic' }}>independent</em> Australia.
         </h1>
 
         <p className="mt-6" style={{
@@ -253,12 +248,23 @@ export default async function Home() {
         </p>
 
         {stats.listings > 0 && (
-          <div className="mt-5 flex items-center justify-center gap-4 sm:gap-6" style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '13px', letterSpacing: '0.02em' }}>
-            <span className="text-[var(--color-ink)]">{stats.listings.toLocaleString()} verified listings</span>
-            <span className="text-[var(--color-accent)]" style={{ fontSize: '6px' }}>●</span>
-            <span className="text-[var(--color-ink)]">9 atlases</span>
-            <span className="text-[var(--color-accent)]" style={{ fontSize: '6px' }}>●</span>
-            <span className="text-[var(--color-ink)]">{stats.regions || '46'} regions</span>
+          <div className="mt-5 flex items-center justify-center gap-3 sm:gap-5 flex-wrap" style={{
+            fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '15px', letterSpacing: '0.01em',
+          }}>
+            <span>
+              <span style={{ color: GOLD, fontWeight: 500 }}>{stats.listings.toLocaleString()}</span>
+              <span style={{ color: 'var(--color-muted)' }}> verified listings</span>
+            </span>
+            <span style={{ color: GOLD, fontSize: '5px' }}>●</span>
+            <span>
+              <span style={{ color: GOLD, fontWeight: 500 }}>9</span>
+              <span style={{ color: 'var(--color-muted)' }}> atlases</span>
+            </span>
+            <span style={{ color: GOLD, fontSize: '5px' }}>●</span>
+            <span>
+              <span style={{ color: GOLD, fontWeight: 500 }}>{stats.regions || '46'}</span>
+              <span style={{ color: 'var(--color-muted)' }}> regions</span>
+            </span>
           </div>
         )}
 
@@ -267,8 +273,11 @@ export default async function Home() {
         <div className="mt-6 flex items-center justify-center gap-4 flex-wrap">
           <Link
             href="/map"
-            className="inline-flex items-center gap-2 text-white px-7 py-3 rounded-full hover:opacity-90 transition-opacity"
-            style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px', background: 'var(--color-ink)' }}
+            className="inline-flex items-center gap-2 px-7 py-3 rounded-full hover:opacity-90 transition-opacity"
+            style={{
+              fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px',
+              background: '#1A1A1A', color: '#FAF8F4',
+            }}
           >
             Explore the map
           </Link>
@@ -285,66 +294,78 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* ── 2. Journal Feature ──────────────────────────── */}
+      {/* ── 2. Map Strip ────────────────────────────────── */}
+      <HomeMapSection listingCount={stats.listings} />
+
+      {/* ── 3. Journal Feature ──────────────────────────── */}
       {featuredArticle && (
-        <ScrollReveal as="section" style={{ paddingBlock: '120px' }}>
-          <div className="max-w-5xl mx-auto px-6 sm:px-12">
-            <a
-              href={featuredArticle.article_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group block"
-            >
-              {featuredArticle.hero_image_url && (
-                <div className="reveal relative overflow-hidden rounded-xl" style={{ aspectRatio: '21/9' }}>
-                  <img
-                    src={featuredArticle.hero_image_url}
-                    alt=""
-                    className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700"
-                  />
-                </div>
-              )}
-              <div className="reveal" data-reveal-index="1" style={{ maxWidth: '640px', marginTop: '2rem' }}>
-                <p style={{
-                  fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 600,
-                  letterSpacing: '0.15em', textTransform: 'uppercase',
-                  color: 'var(--color-muted)', marginBottom: '10px',
-                }}>
-                  {VERTICAL_LABELS[featuredArticle.vertical] || 'Atlas'}
-                  {featuredArticle.category && ` · ${featuredArticle.category}`}
-                </p>
-                <h2 style={{
-                  fontFamily: 'var(--font-display)', fontWeight: 400,
-                  fontSize: 'clamp(24px, 3vw, 36px)', lineHeight: 1.2,
-                  color: 'var(--color-ink)', margin: '0 0 12px',
-                }}>
-                  {featuredArticle.title}
-                </h2>
-                {featuredArticle.excerpt && (
-                  <p style={{
-                    fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
-                    lineHeight: 1.65, color: 'var(--color-muted)', margin: '0 0 16px',
-                  }}>
-                    {featuredArticle.excerpt}
-                  </p>
-                )}
-                <span style={{
-                  fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
-                  color: 'var(--color-accent)',
-                }}>
-                  Read the story &rarr;
-                </span>
+        <ScrollReveal as="section" style={{
+          background: '#1A1A1A',
+          marginTop: '88px',
+        }}>
+          <a
+            href={featuredArticle.article_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group block"
+          >
+            {featuredArticle.hero_image_url && (
+              <div className="reveal w-full overflow-hidden" style={{
+                aspectRatio: '2 / 1',
+                minHeight: '280px',
+                maxHeight: '560px',
+              }}>
+                <img
+                  src={featuredArticle.hero_image_url}
+                  alt=""
+                  className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700"
+                />
               </div>
-            </a>
-          </div>
+            )}
+            <div className="reveal max-w-5xl mx-auto px-6 sm:px-12" data-reveal-index="1" style={{
+              paddingTop: '24px',
+              paddingBottom: '64px',
+            }}>
+              <p style={{
+                fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 600,
+                letterSpacing: '0.15em', textTransform: 'uppercase',
+                color: GOLD, marginBottom: '8px',
+              }}>
+                {VERTICAL_LABELS[featuredArticle.vertical] || 'Atlas'}
+                {featuredArticle.category && ` · ${featuredArticle.category}`}
+              </p>
+              <h2 style={{
+                fontFamily: 'var(--font-display)', fontWeight: 400,
+                fontSize: 'clamp(24px, 3vw, 32px)', lineHeight: 1.2,
+                color: '#FAF8F4', margin: '0 0 12px',
+              }}>
+                {featuredArticle.title}
+              </h2>
+              {featuredArticle.excerpt && (
+                <p style={{
+                  fontFamily: 'var(--font-display)', fontWeight: 300, fontSize: '16px',
+                  lineHeight: 1.7, color: 'rgba(250,248,244,0.65)',
+                  margin: '0 0 16px', maxWidth: '600px',
+                }}>
+                  {featuredArticle.excerpt}
+                </p>
+              )}
+              <span className="group-hover:underline underline-offset-4" style={{
+                fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
+                color: GOLD,
+              }}>
+                Read the story &rarr;
+              </span>
+            </div>
+          </a>
         </ScrollReveal>
       )}
 
-      {/* ── 3. Cross-Vertical Cluster ──────────────────── */}
+      {/* ── 4. Cross-Vertical Cluster ──────────────────── */}
       {clusters.length > 0 && (
-        <ScrollReveal as="section" style={{ paddingBlock: '96px', background: 'var(--color-cream)' }}>
-          <div className="max-w-5xl mx-auto px-6 sm:px-12">
-            <div className="reveal text-center mb-12">
+        <ScrollReveal as="section" style={{ paddingBlock: '96px' }}>
+          <div className="max-w-6xl mx-auto px-6 sm:px-12">
+            <div className="reveal text-center mb-14">
               <h2 style={{
                 fontFamily: 'var(--font-display)', fontWeight: 400,
                 fontSize: 'clamp(24px, 3vw, 36px)', color: 'var(--color-ink)',
@@ -359,61 +380,82 @@ export default async function Home() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              {clusters.map((cluster, ci) => (
-                <Link
-                  key={cluster.region}
-                  href={`/regions/${cluster.region.toLowerCase().replace(/\s+&\s+/g, '-').replace(/\s+/g, '-')}`}
-                  className="reveal group listing-card block rounded-xl overflow-hidden"
-                  data-reveal-index={ci + 1}
-                  style={{ background: '#fff', border: '1px solid var(--color-border)' }}
-                >
-                  <div className="p-6">
-                    <h3 style={{
-                      fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 20,
-                      color: 'var(--color-ink)', lineHeight: 1.25, marginBottom: 6,
-                    }}>
-                      {cluster.region}
-                    </h3>
-                    <p style={{
-                      fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12,
-                      color: 'var(--color-muted)', marginBottom: 16,
-                    }}>
-                      {cluster.total} listings across {cluster.verticalCount} atlases
-                    </p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '56px' }}>
+              {clusters.map((cluster, ci) => {
+                const regionSlug = CLUSTER_REGION_SLUGS[cluster.region]
+                return (
+                  <div key={cluster.region} className="reveal" data-reveal-index={ci + 1}>
+                    <div style={{ marginBottom: '16px' }}>
+                      {regionSlug ? (
+                        <Link href={`/regions/${regionSlug}`} className="group inline-block">
+                          <h3 style={{
+                            fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 26,
+                            color: 'var(--color-ink)', lineHeight: 1.25,
+                          }}>
+                            {cluster.region}
+                            <span className="inline-block ml-2 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: GOLD, fontSize: 18 }}>&rarr;</span>
+                          </h3>
+                        </Link>
+                      ) : (
+                        <h3 style={{
+                          fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 26,
+                          color: 'var(--color-ink)', lineHeight: 1.25,
+                        }}>
+                          {cluster.region}
+                        </h3>
+                      )}
+                      <p style={{
+                        fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13,
+                        color: 'var(--color-muted)', marginTop: 4,
+                      }}>
+                        {cluster.total} listings across {cluster.verticalCount} atlases
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {cluster.picks.map(pick => {
-                        const color = VERTICAL_CARD_COLORS[pick.vertical]?.bg || '#333'
+                        const colors = VERTICAL_CARD_COLORS[pick.vertical] || { bg: '#333', text: '#FAF8F4' }
                         return (
-                          <div key={pick.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <Link
+                            key={pick.id}
+                            href={`/place/${pick.slug}`}
+                            className="listing-card block rounded-xl overflow-hidden"
+                            style={{
+                              background: colors.bg,
+                              padding: '20px 16px',
+                              minHeight: '140px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              justifyContent: 'space-between',
+                            }}
+                          >
                             <span style={{
-                              fontFamily: 'var(--font-body)', fontSize: 9, fontWeight: 600,
-                              letterSpacing: '0.1em', textTransform: 'uppercase',
-                              color: color, minWidth: 65,
+                              fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 600,
+                              letterSpacing: '0.12em', textTransform: 'uppercase',
+                              color: 'rgba(250,248,244,0.45)',
                             }}>
                               {VERTICAL_LABELS[pick.vertical] || pick.vertical}
                             </span>
                             <span style={{
-                              fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 400,
-                              color: 'var(--color-ink)',
-                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                              fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 400,
+                              color: colors.text, lineHeight: 1.3, marginTop: 'auto',
                             }}>
                               {pick.name}
                             </span>
-                          </div>
+                          </Link>
                         )
                       })}
                     </div>
                   </div>
-                </Link>
-              ))}
+                )
+              })}
             </div>
           </div>
         </ScrollReveal>
       )}
 
-      {/* ── 4. Plan a Trip ─────────────────────────────── */}
-      <ScrollReveal as="section" style={{ paddingBlock: '96px' }}>
+      {/* ── 5. Plan a Trip ─────────────────────────────── */}
+      <ScrollReveal as="section" style={{ paddingBlock: '80px' }}>
         <div className="max-w-4xl mx-auto px-6 sm:px-12">
           <h2 className="reveal text-center mb-10" style={{
             fontFamily: 'var(--font-display)', fontWeight: 400,
@@ -424,25 +466,33 @@ export default async function Home() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <Link
               href="/long-weekend"
-              className="reveal group listing-card block rounded-xl p-8"
+              className="reveal group listing-card block rounded-2xl"
               data-reveal-index="1"
-              style={{ background: 'var(--color-ink)', border: '1px solid transparent' }}
+              style={{
+                background: '#2C2420',
+                border: '1px solid transparent',
+                padding: '32px 28px',
+                minHeight: '200px',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
             >
               <h3 style={{
-                fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px',
-                color: '#fff', lineHeight: 1.25, marginBottom: 8,
+                fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '26px',
+                color: '#FAF8F4', lineHeight: 1.25, marginBottom: 10,
               }}>
                 Long weekend
               </h3>
               <p style={{
-                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px',
-                color: 'rgba(255,255,255,0.55)', lineHeight: 1.6, marginBottom: 20,
+                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px',
+                color: 'rgba(250,248,244,0.6)', lineHeight: 1.6,
               }}>
                 Tell us where you are and what you&apos;re into.
               </p>
+              <div style={{ flex: 1, minHeight: 24 }} />
               <span style={{
                 fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
-                color: 'rgba(255,255,255,0.7)',
+                color: GOLD,
               }}>
                 Plan a weekend &rarr;
               </span>
@@ -450,25 +500,33 @@ export default async function Home() {
 
             <Link
               href="/on-this-road"
-              className="reveal group listing-card block rounded-xl p-8"
+              className="reveal group listing-card block rounded-2xl"
               data-reveal-index="2"
-              style={{ background: 'var(--color-ink)', border: '1px solid transparent' }}
+              style={{
+                background: '#2C2420',
+                border: '1px solid transparent',
+                padding: '32px 28px',
+                minHeight: '200px',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
             >
               <h3 style={{
-                fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px',
-                color: '#fff', lineHeight: 1.25, marginBottom: 8,
+                fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '26px',
+                color: '#FAF8F4', lineHeight: 1.25, marginBottom: 10,
               }}>
                 Road trip
               </h3>
               <p style={{
-                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px',
-                color: 'rgba(255,255,255,0.55)', lineHeight: 1.6, marginBottom: 20,
+                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px',
+                color: 'rgba(250,248,244,0.6)', lineHeight: 1.6,
               }}>
                 You know where you&apos;re going. We&apos;ll find the stops.
               </p>
+              <div style={{ flex: 1, minHeight: 24 }} />
               <span style={{
                 fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
-                color: 'rgba(255,255,255,0.7)',
+                color: GOLD,
               }}>
                 Plan a road trip &rarr;
               </span>
@@ -477,8 +535,8 @@ export default async function Home() {
         </div>
       </ScrollReveal>
 
-      {/* ── 5. Regions ────────────────────────────────── */}
-      <ScrollReveal as="section" style={{ paddingBlock: '96px' }}>
+      {/* ── 6. Regions ────────────────────────────────── */}
+      <ScrollReveal as="section" style={{ paddingBlock: '80px' }}>
         <div className="max-w-5xl mx-auto px-6 sm:px-12">
           <h2 className="reveal text-center mb-10" style={{
             fontFamily: 'var(--font-display)', fontWeight: 400,
@@ -497,13 +555,17 @@ export default async function Home() {
               { name: 'Adelaide Hills', state: 'SA' },
             ].map((r, ri) => {
               const count = stats.regionCounts[r.name]
+              const gradient = STATE_CARD_GRADIENTS[r.state] || STATE_CARD_GRADIENTS.VIC
               return (
                 <Link
                   key={r.name}
                   href={`/regions/${r.name.toLowerCase().replace(/\s+/g, '-')}`}
                   className="reveal group listing-card block rounded-xl overflow-hidden"
                   data-reveal-index={ri + 1}
-                  style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}
+                  style={{
+                    background: gradient,
+                    border: '1px solid #E8E0D4',
+                  }}
                 >
                   <div className="p-6 flex flex-col" style={{ minHeight: 140 }}>
                     <h3 style={{
@@ -513,16 +575,16 @@ export default async function Home() {
                       {r.name}
                     </h3>
                     <p style={{
-                      fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '10px',
-                      letterSpacing: '0.12em', textTransform: 'uppercase',
-                      color: 'var(--color-muted)', marginBottom: 0,
+                      fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '10px',
+                      letterSpacing: '0.15em', textTransform: 'uppercase',
+                      color: GOLD, marginBottom: 0,
                     }}>
                       {r.state}
                     </p>
                     <div style={{ flex: 1, minHeight: 16 }} />
                     {count > 0 && (
                       <span style={{
-                        fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12,
+                        fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13,
                         color: 'var(--color-muted)',
                       }}>
                         {count} listings
@@ -535,32 +597,29 @@ export default async function Home() {
           </div>
 
           <div className="mt-8 text-center">
-            <Link href="/regions" className="inline-flex items-center gap-2 text-[var(--color-accent)] hover:opacity-80 transition-opacity" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', padding: '10px 4px', minHeight: 44 }}>
+            <Link href="/regions" className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity" style={{
+              fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
+              color: GOLD, padding: '10px 4px', minHeight: 44,
+            }}>
               Browse all regions &rarr;
             </Link>
           </div>
         </div>
       </ScrollReveal>
 
-      {/* ── 6. Newsletter ─────────────────────────────── */}
-      <ScrollReveal as="section" style={{ paddingBlock: '96px', background: 'var(--color-cream)' }}>
-        <div className="reveal max-w-xl mx-auto px-6 sm:px-12 text-center">
+      {/* ── 7. Newsletter ─────────────────────────────── */}
+      <section style={{ paddingBlock: '64px', background: '#F5F0E8' }}>
+        <div className="max-w-xl mx-auto px-6 sm:px-12 text-center">
           <h2 style={{
             fontFamily: 'var(--font-display)', fontWeight: 400,
-            fontSize: 'clamp(22px, 3vw, 32px)', color: 'var(--color-ink)',
-            marginBottom: '8px',
+            fontSize: 'clamp(22px, 3vw, 28px)', color: 'var(--color-ink)',
+            marginBottom: '24px',
           }}>
             One independent place, every week.
           </h2>
-          <p style={{
-            fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px',
-            color: 'var(--color-muted)', marginBottom: '24px',
-          }}>
-            A short email with a single place worth knowing about.
-          </p>
-          <NewsletterSignup variant="inline" />
+          <NewsletterSignup variant="homepage" />
         </div>
-      </ScrollReveal>
+      </section>
     </>
   )
 }

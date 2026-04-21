@@ -27,9 +27,17 @@ export default function HomeSearchBar() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-8 w-full max-w-2xl mx-auto">
-      <div className="flex items-center gap-3 bg-white rounded-2xl px-5 sm:px-6 py-4 sm:py-5 shadow-md hover:shadow-lg focus-within:shadow-lg transition-all group" style={{ border: '1px solid var(--color-border)' }}>
-        <svg className="w-5 h-5 text-[var(--color-accent)] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <form onSubmit={handleSubmit} className="mt-8 w-full mx-auto" style={{ maxWidth: '600px' }}>
+      <div
+        className="flex items-center gap-3 rounded-2xl px-5 sm:px-6 transition-all group"
+        style={{
+          background: '#FAF8F4',
+          border: '1px solid #E8E0D4',
+          boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+          height: '52px',
+        }}
+      >
+        <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: '#C4973B' }}>
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
         <SearchAutocomplete
@@ -40,8 +48,11 @@ export default function HomeSearchBar() {
         />
         <button
           type="submit"
-          className="shrink-0 text-white bg-[var(--color-accent)] px-4 py-2 rounded-full hover:opacity-90 transition-opacity"
-          style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px' }}
+          className="shrink-0 px-4 py-2 rounded-full hover:opacity-90 transition-opacity"
+          style={{
+            fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
+            background: '#C4973B', color: '#FAF8F4',
+          }}
         >
           Search
         </button>

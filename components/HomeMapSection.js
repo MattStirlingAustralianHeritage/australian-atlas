@@ -3,7 +3,6 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 
 import { useRef, useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { VERTICAL_STYLES } from '@/components/VerticalBadge'
 
 const VERTICAL_COLORS = {
   sba: '#C49A3C', collection: '#7A6B8A', craft: '#C1603A', fine_grounds: '#8A7055',
@@ -16,18 +15,8 @@ const VERTICAL_LABELS = {
   corner: 'Corner', found: 'Found', table: 'Table',
 }
 
-const MAP_SLUGS = {
-  sba: 'small-batch', collection: 'collections', craft: 'craft',
-  fine_grounds: 'fine-grounds', rest: 'rest', field: 'field',
-  corner: 'corner', found: 'found', table: 'table',
-}
-
 const ALL_VERTICALS = ['sba', 'collection', 'craft', 'fine_grounds', 'rest', 'field', 'corner', 'found', 'table']
 
-/**
- * Full-width interactive map section for the homepage.
- * Loads all nine vertical pin layers with lazy initialization.
- */
 export default function HomeMapSection({ listingCount }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
@@ -35,7 +24,6 @@ export default function HomeMapSection({ listingCount }) {
   const [visibleVerticals, setVisibleVerticals] = useState(new Set(ALL_VERTICALS))
   const observerRef = useRef(null)
 
-  // Lazy init: only load map when section scrolls into view
   useEffect(() => {
     if (!containerRef.current) return
 
@@ -77,7 +65,6 @@ export default function HomeMapSection({ listingCount }) {
     map.on('load', async () => {
       mapRef.current = map
 
-      // Fetch listings
       try {
         const res = await fetch('/api/map')
         const data = await res.json()
@@ -88,7 +75,6 @@ export default function HomeMapSection({ listingCount }) {
           return
         }
 
-        // Group into GeoJSON per vertical
         const verticalFeatures = {}
         for (const v of ALL_VERTICALS) verticalFeatures[v] = []
 
@@ -103,7 +89,6 @@ export default function HomeMapSection({ listingCount }) {
           })
         }
 
-        // Add source + layer per vertical
         for (const v of ALL_VERTICALS) {
           map.addSource(`pins-${v}`, {
             type: 'geojson',
@@ -132,7 +117,6 @@ export default function HomeMapSection({ listingCount }) {
     })
   }
 
-  // Toggle vertical visibility
   const toggleVertical = useCallback((v) => {
     setVisibleVerticals(prev => {
       const next = new Set(prev)
@@ -151,64 +135,25 @@ export default function HomeMapSection({ listingCount }) {
     })
   }, [])
 
-  const countDisplay = listingCount > 0 ? listingCount.toLocaleString() : '6,881'
-
   return (
-    <section className="relative w-full overflow-hidden border-b border-[var(--color-border)]">
-      {/* Map container */}
+    <section className="relative w-full overflow-hidden">
       <div
         ref={containerRef}
-        style={{ width: '100%', height: 480 }}
+        style={{ width: '100%' }}
         className="map-container"
       />
 
-      {/* Vignette for text readability */}
+      {/* Subtle edge vignette */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.45) 60%, rgba(255,255,255,0.8) 100%)',
+          background: 'linear-gradient(180deg, rgba(0,0,0,0.15) 0%, transparent 20%, transparent 80%, rgba(0,0,0,0.2) 100%)',
         }}
       />
 
-      {/* Typographic overlay */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none px-4">
-        <h2
-          style={{
-            fontFamily: 'var(--font-display)',
-            fontWeight: 400,
-            fontSize: 'clamp(28px, 5vw, 48px)',
-            color: 'var(--color-ink)',
-            lineHeight: 1.15,
-            textAlign: 'center',
-            margin: 0,
-            textShadow: '0 1px 8px rgba(255,255,255,0.6)',
-          }}
-        >
-          {countDisplay} independent places.
-          <br />
-          <span style={{ opacity: 0.7, fontSize: '0.7em' }}>One map.</span>
-        </h2>
-
-        <div className="mt-5 pointer-events-auto">
-          <Link
-            href="/map"
-            className="inline-flex items-center gap-2 bg-[var(--color-ink)] text-white px-6 py-3 rounded-full shadow-lg hover:shadow-xl hover:opacity-90 transition-all"
-            style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px' }}
-          >
-            Open full map
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </Link>
-        </div>
-      </div>
-
-      {/* Vertical filter toggles */}
-      <div
-        className="absolute bottom-0 left-0 right-0 z-10 px-4 py-3"
-        style={{ background: 'linear-gradient(to top, rgba(255,255,255,0.92), rgba(255,255,255,0))' }}
-      >
-        <div className="flex items-center justify-center gap-1.5 overflow-x-auto no-scrollbar">
+      {/* Vertical filter toggles — top of map */}
+      <div className="absolute top-0 left-0 right-0 z-10 px-4 py-3">
+        <div className="flex items-center justify-center gap-1.5 overflow-x-auto scrollbar-hide">
           {ALL_VERTICALS.map(v => {
             const active = visibleVerticals.has(v)
             const color = VERTICAL_COLORS[v]
@@ -221,15 +166,16 @@ export default function HomeMapSection({ listingCount }) {
                   fontFamily: 'var(--font-body)',
                   fontWeight: 400,
                   fontSize: '11px',
-                  color: active ? color : 'var(--color-muted)',
-                  background: active ? '#fff' : 'rgba(255,255,255,0.5)',
-                  borderColor: active ? color : 'var(--color-border)',
-                  opacity: active ? 1 : 0.5,
+                  color: active ? '#FAF8F4' : 'rgba(250,248,244,0.5)',
+                  background: active ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.3)',
+                  borderColor: active ? color : 'rgba(255,255,255,0.15)',
+                  backdropFilter: 'blur(8px)',
+                  WebkitBackdropFilter: 'blur(8px)',
                 }}
               >
                 <span
                   className="w-2 h-2 rounded-full"
-                  style={{ backgroundColor: active ? color : '#ccc' }}
+                  style={{ backgroundColor: active ? color : 'rgba(255,255,255,0.3)' }}
                 />
                 {VERTICAL_LABELS[v]}
               </button>
@@ -238,18 +184,33 @@ export default function HomeMapSection({ listingCount }) {
         </div>
       </div>
 
-      {/* Responsive height */}
+      {/* Open full map — bottom-right corner */}
+      <div className="absolute bottom-4 right-4 z-10">
+        <Link
+          href="/map"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full shadow-lg hover:shadow-xl hover:opacity-90 transition-all"
+          style={{
+            fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '12px',
+            background: 'rgba(0,0,0,0.7)', color: '#FAF8F4',
+            backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+          }}
+        >
+          Open full map
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </Link>
+      </div>
+
       <style jsx>{`
         .map-container {
-          height: 480px;
+          height: min(32vh, 380px);
         }
         @media (max-width: 640px) {
           .map-container {
-            height: 280px;
+            height: min(40vh, 320px);
           }
         }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
     </section>
   )

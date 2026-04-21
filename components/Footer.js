@@ -15,7 +15,7 @@ const verticals = [
 
 export default function Footer() {
   return (
-    <footer className="bg-[var(--color-bg)]" style={{ borderTop: '0.5px solid var(--color-border)' }}>
+    <footer style={{ background: '#1A1A1A', borderTop: '1px solid rgba(250,248,244,0.08)' }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Brand */}
@@ -26,7 +26,7 @@ export default function Footer() {
                 fontFamily: 'var(--font-display)',
                 fontWeight: 400,
                 fontSize: '18px',
-                color: 'var(--color-ink)',
+                color: '#FAF8F4',
               }}
             >
               Australian Atlas
@@ -37,7 +37,7 @@ export default function Footer() {
                 fontFamily: 'var(--font-body)',
                 fontWeight: 300,
                 fontSize: '13px',
-                color: 'var(--color-muted)',
+                color: 'rgba(250,248,244,0.5)',
               }}
             >
               The complete guide to independent Australia. Nine atlases, one map.
@@ -53,7 +53,7 @@ export default function Footer() {
                 fontWeight: 500,
                 fontSize: '11px',
                 letterSpacing: '0.1em',
-                color: 'var(--color-muted)',
+                color: 'rgba(250,248,244,0.4)',
               }}
             >
               The Network
@@ -65,12 +65,12 @@ export default function Footer() {
                     href={v.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="hover:text-[var(--color-ink)] transition-colors"
+                    className="hover:text-[#FAF8F4] transition-colors"
                     style={{
                       fontFamily: 'var(--font-body)',
                       fontWeight: 300,
                       fontSize: '13px',
-                      color: 'var(--color-muted)',
+                      color: 'rgba(250,248,244,0.55)',
                     }}
                   >
                     {v.name}
@@ -89,7 +89,7 @@ export default function Footer() {
                 fontWeight: 500,
                 fontSize: '11px',
                 letterSpacing: '0.1em',
-                color: 'var(--color-muted)',
+                color: 'rgba(250,248,244,0.4)',
               }}
             >
               Explore
@@ -108,12 +108,12 @@ export default function Footer() {
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="hover:text-[var(--color-ink)] transition-colors"
+                    className="hover:text-[#FAF8F4] transition-colors"
                     style={{
                       fontFamily: 'var(--font-body)',
                       fontWeight: 300,
                       fontSize: '13px',
-                      color: 'var(--color-muted)',
+                      color: 'rgba(250,248,244,0.55)',
                     }}
                   >
                     {link.label}
@@ -127,7 +127,7 @@ export default function Footer() {
         {/* Newsletter */}
         <div
           className="mt-10 pt-6"
-          style={{ borderTop: '0.5px solid var(--color-border)' }}
+          style={{ borderTop: '1px solid rgba(250,248,244,0.08)' }}
         >
           <h4
             className="mb-1 uppercase"
@@ -136,7 +136,7 @@ export default function Footer() {
               fontWeight: 500,
               fontSize: '11px',
               letterSpacing: '0.1em',
-              color: 'var(--color-muted)',
+              color: 'rgba(250,248,244,0.4)',
             }}
           >
             Stay in the loop
@@ -146,20 +146,21 @@ export default function Footer() {
 
         <div
           className="mt-6 pt-6 flex flex-col sm:flex-row items-center justify-between gap-2"
-          style={{ borderTop: '0.5px solid var(--color-border)' }}
+          style={{ borderTop: '1px solid rgba(250,248,244,0.08)' }}
         >
-          <p className="text-xs text-[var(--color-muted)]">
+          <p style={{ fontSize: '12px', color: 'rgba(250,248,244,0.4)' }}>
             Part of{' '}
             <a
               href="https://australianheritage.au"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[var(--color-sage)] underline underline-offset-2 hover:text-[var(--color-ink)]"
+              className="underline underline-offset-2 hover:text-[#FAF8F4]"
+              style={{ color: '#C4973B' }}
             >
               Australian Heritage
             </a>
           </p>
-          <p className="text-xs text-[var(--color-muted)]">&copy; 2026 Australian Atlas</p>
+          <p style={{ fontSize: '12px', color: 'rgba(250,248,244,0.4)' }}>&copy; 2026 Australian Atlas</p>
         </div>
       </div>
     </footer>

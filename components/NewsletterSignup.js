@@ -28,23 +28,28 @@ export default function NewsletterSignup({ variant = 'inline' }) {
     }
   }
 
+  const isHomepage = variant === 'homepage'
+  const isFooter = variant === 'footer'
+
   if (status === 'success') {
     return (
       <div style={{
-        padding: variant === 'footer' ? '0' : '2rem 0',
+        padding: isFooter ? '0' : '2rem 0',
         fontFamily: 'var(--font-body)',
         fontSize: '14px',
-        color: 'var(--color-sage)',
+        color: isHomepage ? '#C4973B' : 'var(--color-sage)',
         fontWeight: 400,
       }}>
-        You're on the list. Welcome to the Atlas.
+        You&apos;re on the list. Welcome to the Atlas.
       </div>
     )
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ padding: variant === 'footer' ? '0' : '2rem 0' }}>
-      {variant !== 'footer' && (
+    <form onSubmit={handleSubmit} style={{
+      padding: isFooter ? '0' : isHomepage ? '0' : '2rem 0',
+    }}>
+      {!isFooter && !isHomepage && (
         <p style={{
           fontFamily: 'var(--font-body)',
           fontSize: '14px',
@@ -55,7 +60,13 @@ export default function NewsletterSignup({ variant = 'inline' }) {
           New places, editorial, and quiet finds — delivered monthly.
         </p>
       )}
-      <div style={{ display: 'flex', gap: '0.5rem', maxWidth: '420px' }}>
+      <div style={{
+        display: 'flex',
+        gap: '0.5rem',
+        maxWidth: isHomepage ? '480px' : '420px',
+        margin: isHomepage ? '0 auto' : undefined,
+        justifyContent: isHomepage ? 'center' : undefined,
+      }}>
         <input
           type="email"
           value={email}
@@ -69,8 +80,8 @@ export default function NewsletterSignup({ variant = 'inline' }) {
             border: '1px solid var(--color-border)',
             fontFamily: 'var(--font-body)',
             fontSize: '13px',
-            color: 'var(--color-ink)',
-            background: 'var(--color-bg)',
+            color: isFooter ? '#FAF8F4' : 'var(--color-ink)',
+            background: isFooter ? 'rgba(250,248,244,0.08)' : isHomepage ? '#fff' : 'var(--color-bg)',
             outline: 'none',
           }}
         />
@@ -81,7 +92,7 @@ export default function NewsletterSignup({ variant = 'inline' }) {
             padding: '0.625rem 1.25rem',
             borderRadius: '8px',
             border: 'none',
-            background: 'var(--color-ink)',
+            background: (isHomepage || isFooter) ? '#C4973B' : 'var(--color-ink)',
             color: '#fff',
             fontFamily: 'var(--font-body)',
             fontSize: '13px',
