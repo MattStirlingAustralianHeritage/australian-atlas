@@ -60,6 +60,7 @@ const SUB_TYPE_LABELS = {
     gorge: 'Gorge', coastal_walk: 'Coastal Walk', hot_spring: 'Hot Spring',
     cave: 'Cave', national_park: 'National Park',
     wildlife_zoo: 'Wildlife & Zoo', bush_walk: 'Bush Walk',
+    botanic_garden: 'Botanic Garden', nature_reserve: 'Nature Reserve',
   },
   corner: {
     bookshop: 'Bookshop', records: 'Records', homewares: 'Homewares',

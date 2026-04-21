@@ -64,6 +64,7 @@ const VERTICAL_FIELDS = {
       { value: 'coastal_walk', label: 'Coastal Walk' }, { value: 'hot_spring', label: 'Hot Spring' },
       { value: 'cave', label: 'Cave' }, { value: 'national_park', label: 'National Park' },
       { value: 'bush_walk', label: 'Bush Walk' }, { value: 'wildlife_zoo', label: 'Wildlife & Zoo' },
+      { value: 'botanic_garden', label: 'Botanic Garden' }, { value: 'nature_reserve', label: 'Nature Reserve' },
     ]},
     { key: 'dogs_allowed', label: 'Dog Friendly', type: 'toggle' },
     { key: 'is_entry_free', label: 'Free Entry', type: 'toggle' },

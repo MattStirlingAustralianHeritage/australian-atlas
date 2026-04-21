@@ -72,7 +72,7 @@ const SUBCATEGORY_LABELS = {
   swimming_hole: 'Swimming Hole', waterfall: 'Waterfall', lookout: 'Lookout',
   gorge: 'Gorge', coastal_walk: 'Coastal Walk', hot_spring: 'Hot Spring',
   cave: 'Cave', national_park: 'National Park', bush_walk: 'Bush Walk',
-  wildlife_zoo: 'Wildlife & Zoo',
+  wildlife_zoo: 'Wildlife & Zoo', botanic_garden: 'Botanic Garden', nature_reserve: 'Nature Reserve',
   bookshop: 'Bookshop', record_store: 'Record Store', homewares: 'Homewares',
   clothing: 'Clothing', general_store: 'General Store', stationery: 'Stationery',
   vintage_clothing: 'Vintage Clothing', vintage_furniture: 'Vintage Furniture',

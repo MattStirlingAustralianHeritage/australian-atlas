@@ -78,6 +78,8 @@ const SUBCATEGORY_OPTIONS = {
     { value: 'national_park', label: 'National Park' },
     { value: 'wildlife_zoo', label: 'Wildlife & Zoo' },
     { value: 'bush_walk', label: 'Bush Walk' },
+    { value: 'botanic_garden', label: 'Botanic Garden' },
+    { value: 'nature_reserve', label: 'Nature Reserve' },
   ],
   corner: [
     { value: 'bookshop', label: 'Bookshop' },
