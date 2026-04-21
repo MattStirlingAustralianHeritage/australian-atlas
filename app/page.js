@@ -217,7 +217,8 @@ export default async function Home() {
     getStats(), getLatestArticles(), getDiscoverClusters(),
   ])
   const articles = articlesRaw.length > 0 ? articlesRaw : []
-  const featuredArticle = articles.find(a => a.hero_image_url) || articles[0]
+  const articlesWithImages = articles.filter(a => a.hero_image_url).slice(0, 2)
+  const featuredArticle = articlesWithImages[0] || articles[0]
 
   return (
     <>
@@ -302,69 +303,130 @@ export default async function Home() {
         <ScrollReveal as="section" style={{
           background: '#1A1A1A',
           marginTop: '88px',
+          paddingTop: '48px',
+          paddingBottom: '40px',
         }}>
-          <a
-            href={featuredArticle.article_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group block"
-          >
-            {featuredArticle.hero_image_url && (
-              <div className="reveal w-full overflow-hidden" style={{
-                aspectRatio: '2 / 1',
-                minHeight: '280px',
-                maxHeight: '560px',
-              }}>
-                <img
-                  src={featuredArticle.hero_image_url}
-                  alt=""
-                  className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700"
-                />
+          <div className="max-w-5xl mx-auto px-6 sm:px-12">
+            {articlesWithImages.length >= 2 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {articlesWithImages.map((article, ai) => (
+                  <a
+                    key={article.id || ai}
+                    href={article.article_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="reveal group block"
+                    data-reveal-index={ai}
+                  >
+                    <div className="overflow-hidden rounded-lg" style={{
+                      height: '220px',
+                    }}>
+                      <img
+                        src={article.hero_image_url}
+                        alt=""
+                        className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700"
+                      />
+                    </div>
+                    <div style={{ paddingTop: '16px' }}>
+                      <p style={{
+                        fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
+                        letterSpacing: '0.15em', textTransform: 'uppercase',
+                        color: GOLD, marginBottom: '6px',
+                      }}>
+                        {VERTICAL_LABELS[article.vertical] || 'Atlas'}
+                        {article.category && ` · ${article.category}`}
+                      </p>
+                      <h2 style={{
+                        fontFamily: 'var(--font-display)', fontWeight: 400,
+                        fontSize: '22px', lineHeight: 1.25,
+                        color: '#FAF8F4', margin: '0 0 8px',
+                      }}>
+                        {article.title}
+                      </h2>
+                      {article.excerpt && (
+                        <p style={{
+                          fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px',
+                          lineHeight: 1.6, color: 'rgba(250,248,244,0.55)',
+                          margin: '0 0 10px',
+                          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                        }}>
+                          {article.excerpt}
+                        </p>
+                      )}
+                      <span className="group-hover:underline underline-offset-4" style={{
+                        fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
+                        color: GOLD,
+                      }}>
+                        Read the story &rarr;
+                      </span>
+                    </div>
+                  </a>
+                ))}
               </div>
-            )}
-            <div className="reveal max-w-5xl mx-auto px-6 sm:px-12" data-reveal-index="1" style={{
-              paddingTop: '24px',
-              paddingBottom: '64px',
-            }}>
-              <p style={{
-                fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 600,
-                letterSpacing: '0.15em', textTransform: 'uppercase',
-                color: GOLD, marginBottom: '8px',
-              }}>
-                {VERTICAL_LABELS[featuredArticle.vertical] || 'Atlas'}
-                {featuredArticle.category && ` · ${featuredArticle.category}`}
-              </p>
-              <h2 style={{
-                fontFamily: 'var(--font-display)', fontWeight: 400,
-                fontSize: 'clamp(24px, 3vw, 32px)', lineHeight: 1.2,
-                color: '#FAF8F4', margin: '0 0 12px',
-              }}>
-                {featuredArticle.title}
-              </h2>
-              {featuredArticle.excerpt && (
-                <p style={{
-                  fontFamily: 'var(--font-display)', fontWeight: 300, fontSize: '16px',
-                  lineHeight: 1.7, color: 'rgba(250,248,244,0.65)',
-                  margin: '0 0 16px', maxWidth: '600px',
+            ) : (
+              <a
+                href={featuredArticle.article_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group block reveal"
+              >
+                {featuredArticle.hero_image_url && (
+                  <div className="overflow-hidden rounded-xl" style={{
+                    height: 'clamp(220px, 30vw, 350px)',
+                  }}>
+                    <img
+                      src={featuredArticle.hero_image_url}
+                      alt=""
+                      className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700"
+                    />
+                  </div>
+                )}
+                <div className="reveal" data-reveal-index="1" style={{
+                  paddingTop: '20px',
+                  maxWidth: '600px',
                 }}>
-                  {featuredArticle.excerpt}
-                </p>
-              )}
-              <span className="group-hover:underline underline-offset-4" style={{
-                fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
-                color: GOLD,
-              }}>
-                Read the story &rarr;
-              </span>
-            </div>
-          </a>
+                  <p style={{
+                    fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 600,
+                    letterSpacing: '0.15em', textTransform: 'uppercase',
+                    color: GOLD, marginBottom: '6px',
+                  }}>
+                    {VERTICAL_LABELS[featuredArticle.vertical] || 'Atlas'}
+                    {featuredArticle.category && ` · ${featuredArticle.category}`}
+                  </p>
+                  <h2 style={{
+                    fontFamily: 'var(--font-display)', fontWeight: 400,
+                    fontSize: 'clamp(22px, 2.5vw, 26px)', lineHeight: 1.25,
+                    color: '#FAF8F4', margin: '0 0 8px',
+                  }}>
+                    {featuredArticle.title}
+                  </h2>
+                  {featuredArticle.excerpt && (
+                    <p style={{
+                      fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px',
+                      lineHeight: 1.6, color: 'rgba(250,248,244,0.6)',
+                      margin: '0 0 12px',
+                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                    }}>
+                      {featuredArticle.excerpt}
+                    </p>
+                  )}
+                  <span className="group-hover:underline underline-offset-4" style={{
+                    fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
+                    color: GOLD,
+                  }}>
+                    Read the story &rarr;
+                  </span>
+                </div>
+              </a>
+            )}
+          </div>
         </ScrollReveal>
       )}
 
       {/* ── 4. Cross-Vertical Cluster ──────────────────── */}
       {clusters.length > 0 && (
         <ScrollReveal as="section" style={{ paddingBlock: '96px' }}>
-          <div className="max-w-6xl mx-auto px-6 sm:px-12">
+          <div className="max-w-5xl mx-auto px-6 sm:px-12">
             <div className="reveal text-center mb-14">
               <h2 style={{
                 fontFamily: 'var(--font-display)', fontWeight: 400,
@@ -456,7 +518,7 @@ export default async function Home() {
 
       {/* ── 5. Plan a Trip ─────────────────────────────── */}
       <ScrollReveal as="section" style={{ paddingBlock: '80px' }}>
-        <div className="max-w-4xl mx-auto px-6 sm:px-12">
+        <div className="max-w-5xl mx-auto px-6 sm:px-12">
           <h2 className="reveal text-center mb-10" style={{
             fontFamily: 'var(--font-display)', fontWeight: 400,
             fontSize: 'clamp(24px, 3vw, 36px)', color: 'var(--color-ink)',
