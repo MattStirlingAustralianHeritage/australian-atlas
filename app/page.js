@@ -665,7 +665,7 @@ export default async function Home() {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <Link
-              href="/long-weekend"
+              href="/plan-my-stay"
               className="reveal group listing-card block rounded-2xl"
               data-reveal-index="1"
               style={{
@@ -681,20 +681,20 @@ export default async function Home() {
                 fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '26px',
                 color: '#FAF8F4', lineHeight: 1.25, marginBottom: 10,
               }}>
-                Long weekend
+                Plan your stay
               </h3>
               <p style={{
                 fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px',
                 color: 'rgba(250,248,244,0.6)', lineHeight: 1.6,
               }}>
-                Tell us where you are and what you&apos;re into.
+                Pick where you&apos;re staying. We&apos;ll plan the days.
               </p>
               <div style={{ flex: 1, minHeight: 24 }} />
               <span style={{
                 fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
                 color: GOLD,
               }}>
-                Plan a weekend &rarr;
+                Plan my stay &rarr;
               </span>
             </Link>
 

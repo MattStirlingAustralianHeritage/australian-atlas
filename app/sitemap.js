@@ -46,7 +46,7 @@ export default async function sitemap() {
     { url: `${SITE_URL}/operators`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.8 },
     { url: `${SITE_URL}/for-councils`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.8 },
     { url: `${SITE_URL}/pricing`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.7 },
-    { url: `${SITE_URL}/long-weekend`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.8 },
+    { url: `${SITE_URL}/plan-my-stay`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.8 },
     { url: `${SITE_URL}/on-this-road`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.8 },
     { url: `${SITE_URL}/discover`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.7 },
     { url: `${SITE_URL}/for-you`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.6 },

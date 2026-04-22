@@ -12,6 +12,11 @@ const nextConfig = {
         destination: '/regions/:slug',
         permanent: true,
       },
+      {
+        source: '/long-weekend',
+        destination: '/plan-my-stay',
+        permanent: true,
+      },
     ]
   },
 };

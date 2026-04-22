@@ -16,7 +16,7 @@ const VERTICAL_COLORS = {
 }
 
 const SUGGESTIONS = [
-  'Plan a long weekend in the Barossa Valley with wine, food and a nice place to stay',
+  'Plan a stay in the Barossa Valley with wine, food and a nice place to unwind',
   'Where should I get coffee in Melbourne?',
   'I want a coastal road trip from Sydney — craft breweries, galleries, and nature',
   'What are the best distilleries in Tasmania?',

@@ -574,7 +574,7 @@ export async function POST(request) {
         short_trip: true,
         message: isCycling
           ? "That\u2019s a very short ride \u2014 try exploring a bit further afield."
-          : "That\u2019s a short trip \u2014 try the Long Weekend Engine instead.",
+          : "That\u2019s a short trip \u2014 try a longer route, or pick a stay and plan day trips from there.",
         direct_distance_km: Math.round(directDistance),
       })
     }
