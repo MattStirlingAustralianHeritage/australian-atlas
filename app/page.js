@@ -663,45 +663,11 @@ export default async function Home() {
           }}>
             Plan a trip
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <Link
-              href="/plan-my-stay"
-              className="reveal group listing-card block rounded-2xl"
-              data-reveal-index="1"
-              style={{
-                background: '#2C2420',
-                border: '1px solid transparent',
-                padding: '32px 28px',
-                minHeight: '200px',
-                display: 'flex',
-                flexDirection: 'column',
-              }}
-            >
-              <h3 style={{
-                fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '26px',
-                color: '#FAF8F4', lineHeight: 1.25, marginBottom: 10,
-              }}>
-                Plan your stay
-              </h3>
-              <p style={{
-                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px',
-                color: 'rgba(250,248,244,0.6)', lineHeight: 1.6,
-              }}>
-                Pick where you&apos;re staying. We&apos;ll plan the days.
-              </p>
-              <div style={{ flex: 1, minHeight: 24 }} />
-              <span style={{
-                fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
-                color: GOLD,
-              }}>
-                Plan my stay &rarr;
-              </span>
-            </Link>
-
+          <div className="max-w-xl mx-auto">
             <Link
               href="/on-this-road"
               className="reveal group listing-card block rounded-2xl"
-              data-reveal-index="2"
+              data-reveal-index="1"
               style={{
                 background: '#2C2420',
                 border: '1px solid transparent',

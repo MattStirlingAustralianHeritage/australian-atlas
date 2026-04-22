@@ -22,6 +22,24 @@ const PER_REGION = 4
 
 async function getStaysByRegion() {
   const sb = getSupabaseAdmin()
+
+  // Gate display against the canonical live regions table.
+  // listings.region for Rest is contaminated with street addresses
+  // (sourced from rest-atlas properties.sub_region via mapRestListing).
+  // Non-matching rows are logged server-side and excluded from the page
+  // until the data backfill lands — no heuristics, no silent padding.
+  const { data: regionRows } = await sb
+    .from('regions')
+    .select('name')
+    .eq('status', 'live')
+
+  const liveRegions = new Set((regionRows || []).map(r => r.name.trim()))
+
+  if (liveRegions.size === 0) {
+    console.warn('[plan-my-stay] regions table returned zero live rows')
+    return []
+  }
+
   const { data } = await sb
     .from('listings')
     .select('id, name, slug, region, state, hero_image_url, is_featured')
@@ -34,13 +52,33 @@ async function getStaysByRegion() {
     .limit(500)
 
   const byRegion = new Map()
+  const excluded = []
+
   for (const l of data || []) {
-    if (!byRegion.has(l.region)) byRegion.set(l.region, [])
-    const bucket = byRegion.get(l.region)
+    const key = (l.region || '').trim()
+    if (!liveRegions.has(key)) {
+      excluded.push(l)
+      continue
+    }
+    if (!byRegion.has(key)) byRegion.set(key, [])
+    const bucket = byRegion.get(key)
     if (bucket.length < PER_REGION) bucket.push(l)
   }
 
-  return [...byRegion.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+  if (excluded.length > 0) {
+    console.warn(`[plan-my-stay] excluded ${excluded.length} Rest listings whose region does not match any live canonical region`)
+    for (const l of excluded) {
+      console.warn(`  id=${l.id} name=${JSON.stringify(l.name)} region=${JSON.stringify(l.region)}`)
+    }
+  }
+
+  // Sort by state (alpha), then region name (alpha within state).
+  return [...byRegion.entries()].sort((a, b) => {
+    const stateA = a[1][0]?.state || 'ZZ'
+    const stateB = b[1][0]?.state || 'ZZ'
+    if (stateA !== stateB) return stateA.localeCompare(stateB)
+    return a[0].localeCompare(b[0])
+  })
 }
 
 export default async function PlanMyStayPage() {
@@ -92,15 +130,34 @@ export default async function PlanMyStayPage() {
         padding: '0 24px 96px',
       }}>
         {regions.length === 0 ? (
-          <p style={{
+          <div style={{
             textAlign: 'center',
-            fontFamily: 'var(--font-body)',
-            fontSize: 15,
-            color: 'var(--color-muted, #8a8a8a)',
-            marginTop: 48,
+            padding: '48px 32px',
+            backgroundColor: 'var(--color-cream, #f5f2ec)',
+            borderRadius: 12,
+            maxWidth: 560,
+            margin: '64px auto 0',
           }}>
-            No stays available yet. Check back soon.
-          </p>
+            <p style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: 22,
+              fontWeight: 400,
+              color: 'var(--color-ink, #1a1a1a)',
+              marginBottom: 12,
+              margin: '0 0 12px',
+            }}>
+              No regional coverage available yet.
+            </p>
+            <p style={{
+              fontFamily: 'var(--font-body)',
+              fontSize: 15,
+              color: 'var(--color-muted, #8a8a8a)',
+              lineHeight: 1.6,
+              margin: 0,
+            }}>
+              Check back soon.
+            </p>
+          </div>
         ) : (
           regions.map(([region, stays]) => (
             <section key={region} style={{ marginBottom: 64 }}>
