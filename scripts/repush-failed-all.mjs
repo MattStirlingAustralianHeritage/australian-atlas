@@ -127,7 +127,7 @@ const VERTICALS = {
   corner: {
     env: ['CORNER_SUPABASE_URL', 'CORNER_SUPABASE_SERVICE_KEY'],
     table: 'shops',
-    categories: ['bookshop', 'records', 'homewares', 'stationery', 'jewellery', 'toys', 'general', 'clothing', 'food_drink', 'plants', 'art_supplies', 'other'],
+    categories: ['bookshop', 'records', 'homewares', 'stationery', 'jewellery', 'toys', 'general', 'clothing', 'food_drink', 'plants', 'other'],
     defaultCat: 'general',
     metaTable: 'corner_meta', metaKey: 'shop_type',
     mapRow: (l, cat) => ({

@@ -66,7 +66,7 @@ const SUB_TYPE_LABELS = {
     bookshop: 'Bookshop', records: 'Records', homewares: 'Homewares',
     stationery: 'Stationery', jewellery: 'Jewellery', toys: 'Toys',
     general: 'General', clothing: 'Clothing', food_drink: 'Food & Drink',
-    plants: 'Plants', art_supplies: 'Art Supplies',
+    plants: 'Plants',
   },
   found: {
     vintage_clothing: 'Vintage Clothing', vintage_furniture: 'Vintage Furniture',

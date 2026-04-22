@@ -33,7 +33,7 @@ const META_ENUMS = {
     difficulty: ['easy', 'moderate', 'hard'],
   },
   corner: {
-    shop_type: ['bookshop', 'records', 'homewares', 'stationery', 'jewellery', 'toys', 'general', 'clothing', 'food_drink', 'plants', 'art_supplies', 'other'],
+    shop_type: ['bookshop', 'records', 'homewares', 'stationery', 'jewellery', 'toys', 'general', 'clothing', 'food_drink', 'plants', 'other'],
   },
   found: {
     shop_type: ['vintage_clothing', 'vintage_furniture', 'antiques', 'op_shop', 'books_ephemera', 'art_objects', 'market'],
