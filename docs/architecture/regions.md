@@ -155,9 +155,8 @@ listing is an unresolved state, not a final state.
 ### 4. Listing's lat/lng falls inside a DRAFT region
 
 Scenario: A Sydney CBD listing's coordinates fall inside the 
-Sydney region polygon, but Sydney's status is 'draft — 
-activating'. The whitelist would exclude it, but geographically 
-it belongs there.
+Sydney region polygon, but Sydney's status is 'draft'. The 
+whitelist would exclude it, but geographically it belongs there.
 
 Resolution: `region_computed_id` gets set to the draft region's 
 id regardless of status. Downstream features that filter to live 
