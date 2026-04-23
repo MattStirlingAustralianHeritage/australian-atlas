@@ -21,22 +21,22 @@ The spec framed this as "55 live regions" but actual count is 11 (44 regions are
 
 | Region | State | Source | OSM ID | OSM Class/Type | Notes |
 |---|---|---|---|---|---|
-| Adelaide | SA | Nominatim/OSM | relation 11381689 | place=city | CBD-scale place relation |
+| Adelaide | SA | ABS GCCSA 2021 | code 4GADE | Greater Adelaide | Replaced OSM CBD-only relation 11381689 on 2026-04-24 with the ABS Greater Capital City boundary (metro-scale, 4 rings). See Revision history. |
 | Adelaide Hills | SA | Nominatim/OSM | relation 9105845 | boundary=administrative | Adelaide Hills Council (LGA) |
 | Brisbane | QLD | Nominatim/OSM | relation 11677792 | boundary=administrative | City of Brisbane LGA (~1,220 km²); MultiPolygon with 5 rings (bay islands) |
 | Byron Bay | NSW | Nominatim/OSM | relation 6170304 | boundary=administrative | Byron Shire Council (LGA) |
 | Canberra District | ACT | Nominatim/OSM | relation 2354197 | boundary=administrative | ACT territory boundary |
 | Hobart City | TAS | Nominatim/OSM | relation 10625466 | boundary=administrative | City of Hobart LGA |
 | Melbourne | VIC | Nominatim/OSM | relation 4246124 | place=city | Greater Melbourne scale |
-| Perth | WA | Nominatim/OSM | relation 11343564 | boundary=administrative | City of Perth LGA (~20 km², CBD only); MultiPolygon with 2 rings |
+| Perth | WA | ABS GCCSA 2021 | code 5GPER | Greater Perth | Replaced OSM CBD-only relation 11343564 on 2026-04-24 with the ABS Greater Capital City boundary (metro-scale, 15 rings). See Revision history. |
 | Sydney | NSW | Nominatim/OSM | relation 5750005 | place=city | Greater Sydney scale |
 
 All 9 written as `GEOMETRY(MultiPolygon, 4326)` (single-polygon matches wrapped as MultiPolygon). All readable back as valid GeoJSON via PostgREST.
 
 ### Scale caveats worth knowing
 
-- **Perth** — the OSM "City of Perth" admin relation is only ~20 km² (CBD area). A listing in Fremantle or Joondalup will NOT match this polygon and will fall through to `region_computed_id = NULL`. If broader Perth coverage is wanted, the polygon needs replacing with a Greater-Perth shape (ABS GCCSA or hand-drawn).
-- **Adelaide** — similar, the place=city relation is CBD-scale. Listings in suburbs beyond the inner LGA may not match.
+- **Perth** — ~~OSM CBD-only~~ **Replaced 2026-04-24 with ABS Greater Perth GCCSA (5GPER). Now metro-scale.** See Revision history.
+- **Adelaide** — ~~OSM CBD-only~~ **Replaced 2026-04-24 with ABS Greater Adelaide GCCSA (4GADE). Now metro-scale.** See Revision history.
 - **Brisbane, Sydney, Melbourne** — fine at Greater scale.
 - **Adelaide Hills, Byron Bay, Canberra District, Hobart City** — LGA boundaries match the region names well.
 
@@ -90,10 +90,29 @@ This report + the reusable script are committed together. The script is idempote
 
 ## Rollback
 
-If any of the 9 applied polygons turns out to be semantically wrong (e.g. Perth's CBD-only polygon causes too many Perth-area listings to fall through to NULL):
+If any of the 9 applied polygons turns out to be semantically wrong:
 
 ```sql
 UPDATE regions SET polygon = NULL WHERE slug = 'perth';
 ```
 
 Per-region revert only. Phase 1 infrastructure does not depend on any specific polygon being present.
+
+## Revision history
+
+### 2026-04-24 — Perth and Adelaide upgraded to ABS GCCSA
+
+Replaced the CBD-only OSM polygons for Perth and Adelaide with ABS Greater Capital City Statistical Area 2021 boundaries. Prior polygons silently excluded the majority of metro-area listings (Fremantle, Joondalup, Rockingham for Perth; Mount Barker, Victor Harbor, Gawler for Adelaide).
+
+| Region | Old source | New source | Geometry |
+|---|---|---|---|
+| Perth | OSM rel 11343564 (City of Perth LGA, ~20 km²) | ABS GCCSA 2021, code `5GPER` (Greater Perth) | MultiPolygon, 15 rings, bbox 115.45–116.42°E / -32.80 to -31.46°S |
+| Adelaide | OSM rel 11381689 (place=city, CBD-scale) | ABS GCCSA 2021, code `4GADE` (Greater Adelaide) | MultiPolygon, 4 rings, bbox 138.44–139.04°E / -35.35 to -34.50°S |
+
+Source endpoint: `https://geo.abs.gov.au/arcgis/rest/services/ASGS2021/GCCSA/MapServer/0`. ABS serves in Web Mercator (EPSG:102100) by default; `outSR=4326` coerces WGS84 on the server side, no client-side reprojection needed. Field names in the actual ABS schema are lowercased (`gccsa_code_2021`, `gccsa_name_2021`, `state_name_2021`) — aliases in metadata look like `GCCSA_CODE_2021` but the queryable field name is the lowercased form.
+
+Functional verification: fired the spatial containment trigger against real listings ~60–70 km from each CBD. Mandurah Community Museum (-32.54, 115.72) now assigns to Perth; Weemilah Luxury Retreat (-35.29, 138.54) now assigns to Adelaide. Both would have returned NULL under the old polygons.
+
+**Overlap note:** Greater Adelaide GCCSA geographically overlaps Adelaide Hills Council. Per Edge Case 2 of the architecture spec (smallest polygon by area wins on overlap), listings in the Adelaide Hills area resolve to Adelaide Hills, not Greater Adelaide — editorially correct.
+
+**Rollback** if either new polygon proves wrong: the previous OSM relations are recoverable via the existing `scripts/source-region-polygons.mjs` (Nominatim queries `City of Perth, Western Australia` and `Adelaide, South Australia, Australia` with `featuretype=city`).
