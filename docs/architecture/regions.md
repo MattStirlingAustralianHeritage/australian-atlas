@@ -102,7 +102,7 @@ Phase 2 of implementation, then deprecated in Phase 3.
 
 5. Validation at sync boundary: before writing to `listings`, 
    sync validates required fields. Missing lat/lng on a visitable 
-   listing, status not in the enumerated set, primary_type not 
+   listing, status not in the enumerated set, sub_type not 
    matching the vertical's canonical types, or state not a valid 
    two-letter code — any of these cause the row to be written to 
    a `listings_quarantine` table instead of `listings`. An admin 
@@ -296,7 +296,7 @@ verification criteria before moving to the next.
 
 1.7 Build the sync validation layer. Before any write to listings, 
     check: lat/lng present for visitable listings, status in 
-    enumerated set, primary_type matches vertical, state is 
+    enumerated set, sub_type matches vertical, state is 
     two-letter code. Failures quarantine the row with the 
     specific failure_reason.
 
@@ -373,7 +373,7 @@ verification criteria before moving to the next.
     - Count of visitable listings with NULL `region_computed_id` 
       AND NULL `region_override_id` (should be zero, or trending 
       to zero)
-    - Count of listings where primary_type doesn't match 
+    - Count of listings where sub_type doesn't match 
       vertical's canonical types
     - Count of listings where state is not a valid two-letter 
       code
