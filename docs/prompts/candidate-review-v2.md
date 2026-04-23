@@ -21,7 +21,7 @@ The admin Candidate Review tool at `/admin/candidates` currently presents listin
 
 ### Step 1 — Region dropdown
 
-- Add a dropdown sourced from `SELECT id, name FROM regions WHERE status IN ('live', 'draft_activating') ORDER BY name`.
+- Add a dropdown sourced from `SELECT id, name FROM regions WHERE status IN ('live', 'draft') ORDER BY name`.
 - Pre-populate from existing candidate region field if it matches a valid region name.
 - Show computed region alongside (from spatial trigger result once listing is inserted — may require a preview geocoding step).
 - Writes to `listings.region_override_id` on publish.
