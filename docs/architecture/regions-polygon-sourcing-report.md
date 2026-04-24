@@ -9,15 +9,15 @@
 
 | Metric | Value |
 |---|---|
-| Live regions total | **14** |
-| Live regions with polygon now | **14** |
+| Live regions total | **53** |
+| Live regions with polygon now | **53** |
 | Live regions still missing polygon | **0** |
 
-Coverage: **100%**. Three NSW wine regions (Hunter Valley, Orange, Mudgee) were activated on 2026-04-25 with OSM LGA-aggregate polygons, raising live-region count from 11 to 14. See Revision history.
+Coverage: **100%**. 39 new regions activated in a single batch on 2026-04-25 (later same day), raising live-region count from 14 to 53. See Revision history — "Batch activation of 39 regions".
 
-The spec framed this as "55 live regions" but actual count is 14 (41 regions are currently `status='draft'`). The figure 55 is the total row count in the `regions` table.
+The spec framed this as "55 live regions" but actual count is 53 (13 regions remain as `status='draft'` for future editorial decision).
 
-## Regions now with polygon (14)
+## Regions now with polygon (53)
 
 | Region | State | Source | ID | Class/Type | Notes |
 |---|---|---|---|---|---|
@@ -35,8 +35,47 @@ The spec framed this as "55 live regions" but actual count is 14 (41 regions are
 | Orange | NSW | Nominatim/OSM | relations 6427044 + 6268804 + 6423630 | boundary=administrative (aggregate) | Activated 2026-04-25. Orange City + Cabonne + Blayney LGAs. See Revision history. |
 | Perth | WA | ABS GCCSA 2021 | code 5GPER | Greater Perth | Replaced OSM CBD-only relation 11343564 on 2026-04-24 with the ABS Greater Capital City boundary (metro-scale, 15 rings). See Revision history. |
 | Sydney | NSW | Nominatim/OSM | relation 5750005 | place=city | Greater Sydney scale |
+| Alice Springs & Red Centre | NT | Nominatim/OSM | rels 11716659 + 11716646 + 11716684 | boundary=administrative (aggregate) | Activated 2026-04-25 batch. Alice Springs + MacDonnell + Petermann LGAs. 18 listings — below threshold but accepted. |
+| Ballarat & Goldfields | VIC | ABS Tourism Regions 2021 | code 2R170 | Tourism Region | Activated 2026-04-25 batch (INSERT). |
+| Barossa Valley | SA | ABS Tourism Regions 2021 | code 4R050 | Tourism Region | Activated 2026-04-25 batch. Brand anchor. |
+| Bellarine Peninsula | VIC | ABS Tourism Regions 2021 | code 2R140 | Tourism Region | Activated 2026-04-25 batch. 2R140 is "Geelong and the Bellarine" — overlaps `geelong-city` polygon. Smallest-wins handles nesting. |
+| Bendigo | VIC | ABS Tourism Regions 2021 | code 2R060 | Tourism Region | Activated 2026-04-25 batch (INSERT). Bendigo Loddon TR. |
+| Blue Mountains | NSW | Nominatim/OSM | relation 6299568 | boundary=administrative | Activated 2026-04-25 batch. Blue Mountains City Council LGA. 14 NULL rescue + 74 reassign from Sydney (editorial precision play). |
+| Cairns & Tropical North | QLD | ABS Tourism Regions 2021 | code 3R120 | Tourism Region | Activated 2026-04-25 batch. |
+| Canberra Wine District | NSW | Nominatim/OSM | rel 6304066 (Yass Valley) | boundary=administrative | Activated 2026-04-25 batch (INSERT). NSW-side wine region adjacent to ACT Canberra District live polygon. |
+| Central Coast | NSW | Nominatim/OSM | Central Coast Council LGA | boundary=administrative | Activated 2026-04-25 batch. Single amalgamated LGA. |
+| Clare Valley | SA | ABS Tourism Regions 2021 | code 4R080 | Tourism Region | Activated 2026-04-25 batch. |
+| Coffs Coast | NSW | Nominatim/OSM | Coffs Harbour City + Bellingen Shire | boundary=administrative (aggregate) | Activated 2026-04-25 batch (INSERT). |
+| Cradle Country | TAS | ABS Tourism Regions 2021 | code 6R060 | Tourism Region | Activated 2026-04-25 batch. North West TAS TR. |
+| Daylesford & Hepburn Springs | VIC | ABS Tourism Regions 2021 | code 2R160 | Tourism Region | Activated 2026-04-25 batch. Spa Country TR. |
+| Geelong | VIC | Nominatim/OSM | City of Greater Geelong LGA | boundary=administrative | Activated 2026-04-25 batch. Nested inside Bellarine Peninsula TR polygon. |
+| Gippsland | VIC | ABS Tourism Regions 2021 | code 2R120 | Tourism Region | Activated 2026-04-25 batch. |
+| Grampians | VIC | Nominatim/OSM | Northern Grampians + Southern Grampians + Ararat Rural City | boundary=administrative (aggregate) | Activated 2026-04-25 batch. Polygon reworked from ABS TR 2R050 (Western Grampians only, 7 listings) to full tourism-region aggregate (32 listings). |
+| Granite Belt | QLD | Nominatim/OSM | Southern Downs LGA | boundary=administrative | Activated 2026-04-25 batch (INSERT). Nested inside Toowoomba & Darling Downs TR. |
+| Great Ocean Road | VIC | ABS Tourism Regions 2021 | code 2R040 | Tourism Region | Activated 2026-04-25 batch. Brand anchor. |
+| Great Southern | WA | Nominatim/OSM | Albany + Plantagenet + Denmark + Cranbrook LGAs | boundary=administrative (aggregate) | Activated 2026-04-25 batch. |
+| Kangaroo Island | SA | ABS Tourism Regions 2021 | code 4R130 | Tourism Region | Activated 2026-04-25 batch. 12 listings — below threshold but accepted. |
+| Launceston & Tamar Valley | TAS | ABS Tourism Regions 2021 | code 6R110 | Tourism Region | Activated 2026-04-25 batch. Launceston and the North TR. |
+| Limestone Coast | SA | ABS Tourism Regions 2021 | code 4R010 | Tourism Region | Activated 2026-04-25 batch. |
+| Macedon Ranges | VIC | ABS Tourism Regions 2021 | code 2R150 | Tourism Region | Activated 2026-04-25 batch. |
+| Margaret River | WA | Nominatim/OSM | Augusta-Margaret River Shire + City of Busselton | boundary=administrative (aggregate) | Activated 2026-04-25 batch. Brand anchor. |
+| McLaren Vale | SA | ABS Tourism Regions 2021 | code 4R030 | Tourism Region | Activated 2026-04-25 batch. Brand anchor. Editorial compression (TR is "Fleurieu Peninsula", slug is wine-region name). |
+| Mornington Peninsula | VIC | ABS Tourism Regions 2021 | code 2R070 | Tourism Region | Activated 2026-04-25 batch. Brand anchor. 0 NULL / 145 reassign from Melbourne (precision upgrade). |
+| Newcastle | NSW | Nominatim/OSM | Newcastle + Lake Macquarie + Port Stephens LGAs | boundary=administrative (aggregate) | Activated 2026-04-25 batch. |
+| Northern Rivers | NSW | Nominatim/OSM | Tweed + Ballina + Lismore + Richmond Valley + Kyogle LGAs | boundary=administrative (aggregate) | Activated 2026-04-25 batch. |
+| Port Macquarie & Hastings | NSW | Nominatim/OSM | Port Macquarie-Hastings Council LGA | boundary=administrative | Activated 2026-04-25 batch (INSERT). |
+| Scenic Rim | QLD | Nominatim/OSM | rel 11675525 | boundary=administrative | Activated 2026-04-25 batch. |
+| South Coast NSW | NSW | Nominatim/OSM | Kiama + Shoalhaven LGAs | boundary=administrative (aggregate) | Activated 2026-04-25 batch. |
+| Southern Highlands | NSW | Nominatim/OSM | Wingecarribee Shire LGA | boundary=administrative | Activated 2026-04-25 batch. |
+| Sunshine Coast | QLD | ABS Tourism Regions 2021 | code 3R030 | Tourism Region | Activated 2026-04-25 batch (INSERT). Contains sunshine-coast-hinterland LGA polygon. |
+| Sunshine Coast Hinterland | QLD | Nominatim/OSM | rel 11675192 | boundary=administrative | Activated 2026-04-25 batch. Nested inside sunshine-coast TR. |
+| Toowoomba & Darling Downs | QLD | ABS Tourism Regions 2021 | code 3R060 | Tourism Region | Activated 2026-04-25 batch. Southern Queensland Country TR. Contains granite-belt LGA polygon. |
+| Townsville | QLD | ABS Tourism Regions 2021 | code 3R110 | Tourism Region | Activated 2026-04-25 batch (INSERT). |
+| Victorian High Country | VIC | ABS Tourism Regions 2021 | code 2R100 | Tourism Region | Activated 2026-04-25 batch (INSERT). Rutherglen + Beechworth + Alpine Valleys coverage. |
+| Wollongong | NSW | Nominatim/OSM | Wollongong City Council + Shellharbour City Council | boundary=administrative (aggregate) | Activated 2026-04-25 batch. |
+| Yarra Valley | VIC | ABS Tourism Regions 2021 | code 2R220 | Tourism Region | Activated 2026-04-25 batch. Brand anchor. 0 NULL / 147 reassign from Melbourne (precision upgrade). |
 
-All 14 written as `GEOMETRY(MultiPolygon, 4326)` (single-polygon matches wrapped as MultiPolygon; aggregate regions assembled by concatenating component polygon arrays — point-in-any-component equals point-in-region). All readable back as valid GeoJSON via PostgREST.
+All 53 written as `GEOMETRY(MultiPolygon, 4326)` (single-polygon matches wrapped as MultiPolygon; aggregate regions assembled by concatenating component polygon arrays — point-in-any-component equals point-in-region). All readable back as valid GeoJSON via PostgREST.
 
 ### Scale caveats worth knowing
 
@@ -47,7 +86,7 @@ All 14 written as `GEOMETRY(MultiPolygon, 4326)` (single-polygon matches wrapped
 
 ## Regions still missing polygons (0)
 
-All 14 live regions now have a polygon. The two composite tourism regions (Darwin & Top End, Hobart & Southern Tasmania) were sourced from ABS Tourism Regions on 2026-04-25. Three NSW wine regions (Hunter Valley, Orange, Mudgee) were activated via OSM LGA aggregates on 2026-04-25 — see Revision history.
+All 53 live regions now have a polygon. 13 regions remain as `status='draft'` awaiting editorial decision on activation.
 
 ## Sources attempted
 
@@ -101,6 +140,72 @@ Per-region revert only. Phase 1 infrastructure does not depend on any specific p
 The GCCSA upgrade for Perth and Adelaide was done via ad-hoc queries against `geo.abs.gov.au` — to re-source, fetch `gccsa_code_2021 IN ('5GPER','4GADE')` from `ASGS2021/GCCSA/MapServer/0` with `outSR=4326`.
 
 ## Revision history
+
+### 2026-04-25 — Batch activation of 39 regions
+
+Raised live-region count from 14 to 53 in a single batch. Followed the 2026-04-25 polygon-based candidate analysis ([`docs/audits/2026-04-25-phase2-activation-candidates.md`](../audits/2026-04-25-phase2-activation-candidates.md)) and the NSW wine-region activation earlier the same day.
+
+**Scope:** 30 UPDATE-to-live (existing drafts flipped with polygon applied) + 9 INSERT-new rows. All 39 applied in one script run with 3-retry exponential backoff + variant-name fallback for Nominatim queries. Zero failures, zero skips.
+
+Script: [`scripts/activate-regions-batch-2026-04-25.mjs`](../../scripts/activate-regions-batch-2026-04-25.mjs).
+
+**Polygon sources by strategy:**
+- **ABS Tourism Regions 2021** for 22 regions (Victoria has the richest TR catalogue — Ballarat, Bendigo, Daylesford, Geelong-Bellarine, Great Ocean Road, Gippsland, High Country, Kangaroo Island, Macedon, Mornington, Yarra Valley; plus Cairns, Sunshine Coast, Toowoomba, Townsville in QLD; Barossa, Clare, Limestone Coast, McLaren Vale in SA; Cradle Country + Launceston in TAS).
+- **OSM LGA aggregation** for 17 regions where no clean ABS TR exists (Western Australia south-west wine/tourism regions, NSW urban and tourism sub-regions, Alice Springs/Red Centre NT, Scenic Rim/Sunshine Coast Hinterland/Granite Belt QLD — LGA boundaries align with editorial intent).
+
+**Notable nesting relationships** (all resolved automatically by Edge Case 2 smallest-polygon-wins):
+- Bellarine Peninsula (ABS TR 2R140) *contains* Geelong (OSM LGA) — listings in Geelong CBD resolve to `geelong-city`, Bellarine proper resolves to `bellarine-peninsula`.
+- Sunshine Coast (ABS TR 3R030) *contains* Sunshine Coast Hinterland (OSM LGA). Hinterland listings resolve to the narrower polygon.
+- Toowoomba & Darling Downs (ABS TR 3R060) *contains* Granite Belt (OSM Southern Downs LGA). Stanthorpe wineries resolve to `granite-belt`.
+- Hobart & Southern Tasmania (ABS TR 6R100) *contains* Hobart City (OSM LGA) — established pattern from earlier.
+- McLaren Vale (ABS TR 4R030 Fleurieu Peninsula) *overlaps* Adelaide (ABS GCCSA 4GADE) at the peninsula neck — smallest-wins sends peninsula listings to McLaren Vale.
+- Mornington Peninsula (ABS TR 2R070) and Yarra Valley (ABS TR 2R220) *nested inside* Greater Melbourne OSM polygon — 145 + 147 listings reassigned from Melbourne to their precise regions under smallest-wins.
+- Blue Mountains (OSM Blue Mountains City Council) *nested inside* Greater Sydney OSM polygon — 74 listings reassigned from Sydney.
+
+**Below-NULL-threshold activations explicitly greenlit** (per the candidate analysis decision):
+- Alice Springs & Red Centre — 18 NULL (below 20). Accepted because NT inventory outside Darwin & Top End is genuinely thin; polygon represents the only meaningful central-NT tourism region.
+- Kangaroo Island — 12 NULL (below 20). Single-island geography, limited inventory.
+- Mornington Peninsula + Yarra Valley + Blue Mountains — low/zero NULL but high reassign-from-Melbourne/Sydney. Editorial precision upgrades.
+
+**Rollback (per-region):**
+
+```sql
+-- UPDATE-path rollback (preserves editorial content, reverts to draft + clears polygon)
+UPDATE regions SET status='draft', polygon=NULL WHERE slug IN (
+  'launceston-tamar-valley', 'cairns-tropical-north', 'margaret-river', 'sunshine-coast-hinterland',
+  'toowoomba-darling-downs', 'newcastle', 'barossa-valley', 'gippsland', 'wollongong', 'great-southern',
+  'bellarine-peninsula', 'cradle-country', 'daylesford', 'geelong-city', 'mclaren-vale', 'great-ocean-road',
+  'limestone-coast', 'macedon-ranges', 'scenic-rim', 'northern-rivers', 'clare-valley', 'south-coast-nsw',
+  'southern-highlands', 'central-coast', 'mornington-peninsula', 'yarra-valley', 'blue-mountains',
+  'kangaroo-island', 'grampians', 'alice-springs-red-centre'
+);
+
+-- INSERT-path rollback (removes the row entirely)
+DELETE FROM regions WHERE slug IN (
+  'sunshine-coast', 'bendigo', 'ballarat', 'victorian-high-country', 'coffs-coast',
+  'port-macquarie', 'canberra-wine', 'townsville', 'granite-belt'
+);
+```
+
+**Verification (paste into Supabase SQL editor):** the full ST_IsValid check for all 39 new polygons is embedded below. Expected: all 39 rows return `is_valid=true`, `polygon_type='ST_MultiPolygon'`.
+
+```sql
+SELECT slug, status, ST_IsValid(polygon) AS is_valid,
+       ST_IsValidReason(polygon) AS invalidity_reason,
+       GeometryType(polygon) AS polygon_type,
+       ST_NumGeometries(polygon) AS component_polygons,
+       ROUND((ST_Area(polygon::geography) / 1e6)::numeric, 1) AS area_km2
+FROM regions
+WHERE slug IN (
+  'launceston-tamar-valley','cairns-tropical-north','margaret-river','sunshine-coast-hinterland',
+  'toowoomba-darling-downs','newcastle','barossa-valley','gippsland','wollongong','great-southern',
+  'bellarine-peninsula','cradle-country','daylesford','geelong-city','mclaren-vale','great-ocean-road',
+  'limestone-coast','macedon-ranges','scenic-rim','northern-rivers','clare-valley','south-coast-nsw',
+  'southern-highlands','central-coast','mornington-peninsula','yarra-valley','blue-mountains',
+  'kangaroo-island','grampians','alice-springs-red-centre','sunshine-coast','bendigo','ballarat',
+  'victorian-high-country','coffs-coast','port-macquarie','canberra-wine','townsville','granite-belt'
+) ORDER BY slug;
+```
 
 ### 2026-04-25 — Three NSW wine regions activated: Hunter Valley, Orange, Mudgee
 
