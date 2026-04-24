@@ -270,3 +270,61 @@ The remaining ~735 NULL population is genuinely diffuse — scattered regional a
 4. **Below-threshold genuinely-thin candidates** (Alice Springs 16, Kangaroo Island 12, Grampians 7 pre-rework) — defer to future quarterly review when inventory grows, or accept permanent quarantine for those venues?
 
 Once Matt resolves the above, Phase B activation script runs in the pattern of `activate-regions-osm-lga.mjs`, adapted to handle ABS TR candidates. Single batch commit activates all green-lit regions with polygons + updated sourcing report.
+
+---
+
+## Polygon rework results (2026-04-25, later same day)
+
+Re-sourced the two under-scoped polygons flagged in the previous section. All LGA lookups used 3-retry exponential backoff with variant name fallback.
+
+### Grampians — **7 → 32 NULL (now passes threshold)**
+
+| Item | Value |
+|---|---|
+| New source | OSM LGA aggregate |
+| Components | Northern Grampians Shire (rel 3348880) + Southern Grampians Shire (rel 3349959) + Rural City of Ararat (rel 3347614) |
+| Polygon | 3 rings, bbox 141.43–143.51°E / -37.97 to -36.41°S |
+| NULL inside | **32** |
+| Total inside | 32 |
+| Reassign from live | 0 |
+| Threshold (20 standard) | **PASS** |
+
+The three VIC LGAs resolved cleanly on first-variant Nominatim queries. Aggregate bbox captures the full Grampians tourism region — Hamilton and Dunkeld in the south (Southern Grampians), Halls Gap and Pomonal in the centre (Northern Grampians), Ararat in the east (Ararat Rural City).
+
+**Delta vs. ABS TR `2R050`:** 7 → 32 NULL (+25). The TR was Western-Grampians-LGA-only and excluded the Halls Gap + Ararat portions of the tourism region. LGA aggregate is the correct source for `grampians`.
+
+### Alice Springs & Red Centre — **16 → 18 NULL (still fails threshold)**
+
+| Item | Value |
+|---|---|
+| New source | OSM LGA aggregate |
+| Components | Alice Springs (rel 11716659) + MacDonnell (rel 11716646) + Central Desert Region (rel 8878328) + Petermann (rel 11716684) |
+| Polygon | 4 rings, bbox 129.00–138.00°E / -26.00 to -17.95°S |
+| NULL inside | **18** |
+| Total inside | 18 |
+| Reassign from live | 0 |
+| Threshold (20 standard) | **FAIL** |
+
+All four NT LGAs resolved cleanly. Adding Central Desert and Petermann to the earlier two-LGA aggregate added only 2 more NULL listings, not the meaningful bump hoped for.
+
+**Delta vs. two-LGA aggregate:** 16 → 18 NULL (+2). The remaining ~5 NT NULL listings (total network-wide NT NULLs were ~21 in the earlier cluster probe) are either outside the four-LGA polygon footprint or are listings that already matched a live region (unlikely for NT given Darwin & Top End and Canberra District are the only NT/ACT polygons and neither covers central NT).
+
+**Scope note:** the aggregate now extends north to -17.95°S, approaching Tennant Creek territory via Central Desert Regional Council. Arguably over-reach for an editorial "Red Centre" region. If Matt prefers tighter scope, dropping Central Desert and keeping Alice + MacDonnell + Petermann would give bbox roughly -26 to -22°S, still capturing Uluru-Kata Tjuta and Kings Canyon but excluding the Tennant Creek corridor. That version gave 18 − Central-Desert-specific hits, not separately computed here.
+
+**Conclusion:** NT inventory is genuinely thin outside Darwin & Top End and Alice Springs proper. Even with the broadest sensible Red Centre polygon, the 20-listing threshold can't be met. Matt's options:
+
+1. Accept fail — defer `alice-springs-red-centre` activation until inventory grows.
+2. Override threshold — activate as a "below-threshold editorial region" on the strength of Alice Springs being a brand destination (not on the formal brand list, but arguably iconic enough). 18 listings do represent the full meaningful NT central-region inventory.
+3. Keep the two-LGA polygon (Alice + MacDonnell) — it captures 16 of the 18 at a tighter scope.
+
+## Updated projected outcome
+
+If Grampians now passes and gets activated:
+- Current state: 3,425 NULL
+- 34 original passing + Grampians = 35 candidates at 2,722 rescue
+- Remaining quarantine: ~703 (vs ~735 previously projected)
+
+If Matt also overrides threshold for Alice Springs + the three precision-upgrade candidates (Mornington 0, Yarra 0, Blue Mountains 14):
+- Rescue = 2,722 + 0 + 0 + 14 + 18 = 2,754
+- Reassignment = 145 + 147 + 74 = 366
+- Remaining quarantine: ~671
