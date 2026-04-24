@@ -162,23 +162,24 @@ if (APPLY) {
   const batches = Math.ceil(total / BATCH_SIZE)
   let processed = 0
   for (let b = 0; b < batches; b++) {
-    const slice = ids.slice(b * BATCH_SIZE, (b + 1) * BATCH_SIZE)
+    const batchRows = eligible.slice(b * BATCH_SIZE, (b + 1) * BATCH_SIZE)
     const batchStart = Date.now()
-    // UPDATE ... SET lat = lat WHERE id = ANY(...) via PostgREST-compatible approach.
-    // supabase-js doesn't support "set column to itself" directly — we read each
-    // listing's lat and write it back. For efficiency we process the slice with
-    // a single UPDATE per id would be slow, so we use .in() and a no-op update
-    // by setting lat to its current value.
-    //
-    // Workaround: we update each row individually, passing its current lat.
-    // Not ideal for performance but acceptable for a one-time backfill.
-    for (const l of eligible.slice(b * BATCH_SIZE, (b + 1) * BATCH_SIZE)) {
-      const { error } = await sb.from('listings').update({ lat: l.lat }).eq('id', l.id)
-      if (error) console.log(`  WARN row ${l.id}: ${error.message}`)
+    // Fire the trigger by writing each row's lat to its current value (no-op
+    // data change, but BEFORE UPDATE OF lat, lng trigger still fires). Parallel
+    // with concurrency 20 to keep the backfill within reasonable wall-clock.
+    const CONCURRENCY = 20
+    for (let i = 0; i < batchRows.length; i += CONCURRENCY) {
+      const chunk = batchRows.slice(i, i + CONCURRENCY)
+      const errs = await Promise.all(chunk.map(l =>
+        sb.from('listings').update({ lat: l.lat }).eq('id', l.id).then(r => r.error)
+      ))
+      for (let j = 0; j < chunk.length; j++) {
+        if (errs[j]) console.log(`  WARN row ${chunk[j].id}: ${errs[j].message}`)
+      }
     }
-    processed += slice.length
+    processed += batchRows.length
     const ms = Date.now() - batchStart
-    console.log(`  batch ${b + 1}/${batches}: ${slice.length} rows in ${ms}ms (total ${processed}/${total})`)
+    console.log(`  batch ${b + 1}/${batches}: ${batchRows.length} rows in ${ms}ms (total ${processed}/${total})`)
   }
 
   // Post-run verification — compare actual vs predicted
