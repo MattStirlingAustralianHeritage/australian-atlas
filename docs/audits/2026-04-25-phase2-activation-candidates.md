@@ -1,233 +1,272 @@
-# Phase 2 Activation Candidates — Reducing the 3,425-listing Quarantine Batch
+# Phase 2 Activation Candidates — Polygon-Based Analysis
 
-**Date:** 2026-04-25
-**Trigger:** Phase 2 dry-run showed 52.6% of eligible listings (3,425 of 6,509) would resolve to `region_computed_id = NULL` because they fall outside the 14 current live region polygons.
-**Method:** Clustered dry-run NULL population by 0.5° grid cells, merged adjacent cells via 4-neighbour union-find, cross-referenced against 43 existing `status='draft'` regions and ABS Tourism Regions 2021. Read-only; no writes to `regions`.
-**Threshold:** 20 listings minimum. 15 for the five brand-anchor destinations on Matt's list (Margaret River, Barossa Valley, McLaren Vale, Yarra Valley, Great Ocean Road). No exceptions below 15.
-**Source:** Dry-run CSV at [2026-04-25-phase2-backfill-dryrun-changes.csv](2026-04-25-phase2-backfill-dryrun-changes.csv). Reproducible via `scripts/_cluster-nulls.mjs` (throwaway, not committed).
+**Date:** 2026-04-25 (revised)
+**Supersedes:** original clustering-based version (replaced after Matt flagged Mornington Peninsula showing as "2 listings" when the map clearly showed dozens).
+**Method:** For each candidate region, fetched the proposed polygon (ABS TR or OSM LGA aggregate) and ran point-in-polygon against all 6,509 rows of the Phase 2 dry-run CSV. Records three counts per candidate:
+
+1. **NULL inside polygon** — listings currently projected to quarantine that would resolve to this region if activated. This is the real **quarantine rescue** figure.
+2. **Reassign from live** — listings currently assigned to a broader live region (e.g. Melbourne, Sydney, Adelaide) that would move to this more specific region under smallest-polygon-wins. This is the **editorial precision upgrade** figure.
+3. **Total inside polygon** — sanity check (= NULL + reassigns). Flags cases where a candidate overlaps an already-live region.
+
+**Thresholds:** 20 NULL-rescue for standard activation; 15 for brand-anchor destinations (Margaret River, Barossa Valley, McLaren Vale, Yarra Valley, Great Ocean Road) per the original task spec. Reassign count is *not* part of the threshold but is reported separately as editorial context.
+
+**Resilience:** API fetches had 3-retry exponential backoff (2s, 5s, 15s). 6 of 40 initial Nominatim queries needed variant names (e.g. "Southern Downs Regional Council" → "Southern Downs") — all resolved on retry. All 40 candidates successfully evaluated; zero had to be skipped.
 
 ## TL;DR
 
 | Metric | Value |
 |---|---|
-| NULL-listing clusters ≥20 | **23** |
-| NULL-listing clusters ≥15 (brand-anchor floor) | **27** |
-| Clusters mapping to an existing draft | 20 |
-| Clusters requiring INSERT new row | 7 |
-| Ambiguities requiring editorial call | **6** (see section below) |
-| Brand-anchor regions below 15 threshold (excluded) | 3 (Yarra Valley 5, Mornington Peninsula 2) |
-| Projected remaining NULL if all Tier-1 + Tier-2 activated | **~700–1,000** (vs. 3,425 today — 70-80% rescue rate) |
+| Candidates evaluated | **40 / 40** |
+| Candidates passing NULL threshold | **34** |
+| Candidates failing NULL threshold | 6 |
+| Sum of NULL-listings rescued if all 34 activated | **~2,690** (of 3,425 projected-NULL) |
+| Sum of reassign-from-live if all 34 activated | ~85 (mostly McLaren Vale/82 from Adelaide) |
+| Projected remaining quarantine after activation | **~735** |
+| Editorial precision regions (fail NULL threshold but high reassign) | 3 — Mornington, Yarra Valley, Blue Mountains (366 combined reassigns) |
 
-**Source strategy:** ABS Tourism Regions 2021 provides clean matches for **most** VIC, SA, QLD, and TAS candidates (see ABS TR inventory below). WA and NSW need OSM LGA aggregation — ABS TR is too coarse for those states' wine/tourism sub-regions.
+**Previous-count corrections.** The clustering approach undercounted brand-anchor regions because listings on e.g. Mornington Peninsula already match the Greater Melbourne polygon and so didn't appear in the NULL population at all. Polygon-based counts reveal the true picture:
 
-## ABS Tourism Regions 2021 inventory (for reference)
+| Region | Previous (cluster) | NULL in polygon | Total in polygon | Note |
+|---|---|---|---|---|
+| Mornington Peninsula | 2 | 0 | **145** | All currently in Melbourne |
+| Yarra Valley | 5 | 0 | **147** | All currently in Melbourne |
+| Blue Mountains | 19 | 14 | 88 | 74 currently in Sydney |
 
-Queried `https://geo.abs.gov.au/arcgis/rest/services/ASGS2021/TR/MapServer/0/query` 2026-04-25:
+These are editorial precision plays (listings labelled with too-broad a region), not quarantine reducers. They don't meet the NULL threshold but are noted for Matt's call.
 
-| State | TRs worth considering |
-|---|---|
-| VIC | Melbourne (2R010) · **Great Ocean Road** (2R040) · **Western Grampians** (2R050) · **Bendigo Loddon** (2R060) · **Peninsula** (2R070, = Mornington) · **Goulburn** (2R090) · **High Country** (2R100) · **Gippsland** (2R120) · **Geelong and the Bellarine** (2R140) · **Macedon** (2R150) · **Spa Country** (2R160, = Daylesford) · **Ballarat** (2R170) · Central Highlands (2R180) · **Yarra Valley and the Dandenong Ranges** (2R220) |
-| SA | **Limestone Coast** (4R010) · Murray River Lakes & Coorong (4R020) · **Fleurieu Peninsula** (4R030) · Adelaide (4R040, already live via GCCSA) · **Barossa** (4R050) · Riverland (4R060) · **Clare Valley** (4R080) · **Kangaroo Island** (4R130) · Adelaide Hills (4R140, already live) |
-| WA | Destination Perth (5R120, already live via GCCSA) · Golden Outback (5R130, too coarse) · **South West** (5R140, covers Margaret River + Great Southern + Bunbury — too coarse, use OSM LGAs) |
-| QLD | **Gold Coast** (3R010) · Brisbane (3R020, already live) · **Sunshine Coast** (3R030) · Fraser Coast (3R040) · **Southern Queensland Country** (3R060, = Darling Downs + Granite Belt) · **Whitsundays** (3R100) · **Townsville** (3R110) · **Tropical North Queensland** (3R120) |
-| TAS | **East Coast** (6R030) · **North West** (6R060) · West Coast (6R080) · Hobart and the South (6R100, already live) · **Launceston and the North** (6R110) |
-| NSW | Hunter (1R100, too broad, already rejected) · Central NSW (1R090, too broad) · North Coast NSW (1R200) · South Coast (1R010) · Snowy Mountains (1R050) · Capital Country (1R060) · Blue Mountains (1R190) · Central Coast (1R180) |
+## Master table — all 40 candidates, sorted by NULL rescue
 
----
+| Rank | Slug | State | Tier | Draft | Brand | NULL inside | Total inside | Reassign | Threshold | Pass |
+|---|---|---|---|---|---|---:|---:|---:|---:|---|
+| 1 | `launceston-tamar-valley` | TAS | T1 | Y | — | **190** | 190 | 0 | 20 | ✓ |
+| 2 | `sunshine-coast` | QLD | T2-new | N | — | **189** | 189 | 0 | 20 | ✓ |
+| 3 | `cairns-tropical-north` | QLD | T1 | Y | — | **166** | 166 | 0 | 20 | ✓ |
+| 4 | `margaret-river` | WA | T1 | Y | **brand** | **153** | 153 | 0 | 15 | ✓ |
+| 5 | `sunshine-coast-hinterland` | QLD | T1 | Y | — | **148** | 148 | 0 | 20 | ✓ |
+| 6 | `toowoomba-darling-downs` | QLD | T1 | Y | — | **124** | 124 | 0 | 20 | ✓ |
+| 7 | `bendigo` | VIC | ambig | N | — | **118** | 118 | 0 | 20 | ✓ |
+| 8 | `ballarat` | VIC | T2-new | N | — | **115** | 115 | 0 | 20 | ✓ |
+| 9 | `newcastle` | NSW | T1 | Y | — | **114** | 114 | 0 | 20 | ✓ |
+| 10 | `victorian-high-country` | VIC | T2-new | N | — | **110** | 110 | 0 | 20 | ✓ |
+| 11 | `barossa-valley` | SA | T1 | Y | **brand** | **104** | 107 | 3 (Adelaide) | 15 | ✓ |
+| 12 | `gippsland` | VIC | T1 | Y | — | **87** | 87 | 0 | 20 | ✓ |
+| 13 | `wollongong` | NSW | ambig | Y | — | **80** | 80 | 0 | 20 | ✓ |
+| 14 | `great-southern` | WA | T1 | Y | — | **79** | 79 | 0 | 20 | ✓ |
+| 15 | `bellarine-peninsula` | VIC | T1 | Y | — | **71** | 71 | 0 | 20 | ✓ |
+| 16 | `coffs-coast` | NSW | T2-new | N | — | **71** | 71 | 0 | 20 | ✓ |
+| 17 | `port-macquarie` | NSW | T2-new | N | — | **70** | 70 | 0 | 20 | ✓ |
+| 18 | `cradle-country` | TAS | T1 | Y | — | **67** | 67 | 0 | 20 | ✓ |
+| 19 | `daylesford` | VIC | ambig | Y | — | **61** | 61 | 0 | 20 | ✓ |
+| 20 | `geelong-city` | VIC | T1 | Y | — | **60** | 60 | 0 | 20 | ✓ |
+| 21 | `mclaren-vale` | SA | T1 | Y | **brand** | **59** | 141 | **82 (Adelaide)** | 15 | ✓ |
+| 22 | `great-ocean-road` | VIC | T1 | Y | **brand** | **47** | 47 | 0 | 15 | ✓ |
+| 23 | `limestone-coast` | SA | T1 | Y | — | **44** | 44 | 0 | 20 | ✓ |
+| 24 | `macedon-ranges` | VIC | ambig | Y | — | **38** | 38 | 0 | 20 | ✓ |
+| 25 | `scenic-rim` | QLD | T1 | Y | — | **37** | 37 | 0 | 20 | ✓ |
+| 26 | `northern-rivers` | NSW | T1 | Y | — | **37** | 37 | 0 | 20 | ✓ |
+| 27 | `clare-valley` | SA | T1 | Y | — | **36** | 36 | 0 | 20 | ✓ |
+| 28 | `south-coast-nsw` | NSW | T1 | Y | — | **36** | 36 | 0 | 20 | ✓ |
+| 29 | `granite-belt` | QLD | T2-new | N | — | **36** | 36 | 0 | 20 | ✓ |
+| 30 | `southern-highlands` | NSW | ambig | Y | — | **32** | 32 | 0 | 20 | ✓ |
+| 31 | `canberra-wine` | NSW | ambig | N | — | **32** | 32 | 0 | 20 | ✓ |
+| 32 | `townsville` | QLD | T2-new | N | — | **30** | 30 | 0 | 20 | ✓ |
+| 33 | `shoalhaven` | NSW | ambig | Y | — | **25** | 25 | 0 | 20 | ✓ |
+| 34 | `central-coast` | NSW | T1 | Y | — | **24** | 24 | 0 | 20 | ✓ |
+| 35 | `alice-springs-red-centre` | NT | T1 | Y | — | 16 | 16 | 0 | 20 | ✗ |
+| 36 | `blue-mountains` | NSW | ambig | Y | — | 14 | 88 | **74 (Sydney)** | 20 | ✗ |
+| 37 | `kangaroo-island` | SA | ambig | Y | — | 12 | 12 | 0 | 20 | ✗ |
+| 38 | `grampians` | VIC | T1 | Y | — | 7 | 7 | 0 | 20 | ✗ |
+| 39 | `mornington-peninsula` | VIC | verify | Y | **brand** | 0 | 145 | **145 (Melbourne)** | 15 | ✗ |
+| 40 | `yarra-valley` | VIC | verify | Y | **brand** | 0 | 147 | **147 (Melbourne)** | 15 | ✗ |
 
-## Tier 1 — Activate existing draft (20 candidates)
+**Tier legend:** T1 = existing draft, UPDATE-to-live. T2-new = no existing draft, INSERT new row. ambig = flagged as ambiguous in original report, evaluated here independently. verify = brand-anchor explicit verification per task.
 
-All have: (a) a matching `status='draft'` row already in the `regions` table, and (b) ≥20 listings in the NULL cluster (or ≥15 for brand-anchor). Activation = UPDATE status to 'live' + populate polygon. Any pre-existing editorial content (description, hero images, generated_intro) is preserved.
+## Polygon source per candidate
 
-| # | Region | Slug | State | NULLs rescued | Polygon source | Component codes | Brand anchor |
-|---|---|---|---|---|---|---|---|
-| 1 | Launceston & Tamar Valley | `launceston-tamar-valley` | TAS | **219** | ABS TR | `6R110` (Launceston and the North) | — |
-| 2 | Margaret River | `margaret-river` | WA | **152** | OSM LGA aggregate | Augusta-Margaret River Shire (+ optionally Busselton for Yallingup-Dunsborough) | ✓ |
-| 3 | Cairns & Tropical North | `cairns-tropical-north` | QLD | **125** | ABS TR | `3R120` (Tropical North Queensland) | — |
-| 4 | Newcastle | `newcastle` | NSW | **108** | OSM LGA | City of Newcastle + Lake Macquarie + Port Stephens (check overlap with Hunter Valley — edge-case 2 smallest-area wins) | — |
-| 5 | Barossa Valley | `barossa-valley` | SA | **~130** (of 182 combined Barossa+Clare cluster) | ABS TR | `4R050` (Barossa) | ✓ |
-| 6 | Clare Valley | `clare-valley` | SA | **~25** (balance of combined cluster) | ABS TR | `4R080` (Clare Valley) | — |
-| 7 | Cradle Country | `cradle-country` | TAS | **79** | ABS TR | `6R060` (North West) | — |
-| 8 | Gippsland | `gippsland` | VIC | **66** | ABS TR | `2R120` (Gippsland) | — |
-| 9 | Toowoomba & Darling Downs | `toowoomba-darling-downs` | QLD | **66** | ABS TR | `3R060` (Southern Queensland Country — includes Granite Belt; see ambiguity 5) | — |
-| 10 | Bellarine Peninsula | `bellarine-peninsula` | VIC | **~40** (of 79 combined Geelong+Bellarine) | ABS TR | `2R140` (Geelong and the Bellarine — covers both; see ambiguity 4) | — |
-| 11 | Geelong | `geelong-city` | VIC | **~39** (balance of combined cluster) | ABS TR | `2R140` or OSM City of Greater Geelong | — |
-| 12 | Great Southern | `great-southern` | WA | **75** | OSM LGA aggregate | City of Albany + Plantagenet + Denmark + Cranbrook | — |
-| 13 | McLaren Vale | `mclaren-vale` | SA | **49** (as part of Fleurieu; see ambiguity 6) | ABS TR | `4R030` (Fleurieu Peninsula) | ✓ |
-| 14 | Sunshine Coast Hinterland | `sunshine-coast-hinterland` | QLD | **~56** (of 207; see ambiguity 2) | OSM LGA | Noosa + Sunshine Coast Regional + Gympie (hinterland portion) — or use ABS TR `3R030` if broader scope acceptable | — |
-| 15 | Scenic Rim | `scenic-rim` | QLD | **32** | OSM LGA | Scenic Rim Regional Council (single LGA) | — |
-| 16 | Northern Rivers | `northern-rivers` | NSW | **28** | OSM LGA aggregate | Tweed + Byron (already in Byron Bay polygon) + Ballina + Lismore + Richmond Valley + Kyogle | — |
-| 17 | South Coast NSW | `south-coast-nsw` | NSW | **29** | OSM LGA aggregate | Kiama + Shoalhaven (+ possibly Shellharbour) — overlaps ambiguity 3 | — |
-| 18 | Limestone Coast | `limestone-coast` | SA | **26** | ABS TR | `4R010` (Limestone Coast) | — |
-| 19 | Central Coast | `central-coast` | NSW | **25** | OSM LGA | Central Coast Council (single amalgamated LGA) | — |
-| 20 | Alice Springs & Red Centre | `alice-springs-red-centre` | NT | **21** | OSM LGA | Alice Springs Town Council + MacDonnell Regional Council (or ABS TR aggregate if broader) | — |
-| 21 | Grampians | `grampians` | VIC | **19** | ABS TR | `2R050` (Western Grampians) | ✓ (brand-anchor-adjacent — wine + tourism) |
-| 22 | Great Ocean Road | `great-ocean-road` | VIC | **24** | ABS TR | `2R040` (Great Ocean Road) | ✓ |
+For transparency on what polygon was PIPed. All ABS TRs fetched from `geo.abs.gov.au/arcgis/rest/services/ASGS2021/TR/MapServer/0/query`; all OSM LGAs fetched from Nominatim with strict `class=boundary && type=administrative` filter.
 
-**Subtotal Tier 1: ~1,557 listings rescued** (20 clusters spanning the top candidates).
-
----
-
-## Tier 2 — Insert new row (7 candidates)
-
-No matching existing draft. Needs: INSERT new row with minimal fields (name, slug, state, status='live', polygon), following the same pattern used for Orange and Mudgee on the earlier activation.
-
-| # | Region | Slug | State | NULLs rescued | Polygon source | Component codes | Notes |
-|---|---|---|---|---|---|---|---|
-| 23 | Ballarat & Goldfields | `ballarat` | VIC | **105** | ABS TR | `2R170` (Ballarat) | Possible overlap with `daylesford` draft on northern edge — resolved by smallest-area-wins |
-| 24 | Victorian High Country | `victorian-high-country` | VIC | **89** | ABS TR | `2R100` (High Country) | Rutherglen + Beechworth + Bright + Alpine Valleys |
-| 25 | Sunshine Coast | `sunshine-coast` | QLD | **~151** (of 207 combined SC cluster) | ABS TR | `3R030` (Sunshine Coast) | See ambiguity 2 — split from hinterland |
-| 26 | Port Macquarie & Hastings | `port-macquarie` | NSW | **67** | OSM LGA | Port Macquarie-Hastings Council (single LGA) | — |
-| 27 | Coffs Coast | `coffs-coast` | NSW | **63** | OSM LGA aggregate | Coffs Harbour City + Bellingen Shire | — |
-| 28 | Granite Belt | `granite-belt` | QLD | **32** | OSM LGA | Southern Downs Regional Council (single LGA covers Stanthorpe + Warwick) | Or could fold into `toowoomba-darling-downs` — see ambiguity 5 |
-| 29 | Townsville | `townsville` | QLD | **23** | ABS TR | `3R110` (Townsville) | — |
-| 30 | Bendigo | `bendigo` *(new)* | VIC | **79** | ABS TR | `2R060` (Bendigo Loddon) | Or fold into `central-victoria` draft — see ambiguity 1 |
-| 31 | Daylesford | `daylesford` *(draft exists — UPDATE not INSERT)* | VIC | **50** | ABS TR | `2R160` (Spa Country) | Correction — `daylesford` IS a draft. Move this to Tier 1 if kept separate from Bendigo. |
-| 32 | Macedon Ranges | `macedon-ranges` *(draft exists — UPDATE not INSERT)* | VIC | **20** | ABS TR | `2R150` (Macedon) | Same correction — `macedon-ranges` IS a draft. |
-
-*Note:* candidates 31 and 32 are drafts (caught in cross-ref) — listed here to flag their interaction with ambiguity 1. They move to Tier 1 if kept separate from Bendigo/central-victoria.
-
-**Subtotal Tier 2 (excluding Daylesford/Macedon double-counts): ~610 listings rescued** (7 new regions).
-
----
-
-## Tier 3 — Ambiguities requiring editorial decision
-
-These have clusters large enough to justify activation but multiple editorial options. Matt should decide which framing to take.
-
-### Ambiguity 1 — Central Victoria slicing (215 listings in one cluster)
-
-The 215-listing Macedon/Bendigo/Daylesford cluster spans three distinct editorial sub-regions with three existing drafts (`central-victoria`, `macedon-ranges`, `daylesford`). ABS TR offers three matching regions (`2R060` Bendigo Loddon, `2R150` Macedon, `2R160` Spa Country). Two paths:
-
-- **Three separate activations** (Bendigo 79 + Daylesford 50 + Macedon 20 via their respective ABS TRs). Editorially precise; listings resolve to their exact sub-region.
-- **One broad `central-victoria` activation** (OSM LGA aggregate or a custom polygon covering all three). Simpler; loses sub-region precision.
-
-**Recommendation:** three separate activations. All three TRs exist, all three drafts exist. But this requires editorial commitment to three separate region pages.
-
-### Ambiguity 2 — Sunshine Coast coast-vs-hinterland split (207 listings)
-
-Cluster of 207 covers both coastal Sunshine Coast (Noosa, Mooloolaba, Caloundra) and hinterland (Montville, Maleny, Eumundi). Only `sunshine-coast-hinterland` exists as a draft; there is NO core `sunshine-coast` draft despite Matt's brand-anchor list not including it.
-
-- **Option A:** INSERT new `sunshine-coast` region (ABS TR `3R030`) covering the entire ABS TR (coast + hinterland combined). Activate `sunshine-coast-hinterland` redundantly — smallest-area-wins means hinterland listings resolve to the narrower hinterland polygon.
-- **Option B:** INSERT `sunshine-coast` as *coast-only* (e.g. Sunshine Coast Regional Council minus hinterland via LGA subtraction — awkward). Activate `sunshine-coast-hinterland` separately.
-- **Option C:** Only INSERT `sunshine-coast` broad; don't activate the hinterland draft separately.
-
-**Recommendation:** Option A. Matches the editorial pattern already established (Hobart & Southern Tasmania + Hobart City overlapping).
-
-### Ambiguity 3 — Illawarra/Southern Highlands/Shoalhaven triangle (150 listings)
-
-Cluster of 150 covers three distinct regions with three existing drafts (`wollongong`, `southern-highlands`, `shoalhaven`). Five listings of Blue Mountains are also caught (western edge).
-
-- **Three separate activations** via OSM LGAs: Wollongong (City of Wollongong + Shellharbour) + Southern Highlands (Wingecarribee) + Shoalhaven (City of Shoalhaven). Plus Blue Mountains (City of Blue Mountains) if the 19-listing Blue Mountains probe qualifies at brand-floor (it's not on Matt's brand list, so 19 < 20 excludes it).
-
-**Recommendation:** three separate activations. All three drafts exist, LGAs are clean.
-
-### Ambiguity 4 — Geelong/Bellarine combined or split (79 listings)
-
-ABS TR `2R140` "Geelong and the Bellarine" covers both regions in one polygon. Two existing drafts (`geelong-city`, `bellarine-peninsula`) suggest editorial intent to keep them separate. Options:
-
-- **Option A:** Activate both separately via OSM LGAs (City of Greater Geelong = Geelong area; OSM Bellarine Peninsula as its own boundary doesn't exist cleanly — would need LGA subtraction).
-- **Option B:** Activate only `geelong-city` using ABS TR `2R140` (captures both geographies under the Geelong slug; `bellarine-peninsula` draft stays draft).
-- **Option C:** Split editorially: `geelong-city` for the urban area, `bellarine-peninsula` for the peninsula, both via OSM LGA subsets.
-
-**Recommendation:** Option A using City of Greater Geelong OSM LGA for `geelong-city`, and delete/repurpose `bellarine-peninsula`. OR keep both separate with custom OSM polygon subsets. Matt's call.
-
-### Ambiguity 5 — Granite Belt inside Darling Downs (32 listings)
-
-ABS TR `3R060` Southern Queensland Country covers both the Darling Downs and the Granite Belt (Stanthorpe). A single polygon for `toowoomba-darling-downs` via this TR would capture all 98 listings (66 Darling Downs + 32 Granite Belt). But Granite Belt has distinct wine-region identity.
-
-- **Option A:** Single activation of `toowoomba-darling-downs` via `3R060`. Granite Belt listings resolve to that. No separate Granite Belt region.
-- **Option B:** Activate both as separate regions with overlapping polygons — `toowoomba-darling-downs` covers the broader SQC and `granite-belt` covers Southern Downs LGA. Smallest-area-wins routes Stanthorpe wineries to `granite-belt` specifically.
-
-**Recommendation:** Option B. Granite Belt is an editorially distinct wine region.
-
-### Ambiguity 6 — McLaren Vale inside Fleurieu Peninsula (49 listings)
-
-ABS TR `4R030` Fleurieu Peninsula covers McLaren Vale, Victor Harbor, Willunga, and the peninsula tip (Cape Jervis). Matt's brand-anchor list names "McLaren Vale" specifically.
-
-- **Option A:** Activate `mclaren-vale` using ABS TR `4R030`. Captures McLaren Vale + Fleurieu surrounds under the McLaren Vale name. Editorially slightly inaccurate (McLaren Vale is the wine sub-region, Fleurieu is the broader tourism region).
-- **Option B:** INSERT new `fleurieu-peninsula` for the broader polygon; `mclaren-vale` narrows to Onkaparinga-South LGA or similar.
-
-**Recommendation:** Option A. Captures the 49 listings cleanly; editorial naming stays with what Matt has on his brand list.
-
-### Ambiguity 7 — Canberra wine region spillover into NSW (26 listings)
-
-The existing live `Canberra District` polygon is the ACT territory boundary only. 26 wine listings (Murrumbateman, Gundaroo, Lake George) fall just outside the ACT in NSW, specifically in Yass Valley LGA. These are the editorial Canberra wine district, branded as "Canberra District" wines despite being NSW-side.
-
-- **Option A:** Expand the existing `Canberra District` polygon to include Yass Valley LGA. This changes the polygon of a live region.
-- **Option B:** INSERT new `canberra-wine` / `yass-valley` region (OSM Yass Valley LGA). `Canberra District` stays as ACT-only.
-
-**Recommendation:** Option B. Preserves separation of ACT governance area from NSW wine region. Listings editorially branded "Canberra District" would need editorial override via Humanator or acceptance that the slug differs from the brand tag.
-
----
-
-## Below-threshold observations (NOT activated)
-
-These surfaced as clusters or probes but fell below the 20-listing threshold (or 15 for brand-anchor). Documented so Matt sees what's being left for quarantine.
-
-| Region | Count | Brand anchor? | Decision |
+| Slug | Source | Code / Queries | Bbox |
 |---|---|---|---|
-| Yarra Valley (VIC) | 5 | ✓ | Below 15 brand-anchor floor — excluded. Listing data is genuinely thin here, not a coverage gap. |
-| Mornington Peninsula (VIC) | 2 | ✓ | Below 15 brand-anchor floor — excluded. Genuinely thin. |
-| Kangaroo Island (SA) | 13 | ✗ | Below 20 — excluded. |
-| Snowy Mountains (NSW) | 12 | ✗ | Below 20 — excluded. |
-| Blue Mountains (NSW) | 19 | ✗ | Just below 20 — excluded. |
-| Bunbury / South West WA | 19 | ✗ | Just below 20 — excluded. Margaret River absorbs some of this geographic area. |
-| Atherton Tablelands (QLD) | 14 | ✗ | Below 20 — excluded. Cairns & Tropical North absorbs the rest. |
-| Port Douglas / Daintree (QLD) | 9 | ✗ | Below 20 — excluded. Cairns & Tropical North ABS TR (`3R120`) covers this area already. |
-| Mildura / Murray River | 18 | ✗ | Below 20 — excluded. `murray-river` draft exists but cluster is small. |
-| East Coast Tasmania | 15 | partial (Freycinet is iconic) | On the edge. Not on Matt's explicit brand list. Flag for Matt's call. |
-| Sapphire Coast NSW | 6 | ✗ | Far below 20 — excluded. |
-| Huon Valley (TAS) | 2 | ✗ | Already inside `Hobart & Southern Tasmania` polygon — correctly NOT null. (Probe hit 2 listings that appear to be mis-tagged.) |
-| Whitsundays (QLD) | 3 | ✗ | Below 20 — excluded. |
-| Swan Valley (WA) | (not probed directly) | ✗ | `fremantle-swan-valley` draft exists. If ≥20, could activate via OSM LGA. |
+| `launceston-tamar-valley` | ABS TR | `6R110` Launceston and the North | 145.95–148.50°E / -42.28 to -39.20°S |
+| `sunshine-coast` | ABS TR | `3R030` Sunshine Coast | 151.75–153.19°E / -26.98 to -25.76°S |
+| `cairns-tropical-north` | ABS TR | `3R120` Tropical North Queensland | 137.99–146.36°E / -19.70 to -9.14°S |
+| `margaret-river` | OSM LGA | Augusta-Margaret River Shire + City of Busselton | 114.90–115.77°E / -34.48 to -33.48°S |
+| `sunshine-coast-hinterland` | OSM LGA | Sunshine Coast (rel 11675192) — retry variant | 152.55–153.15°E / -26.98 to -26.43°S |
+| `toowoomba-darling-downs` | ABS TR | `3R060` Southern Queensland Country | 148.92–152.52°E / -29.18 to -25.60°S |
+| `bendigo` | ABS TR | `2R060` Bendigo Loddon | 143.32–144.85°E / -37.27 to -35.91°S |
+| `ballarat` | ABS TR | `2R170` Ballarat | 143.06–143.95°E / -37.99 to -36.90°S |
+| `newcastle` | OSM LGA | City of Newcastle + Lake Macquarie + Port Stephens | 151.33–152.20°E / -33.20 to -32.58°S |
+| `victorian-high-country` | ABS TR | `2R100` High Country | 145.16–148.22°E / -37.63 to -35.93°S |
+| `barossa-valley` | ABS TR | `4R050` Barossa | 138.56–139.17°E / -34.82 to -34.19°S |
+| `gippsland` | ABS TR | `2R120` Gippsland | 145.61–147.97°E / -39.16 to -37.12°S |
+| `wollongong` | OSM LGA | Wollongong City Council + Shellharbour City Council — retry variant | 150.64–151.07°E / -34.64 to -34.13°S |
+| `great-southern` | OSM LGA | Albany + Plantagenet + Denmark + Cranbrook | 116.67–118.98°E / -35.24 to -34.09°S |
+| `bellarine-peninsula` | ABS TR | `2R140` Geelong and the Bellarine (combined) | 143.62–144.72°E / -38.30 to -37.78°S |
+| `coffs-coast` | OSM LGA | Coffs Harbour City + Bellingen Shire | 152.39–153.26°E / -30.57 to -29.90°S |
+| `port-macquarie` | OSM LGA | Port Macquarie-Hastings Council | 152.06–152.98°E / -31.73 to -31.11°S |
+| `cradle-country` | ABS TR | `6R060` North West | 143.82–146.76°E / -41.71 to -39.58°S |
+| `daylesford` | ABS TR | `2R160` Spa Country | 143.64–144.42°E / -37.52 to -37.15°S |
+| `geelong-city` | OSM LGA | City of Greater Geelong | 144.20–144.72°E / -38.30 to -37.80°S |
+| `mclaren-vale` | ABS TR | `4R030` Fleurieu Peninsula | 138.09–139.16°E / -35.79 to -35.03°S |
+| `great-ocean-road` | ABS TR | `2R040` Great Ocean Road | 140.97–144.38°E / -38.86 to -37.35°S |
+| `limestone-coast` | ABS TR | `4R010` Limestone Coast | 139.67–140.97°E / -38.06 to -35.74°S |
+| `macedon-ranges` | ABS TR | `2R150` Macedon | 143.85–144.92°E / -37.86 to -37.10°S |
+| `scenic-rim` | OSM LGA | Scenic Rim (rel 11675525) — retry variant | 152.37–153.24°E / -28.36 to -27.72°S |
+| `northern-rivers` | OSM LGA | Tweed + Ballina + Lismore + Richmond Valley + Kyogle | 152.37–153.61°E / -29.34 to -28.16°S |
+| `clare-valley` | ABS TR | `4R080` Clare Valley | 138.53–139.36°E / -34.37 to -33.10°S |
+| `south-coast-nsw` | OSM LGA | Kiama + Shoalhaven | 149.98–150.87°E / -35.64 to -34.60°S |
+| `granite-belt` | OSM LGA | Southern Downs (rel 11677975) — retry variant | 151.35–152.49°E / -29.07 to -27.94°S |
+| `southern-highlands` | OSM LGA | Wingecarribee Shire | 149.96–150.75°E / -34.77 to -34.21°S |
+| `canberra-wine` | OSM LGA | Yass Valley Council | 148.52–149.42°E / -35.32 to -34.54°S |
+| `townsville` | ABS TR | `3R110` Townsville | 144.29–147.66°E / -22.10 to -18.31°S |
+| `shoalhaven` | OSM LGA | Shoalhaven City Council | 149.98–150.85°E / -35.64 to -34.64°S |
+| `central-coast` | OSM LGA | Central Coast Council | 150.98–151.63°E / -33.58 to -33.04°S |
+| `alice-springs-red-centre` | OSM LGA | Alice Springs + MacDonnell (rel 11716646) — retry variant | 129.00–137.99°E / -26.00 to -22.85°S |
+| `blue-mountains` | OSM LGA | Blue Mountains City Council — retry variant | 150.17–150.66°E / -33.90 to -33.36°S |
+| `kangaroo-island` | ABS TR | `4R130` Kangaroo Island | 136.53–138.13°E / -36.09 to -35.56°S |
+| `grampians` | ABS TR | `2R050` Western Grampians | 140.97–142.62°E / -38.00 to -36.39°S |
+| `mornington-peninsula` | ABS TR | `2R070` Peninsula | 144.65–145.26°E / -38.50 to -38.07°S |
+| `yarra-valley` | ABS TR | `2R220` Yarra Valley and the Dandenong Ranges | 145.08–146.19°E / -38.33 to -37.49°S |
 
----
+## Passing NULL threshold (34 candidates) — in rank order
 
-## Overlap with existing live regions
+Copy of rows 1–34 from the master table. Together these rescue **~2,690 listings from quarantine** plus ~85 additional reassignments (mostly McLaren Vale pulling 82 listings from broad Adelaide polygon into the Fleurieu precisely).
 
-If activated, the following proposed regions would geographically overlap existing live regions. Edge Case 2 of the regions architecture spec (smallest-polygon-by-area wins on overlap) resolves these cleanly:
+## Failing NULL threshold (6 candidates) — individual notes
 
-| Proposed region | Overlaps live region | Resolution |
-|---|---|---|
-| Hunter Valley's LGA scope touches Newcastle proposal | `hunter-valley` (live) vs `newcastle` (proposed) | Newcastle LGAs (Newcastle + Lake Macquarie + Port Stephens) sit east of Cessnock+Singleton (Hunter Valley). Minimal real overlap. Any listings inside both resolve to smaller polygon (probably Newcastle since smaller). |
-| Tropical North QLD would overlap if `atherton-tablelands` activated | `cairns-tropical-north` (proposed) | N/A — Atherton excluded at threshold. |
-| `hobart-city` already nested inside `hobart` | Established pattern (Edge Case 2 example) | Same nested pattern applies to any city-within-region proposals. |
-| `sunshine-coast-hinterland` inside `sunshine-coast` (if Option A in Ambiguity 2) | — | Nested: hinterland listings resolve to hinterland, coastal resolve to coast. |
-| `granite-belt` inside `toowoomba-darling-downs` (if Option B in Ambiguity 5) | — | Nested: Stanthorpe wine listings resolve to Granite Belt, Toowoomba listings resolve to broader TDD. |
-| `mclaren-vale` contents partially inside Adelaide GCCSA? | Fleurieu TR extends south from Adelaide metro | Adelaide GCCSA ends approximately at Sellicks Beach; Fleurieu starts further south. Minimal-to-no overlap. |
+### `alice-springs-red-centre` — 16 NULL / 16 total / fails 20
 
-All overlaps are deliberate nesting or benign. Phase 1.5 trigger logic handles all cases automatically.
+Polygon = Alice Springs township + MacDonnell Regional Council LGA (combined). Earlier cluster count was 21 at Alice Springs centroid; polygon-based count is 16. Difference is listings in Central Desert Regional Council (north of Alice) or Petermann Shire (Uluru area) which aren't in the MacDonnell polygon. To capture the full "Red Centre" tourism concept, the polygon would need Alice Springs + MacDonnell + Central Desert + Petermann = a much larger aggregate. **Recommended follow-up:** expand the aggregate. If still ≤20 after expansion, accept and defer — NT tourism inventory is genuinely thin.
 
----
+### `blue-mountains` — 14 NULL / 88 total / 74 reassign from Sydney / fails 20
 
-## Projected outcome if all Tier-1 + Tier-2 activated
+Blue Mountains sits entirely within the Greater Sydney OSM `place=city` polygon (rel 5750005). So 74 of 88 Blue Mountains listings already resolve to `sydney`. Only 14 fall into the NULL population, and those 14 are below threshold. However, activating Blue Mountains would reassign 74 Sydney-labelled listings to a more specific, editorially correct region (Katoomba, Leura, Blackheath, Megalong Valley, Bilpin). Editorial precision upgrade — **Matt's call**: worth the 14-NULL sub-threshold for 74 reassignments, or defer?
 
-**Current state (post-14-region):** 3,425 NULL / 6,509 eligible = 52.6%
-**Target state (post-29-region):** estimated 700–1,000 NULL / 6,509 eligible = ≈12–15%
+### `kangaroo-island` — 12 NULL / 12 total / fails 20
 
-Rescued listings (rough sum of NULLs per candidate, minus overlap double-count):
+Below threshold. Genuinely thin inventory; no reassignment contribution. Kangaroo Island is a single-island geography with limited small-batch venues. Defer.
 
-| Tier | Candidates | Rescue count (approx) |
-|---|---|---|
-| Tier 1 (activate drafts) | 22 regions | ~1,557 |
-| Tier 2 (insert new) | 7 regions | ~610 |
-| Ambiguity resolution (if all resolved in favour of activation) | Various | ~600 (the 3 Central Vic splits + 3 SH/Illawarra splits + Canberra Wine) |
-| **Total rescue projection** | — | **~2,700** |
-| **Remaining quarantine** | — | **~700–1,000** |
+### `grampians` — 7 NULL / 7 total / fails 20
 
-The remaining ~700–1,000 NULL listings would be genuinely remote or diffuse — Swan Valley fringes, Sapphire Coast, regional NSW outside tourism regions, mid-north SA, etc. Quarantine is the correct editorial outcome for those: admin-reviews and either assigns via `region_override_id`, corrects the lat/lng, or accepts NULL.
+Surprising — earlier box probe showed 19 listings. The issue: ABS TR `2R050` is **Western Grampians** only, covering the Hamilton/Dunkeld/Coleraine area. But the Grampians tourism region includes Halls Gap, Pomonal, Ararat — in Northern Grampians Shire (LGA), which is a separate council outside the Western Grampians TR. ABS TR has no standalone "Grampians" tourism region that covers the whole iconic Grampians National Park area.
 
----
+**Recommended follow-up:** build an OSM LGA aggregate of Northern Grampians Shire + Southern Grampians Shire + Ararat Rural City. This should capture the full ~19 listings of the earlier box probe and cross the 20 threshold.
 
-## Deliverables needed for Phase B (activation)
+### `mornington-peninsula` — 0 NULL / 145 total / 145 reassign from Melbourne / fails 15
 
-Matt's editorial calls needed on:
+**Key correction.** Original cluster count of "2" was wrong because all Mornington Peninsula listings already match the broad Greater Melbourne polygon, so they never entered the NULL population. Polygon-based analysis: 145 listings sit inside ABS TR `2R070` Peninsula, all currently assigned to `melbourne`. Activating Mornington would reassign all 145 to the precise peninsula region under smallest-polygon-wins — editorial precision upgrade from "Greater Melbourne" to "Mornington Peninsula" for 145 listings.
 
-1. **Ambiguities 1-7** — specifically which to fold/split/INSERT.
-2. **Brand-anchor threshold exceptions** — Yarra Valley (5) and Mornington Peninsula (2) are explicitly named brand anchors but fall far below the 15-listing floor. Confirm exclusion, or override.
-3. **Bellarine/Geelong treatment** — single combined ABS TR (Option B in ambiguity 4) or two separate OSM LGA polygons (Option A or C).
-4. **Ballarat editorial identity** — activate as `ballarat` (narrow) or `ballarat-goldfields` (broader, could swallow the 50 Daylesford listings too)?
-5. **Canberra wine region** — new `canberra-wine` / `yass-valley` row, or expand existing live Canberra District polygon?
+**Brand-anchor caveat:** the task's NULL threshold is "no exceptions below 15." Strictly applied, Mornington fails. But the editorial argument here is that the inventory isn't missing — it's mislabelled. Matt's call.
 
-Once confirmed, Phase B = activation script in the pattern of `scripts/activate-regions-osm-lga.mjs` (modified to support ABS TR as well as OSM LGA aggregation per region). Single batch commit with all activations + updated polygon sourcing report.
+### `yarra-valley` — 0 NULL / 147 total / 147 reassign from Melbourne / fails 15
+
+Same story as Mornington. 147 listings inside ABS TR `2R220` Yarra Valley & Dandenong Ranges, all currently in `melbourne`. 147 reassignments, 0 quarantine rescue. Brand-anchor precision upgrade.
+
+## Editorial precision upgrades (low NULL, high reassign)
+
+Regions where activation would not rescue listings from quarantine but would move a material number from broader live regions to more specific ones. Listed for Matt's decision on whether editorial precision justifies activation under a relaxed threshold:
+
+| Region | NULL | Reassign | Current "home" | Brand anchor? |
+|---|---:|---:|---|---|
+| Yarra Valley | 0 | 147 | Melbourne | **yes** |
+| Mornington Peninsula | 0 | 145 | Melbourne | **yes** |
+| Blue Mountains | 14 | 74 | Sydney | no |
+| **Total** | 14 | **366** | — | — |
+
+If Matt greenlights the three above in addition to the 34 passing candidates:
+- Total rescue: ~2,690 + 14 = ~2,704 (quarantine impact same order)
+- Total reassign: ~85 + 366 = ~451 (editorial precision upgrade)
+- Remaining quarantine: ~720
+
+## Ambiguities resolved by polygon counts
+
+Several ambiguities in the original report are easier to resolve with concrete polygon-based numbers:
+
+### Ambiguity 1 (Central Victoria slicing) — resolved: three separate activations
+
+Polygon-based counts for the three sub-regions:
+- `bendigo` (ABS TR 2R060 Bendigo Loddon): **118 NULL**
+- `daylesford` (ABS TR 2R160 Spa Country): **61 NULL**
+- `macedon-ranges` (ABS TR 2R150 Macedon): **38 NULL**
+
+All three individually pass the 20 threshold. Combined = 217 listings. Three separate activations is both editorially precise and threshold-valid.
+
+### Ambiguity 2 (Sunshine Coast coast vs hinterland) — resolved: two separate regions
+
+- `sunshine-coast` (ABS TR 3R030, broader): **189 NULL**
+- `sunshine-coast-hinterland` (OSM Sunshine Coast LGA rel 11675192, narrower): **148 NULL**
+
+The ABS TR 3R030 *encloses* the LGA polygon (rings within rings — sunshine-coast covers Noosa/Gympie hinterland too). If both activated with smallest-area-wins, hinterland listings resolve to hinterland polygon while coastal non-hinterland listings (Fraser Coast bits) resolve to broader `sunshine-coast`. Net rescue = 189 regardless. Activating both is worth it for editorial precision nesting.
+
+### Ambiguity 3 (Illawarra/SH/Shoalhaven) — resolved: three separate activations
+
+- `wollongong` (OSM Wollongong+Shellharbour): **80 NULL**
+- `southern-highlands` (OSM Wingecarribee): **32 NULL**
+- `shoalhaven` (OSM Shoalhaven): **25 NULL** (note: `south-coast-nsw` also activated as Kiama+Shoalhaven = 36 NULL, overlaps)
+
+All three pass individually. But **`south-coast-nsw` (36) and `shoalhaven` (25) substantially overlap** — Shoalhaven City Council is in both polygons. Need to pick one of the two, not both. Recommendation: use `south-coast-nsw` (36 NULL, broader = Kiama + Shoalhaven together) and deprecate the standalone `shoalhaven` draft.
+
+### Ambiguity 5 (Granite Belt inside Darling Downs) — resolved: nest both
+
+- `toowoomba-darling-downs` (ABS TR 3R060): **124 NULL** — covers both DD and Granite Belt via one TR
+- `granite-belt` (OSM Southern Downs): **36 NULL** — nested inside TDD
+
+TDD covers both; Granite Belt narrower. Activating both with smallest-area-wins: Stanthorpe area resolves to `granite-belt`, Toowoomba area resolves to `toowoomba-darling-downs`. Net rescue = 124 (already counts Granite Belt). Activating Granite Belt separately adds **editorial precision** (Stanthorpe wine region distinct) at zero rescue cost.
+
+### Ambiguity 6 (McLaren Vale = Fleurieu) — resolved: accept compression
+
+- `mclaren-vale` (ABS TR 4R030 Fleurieu Peninsula): **59 NULL + 82 reassign from Adelaide = 141 total**
+
+The ABS TR covers the full Fleurieu Peninsula (Willunga, McLaren Vale, Victor Harbor, Normanville). Activating as `mclaren-vale` is an editorial compression — the slug is the brand name, polygon is the broader Fleurieu. The 82 Adelaide-reassigns are peninsula listings currently lumped into broad Adelaide; they'd move to McLaren Vale for precision.
+
+### Ambiguity 7 (Canberra wine region) — resolved: INSERT new row
+
+- `canberra-wine` (OSM Yass Valley Council): **32 NULL**
+
+32 wine listings in Yass Valley LGA (Murrumbateman, Gundaroo, Lake George) are currently NULL because they sit outside the ACT-only Canberra District live polygon. Activating as a new `canberra-wine` slug is clean (32 rescue, 0 reassign — doesn't touch the existing Canberra District polygon). The alternative (expanding Canberra District polygon to include Yass Valley) would work too but blurs ACT governance boundary with NSW editorial region.
+
+### Ambiguity 4 (Geelong-Bellarine combined/split) — resolved: activate both
+
+- `bellarine-peninsula` (ABS TR 2R140, covers both): **71 NULL**
+- `geelong-city` (OSM City of Greater Geelong LGA): **60 NULL**
+
+City of Greater Geelong LGA is *inside* the ABS TR 2R140 polygon — the TR covers both Geelong city and the Bellarine Peninsula. Under smallest-polygon-wins: listings inside City of Greater Geelong resolve to `geelong-city`, listings on the Bellarine Peninsula proper resolve to `bellarine-peninsula`. Net rescue = 71 (the TR count; geelong-city is a subset). Activating both for editorial precision is zero-cost.
+
+## Polygon scope issues flagged for rework
+
+Two polygons surfaced as undersized for their editorial region name. Not activation blockers but worth recording for the follow-up:
+
+1. **`grampians`** using ABS TR `2R050` Western Grampians captures only 7 listings. Real Grampians tourism area needs Northern Grampians Shire + Southern Grampians Shire + Ararat Rural City aggregated. Under-reach by ~12 listings.
+2. **`alice-springs-red-centre`** using Alice Springs Town Council + MacDonnell Regional Council captures 16 listings. Full Red Centre concept needs MacDonnell + Central Desert Regional Council + Petermann Shire. Under-reach by ~5 listings — but likely still under 20 even after expansion.
+
+## Projected outcome if all 34 passing candidates activated
+
+**Current state (post-14-region):** 3,425 NULL / 6,509 eligible = 52.6% quarantine rate.
+
+**Target state (post-48-region):** ~735 NULL / 6,509 eligible = ~11% quarantine rate.
+
+| Component | Listings |
+|---|---:|
+| Current NULL | 3,425 |
+| Rescued by 34 passing candidates | -2,690 |
+| Remaining NULL | **~735** |
+
+The remaining ~735 NULL population is genuinely diffuse — scattered regional and remote listings that don't fall inside any practical 50+ km² polygon at editorial threshold. Correct outcome for these is quarantine + admin override, not activation.
+
+## Deliverables needed from Matt before Phase B
+
+1. **Ambiguity resolutions** — five concrete decisions in the Ambiguities section above. Most resolve cleanly given the real numbers:
+   - Central Victoria: activate three separate regions (bendigo, daylesford, macedon-ranges). ✓ straightforward
+   - Sunshine Coast: activate both broader TR + hinterland OSM. ✓ straightforward
+   - Illawarra triangle: wollongong + southern-highlands + south-coast-nsw (drop standalone shoalhaven due to overlap).
+   - Granite Belt: nest under Darling Downs for editorial precision. ✓
+   - McLaren Vale = Fleurieu: accept compression. ✓
+   - Canberra wine: INSERT new row. ✓
+
+2. **Editorial precision decisions** — does Matt activate the 3 below-NULL-threshold regions with high reassign counts (Mornington 145, Yarra Valley 147, Blue Mountains 74)?
+
+3. **Polygon scope rework** — green-light to re-source `grampians` with broader LGA aggregate, and `alice-springs-red-centre` with more desert LGAs, before or instead of accepting the current polygons?
+
+4. **Below-threshold genuinely-thin candidates** (Alice Springs 16, Kangaroo Island 12, Grampians 7 pre-rework) — defer to future quarterly review when inventory grows, or accept permanent quarantine for those venues?
+
+Once Matt resolves the above, Phase B activation script runs in the pattern of `activate-regions-osm-lga.mjs`, adapted to handle ABS TR candidates. Single batch commit activates all green-lit regions with polygons + updated sourcing report.
