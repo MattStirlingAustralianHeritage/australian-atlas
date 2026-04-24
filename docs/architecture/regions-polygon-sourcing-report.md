@@ -118,7 +118,7 @@ Source endpoint: Nominatim at `https://nominatim.openstreetmap.org/search` with 
 
 **Hunter Valley** — existing draft (id `dbeebdbb…`) had a full editorial package from 2026-04-03 but was held at `status='draft'` pending polygon. This task flipped it live and populated the polygon.
 
-**Orange** — note: a separate draft `orange-central-west` (slug `orange-central-west`, name "Orange & Central West") already exists at a broader editorial scope (covering Bathurst, Cowra, etc.). That draft is **unchanged** by this task. The new `orange` slug is specifically the Orange wine region (Orange + Cabonne + Blayney LGAs), consistent with the scoping recommendation. Whether the broader `orange-central-west` ever activates is a separate editorial decision.
+**Orange** — note: a separate draft `orange-central-west` (slug `orange-central-west`, name "Orange & Central West") already exists at a broader editorial scope (covering Bathurst, Cowra, etc.). That draft is **unchanged** by this task. The new `orange` slug is specifically the Orange wine region (Orange + Cabonne + Blayney LGAs), consistent with the scoping recommendation. Whether the broader `orange-central-west` ever activates is a separate editorial decision. **Update (2026-04-25, later the same day):** the `orange-central-west` draft was renamed to `central-west-nsw` ("Central West NSW") to disambiguate from the newly-live `orange` wine region — rename only, still draft, still no polygon.
 
 **Mudgee** — 17 active SBA listings in a tight cluster (≈14 km radius around Mudgee town). Mid-Western Regional Council LGA covers the full cluster as a single admin boundary; no aggregation needed. All 15 sampled listings cluster within this LGA.
 

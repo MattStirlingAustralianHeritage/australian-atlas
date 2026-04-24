@@ -96,7 +96,7 @@ const REGION_COORDS = {
   'launceston-tamar-valley':    { lat: -41.45, lng: 147.14, zoom: 9 },
   'limestone-coast':            { lat: -37.08, lng: 140.78, zoom: 9 },
   'murray-river':               { lat: -35.12, lng: 142.15, zoom: 8 },
-  'orange-central-west':        { lat: -33.28, lng: 149.10, zoom: 9 },
+  'central-west-nsw':           { lat: -33.28, lng: 149.10, zoom: 9 },
   'south-coast-nsw':            { lat: -35.08, lng: 150.18, zoom: 9 },
   'toowoomba-darling-downs':    { lat: -27.56, lng: 151.95, zoom: 9 },
 }
