@@ -27,6 +27,178 @@
 
 ---
 
+## Post-Batch-1 scope clarification (2026-04-25, late evening)
+
+**Phase 3 step 1 progress:** Roughly **35% of the original 7-batch scope landed in Batch 1**, primarily the universal display surfaces (ListingCard, jsonLd) and the highest-traffic user-facing routes. The remaining 65% is split fairly evenly across: leftover display sites (~15%), filter sites and URL contract (~15%), cross-listing recs (~10%), editorial/agent pipelines (~10%), admin UI (~10%), and updateRegionCounts cleanup (~5%).
+
+**Recommended next batch: Batch 2-finish — leftover user-facing display sites.** Mostly mechanical, no new decisions, low risk. Then Batch 3 (filters + URL contract), which has the most unresolved design work because of Decision 2 dual-acceptance.
+
+### Batch 2 — Display sites (LEFTOVER)
+
+**Original scope:** ListingCard, jsonLd, place page display.
+
+**Landed in Batch 1:** All universal surfaces (ListingCard, jsonLd, place page hero/breadcrumb), plus user-facing routes: place, regions, seo, og, for-you, near-me, claim, collections.
+
+**Remaining (Batch 2-finish):** display sites that still emit `listing.region` text inline. ~15 files. Mechanical migration (add `LISTING_REGION_SELECT` to select, replace `listing.region` access with `getListingRegion(listing)?.name`).
+
+| File | Lines | Work |
+|---|---|---|
+| [components/NearbySection.js:273](australian-atlas/components/NearbySection.js#L273) | 273, 278 | Display read in card markup |
+| [components/StartTrailButton.js:137,236](australian-atlas/components/StartTrailButton.js#L137) | 137, 235-236 | Display + the line-137 fallback string used in trail name suggestion |
+| [components/SearchAutocomplete.js](australian-atlas/components/SearchAutocomplete.js) | grep showed match | Spot-check needed |
+| [app/dashboard/page.js:287](australian-atlas/app/dashboard/page.js#L287) | 287 | Vendor dashboard inline display read (API select already updated in Batch 1) |
+| [app/dashboard/listings/page.js:104,111](australian-atlas/app/dashboard/listings/page.js#L104) | 104, 111 | Vendor listings detail page |
+| [app/api/itinerary/route.js](australian-atlas/app/api/itinerary/route.js) | many (87, 104, 1198+ refs) | Itinerary builder pulls region into data shapes returned to the UI. Substantial — the route builds a complex result object with embedded region strings. Display-shape, not filter-shape. |
+| [app/api/trails/search/route.js](australian-atlas/app/api/trails/search/route.js) | grep matches | Trail-builder venue search; passes region in result shape |
+| [app/api/operators/export/pdf/route.js](australian-atlas/app/api/operators/export/pdf/route.js) | grep matches | PDF export — region in the printed output |
+| [app/api/dashboard/editorial/route.js](australian-atlas/app/api/dashboard/editorial/route.js) | grep matches | Vendor editorial dashboard data |
+| [app/api/on-this-road/route.js](australian-atlas/app/api/on-this-road/route.js) | grep matches | Road-trip planner — display + filter; the display portion in scope here |
+| [app/api/autocomplete/route.js](australian-atlas/app/api/autocomplete/route.js) | grep matches | Search autocomplete suggestions — region in suggestion text |
+| [app/profile/page.js](australian-atlas/app/profile/page.js) | grep match | User profile — possibly saved listings preview |
+| [app/operators/share/[token]/page.js](australian-atlas/app/operators/share/[token]/page.js) | grep match | Operator share page |
+| [app/network/page.js](australian-atlas/app/network/page.js) | grep match | Network overview page |
+| [app/trails/builder/page.js](australian-atlas/app/trails/builder/page.js) | grep match | Trail builder |
+| [app/plan/PlanChat.js](australian-atlas/app/plan/PlanChat.js) | grep match | Plan-my-stay chat UI — region in suggestion display |
+
+**Estimated size: small-to-medium.** ~15 files, mostly 1-3 lines each. The two non-trivial cases are `api/itinerary/route.js` (large file, region threaded through many response-shape objects) and `api/on-this-road/route.js` (mixed display + filter).
+
+**Risk: low.** All purely mechanical with the helper. The itinerary route is the only one large enough to warrant care; rest are templates of the place-page pattern.
+
+### Batch 3 — Filter sites + URL parameter dual-acceptance
+
+**Original scope:** `.eq('region', ...)` and `.ilike('region', ...)` filters, plus public URL `?region=` parameter handling per Decision 2 (accept both slug and name during migration window).
+
+**Landed in Batch 1:** Nothing — explicitly preserved. Data-shape was added to `/api/search` but filter logic untouched.
+
+**Remaining (Batch 3):**
+
+| File | Filter type | Work |
+|---|---|---|
+| [app/api/search/route.js](australian-atlas/app/api/search/route.js) | URL param + 6 sites of `.eq('region', region)` and `.ilike('region', %hint%)` plus OR clauses | **Largest single file in this batch.** Dual-acceptance: accept slug or name, look up regions row, switch to FK filter. Plus search ranking uses ilike across multiple fields — that combination needs a thoughtful rewrite. |
+| [app/api/admin/listings/route.js:36,56,76](australian-atlas/app/api/admin/listings/route.js#L36) | URL param + 2 `.eq` filters | Admin filter — internal users; lower risk |
+| [app/api/v1/venues/route.js:46,58](australian-atlas/app/api/v1/venues/route.js#L46) | URL param + `.ilike` | **External public API.** External integrators may have URLs pinned. Dual-acceptance is exactly the case for this. |
+| [app/api/v1/regions/[slug]/venues/route.js:54](australian-atlas/app/api/v1/regions/[slug]/venues/route.js#L54) | `.ilike` against region.name | Public API — uses regions row's name as filter; switch to FK. |
+| [app/api/council/data/route.js:95](australian-atlas/app/api/council/data/route.js#L95) | URL param | Council partner data export. Param is already slug-based per the sitemap audit; just needs FK filter rather than text. |
+| [app/regions/[slug]/page.js:108,119](australian-atlas/app/regions/[slug]/page.js#L108) | `.eq` + `.or(ilike+address)` fallback | Region detail page — currently text-matches by `regions.name`, with ilike fallback for alias mismatches. After Batch 3, this becomes a clean `.eq('region_computed_id', region.id).or('region_override_id.eq.region.id')`. The fallback alias logic in `lib/sync/updateRegionCounts.js` becomes vestigial. |
+| [app/page.js:213](australian-atlas/app/page.js#L213) | `.eq('region', region)` in homepage cluster fetch | Homepage 6-cluster fetch — currently text-matches, hard-coded names. After Batch 3, switch to FK lookup. |
+| [app/admin/staleness/page.js:101](australian-atlas/app/admin/staleness/page.js#L101) | `.ilike` filter | Admin filter |
+| [app/search/page.js:220](australian-atlas/app/search/page.js#L220) | `searchParams.get('region')` URL param read | Search form pre-fill from URL — needs slug-aware handling for dual-acceptance |
+| [components/RelatedContent.js:30](australian-atlas/components/RelatedContent.js#L30) | `.ilike` | Related content fuzzy filter — used by collections detail page |
+| Add dual-acceptance to `/map` and `/trails/builder` routes | URL param | Per the sitemap audit recommendation — these are referenced by name-shaped URLs from regions page and SEO page |
+
+**Estimated size: large.** ~10-12 files, but `api/search/route.js` alone is dense and needs careful rewrite. The URL-param dual-acceptance pattern is shared logic that should probably extract to `lib/regions/resolveRegionParam.js` or similar.
+
+**Risk: medium-to-high.** `api/search/route.js` filter logic affects ranked results — behaviour can subtly shift. Public API routes (`v1/*`) have external contract concerns. URL-param handling must accept legacy name-shaped URLs without breaking SEO-indexed links.
+
+### Batch 4 — Cross-listing recommendations
+
+**Original scope:** "More like this" / "Same region" recommendations on place page.
+
+**Landed in Batch 1:** Selects in the three place-page rec functions had `LISTING_REGION_SELECT` added (so the cards render correctly via ListingCard), but the filter logic (`.eq('region', listing.region)`) was preserved.
+
+**Remaining (Batch 4):**
+
+| File | Work |
+|---|---|
+| [app/place/[slug]/page.js:225-256](australian-atlas/app/place/[slug]/page.js#L225) | `getRegionListings()`, `getCrossVerticalListings()` — switch from `.eq('region', listing.region)` text match to `.eq('region_computed_id', listing.region_computed_id)` (or COALESCE with override). Plus the guards `if (!listing.region)` become `if (!getListingRegion(listing))`. |
+| [app/place/[slug]/page.js:263-278](australian-atlas/app/place/[slug]/page.js#L263) | `getClusterSiblings()` — uses `cluster_id`, not region; small region-related cleanup only |
+| [components/NearbySection.js](australian-atlas/components/NearbySection.js) | Cross-listing rec component — filter via region + display |
+| [components/CrossVerticalNearby.js](australian-atlas/components/CrossVerticalNearby.js) | Same pattern |
+| [components/WhatsNearby.js](australian-atlas/components/WhatsNearby.js) | Same pattern |
+| [components/WhatsNearbyStandalone.js](australian-atlas/components/WhatsNearbyStandalone.js) | Same pattern |
+| [components/SameSpirit.js](australian-atlas/components/SameSpirit.js) | "Same spirit" cross-recs |
+| [app/api/similar/route.js](australian-atlas/app/api/similar/route.js) | "Similar listings" API endpoint |
+
+**Estimated size: medium.** ~7 files. All similar shape. Once the place-page rec functions are migrated, the components follow a template.
+
+**Risk: low-to-medium.** NULL handling for the 917 quarantine listings: under text-match, they can still recommend each other if they happen to share text region (rare but possible); under FK filter, they'll get zero recs (because both have NULL FK). Acceptable per Decision 1 strict-empty.
+
+### Batch 5 — Editorial / agent pipelines
+
+**Original scope:** Cron routes for the 15 autonomous agents, embedding regeneration, editorial generation pipelines.
+
+**Landed in Batch 1:** None — explicitly out of scope.
+
+**Remaining (Batch 5):**
+
+| File | Type | Work |
+|---|---|---|
+| [app/api/cron/enrichment-agent/route.js](australian-atlas/app/api/cron/enrichment-agent/route.js) | Cron | Enrichment agent — reads region for context |
+| [app/api/cron/listing-velocity-agent/route.js](australian-atlas/app/api/cron/listing-velocity-agent/route.js) | Cron | Same pattern |
+| [app/api/cron/revenue-signal-agent/route.js](australian-atlas/app/api/cron/revenue-signal-agent/route.js) | Cron | Same |
+| [app/api/cron/user-reactivation-agent/route.js](australian-atlas/app/api/cron/user-reactivation-agent/route.js) | Cron | Same |
+| [app/api/cron/backlink-builder-agent/route.js](australian-atlas/app/api/cron/backlink-builder-agent/route.js) | Cron | Same |
+| [app/api/cron/seo-content-agent/route.js](australian-atlas/app/api/cron/seo-content-agent/route.js) | Cron | Reads region for SEO content generation |
+| [app/api/cron/editorial-signals-agent/route.js](australian-atlas/app/api/cron/editorial-signals-agent/route.js) | Cron | Reads region; emits region-slug links in email (already correct) |
+| [lib/agents/operator-amplification-agent.js](australian-atlas/lib/agents/operator-amplification-agent.js) | Agent lib | Operator amplification — reads region for messaging context |
+| [lib/sync/syncEmbeddings.js:28](australian-atlas/lib/sync/syncEmbeddings.js#L28) | Embedding | **Special case.** Region text included in embedding input. Switching from `listing.region` text to canonical `regions.name` would change embeddings — requires regenerating all 6,510 embeddings. Plan as a controlled batch run, not on every push. |
+| [scripts/generate-editorial-brief.mjs:79](australian-atlas/scripts/generate-editorial-brief.mjs#L79) | Script | Editorial brief generator |
+| [scripts/generate-region-editorial.mjs:67](australian-atlas/scripts/generate-region-editorial.mjs#L67) | Script | Region editorial generator |
+
+**Estimated size: medium.** ~10-12 files. Migration straightforward (switch read shape) — the side-effect concerns are real:
+- Embedding regeneration cost (~6,500 listings × Voyage AI calls)
+- Some agents may make decisions based on region text presence/absence; switching to FK changes NULL semantics
+
+**Risk: medium.** Embedding regen is the load-bearing concern. Could be deferred to a separate sub-task even within Batch 5.
+
+### Batch 6 — Admin UI
+
+**Original scope:** Admin dashboard, region edit/override surfaces, internal tools.
+
+**Landed in Batch 1:** None.
+
+**Remaining (Batch 6):** ~20 admin pages + ~8 admin API routes. All read-shape mechanical migration with one notable surface — the override-vs-computed admin UI.
+
+| Surface | Files | Work |
+|---|---|---|
+| Admin listings tables/filters | [app/admin/listings/page.js](australian-atlas/app/admin/listings/page.js), [admin/listings-review/ListingsReview.js](australian-atlas/app/admin/listings-review/ListingsReview.js), [admin/audit-review/page.js](australian-atlas/app/admin/audit-review/page.js), [admin/audit-review/AuditFilters.js](australian-atlas/app/admin/audit-review/AuditFilters.js), [admin/staleness/StalenessTable.js](australian-atlas/app/admin/staleness/StalenessTable.js), [admin/duplicates/DuplicatesTable.js](australian-atlas/app/admin/duplicates/DuplicatesTable.js), [admin/quality-report/page.js](australian-atlas/app/admin/quality-report/page.js), [admin/health/page.js](australian-atlas/app/admin/health/page.js), [admin/completeness/page.js](australian-atlas/app/admin/completeness/page.js) | Display + filter; mechanical |
+| Editorial / candidate review | [admin/candidates/CandidateReviewQueue.js](australian-atlas/app/admin/candidates/CandidateReviewQueue.js), [admin/dead-images/page.js](australian-atlas/app/admin/dead-images/page.js), [admin/enrichment-audit/page.js](australian-atlas/app/admin/enrichment-audit/page.js), [admin/enrichment-review/page.js](australian-atlas/app/admin/enrichment-review/page.js), [admin/editorial/pitch/[id]/PitchBrief.js](australian-atlas/app/admin/editorial/pitch/[id]/PitchBrief.js), [admin/outreach/OutreachActions.js](australian-atlas/app/admin/outreach/OutreachActions.js), [admin/trails/page.js](australian-atlas/app/admin/trails/page.js), [admin/revenue/page.js](australian-atlas/app/admin/revenue/page.js) | Display reads |
+| Listing edit (write surface) | [admin/listings/ListingEditor.js](australian-atlas/app/admin/listings/ListingEditor.js), [components/InlineListingEditor.js](australian-atlas/components/InlineListingEditor.js), [lib/admin/updateListing.js](australian-atlas/lib/admin/updateListing.js) | **Phase 3 step 2 territory.** Region write field needs to be replaced with override-id picker. Out of step 1 scope. |
+| Admin API routes | [api/admin/listings/route.js](australian-atlas/app/api/admin/listings/route.js), [api/admin/editorial-pitches/route.js](australian-atlas/app/api/admin/editorial-pitches/route.js), [api/admin/editorial-pitches/brief/route.js](australian-atlas/app/api/admin/editorial-pitches/brief/route.js), [api/admin/quality-backfill/route.js](australian-atlas/app/api/admin/quality-backfill/route.js), [api/admin/backfill-verticals/route.js](australian-atlas/app/api/admin/backfill-verticals/route.js), [api/admin/resync-verticals/route.js](australian-atlas/app/api/admin/resync-verticals/route.js), [api/admin/candidates/cross-check/route.js](australian-atlas/app/api/admin/candidates/cross-check/route.js), [api/admin/listing-visibility/route.js](australian-atlas/app/api/admin/listing-visibility/route.js), [api/admin/audit-review/route.js](australian-atlas/app/api/admin/audit-review/route.js) | Most are write/admin operations; reads are minor. |
+
+**New surface needed:** the override-vs-computed admin UI. When viewing a listing in admin, staff should see:
+- Computed region (from trigger)
+- Override region (currently null for most)
+- An action to set/clear override
+
+This is a step 1 read enhancement (using `getListingRegionDetail()` to surface provenance) plus a step 2 write surface.
+
+**Estimated size: large.** Most admin files; bulk mechanical migration. Plus the new override-picker UI is a small but novel addition.
+
+**Risk: low.** Internal users tolerate transition; rollback is per-file.
+
+### Batch 7 — `updateRegionCounts.js` and miscellaneous
+
+**Original scope:** Replace the ilike+alias logic with FK-based count.
+
+**Landed in Batch 1:** None.
+
+**Remaining (Batch 7):**
+
+| File | Work |
+|---|---|
+| [lib/sync/updateRegionCounts.js](australian-atlas/lib/sync/updateRegionCounts.js) | Replace 30-line alias map + ilike logic with `count(*) WHERE region_computed_id = $1 OR region_override_id = $1` per region. **Verify per-region counts before/after to ensure editorial expectations hold.** |
+| Misc one-off scripts | scripts/* — most are historical. Lower priority — defer or accept the legacy text reads in audit scripts. |
+
+**Estimated size: small.** Single file core; rest is cleanup.
+
+**Risk: medium.** Region counts will shift slightly — some regions gain (FK precision picks up listings that text-match missed), some lose (alias-mapped strings no longer count). Pre-compute the delta and review with editorial before applying.
+
+## Recommended re-sequencing
+
+The original 2-7 ordering still makes sense. The numbering shifts slightly because Batch 2 is mostly done:
+
+1. **Batch 2-finish (next)** — display sites leftover. Small, mechanical, low risk. Good first follow-up to validate the helper pattern is sticking.
+2. **Batch 3** — filter sites + URL contract. The biggest design work in step 1. Schedule when there's time for `api/search/route.js` rewrite + dual-acceptance helper extraction.
+3. **Batch 4** — cross-listing recs. Once Batch 3 lands, cross-listing recs become mechanical.
+4. **Batch 5** — editorial/agents. Embedding regen is the gating concern — could be sub-batched (everything except embeddings, then embeddings).
+5. **Batch 6** — admin UI. Last because internal users can tolerate transition state.
+6. **Batch 7** — updateRegionCounts cleanup.
+
+**Total step 1 effort remaining: ~5 dev days** across 4 PRs. Batch 1's 35% completion was the biggest mechanical chunk; remaining batches are smaller per-batch but more design work in places (Batch 3 specifically).
+
+---
+
 
 **Date:** 2026-04-25
 **Trigger:** Phase 2 backfill landed at commit `63929c4`. `region_computed_id` is now authoritative for ~5,580 of 6,510 active listings. Phase 3 deprecates the legacy `listings.region` text column; this discovery enumerates the read sites that must migrate first.
