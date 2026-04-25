@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { startRun, completeRun } from '@/lib/agents/logRun'
 import { sendAgentEmail } from '@/lib/agents/email'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 
 export const maxDuration = 300
 
@@ -147,7 +148,7 @@ export async function GET(request) {
       const verticals = categoryToVerticals(opp.category)
       let query = sb
         .from('listings')
-        .select('id, name, slug, vertical, region, state, suburb, lat, lng, hero_image_url, description, quality_score, is_featured, editors_pick')
+        .select(`id, name, slug, vertical, region, state, suburb, lat, lng, hero_image_url, description, quality_score, is_featured, editors_pick, ${LISTING_REGION_SELECT}`)
         .eq('status', 'active')
         .not('description', 'is', null)
 
@@ -179,7 +180,7 @@ export async function GET(request) {
       const listingData = matchingListings.map(l => ({
         name: l.name,
         vertical: l.vertical,
-        region: l.region,
+        region: getListingRegion(l)?.name ?? null,
         state: l.state,
         suburb: l.suburb,
         description: l.description?.substring(0, 200),

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { startRun, completeRun } from '@/lib/agents/logRun'
 import { sendAgentEmail } from '@/lib/agents/email'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 
 export const maxDuration = 300
 
@@ -40,7 +41,7 @@ export async function GET(request) {
 
     const { data: listings, error: fetchError } = await sb
       .from('listings')
-      .select('id, name, slug, vertical, region, state, website, description, ai_description')
+      .select(`id, name, slug, vertical, region, state, website, description, ai_description, ${LISTING_REGION_SELECT}`)
       .eq('status', 'active')
       .not('website', 'is', null)
       .is('ai_description', null)
@@ -284,7 +285,7 @@ async function generateDescription(listing, scrapedText) {
 
   const prompt = `You are writing for Australian Atlas, a curated guide to independent Australian places.
 
-Write a description of ${listing.name} (${listing.vertical}) in ${listing.region || 'Unknown Region'}, ${listing.state || 'Australia'} in 60-80 words.
+Write a description of ${listing.name} (${listing.vertical}) in ${getListingRegion(listing)?.name || 'Unknown Region'}, ${listing.state || 'Australia'} in 60-80 words.
 
 Voice: place-based, specific, non-promotional, measured.
 

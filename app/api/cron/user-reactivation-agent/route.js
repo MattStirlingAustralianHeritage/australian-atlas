@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { startRun, completeRun } from '@/lib/agents/logRun'
 import { sendAgentEmail } from '@/lib/agents/email'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 
 export const maxDuration = 300
 
@@ -113,7 +114,7 @@ export async function GET(request) {
         const viewedIds = [...new Set(recentViews.map(v => v.listing_id))].slice(0, 5)
         const { data: viewedListings } = await sb
           .from('listings')
-          .select('name, vertical, region, state')
+          .select(`name, vertical, region, state, ${LISTING_REGION_SELECT}`)
           .in('id', viewedIds)
           .limit(5)
 
@@ -124,7 +125,7 @@ export async function GET(request) {
         if (userState) {
           const { data: newInState } = await sb
             .from('listings')
-            .select('name, slug, vertical, region, state, description')
+            .select(`name, slug, vertical, region, state, description, ${LISTING_REGION_SELECT}`)
             .eq('status', 'active')
             .eq('state', userState)
             .gte('created_at', user.last_sign_in_at)
@@ -138,7 +139,7 @@ export async function GET(request) {
         if (recommendedListings.length < 3) {
           const { data: newListings } = await sb
             .from('listings')
-            .select('name, slug, vertical, region, state, description')
+            .select(`name, slug, vertical, region, state, description, ${LISTING_REGION_SELECT}`)
             .eq('status', 'active')
             .gte('created_at', user.last_sign_in_at)
             .order('quality_score', { ascending: false, nullsFirst: false })
@@ -165,7 +166,7 @@ export async function GET(request) {
 
         // ── Generate email via Claude ────────────────────────
         const recentlyViewed = (viewedListings || []).map(l => l.name).join(', ')
-        const recommended = (recommendedListings || []).map(l => `${l.name} (${l.region || l.state}): ${l.description?.substring(0, 80) || ''}`).join('; ')
+        const recommended = (recommendedListings || []).map(l => `${l.name} (${getListingRegion(l)?.name || l.state}): ${l.description?.substring(0, 80) || ''}`).join('; ')
 
         const emailBody = await callClaude(
           `Write a short, warm, non-corporate reactivation email for an Australian Atlas user who hasn't visited in ${daysSinceVisit} days. Voice: like a friend who thinks they'd genuinely like to know this. Do not say 'we miss you'. Do not use 'exciting' or 'amazing'. Lead with something specific and true: how many new listings in their area, or a specific listing they'd probably love based on what they've been saving. Keep it under 150 words. Include one clear CTA. User context: last visited ${daysSinceVisit} days ago, home state ${userState || 'unknown'}, recently viewed: ${recentlyViewed || 'various listings'}, ${stateNewCount} new listings in their state since last visit, recommended new listings: ${recommended || 'various new additions'}.`
@@ -187,7 +188,7 @@ export async function GET(request) {
           <div style="padding:12px 16px;border-radius:6px;border:1px solid #e8e4da;margin-bottom:8px;background:#fff">
             <a href="https://www.australianatlas.com.au/place/${l.slug}" style="text-decoration:none">
               <p style="font-family:sans-serif;font-size:14px;font-weight:600;color:#2d2a24;margin:0 0 2px">${esc(l.name)}</p>
-              <p style="font-family:sans-serif;font-size:12px;color:#8a7a5a;margin:0">${esc(l.region || l.state || '')}</p>
+              <p style="font-family:sans-serif;font-size:12px;color:#8a7a5a;margin:0">${esc(getListingRegion(l)?.name || l.state || '')}</p>
             </a>
           </div>
         `).join('')

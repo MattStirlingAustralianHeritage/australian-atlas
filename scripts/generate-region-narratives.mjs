@@ -83,28 +83,21 @@ function zoomToRadiusDeg(zoom) {
 }
 
 /**
- * Fetch all active listings for a region using the same two-strategy approach
- * as the region page: bounding box first, text-match fallback.
+ * Fetch all active listings for a region via FK match — Phase 3 Decision 3
+ * (override-wins precedence). Replaces the previous bbox + text-fallback approach
+ * since FK match is now canonical and more accurate than either bbox or ilike.
  */
 async function getRegionListings(region) {
-  // Primary: geographic bounding box
-  if (region.center_lat && region.center_lng) {
-    const radius = zoomToRadiusDeg(region.map_zoom || 9)
-    const { data } = await supabase
-      .from('listings')
-      .select('id, vertical, name, slug, description, region, state, is_featured, editors_pick')
-      .eq('status', 'active')
-      .not('lat', 'is', null)
-      .not('lng', 'is', null)
-      .gte('lat', region.center_lat - radius)
-      .lte('lat', region.center_lat + radius)
-      .gte('lng', region.center_lng - radius)
-      .lte('lng', region.center_lng + radius)
-      .limit(200)
-    if (data && data.length > 0) return data
-  }
+  const { data } = await supabase
+    .from('listings')
+    .select('id, vertical, name, slug, description, region, state, is_featured, editors_pick')
+    .eq('status', 'active')
+    .or(`region_computed_id.eq.${region.id},region_override_id.eq.${region.id}`)
+    .limit(200)
+  if (data && data.length > 0) return data
 
-  // Fallback: text match on region name
+  // Fallback retained for unactivated regions (no polygon → no FK match).
+  // Only triggers for draft regions; live regions all have polygons post-Phase 2.
   let query = supabase
     .from('listings')
     .select('id, vertical, name, slug, description, region, state, is_featured, editors_pick')

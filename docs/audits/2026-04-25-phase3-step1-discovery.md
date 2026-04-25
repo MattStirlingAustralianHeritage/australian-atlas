@@ -1,5 +1,46 @@
 # Phase 3 Step 1 — Read-site Discovery for `listings.region`
 
+> **Batch 5 status (2026-04-25, very-very late):** ✅ landed.
+>
+> Editorial / agent pipelines migrated to FK-based region access via `getListingRegion`. Eleven files touched. `lib/sync/syncEmbeddings.js` was **NOT** modified (explicit out-of-scope per task spec — separate controlled run).
+>
+> **Migrated:**
+> - [app/api/cron/enrichment-agent/route.js](australian-atlas/app/api/cron/enrichment-agent/route.js) — select extended with `LISTING_REGION_SELECT`; prompt-context display read switched to helper.
+> - [app/api/cron/listing-velocity-agent/route.js](australian-atlas/app/api/cron/listing-velocity-agent/route.js) — select extended; per-listing aggregation key now uses `getListingRegion(l)?.name`. Snapshot reads from `listing_history` table left untouched (historical data, not live listings).
+> - [app/api/cron/revenue-signal-agent/route.js](australian-atlas/app/api/cron/revenue-signal-agent/route.js) — select extended; email-display read migrated.
+> - [app/api/cron/user-reactivation-agent/route.js](australian-atlas/app/api/cron/user-reactivation-agent/route.js) — three selects extended; prompt-construction and email-display reads migrated.
+> - [app/api/cron/backlink-builder-agent/route.js](australian-atlas/app/api/cron/backlink-builder-agent/route.js) — two selects extended; substring-match against article body now uses canonical region name from helper.
+> - [app/api/cron/seo-content-agent/route.js](australian-atlas/app/api/cron/seo-content-agent/route.js) — select extended; result-mapping `region` field switched to helper. The fuzzy multi-field `.or('region.ilike.%X%,state.ilike.%X%,suburb.ilike.%X%')` location lookup at line 157 left in place per halt threshold (multi-field ilike against natural-language input — explicit decision required).
+> - [app/api/cron/editorial-signals-agent/route.js](australian-atlas/app/api/cron/editorial-signals-agent/route.js) — select extended; display read migrated. The slug-emit at line 473 was already correct (uses `regions` table data).
+> - [lib/agents/operator-amplification-agent.js](australian-atlas/lib/agents/operator-amplification-agent.js) — select extended; both Claude-prompt context and email-display reads migrated. Used relative import `../regions/index.js` to match existing lib-internal patterns.
+> - [scripts/generate-region-editorial.mjs](australian-atlas/scripts/generate-region-editorial.mjs) — refactored `getRegionContext` to take full region row instead of just `regionName`; query swapped from joining-via-text to FK match (`region_computed_id OR region_override_id`).
+> - [scripts/generate-region-narratives.mjs](australian-atlas/scripts/generate-region-narratives.mjs) — `getRegionListings` now uses FK match as primary path. Old bbox lat/lng + zoomToRadiusDeg approach replaced. Text-fallback `.or('region.ilike.%name%,address.ilike.%name%')` retained as a secondary path for unactivated regions (no polygon → no FK match — currently only triggers for draft regions).
+> - [scripts/generate-editorial-brief.mjs](australian-atlas/scripts/generate-editorial-brief.mjs) — selects extended; prompt-context console.log and Claude-prompt location string both migrated. The fuzzy ilike at line 81 (`.ilike('region', '%${listing.region || listing.state}%')` for nearby-listings context) left in place per halt threshold (single-field ilike with `||` value-fallback to state — semantics subtle, deferred for explicit decision).
+>
+> **Skipped per halt thresholds (with reasons):**
+> - `app/api/cron/seo-content-agent/route.js:157` — multi-field fuzzy `.or(region.ilike%X%,state.ilike%X%,suburb.ilike%X%)` against unknown user-text input. Migration would need explicit semantic decision about how to interpret cross-field location queries.
+> - `scripts/generate-region-narratives.mjs:110` — text fallback for unactivated regions (no polygon means no FK match possible). Intentional residual to keep the script working for draft regions.
+> - `scripts/generate-editorial-brief.mjs:81` — single-field `region.ilike` with state-fallback semantics. Conservative skip; the migrated FK approach would need to decide between strict-empty (Decision 1) and state-fallback for null-region listings.
+>
+> **Out of scope (confirmed not modified):**
+> - `lib/sync/syncEmbeddings.js` — explicit out-of-scope per task spec. Will be migrated as a separate controlled run.
+>
+> Build compiles clean. Code's verification: complete.
+>
+> **Pending for follow-up batches:**
+> - Batch 6: admin UI
+> - Batch 7: `updateRegionCounts.js` ilike+alias replacement
+> - Future: `lib/sync/syncEmbeddings.js` (separate controlled run)
+>
+> **Matt's verification: pending.** These are non-browser surfaces (cron routes / scripts / agent libs) so verification means kicking off the relevant pipelines and inspecting outputs. Suggested checks:
+> - Run `node --env-file=.env.local scripts/generate-region-narratives.mjs --slug=hunter-valley --dry-run` — confirm listing count and vertical breakdown look right (FK match rather than bbox/text).
+> - Run `node --env-file=.env.local scripts/generate-region-editorial.mjs --slug=barossa-valley --dry-run` — same.
+> - Run `node --env-file=.env.local scripts/generate-editorial-brief.mjs --name="Turkey Flat Vineyards"` — confirm "Region:" line shows canonical name and prompt context location string is correct.
+> - Trigger one cron pipeline (enrichment-agent or revenue-signal-agent) for a single test listing and verify generated content references the canonical region name (not stale text).
+> - For quarantine-pool listings (NULL region FK): pipelines should still run, but region context will be empty/null rather than stale text.
+
+---
+
 > **Batch 4 status (2026-04-25, very late):** ✅ landed.
 >
 > Cross-listing recommendations migrated to FK matching with override-wins precedence per Decision 3, strict-empty for NULL regions per Decision 1.

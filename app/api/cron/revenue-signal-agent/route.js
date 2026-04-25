@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { startRun, completeRun } from '@/lib/agents/logRun'
 import { sendAgentEmail } from '@/lib/agents/email'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 
 export const maxDuration = 120
 
@@ -144,7 +145,7 @@ export async function GET(request) {
     // Top 5 by quality score
     const { data: topData, error: topError } = await sb
       .from('listings')
-      .select('name, slug, vertical, region, state, quality_score')
+      .select(`name, slug, vertical, region, state, quality_score, ${LISTING_REGION_SELECT}`)
       .eq('status', 'active')
       .gte('quality_score', 75)
       .or('is_claimed.is.null,is_claimed.eq.false')
@@ -473,7 +474,7 @@ function buildEmailHtml({ signals, claudeSummary, errors, weekEnd, stripeConfigu
             <a href="https://australianatlas.com.au/place/${esc(l.slug)}" style="color: #b8862b; text-decoration: none;">${esc(l.name)}</a>
           </td>
           <td style="padding: 6px 8px; font-size: 12px; color: #6b7280;">${esc(VERTICAL_LABELS[l.vertical] || l.vertical)}</td>
-          <td style="padding: 6px 8px; font-size: 12px; color: #6b7280;">${esc(l.region || '')}${l.state ? `, ${esc(l.state)}` : ''}</td>
+          <td style="padding: 6px 8px; font-size: 12px; color: #6b7280;">${esc(getListingRegion(l)?.name || '')}${l.state ? `, ${esc(l.state)}` : ''}</td>
           <td style="padding: 6px 0; font-size: 12px; text-align: right;">
             <span style="background: #f0fdf4; color: #166534; padding: 2px 8px; border-radius: 10px; font-weight: 500;">${l.quality_score}</span>
           </td>

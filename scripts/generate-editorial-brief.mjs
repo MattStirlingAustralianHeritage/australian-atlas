@@ -19,6 +19,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { readFileSync, writeFileSync } from 'fs'
 import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
+import { getListingRegion, LISTING_REGION_SELECT } from '../lib/regions/getListingRegion.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -56,10 +57,10 @@ async function main() {
   // Find the listing
   let listing
   if (ID_FLAG) {
-    const { data } = await supabase.from('listings').select('*').eq('id', ID_FLAG).single()
+    const { data } = await supabase.from('listings').select(`*, ${LISTING_REGION_SELECT}`).eq('id', ID_FLAG).single()
     listing = data
   } else {
-    const { data } = await supabase.from('listings').select('*').ilike('name', `%${NAME_FLAG}%`).limit(1).single()
+    const { data } = await supabase.from('listings').select(`*, ${LISTING_REGION_SELECT}`).ilike('name', `%${NAME_FLAG}%`).limit(1).single()
     listing = data
   }
 
@@ -68,8 +69,9 @@ async function main() {
     process.exit(1)
   }
 
+  const listingRegionName = getListingRegion(listing)?.name ?? null
   console.log(`\nGenerating brief for: ${listing.name}`)
-  console.log(`Vertical: ${listing.vertical} | Region: ${listing.region} | State: ${listing.state}\n`)
+  console.log(`Vertical: ${listing.vertical} | Region: ${listingRegionName} | State: ${listing.state}\n`)
 
   // Fetch nearby listings for regional context
   const { data: nearby } = await supabase
@@ -94,7 +96,7 @@ async function main() {
 Name: ${listing.name}
 Category: ${listing.category}
 Vertical: ${listing.vertical}
-Location: ${listing.suburb || ''}, ${listing.region || ''}, ${listing.state}
+Location: ${listing.suburb || ''}, ${listingRegionName || ''}, ${listing.state}
 Description: ${listing.description || 'No description available'}
 Website: ${listing.website_url || 'Not listed'}
 Claimed: ${listing.is_claimed ? 'Yes (operator-managed)' : 'No'}

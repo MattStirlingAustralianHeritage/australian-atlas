@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { startRun, completeRun } from '@/lib/agents/logRun'
 import { sendAgentEmail } from '@/lib/agents/email'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 
 export const maxDuration = 300
 
@@ -106,7 +107,7 @@ export async function GET(request) {
     // Heritage significance, high quality, or established (pre-1970)
     const { data: wikiCandidates } = await sb
       .from('listings')
-      .select('id, name, slug, vertical, region, suburb, state, quality_score')
+      .select(`id, name, slug, vertical, region, suburb, state, quality_score, ${LISTING_REGION_SELECT}`)
       .eq('status', 'active')
       .or('quality_score.gte.60,editors_pick.eq.true,is_featured.eq.true')
       .order('quality_score', { ascending: false, nullsFirst: false })
@@ -232,7 +233,7 @@ export async function GET(request) {
     // Fetch all listing names for trigram matching
     const { data: allListings } = await sb
       .from('listings')
-      .select('id, name, slug, suburb, state, region')
+      .select(`id, name, slug, suburb, state, region, ${LISTING_REGION_SELECT}`)
       .eq('status', 'active')
 
     const listingsMap = allListings || []
@@ -260,7 +261,8 @@ export async function GET(request) {
         // Calculate a simple confidence score based on match quality
         const nameExact = article.body.includes(listing.name) // exact case match
         const suburbMatch = listing.suburb && bodyLower.includes(listing.suburb.toLowerCase())
-        const regionMatch = listing.region && bodyLower.includes(listing.region.toLowerCase())
+        const listingRegionName = getListingRegion(listing)?.name
+        const regionMatch = listingRegionName && bodyLower.includes(listingRegionName.toLowerCase())
 
         let confidence = 0.5
         if (nameExact) confidence += 0.2

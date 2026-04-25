@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { startRun, completeRun } from '@/lib/agents/logRun'
 import { sendAgentEmail } from '@/lib/agents/email'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 
 export const maxDuration = 300
 
@@ -54,15 +55,16 @@ export async function GET(request) {
       if (l.is_claimed) byVertical[l.vertical].claimed++
     }
 
-    // Count by region
+    // Count by region — uses canonical region.name via FK helper. Quarantine
+    // listings (NULL region_computed_id and override) bucket as 'Unknown'.
     const { data: regionCounts } = await sb
       .from('listings')
-      .select('region, state, status, is_claimed')
+      .select(`region, state, status, is_claimed, ${LISTING_REGION_SELECT}`)
       .eq('status', 'active')
 
     const byRegion = {}
     for (const l of (regionCounts || [])) {
-      const key = l.region || 'Unknown'
+      const key = getListingRegion(l)?.name || 'Unknown'
       if (!byRegion[key]) {
         byRegion[key] = { count: 0, active: 0, claimed: 0, state: l.state }
       }
