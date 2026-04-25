@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { validateApiKey, logApiRequest } from '@/lib/api-auth'
+import { LISTING_REGION_SELECT } from '@/lib/regions'
 
 const PUBLIC_FIELDS = [
   'id', 'name', 'slug', 'vertical', 'category',
@@ -8,6 +9,7 @@ const PUBLIC_FIELDS = [
   'lat', 'lng', 'hero_image_url', 'website_url',
   'is_claimed', 'is_featured',
   'created_at', 'updated_at',
+  LISTING_REGION_SELECT,
 ].join(', ')
 
 export async function GET(request, { params }) {
@@ -46,12 +48,12 @@ export async function GET(request, { params }) {
     return NextResponse.json({ error: 'Region not found' }, { status: 404 })
   }
 
-  // Query listings by region name or bounding box
+  // Query listings by FK match (computed or override) — Phase 3 Decision 3
   let query = sb
     .from('listings')
     .select(PUBLIC_FIELDS, { count: 'exact' })
     .eq('status', 'active')
-    .ilike('region', `%${region.name}%`)
+    .or(`region_computed_id.eq.${region.id},region_override_id.eq.${region.id}`)
 
   if (vertical) query = query.eq('vertical', vertical)
   query = query.order('is_featured', { ascending: false }).order('name').range(offset, offset + limit - 1)

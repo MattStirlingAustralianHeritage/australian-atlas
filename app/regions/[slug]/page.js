@@ -102,29 +102,20 @@ async function getRegionListings(region) {
   const sb = getSupabaseAdmin()
   const select = `id, vertical, source_id, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website, ${LISTING_REGION_SELECT}`
 
+  // Decision 3 FK matching: prefer region_override_id, fall back to region_computed_id.
+  // The `region` row is the canonical regions table row resolved from slug, so
+  // region.id is the FK target.
   const { data } = await sb
     .from('listings')
     .select(select)
     .eq('status', 'active')
-    .eq('region', region.name)
+    .or(`region_computed_id.eq.${region.id},region_override_id.eq.${region.id}`)
     .order('editors_pick', { ascending: false })
     .order('is_featured', { ascending: false })
     .order('name')
     .limit(200)
 
-  if (data && data.length > 0) return data
-
-  // Fallback: fuzzy match on region name or address (handles alias mismatches)
-  let query = sb.from('listings').select(select).eq('status', 'active')
-  if (region.state) query = query.eq('state', region.state)
-  query = query.or(`region.ilike.%${region.name}%,address.ilike.%${region.name}%`)
-
-  const { data: fallback } = await query
-    .order('editors_pick', { ascending: false })
-    .order('is_featured', { ascending: false })
-    .order('name')
-    .limit(200)
-  return fallback || []
+  return data || []
 }
 
 function truncateEditorial(text) {

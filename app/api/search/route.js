@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { createHash } from 'crypto'
-import { LISTING_REGION_SELECT } from '@/lib/regions'
+import { LISTING_REGION_SELECT, resolveRegionParam } from '@/lib/regions'
 
 const SELECT_FIELDS = `id, vertical, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website, address, ${LISTING_REGION_SELECT}`
 
@@ -340,6 +340,11 @@ export async function GET(request) {
 
   const sb = getSupabaseAdmin()
 
+  // Decision 2 dual-acceptance: accept slug-shaped or name-shaped ?region= param,
+  // resolve internally to a regions row, filter via FK below. No redirect from
+  // this API route — URL canonicalisation belongs at the page level.
+  const { region: resolvedRegion } = await resolveRegionParam(region)
+
   try {
     // Build base query with explicit filters
     let baseQuery = sb
@@ -349,7 +354,14 @@ export async function GET(request) {
 
     if (vertical) baseQuery = baseQuery.eq('vertical', vertical)
     if (state) baseQuery = baseQuery.eq('state', state)
-    if (region) baseQuery = baseQuery.eq('region', region)
+    if (resolvedRegion) {
+      // FK filter via override-or-computed precedence
+      baseQuery = baseQuery.or(`region_computed_id.eq.${resolvedRegion.id},region_override_id.eq.${resolvedRegion.id}`)
+    } else if (region) {
+      // Param supplied but no canonical region matched — fall back to legacy text filter
+      // so users searching for unactivated regions (e.g. "Riverina") still see anything tagged with that text
+      baseQuery = baseQuery.eq('region', region)
+    }
 
     // If there's a text query, parse for hints, filter, score, and rank
     if (q && q.trim()) {

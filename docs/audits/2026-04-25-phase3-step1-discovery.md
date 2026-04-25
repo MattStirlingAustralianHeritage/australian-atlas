@@ -1,5 +1,57 @@
 # Phase 3 Step 1 — Read-site Discovery for `listings.region`
 
+> **Batch 3 status (2026-04-25, late evening):** ✅ landed.
+>
+> Filter migration to FK + URL parameter dual-acceptance per Decision 2 + 3.
+>
+> **New helper: `lib/regions/resolveRegionParam.js`** (added to barrel exports). Accepts slug-shaped or name-shaped input, looks up live regions row, returns `{ region, canonicalParam, redirectNeeded }` for callers to drive 301 canonicalisation.
+>
+> **Filter sites migrated to FK matching:**
+> - [app/api/search/route.js:337,352](australian-atlas/app/api/search/route.js#L337) — explicit `?region=` URL param now resolves via helper, filters via `region_computed_id OR region_override_id`. Falls back to legacy text `eq('region', ...)` when the param doesn't resolve to any live region (preserves search functionality for unactivated regions like Riverina).
+> - [app/api/v1/venues/route.js](australian-atlas/app/api/v1/venues/route.js) — public API, dual-acceptance with `X-Deprecated-Param` header signal when name-shape used. No 301 redirect (would break programmatic clients per task spec).
+> - [app/api/v1/regions/[slug]/venues/route.js:54](australian-atlas/app/api/v1/regions/[slug]/venues/route.js#L54) — replaced `.ilike('region', %name%)` with FK match against the resolved region's id.
+> - [app/regions/[slug]/page.js:108-127](australian-atlas/app/regions/[slug]/page.js#L108) — `getRegionListings` now uses pure FK match. Removed the legacy ilike+address fuzzy fallback (which existed to handle alias mismatches that don't apply once FK semantics are authoritative).
+> - [app/page.js:204](australian-atlas/app/page.js#L204) — homepage `getDiscoverClusters` resolves each cluster name via helper, filters via FK with legacy text `eq` fallback for unresolvable names. Renamed "Byron Hinterland" → "Byron Bay" in the cluster list (matching the homepage card cleanup from Batch 1).
+>
+> **Sites NOT migrated** (per halt thresholds):
+> - `api/search/route.js` hint-region ilike at lines 374-376, 421, 463 — fuzzy matching against region OR state text from natural-language query parsing. Per task halt threshold: ".ilike() doing fuzzy matching that's not just 'this region exactly' — fuzzy semantics need explicit decision." Skipped; flagged for future cleanup.
+> - `api/search/route.js` cleanedTerms loop ilike at 386, 429 — full-text search across name/description/region/state/address. Same halt-threshold reason. The `region.ilike` portion stays text-based; will be cleaned up alongside the column drop.
+> - `app/admin/staleness/page.js` — admin filter, deferred to Batch 6.
+> - `app/api/admin/listings/route.js` — admin filter, deferred to Batch 6.
+> - `components/RelatedContent.js` — cross-listing filter, deferred to Batch 4.
+>
+> **No-op surfaces** (the URL emitter exists but no consumer behavior to migrate):
+> - `/map` — page reads `searchParams.region` is mentioned in URL emitters from `/regions/[slug]/page.js:620` but the MapClient consumer never reads it. No filter behavior exists to canonicalise. Adding region support is a feature, not a migration. Documented for follow-up.
+> - `/trails/builder` — same situation. URL emitter exists at `/seo/[slug]/page.js:346`, builder ignores. No filter to migrate. Documented for follow-up.
+> - `/api/council/data` — already slug-based via separate `region_slug` column with allowlist validation. No legacy text matching to migrate.
+>
+> **Dual-acceptance route summary:**
+> - `/api/search` ← internal resolution, no redirect (URL canonicalisation deferred to client-side router.replace pattern, future iteration)
+> - `/api/v1/venues` ← internal resolution + `X-Deprecated-Param` header
+> - `/api/v1/regions/[slug]/venues` ← slug-only by design (path param)
+> - `/regions/[slug]` ← FK match against resolved region row, slug-only by design
+> - Homepage clusters ← internal hardcoded resolution
+>
+> Build compiles clean. Code's verification: complete.
+>
+> **Pending for follow-up batches:**
+> - Batch 4: cross-listing recommendations
+> - Batch 5: editorial / agents
+> - Batch 6: admin UI (incl. admin search/staleness filter sites)
+> - Batch 7: `updateRegionCounts.js` ilike+alias replacement
+> - Future cleanup: search route's hint-region fuzzy ilike + cleanedTerms region.ilike (currently text-based; could migrate to JOIN-based fuzzy match if/when listings.region column is dropped, but Decision 5 leaves the column dormant indefinitely so no urgency)
+>
+> **Matt's verification: pending.** Browser-side checks for the dual-acceptance behavior:
+> - `/search?region=hunter-valley` returns Hunter Valley listings
+> - `/search?region=Hunter%20Valley` (name-form) — internal resolution: same listings returned. Page-level URL canonicalisation deferred (no client redirect implemented; user sees the URL they typed).
+> - `/search?region=nonsense` — falls back to legacy text eq, returns whatever has that exact text (likely nothing); doesn't crash.
+> - `/api/v1/venues?region=hunter-valley` and `?region=Hunter%20Valley` both return same data, name-shape includes `X-Deprecated-Param` header.
+> - `/api/v1/regions/hunter-valley/venues` returns FK-matched listings (no longer ilike text fuzzy).
+> - Region detail page `/regions/hunter-valley` shows same listings as before (FK match should produce same set as previous text match for activated regions).
+> - Homepage Byron Bay cluster card now resolves to actual byron-bay listings (vs the previously-broken "Byron Hinterland" name).
+
+---
+
 > **Batch 2-finish status (2026-04-25, evening):** ✅ landed.
 >
 > Migrated remaining display-side surfaces to use the helper. 17 additional files now reference `getListingRegion` or `LISTING_REGION_SELECT`:

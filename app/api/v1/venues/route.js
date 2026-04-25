@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { validateApiKey, logApiRequest } from '@/lib/api-auth'
+import { LISTING_REGION_SELECT, resolveRegionParam } from '@/lib/regions'
 
 /**
  * Public API: GET /api/v1/venues
@@ -15,6 +16,7 @@ const PUBLIC_FIELDS = [
   'lat', 'lng', 'hero_image_url', 'website_url',
   'is_claimed', 'is_featured',
   'created_at', 'updated_at',
+  LISTING_REGION_SELECT,
 ].join(', ')
 
 export async function GET(request) {
@@ -48,6 +50,12 @@ export async function GET(request) {
   const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 200)
   const offset = parseInt(searchParams.get('offset') || '0')
 
+  // Decision 2 dual-acceptance: accept slug-shaped or name-shaped ?region=
+  // and filter by the canonical FK. No 301 redirect — programmatic API
+  // clients shouldn't be redirected. Add deprecation header when name-shape
+  // was used so external integrators can migrate to slug-shape.
+  const { region: resolvedRegion, redirectNeeded } = await resolveRegionParam(region)
+
   const sb = getSupabaseAdmin()
   let query = sb
     .from('listings')
@@ -55,7 +63,12 @@ export async function GET(request) {
     .eq('status', 'active')
 
   if (vertical) query = query.eq('vertical', vertical)
-  if (region) query = query.ilike('region', `%${region}%`)
+  if (resolvedRegion) {
+    query = query.or(`region_computed_id.eq.${resolvedRegion.id},region_override_id.eq.${resolvedRegion.id}`)
+  } else if (region) {
+    // Param supplied but no canonical region matched — fall back to legacy text ilike
+    query = query.ilike('region', `%${region}%`)
+  }
   if (state) query = query.eq('state', state.toUpperCase())
 
   query = query.order('name').range(offset, offset + limit - 1)
@@ -71,6 +84,16 @@ export async function GET(request) {
     return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 
+  const headers = {
+    'X-RateLimit-Limit': String(keyRecord.rate_limit),
+    'X-RateLimit-Remaining': String(Math.max(0, keyRecord.rate_limit - (keyRecord.requests_today || 0) - 1)),
+    'Cache-Control': 'public, max-age=300',
+  }
+  if (redirectNeeded && resolvedRegion) {
+    // Deprecation signal — name-shaped param accepted, but slug-shaped is canonical.
+    headers['X-Deprecated-Param'] = `region-by-name; canonical=region=${resolvedRegion.slug}`
+  }
+
   return NextResponse.json({
     data,
     meta: {
@@ -79,11 +102,5 @@ export async function GET(request) {
       offset,
       has_more: offset + limit < count,
     },
-  }, {
-    headers: {
-      'X-RateLimit-Limit': String(keyRecord.rate_limit),
-      'X-RateLimit-Remaining': String(Math.max(0, keyRecord.rate_limit - (keyRecord.requests_today || 0) - 1)),
-      'Cache-Control': 'public, max-age=300',
-    },
-  })
+  }, { headers })
 }

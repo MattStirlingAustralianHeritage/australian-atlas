@@ -6,7 +6,7 @@ import NewsletterSignup from '@/components/NewsletterSignup'
 import ScrollReveal from '@/components/ScrollReveal'
 import NearbySection from '@/components/NearbySection'
 import { getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
-import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
+import { getListingRegion, LISTING_REGION_SELECT, resolveRegionParam } from '@/lib/regions'
 
 export const revalidate = 1800
 
@@ -204,17 +204,26 @@ async function getLatestArticles() {
 async function getDiscoverClusters() {
   try {
     const sb = getSupabaseAdmin()
-    const clusterRegions = ['Barossa Valley', 'Mornington Peninsula', 'Hobart & Southern Tasmania', 'Byron Hinterland', 'Adelaide', 'Melbourne']
+    const clusterRegions = ['Barossa Valley', 'Mornington Peninsula', 'Hobart & Southern Tasmania', 'Byron Bay', 'Adelaide', 'Melbourne']
     const results = await Promise.all(
       clusterRegions.map(async (region) => {
-        const { data } = await sb
+        // Decision 3 FK matching: resolve the cluster name to a region row,
+        // then filter via region_computed_id OR region_override_id. Falls back
+        // to legacy text eq for unresolvable names (none expected in current set).
+        const { region: resolved } = await resolveRegionParam(region)
+        let query = sb
           .from('listings')
           .select(`id, name, vertical, slug, region, hero_image_url, ${LISTING_REGION_SELECT}`)
           .eq('status', 'active')
-          .eq('region', region)
           .order('is_featured', { ascending: false })
           .order('editors_pick', { ascending: false })
           .limit(12)
+        if (resolved) {
+          query = query.or(`region_computed_id.eq.${resolved.id},region_override_id.eq.${resolved.id}`)
+        } else {
+          query = query.eq('region', region)
+        }
+        const { data } = await query
         if (!data || data.length < 4) return null
         const verticalSet = new Set(data.map(d => d.vertical))
         if (verticalSet.size < 3) return null
