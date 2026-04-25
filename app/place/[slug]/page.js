@@ -224,14 +224,17 @@ async function getNearbyListings(listing, limit = 4) {
 }
 
 async function getRegionListings(listing, excludeIds = [], limit = 4) {
-  if (!listing.region) return []
+  // Decision 1: NULL effective region → no cross-region recommendations.
+  // Decision 3: override-wins precedence via getListingRegion.
+  const region = getListingRegion(listing)
+  if (!region) return []
   const sb = getSupabaseAdmin()
 
   const { data } = await sb
     .from('listings')
     .select(`id, name, slug, vertical, region, state, lat, lng, hero_image_url, description, is_featured, is_claimed, editors_pick, ${LISTING_REGION_SELECT}`)
     .eq('status', 'active')
-    .eq('region', listing.region)
+    .or(`region_computed_id.eq.${region.id},region_override_id.eq.${region.id}`)
     .not('id', 'in', `(${[listing.id, ...excludeIds].join(',')})`)
     .order('editors_pick', { ascending: false })
     .limit(limit)
@@ -240,14 +243,15 @@ async function getRegionListings(listing, excludeIds = [], limit = 4) {
 }
 
 async function getCrossVerticalListings(listing, excludeIds = [], limit = 3) {
-  if (!listing.region || !listing.vertical) return []
+  const region = getListingRegion(listing)
+  if (!region || !listing.vertical) return []
   const sb = getSupabaseAdmin()
 
   const { data } = await sb
     .from('listings')
     .select(`id, name, slug, vertical, region, state, lat, lng, hero_image_url, description, is_featured, is_claimed, editors_pick, ${LISTING_REGION_SELECT}`)
     .eq('status', 'active')
-    .eq('region', listing.region)
+    .or(`region_computed_id.eq.${region.id},region_override_id.eq.${region.id}`)
     .neq('vertical', listing.vertical)
     .not('id', 'in', `(${[listing.id, ...excludeIds].join(',')})`)
     .order('editors_pick', { ascending: false })

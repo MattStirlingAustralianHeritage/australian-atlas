@@ -1,5 +1,36 @@
 # Phase 3 Step 1 — Read-site Discovery for `listings.region`
 
+> **Batch 4 status (2026-04-25, very late):** ✅ landed.
+>
+> Cross-listing recommendations migrated to FK matching with override-wins precedence per Decision 3, strict-empty for NULL regions per Decision 1.
+>
+> **Migrated:**
+> - [app/place/[slug]/page.js:226-258](australian-atlas/app/place/[slug]/page.js#L226) — `getRegionListings` and `getCrossVerticalListings`. Both swapped from `.eq('region', listing.region)` text matching to `.or('region_computed_id.eq.${region.id},region_override_id.eq.${region.id}')` FK matching. Both functions now derive the effective region via `getListingRegion(listing)` at the top and return `[]` early when null (the 917 quarantine listings get no cross-region recs per Decision 1).
+>
+> **No-migration-needed (filters not region-based):**
+> - `app/place/[slug]/page.js:getClusterSiblings` — uses `cluster_id`, not region. Unchanged.
+> - `components/NearbySection.js` — fetches `/api/nearby` (lat/lng geo-based, no region filter).
+> - `components/CrossVerticalNearby.js`, `WhatsNearby.js`, `WhatsNearbyStandalone.js` — same `/api/nearby` consumers.
+> - `components/SameSpirit.js` — fetches `/api/similar` (embedding-based, region incidental).
+> - `app/api/similar/route.js` — pgvector + suburb/vertical exclusion. No region filter; per task spec ("if /api/similar uses a different similarity model and region is incidental or absent, no migration needed"). The result shape includes `region: s.region` legacy text passthrough from the RPC; not migrated because the source RPC `match_similar_listings` is a stored function out of step-1 scope.
+> - `app/api/nearby/route.js` — already has `LISTING_REGION_SELECT` from Batch 2-finish; no region filter to migrate.
+>
+> Build compiles clean. Code's verification: complete.
+>
+> **Pending for follow-up batches:**
+> - Batch 5: editorial / agents
+> - Batch 6: admin UI
+> - Batch 7: `updateRegionCounts.js` ilike+alias replacement
+>
+> **Matt's verification: pending.** Browser-side checks:
+> - Place page `/place/[slug]` for an activated-region listing (e.g. Hunter Valley): "More in this region" surfaces other Hunter Valley listings via FK match.
+> - Place page for a quarantine listing (NULL `region_computed_id`): both rec sections empty / hidden gracefully (per Decision 1 strict-empty).
+> - Cross-vertical recs surface other verticals (small-batch listing in Hunter shows craft + rest etc.)
+> - The `getClusterSiblings` cluster-aware recs still surface (independent of region).
+> - `/api/nearby` consumers (NearbySection, WhatsNearby, etc.) — unchanged behaviour expected.
+
+---
+
 > **Batch 3 status (2026-04-25, late evening):** ✅ landed.
 >
 > Filter migration to FK + URL parameter dual-acceptance per Decision 2 + 3.
