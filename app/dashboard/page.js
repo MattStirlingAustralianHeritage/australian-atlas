@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { getListingRegion } from '@/lib/regions'
 
 const VERTICAL_LABELS = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
@@ -284,7 +285,7 @@ function ListingCard({ listing, liveStats }) {
           color: 'var(--color-muted, #888)',
           margin: '0 0 16px',
         }}>
-          {[listing.region, listing.state].filter(Boolean).join(', ')}
+          {[getListingRegion(listing)?.name, listing.state].filter(Boolean).join(', ')}
         </p>
 
         {/* Completeness score */}

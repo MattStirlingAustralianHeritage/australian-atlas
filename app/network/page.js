@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 
 export const metadata = {
   title: 'The Network — Australian Atlas',
@@ -30,7 +31,7 @@ async function getNetworkData() {
     // Recently added (last 20)
     const { data: recent } = await sb
       .from('listings')
-      .select('id, name, vertical, region, state, created_at')
+      .select(`id, name, vertical, region, state, created_at, ${LISTING_REGION_SELECT}`)
       .eq('status', 'active')
       .order('created_at', { ascending: false })
       .limit(20)
@@ -184,14 +185,17 @@ export default async function NetworkPage() {
                 }}>
                   {r.name}
                 </span>
-                {r.region && (
-                  <span style={{
-                    fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 12,
-                    color: 'var(--color-muted)',
-                  }}>
-                    {r.region}, {r.state}
-                  </span>
-                )}
+                {(() => {
+                  const lr = getListingRegion(r)
+                  return lr && (
+                    <span style={{
+                      fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 12,
+                      color: 'var(--color-muted)',
+                    }}>
+                      {lr.name}, {r.state}
+                    </span>
+                  )
+                })()}
               </div>
               <span style={{
                 fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 11,

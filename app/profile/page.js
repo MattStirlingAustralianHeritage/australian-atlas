@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { getListingRegion } from '@/lib/regions'
 
 const VERTICAL_NAMES = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
@@ -30,7 +31,7 @@ export default function ProfilePage() {
   const savedListings = saves.map(s => s.listing).filter(Boolean)
   const allListings = [...visitedListings, ...savedListings]
 
-  const regionsExplored = new Set(allListings.map(l => l.region).filter(Boolean))
+  const regionsExplored = new Set(allListings.map(l => getListingRegion(l)?.name).filter(Boolean))
   const verticalsEngaged = new Set(allListings.map(l => l.vertical).filter(Boolean))
 
   return (
@@ -130,7 +131,7 @@ export default function ProfilePage() {
                     <div>
                       <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500, color: 'var(--color-ink)' }}>{l.name}</span>
                       <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-muted)', marginLeft: 8 }}>
-                        {l.region || l.suburb}, {l.state}
+                        {getListingRegion(l)?.name || l.suburb}, {l.state}
                       </span>
                     </div>
                     <span style={{
@@ -164,7 +165,7 @@ export default function ProfilePage() {
                     border: '1px solid var(--color-border)', background: '#fff',
                   }}>
                     <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500, color: 'var(--color-ink)' }}>{l.name}</span>
-                    <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-muted)' }}>{l.region || l.suburb}</span>
+                    <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-muted)' }}>{getListingRegion(l)?.name || l.suburb}</span>
                   </div>
                 ))}
               </div>

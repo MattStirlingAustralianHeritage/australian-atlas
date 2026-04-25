@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAuthServerClient } from '@/lib/supabase/auth-clients'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 
 export async function GET() {
   const supabase = await createAuthServerClient()
@@ -17,7 +18,7 @@ export async function GET() {
   // Instead, query directly for user's claimed listings
   const { data: userListings } = await admin
     .from('listings')
-    .select('id, name, slug, vertical, source_id, region, state')
+    .select(`id, name, slug, vertical, source_id, region, state, ${LISTING_REGION_SELECT}`)
     .eq('is_claimed', true)
 
   // For now, we filter by checking articles that mention these venues
@@ -64,7 +65,7 @@ export async function GET() {
     })
 
     // Get unique regions where user has venues
-    const regionNames = [...new Set(userListings.map((l) => l.region).filter(Boolean))]
+    const regionNames = [...new Set(userListings.map((l) => getListingRegion(l)?.name).filter(Boolean))]
     if (regionNames.length > 0) {
       const { data: regionData } = await admin
         .from('regions')

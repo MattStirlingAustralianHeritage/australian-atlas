@@ -28,7 +28,7 @@ export async function GET() {
     .from('user_visits')
     .select(`
       listing_id, visited_at,
-      listing:listing_id (id, name, slug, vertical, suburb, state, region, hero_image_url)
+      listing:listing_id (id, name, slug, vertical, suburb, state, region, hero_image_url, region_computed:regions!region_computed_id(id,slug,name,state), region_override:regions!region_override_id(id,slug,name,state))
     `)
     .eq('user_id', userId)
     .order('visited_at', { ascending: false })

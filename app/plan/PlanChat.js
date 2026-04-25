@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import { getListingRegion } from '@/lib/regions'
 
 const VERTICAL_COLORS = {
   sba: '#C49A3C',
@@ -100,7 +101,7 @@ function VenuePin({ venue }) {
         flexShrink: 0,
       }} />
       <span style={{ fontWeight: 500 }}>{venue.name}</span>
-      {venue.region && <span style={{ color: 'var(--color-muted)', fontSize: 11 }}>{venue.region}</span>}
+      {(() => { const r = getListingRegion(venue); return r && <span style={{ color: 'var(--color-muted)', fontSize: 11 }}>{r.name}</span> })()}
     </Link>
   )
 }

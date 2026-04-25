@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useLocation } from './LocationProvider'
+import { getListingRegion } from '@/lib/regions'
 
 const GOLD = '#C4973B'
 
@@ -270,14 +271,17 @@ export default function NearbySection() {
                   }}>
                     {listing.name}
                   </h3>
-                  {listing.region && (
-                    <p style={{
-                      fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '12px',
-                      color: 'rgba(250,248,244,0.4)', marginTop: '4px', margin: '4px 0 0',
-                    }}>
-                      {listing.region}
-                    </p>
-                  )}
+                  {(() => {
+                    const r = getListingRegion(listing)
+                    return r && (
+                      <p style={{
+                        fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '12px',
+                        color: 'rgba(250,248,244,0.4)', marginTop: '4px', margin: '4px 0 0',
+                      }}>
+                        {r.name}
+                      </p>
+                    )
+                  })()}
                 </div>
               </Link>
             )

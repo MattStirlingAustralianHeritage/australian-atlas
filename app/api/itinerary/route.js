@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { createHash } from 'crypto'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 
 // CRITICAL: Vercel defaults to 10s — extend to 60s. Must be top-level export.
 export const maxDuration = 60
@@ -84,7 +85,7 @@ function buildFallbackItinerary(venueData, { region, duration, stopsPerDay = 4 }
         slug: v.slug || null,
         source_id: v.source_id || null,
         hero_image_url: v.hero_image_url || null,
-        region: v.region || null,
+        region: getListingRegion(v)?.name ?? null,
         note: v.description ? v.description.slice(0, 120) : 'A local favourite.',
       })
     }
@@ -101,7 +102,7 @@ function buildFallbackItinerary(venueData, { region, duration, stopsPerDay = 4 }
         slug: rv.slug || null,
         source_id: rv.source_id || null,
         hero_image_url: rv.hero_image_url || null,
-        region: rv.region || null,
+        region: getListingRegion(rv)?.name ?? null,
         note: `A place to rest for the night.`,
       }
     }
@@ -875,7 +876,7 @@ export async function GET(request) {
         const sb = getSupabaseAdmin()
         const { data: anchor } = await sb
           .from('listings')
-          .select('lat, lng, region, state, name')
+          .select(`lat, lng, region, state, name, ${LISTING_REGION_SELECT}`)
           .eq('id', anchorId)
           .eq('status', 'active')
           .maybeSingle()
@@ -883,15 +884,16 @@ export async function GET(request) {
         if (anchor?.lat && anchor?.lng) {
           // Build a ~30km bounding box around the anchor listing
           const radius = 0.3 // ~30km in degrees at Australian latitudes
+          const anchorRegionName = getListingRegion(anchor)?.name
           geoBounds = {
             latMin: anchor.lat - radius,
             latMax: anchor.lat + radius,
             lngMin: anchor.lng - radius,
             lngMax: anchor.lng + radius,
-            label: anchor.region || anchor.state || 'anchor',
+            label: anchorRegionName || anchor.state || 'anchor',
           }
-          region = anchor.region || anchor.state || region
-          anchorRegionSource = `anchor listing "${anchor.name}" (${anchor.region || anchor.state})`
+          region = anchorRegionName || anchor.state || region
+          anchorRegionSource = `anchor listing "${anchor.name}" (${anchorRegionName || anchor.state})`
           console.log(`[itinerary] Region resolved from anchor: ${anchorRegionSource}`)
         }
       } catch (err) {
@@ -1002,7 +1004,7 @@ export async function GET(request) {
 
     // Query candidate venues from master listings
     const sb = getSupabaseAdmin()
-    const LISTING_COLS = 'id, name, vertical, lat, lng, region, state, description, hero_image_url, slug, source_id, is_claimed, is_featured, editors_pick'
+    const LISTING_COLS = `id, name, vertical, lat, lng, region, state, description, hero_image_url, slug, source_id, is_claimed, is_featured, editors_pick, ${LISTING_REGION_SELECT}`
 
     // Helper: build a base query with status + coordinate filters + geo bounds.
     // trail_suitable filter excludes listings explicitly marked unsuitable
@@ -1233,7 +1235,7 @@ export async function GET(request) {
       vertical_label: VERTICAL_LABELS[v.vertical] || v.vertical,
       lat: v.lat,
       lng: v.lng,
-      region: v.region,
+      region: getListingRegion(v)?.name ?? null,
       state: v.state,
       description: v.description ? v.description.slice(0, 200) : null,
       slug: v.slug,
@@ -1258,7 +1260,7 @@ export async function GET(request) {
         try {
           const { data: anchorData } = await sb
             .from('listings')
-            .select('id, name, vertical, lat, lng, region, state, description, hero_image_url, slug, source_id, is_claimed, is_featured, editors_pick')
+            .select(`id, name, vertical, lat, lng, region, state, description, hero_image_url, slug, source_id, is_claimed, is_featured, editors_pick, ${LISTING_REGION_SELECT}`)
             .eq('id', anchorId)
             .eq('status', 'active')
             .single()
@@ -1271,7 +1273,7 @@ export async function GET(request) {
               vertical_label: VERTICAL_LABELS[anchorData.vertical] || anchorData.vertical,
               lat: anchorData.lat,
               lng: anchorData.lng,
-              region: anchorData.region,
+              region: getListingRegion(anchorData)?.name ?? null,
               state: anchorData.state,
               description: anchorData.description ? anchorData.description.slice(0, 200) : null,
               slug: anchorData.slug,
@@ -1568,7 +1570,7 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
           slug: candidate.slug || null,
           source_id: candidate.source_id || null,
           hero_image_url: candidate.hero_image_url || null,
-          region: candidate.region || null,
+          region: getListingRegion(candidate)?.name ?? null,
         })
         return acc
       }, [])
@@ -1586,7 +1588,7 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
             slug: candidate.slug || null,
             source_id: candidate.source_id || null,
             hero_image_url: candidate.hero_image_url || null,
-            region: candidate.region || null,
+            region: getListingRegion(candidate)?.name ?? null,
           }
         }
       }
@@ -1746,7 +1748,7 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
                   slug: candidate.slug || null,
                   source_id: candidate.source_id || null,
                   hero_image_url: candidate.hero_image_url || null,
-                  region: candidate.region || null,
+                  region: getListingRegion(candidate)?.name ?? null,
                 })
                 return acc
               }, [])
@@ -1761,7 +1763,7 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
                     slug: candidate.slug || null,
                     source_id: candidate.source_id || null,
                     hero_image_url: candidate.hero_image_url || null,
-                    region: candidate.region || null,
+                    region: getListingRegion(candidate)?.name ?? null,
                   }
                 }
               }
@@ -1909,9 +1911,10 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
             const alreadyUsedByPrevDay = enrichedDays.slice(0, di).some(
               prev => prev.overnight?.listing_id === bestRest.id
             )
+            const bestRestRegionName = getListingRegion(bestRest)?.name
             const stayNote = alreadyUsedByPrevDay
-              ? `Continue your stay at ${bestRest.name} — ${bestRest.region || 'the area'}.`
-              : `A place to rest for the night in ${bestRest.region || 'the area'}.`
+              ? `Continue your stay at ${bestRest.name} — ${bestRestRegionName || 'the area'}.`
+              : `A place to rest for the night in ${bestRestRegionName || 'the area'}.`
 
             enrichedDays[di] = {
               ...enrichedDays[di],
@@ -1924,7 +1927,7 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
                 slug: bestRest.slug || null,
                 source_id: bestRest.source_id || null,
                 hero_image_url: bestRest.hero_image_url || null,
-                region: bestRest.region || null,
+                region: bestRestRegionName ?? null,
                 note: stayNote,
                 multi_night: alreadyUsedByPrevDay || false,
               },
@@ -1974,7 +1977,7 @@ Aim for ${stopsPerDay > 4 ? '5-6' : stopsPerDay < 4 ? '3-4' : '3-5'} stops per d
         vertical_label: v.vertical_label,
         lat: v.lat,
         lng: v.lng,
-        region: v.region,
+        region: getListingRegion(v)?.name ?? null,
         slug: v.slug,
         hero_image_url: v.hero_image_url,
         description: v.description,

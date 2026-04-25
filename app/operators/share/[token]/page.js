@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { getListingRegion } from '@/lib/regions'
 
 export async function generateMetadata({ params }) {
   const { token } = await params
@@ -123,14 +124,17 @@ export default async function SharedPage({ params }) {
                         {venue.description}
                       </p>
                     )}
-                    {venue.region && (
-                      <p style={{
-                        fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 400,
-                        color: 'var(--color-muted)', margin: '8px 0 0',
-                      }}>
-                        {venue.region}
-                      </p>
-                    )}
+                    {(() => {
+                      const r = getListingRegion(venue)
+                      return r && (
+                        <p style={{
+                          fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 400,
+                          color: 'var(--color-muted)', margin: '8px 0 0',
+                        }}>
+                          {r.name}
+                        </p>
+                      )
+                    })()}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
                     {venue.category && (

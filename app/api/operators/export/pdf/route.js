@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAuthServerClient } from '@/lib/supabase/auth-clients'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 
 function escapeHtml(str) {
   if (!str) return ''
@@ -18,7 +19,7 @@ function buildCollectionHtml(collection, listings, operator, logoUrl) {
       ${l.hero_image_url ? `<img src="${escapeHtml(l.hero_image_url)}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 4px; margin-bottom: 0.5rem;" />` : ''}
       <h3 style="margin: 0 0 0.25rem; font-size: 1rem; color: #1C1A17;">${escapeHtml(l.name)}</h3>
       ${l.address ? `<p style="margin: 0 0 0.25rem; font-size: 0.8rem; color: #6B6760;">${escapeHtml(l.address)}</p>` : ''}
-      ${l.region ? `<p style="margin: 0 0 0.25rem; font-size: 0.75rem; color: #9B9690;">${escapeHtml(l.region)} &middot; ${escapeHtml(l.vertical || '')}</p>` : ''}
+      ${(() => { const r = getListingRegion(l); return r ? `<p style="margin: 0 0 0.25rem; font-size: 0.75rem; color: #9B9690;">${escapeHtml(r.name)} &middot; ${escapeHtml(l.vertical || '')}</p>` : '' })()}
       ${l.description ? `<p style="margin: 0.5rem 0 0; font-size: 0.8rem; color: #6B6760; line-height: 1.4;">${escapeHtml(l.description).substring(0, 200)}${l.description.length > 200 ? '...' : ''}</p>` : ''}
       ${l.website ? `<p style="margin: 0.25rem 0 0; font-size: 0.75rem;"><a href="${escapeHtml(l.website)}" style="color: #8B7355;">${escapeHtml(l.website)}</a></p>` : ''}
     </div>
@@ -145,7 +146,7 @@ export async function POST(request) {
       if (collection.listing_ids && collection.listing_ids.length > 0) {
         const { data: listingData } = await sb
           .from('listings')
-          .select('id, name, description, region, vertical, lat, lng, website, hero_image_url, address')
+          .select(`id, name, description, region, vertical, lat, lng, website, hero_image_url, address, ${LISTING_REGION_SELECT}`)
           .in('id', collection.listing_ids)
 
         const listingMap = new Map((listingData || []).map(l => [l.id, l]))

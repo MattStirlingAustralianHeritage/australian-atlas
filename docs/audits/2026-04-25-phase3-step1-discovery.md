@@ -1,5 +1,33 @@
 # Phase 3 Step 1 — Read-site Discovery for `listings.region`
 
+> **Batch 2-finish status (2026-04-25, evening):** ✅ landed.
+>
+> Migrated remaining display-side surfaces to use the helper. 17 additional files now reference `getListingRegion` or `LISTING_REGION_SELECT`:
+> - **Components:** `NearbySection.js`, `StartTrailButton.js`, `PlanChat.js` (display reads switched to helper)
+> - **User-facing pages:** `dashboard/page.js`, `dashboard/listings/page.js`, `profile/page.js`, `network/page.js`, `operators/share/[token]/page.js`
+> - **API routes (data-shape — selects + result-object construction):** `api/autocomplete/route.js`, `api/user/saves/route.js`, `api/user/visits/route.js`, `api/operators/share/[token]/route.js`, `api/operators/export/pdf/route.js`, `api/dashboard/editorial/route.js`, `api/trails/search/route.js`
+> - **Major routes:** `api/itinerary/route.js` (LISTING_COLS shared select extended; anchor query, anchorData query, all `region: X.region` data-shape passes including `v.region`, `rv.region`, `candidate.region`, `bestRest.region`, `anchorData.region` migrated to canonical via helper), `api/on-this-road/route.js` (data-shape only — SELECT_COLS extended, all `region: X.region` data-shape passes migrated, **filter logic explicitly preserved for Batch 3 per task**)
+>
+> Special-case handling:
+> - Trail-stops display in `app/trails/builder/page.js` (lines 708-712, 805-809) was **deliberately not migrated** — those reads are from the `trail_stops` denormalised table which doesn't have FK relations to `regions`. Migration of trail_stops is Phase 3 step 2 territory.
+> - `nr.region` and `mapping.region` references in `api/itinerary/route.js` were left alone — they're region-table data and CITY_TO_REGION constants, not listing.region reads.
+> - The IIFE pattern `{(() => { const r = getListingRegion(x); return r && <...> })()}` was used in JSX where the existing `{x.region && <...>}` guard couldn't be cleanly replaced inline. Slightly ugly but correct.
+>
+> 35 files now total reference the helper or select fragment (18 from Batch 1 + 17 from this batch). Build compiles clean.
+>
+> **Pending for follow-up batches:**
+> - Batch 3 (filter sites + URL contract): largely unchanged from prior reccy. Largest single file: `api/search/route.js`.
+> - Batch 4 (cross-listing recs): place-page rec functions + 4 components.
+> - Batch 5 (editorial/agents): cron routes + embeddings.
+> - Batch 6 (admin UI): bulk mechanical migration.
+> - Batch 7 (`updateRegionCounts.js`): single file core, count semantics shift.
+>
+> **Code's verification: complete.** `npm run build` succeeds. No compile errors. No residual `listing.region` text reads in the migrated files (confirmed by grep against the touched set).
+>
+> **Matt's verification: pending.** Browser-side checks for itinerary, on-this-road, trails-builder, dashboard, profile, network, operators-share user flows. Helper-driven NULL handling means quarantine-pool listings will display empty in the relevant surfaces.
+
+---
+
 > **Batch 1 status (2026-04-25, late):** ✅ landed.
 >
 > Helper `lib/regions/getListingRegion.js` (with `getListingRegion`, `getListingRegionDetail`, `LISTING_REGION_SELECT`) and barrel `lib/regions/index.js` created. Migration applied to the universal display surfaces and major user-facing routes:

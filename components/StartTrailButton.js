@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { getListingRegion } from '@/lib/regions'
 
 /**
  * "Start a trail here" button + modal for listing detail pages.
@@ -134,7 +135,7 @@ function StartTrailModal({ listing, onClose }) {
 
   function buildQuery() {
     // Build a natural-language query from the listing context
-    const region = listing.region || listing.state || 'Australia'
+    const region = getListingRegion(listing)?.name || listing.state || 'Australia'
     const days = parseInt(answers.days, 10) || 1
     return `${days} day${days > 1 ? 's' : ''} in ${region}`
   }
@@ -232,9 +233,10 @@ function StartTrailModal({ listing, onClose }) {
               <circle cx="12" cy="10" r="3" />
             </svg>
             <span style={{ fontWeight: 500 }}>{listing.name}</span>
-            {listing.region && (
-              <span style={{ color: 'var(--color-muted)', fontSize: 12 }}>{listing.region}</span>
-            )}
+            {(() => {
+              const r = getListingRegion(listing)
+              return r && <span style={{ color: 'var(--color-muted)', fontSize: 12 }}>{r.name}</span>
+            })()}
           </div>
         </div>
 

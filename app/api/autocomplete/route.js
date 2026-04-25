@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url)
@@ -16,7 +17,7 @@ export async function GET(request) {
     // Parallel queries: name matches, suburb matches, region matches
     const [nameRes, suburbRes, regionRes] = await Promise.all([
       sb.from('listings')
-        .select('id, name, slug, vertical, region, state, suburb')
+        .select(`id, name, slug, vertical, region, state, suburb, ${LISTING_REGION_SELECT}`)
         .eq('status', 'active')
         .or(`name.ilike.${prefix}%,name.ilike.% ${prefix}%`)
         .order('quality_score', { ascending: false, nullsFirst: false })
@@ -24,7 +25,7 @@ export async function GET(request) {
         .limit(6),
 
       sb.from('listings')
-        .select('suburb, state, region')
+        .select(`suburb, state, region, ${LISTING_REGION_SELECT}`)
         .eq('status', 'active')
         .not('suburb', 'is', null)
         .ilike('suburb', `${prefix}%`)
@@ -50,7 +51,7 @@ export async function GET(request) {
         type: 'suburb',
         label: s.suburb,
         state: s.state,
-        region: s.region,
+        region: getListingRegion(s)?.name ?? null,
       }))
 
     const places = (nameRes.data || []).map(l => ({
@@ -59,7 +60,7 @@ export async function GET(request) {
       label: l.name,
       slug: l.slug,
       vertical: l.vertical,
-      region: l.region,
+      region: getListingRegion(l)?.name ?? null,
       state: l.state,
       suburb: l.suburb,
     }))

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { LISTING_REGION_SELECT } from '@/lib/regions'
 
 // GET: Public shared collection or trail (no auth required)
 export async function GET(request, { params }) {
@@ -25,7 +26,7 @@ export async function GET(request, { params }) {
       if (collection.listing_ids && collection.listing_ids.length > 0) {
         const { data: listingData } = await sb
           .from('listings')
-          .select('id, name, description, region, vertical, lat, lng, website, hero_image_url, address')
+          .select(`id, name, description, region, vertical, lat, lng, website, hero_image_url, address, ${LISTING_REGION_SELECT}`)
           .in('id', collection.listing_ids)
 
         // Preserve the order from listing_ids

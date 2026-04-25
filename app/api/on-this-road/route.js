@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getDistanceBudget, getStopLimits } from '@/lib/route-budgets'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 
 export const maxDuration = 120
 
@@ -282,7 +283,7 @@ function buildOvernightClusters(overnightWaypoints, routeListings, restCandidate
 
     const anchor = nearbyRest[0] || nearbyDining[0] || nearbyCoffee[0]
     const clusterRegion = anchor
-      ? (anchor.suburb || anchor.region || `${Math.round(wp.targetKm)}km mark`)
+      ? (anchor.suburb || getListingRegion(anchor)?.name || `${Math.round(wp.targetKm)}km mark`)
       : `${Math.round(wp.targetKm)}km mark`
 
     return {
@@ -293,16 +294,16 @@ function buildOvernightClusters(overnightWaypoints, routeListings, restCandidate
       region: clusterRegion,
       rest_candidates: nearbyRest.slice(0, 3).map(r => ({
         listing_id: r.id, listing_name: r.name, position_km: r.positionKm,
-        region: r.region, suburb: r.suburb, description: r.description?.slice(0, 100) || '',
+        region: getListingRegion(r)?.name ?? null, suburb: r.suburb, description: r.description?.slice(0, 100) || '',
         quality_score: r.quality_score || 0,
       })),
       dinner_candidates: nearbyDining.slice(0, 3).map(l => ({
         listing_id: l.id, listing_name: l.name, position_km: l.positionKm,
-        region: l.region, vertical: l.vertical, description: l.description?.slice(0, 100) || '',
+        region: getListingRegion(l)?.name ?? null, vertical: l.vertical, description: l.description?.slice(0, 100) || '',
       })),
       coffee_candidates: nearbyCoffee.slice(0, 2).map(l => ({
         listing_id: l.id, listing_name: l.name, position_km: l.positionKm,
-        region: l.region, description: l.description?.slice(0, 80) || '',
+        region: getListingRegion(l)?.name ?? null, description: l.description?.slice(0, 80) || '',
       })),
     }
   })
@@ -705,7 +706,7 @@ async function buildItinerary({
   // Cycling uses a narrower corridor (cyclists don't detour far off-route)
   const effectiveBufferKm = isCycling ? Math.min(detourConfig.bufferKm, 5) : detourConfig.bufferKm
 
-  const SELECT_COLS = 'id, name, slug, vertical, region, state, suburb, lat, lng, hero_image_url, quality_score, description, sub_type, visit_type, best_season'
+  const SELECT_COLS = `id, name, slug, vertical, region, state, suburb, lat, lng, hero_image_url, quality_score, description, sub_type, visit_type, best_season, ${LISTING_REGION_SELECT}`
 
   // Run all point queries in parallel batches of 10
   const BATCH_SIZE = 10
@@ -1017,7 +1018,7 @@ async function buildItinerary({
         listing_id: l.id, listing_name: l.name, vertical: l.vertical,
         vertical_name: VERTICAL_NAMES[l.vertical] || l.vertical,
         quality_score: l.quality_score || 0, position_km: l.positionKm,
-        region: l.region, description: l.description ? l.description.slice(0, 150) : '',
+        region: getListingRegion(l)?.name ?? null, description: l.description ? l.description.slice(0, 150) : '',
         preference_match: l.preferenceScore > 0, is_segment_pick: distributedIds.has(l.id),
       }))
 
@@ -1094,7 +1095,7 @@ async function buildItinerary({
         vertical_name: VERTICAL_NAMES[l.vertical] || l.vertical,
         visit_type: l.visit_type || null, quality_score: l.quality_score || 0,
         distance_from_route_km: Math.round(l.distanceFromRoute * 10) / 10,
-        position_km: l.positionKm, region: l.region,
+        position_km: l.positionKm, region: getListingRegion(l)?.name ?? null,
         description: l.description ? l.description.slice(0, 150) : '',
         best_season: l.best_season || null, is_segment_pick: distributedIds.has(l.id),
         preference_match: l.preferenceScore > 0,
@@ -1393,7 +1394,7 @@ function formatClaudeResult({
       slug: listing.slug,
       vertical: listing.vertical,
       visit_type: listing.visit_type || null,
-      region: listing.region,
+      region: getListingRegion(listing)?.name ?? null,
       suburb: listing.suburb,
       state: listing.state,
       lat: listing.lat,
@@ -1415,7 +1416,7 @@ function formatClaudeResult({
       listing_name: overnight.listing_name || listing.name,
       slug: listing.slug,
       vertical: 'rest',
-      region: listing.region,
+      region: getListingRegion(listing)?.name ?? null,
       suburb: listing.suburb,
       lat: listing.lat,
       lng: listing.lng,
@@ -1451,7 +1452,7 @@ function formatClaudeResult({
               listing_id: r.listing_id,
               listing_name: r.listing_name,
               slug: altListing?.slug || null,
-              region: r.region,
+              region: getListingRegion(r)?.name ?? null,
               suburb: r.suburb,
               lat: altListing?.lat || null,
               lng: altListing?.lng || null,
@@ -1536,7 +1537,7 @@ function formatClaudeResult({
     rest_listings: isLongTrip
       ? restCandidates.slice(0, 10).map(l => ({
           listing_id: l.id, listing_name: l.name, slug: l.slug,
-          region: l.region, suburb: l.suburb, position_km: l.positionKm,
+          region: getListingRegion(l)?.name ?? null, suburb: l.suburb, position_km: l.positionKm,
           hero_image_url: l.hero_image_url, description: l.description?.slice(0, 150) || '',
         }))
       : [],
@@ -1568,7 +1569,7 @@ async function generateSurpriseLoop(startCoords, tripConfig, preferences, detour
     const lngDelta = radiusKm / (111 * Math.cos(startCoords.lat * Math.PI / 180))
     const { data } = await sb
       .from('listings')
-      .select('id, name, slug, vertical, region, state, lat, lng, hero_image_url, quality_score, description, sub_type, visit_type, best_season')
+      .select(`id, name, slug, vertical, region, state, lat, lng, hero_image_url, quality_score, description, sub_type, visit_type, best_season, ${LISTING_REGION_SELECT}`)
       .eq('status', 'active')
       .or('address_on_request.eq.false,address_on_request.is.null')
       .or('visitable.eq.true,visitable.is.null,presence_type.eq.by_appointment')
@@ -1710,12 +1711,13 @@ function buildFallbackStops(routeListings, count = 10, preferences = []) {
     const vc = vertCounts[l.vertical] || 0
     if (vc >= 3) continue
     vertCounts[l.vertical] = vc + 1
+    const lRegionName = getListingRegion(l)?.name ?? null
     result.push({
       listing_id: l.id, listing_name: l.name, slug: l.slug,
       vertical: l.vertical, visit_type: l.visit_type || null,
-      region: l.region, suburb: l.suburb, state: l.state,
+      region: lRegionName, suburb: l.suburb, state: l.state,
       lat: l.lat, lng: l.lng, hero_image_url: l.hero_image_url,
-      cluster: l.region || 'Along the way',
+      cluster: lRegionName || 'Along the way',
       position_km: l.positionKm, reason: '', notes: '',
     })
   }

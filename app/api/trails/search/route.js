@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 
 /**
  * GET /api/trails/search?q=...&vertical=...&limit=20
@@ -25,7 +26,7 @@ export async function GET(request) {
 
     let query = sb
       .from('listings')
-      .select('id, name, vertical, slug, lat, lng, region, hero_image_url')
+      .select(`id, name, vertical, slug, lat, lng, region, hero_image_url, ${LISTING_REGION_SELECT}`)
       .eq('status', 'active')
       .or('address_on_request.eq.false,address_on_request.is.null')
       .or('visitable.eq.true,visitable.is.null,presence_type.eq.by_appointment')
@@ -91,7 +92,7 @@ export async function GET(request) {
       sub_type: subTypeMap[l.id] || null,
       latitude: l.lat,
       longitude: l.lng,
-      region: l.region,
+      region: getListingRegion(l)?.name ?? null,
       image_url: l.hero_image_url || null,
     }))
 

@@ -2,6 +2,7 @@
 
 import { useAuth } from '../layout'
 import { useState, useEffect } from 'react'
+import { getListingRegion } from '@/lib/regions'
 
 const VERTICAL_COLORS = {
   sba: '#C49A3C',
@@ -101,16 +102,19 @@ function ListingCard({ vertical, data, onToast }) {
       </h3>
 
       {/* Region / State */}
-      {(master?.region || master?.state) && (
-        <p style={{
-          fontFamily: 'var(--font-sans)',
-          fontSize: '0.825rem',
-          color: 'var(--color-muted)',
-          margin: 0,
-        }}>
-          {[master.region, master.state].filter(Boolean).join(', ')}
-        </p>
-      )}
+      {(() => {
+        const r = master ? getListingRegion(master) : null
+        return (r || master?.state) && (
+          <p style={{
+            fontFamily: 'var(--font-sans)',
+            fontSize: '0.825rem',
+            color: 'var(--color-muted)',
+            margin: 0,
+          }}>
+            {[r?.name, master.state].filter(Boolean).join(', ')}
+          </p>
+        )
+      })()}
 
       {/* Badges */}
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
