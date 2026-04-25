@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useRef } from 'react'
+import { getListingRegion } from '@/lib/regions'
 
 // ─── Constants ───────────────────────────────────────────
 
@@ -640,7 +641,7 @@ function ListingRow({ listing, isSelected, onToggleSelect, loading, onCheck, onV
 
       {/* Region */}
       <td style={{ padding: '0.6rem 0.5rem', color: 'var(--color-muted, #8B8578)', fontSize: '0.82rem' }}>
-        {listing.region || '\u2014'}
+        {getListingRegion(listing)?.name || '\u2014'}
       </td>
 
       {/* Priority */}

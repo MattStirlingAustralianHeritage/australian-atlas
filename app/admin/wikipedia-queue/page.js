@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 import WikipediaActions from './WikipediaActions'
 
 export const metadata = { title: 'Wikipedia Queue — Admin' }
@@ -9,19 +10,19 @@ export default async function WikipediaQueuePage() {
 
   const { data: pending } = await sb
     .from('wikipedia_opportunities')
-    .select('*, listings!inner(name, slug, vertical, region, state)')
+    .select(`*, listings!inner(name, slug, vertical, region, state, ${LISTING_REGION_SELECT})`)
     .eq('status', 'pending')
     .order('found_at', { ascending: false })
 
   const { data: submitted } = await sb
     .from('wikipedia_opportunities')
-    .select('*, listings!inner(name, slug, vertical, region, state)')
+    .select(`*, listings!inner(name, slug, vertical, region, state, ${LISTING_REGION_SELECT})`)
     .eq('status', 'submitted')
     .order('submitted_at', { ascending: false })
 
   const { data: live } = await sb
     .from('wikipedia_opportunities')
-    .select('*, listings!inner(name, slug, vertical, region, state)')
+    .select(`*, listings!inner(name, slug, vertical, region, state, ${LISTING_REGION_SELECT})`)
     .eq('status', 'live')
     .order('submitted_at', { ascending: false })
 
@@ -82,7 +83,7 @@ export default async function WikipediaQueuePage() {
                     {opp.listings?.name}
                   </span>
                   <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-muted)', marginLeft: 8 }}>
-                    {opp.listings?.region}{opp.listings?.state ? `, ${opp.listings.state}` : ''}
+                    {getListingRegion(opp.listings)?.name}{opp.listings?.state ? `, ${opp.listings.state}` : ''}
                   </span>
                 </div>
                 <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-muted)' }}>

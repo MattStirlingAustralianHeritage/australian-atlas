@@ -2,8 +2,9 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
+import { LISTING_REGION_SELECT, resolveRegionParam } from '@/lib/regions'
 
-const SELECT_COLS = 'id, vertical, source_id, name, slug, description, region, state, lat, lng, website, phone, address, hero_image_url, is_claimed, is_featured, is_market, sub_type, sub_types, status, editors_pick, created_at, updated_at'
+const SELECT_COLS = `id, vertical, source_id, name, slug, description, region, state, lat, lng, website, phone, address, hero_image_url, is_claimed, is_featured, is_market, sub_type, sub_types, status, editors_pick, created_at, updated_at, ${LISTING_REGION_SELECT}`
 
 // Approximate bounding boxes per Australian state
 const STATE_BOUNDS = {
@@ -43,6 +44,10 @@ export async function GET(request) {
   try {
     const sb = getSupabaseAdmin()
 
+    // Resolve region param to canonical FK (slug or name accepted, Decision 2/3).
+    // Falls back to legacy text eq() when the param doesn't resolve to a live region.
+    const resolvedRegion = region ? await resolveRegionParam(region) : null
+
     // ─── Special: misplaced filter ────────────────────────
     // Fetches all listings with coordinates and checks against state bounding boxes
     if (status === 'misplaced') {
@@ -53,7 +58,13 @@ export async function GET(request) {
         .not('state', 'is', null)
 
       if (vertical) mQuery = mQuery.eq('vertical', vertical)
-      if (region) mQuery = mQuery.eq('region', region)
+      if (region) {
+        if (resolvedRegion?.region?.id) {
+          mQuery = mQuery.or(`region_computed_id.eq.${resolvedRegion.region.id},region_override_id.eq.${resolvedRegion.region.id}`)
+        } else {
+          mQuery = mQuery.eq('region', region)
+        }
+      }
       if (search) {
         mQuery = mQuery.or(`name.ilike.%${search}%,description.ilike.%${search}%,address.ilike.%${search}%`)
       }
@@ -73,7 +84,13 @@ export async function GET(request) {
     let query = sb.from('listings').select(SELECT_COLS, { count: 'exact' })
 
     if (vertical) query = query.eq('vertical', vertical)
-    if (region) query = query.eq('region', region)
+    if (region) {
+      if (resolvedRegion?.region?.id) {
+        query = query.or(`region_computed_id.eq.${resolvedRegion.region.id},region_override_id.eq.${resolvedRegion.region.id}`)
+      } else {
+        query = query.eq('region', region)
+      }
+    }
     if (status) {
       const statuses = status.split(',').map(s => s.trim())
       if (statuses.length === 1) {

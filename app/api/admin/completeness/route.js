@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 
 export async function GET(request) {
   const cookieStore = await cookies()
@@ -78,7 +79,7 @@ export async function GET(request) {
       const ids = lowScores.map(s => s.listing_id)
       const { data: listingData } = await sb
         .from('listings')
-        .select('id, name, slug, state, region')
+        .select(`id, name, slug, state, region, ${LISTING_REGION_SELECT}`)
         .in('id', ids)
 
       const nameMap = {}
@@ -86,13 +87,16 @@ export async function GET(request) {
         nameMap[l.id] = l
       }
 
-      listings = lowScores.map(s => ({
-        ...s,
-        name: nameMap[s.listing_id]?.name || 'Unknown',
-        slug: nameMap[s.listing_id]?.slug || '',
-        state: nameMap[s.listing_id]?.state || '',
-        region: nameMap[s.listing_id]?.region || '',
-      }))
+      listings = lowScores.map(s => {
+        const listing = nameMap[s.listing_id]
+        return {
+          ...s,
+          name: listing?.name || 'Unknown',
+          slug: listing?.slug || '',
+          state: listing?.state || '',
+          region: getListingRegion(listing)?.name ?? '',
+        }
+      })
     }
 
     return NextResponse.json({ summary, listings })

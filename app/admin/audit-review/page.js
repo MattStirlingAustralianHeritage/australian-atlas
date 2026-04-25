@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 import AuditActions from './AuditActions'
 import AuditFilters from './AuditFilters'
 
@@ -125,7 +126,7 @@ export default async function AuditReviewPage() {
   // Fetch hidden listings with all flag data
   const { data: listings } = await sb
     .from('listings')
-    .select('id, source_id, name, slug, website, state, region, address, lat, lng, status, vertical, sub_type, description, hero_image_url, phone, quality_score, staleness_flags, hidden_reason, community_reports, created_at')
+    .select(`id, source_id, name, slug, website, state, region, address, lat, lng, status, vertical, sub_type, description, hero_image_url, phone, quality_score, staleness_flags, hidden_reason, community_reports, created_at, ${LISTING_REGION_SELECT}`)
     .eq('status', 'hidden')
     .order('vertical')
     .order('name')
@@ -223,14 +224,14 @@ export default async function AuditReviewPage() {
     byVertical[l.vertical].push(l)
   }
 
-  // Serialize for client component
+  // Serialize for client component (canonical region per FK helper)
   const serializedItems = itemsWithReasons.map(l => ({
     id: l.id,
     name: l.name,
     slug: l.slug,
     vertical: l.vertical,
     sub_type: l.sub_type,
-    region: l.region,
+    region: getListingRegion(l)?.name ?? null,
     state: l.state,
     website: l.website,
     address: l.address,

@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 import EnrichmentActions, { BulkApproveButton, SourceTextToggle } from './EnrichmentActions'
 
 export const metadata = { title: 'Enrichment Review — Admin' }
@@ -57,7 +58,7 @@ export default async function EnrichmentReviewPage({ searchParams }) {
 
   const { data: listings, error } = await sb
     .from('listings')
-    .select('id, name, slug, vertical, region, state, description, ai_description, hero_image_url, website, enrichment_source_text, enrichment_confidence, enrichment_risk_level, enrichment_grounding_result, enrichment_source_word_count')
+    .select(`id, name, slug, vertical, region, state, description, ai_description, hero_image_url, website, enrichment_source_text, enrichment_confidence, enrichment_risk_level, enrichment_grounding_result, enrichment_source_word_count, ${LISTING_REGION_SELECT}`)
     .eq('enrichment_status', 'pending_review')
     .order('enrichment_confidence', { ascending: true, nullsFirst: false })
     .order('name')
@@ -290,7 +291,7 @@ export default async function EnrichmentReviewPage({ searchParams }) {
                     fontSize: 12,
                     color: 'var(--color-muted)',
                   }}>
-                    {listing.region ? `${listing.region}, ` : ''}{listing.state}
+                    {(() => { const r = getListingRegion(listing)?.name; return r ? `${r}, ` : '' })()}{listing.state}
                   </span>
                 </div>
 

@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { LISTING_REGION_SELECT } from '@/lib/regions'
 import StalenessTable from './StalenessTable'
 
 export const dynamic = 'force-dynamic'
@@ -81,7 +82,7 @@ export default async function StalenessPage({ searchParams }) {
     // Sort: claimed first, then featured, then least-recently-verified first
     let query = sb
       .from('listings')
-      .select('id, name, vertical, region, last_verified_at, website_status, website, website_checked_at, is_claimed, is_featured, website_status_code, removal_flagged, removal_flagged_at, hidden_reason')
+      .select(`id, name, vertical, region, last_verified_at, website_status, website, website_checked_at, is_claimed, is_featured, website_status_code, removal_flagged, removal_flagged_at, hidden_reason, ${LISTING_REGION_SELECT}`)
       .order('is_claimed', { ascending: false })
       .order('is_featured', { ascending: false })
       .order('last_verified_at', { ascending: true, nullsFirst: true })

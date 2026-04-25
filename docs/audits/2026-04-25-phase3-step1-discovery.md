@@ -1,5 +1,73 @@
 # Phase 3 Step 1 — Read-site Discovery for `listings.region`
 
+> **Batch 6 status (2026-04-26, after midnight):** ✅ landed.
+>
+> Admin UI migration. Twenty-five files touched across admin pages and admin API routes. Pure read-shape migration — no new feature work, no write-surface changes.
+>
+> **Migrated — admin pages (display-side):**
+> - [app/admin/listings/page.js](australian-atlas/app/admin/listings/page.js) — regions filter dropdown now sourced from `regions` table (canonical names) instead of distinct text values from `listings.region`.
+> - [app/admin/duplicates/page.js](australian-atlas/app/admin/duplicates/page.js) + [DuplicatesTable.js](australian-atlas/app/admin/duplicates/DuplicatesTable.js) — pair-listings select extended; DetailRow uses helper.
+> - [app/admin/staleness/page.js](australian-atlas/app/admin/staleness/page.js) + [StalenessTable.js](australian-atlas/app/admin/staleness/StalenessTable.js) — select extended; display read uses helper. Fuzzy ilike filter at line 102 retained per halt threshold (free-text "e.g. Melbourne" input).
+> - [app/admin/health/page.js](australian-atlas/app/admin/health/page.js) — orphaned-listings select extended; display read uses helper.
+> - [app/admin/quality-report/page.js](australian-atlas/app/admin/quality-report/page.js) — select extended; "Average Score by Region" aggregation key now uses canonical region name.
+> - [app/admin/dead-images/page.js](australian-atlas/app/admin/dead-images/page.js) — select extended; display read uses helper.
+> - [app/admin/enrichment-audit/page.js](australian-atlas/app/admin/enrichment-audit/page.js) — select extended; display read uses helper.
+> - [app/admin/enrichment-review/page.js](australian-atlas/app/admin/enrichment-review/page.js) — select extended; display read uses helper.
+> - [app/admin/outreach/page.js](australian-atlas/app/admin/outreach/page.js) + [OutreachActions.js](australian-atlas/app/admin/outreach/OutreachActions.js) — both selects extended; email-template body, ListingCard region/state, draft-email modal subtitle, and outreach-history listing rows all migrated.
+> - [app/admin/revenue/page.js](australian-atlas/app/admin/revenue/page.js) — select extended; display read uses helper.
+> - [app/admin/heritage-crosslinks/page.js](australian-atlas/app/admin/heritage-crosslinks/page.js) — embedded `listings!inner(...)` selects both extended; display read uses helper on `link.listings`.
+> - [app/admin/wikipedia-queue/page.js](australian-atlas/app/admin/wikipedia-queue/page.js) — same pattern as heritage-crosslinks.
+> - [app/admin/audit-review/page.js](australian-atlas/app/admin/audit-review/page.js) — select extended; the server-side `serializedItems` mapping now emits canonical region names so the [AuditFilters.js](australian-atlas/app/admin/audit-review/AuditFilters.js) client component receives canonical text without further migration.
+> - [app/admin/listings-review/page.js](australian-atlas/app/admin/listings-review/page.js) + [ListingsReview.js](australian-atlas/app/admin/listings-review/ListingsReview.js) — select extended; display read uses helper.
+>
+> **Migrated — admin API routes:**
+> - [app/api/admin/listings/route.js](australian-atlas/app/api/admin/listings/route.js) — `SELECT_COLS` extended with `LISTING_REGION_SELECT`. `?region=` URL param now resolves via `resolveRegionParam` (slug-or-name dual-acceptance per Decision 2/3) and filters via `region_computed_id OR region_override_id`. Falls back to legacy `eq('region', ...)` for unresolved params (preserves backward compat for unactivated regions). Both code paths (misplaced-filter and standard-query) migrated.
+> - [app/api/admin/audit-review/route.js](australian-atlas/app/api/admin/audit-review/route.js) — select extended.
+> - [app/api/admin/editorial-pitches/route.js](australian-atlas/app/api/admin/editorial-pitches/route.js) — `selectCandidate` and `findCrossVerticalConnections` selects both extended; data-richness scoring uses `getListingRegion(listing)` (presence test); LLM prompt block uses canonical name; cross-vertical-connections result mapping uses helper.
+> - [app/api/admin/editorial-pitches/brief/route.js](australian-atlas/app/api/admin/editorial-pitches/brief/route.js) — three fresh-fetch selects extended; nearby-listings query select extended; LLM prompt fragments use helper; returned `nearby_listings` shape uses helper. Mixed migration: the `if (venueData.region)` display read at line 79 falls back from helper to legacy text because `venueData` may come from a stored `listing_data_snapshot` (legacy shape — pre-migration pitches don't have embedded region relations).
+> - [app/api/admin/quality-backfill/route.js](australian-atlas/app/api/admin/quality-backfill/route.js) — select extended; quality-score "has region" criterion now uses helper (correctly excludes quarantine listings with stale legacy text but null FK); result-mapping `region` field uses canonical name.
+> - [app/api/admin/candidates/cross-check/route.js](australian-atlas/app/api/admin/candidates/cross-check/route.js) — select extended; result mapping uses helper.
+> - [app/api/admin/completeness/route.js](australian-atlas/app/api/admin/completeness/route.js) — small migration to support [completeness/page.js](australian-atlas/app/admin/completeness/page.js) display: select extended; result-mapping `region` returns canonical name. The page itself reads `listing.region` from this API response, which now contains canonical text — no client-side migration needed.
+>
+> **Skipped per halt thresholds (logged):**
+> - [app/api/admin/backfill-verticals/route.js](australian-atlas/app/api/admin/backfill-verticals/route.js) — purely write-path coupling. Lines 73, 81 read `listing.region` to construct sync-payload that's pushed to vertical DB. Migrating the value would change vertical-DB write semantics. Per task halt threshold: "tight coupling between display and write logic — Phase 3 step 2 territory."
+> - [app/api/admin/resync-verticals/route.js](australian-atlas/app/api/admin/resync-verticals/route.js) — same situation, lines 59, 67.
+> - [app/api/admin/listing-visibility/route.js](australian-atlas/app/api/admin/listing-visibility/route.js) — same situation, lines 207-210 (bulk-hide write-payload).
+> - [app/admin/staleness/page.js:102](australian-atlas/app/admin/staleness/page.js#L102) — fuzzy `.ilike('region', '%${filterRegion}%')` on a free-text input field. Same halt threshold as Batch 5: fuzzy-text matching needs explicit decision (not "this region exactly").
+> - [app/admin/candidates/CandidateReviewQueue.js](australian-atlas/app/admin/candidates/CandidateReviewQueue.js) — most `.region` reads are on candidate fields (separate table, not master listings); the one master-listing read (`result.listing.region` at line 1265) depends on `app/api/admin/candidates/[id]/route.js` which is OUT OF SCOPE per task list. Skip the file entirely.
+> - [app/admin/audit-review/AuditFilters.js](australian-atlas/app/admin/audit-review/AuditFilters.js) (line 199), [app/admin/editorial/pitch/[id]/PitchBrief.js](australian-atlas/app/admin/editorial/pitch/[id]/PitchBrief.js) (line 266), [app/admin/completeness/page.js](australian-atlas/app/admin/completeness/page.js) (lines 288, 290) — these client components read `listing.region` (or `item.region`) from API responses that already emit canonical region names post-Batch-6. No client-side change needed.
+> - [app/admin/trails/page.js](australian-atlas/app/admin/trails/page.js) — all `.region` reads in this file are on the trails table (separate from listings) or on `/api/trails/search` results (already canonical post-Batch 2-finish). No master-listing `.region` reads.
+>
+> **Out of scope (confirmed NOT modified):**
+> - [app/admin/listings/ListingEditor.js](australian-atlas/app/admin/listings/ListingEditor.js) — write surface, Phase 3 step 2.
+> - [components/InlineListingEditor.js](australian-atlas/components/InlineListingEditor.js) — write surface, Phase 3 step 2.
+> - [lib/admin/updateListing.js](australian-atlas/lib/admin/updateListing.js) — write surface, Phase 3 step 2.
+> - New override-vs-computed admin UI — separate feature task.
+>
+> Build compiles clean. Code's verification: complete.
+>
+> **Pending for follow-up batches:**
+> - Batch 7: `lib/sync/updateRegionCounts.js` ilike+alias replacement.
+> - Phase 3 step 2: write-surface migration (ListingEditor / InlineListingEditor / updateListing.js / sync write paths / the three skipped admin API routes that have write coupling).
+> - Future: override-vs-computed admin UI; `lib/sync/syncEmbeddings.js` separate controlled run.
+>
+> **Matt's verification: pending.** Browser-side checks for the admin surfaces:
+> - `/admin/listings` — region filter dropdown shows canonical region names, filtering by selection returns correct listings, URL `?region=hunter-valley` (slug) and `?region=Hunter%20Valley` (name) both resolve correctly.
+> - `/admin/listings?status=misplaced&region=...` — the misplaced filter works with canonical region resolution.
+> - `/admin/duplicates` — region values render canonical for both listings in each pair.
+> - `/admin/staleness` — region column shows canonical names; the fuzzy text filter input still works (e.g. "Melbourne" matches partial text).
+> - `/admin/health` — orphaned listings table shows canonical region.
+> - `/admin/quality-report` — "Average Score by Region" table now keyed by canonical region name (may shift counts vs. previous text-keyed aggregation).
+> - `/admin/audit-review` — region values in cards.
+> - `/admin/duplicates`, `/admin/dead-images`, `/admin/enrichment-audit`, `/admin/enrichment-review`, `/admin/outreach` — region display values.
+> - `/admin/revenue` — top-listings region columns.
+> - `/admin/heritage-crosslinks`, `/admin/wikipedia-queue` — embedded-listing region values.
+> - `/admin/listings-review` — humanise-review card region badge.
+> - Editorial pitch generation (`/admin/editorial`) — pitch + brief regenerate cleanly with canonical region in prompt context.
+> - Completeness report (`/admin/completeness`) — region column accurate post-API migration.
+
+---
+
 > **Batch 5 status (2026-04-25, very-very late):** ✅ landed.
 >
 > Editorial / agent pipelines migrated to FK-based region access via `getListingRegion`. Eleven files touched. `lib/sync/syncEmbeddings.js` was **NOT** modified (explicit out-of-scope per task spec — separate controlled run).

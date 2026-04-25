@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Enrichment Audit — Admin' }
@@ -101,7 +102,7 @@ export default async function EnrichmentAuditPage() {
 
   const { data: riskListings } = await sb
     .from('listings')
-    .select('id, name, slug, vertical, region, state, ai_description, enrichment_confidence, enrichment_risk_level, enrichment_grounding_result')
+    .select(`id, name, slug, vertical, region, state, ai_description, enrichment_confidence, enrichment_risk_level, enrichment_grounding_result, ${LISTING_REGION_SELECT}`)
     .eq('enrichment_risk_level', 'high')
     .not('ai_description', 'is', null)
     .order('enrichment_confidence', { ascending: true, nullsFirst: false })
@@ -421,11 +422,11 @@ export default async function EnrichmentAuditPage() {
                         {vertBadge(listing.vertical)}
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        {listing.region && (
+                        {(() => { const r = getListingRegion(listing)?.name; return r && (
                           <span style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: '0.75rem', color: '#888' }}>
-                            {listing.region}{listing.state ? `, ${listing.state}` : ''}
+                            {r}{listing.state ? `, ${listing.state}` : ''}
                           </span>
-                        )}
+                        ) })()}
                         {confBadge(listing.enrichment_confidence)}
                       </div>
                     </div>

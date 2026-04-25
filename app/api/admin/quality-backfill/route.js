@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 
 // ── Meta table mapping by vertical ───────────────────────────
 const META_TABLES = {
@@ -44,7 +45,7 @@ function calculateQualityScore(listing, hasMeta) {
   if (listing.website && listing.website.trim().length > 0) score += 10
   if (listing.hero_image_url && listing.hero_image_url.trim().length > 0) score += 15
   if (listing.lat != null && listing.lng != null) score += 10
-  if (listing.region && listing.region.trim().length > 0) score += 5
+  if (getListingRegion(listing)) score += 5
   if (listing.sub_type && listing.sub_type.trim().length > 0) score += 5
 
   if (wordCount > 100) score += 5
@@ -72,6 +73,7 @@ export async function POST() {
       'id', 'name', 'description', 'website', 'phone', 'address',
       'lat', 'lng', 'hero_image_url', 'sub_type', 'region',
       'is_claimed', 'vertical', 'status', 'slug', 'suburb', 'state',
+      LISTING_REGION_SELECT,
     ].join(', ')
 
     let allListings = []
@@ -148,7 +150,7 @@ export async function POST() {
         slug: listing.slug,
         suburb: listing.suburb,
         state: listing.state,
-        region: listing.region,
+        region: getListingRegion(listing)?.name ?? null,
         qualityScore,
       })
     }

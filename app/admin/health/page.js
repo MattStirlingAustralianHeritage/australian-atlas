@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 import HealthActions from './HealthActions'
 
 export const dynamic = 'force-dynamic'
@@ -25,7 +26,7 @@ export default async function HealthPage() {
     // Total active listings
     sb.from('listings').select('id', { count: 'exact', head: true }).eq('status', 'active'),
     // Orphaned candidate-sourced listings
-    sb.from('listings').select('id, name, vertical, region, created_at', { count: 'exact' }).like('source_id', 'candidate-%').eq('status', 'active').order('created_at', { ascending: false }).limit(20),
+    sb.from('listings').select(`id, name, vertical, region, created_at, ${LISTING_REGION_SELECT}`, { count: 'exact' }).like('source_id', 'candidate-%').eq('status', 'active').order('created_at', { ascending: false }).limit(20),
     // Candidates reviewed in last 7 days
     sb.from('listing_candidates').select('id, status', { count: 'exact' }).gte('reviewed_at', sevenDaysAgo),
     // Candidates converted in last 30 days
@@ -130,7 +131,7 @@ export default async function HealthPage() {
                       <td style={styles.tableRow}>
                         <span style={styles.badge('#5F8A7E')}>{VERTICAL_DISPLAY[l.vertical] || l.vertical}</span>
                       </td>
-                      <td style={{ ...styles.tableRow, color: 'var(--color-muted, #888)' }}>{l.region || '—'}</td>
+                      <td style={{ ...styles.tableRow, color: 'var(--color-muted, #888)' }}>{getListingRegion(l)?.name || '—'}</td>
                     </tr>
                   ))}
                 </tbody>

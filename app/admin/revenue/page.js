@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 
 export const metadata = { title: 'Revenue — Admin' }
 export const dynamic = 'force-dynamic'
@@ -29,7 +30,7 @@ export default async function RevenuePage() {
     // Top unclaimed high-quality listings
     sb
       .from('listings')
-      .select('name, slug, vertical, region, state, quality_score')
+      .select(`name, slug, vertical, region, state, quality_score, ${LISTING_REGION_SELECT}`)
       .eq('status', 'active')
       .gte('quality_score', 75)
       .or('is_claimed.is.null,is_claimed.eq.false')
@@ -296,7 +297,7 @@ export default async function RevenuePage() {
                       </span>
                     </td>
                     <td style={{ ...styles.tableRow, color: 'var(--color-muted, #888)' }}>
-                      {l.region || ''}{l.state ? `, ${l.state}` : ''}
+                      {getListingRegion(l)?.name || ''}{l.state ? `, ${l.state}` : ''}
                     </td>
                     <td style={{ ...styles.tableRow, textAlign: 'right' }}>
                       <span style={styles.scoreBadge}>{l.quality_score}</span>

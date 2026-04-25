@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 
 const VERTICAL_GUIDANCE = {
   sba: 'Small Batch Atlas — distilleries, breweries, cideries, wineries, bottle shops. Stories about makers, process, place, provenance.',
@@ -62,7 +63,7 @@ function scoreDataRichness(listing) {
   if (listing.verified) score += 2
   if (listing.humanised) score += 1
   if (listing.editors_pick) score += 2
-  if (listing.region) score += 1
+  if (getListingRegion(listing)) score += 1
   if (listing.lat && listing.lng) score += 1
   return score
 }
@@ -77,7 +78,7 @@ async function selectCandidate(sb, vertical) {
 
   let query = sb
     .from('listings')
-    .select(LISTING_FIELDS.join(', '))
+    .select(`${LISTING_FIELDS.join(', ')}, ${LISTING_REGION_SELECT}`)
     .eq('status', 'active')
     .not('description', 'is', null)
 
@@ -131,7 +132,8 @@ function buildListingDataBlock(listing) {
   if (listing.sub_type) fields.push(`Sub-type: ${listing.sub_type}`)
   if (listing.sub_type_secondary) fields.push(`Sub-type (secondary): ${listing.sub_type_secondary}`)
   if (listing.sub_types?.length > 0) fields.push(`Categories: ${listing.sub_types.join(', ')}`)
-  if (listing.region) fields.push(`Region: ${listing.region}`)
+  const listingRegionName = getListingRegion(listing)?.name
+  if (listingRegionName) fields.push(`Region: ${listingRegionName}`)
   if (listing.state) fields.push(`State: ${listing.state}`)
   if (listing.address) fields.push(`Address: ${listing.address}`)
   if (listing.street_address) fields.push(`Street address: ${listing.street_address}`)
@@ -252,7 +254,7 @@ async function findCrossVerticalConnections(sb, listing) {
 
   const { data: nearby } = await sb
     .from('listings')
-    .select('id, name, slug, vertical, region, state, sub_type')
+    .select(`id, name, slug, vertical, region, state, sub_type, ${LISTING_REGION_SELECT}`)
     .eq('status', 'active')
     .neq('id', listing.id)
     .neq('vertical', listing.vertical)
@@ -275,7 +277,7 @@ async function findCrossVerticalConnections(sb, listing) {
     name: l.name,
     slug: l.slug,
     vertical: l.vertical,
-    region: l.region,
+    region: getListingRegion(l)?.name ?? null,
     state: l.state,
     sub_type: l.sub_type,
   }))

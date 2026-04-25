@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 import BackfillButton from './BackfillButton'
 
 export const dynamic = 'force-dynamic'
@@ -32,7 +33,7 @@ export default async function QualityReportPage() {
   while (true) {
     const { data, error } = await sb
       .from('listings')
-      .select('id, name, vertical, slug, suburb, state, region, status, quality_score')
+      .select(`id, name, vertical, slug, suburb, state, region, status, quality_score, ${LISTING_REGION_SELECT}`)
       .order('id')
       .range(offset, offset + BATCH - 1)
 
@@ -65,10 +66,10 @@ export default async function QualityReportPage() {
     .map(([vertical, { total, count }]) => ({ vertical, avg: Math.round(total / count), count }))
     .sort((a, b) => b.avg - a.avg)
 
-  // Average by region (top 15 by count)
+  // Average by region (top 15 by count) — keyed by canonical region name
   const regionAgg = {}
   for (const l of allListings) {
-    const r = l.region || 'Unknown'
+    const r = getListingRegion(l)?.name || 'Unknown'
     if (!regionAgg[r]) regionAgg[r] = { total: 0, count: 0 }
     regionAgg[r].total += (l.quality_score || 0)
     regionAgg[r].count++

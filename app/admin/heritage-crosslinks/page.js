@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 import HeritageActions from './HeritageActions'
 
 export const metadata = { title: 'Heritage Crosslinks — Admin' }
@@ -9,13 +10,13 @@ export default async function HeritageCrosslinksPage() {
 
   const { data: pending } = await sb
     .from('heritage_crosslinks')
-    .select('*, listings!inner(name, slug, vertical, region, state)')
+    .select(`*, listings!inner(name, slug, vertical, region, state, ${LISTING_REGION_SELECT})`)
     .eq('status', 'pending')
     .order('confidence', { ascending: false })
 
   const { data: approved } = await sb
     .from('heritage_crosslinks')
-    .select('*, listings!inner(name, slug, vertical, region, state)')
+    .select(`*, listings!inner(name, slug, vertical, region, state, ${LISTING_REGION_SELECT})`)
     .eq('status', 'approved')
     .order('approved_at', { ascending: false })
     .limit(30)
@@ -96,7 +97,7 @@ export default async function HeritageCrosslinksPage() {
                     {link.listings?.name}
                   </a>
                   <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-muted)', margin: '2px 0 0' }}>
-                    {link.listings?.region}{link.listings?.state ? `, ${link.listings.state}` : ''}
+                    {getListingRegion(link.listings)?.name}{link.listings?.state ? `, ${link.listings.state}` : ''}
                   </p>
                 </div>
               </div>

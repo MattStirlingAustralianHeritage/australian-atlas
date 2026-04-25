@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 
 export const metadata = { title: 'Dead Images — Admin' }
 export const dynamic = 'force-dynamic'
@@ -21,7 +22,7 @@ export default async function DeadImagesPage() {
   // Section 1: Broken images (hero_image_status = 'dead')
   const { data: deadListings } = await sb
     .from('listings')
-    .select('id, name, vertical, region, state')
+    .select(`id, name, vertical, region, state, ${LISTING_REGION_SELECT}`)
     .eq('status', 'active')
     .eq('staleness_flags->>hero_image_status', 'dead')
     .order('vertical')
@@ -172,7 +173,7 @@ export default async function DeadImagesPage() {
                     fontSize: 12,
                     color: 'var(--color-muted)',
                   }}>
-                    {listing.region ? `${listing.region}, ` : ''}{listing.state}
+                    {(() => { const r = getListingRegion(listing)?.name; return r ? `${r}, ` : '' })()}{listing.state}
                   </span>
                   <a
                     href={`/admin/listings/${listing.id}`}

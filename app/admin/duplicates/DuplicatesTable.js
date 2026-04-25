@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { getListingRegion } from '@/lib/regions'
 
 // ─── Constants ───────────────────────────────────────────
 
@@ -204,7 +205,7 @@ function ListingCard({ listing, isKeep, onSelect, selected }) {
           <Badge label={listing.status} bg="#fef2f2" color="#c53030" />
         )}
       </div>
-      <DetailRow label="Region" value={[listing.region, listing.state].filter(Boolean).join(', ')} />
+      <DetailRow label="Region" value={[getListingRegion(listing)?.name, listing.state].filter(Boolean).join(', ')} />
       <DetailRow label="Address" value={listing.address} />
       <DetailRow label="Website" value={listing.website} isUrl />
       <DetailRow label="Slug" value={listing.slug} />

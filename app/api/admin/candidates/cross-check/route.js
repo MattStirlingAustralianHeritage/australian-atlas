@@ -10,6 +10,7 @@
  */
 
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 
 // Define which verticals to cross-check for each vertical
 const CROSS_CHECK_MAP = {
@@ -44,7 +45,7 @@ export async function GET(request) {
 
     const { data, error } = await sb
       .from('listings')
-      .select('id, name, vertical, region, state, website, slug')
+      .select(`id, name, vertical, region, state, website, slug, ${LISTING_REGION_SELECT}`)
       .in('vertical', checkVerticals)
       .ilike('name', `%${cleanName}%`)
       .limit(5)
@@ -65,7 +66,7 @@ export async function GET(request) {
       name: listing.name,
       vertical: listing.vertical,
       verticalName: VERTICAL_DISPLAY[listing.vertical] || listing.vertical,
-      region: listing.region,
+      region: getListingRegion(listing)?.name ?? null,
       state: listing.state,
     }))
 

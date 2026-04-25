@@ -26,17 +26,18 @@ export default async function ListingsPage() {
     console.error('[admin/listings] Query error:', err.message)
   }
 
-  // Get regions for filter dropdown
+  // Get regions for filter dropdown — pull canonical names from regions table
+  // (Phase 3 step 1). API resolves the param via resolveRegionParam so legacy
+  // text values still work as fallback.
   let regions = []
   try {
     const { data } = await sb
-      .from('listings')
-      .select('region')
-      .not('region', 'is', null)
-      .order('region')
+      .from('regions')
+      .select('name')
+      .order('name')
 
     if (data) {
-      regions = [...new Set(data.map(r => r.region).filter(Boolean))].sort()
+      regions = data.map(r => r.name).filter(Boolean)
     }
   } catch (err) {
     console.error('[admin/listings] Regions query error:', err.message)

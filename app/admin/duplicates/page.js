@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { LISTING_REGION_SELECT } from '@/lib/regions'
 import DuplicatesTable from './DuplicatesTable'
 
 export const dynamic = 'force-dynamic'
@@ -52,7 +53,7 @@ export default async function DuplicatesPage() {
   if (listingIds.size > 0) {
     const { data: listings, error: listingsError } = await sb
       .from('listings')
-      .select('id, name, slug, vertical, region, state, website, address, quality_score, status')
+      .select(`id, name, slug, vertical, region, state, website, address, quality_score, status, ${LISTING_REGION_SELECT}`)
       .in('id', [...listingIds])
 
     if (listingsError) {

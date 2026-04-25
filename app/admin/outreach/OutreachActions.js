@@ -1,17 +1,20 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { getListingRegion } from '@/lib/regions'
 
 function generateEmailTemplate(listing) {
   const descSnippet = listing.description
     ? listing.description.slice(0, 150) + (listing.description.length > 150 ? '...' : '')
     : ''
 
+  const regionName = getListingRegion(listing)?.name
+
   return {
     subject: `${listing.name} on Australian Atlas`,
     body: `Hi,
 
-We've been building Australian Atlas — a curated guide to independent Australian places across nine verticals. We've listed ${listing.name} as part of our guide to independent ${listing.region || 'Australia'}.
+We've been building Australian Atlas — a curated guide to independent Australian places across nine verticals. We've listed ${listing.name} as part of our guide to independent ${regionName || 'Australia'}.
 
 ${descSnippet ? `Here's what we wrote: "${descSnippet}"` : ''}
 
@@ -53,7 +56,7 @@ function ListingCard({ listing, verticalColors, verticalNames, onDraftEmail }) {
             color: 'var(--color-muted, #888)',
             margin: '4px 0 0',
           }}>
-            {[listing.region, listing.state].filter(Boolean).join(', ')}
+            {[getListingRegion(listing)?.name, listing.state].filter(Boolean).join(', ')}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
@@ -247,7 +250,7 @@ function EmailDraftModal({ listing, onClose, verticalNames }) {
               fontFamily: 'var(--font-body, system-ui)', fontSize: 12,
               color: 'var(--color-muted, #888)', marginTop: 4,
             }}>
-              {verticalNames[listing.vertical] || listing.vertical} &middot; {listing.region || ''}
+              {verticalNames[listing.vertical] || listing.vertical} &middot; {getListingRegion(listing)?.name || ''}
             </p>
           </div>
           <button
@@ -464,7 +467,7 @@ function HistoryRow({ row, statusColors }) {
               fontFamily: 'var(--font-body, system-ui)', fontSize: 12,
               color: 'var(--color-muted, #888)', margin: '2px 0 0',
             }}>
-              {[listing.region, listing.state].filter(Boolean).join(', ')}
+              {[getListingRegion(listing)?.name, listing.state].filter(Boolean).join(', ')}
             </p>
           )}
         </div>

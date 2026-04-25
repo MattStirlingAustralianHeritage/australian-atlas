@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
 import { updateListing } from '@/lib/admin/updateListing'
+import { LISTING_REGION_SELECT } from '@/lib/regions'
 
 // GET — return all hidden/flagged fine_grounds listings for review
 export async function GET() {
@@ -15,7 +16,7 @@ export async function GET() {
 
   const { data, error } = await sb
     .from('listings')
-    .select('id, source_id, name, slug, website, state, region, address, lat, lng, status, vertical, sub_type, created_at')
+    .select(`id, source_id, name, slug, website, state, region, address, lat, lng, status, vertical, sub_type, created_at, ${LISTING_REGION_SELECT}`)
     .eq('vertical', 'fine_grounds')
     .eq('status', 'hidden')
     .order('name')

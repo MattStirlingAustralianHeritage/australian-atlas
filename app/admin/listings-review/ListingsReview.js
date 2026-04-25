@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import WYSIWYGEditor from '@/components/admin/WYSIWYGEditor'
 import { getVerticalUrl } from '@/lib/verticalUrl'
+import { getListingRegion } from '@/lib/regions'
 
 const VERTICAL_NAMES = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
@@ -391,14 +392,14 @@ export default function ListingsReview({ initialListing, initialStats, verticalC
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
               <Badge label={VERTICAL_NAMES[listing.vertical] || listing.vertical} bg={verticalColor} />
               <StatusBadge status={listing.status} />
-              {listing.region && (
+              {(() => { const r = getListingRegion(listing)?.name; return r && (
                 <span style={{
                   fontFamily: 'var(--font-body)', fontSize: 11,
                   color: 'var(--color-muted)',
                 }}>
-                  {listing.region}{listing.state ? `, ${listing.state}` : ''}
+                  {r}{listing.state ? `, ${listing.state}` : ''}
                 </span>
-              )}
+              ) })()}
               {listing.humanised && (
                 <span style={{
                   fontFamily: 'var(--font-body)', fontSize: 9, fontWeight: 600,

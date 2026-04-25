@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { checkAdmin } from '@/lib/admin-auth'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 
 const VERTICAL_GUIDANCE = {
   sba: 'Small Batch Atlas — distilleries, breweries, cideries, wineries, bottle shops',
@@ -58,7 +59,7 @@ export async function POST(request) {
   } else if (listingId) {
     const { data: venue } = await sb
       .from('listings')
-      .select('name, description, region, state, lat, lng, vertical, sub_type, address, website, founded_year, heritage_significance, best_season, is_claimed, phone')
+      .select(`name, description, region, state, lat, lng, vertical, sub_type, address, website, founded_year, heritage_significance, best_season, is_claimed, phone, ${LISTING_REGION_SELECT}`)
       .eq('id', listingId)
       .single()
     if (venue) venueData = venue
@@ -67,7 +68,7 @@ export async function POST(request) {
   if (!venueData && pitch.suggested_venue) {
     const { data: venues } = await sb
       .from('listings')
-      .select('name, description, region, state, lat, lng, vertical, sub_type, address, website, founded_year, heritage_significance, best_season, is_claimed, phone')
+      .select(`name, description, region, state, lat, lng, vertical, sub_type, address, website, founded_year, heritage_significance, best_season, is_claimed, phone, ${LISTING_REGION_SELECT}`)
       .ilike('name', `%${pitch.suggested_venue}%`)
       .eq('status', 'active')
       .limit(1)
@@ -76,7 +77,10 @@ export async function POST(request) {
 
   if (venueData) {
     const lines = [`Name: ${venueData.name}`]
-    if (venueData.region) lines.push(`Region: ${venueData.region}, ${venueData.state || 'Australia'}`)
+    // Prefer canonical region from helper (fresh fetches); fall back to legacy
+    // text on stored snapshots that pre-date the FK migration.
+    const venueRegionName = getListingRegion(venueData)?.name ?? venueData.region
+    if (venueRegionName) lines.push(`Region: ${venueRegionName}, ${venueData.state || 'Australia'}`)
     if (venueData.sub_type || venueData.vertical) lines.push(`Type: ${venueData.sub_type || venueData.vertical}`)
     if (venueData.description) lines.push(`Description: ${venueData.description}`)
     if (venueData.address) lines.push(`Address: ${venueData.address}`)
@@ -96,7 +100,7 @@ export async function POST(request) {
   if (lat && lng) {
     const { data: nearby } = await sb
       .from('listings')
-      .select('id, name, slug, vertical, region, state, description, hero_image_url')
+      .select(`id, name, slug, vertical, region, state, description, hero_image_url, ${LISTING_REGION_SELECT}`)
       .eq('status', 'active')
       .neq('name', venueData.name)
       .gte('lat', lat - 0.5)
@@ -143,7 +147,7 @@ Suggested venue: ${pitch.suggested_venue || 'None specified'}
 Confidence: ${pitch.confidence || 'MEDIUM'}
 Estimated read time: ${pitch.estimated_read_time}${venueContext}${verifiedFactsContext}${researchContext}
 
-${nearbyListings.length > 0 ? `\nNearby verified listings that could be woven into the story:\n${nearbyListings.map(l => `- ${l.name} (${VERTICAL_LABELS[l.vertical] || l.vertical}, ${l.region || l.state || 'Australia'})`).join('\n')}` : ''}
+${nearbyListings.length > 0 ? `\nNearby verified listings that could be woven into the story:\n${nearbyListings.map(l => `- ${l.name} (${VERTICAL_LABELS[l.vertical] || l.vertical}, ${getListingRegion(l)?.name || l.state || 'Australia'})`).join('\n')}` : ''}
 
 Respond in this exact JSON format:
 {
@@ -214,7 +218,7 @@ Generate 8-10 key questions. Make every element specific to THIS story — never
       slug: l.slug,
       vertical: l.vertical,
       vertical_label: VERTICAL_LABELS[l.vertical] || l.vertical,
-      region: l.region,
+      region: getListingRegion(l)?.name ?? null,
       state: l.state,
       description: (l.description || '').slice(0, 150),
       hero_image_url: l.hero_image_url,

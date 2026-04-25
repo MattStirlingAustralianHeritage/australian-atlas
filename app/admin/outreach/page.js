@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { LISTING_REGION_SELECT } from '@/lib/regions'
 import OutreachActions from './OutreachActions'
 
 export const metadata = { title: 'Outreach Queue — Admin' }
@@ -40,7 +41,7 @@ export default async function OutreachPage() {
   // Fetch unclaimed, active listings NOT already in outreach, sorted by quality_score
   let query = sb
     .from('listings')
-    .select('id, name, slug, vertical, region, state, website, phone, quality_score, address, description')
+    .select(`id, name, slug, vertical, region, state, website, phone, quality_score, address, description, ${LISTING_REGION_SELECT}`)
     .eq('status', 'active')
     .eq('is_claimed', false)
     .order('quality_score', { ascending: false, nullsFirst: false })
@@ -59,7 +60,7 @@ export default async function OutreachPage() {
     const listingIds = outreachRows.map(r => r.listing_id).filter(Boolean)
     const { data: historyListings } = await sb
       .from('listings')
-      .select('id, name, slug, vertical, region, state')
+      .select(`id, name, slug, vertical, region, state, ${LISTING_REGION_SELECT}`)
       .in('id', listingIds)
 
     const listingMap = {}

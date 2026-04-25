@@ -2,6 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { checkAdmin } from '@/lib/admin-auth'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { LISTING_REGION_SELECT } from '@/lib/regions'
 import ListingsReview from './ListingsReview'
 
 export const dynamic = 'force-dynamic'
@@ -53,7 +54,7 @@ export default async function ListingsReviewPage({ searchParams }) {
     // First listing — filtered by vertical if selected
     let query = sb
       .from('listings')
-      .select('id, vertical, source_id, name, slug, description, region, state, lat, lng, website, phone, address, hero_image_url, is_claimed, is_featured, is_market, status, editors_pick, humanised, humanised_at, created_at, updated_at')
+      .select(`id, vertical, source_id, name, slug, description, region, state, lat, lng, website, phone, address, hero_image_url, is_claimed, is_featured, is_market, status, editors_pick, humanised, humanised_at, created_at, updated_at, ${LISTING_REGION_SELECT}`)
       .eq('status', 'active')
       .eq('humanised', false)
 
