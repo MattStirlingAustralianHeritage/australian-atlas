@@ -35,7 +35,7 @@ The spec framed this as "55 live regions" but actual count is 53 (13 regions rem
 | Orange | NSW | Nominatim/OSM | relations 6427044 + 6268804 + 6423630 | boundary=administrative (aggregate) | Activated 2026-04-25. Orange City + Cabonne + Blayney LGAs. See Revision history. |
 | Perth | WA | ABS GCCSA 2021 | code 5GPER | Greater Perth | Replaced OSM CBD-only relation 11343564 on 2026-04-24 with the ABS Greater Capital City boundary (metro-scale, 15 rings). See Revision history. |
 | Sydney | NSW | Nominatim/OSM | relation 5750005 | place=city | Greater Sydney scale |
-| Alice Springs & Red Centre | NT | Nominatim/OSM | rels 11716659 + 11716646 + 11716684 | boundary=administrative (aggregate) | Activated 2026-04-25 batch. Alice Springs + MacDonnell + Petermann LGAs. 18 listings — below threshold but accepted. |
+| Alice Springs & Red Centre | NT | ABS Tourism Regions 2021 | codes 7R070 + 7R140 + 7R150 | Tourism Region (aggregate) | Activated 2026-04-25 batch with OSM LGA aggregate; **re-sourced same day late** to ABS TR (7R070 Alice Springs + 7R140 MacDonnell + 7R150 Lasseter) to fix unincorporated-land coverage gap. 13 listings rescued. See Revision history. |
 | Ballarat & Goldfields | VIC | ABS Tourism Regions 2021 | code 2R170 | Tourism Region | Activated 2026-04-25 batch (INSERT). |
 | Barossa Valley | SA | ABS Tourism Regions 2021 | code 4R050 | Tourism Region | Activated 2026-04-25 batch. Brand anchor. |
 | Bellarine Peninsula | VIC | ABS Tourism Regions 2021 | code 2R140 | Tourism Region | Activated 2026-04-25 batch. 2R140 is "Geelong and the Bellarine" — overlaps `geelong-city` polygon. Smallest-wins handles nesting. |
@@ -140,6 +140,57 @@ Per-region revert only. Phase 1 infrastructure does not depend on any specific p
 The GCCSA upgrade for Perth and Adelaide was done via ad-hoc queries against `geo.abs.gov.au` — to re-source, fetch `gccsa_code_2021 IN ('5GPER','4GADE')` from `ASGS2021/GCCSA/MapServer/0` with `outSR=4326`.
 
 ## Revision history
+
+### 2026-04-25 (late) — alice-springs-red-centre re-sourced from OSM LGAs to ABS Tourism Regions
+
+Replaced the OSM LGA aggregate (Alice Springs Town + MacDonnell + Petermann) with an ABS Tourism Regions aggregate (`7R070` Alice Springs + `7R140` MacDonnell + `7R150` Lasseter) to fix an unincorporated-land coverage gap that left Araluen Cultural Precinct and 12 other Alice Springs venues as `region_computed_id = NULL` after the Phase 2 backfill.
+
+| Item | Before | After |
+|---|---|---|
+| Source | OSM LGAs: rel 11716659 + 11716646 + 11716684 | ABS TR 2021: `7R070` + `7R140` + `7R150` |
+| Components | 2 (Alice+MacDonnell merged + Petermann disjoint) | **1** (single connected polygon — ABS TRs designed as partition) |
+| Holes | 4 (2 inherent enclaves + 2 ST_MakeValid sliver artifacts) | **0** |
+| Bbox | 129.00–138.00°E / -25.99 to -22.85°S | 129.00–138.00°E / -25.99 to -17.95°S |
+| Araluen Cultural Precinct | NULL | **resolves to alice-springs-red-centre** |
+
+**Root cause analysis.** Northern Territory has substantial unincorporated land that's directly governed by the NT government rather than any LGA. Araluen Cultural Precinct sits on Larapinta Drive in Alice Springs proper but **outside** the Alice Springs Town Council LGA boundary (lng 133.863 vs LGA min-lng 133.874). It's also outside MacDonnell because MacDonnell has Alice Springs Town as a *hole* (the LGAs are non-overlapping by definition). No LGA-based aggregation can include this land.
+
+ABS Tourism Regions are derived from SA4/SA3 statistical areas, which form a complete topological partition of the country — no gaps. `7R070` Alice Springs covers the full editorial Alice Springs urban area including unincorporated surrounds.
+
+**Bbox extension to -17.95°S explained.** The new bbox max-north reaches further than the LGA-based approach. Verified: this is a thin Aboriginal land trust extension in `7R140` MacDonnell, not a broad scope expansion. Tennant Creek (-19.65, 134.19) is correctly OUTSIDE the polygon. Katherine (-14.47, 132.27) is correctly OUTSIDE. The editorial scope (Alice Springs + MacDonnell Ranges + Uluru-Kata Tjuta + Kings Canyon) is preserved.
+
+**Targeted re-backfill.** Bbox-scoped trigger fire (`UPDATE listings SET lat = lat WHERE region_computed_id IS NULL AND lat BETWEEN -26 AND -22.85 AND lng BETWEEN 129 AND 138`) — 13 NT listings transitioned from NULL to alice-springs-red-centre:
+
+| Slug | Listing |
+|---|---|
+| `araluen-cultural-precinct` | Araluen Cultural Precinct |
+| `araluen-arts-centre` | Araluen Arts Centre |
+| `museum-of-central-australia` | Museum of Central Australia |
+| `alice-springs-telegraph-station-historical-reserve` | Alice Springs Telegraph Station Historical Reserve |
+| `alice-springs-school-of-the-air-visitor-centre` | Alice Springs School of the Air Visitor Centre |
+| `alice-springs-brewing` | Alice Springs Brewing Co |
+| `national-pioneer-womens-hall-of-fame` | National Pioneer Women's Hall of Fame |
+| `national-road-transport-museum-and-hall-of-fame` | National Road Transport Museum and Hall of Fame |
+| `central-australian-aviation-museum` | Central Australian Aviation Museum |
+| `royal-flying-doctor-service-tourist-facility` | Royal Flying Doctor Service Tourist Facility |
+| `olive-pink-botanic-garden` | Olive Pink Botanic Garden |
+| `strehlow-research-centre` | Strehlow Research Centre |
+| `longitude-131` | Longitude 131 (Uluru luxury accommodation) |
+
+Region listing count for `alice-springs-red-centre` is now **29** (16 pre-fix + 13 rescued).
+
+**Tooling note.** Direct PostgreSQL connection from the activation host wasn't available (project IPv6-only, non-pooler tenant; both DNS paths fail from the local machine). Server-side `ST_Union` not callable via supabase-js SDK either. Workaround: client-side topological union via the [`polygon-clipping`](https://www.npmjs.com/package/polygon-clipping) library (Martinez algorithm — equivalent to PostGIS `ST_Union` for non-pathological inputs). Output written back as GeoJSON via standard SDK UPDATE. Rationale and alternatives explored in [`docs/audits/2026-04-25-alice-springs-polygon-rework.md`](../audits/2026-04-25-alice-springs-polygon-rework.md).
+
+**Rollback** (per-region):
+
+```sql
+-- Restore yesterday's OSM-LGA polygon: would require re-running
+-- scripts/activate-regions-osm-lga.mjs against alice-springs-red-centre
+-- (the previous polygon was not snapshotted before the UPDATE).
+-- Practically, fastest revert is:
+UPDATE regions SET polygon = NULL, status = 'draft' WHERE slug = 'alice-springs-red-centre';
+-- Then re-fetch via either source via the appropriate script.
+```
 
 ### 2026-04-25 — Batch activation of 39 regions
 
