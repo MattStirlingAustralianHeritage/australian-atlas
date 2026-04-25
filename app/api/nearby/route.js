@@ -1,5 +1,6 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { NextResponse } from 'next/server'
+import { LISTING_REGION_SELECT } from '@/lib/regions'
 
 // Haversine distance in km
 function haversineKm(lat1, lng1, lat2, lng2) {
@@ -131,7 +132,7 @@ export async function GET(request) {
 
   let query = sb
     .from('listings')
-    .select('id, name, slug, description, region, state, lat, lng, hero_image_url, vertical, sub_type, is_featured, is_claimed')
+    .select(`id, name, slug, description, region, state, lat, lng, hero_image_url, vertical, sub_type, is_featured, is_claimed, ${LISTING_REGION_SELECT}`)
     .eq('status', 'active')
     .gte('lat', lat - latDelta)
     .lte('lat', lat + latDelta)

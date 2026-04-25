@@ -2,6 +2,7 @@ import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { verifySharedToken } from '@/lib/shared-auth'
 import ForYouClient from './ForYouClient'
+import { LISTING_REGION_SELECT } from '@/lib/regions'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,7 +45,7 @@ async function getLoggedOutListings(sb) {
   // Top listings by quality_score, 2 per vertical, limit 18
   const { data } = await sb
     .from('listings')
-    .select('id, name, slug, vertical, region, state, hero_image_url, quality_score')
+    .select(`id, name, slug, vertical, region, state, hero_image_url, quality_score, ${LISTING_REGION_SELECT}`)
     .eq('status', 'active')
     .order('quality_score', { ascending: false })
     .limit(200)
@@ -119,7 +120,7 @@ async function getPersonalisedListings(sb, userId) {
   // Query listings in user's preferred verticals/regions, ordered by quality
   const { data: candidates } = await sb
     .from('listings')
-    .select('id, name, slug, vertical, region, state, hero_image_url, quality_score')
+    .select(`id, name, slug, vertical, region, state, hero_image_url, quality_score, ${LISTING_REGION_SELECT}`)
     .eq('status', 'active')
     .in('vertical', topVerticals.length > 0 ? topVerticals : ALL_VERTICALS)
     .order('quality_score', { ascending: false })

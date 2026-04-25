@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { getListingRegion } from '@/lib/regions'
 
 const VERTICAL_LABELS = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
@@ -158,7 +159,7 @@ export default function NearMeClient() {
                     fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 400,
                     color: 'rgba(255,255,255,0.65)', margin: '0 0 4px',
                   }}>
-                    {[listing.region, listing.state].filter(Boolean).join(', ')}
+                    {[getListingRegion(listing)?.name, listing.state].filter(Boolean).join(', ')}
                   </p>
                   <p style={{
                     fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 500,

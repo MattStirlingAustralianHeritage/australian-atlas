@@ -6,6 +6,7 @@ import { regionJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
 import RegionMapHero from '@/components/RegionMapHero'
 import RegionTrailCTA from '@/components/RegionTrailCTA'
 import { RelatedCollections, RelatedArticles } from '@/components/RelatedContent'
+import { LISTING_REGION_SELECT } from '@/lib/regions'
 
 export const revalidate = 21600
 
@@ -99,7 +100,7 @@ async function getRegionNarrative(regionId) {
 
 async function getRegionListings(region) {
   const sb = getSupabaseAdmin()
-  const select = 'id, vertical, source_id, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website'
+  const select = `id, vertical, source_id, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website, ${LISTING_REGION_SELECT}`
 
   const { data } = await sb
     .from('listings')

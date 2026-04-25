@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { getListingRegion } from '@/lib/regions'
 
 const VERTICAL_COLORS = {
   sba: '#6b3a2a',
@@ -212,7 +213,7 @@ function ForYouCard({ listing, isLoggedIn, onDismiss }) {
             color: 'var(--color-muted)',
             margin: 0,
           }}>
-            {[listing.region, listing.state].filter(Boolean).join(', ')}
+            {[getListingRegion(listing)?.name, listing.state].filter(Boolean).join(', ')}
           </p>
         </div>
       </Link>

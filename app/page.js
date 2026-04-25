@@ -6,6 +6,7 @@ import NewsletterSignup from '@/components/NewsletterSignup'
 import ScrollReveal from '@/components/ScrollReveal'
 import NearbySection from '@/components/NearbySection'
 import { getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 
 export const revalidate = 1800
 
@@ -208,7 +209,7 @@ async function getDiscoverClusters() {
       clusterRegions.map(async (region) => {
         const { data } = await sb
           .from('listings')
-          .select('id, name, vertical, slug, region, hero_image_url')
+          .select(`id, name, vertical, slug, region, hero_image_url, ${LISTING_REGION_SELECT}`)
           .eq('status', 'active')
           .eq('region', region)
           .order('is_featured', { ascending: false })
@@ -407,7 +408,7 @@ export default async function Home() {
                         marginBottom: '8px',
                       }}>
                         {VERTICAL_LABELS[listing.vertical] || listing.vertical}
-                        {listing.region && ` · ${listing.region}`}
+                        {(() => { const r = getListingRegion(listing); return r ? ` · ${r.name}` : '' })()}
                       </p>
                       <h3 style={{
                         fontFamily: 'var(--font-display)', fontWeight: 400,
@@ -713,19 +714,19 @@ export default async function Home() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
-              { name: 'Barossa Valley', state: 'SA' },
-              { name: 'Mornington Peninsula', state: 'VIC' },
-              { name: 'Yarra Valley', state: 'VIC' },
-              { name: 'Byron Hinterland', state: 'NSW' },
-              { name: 'Blue Mountains', state: 'NSW' },
-              { name: 'Adelaide Hills', state: 'SA' },
+              { name: 'Barossa Valley', slug: 'barossa-valley', state: 'SA' },
+              { name: 'Mornington Peninsula', slug: 'mornington-peninsula', state: 'VIC' },
+              { name: 'Yarra Valley', slug: 'yarra-valley', state: 'VIC' },
+              { name: 'Byron Bay', slug: 'byron-bay', state: 'NSW' },
+              { name: 'Blue Mountains', slug: 'blue-mountains', state: 'NSW' },
+              { name: 'Adelaide Hills', slug: 'adelaide-hills', state: 'SA' },
             ].map((r, ri) => {
               const count = stats.regionCounts[r.name]
               const gradient = STATE_CARD_GRADIENTS[r.state] || STATE_CARD_GRADIENTS.VIC
               return (
                 <Link
-                  key={r.name}
-                  href={`/regions/${r.name.toLowerCase().replace(/\s+/g, '-')}`}
+                  key={r.slug}
+                  href={`/regions/${r.slug}`}
                   className="reveal group listing-card block rounded-xl overflow-hidden"
                   data-reveal-index={ri + 1}
                   style={{

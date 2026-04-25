@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getVerticalLabel } from '@/lib/verticalUrl'
 import VerticalBadge from '@/components/VerticalBadge'
 import ClaimForm from './ClaimForm'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 
 export const revalidate = 3600
 
@@ -21,7 +22,7 @@ async function getListing(slug) {
   // to avoid PGRST116 if two verticals share a slug
   const { data, error } = await sb
     .from('listings')
-    .select('id, name, slug, vertical, region, state, description, is_claimed')
+    .select(`id, name, slug, vertical, region, state, description, is_claimed, ${LISTING_REGION_SELECT}`)
     .eq('slug', slug)
     .eq('status', 'active')
     .order('updated_at', { ascending: false })
@@ -54,7 +55,7 @@ export default async function ClaimPage({ params }) {
 
   const vertLabel = getVerticalLabel(listing.vertical)
   const vertColor = VERTICAL_COLORS[listing.vertical] || '#5F8A7E'
-  const location = [listing.region, listing.state].filter(Boolean).join(', ')
+  const location = [getListingRegion(listing)?.name, listing.state].filter(Boolean).join(', ')
   const descriptionSnippet = listing.description
     ? listing.description.slice(0, 200) + (listing.description.length > 200 ? '...' : '')
     : null

@@ -1,5 +1,33 @@
 # Phase 3 Step 1 — Read-site Discovery for `listings.region`
 
+> **Batch 1 status (2026-04-25, late):** ✅ landed.
+>
+> Helper `lib/regions/getListingRegion.js` (with `getListingRegion`, `getListingRegionDetail`, `LISTING_REGION_SELECT`) and barrel `lib/regions/index.js` created. Migration applied to the universal display surfaces and major user-facing routes:
+> - `components/ListingCard.js`, `lib/jsonLd.js` (universal)
+> - `app/place/[slug]/page.js` (5 selects + breadcrumb + hero, simplified the cleanRegion + ad-hoc regions-table-lookup down to a single helper call)
+> - `app/page.js` (homepage region cards: explicit slugs replacing brittle name-slugification; fixed broken `byron-hinterland` slug → `byron-bay`)
+> - `app/regions/[slug]/page.js`, `app/seo/[slug]/page.js`, `app/og/[slug]/route.js`
+> - `app/for-you/page.js` + `ForYouClient.js`, `app/near-me/NearMeClient.js` + `api/nearby/route.js`
+> - `app/claim/page.js` + `claim/[slug]/page.js` (passes canonical to `ClaimSearch.js` via existing `region` prop)
+> - `app/collections/[slug]/page.js`, `app/api/search/route.js` (data-shape only — filter logic remains for Batch 3), `app/api/dashboard/route.js`
+>
+> 18 files now reference the helper or `LISTING_REGION_SELECT`. Build compiles clean. No `listing.region` text reads remain in `ListingCard` or `jsonLd`.
+>
+> **Pending for follow-up batches** (out of Batch 1 scope per task):
+> - Filter logic in `app/api/search/route.js` ilike + URL param handling → Batch 3
+> - Cross-listing rec functions in `app/place/[slug]/page.js` (getRegionListings, getCrossVerticalListings, getClusterSiblings) — selects updated, filters left for Batch 4
+> - `lib/sync/updateRegionCounts.js` ilike+alias logic → Batch 7
+> - `app/admin/*`, `app/api/cron/*`, `lib/sync/*` → Batches 5, 6, 7 / Phase 3 step 2
+> - Vendor dashboard display (`app/dashboard/page.js`, `app/dashboard/listings/page.js`) — API selects updated; in-component display reads still on `listing.region` text. Low risk; vendor-only surface.
+> - Several remaining `app/api/*` routes that select region but don't pass listings through ListingCard — left untouched in this batch (data-shape parity not required for non-display consumers).
+>
+> **Code's verification: complete.** `npm run build` succeeds; no compile errors. All 18 helper-using files import correctly. No `listing.region` residual references in the migrated files.
+>
+> **Matt's verification: pending.** Browser-side checks (region pages render, place breadcrumb shows canonical names, homepage cards link to correct slugs, search results render with region) require a manual user-flow review.
+
+---
+
+
 **Date:** 2026-04-25
 **Trigger:** Phase 2 backfill landed at commit `63929c4`. `region_computed_id` is now authoritative for ~5,580 of 6,510 active listings. Phase 3 deprecates the legacy `listings.region` text column; this discovery enumerates the read sites that must migrate first.
 **Status:** Read-only enumeration — no code changes.

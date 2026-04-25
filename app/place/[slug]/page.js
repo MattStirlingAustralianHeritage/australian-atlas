@@ -7,6 +7,7 @@ import { getVerticalUrl, getVerticalLabel } from '@/lib/verticalUrl'
 import { listingJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
 import { checkAdmin } from '@/lib/admin-auth'
 import { isApprovedImageSource } from '@/lib/image-utils'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 import VerticalBadge from '@/components/VerticalBadge'
 import ListingCard, { TypographicCard, VERTICAL_TOKENS } from '@/components/ListingCard'
 import ListingMap from '@/components/ListingMap'
@@ -95,7 +96,7 @@ const getListing = cache(async function getListing(slug) {
   // to avoid PGRST116 if two verticals share a slug
   const { data, error } = await sb
     .from('listings')
-    .select('id, vertical, name, slug, description, region, state, suburb, lat, lng, website, phone, address, hero_image_url, is_featured, is_claimed, editors_pick, status, hours, cluster_id, verified, sub_type, sub_types')
+    .select(`id, vertical, name, slug, description, region, state, suburb, lat, lng, website, phone, address, hero_image_url, is_featured, is_claimed, editors_pick, status, hours, cluster_id, verified, sub_type, sub_types, ${LISTING_REGION_SELECT}`)
     .eq('slug', slug)
     .eq('status', 'active')
     .order('updated_at', { ascending: false })
@@ -106,7 +107,7 @@ const getListing = cache(async function getListing(slug) {
   if (error && !data) {
     const retry = await sb
       .from('listings')
-      .select('id, vertical, name, slug, description, region, state, lat, lng, website, phone, address, hero_image_url, is_featured, is_claimed, editors_pick, status')
+      .select(`id, vertical, name, slug, description, region, state, lat, lng, website, phone, address, hero_image_url, is_featured, is_claimed, editors_pick, status, ${LISTING_REGION_SELECT}`)
       .eq('slug', slug)
       .eq('status', 'active')
       .order('updated_at', { ascending: false })
@@ -170,7 +171,7 @@ async function getNearbyListings(listing, limit = 4) {
 
   const { data } = await sb
     .from('listings')
-    .select('id, name, slug, vertical, region, state, lat, lng, hero_image_url, description, is_featured, is_claimed, editors_pick')
+    .select(`id, name, slug, vertical, region, state, lat, lng, hero_image_url, description, is_featured, is_claimed, editors_pick, ${LISTING_REGION_SELECT}`)
     .eq('status', 'active')
     .neq('id', listing.id)
     .neq('vertical', listing.vertical)
@@ -228,7 +229,7 @@ async function getRegionListings(listing, excludeIds = [], limit = 4) {
 
   const { data } = await sb
     .from('listings')
-    .select('id, name, slug, vertical, region, state, lat, lng, hero_image_url, description, is_featured, is_claimed, editors_pick')
+    .select(`id, name, slug, vertical, region, state, lat, lng, hero_image_url, description, is_featured, is_claimed, editors_pick, ${LISTING_REGION_SELECT}`)
     .eq('status', 'active')
     .eq('region', listing.region)
     .not('id', 'in', `(${[listing.id, ...excludeIds].join(',')})`)
@@ -244,7 +245,7 @@ async function getCrossVerticalListings(listing, excludeIds = [], limit = 3) {
 
   const { data } = await sb
     .from('listings')
-    .select('id, name, slug, vertical, region, state, lat, lng, hero_image_url, description, is_featured, is_claimed, editors_pick')
+    .select(`id, name, slug, vertical, region, state, lat, lng, hero_image_url, description, is_featured, is_claimed, editors_pick, ${LISTING_REGION_SELECT}`)
     .eq('status', 'active')
     .eq('region', listing.region)
     .neq('vertical', listing.vertical)
@@ -266,7 +267,7 @@ async function getClusterSiblings(listing, excludeIds = [], limit = 3) {
 
   const { data } = await sb
     .from('listings')
-    .select('id, name, slug, vertical, region, state, lat, lng, hero_image_url, description, is_featured, is_claimed, editors_pick')
+    .select(`id, name, slug, vertical, region, state, lat, lng, hero_image_url, description, is_featured, is_claimed, editors_pick, ${LISTING_REGION_SELECT}`)
     .eq('status', 'active')
     .eq('cluster_id', listing.cluster_id)
     .neq('vertical', listing.vertical)
@@ -298,10 +299,8 @@ export async function generateMetadata({ params }) {
 
   const metaSubcategory = formatSubcategory(listing._subcategory || listing.sub_type)
   const vertLabel = metaSubcategory || VERTICAL_CATEGORY_LABELS[listing.vertical] || 'Place'
-  const regionIsStreet = listing.region && /\d/.test(listing.region)
-  const location = regionIsStreet
-    ? (listing.address || [listing.region, listing.state].filter(Boolean).join(', '))
-    : [listing.region, listing.state].filter(Boolean).join(', ')
+  const region = getListingRegion(listing)
+  const location = [region?.name, listing.state].filter(Boolean).join(', ')
   const title = location
     ? `${listing.name} — ${vertLabel} in ${location}`
     : `${listing.name} — ${vertLabel}`
@@ -368,22 +367,12 @@ export default async function PlacePage({ params }) {
     .order('created_at', { ascending: false })
     .limit(5)
 
-  // Strip state suffix from region if already present (e.g. "Mornington Peninsula, VIC" → "Mornington Peninsula")
-  const cleanRegion = listing.region && listing.state && listing.region.endsWith(`, ${listing.state}`)
-    ? listing.region.slice(0, -(listing.state.length + 2))
-    : listing.region
-
-  // Look up region slug for linking — try clean name first, then raw
-  const sb = getSupabaseAdmin()
-  let regionData = null
-  if (cleanRegion) {
-    const { data: rd } = await sb.from('regions').select('slug, name').ilike('name', cleanRegion).maybeSingle()
-    regionData = rd
-    if (!regionData && cleanRegion !== listing.region) {
-      const { data: rd2 } = await sb.from('regions').select('slug, name').ilike('name', listing.region).maybeSingle()
-      regionData = rd2
-    }
-  }
+  // Effective region via the FK helper. Returns canonical { id, slug, name, state }
+  // from regions table, or null when both region_computed_id and region_override_id
+  // are NULL (the ~917 quarantine listings). Per Decision 1, no fallback to legacy text.
+  const region = getListingRegion(listing)
+  const cleanRegion = region?.name ?? null
+  const regionData = region
 
   const vertLabel = getVerticalLabel(listing.vertical)
   const vertColor = VERTICAL_COLORS[listing.vertical] || '#5F8A7E'
@@ -392,10 +381,7 @@ export default async function PlacePage({ params }) {
   const categoryLabel = specificSubcategory || VERTICAL_CATEGORY_LABELS[listing.vertical] || 'Place'
   const secondarySubcategories = (listing.sub_types || []).slice(1).map(formatSubcategory).filter(Boolean)
   const verticalUrl = getVerticalUrl(listing.vertical, listing.slug)
-  const regionIsStreet = listing.region && /\d/.test(listing.region)
-  const location = regionIsStreet
-    ? (listing.address || [cleanRegion, listing.state].filter(Boolean).join(', '))
-    : [cleanRegion, listing.state].filter(Boolean).join(', ')
+  const location = [cleanRegion, listing.state].filter(Boolean).join(', ')
   const hasCoords = listing.lat && listing.lng
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''
   const websiteUrl = listing.website?.startsWith('http') ? listing.website : listing.website ? `https://${listing.website}` : null
@@ -510,7 +496,7 @@ export default async function PlacePage({ params }) {
           {cleanRegion && (
             <>
               <Link
-                href={regionData ? `/regions/${regionData.slug}` : `/search?region=${encodeURIComponent(listing.region)}`}
+                href={`/regions/${regionData.slug}`}
                 className="hover:underline"
                 style={{ padding: '6px 2px', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}
               >
@@ -618,14 +604,14 @@ export default async function PlacePage({ params }) {
                       </a>
                     </DetailItem>
                   )}
-                  {listing.region && (
+                  {cleanRegion && (
                     <DetailItem icon="map" label="Region">
                       <Link
-                        href={regionData ? `/regions/${regionData.slug}` : `/search?region=${encodeURIComponent(listing.region)}`}
+                        href={`/regions/${regionData.slug}`}
                         className="hover:underline"
                         style={{ color: vertColor }}
                       >
-                        {listing.region}
+                        {cleanRegion}
                       </Link>
                     </DetailItem>
                   )}
@@ -804,7 +790,7 @@ export default async function PlacePage({ params }) {
         {/* ── Explore this region ────────────────────────── */}
         {cleanRegion && (
           <Link
-            href={regionData ? `/regions/${regionData.slug}` : `/search?region=${encodeURIComponent(listing.region)}`}
+            href={`/regions/${regionData.slug}`}
             className="block mt-10 py-5 px-6 rounded-lg transition-colors"
             style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}
           >

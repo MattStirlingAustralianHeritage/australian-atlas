@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { createHash } from 'crypto'
+import { LISTING_REGION_SELECT } from '@/lib/regions'
 
-const SELECT_FIELDS = 'id, vertical, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website, address'
+const SELECT_FIELDS = `id, vertical, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website, address, ${LISTING_REGION_SELECT}`
 
 /** Generate an anonymous session id from user-agent + date (no PII) */
 function getSessionId(request) {

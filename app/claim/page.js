@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import ClaimSearch from './ClaimSearch'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 
 export const metadata = {
   title: 'Claim Your Listing — Australian Atlas',
@@ -27,7 +28,7 @@ export default async function ClaimPage() {
   // Fetch all active listings for client-side search (exclude Field — not claimable)
   const { data: listings } = await sb
     .from('listings')
-    .select('id, name, slug, vertical, region, state, is_claimed')
+    .select(`id, name, slug, vertical, region, state, is_claimed, ${LISTING_REGION_SELECT}`)
     .eq('status', 'active')
     .neq('vertical', 'field')
     .order('name')
@@ -39,7 +40,7 @@ export default async function ClaimPage() {
     vertical: l.vertical,
     verticalLabel: VERTICAL_LABELS[l.vertical] || l.vertical,
     verticalColor: VERTICAL_COLORS[l.vertical] || '#5F8A7E',
-    region: l.region,
+    region: getListingRegion(l)?.name ?? null,
     state: l.state,
     isClaimed: l.is_claimed || false,
   }))

@@ -1,6 +1,7 @@
 import { getVerticalUrl } from '@/lib/verticalUrl'
 import VerticalBadge from '@/components/VerticalBadge'
 import { isApprovedImageSource } from '@/lib/image-utils'
+import { getListingRegion } from '@/lib/regions'
 
 // ============================================================
 // ListingCard — Bespoke typographic card replacing all photography
@@ -269,6 +270,7 @@ export default function ListingCard({ listing, meta, linkToVertical = false }) {
   const showFeatured = !isAtlasSelect && listing.is_featured && listing.is_claimed
   const hasRealImage = listing.hero_image_url && isApprovedImageSource(listing.hero_image_url)
   const tokens = VERTICAL_TOKENS[listing.vertical] || VERTICAL_TOKENS.portal
+  const region = getListingRegion(listing)
 
   return (
     <a
@@ -315,13 +317,13 @@ export default function ListingCard({ listing, meta, linkToVertical = false }) {
               >
                 {listing.name}
               </h3>
-              {(listing.region || listing.state) && (
+              {(region?.name || listing.state) && (
                 <p style={{
                   fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '11px',
                   color: 'rgba(255,255,255,0.6)', margin: '4px 0 0',
                   letterSpacing: '0.04em',
                 }}>
-                  {[listing.region, listing.state].filter(Boolean).join(', ')}
+                  {[region?.name, listing.state].filter(Boolean).join(', ')}
                 </p>
               )}
             </div>
@@ -331,7 +333,7 @@ export default function ListingCard({ listing, meta, linkToVertical = false }) {
             name={listing.name}
             vertical={listing.vertical}
             category={derivedMeta.entity_type || derivedMeta.producer_type || derivedMeta.category}
-            region={listing.region}
+            region={region?.name}
             state={listing.state}
             aspectRatio="4/5"
             showVerticalTag={true}

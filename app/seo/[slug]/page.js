@@ -1,6 +1,7 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 
 export const revalidate = 3600
 
@@ -75,7 +76,7 @@ export default async function SeoPage({ params }) {
   if (page.listing_ids && page.listing_ids.length > 0) {
     const { data } = await sb
       .from('listings')
-      .select('id, name, slug, vertical, region, state, suburb, lat, lng, hero_image_url, description, is_featured, editors_pick')
+      .select(`id, name, slug, vertical, region, state, suburb, lat, lng, hero_image_url, description, is_featured, editors_pick, ${LISTING_REGION_SELECT}`)
       .in('id', page.listing_ids)
       .eq('status', 'active')
 
@@ -83,7 +84,7 @@ export default async function SeoPage({ params }) {
   }
 
   // Find region for CTAs
-  const regionName = page.location || listings[0]?.region || ''
+  const regionName = page.location || getListingRegion(listings[0])?.name || ''
   const { data: regionData } = await sb
     .from('regions')
     .select('slug')
@@ -110,7 +111,7 @@ export default async function SeoPage({ params }) {
         url: `https://australianatlas.com.au/place/${l.slug}`,
         address: {
           '@type': 'PostalAddress',
-          addressLocality: l.suburb || l.region,
+          addressLocality: l.suburb || getListingRegion(l)?.name,
           addressRegion: l.state,
           addressCountry: 'AU',
         },
@@ -268,7 +269,7 @@ export default async function SeoPage({ params }) {
                       color: 'var(--color-muted)',
                       margin: 0,
                     }}>
-                      {listing.suburb || listing.region}{listing.state ? `, ${listing.state}` : ''}
+                      {listing.suburb || getListingRegion(listing)?.name}{listing.state ? `, ${listing.state}` : ''}
                     </p>
 
                     {listing.editors_pick && (

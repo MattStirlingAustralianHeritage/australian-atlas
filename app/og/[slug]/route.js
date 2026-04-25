@@ -1,5 +1,6 @@
 import { ImageResponse } from 'next/og'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 
 export const runtime = 'nodejs'
 
@@ -40,7 +41,7 @@ export async function GET(request, { params }) {
   const sb = getSupabaseAdmin()
   const { data: listing, error } = await sb
     .from('listings')
-    .select('name, vertical, region, state, description')
+    .select(`name, vertical, region, state, description, ${LISTING_REGION_SELECT}`)
     .eq('slug', slug)
     .eq('status', 'active')
     .order('updated_at', { ascending: false })
@@ -60,7 +61,7 @@ export async function GET(request, { params }) {
 
   const verticalColor = VERTICAL_COLORS[listing.vertical] || '#5F8A7E'
   const verticalLabel = VERTICAL_LABELS[listing.vertical] || 'Place'
-  const location = [listing.region, listing.state].filter(Boolean).join(', ')
+  const location = [getListingRegion(listing)?.name, listing.state].filter(Boolean).join(', ')
   const snippet = listing.description
     ? listing.description.slice(0, 100) + (listing.description.length > 100 ? '...' : '')
     : ''

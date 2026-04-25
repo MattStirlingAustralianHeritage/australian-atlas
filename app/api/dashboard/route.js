@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { verifySharedToken } from '@/lib/shared-auth'
+import { LISTING_REGION_SELECT } from '@/lib/regions'
 
 /**
  * GET /api/dashboard — Fetch dashboard data for a vendor's claimed listings.
@@ -43,7 +44,7 @@ export async function GET(request) {
       // Fetch a specific listing
       const { data, error } = await sb
         .from('listings')
-        .select('id, name, slug, vertical, region, state, lat, lng, website, phone, address, hero_image_url, is_claimed, is_featured, status, description, hours, created_at, updated_at')
+        .select(`id, name, slug, vertical, region, state, lat, lng, website, phone, address, hero_image_url, is_claimed, is_featured, status, description, hours, created_at, updated_at, ${LISTING_REGION_SELECT}`)
         .eq('id', listingId)
         .eq('is_claimed', true)
         .single()
@@ -67,7 +68,7 @@ export async function GET(request) {
       // TODO: Once vendor_user_id is added to listings, filter by that directly
       const { data, error } = await sb
         .from('listings')
-        .select('id, name, slug, vertical, region, state, lat, lng, website, phone, address, hero_image_url, is_claimed, is_featured, status, description, hours, created_at, updated_at')
+        .select(`id, name, slug, vertical, region, state, lat, lng, website, phone, address, hero_image_url, is_claimed, is_featured, status, description, hours, created_at, updated_at, ${LISTING_REGION_SELECT}`)
         .eq('is_claimed', true)
         .in('vertical', activeVerticals)
         .order('name')
