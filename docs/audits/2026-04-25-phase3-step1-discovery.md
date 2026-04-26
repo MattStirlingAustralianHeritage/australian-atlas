@@ -1,5 +1,40 @@
 # Phase 3 Step 1 — Read-site Discovery for `listings.region`
 
+> **Batch 7 status (2026-04-26):** ✅ landed. **Phase 3 step 1 closed.**
+>
+> `lib/sync/updateRegionCounts.js` rewritten to use FK-based count semantics. The 30-line `REGION_ALIASES` map and the two `ilike('region', '%text%')` queries are gone. Single SELECT per region: `count(*) FROM listings WHERE status='active' AND (region_computed_id = $id OR region_override_id = $id)`. Function signature unchanged; the cron-route caller (`app/api/cron/sync/route.js`) is untouched.
+>
+> **Pre-flight delta report:** [docs/audits/2026-04-26-batch7-count-delta.md](2026-04-26-batch7-count-delta.md).
+> - 53 live regions scanned via OLD (legacy ilike+alias) vs NEW (FK) semantics.
+> - Live OLD total: 2,142. Live NEW total: 5,593 ≈ Phase 2 backfill matched (5,580) + a handful of override-id matches.
+> - 46 of 53 live regions breached the ±50% halt threshold. Matt reviewed the per-region table, confirmed the deltas reflect the architectural shift (text-substring → FK precision) rather than a bug, and overrode the halt.
+> - Biggest gainers: `perth` 119→407, `launceston-tamar-valley` 17→190, `adelaide` 210→369, `sydney` 236→388, `hobart` 17→166. Net losers: `bellarine-peninsula` 26→11 (Geelong-edge listings re-resolved correctly), `orange` 51→42 (sub-threshold).
+> - Drafts (13): all go to 0 under FK because draft regions lack polygons. Expected.
+>
+> **Apply:** ran `updateRegionCounts()` once against the live master DB after the file edit. 66 regions updated in 45.8s. Spot-check confirmed: `perth` listing_count=407, `ballarat`=115, `orange`=42 — all match the expected FK count exactly.
+>
+> **Pre-flight script committed:** [scripts/diff-region-counts.mjs](australian-atlas/scripts/diff-region-counts.mjs) — read-only, idempotent. Re-runnable to compare current state against the historical legacy logic if a future audit ever wants to.
+>
+> **Out of scope (confirmed not modified):**
+> - `lib/sync/syncEmbeddings.js` — separate controlled run, deferred per task spec.
+> - Any write-side surfaces — Phase 3 step 2 territory.
+> - The legacy `listings.region` text column itself — Phase 3 step 3 drops it.
+>
+> Build compiles clean (file syntax-checked; runtime apply succeeded end-to-end).
+>
+> **Pending for follow-up phases:**
+> - Phase 3 step 2: write-surface migration (ListingEditor / InlineListingEditor / updateListing.js / vertical sync write paths / the three skipped admin API routes with write coupling).
+> - `lib/sync/syncEmbeddings.js` — separate controlled run.
+> - Phase 3 step 3: drop the `listings.region` column entirely.
+>
+> **Matt's verification: pending.** Suggested checks:
+> - `/regions` index — listing-count pills now reflect FK-based counts. Expect substantial increases on most regions vs prior values (Perth, Sydney, Melbourne, Adelaide, Launceston, Hobart, Cairns all roughly double or more).
+> - Spot 1-2 region detail pages (`/regions/perth`, `/regions/ballarat`, `/regions/orange`) and confirm the listings rendered match the count.
+> - Trigger the cron sync once (`/api/cron/sync`) and confirm region counts persist on a fresh run.
+> - Verify no obviously-broken counts (e.g. nothing unexpectedly 0, no negative deltas you didn't already accept above).
+
+---
+
 > **Batch 6 status (2026-04-26, after midnight):** ✅ landed.
 >
 > Admin UI migration. Twenty-five files touched across admin pages and admin API routes. Pure read-shape migration — no new feature work, no write-surface changes.
