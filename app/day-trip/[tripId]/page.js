@@ -35,9 +35,9 @@ const getTrip = cache(async function getTrip(tripId) {
   const trailIds = trails.map(t => t.id)
   const { data: allStops } = await sb
     .from('trail_stops')
-    .select('id, trail_id, listing_id, vertical, venue_name, venue_lat, venue_lng, venue_image_url, order_index, notes, distance_from_base_km, bearing_from_base_deg, listings(slug)')
+    .select('id, trail_id, listing_id, vertical, venue_name, venue_lat, venue_lng, venue_image_url, position, editorial_copy, distance_from_base_km, bearing_from_base_deg, listings(slug)')
     .in('trail_id', trailIds)
-    .order('order_index', { ascending: true })
+    .order('position', { ascending: true })
 
   // Group stops by trail_id
   const stopsByTrail = {}
@@ -61,7 +61,7 @@ const getTrip = cache(async function getTrip(tripId) {
       lng: stop.venue_lng,
       vertical: stop.vertical,
       hero_image_url: stop.venue_image_url,
-      description_snippet: stop.notes,
+      description_snippet: stop.editorial_copy,
       distance_from_base_km: stop.distance_from_base_km || 0,
       bearing_from_base_deg: stop.bearing_from_base_deg || 0,
     })),

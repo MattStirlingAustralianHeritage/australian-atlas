@@ -902,8 +902,8 @@ function SaveTrailButton({ itinerary, query, augmentedStops, flush }) {
         venue_lat: stop.lat,
         venue_lng: stop.lng,
         venue_image_url: stop.hero_image_url || null,
-        order_index: i,
-        notes: stop.note || null,
+        position: i,
+        editorial_copy: stop.note || null,
         included_in_route: stop._included !== false,
       }))
 
@@ -965,8 +965,8 @@ function ShareButton({ itinerary, augmentedStops, flush }) {
         venue_lat: stop.lat,
         venue_lng: stop.lng,
         venue_image_url: stop.hero_image_url || null,
-        order_index: i,
-        notes: stop.note || null,
+        position: i,
+        editorial_copy: stop.note || null,
         included_in_route: stop._included !== false,
       }))
 

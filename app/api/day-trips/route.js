@@ -455,7 +455,7 @@ export async function POST(request) {
         distance_from_base_km: s.distance_km,
         bearing_from_base_deg: Math.round(s.bearing),
         hero_image_url: s.hero_image_url || null,
-        order_index: i,
+        position: i,
       })),
     })
   }

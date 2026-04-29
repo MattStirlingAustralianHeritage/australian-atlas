@@ -20,7 +20,7 @@ const getTrail = cache(async function getTrail(slug) {
   const sb = getSupabaseAdmin()
   const { data } = await sb
     .from('trails')
-    .select('id, title, description, short_code, slug, type, visibility, hero_intro, cover_image_url, region, duration, curator_name, curator_note, vertical_focus, best_season, published, transport_mode, neighbourhood_label, getting_there_origin')
+    .select('id, title, description, short_code, slug, type, visibility, hero_intro, hero_image_url, region, duration_hours, curator_name, curator_note, vertical_focus, best_season, published, transport_mode, neighbourhood_label, getting_there_origin')
     .eq('slug', slug)
     .eq('published', true)
     .single()
@@ -60,7 +60,7 @@ export default async function TrailPage({ params }) {
     .from('trail_stops')
     .select('*, listings(slug)')
     .eq('trail_id', trail.id)
-    .order('order_index', { ascending: true })
+    .order('position', { ascending: true })
 
   const validStops = (stops || []).filter(s => s.venue_lat && s.venue_lng)
 
@@ -285,9 +285,9 @@ function StopCard({ stop, index, isLast }) {
               </span>
             )}
           </div>
-          {stop.notes && (
+          {stop.editorial_copy && (
             <p style={{ fontSize: 13, color: 'var(--color-muted)', lineHeight: 1.65, fontFamily: 'var(--font-body)', borderTop: '1px solid var(--color-border)', paddingTop: 12, marginTop: 10 }}>
-              {stop.notes}
+              {stop.editorial_copy}
             </p>
           )}
           {venueUrl && (

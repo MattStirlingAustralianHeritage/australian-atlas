@@ -153,8 +153,8 @@ export async function POST(request) {
         venue_lat: stop.venue_lat,
         venue_lng: stop.venue_lng,
         venue_image_url: stop.venue_image_url || null,
-        order_index: stop.order_index ?? i,
-        notes: stop.notes || null,
+        position: stop.position ?? stop.order_index ?? i,
+        editorial_copy: stop.editorial_copy ?? stop.notes ?? null,
         included_in_route: stop.included_in_route !== false,
       }))
 

@@ -397,8 +397,8 @@ function TrailBuilderInner() {
             venue_name: s.name,
             venue_lat: s.latitude ? parseFloat(s.latitude) : null,
             venue_lng: s.longitude ? parseFloat(s.longitude) : null,
-            order_index: i,
-            notes: stopNotes[s.id] || '',
+            position: i,
+            editorial_copy: stopNotes[s.id] || '',
           })),
         }),
       })

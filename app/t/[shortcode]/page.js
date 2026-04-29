@@ -36,7 +36,7 @@ export default async function SharedTrailPage({ params }) {
 
   const { data: trail } = await sb
     .from('trails')
-    .select('id, title, slug, short_code, description, type, region, cover_image_url, hero_intro, curator_name, duration, best_season, transport_mode, neighbourhood_label, getting_there_origin')
+    .select('id, title, slug, short_code, description, type, region, hero_image_url, hero_intro, curator_name, duration_hours, best_season, transport_mode, neighbourhood_label, getting_there_origin')
     .eq('short_code', shortcode)
     .in('visibility', ['link', 'public'])
     .single()
@@ -45,9 +45,9 @@ export default async function SharedTrailPage({ params }) {
 
   const { data: stops } = await sb
     .from('trail_stops')
-    .select('id, trail_id, listing_id, vertical, venue_name, venue_lat, venue_lng, venue_image_url, order_index, day, notes, listings(slug)')
+    .select('id, trail_id, listing_id, vertical, venue_name, venue_lat, venue_lng, venue_image_url, position, day_number, editorial_copy, listings(slug)')
     .eq('trail_id', trail.id)
-    .order('order_index', { ascending: true })
+    .order('position', { ascending: true })
 
   const validStops = (stops || []).filter(s => s.venue_lat && s.venue_lng)
 
@@ -58,9 +58,9 @@ export default async function SharedTrailPage({ params }) {
 
       {/* Hero */}
       <section style={{ background: '#1c1a17', padding: '64px 24px 48px', borderBottom: '1px solid rgba(255,255,255,0.08)', position: 'relative', overflow: 'hidden' }}>
-        {isEditorial && trail.cover_image_url && (
+        {isEditorial && trail.hero_image_url && (
           <div style={{ position: 'absolute', inset: 0 }}>
-            <img src={trail.cover_image_url} alt={trail.title} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.3 }} />
+            <img src={trail.hero_image_url} alt={trail.title} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.3 }} />
           </div>
         )}
         <div className="max-w-6xl mx-auto" style={{ position: 'relative' }}>
@@ -169,9 +169,9 @@ export default async function SharedTrailPage({ params }) {
                           </span>
                         )}
                       </div>
-                      {stop.notes && (
+                      {stop.editorial_copy && (
                         <p style={{ fontSize: 13, color: 'var(--color-muted)', lineHeight: 1.65, fontFamily: 'var(--font-body)', marginTop: 8, borderTop: '1px solid var(--color-border)', paddingTop: 10 }}>
-                          {stop.notes}
+                          {stop.editorial_copy}
                         </p>
                       )}
                       {venueUrl && (

@@ -168,7 +168,7 @@ export default function AdminTrailsPage() {
     setLoading(true)
     const { data } = await supabase
       .from('trails')
-      .select('id, title, slug, description, hero_intro, cover_image_url, region, vertical_focus, duration_hours, best_season, curator_name, curator_note, published, type, stop_count, trail_stops(count)')
+      .select('id, title, slug, description, hero_intro, hero_image_url, region, vertical_focus, duration_hours, best_season, curator_name, curator_note, published, type, stop_count, trail_stops(count)')
       .order('created_at', { ascending: false })
     setTrails(data || [])
     setLoading(false)
@@ -277,7 +277,7 @@ function TrailEditor({ trail, onBack }) {
     slug: trail?.slug || '',
     description: trail?.description || '',
     hero_intro: trail?.hero_intro || '',
-    cover_image_url: trail?.cover_image_url || '',
+    hero_image_url: trail?.hero_image_url || '',
     region: trail?.region || '',
     vertical_focus: trail?.vertical_focus || '',
     duration_hours: trail?.duration_hours || '',
@@ -301,9 +301,9 @@ function TrailEditor({ trail, onBack }) {
     if (!trail?.id) return
     supabase
       .from('trail_stops')
-      .select('id, trail_id, listing_id, vertical, venue_name, venue_lat, venue_lng, venue_image_url, order_index, notes')
+      .select('id, trail_id, listing_id, vertical, venue_name, venue_lat, venue_lng, venue_image_url, position, editorial_copy')
       .eq('trail_id', trail.id)
-      .order('order_index')
+      .order('position')
       .then(({ data }) => setStops(data || []))
   }, [trail?.id])
 
@@ -344,15 +344,15 @@ function TrailEditor({ trail, onBack }) {
       venue_lat: venue.latitude,
       venue_lng: venue.longitude,
       venue_image_url: venue.image_url,
-      order_index: stops.length,
-      notes: '',
+      position: stops.length,
+      editorial_copy: '',
     }])
     setVenueSearch('')
     setSearchResults([])
   }
 
   function removeStop(index) {
-    setStops(s => s.filter((_, i) => i !== index).map((st, i) => ({ ...st, order_index: i })))
+    setStops(s => s.filter((_, i) => i !== index).map((st, i) => ({ ...st, position: i })))
   }
 
   function moveStop(index, direction) {
@@ -360,11 +360,11 @@ function TrailEditor({ trail, onBack }) {
     if (swapIndex < 0 || swapIndex >= stops.length) return
     const newStops = [...stops]
     ;[newStops[index], newStops[swapIndex]] = [newStops[swapIndex], newStops[index]]
-    setStops(newStops.map((s, i) => ({ ...s, order_index: i })))
+    setStops(newStops.map((s, i) => ({ ...s, position: i })))
   }
 
-  function updateStopNote(index, notes) {
-    setStops(s => s.map((st, i) => i === index ? { ...st, notes } : st))
+  function updateStopNote(index, editorial_copy) {
+    setStops(s => s.map((st, i) => i === index ? { ...st, editorial_copy } : st))
   }
 
   async function handleSave() {
@@ -378,7 +378,7 @@ function TrailEditor({ trail, onBack }) {
         slug: form.slug.trim(),
         description: form.description || null,
         hero_intro: form.hero_intro || null,
-        cover_image_url: form.cover_image_url || null,
+        hero_image_url: form.hero_image_url || null,
         region: form.region || null,
         vertical_focus: form.vertical_focus || null,
         duration_hours: form.duration_hours || null,
@@ -420,8 +420,8 @@ function TrailEditor({ trail, onBack }) {
           venue_lat: s.venue_lat,
           venue_lng: s.venue_lng,
           venue_image_url: s.venue_image_url || null,
-          order_index: i,
-          notes: s.notes || null,
+          position: i,
+          editorial_copy: s.editorial_copy || null,
         }))
         const { error } = await supabase.from('trail_stops').insert(stopRows)
         if (error) console.error('Stops save error:', error)
@@ -497,13 +497,13 @@ function TrailEditor({ trail, onBack }) {
             <label style={styles.label}>Cover Image URL</label>
             <input
               style={styles.input}
-              value={form.cover_image_url}
-              onChange={e => set('cover_image_url', e.target.value)}
+              value={form.hero_image_url}
+              onChange={e => set('hero_image_url', e.target.value)}
               placeholder="https://example.com/image.jpg"
             />
-            {form.cover_image_url && (
+            {form.hero_image_url && (
               <img
-                src={form.cover_image_url}
+                src={form.hero_image_url}
                 alt="Cover preview"
                 style={{ marginTop: '0.5rem', borderRadius: '8px', maxHeight: '160px', objectFit: 'cover', width: '100%' }}
               />
@@ -705,8 +705,8 @@ function TrailEditor({ trail, onBack }) {
 //  Stop row component
 // ════════════════════════════════════════════════════════════════════
 function StopRow({ stop, index, total, onMoveUp, onMoveDown, onRemove, onNoteChange }) {
-  const [noteOpen, setNoteOpen] = useState(!!stop.notes)
-  const [note, setNote] = useState(stop.notes || '')
+  const [noteOpen, setNoteOpen] = useState(!!stop.editorial_copy)
+  const [note, setNote] = useState(stop.editorial_copy || '')
 
   return (
     <div style={{

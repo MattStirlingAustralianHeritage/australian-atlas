@@ -31,7 +31,7 @@ export default async function TrailsPage() {
   const [{ data: editorialTrails }, { data: communityTrails }] = await Promise.all([
     sb
       .from('trails')
-      .select('id, title, slug, description, cover_image_url, curator_name, region, vertical_focus, stop_count')
+      .select('id, title, slug, description, hero_image_url, curator_name, region, vertical_focus, stop_count')
       .eq('type', 'editorial')
       .eq('published', true)
       .order('created_at', { ascending: false }),
