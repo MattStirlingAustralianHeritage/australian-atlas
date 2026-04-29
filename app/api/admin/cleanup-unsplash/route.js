@@ -68,15 +68,15 @@ export async function POST(request) {
     try {
       const { data: trailRows } = await sb
         .from('trails')
-        .select('id, title, cover_image_url')
-        .like('cover_image_url', '%unsplash.com%')
+        .select('id, title, hero_image_url')
+        .like('hero_image_url', '%unsplash.com%')
 
       results.trails = { found: trailRows?.length || 0, cleaned: 0 }
 
       if (trailRows?.length > 0 && !dryRun) {
         const ids = trailRows.map(r => r.id)
         for (let i = 0; i < ids.length; i += 100) {
-          await sb.from('trails').update({ cover_image_url: null }).in('id', ids.slice(i, i + 100))
+          await sb.from('trails').update({ hero_image_url: null }).in('id', ids.slice(i, i + 100))
         }
         results.trails.cleaned = trailRows.length
       }

@@ -17,7 +17,7 @@ export async function GET(request, { params }) {
 
     let query = sb
       .from('trails')
-      .select('id, title, slug, short_code, description, type, visibility, region, vertical_focus, stop_count, published, created_by, created_at, updated_at, cover_image_url, hero_intro, curator_name, curator_note, duration, best_season, transport_mode, neighbourhood_label, getting_there_origin')
+      .select('id, title, slug, short_code, description, type, visibility, region, vertical_focus, stop_count, published, created_by, created_at, updated_at, hero_image_url, hero_intro, curator_name, curator_note, duration_hours, best_season, transport_mode, neighbourhood_label, getting_there_origin')
 
     if (isUuid) {
       query = query.eq('id', id)
@@ -34,9 +34,9 @@ export async function GET(request, { params }) {
     // Fetch stops ordered by order_index
     const { data: stops, error: stopsError } = await sb
       .from('trail_stops')
-      .select('id, trail_id, listing_id, vertical, venue_name, venue_lat, venue_lng, venue_image_url, order_index, notes, included_in_route')
+      .select('id, trail_id, listing_id, vertical, venue_name, venue_lat, venue_lng, venue_image_url, position, editorial_copy, included_in_route')
       .eq('trail_id', trail.id)
-      .order('order_index', { ascending: true })
+      .order('position', { ascending: true })
 
     if (stopsError) {
       console.error('[trails/id] Stops fetch error:', stopsError.message)
@@ -142,7 +142,7 @@ export async function PUT(request, { params }) {
       .from('trails')
       .update(updates)
       .eq('id', id)
-      .select('id, title, slug, short_code, description, type, visibility, region, vertical_focus, stop_count, published, created_by, created_at, updated_at, cover_image_url, hero_intro, curator_name, curator_note, duration, best_season, transport_mode, neighbourhood_label, getting_there_origin')
+      .select('id, title, slug, short_code, description, type, visibility, region, vertical_focus, stop_count, published, created_by, created_at, updated_at, hero_image_url, hero_intro, curator_name, curator_note, duration_hours, best_season, transport_mode, neighbourhood_label, getting_there_origin')
       .single()
 
     if (updateError) {
@@ -172,8 +172,8 @@ export async function PUT(request, { params }) {
           venue_lat: stop.venue_lat,
           venue_lng: stop.venue_lng,
           venue_image_url: stop.venue_image_url || null,
-          order_index: stop.order_index ?? i,
-          notes: stop.notes || null,
+          position: stop.position ?? stop.order_index ?? i,
+          editorial_copy: stop.editorial_copy ?? stop.notes ?? null,
           included_in_route: stop.included_in_route !== false,
         }))
 
@@ -190,9 +190,9 @@ export async function PUT(request, { params }) {
     // Fetch updated stops
     const { data: updatedStops } = await sb
       .from('trail_stops')
-      .select('id, trail_id, listing_id, vertical, venue_name, venue_lat, venue_lng, venue_image_url, order_index, notes, included_in_route')
+      .select('id, trail_id, listing_id, vertical, venue_name, venue_lat, venue_lng, venue_image_url, position, editorial_copy, included_in_route')
       .eq('trail_id', id)
-      .order('order_index', { ascending: true })
+      .order('position', { ascending: true })
 
     return NextResponse.json({ trail: { ...trail, stops: updatedStops || [] } })
   } catch (err) {

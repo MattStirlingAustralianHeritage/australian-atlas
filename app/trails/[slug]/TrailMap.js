@@ -108,12 +108,12 @@ const TrailMap = forwardRef(function TrailMap({ stops }, ref) {
   const routeCoordsRef = useRef([])
   const fullGeojsonRef = useRef(null)
 
-  // Sort stops: by day first, then by order_index within each day
+  // Sort stops: by day first, then by position within each day
   const sortedStops = [...stops].sort((a, b) => {
     const dayA = a.day || 1
     const dayB = b.day || 1
     if (dayA !== dayB) return dayA - dayB
-    return (a.order_index || 0) - (b.order_index || 0)
+    return (a.position || 0) - (b.position || 0)
   })
 
   const validSorted = sortedStops.filter(s => s.venue_lat && s.venue_lng)
