@@ -277,25 +277,42 @@ async function loadScoreWeights(slotType, vertical) {
 }
 
 async function loadListings(vertical) {
-  // Pull active listings for the vertical. Limit is high enough to cover
-  // any single vertical's full set; raise if a vertical exceeds it.
-  const { data, error } = await supabase
-    .from('listings')
-    .select(`
-      id, name, slug, vertical,
-      description, website,
-      region, state, suburb, lat, lng,
-      created_at, founded_year,
-      heritage_significance,
-      is_owner_operator, independence_confirmed, single_location, awards,
-      data_source, needs_review
-    `)
-    .eq('vertical', vertical)
-    .eq('status', 'active')
-    .neq('needs_review', true)
-    .limit(5000)
-  if (error) throw new Error(`listings load failed: ${error.message}`)
-  return data || []
+  // Pull all active listings for the vertical, paginating in 1000-row pages.
+  //
+  // PostgREST applies a server-side `db-max-rows=1000` cap on every response,
+  // which silently truncates `.limit(N)` when N > 1000. Verticals with more
+  // than 1000 listings (SBA: 2141, Craft: 2310 as of 2026-04-30) need
+  // explicit `.range()` pagination to retrieve the full set. We loop until
+  // a page comes back shorter than the page size, which signals the tail.
+  //
+  // Order is stabilised on `id` so pages can't shuffle and skip rows.
+  const PAGE_SIZE = 1000
+  const all = []
+  let offset = 0
+  while (true) {
+    const { data, error } = await supabase
+      .from('listings')
+      .select(`
+        id, name, slug, vertical,
+        description, website,
+        region, state, suburb, lat, lng,
+        created_at, founded_year,
+        heritage_significance,
+        is_owner_operator, independence_confirmed, single_location, awards,
+        data_source, needs_review
+      `)
+      .eq('vertical', vertical)
+      .eq('status', 'active')
+      .neq('needs_review', true)
+      .order('id', { ascending: true })
+      .range(offset, offset + PAGE_SIZE - 1)
+    if (error) throw new Error(`listings load failed (offset ${offset}): ${error.message}`)
+    if (!data || data.length === 0) break
+    all.push(...data)
+    if (data.length < PAGE_SIZE) break
+    offset += PAGE_SIZE
+  }
+  return all
 }
 
 // ── Hard disqualifiers ───────────────────────────────────────────────
