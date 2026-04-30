@@ -13,6 +13,7 @@ export default async function CandidatesPage() {
   let candidates = []
   let rejectedCandidates = []
   let queueDepth = {}
+  let regions = []
 
   try {
     // Fetch pending candidates — always use select('*') to avoid column-not-found
@@ -52,6 +53,19 @@ export default async function CandidatesPage() {
       .limit(50)
 
     if (rejected) rejectedCandidates = rejected
+
+    // Regions list for the new region dropdown on each candidate card.
+    // Includes both 'live' and 'draft' — reviewers may need to assign a
+    // listing to a region whose polygon hasn't been drawn yet (those
+    // 13 draft regions can't be auto-detected via spatial containment
+    // but can still be set manually as the override).
+    const { data: regionRows } = await sb
+      .from('regions')
+      .select('id, name, state, status')
+      .in('status', ['live', 'draft'])
+      .order('name', { ascending: true })
+
+    if (regionRows) regions = regionRows
   } catch (err) {
     console.error('[admin/candidates] Query error:', err.message)
   }
@@ -74,6 +88,7 @@ export default async function CandidatesPage() {
         initialRejected={rejectedCandidates}
         queueDepth={queueDepth}
         mapboxToken={mapboxToken}
+        regions={regions}
       />
     </div>
   )

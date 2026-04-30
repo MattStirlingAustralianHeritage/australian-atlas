@@ -523,7 +523,7 @@ const AUTO_ADVANCE_MS = 3000
 
 // ─── Candidate Preview (Full listing layout) ─────────────
 
-function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, onUpdate, focusDescRefs }) {
+function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, onUpdate, focusDescRefs, regions = [] }) {
   const [status, setStatus] = useState('idle')
   const [result, setResult] = useState(null)
   const [errorMsg, setErrorMsg] = useState(null)
@@ -548,6 +548,26 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
   const [visitable, setVisitable] = useState(true)
   const [presenceType, setPresenceType] = useState('permanent')
   const [offersClasses, setOffersClasses] = useState(false)
+
+  // ─── Editable address / suburb / region (regions overhaul, 2026-04-30) ───
+  // The address triggers geocoding on blur via /api/admin/candidates/[id]/geocode,
+  // which writes lat/lng to the candidate row and runs spatial-containment lookup
+  // against the regions polygon set. The reviewer can override the suggested
+  // region from the dropdown. On publish, region_override_id is what's written
+  // to listings — NOT the legacy region text column.
+  const [editAddress, setEditAddress] = useState(candidate.address || '')
+  const [editSuburb, setEditSuburb] = useState('')
+  const [editRegionId, setEditRegionId] = useState(null)
+  const [editLat, setEditLat] = useState(candidate.lat ?? null)
+  const [editLng, setEditLng] = useState(candidate.lng ?? null)
+  // geocodeStatus: 'idle' | 'pending' | 'auto_filled' | 'no_region' | 'failed' | 'manual'
+  //   - idle:        no geocode attempted yet this session
+  //   - pending:     POST in flight
+  //   - auto_filled: geocode succeeded AND spatial lookup matched a region
+  //   - no_region:   geocode succeeded BUT lat/lng falls outside any polygonised region
+  //   - failed:      Mapbox returned no result; reviewer keeps their inputs
+  //   - manual:      reviewer changed the dropdown after auto-fill
+  const [geocodeStatus, setGeocodeStatus] = useState('idle')
 
   const vertical = candidate.vertical || 'sba'
   const color = VERTICAL_COLORS[vertical] || '#5F8A7E'
@@ -598,6 +618,48 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
       setSubcategorySecondary('')
     }
   }, [subcategory, subcategorySecondary])
+
+  // Address blur → geocode → spatial region lookup → pre-fill region dropdown.
+  // No-op when address is empty or unchanged from the last successful geocode.
+  const lastGeocodedAddressRef = useRef(null)
+  const handleAddressBlur = useCallback(async () => {
+    const trimmed = (editAddress || '').trim()
+    if (!trimmed) return
+    if (trimmed === lastGeocodedAddressRef.current) return // already geocoded this exact value
+
+    setGeocodeStatus('pending')
+    try {
+      const res = await fetch(`/api/admin/candidates/${candidate.id}/geocode`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          address: trimmed,
+          suburb: (editSuburb || '').trim() || null,
+          state: candidate.state || null,
+        }),
+      })
+      if (!res.ok) {
+        setGeocodeStatus('failed')
+        return
+      }
+      const data = await res.json()
+      if (data.geocode_failed) {
+        setGeocodeStatus('failed')
+        return
+      }
+      lastGeocodedAddressRef.current = trimmed
+      setEditLat(data.lat)
+      setEditLng(data.lng)
+      if (data.suggested_region_id) {
+        setEditRegionId(data.suggested_region_id)
+        setGeocodeStatus('auto_filled')
+      } else {
+        setGeocodeStatus('no_region')
+      }
+    } catch {
+      setGeocodeStatus('failed')
+    }
+  }, [editAddress, editSuburb, candidate.id, candidate.state])
 
   const advanceNow = useCallback(() => {
     if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current)
@@ -658,6 +720,17 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
             description: candidate.description || undefined,
             website_url: candidate.website_url || undefined,
             region: candidate.region || undefined,
+            // New editable fields — written to listings.address / suburb /
+            // region_override_id / lat / lng. The legacy listings.region
+            // text column is intentionally NOT written by the publish handler;
+            // region resolution goes through region_override_id (set here)
+            // and region_computed_id (set by the spatial trigger on lat/lng).
+            address: (editAddress || '').trim() || undefined,
+            suburb: (editSuburb || '').trim() || undefined,
+            region_override_id: editRegionId || undefined,
+            lat: editLat ?? undefined,
+            lng: editLng ?? undefined,
+            state: candidate.state || undefined,
           },
         }),
       })
@@ -934,25 +1007,114 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
                   </span>
                 </div>
               )}
-              {/* Region + State — scannable at a glance */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ fontFamily: 'var(--font-display, Georgia)', fontStyle: 'italic', fontSize: 15, color: 'var(--color-muted)' }}>
-                  <EditableField
-                    value={candidate.region} field="region" candidateId={candidate.id}
-                    onSaved={onUpdate} placeholder="Region, State"
-                    style={{ fontFamily: 'inherit', fontStyle: 'inherit', fontSize: 'inherit', color: 'inherit' }}
-                  />
+              {/* Editable address / suburb / region — writes to
+                  listings.address, listings.suburb, listings.region_override_id
+                  on publish. Address blur triggers geocode + spatial region
+                  lookup; region dropdown auto-fills from the result. */}
+              <div style={{
+                marginTop: 8, padding: 12, borderRadius: 4,
+                background: 'var(--color-cream, #f8f5ef)', border: '1px solid var(--color-border)',
+                display: 'flex', flexDirection: 'column', gap: 8,
+              }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: 8 }}>
+                  <label style={{ display: 'block' }}>
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, letterSpacing: '0.12em',
+                      textTransform: 'uppercase', color: 'var(--color-muted)',
+                      fontFamily: 'var(--font-body)', display: 'block', marginBottom: 4,
+                    }}>Address</span>
+                    <input
+                      type="text"
+                      value={editAddress}
+                      onChange={e => setEditAddress(e.target.value)}
+                      onBlur={handleAddressBlur}
+                      placeholder="123 Main St"
+                      style={{
+                        width: '100%', padding: '8px 10px', fontSize: 13,
+                        fontFamily: 'var(--font-body)', color: 'var(--color-ink)',
+                        background: '#fff', border: '1px solid var(--color-border)', borderRadius: 3,
+                      }}
+                    />
+                  </label>
+                  <label style={{ display: 'block' }}>
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, letterSpacing: '0.12em',
+                      textTransform: 'uppercase', color: 'var(--color-muted)',
+                      fontFamily: 'var(--font-body)', display: 'block', marginBottom: 4,
+                    }}>Suburb</span>
+                    <input
+                      type="text"
+                      value={editSuburb}
+                      onChange={e => setEditSuburb(e.target.value)}
+                      placeholder="Suburb"
+                      style={{
+                        width: '100%', padding: '8px 10px', fontSize: 13,
+                        fontFamily: 'var(--font-body)', color: 'var(--color-ink)',
+                        background: '#fff', border: '1px solid var(--color-border)', borderRadius: 3,
+                      }}
+                    />
+                  </label>
                 </div>
-                {displayState && (
-                  <span style={{
-                    display: 'inline-block', padding: '2px 8px',
-                    background: 'var(--color-cream, #f8f5ef)', border: '1px solid var(--color-border)',
-                    borderRadius: 3, fontSize: 10, fontWeight: 700,
-                    letterSpacing: '0.1em', color: 'var(--color-ink)',
-                    fontFamily: 'var(--font-body)', flexShrink: 0,
-                  }}>
-                    {displayState}
-                  </span>
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+                  <label style={{ display: 'block', flex: 1 }}>
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, letterSpacing: '0.12em',
+                      textTransform: 'uppercase', color: 'var(--color-muted)',
+                      fontFamily: 'var(--font-body)', display: 'block', marginBottom: 4,
+                    }}>Region</span>
+                    <select
+                      value={editRegionId || ''}
+                      onChange={e => {
+                        setEditRegionId(e.target.value || null)
+                        setGeocodeStatus(prev => prev === 'auto_filled' ? 'manual' : prev)
+                      }}
+                      style={{
+                        width: '100%', padding: '8px 10px', fontSize: 13,
+                        fontFamily: 'var(--font-body)', color: 'var(--color-ink)',
+                        background: '#fff', border: '1px solid var(--color-border)', borderRadius: 3,
+                      }}
+                    >
+                      <option value="">Select region…</option>
+                      {regions.map(r => (
+                        <option key={r.id} value={r.id}>
+                          {r.name}{r.state ? ` (${r.state})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {displayState && (
+                    <span style={{
+                      display: 'inline-block', padding: '6px 8px', alignSelf: 'flex-end',
+                      background: '#fff', border: '1px solid var(--color-border)',
+                      borderRadius: 3, fontSize: 10, fontWeight: 700,
+                      letterSpacing: '0.1em', color: 'var(--color-ink)',
+                      fontFamily: 'var(--font-body)', flexShrink: 0,
+                      marginBottom: 0,
+                    }}>
+                      {displayState}
+                    </span>
+                  )}
+                </div>
+                {/* Status flags — surface non-success geocode states inline */}
+                {geocodeStatus === 'pending' && (
+                  <div style={{ fontSize: 11, color: 'var(--color-muted)', fontFamily: 'var(--font-body)' }}>
+                    Geocoding…
+                  </div>
+                )}
+                {geocodeStatus === 'failed' && (
+                  <div style={{ fontSize: 11, color: '#a73838', fontFamily: 'var(--font-body)' }}>
+                    Geocoding failed — Mapbox returned no result. Address and region kept as entered.
+                  </div>
+                )}
+                {geocodeStatus === 'no_region' && (
+                  <div style={{ fontSize: 11, color: '#7A5520', fontFamily: 'var(--font-body)' }}>
+                    Region not auto-detected — please select manually.
+                  </div>
+                )}
+                {geocodeStatus === 'auto_filled' && (
+                  <div style={{ fontSize: 11, color: 'var(--color-muted)', fontFamily: 'var(--font-body)' }}>
+                    Region auto-detected from address. Override above if incorrect.
+                  </div>
                 )}
               </div>
             </div>
@@ -1740,7 +1902,7 @@ function GenerateButton({ onGenerated }) {
 
 // ─── Queue Container ──────────────────────────────────────
 
-export default function CandidateReviewQueue({ initialCandidates = [], initialRejected = [], queueDepth = {}, mapboxToken }) {
+export default function CandidateReviewQueue({ initialCandidates = [], initialRejected = [], queueDepth = {}, mapboxToken, regions = [] }) {
   const [candidates, setCandidates] = useState(initialCandidates)
   const [approved, setApproved] = useState(0)
   const [rejected, setRejected] = useState(0)
@@ -1944,6 +2106,7 @@ export default function CandidateReviewQueue({ initialCandidates = [], initialRe
                   candidate={filteredCandidates[0]} isFocused={true} index={0}
                   onApprove={handleApprove} onReject={handleReject} onUpdate={handleUpdate}
                   focusDescRefs={focusDescRefs}
+                  regions={regions}
                 />
               </div>
               {filteredCandidates.length > 1 && (

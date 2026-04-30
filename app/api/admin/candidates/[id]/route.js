@@ -421,13 +421,22 @@ export async function POST(request, { params }) {
       // 5. Build the full data object — reviewer > candidate > enriched
       const effectiveCategory = subcategory || enriched.category || null
 
+      // Reviewer-supplied form fields take priority. The candidate row holds
+      // whatever the geocode-on-blur endpoint auto-saved (address, lat, lng,
+      // state); enriched data is the next fallback when the reviewer left a
+      // field blank.
+      const formAddress = (ro.address || '').trim() || candidate.address || null
+      const formSuburb = (ro.suburb || '').trim() || enriched.suburb || null
+      const formState = (ro.state || '').trim() || candidate.state || enriched.state || null
+      const formLat = ro.lat ?? candidate.lat ?? coords?.lat ?? null
+      const formLng = ro.lng ?? candidate.lng ?? coords?.lng ?? null
+      const regionOverrideId = ro.region_override_id || null
+
       // Compose display address: street, suburb, state postcode
-      // enriched.address is typically street-only (e.g. "68 Nettleton Rd")
-      // Combine with suburb/state/postcode for full display format
-      let displayAddress = enriched.address || null
-      if (displayAddress && (enriched.suburb || enriched.state)) {
+      let displayAddress = formAddress
+      if (displayAddress && (formSuburb || formState)) {
         const parts = [displayAddress]
-        const localityParts = [enriched.suburb, [enriched.state, enriched.postcode].filter(Boolean).join(' ')].filter(Boolean)
+        const localityParts = [formSuburb, [formState, enriched.postcode].filter(Boolean).join(' ')].filter(Boolean)
         if (localityParts.length > 0) parts.push(localityParts.join(' '))
         displayAddress = parts.join(', ')
       }
@@ -436,15 +445,22 @@ export async function POST(request, { params }) {
         name: ro.name || candidate.name,
         slug,
         description,
-        region: ro.region || candidate.region || enriched.suburb || null,
-        state: enriched.state || null,
-        lat: coords?.lat || null,
-        lng: coords?.lng || null,
+        // Legacy region text — no longer the source of truth for region
+        // resolution. Kept on this object for vertical-DB pushes (verticals
+        // still expect a region text field) but NOT written to listings by
+        // this handler. listings.region resolution goes through
+        // region_override_id (here) → region_computed_id (set by the
+        // listings_region_computed_trigger when lat/lng land).
+        region: ro.region || candidate.region || formSuburb || null,
+        region_override_id: regionOverrideId,
+        state: formState,
+        lat: formLat,
+        lng: formLng,
         website: normaliseUrl(ro.website_url || candidate.website_url) || null,
         phone: enriched.phone || null,
         address: displayAddress,
         email: enriched.email || null,
-        suburb: enriched.suburb || ro.region || candidate.region || null,
+        suburb: formSuburb,
         postcode: enriched.postcode || null,
         opening_hours: enriched.opening_hours || null,
         instagram_handle: enriched.instagram_handle || null,
@@ -486,13 +502,20 @@ export async function POST(request, { params }) {
         name: fullData.name,
         slug,
         description,
-        region: fullData.region,
+        // Legacy listings.region (text) intentionally NOT written by this
+        // tool. Region resolution goes through region_override_id (set
+        // here from the reviewer's dropdown) and region_computed_id (set
+        // automatically by listings_region_computed_trigger when lat/lng
+        // is written). Per the regions overhaul, the legacy text column
+        // is being deprecated.
+        region_override_id: fullData.region_override_id,
         state: fullData.state,
         lat: fullData.lat,
         lng: fullData.lng,
         website: fullData.website,
         phone: fullData.phone,
         address: fullData.address,
+        suburb: fullData.suburb,
         hero_image_url: null, // Default hero — owner uploads on claim
         sub_type: fullData.category || null,
         sub_type_secondary: effectiveSecondary,
@@ -541,19 +564,22 @@ export async function POST(request, { params }) {
         const { data: currentListing } = await sb.from('listings').select('source_id').eq('id', listingId).single()
         const effectiveSourceId = verticalRowId || (currentListing?.source_id && !String(currentListing.source_id).startsWith('candidate-') ? currentListing.source_id : sourceId)
 
-        // Update all fields — include slug and name in case they changed since the first attempt
+        // Update all fields — include slug and name in case they changed since the first attempt.
+        // Legacy listings.region (text) intentionally NOT written here — same
+        // rationale as the insert path above. region_override_id replaces it.
         const updatePayload = {
           source_id: effectiveSourceId,
           name: fullData.name,
           slug,
           description,
-          region: fullData.region,
+          region_override_id: fullData.region_override_id,
           state: fullData.state,
           lat: fullData.lat,
           lng: fullData.lng,
           website: fullData.website,
           phone: fullData.phone,
           address: fullData.address,
+          suburb: fullData.suburb,
           sub_type: fullData.category || null,
           sub_type_secondary: effectiveSecondary,
           sub_types: subTypes,
@@ -632,13 +658,29 @@ export async function POST(request, { params }) {
       const verticalName = VERTICAL_DISPLAY_NAMES[vertical] || vertical
       const listingUrl = getVerticalListingUrl(vertical, slug, fullData.category)
 
+      // Resolve the display region name from the override id (or null when
+      // the reviewer didn't pick / wasn't auto-suggested). The trigger may
+      // have populated region_computed_id from lat/lng; the consuming
+      // frontend treats `region` as a display label and falls back to
+      // candidate.region when null, so we prefer the override name first.
+      let displayRegionName = null
+      if (fullData.region_override_id) {
+        const { data: regionRow } = await sb
+          .from('regions')
+          .select('name')
+          .eq('id', fullData.region_override_id)
+          .maybeSingle()
+        displayRegionName = regionRow?.name || null
+      }
+
       return NextResponse.json({
         success: true,
         action: 'approved',
         listing: {
           id: listingId,
           name: fullData.name,
-          region: fullData.region,
+          region: displayRegionName,
+          region_override_id: fullData.region_override_id,
           vertical,
           verticalName,
           slug,
