@@ -136,6 +136,7 @@ Each vertical has its own Supabase project. See `VERTICAL_CONFIG` for table name
 - **Pages**: `/trails` (discovery index), `/trails/[slug]` (detail), `/trails/builder` (builder UI), `/t/[shortcode]` (share)
 - **API**: `/api/trails` (CRUD), `/api/trails/[id]` (single), `/api/trails/search` (cross-vertical venue search)
 - **Admin**: `/admin/trails` (editorial trail management)
+- **Editorial voice**: Monocle-adjacent, place-grounded, anti-chain, non-promotional. Editorial defaults: 7–9 stops, 1–3 days (hard cap 7), max 2 stops from the same vertical per day. Full standard in `docs/editorial-brief-trails.md`.
 - **Scripts**: `seed-editorial-trails.mjs` (seeds example editorial trails with real venue data)
 
 ## Admin Auth
