@@ -644,6 +644,7 @@ export async function POST(request, { params }) {
             syncAction: 'update',
             verticalSuccess: updateSuccess,
             errorMessage: updateErrorMessage,
+            category: fullData.category,
           })
         }
       } else {
@@ -691,6 +692,7 @@ export async function POST(request, { params }) {
           syncAction: 'insert',
           verticalSuccess: !!verticalRowId,
           errorMessage: verticalRowId ? null : pushResult?.error,
+          category: fullData.category,
         })
       }
 
