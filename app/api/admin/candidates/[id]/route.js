@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
-import { pushToVerticalWithRetry, updateInVertical, getVerticalListingUrl, VERTICAL_DISPLAY_NAMES, VERTICAL_CATEGORIES } from '@/lib/sync/pushToVertical'
+import { pushToVerticalWithRetry, updateInVertical, getVerticalListingUrl, VERTICAL_DISPLAY_NAMES, VERTICAL_CATEGORIES, recordSyncAndRevalidate } from '@/lib/sync/pushToVertical'
+import { resolveRegionName } from '@/lib/regions'
 // Hero image scraping removed — all new listings use the default fallback hero.
 // Venue owners upload their own hero image when they claim the listing.
 
@@ -432,6 +433,28 @@ export async function POST(request, { params }) {
       const formLng = ro.lng ?? candidate.lng ?? coords?.lng ?? null
       const regionOverrideId = ro.region_override_id || null
 
+      // Resolve region NAME for downstream vertical sync via the same
+      // override → computed → legacy chain that ongoing syncs use.
+      // Listings doesn't exist yet at this point (insert path) so we
+      // construct a pseudo-listing with the override name looked up
+      // from regions, no computed (no lat/lng-driven trigger has fired
+      // yet either), and the candidate's legacy region text as the
+      // last fallback.
+      let overrideRegionName = null
+      if (regionOverrideId) {
+        const { data: regionRow } = await sb
+          .from('regions')
+          .select('name')
+          .eq('id', regionOverrideId)
+          .maybeSingle()
+        overrideRegionName = regionRow?.name || null
+      }
+      const regionResolution = resolveRegionName({
+        region_override: overrideRegionName ? { name: overrideRegionName } : null,
+        region_computed: null,
+        region: candidate.region || null,
+      })
+
       // Compose display address: street, suburb, state postcode
       let displayAddress = formAddress
       if (displayAddress && (formSuburb || formState)) {
@@ -445,13 +468,13 @@ export async function POST(request, { params }) {
         name: ro.name || candidate.name,
         slug,
         description,
-        // Legacy region text — no longer the source of truth for region
-        // resolution. Kept on this object for vertical-DB pushes (verticals
-        // still expect a region text field) but NOT written to listings by
-        // this handler. listings.region resolution goes through
-        // region_override_id (here) → region_computed_id (set by the
-        // listings_region_computed_trigger when lat/lng land).
-        region: ro.region || candidate.region || formSuburb || null,
+        // Legacy region text — fed to vertical-DB pushes, which still expect
+        // a region text field, but NOT written to listings.region by this
+        // handler. The text comes from resolveRegionName()'s resolution
+        // chain (override-name → legacy candidate.region) so verticals
+        // receive the editorial-correct region rather than whatever the
+        // raw candidate row carried.
+        region: regionResolution.name,
         region_override_id: regionOverrideId,
         state: formState,
         lat: formLat,
@@ -597,16 +620,31 @@ export async function POST(request, { params }) {
 
         // Sync to vertical — use the effective source_id for the update
         if (effectiveSourceId && !String(effectiveSourceId).startsWith('candidate-')) {
+          let updateSuccess = false
+          let updateErrorMessage = null
           try {
             const syncResult = await updateInVertical(vertical, effectiveSourceId, fullData)
             if (syncResult.success) {
               console.log(`[approve] Synced retry update to ${vertical} vertical (source_id: ${effectiveSourceId})`)
+              updateSuccess = true
             } else {
               console.warn(`[approve] Vertical sync failed on retry:`, syncResult.error)
+              updateErrorMessage = syncResult.error
             }
           } catch (syncErr) {
             console.warn(`[approve] Vertical sync error on retry:`, syncErr.message)
+            updateErrorMessage = syncErr.message
           }
+          await recordSyncAndRevalidate({
+            listingId,
+            vertical,
+            slug,
+            sourceId: effectiveSourceId,
+            regionResolution,
+            syncAction: 'update',
+            verticalSuccess: updateSuccess,
+            errorMessage: updateErrorMessage,
+          })
         }
       } else {
         const { data: listing, error: insertError } = await sb
@@ -640,6 +678,20 @@ export async function POST(request, { params }) {
           throw insertError
         }
         listingId = listing.id
+
+        // Log the insert-path sync + trigger vertical cache revalidation.
+        // pushToVerticalWithRetry happened earlier (before the listings
+        // insert) — we log against the new listing's id now that we have it.
+        await recordSyncAndRevalidate({
+          listingId,
+          vertical,
+          slug,
+          sourceId: verticalRowId,
+          regionResolution,
+          syncAction: 'insert',
+          verticalSuccess: !!verticalRowId,
+          errorMessage: verticalRowId ? null : pushResult?.error,
+        })
       }
 
       // 8. Mark candidate as converted
