@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import EditorialPitches from '@/components/admin/EditorialPitches'
 
 const VERTICAL_NAMES = {
   sba: 'Small Batch',
@@ -109,9 +108,6 @@ export default function AdminPage() {
         <DataQualityZone />
         <OperationsZone />
       </div>
-
-      {/* ── Editorial Pitches ───────────────────────────────── */}
-      <EditorialPitches />
     </div>
   )
 }
