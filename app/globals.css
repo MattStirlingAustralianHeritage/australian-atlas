@@ -18,10 +18,6 @@
 }
 
 /* Base */
-html {
-  overflow-x: hidden;
-}
-
 body {
   font-family: var(--font-body);
   font-size: 16px;
@@ -29,7 +25,11 @@ body {
   background: var(--color-bg);
   color: var(--color-ink);
   -webkit-font-smoothing: antialiased;
+  /* `clip` clips visually like `hidden` but doesn't create a scroll container,
+     so descendants can still use position: sticky. The `hidden` line is a
+     fallback for browsers that don't support `clip` (pre-Safari 16). */
   overflow-x: hidden;
+  overflow-x: clip;
 }
 
 h1, h2, h3, h4, h5, h6 {
