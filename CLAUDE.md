@@ -90,6 +90,24 @@ ADMIN_PASSWORD=          # Admin login password
 Accessed via `lib/supabase/clients.js` → `getVerticalClient(vertical)`.
 Each vertical has its own Supabase project. See `VERTICAL_CONFIG` for table names and type filters.
 
+## Migration Deployment Discipline
+
+Whenever a migration is applied to a production database, the verification protocol must include both:
+
+- **Schema verification:** the migration was applied correctly, data integrity is intact, the new tables/columns/constraints exist as specified.
+- **Code-deployment verification:** the application code that reads from or writes to the changed schema is committed to main, deployed to Vercel, and verified working against the new schema in production. Loading the affected URLs in a browser is the only acceptable verification — "the dev server compiled cleanly" is not.
+
+Migrations involving column renames, removed columns, type changes, or backfilled state require both halves of verification before the schema change is treated as complete. A migration applied to production with un-deployed consumer code is a live incident. If the verification protocol cannot be completed in a single session — for example, the editor needs to leave before code can be reviewed and deployed — the migration should be staged on a development database first, with the production migration deferred until the corresponding code deployment can land in the same window.
+
+### Pre-migration checklist
+
+Before applying any migration to production:
+
+- List every file that reads from or writes to the affected schema. Confirm those files have been updated locally.
+- Confirm those files are committed and ready to push.
+- Confirm the editor is available for the deployment verification step.
+- Only then apply the migration.
+
 ## Regions
 
 - `regions` table: ~46 Australian regions with slug, state, description, hero image, editorial content
