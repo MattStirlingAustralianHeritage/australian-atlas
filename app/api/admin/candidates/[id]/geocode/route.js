@@ -35,7 +35,11 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 // ─────────────────────────────────────────────────────────────────────
 
 async function geocodeAustralianAddress({ address, suburb, state }) {
-  if (!address) return null
+  // At least one of {address, suburb} must be present so Mapbox has
+  // something to geocode against. The reviewer flow allows blur of
+  // either field individually — suburb-only is a valid query
+  // ("Adelaide, SA, Australia" → centre of Adelaide).
+  if (!address && !suburb) return null
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || process.env.MAPBOX_ACCESS_TOKEN
   if (!token) return null
   try {
@@ -66,8 +70,12 @@ export async function POST(request, { params }) {
   const suburb = (body.suburb || '').trim() || null
   const state = (body.state || '').trim() || null
 
-  if (!address) {
-    return NextResponse.json({ error: 'address is required' }, { status: 400 })
+  // At least one of {address, suburb} must be present. Reviewer flow allows
+  // blurring either field individually with the other still empty — e.g. the
+  // reviewer types only the suburb and tabs out, expecting Mapbox to centre
+  // on the suburb itself.
+  if (!address && !suburb) {
+    return NextResponse.json({ error: 'address or suburb is required' }, { status: 400 })
   }
 
   const sb = getSupabaseAdmin()
@@ -75,9 +83,14 @@ export async function POST(request, { params }) {
   // Persist the reviewer's edited address and state to the candidate row.
   // (suburb has no column on listing_candidates; it lives in form state
   // and is sent to the publish handler when the reviewer hits publish.)
-  const persistPatch = { address }
+  // Skip the persist when there's nothing to write — e.g. suburb-only call
+  // with no address and no state would result in an empty patch.
+  const persistPatch = {}
+  if (address) persistPatch.address = address
   if (state) persistPatch.state = state
-  await sb.from('listing_candidates').update(persistPatch).eq('id', id)
+  if (Object.keys(persistPatch).length > 0) {
+    await sb.from('listing_candidates').update(persistPatch).eq('id', id)
+  }
 
   // Geocode.
   const geo = await geocodeAustralianAddress({ address, suburb, state })

@@ -619,47 +619,77 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
     }
   }, [subcategory, subcategorySecondary])
 
-  // Address blur → geocode → spatial region lookup → pre-fill region dropdown.
-  // No-op when address is empty or unchanged from the last successful geocode.
-  const lastGeocodedAddressRef = useRef(null)
-  const handleAddressBlur = useCallback(async () => {
-    const trimmed = (editAddress || '').trim()
-    if (!trimmed) return
-    if (trimmed === lastGeocodedAddressRef.current) return // already geocoded this exact value
+  // Geocode + spatial region lookup. Fires on blur of EITHER the address
+  // field OR the suburb field — whichever loses focus last "wins" via a
+  // 300ms debounce. The reviewer's natural workflow is type-address →
+  // tab → type-suburb → tab-out, so debouncing prevents two redundant
+  // geocode calls (one stale, one current) when both blurs land in
+  // quick succession.
+  //
+  // Latest field values are read from refs at fire time, so the timer
+  // always uses the freshest input regardless of which blur scheduled it.
+  // The geocoded combination is memoised to prevent re-firing the same
+  // call (e.g. on a re-blur of an unchanged field).
+  const editAddressRef = useRef(editAddress)
+  const editSuburbRef = useRef(editSuburb)
+  useEffect(() => { editAddressRef.current = editAddress }, [editAddress])
+  useEffect(() => { editSuburbRef.current = editSuburb }, [editSuburb])
 
-    setGeocodeStatus('pending')
-    try {
-      const res = await fetch(`/api/admin/candidates/${candidate.id}/geocode`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          address: trimmed,
-          suburb: (editSuburb || '').trim() || null,
-          state: candidate.state || null,
-        }),
-      })
-      if (!res.ok) {
+  const debounceTimerRef = useRef(null)
+  const lastGeocodedKeyRef = useRef(null)
+  const GEOCODE_DEBOUNCE_MS = 300
+
+  const scheduleGeocode = useCallback(() => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+    debounceTimerRef.current = setTimeout(async () => {
+      const trimmedAddress = (editAddressRef.current || '').trim()
+      const trimmedSuburb = (editSuburbRef.current || '').trim()
+      if (!trimmedAddress && !trimmedSuburb) return // nothing to geocode against
+      const key = `${trimmedAddress}||${trimmedSuburb}||${candidate.state || ''}`
+      if (key === lastGeocodedKeyRef.current) return // identical input as last call
+
+      setGeocodeStatus('pending')
+      try {
+        const res = await fetch(`/api/admin/candidates/${candidate.id}/geocode`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            address: trimmedAddress || null,
+            suburb: trimmedSuburb || null,
+            state: candidate.state || null,
+          }),
+        })
+        if (!res.ok) {
+          setGeocodeStatus('failed')
+          return
+        }
+        const data = await res.json()
+        lastGeocodedKeyRef.current = key
+        if (data.geocode_failed) {
+          setGeocodeStatus('failed')
+          return
+        }
+        setEditLat(data.lat)
+        setEditLng(data.lng)
+        if (data.suggested_region_id) {
+          setEditRegionId(data.suggested_region_id)
+          setGeocodeStatus('auto_filled')
+        } else {
+          setGeocodeStatus('no_region')
+        }
+      } catch {
         setGeocodeStatus('failed')
-        return
       }
-      const data = await res.json()
-      if (data.geocode_failed) {
-        setGeocodeStatus('failed')
-        return
-      }
-      lastGeocodedAddressRef.current = trimmed
-      setEditLat(data.lat)
-      setEditLng(data.lng)
-      if (data.suggested_region_id) {
-        setEditRegionId(data.suggested_region_id)
-        setGeocodeStatus('auto_filled')
-      } else {
-        setGeocodeStatus('no_region')
-      }
-    } catch {
-      setGeocodeStatus('failed')
+    }, GEOCODE_DEBOUNCE_MS)
+  }, [candidate.id, candidate.state])
+
+  // Clear any pending timer if the component unmounts mid-debounce
+  // (otherwise the timer fires against a stale closure).
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
     }
-  }, [editAddress, editSuburb, candidate.id, candidate.state])
+  }, [])
 
   const advanceNow = useCallback(() => {
     if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current)
@@ -1027,7 +1057,7 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
                       type="text"
                       value={editAddress}
                       onChange={e => setEditAddress(e.target.value)}
-                      onBlur={handleAddressBlur}
+                      onBlur={scheduleGeocode}
                       placeholder="123 Main St"
                       style={{
                         width: '100%', padding: '8px 10px', fontSize: 13,
@@ -1046,6 +1076,7 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
                       type="text"
                       value={editSuburb}
                       onChange={e => setEditSuburb(e.target.value)}
+                      onBlur={scheduleGeocode}
                       placeholder="Suburb"
                       style={{
                         width: '100%', padding: '8px 10px', fontSize: 13,
@@ -1064,17 +1095,21 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
                     }}>Region</span>
                     <select
                       value={editRegionId || ''}
+                      disabled={geocodeStatus === 'pending'}
                       onChange={e => {
                         setEditRegionId(e.target.value || null)
                         setGeocodeStatus(prev => prev === 'auto_filled' ? 'manual' : prev)
                       }}
                       style={{
                         width: '100%', padding: '8px 10px', fontSize: 13,
-                        fontFamily: 'var(--font-body)', color: 'var(--color-ink)',
+                        fontFamily: 'var(--font-body)',
+                        color: geocodeStatus === 'pending' ? 'var(--color-muted)' : 'var(--color-ink)',
                         background: '#fff', border: '1px solid var(--color-border)', borderRadius: 3,
                       }}
                     >
-                      <option value="">Select region…</option>
+                      <option value="">
+                        {geocodeStatus === 'pending' ? 'Detecting region…' : 'Select region…'}
+                      </option>
                       {regions.map(r => (
                         <option key={r.id} value={r.id}>
                           {r.name}{r.state ? ` (${r.state})` : ''}
@@ -1098,7 +1133,7 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
                 {/* Status flags — surface non-success geocode states inline */}
                 {geocodeStatus === 'pending' && (
                   <div style={{ fontSize: 11, color: 'var(--color-muted)', fontFamily: 'var(--font-body)' }}>
-                    Geocoding…
+                    Detecting region…
                   </div>
                 )}
                 {geocodeStatus === 'failed' && (
