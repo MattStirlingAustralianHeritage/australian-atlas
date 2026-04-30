@@ -1,5 +1,4 @@
-[project]
-id = "australianatlas"
+project_id = "australianatlas"
 
 [api]
 port = 54321

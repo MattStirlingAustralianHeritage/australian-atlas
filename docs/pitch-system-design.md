@@ -90,6 +90,8 @@ The media-coverage threshold scales by vertical to reflect how much coverage is 
 
 The grounding rule does not relax with the data threshold. Whatever data is present must be the only source for factual claims; the rest is left as research-needed flags for the writer.
 
+**Phase 1 implementation note (2026-04-30).** Of the six "additional populated fields" listed in the general slot floor — operator name, founding date, awards, distinguishing practice/method, opening hours, contact details — only `founded_year` and `awards` exist as columns on `listings` at Phase 1 time. The other four were not added (out of Phase 1 scope). To make the floor implementable, `scripts/pitch-candidates.mjs` substitutes the four boolean signal columns added in migration 106 (`is_owner_operator`, `independence_confirmed`, `single_location`, `heritage_significance`) into the count, with a load-bearing constraint: at least one of `{founded_year, awards}` must still be populated. The booleans are curatorial flags, not descriptive biographical data, and they cannot carry the floor alone. This substitution should be revisited if a future migration adds columns for the original four (operator name, distinguishing practice, opening hours, contact details), at which point the floor can return to the design's literal reading.
+
 ### Scoring
 
 Candidates that pass disqualifiers and meet the floor are scored 0–100. Higher scores rank higher. Scoring weights:

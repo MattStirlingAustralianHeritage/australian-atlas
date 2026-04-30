@@ -30,6 +30,7 @@
     "voyageai": "^0.2.1"
   },
   "devDependencies": {
-    "sharp": "^0.34.5"
+    "sharp": "^0.34.5",
+    "supabase": "^2.95.6"
   }
 }
