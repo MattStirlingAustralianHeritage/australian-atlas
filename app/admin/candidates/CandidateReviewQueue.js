@@ -66,6 +66,9 @@ const SUBCATEGORY_OPTIONS = {
     { value: 'glamping', label: 'Glamping' },
     { value: 'cottage', label: 'Cottage' },
     { value: 'eco_resort', label: 'Eco Resort' },
+    { value: 'heritage_hotel', label: 'Heritage Hotel' },
+    { value: 'national_park_stay', label: 'National Park Stay' },
+    { value: 'heritage_lighthouse', label: 'Heritage Lighthouse' },
   ],
   field: [
     { value: 'swimming_hole', label: 'Swimming Hole' },

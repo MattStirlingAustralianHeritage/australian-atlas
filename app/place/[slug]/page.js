@@ -70,6 +70,8 @@ const SUBCATEGORY_LABELS = {
   boutique_hotel: 'Boutique Hotel', guesthouse: 'Guesthouse', bnb: 'B&B',
   farm_stay: 'Farm Stay', glamping: 'Glamping', cottage: 'Cottage',
   self_contained: 'Self-Contained',
+  heritage_hotel: 'Heritage Hotel', national_park_stay: 'National Park Stay',
+  heritage_lighthouse: 'Heritage Lighthouse',
   swimming_hole: 'Swimming Hole', waterfall: 'Waterfall', lookout: 'Lookout',
   gorge: 'Gorge', coastal_walk: 'Coastal Walk', hot_spring: 'Hot Spring',
   cave: 'Cave', national_park: 'National Park', bush_walk: 'Bush Walk',

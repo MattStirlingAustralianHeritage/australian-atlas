@@ -70,6 +70,8 @@ const VERTICAL_FIELDS = {
       { value: 'glamping', label: 'Glamping' }, { value: 'self_contained', label: 'Self-Contained' },
       { value: 'bnb', label: 'B&B' }, { value: 'guesthouse', label: 'Guesthouse' },
       { value: 'cottage', label: 'Cottage' }, { value: 'eco_resort', label: 'Eco Resort' },
+      { value: 'heritage_hotel', label: 'Heritage Hotel' }, { value: 'national_park_stay', label: 'National Park Stay' },
+      { value: 'heritage_lighthouse', label: 'Heritage Lighthouse' },
     ]},
     { key: 'min_price_per_night', label: 'Min Price/Night ($)', type: 'number' },
     { key: 'pet_friendly', label: 'Pet Friendly', type: 'toggle' },
