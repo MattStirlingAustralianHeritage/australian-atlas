@@ -1,0 +1,42 @@
+[
+  {
+    "name": "wukalina Walk",
+    "url": "https://wukalinawalk.com.au",
+    "type": "cultural_tour",
+    "region": "Bay of Fires & Mount William",
+    "state": "TAS",
+    "_notes": "Aboriginal-owned/community (palawa Enterprises). Cultural authority verified case — Stage 1 should extract palawa community as authorising body. Multi-day walk."
+  },
+  {
+    "name": "Tasmanian Walking Company",
+    "url": "https://taswalkingco.com.au",
+    "type": "guided_walk_multiday",
+    "region": "Cradle Mountain",
+    "state": "TAS",
+    "_notes": "Independent, multi-day walks (Cradle Huts, Bay of Fires, Three Capes). Well-documented operator. Stage 2 should find press; Stage 3 should find Ecotourism Australia certification."
+  },
+  {
+    "name": "Auswalk",
+    "url": "https://auswalk.com.au",
+    "type": "guided_walk_multiday",
+    "region": "Multi-region",
+    "state": null,
+    "_notes": "Independent guided walks across multiple regions. Tests pipeline against multi-region operator with no single primary region."
+  },
+  {
+    "name": "Roaring 40s Kayaking",
+    "url": "https://roaring40skayaking.com.au",
+    "type": "sea_kayak_tour",
+    "region": "Bruny Island & Hobart",
+    "state": "TAS",
+    "_notes": "Single-operator sea kayaking. Tests pipeline against sea_kayak_tour primary type. Likely lighter on Stage 2 editorial press; useful for testing Stage 6 silence signals."
+  },
+  {
+    "name": "Bookabee Tours",
+    "url": "https://bookabee.com.au",
+    "type": "cultural_tour",
+    "region": "Adelaide & Flinders Ranges",
+    "state": "SA",
+    "_notes": "Adnyamathanha-owned cultural tours. Tests primary_region (Adelaide) vs operating_region (Flinders Ranges) distinction in Stage 1 extraction. Cultural authority should be cleanly traceable to Adnyamathanha community."
+  }
+]
