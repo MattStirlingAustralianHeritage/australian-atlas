@@ -1,45 +1,37 @@
 import { NextResponse } from 'next/server'
-import { getSupabaseAdmin } from '@/lib/supabase/clients'
-import { cookies } from 'next/headers'
-import { verifySharedToken } from '@/lib/shared-auth'
+import { createAuthServerClient } from '@/lib/supabase/auth-clients'
 
-async function getUserId() {
-  const cookieStore = await cookies()
-  const token = cookieStore.get('atlas_auth_token')?.value
-  if (!token) return null
-  try {
-    const { valid, user } = await verifySharedToken(token)
-    return valid ? user.id : null
-  } catch { return null }
+async function getAuthed() {
+  const supabase = await createAuthServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  return { supabase, user }
 }
 
 export async function GET() {
-  const userId = await getUserId()
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { supabase, user } = await getAuthed()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const sb = getSupabaseAdmin()
-  const { data } = await sb
+  const { data } = await supabase
     .from('user_saves')
     .select(`
       listing_id, saved_at,
       listing:listing_id (id, name, slug, vertical, suburb, state, region, hero_image_url, region_computed:regions!region_computed_id(id,slug,name,state), region_override:regions!region_override_id(id,slug,name,state))
     `)
-    .eq('user_id', userId)
+    .eq('user_id', user.id)
     .order('saved_at', { ascending: false })
 
   return NextResponse.json({ saves: data || [] })
 }
 
 export async function POST(request) {
-  const userId = await getUserId()
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { supabase, user } = await getAuthed()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { listing_id } = await request.json()
   if (!listing_id) return NextResponse.json({ error: 'listing_id required' }, { status: 400 })
 
-  const sb = getSupabaseAdmin()
-  const { error } = await sb.from('user_saves').upsert(
-    { user_id: userId, listing_id },
+  const { error } = await supabase.from('user_saves').upsert(
+    { user_id: user.id, listing_id },
     { onConflict: 'user_id,listing_id' }
   )
 
@@ -48,14 +40,13 @@ export async function POST(request) {
 }
 
 export async function DELETE(request) {
-  const userId = await getUserId()
-  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { supabase, user } = await getAuthed()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { listing_id } = await request.json()
   if (!listing_id) return NextResponse.json({ error: 'listing_id required' }, { status: 400 })
 
-  const sb = getSupabaseAdmin()
-  await sb.from('user_saves').delete().eq('user_id', userId).eq('listing_id', listing_id)
+  await supabase.from('user_saves').delete().eq('user_id', user.id).eq('listing_id', listing_id)
 
   return NextResponse.json({ success: true })
 }
