@@ -44,6 +44,8 @@ const SUBCATEGORY_OPTIONS = {
     { value: 'cultural_centre', label: 'Cultural Centre' },
     { value: 'botanical_garden', label: 'Botanical Garden' },
     { value: 'sculpture_park', label: 'Sculpture Park' },
+    { value: 'cinema', label: 'Cinema' },
+    { value: 'drive_in', label: 'Drive-In' },
   ],
   craft: [
     { value: 'ceramics_clay', label: 'Ceramics & Clay' },
