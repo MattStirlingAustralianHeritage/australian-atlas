@@ -8,16 +8,19 @@ const VERTICAL_LABELS = {
   corner: 'Corner', found: 'Found', table: 'Table',
 }
 
-function StatCard({ label, value, subtitle }) {
+function StatCard({ label, value, subtitle, tooltip }) {
   return (
-    <div style={{
-      background: '#fff',
-      borderRadius: '12px',
-      border: '1px solid var(--color-border)',
-      padding: '1.5rem',
-      flex: '1 1 0',
-      minWidth: '180px',
-    }}>
+    <div
+      title={tooltip}
+      style={{
+        background: '#fff',
+        borderRadius: '12px',
+        border: '1px solid var(--color-border)',
+        padding: '1.5rem',
+        flex: '1 1 0',
+        minWidth: '180px',
+      }}
+    >
       <p style={{
         fontFamily: 'var(--font-sans)',
         fontSize: '0.8rem',
@@ -214,9 +217,10 @@ export default function DashboardAnalytics() {
           subtitle="Total"
         />
         <StatCard
-          label="Saves"
+          label="Atlas Passport saves"
           value={loading ? '...' : totals.save_count}
           subtitle="Total"
+          tooltip="Saves from users who used Discover or saved from australianatlas.com.au directly. Vertical-level favourites are tracked separately."
         />
       </div>
 
@@ -275,8 +279,11 @@ export default function DashboardAnalytics() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
-                  {['Listing', 'Views (30d)', 'Searches (30d)', 'Trails', 'Saves'].map((h, i) => (
-                    <th key={h} style={{
+                  {['Listing', 'Views (30d)', 'Searches (30d)', 'Trails', 'Atlas Passport saves'].map((h, i) => (
+                    <th
+                      key={h}
+                      title={h === 'Atlas Passport saves' ? 'Saves from users who used Discover or saved from australianatlas.com.au directly. Vertical-level favourites are tracked separately.' : undefined}
+                      style={{
                       padding: '0.5rem 1rem',
                       fontFamily: 'var(--font-sans)',
                       fontSize: '0.7rem',

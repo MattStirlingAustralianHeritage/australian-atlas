@@ -422,7 +422,10 @@ function ListingCard({ listing, liveStats }) {
               Trails
             </p>
           </div>
-          <div style={{ textAlign: 'center' }}>
+          <div
+            style={{ textAlign: 'center' }}
+            title="Saves from users who used Discover or saved from australianatlas.com.au directly. Vertical-level favourites are tracked separately."
+          >
             <p style={{
               fontFamily: 'var(--font-display, Georgia)',
               fontSize: 18,
@@ -441,7 +444,7 @@ function ListingCard({ listing, liveStats }) {
               color: 'var(--color-muted, #888)',
               margin: '2px 0 0',
             }}>
-              Saves
+              Atlas Passport saves
             </p>
           </div>
         </div>
