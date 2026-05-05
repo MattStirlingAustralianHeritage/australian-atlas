@@ -41,6 +41,27 @@
 import { createClient } from '@supabase/supabase-js'
 import { readFileSync } from 'fs'
 import { runWayDiscoveryPipeline } from '../lib/prospector/way-discovery/pipeline.js'
+import { generateNameVariants } from '../lib/prospector/way-discovery/variants.js'
+
+// Manually parse .env.local — Node's --env-file flag silently skips some
+// keys (per scripts/prospect-candidates.mjs's existing comment: "dotenv
+// v17 auto-inject skips some keys"). Manual parse mirrors that pattern.
+try {
+  const envText = readFileSync('.env.local', 'utf-8')
+  for (const line of envText.split('\n')) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith('#')) continue
+    const eqIdx = trimmed.indexOf('=')
+    if (eqIdx === -1) continue
+    const key = trimmed.substring(0, eqIdx)
+    let val = trimmed.substring(eqIdx + 1)
+    // Strip wrapping quotes if present
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      val = val.slice(1, -1)
+    }
+    if (!process.env[key]) process.env[key] = val
+  }
+} catch { /* .env.local may not exist in production */ }
 
 // ─── CLI parsing ─────────────────────────────────────────────────
 
@@ -117,6 +138,7 @@ async function findOrCreateCandidate({ name, url, type, region, state }) {
     throw new Error('findOrCreateCandidate: name and url are both required')
   }
   const slug = slugify(name)
+  const nameVariants = generateNameVariants(name)
 
   // Look up by slug or website_url first.
   const { data: existing, error: findErr } = await supabase
@@ -126,7 +148,26 @@ async function findOrCreateCandidate({ name, url, type, region, state }) {
     .limit(1)
   if (findErr) throw new Error(`way_candidates lookup: ${findErr.message}`)
 
-  if (existing && existing.length > 0) return existing[0]
+  if (existing && existing.length > 0) {
+    const row = existing[0]
+    // Backfill name_variants on existing candidate rows that pre-date
+    // migration 122. The Stage 3 verifier falls back to regenerating
+    // on the fly if missing, but persisting the variants makes the
+    // search vocabulary editable via Candidate Review later.
+    if (!row.name_variants || row.name_variants.length === 0) {
+      const { error: updateErr } = await supabase
+        .from('way_candidates')
+        .update({ name_variants: nameVariants })
+        .eq('id', row.id)
+      if (updateErr) {
+        console.warn(`[way-discover] failed to backfill name_variants on ${row.id}: ${updateErr.message}`)
+      } else {
+        row.name_variants = nameVariants
+        console.error(`[way-discover] backfilled name_variants for ${name}: ${JSON.stringify(nameVariants)}`)
+      }
+    }
+    return row
+  }
 
   const { data: created, error: insertErr } = await supabase
     .from('way_candidates')
@@ -139,6 +180,7 @@ async function findOrCreateCandidate({ name, url, type, region, state }) {
       state: state || null,
       discovery_source: 'cli_seed',
       status: 'discovering',
+      name_variants: nameVariants,
     })
     .select('*')
     .single()
