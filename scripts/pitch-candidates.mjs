@@ -148,14 +148,32 @@ function normaliseGroupName(s) {
 
 // ── Loaders ──────────────────────────────────────────────────────────
 
-async function loadCommercialGroups() {
+async function loadCommercialGroups(vertical) {
+  // vertical_scope semantics (per migration 117 header + sign-off 2026-05-02):
+  //   • NULL          — applies globally (existing 9-vertical behaviour
+  //                     preserved; e.g. EVT, TFE Hotels, Accor)
+  //   • empty array   — applies globally (defensive equivalence)
+  //   • populated[]   — applies only when evaluating listings on the named
+  //                     verticals (e.g. AAT Kings = ['way'] so the pitch
+  //                     system on Rest doesn't mis-disqualify a Way-only
+  //                     experience-tourism group operator)
+  //
+  // Filtering is applied in JS rather than via PostgREST's array operators
+  // because the data volume is tiny (~33 rows post-migration 117) and the
+  // explicit filter is clearer than `.or('vertical_scope.is.null,...')`
+  // syntax. Update if the table grows past a few hundred rows.
   const { data, error } = await supabase
     .from('commercial_groups')
-    .select('group_name, brands')
+    .select('group_name, brands, vertical_scope')
   if (error) throw new Error(`commercial_groups load failed: ${error.message}`)
+  const appliesToVertical = (g) => {
+    if (g.vertical_scope == null) return true
+    if (Array.isArray(g.vertical_scope) && g.vertical_scope.length === 0) return true
+    return Array.isArray(g.vertical_scope) && g.vertical_scope.includes(vertical)
+  }
   const names = new Set()
   const hosts = new Set()
-  for (const g of data || []) {
+  for (const g of (data || []).filter(appliesToVertical)) {
     names.add(normaliseGroupName(g.group_name))
     for (const b of (g.brands || [])) names.add(normaliseGroupName(b))
     // Best-effort host extraction from group_name (e.g. "Spicers Retreats" + brand "worldsapart.club"
@@ -502,7 +520,7 @@ async function main() {
 
   const [groups, articleListingIds, activePitchIds, anyPitchIds, mediaDisqualifiedIds, weights, listings] =
     await Promise.all([
-      loadCommercialGroups(),
+      loadCommercialGroups(vertical),
       loadRecentArticleListingIds(24),
       loadActivePitchListingIds(),
       loadAnyPitchListingIds(),
