@@ -36,8 +36,21 @@ function getFirstSentence(text) {
   return text
 }
 
+const SESSION_STORAGE_KEY = 'srdp_session_id'
+
 function generateSessionId() {
   return 'srdp_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
+}
+
+// Persist the session_id across page reloads so anonymous swipes can
+// be merged into the user's account if they sign up later.
+function getOrCreateSessionId() {
+  if (typeof window === 'undefined') return generateSessionId()
+  const existing = localStorage.getItem(SESSION_STORAGE_KEY)
+  if (existing) return existing
+  const fresh = generateSessionId()
+  try { localStorage.setItem(SESSION_STORAGE_KEY, fresh) } catch {}
+  return fresh
 }
 
 export default function DiscoverClient() {
@@ -46,7 +59,7 @@ export default function DiscoverClient() {
   const [seenIds, setSeenIds] = useState([])
   const [loading, setLoading] = useState(true)
   const [saveCount, setSaveCount] = useState(0)
-  const [sessionId] = useState(() => generateSessionId())
+  const [sessionId] = useState(getOrCreateSessionId)
   const [showTrailCta, setShowTrailCta] = useState(false)
   const [direction, setDirection] = useState(null)
   const [animating, setAnimating] = useState(false)
