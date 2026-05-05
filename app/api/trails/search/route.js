@@ -57,6 +57,7 @@ export async function GET(request) {
       corner:       { table: 'corner_meta',       col: 'shop_type' },
       found:        { table: 'found_meta',        col: 'shop_type' },
       table:        { table: 'table_meta',        col: 'food_type' },
+      way:          { table: 'way_meta',          col: 'primary_type' },
     }
 
     const listingIds = listings.map(l => l.id)

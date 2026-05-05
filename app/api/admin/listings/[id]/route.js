@@ -9,6 +9,7 @@ const EXTENSION_TABLES = {
   sba: 'sba_meta', collection: 'collection_meta', craft: 'craft_meta',
   fine_grounds: 'fine_grounds_meta', rest: 'rest_meta', field: 'field_meta',
   corner: 'corner_meta', found: 'found_meta', table: 'table_meta',
+  way: 'way_meta',
 }
 
 // Maps vertical → the meta key that holds its subcategory.
@@ -24,6 +25,7 @@ const META_CATEGORY_KEY = {
   corner: 'shop_type',
   found: 'shop_type',
   table: 'food_type',
+  way: 'primary_type',
 }
 
 export async function PATCH(request, { params }) {

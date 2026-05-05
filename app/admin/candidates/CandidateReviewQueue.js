@@ -5,24 +5,26 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 const VERTICAL_NAMES = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
   fine_grounds: 'Fine Grounds', rest: 'Rest', field: 'Field',
-  corner: 'Corner', found: 'Found', table: 'Table',
+  corner: 'Corner', found: 'Found', table: 'Table', way: 'Way',
 }
 
 const VERTICAL_COLORS = {
   sba: '#C49A3C', collection: '#7A6B8A', craft: '#C1603A', fine_grounds: '#8A7055',
   rest: '#5A8A9A', field: '#4A7C59', corner: '#5F8A7E', found: '#D4956A', table: '#C4634F',
+  way: '#6B7A4A',  // Earthy moss-olive — distinct from Field's deep green and Fine Grounds' warm brown.
 }
 
 const VERTICAL_TYPE_LABELS = {
   sba: 'Artisan Producer', collection: 'Culture', craft: 'Maker Studio',
   fine_grounds: 'Coffee', rest: 'Boutique Stay', field: 'Nature Destination',
   corner: 'Independent Shop', found: 'Vintage & Antique', table: 'Food & Produce',
+  way: 'Experience Operator',
 }
 
 const VERTICAL_FULL_NAMES = {
   sba: 'Small Batch Atlas', collection: 'Culture Atlas', craft: 'Craft Atlas',
   fine_grounds: 'Fine Grounds Atlas', rest: 'Rest Atlas', field: 'Field Atlas',
-  corner: 'Corner Atlas', found: 'Found Atlas', table: 'Table Atlas',
+  corner: 'Corner Atlas', found: 'Found Atlas', table: 'Table Atlas', way: 'Way Atlas',
 }
 
 // Subcategory options per vertical — values must match DB CHECK constraints on meta tables
@@ -122,6 +124,28 @@ const SUBCATEGORY_OPTIONS = {
     { value: 'providore', label: 'Providore' },
     { value: 'food_trail', label: 'Food Trail' },
     { value: 'creamery', label: 'Creamery' },
+  ],
+  // Way Atlas — 17 primary types per Spec §III. Order matches the spec's
+  // narrative grouping: walks → cultural → flights → marine → specialist
+  // → heritage → workshop → mobility.
+  way: [
+    { value: 'guided_walk_multiday',       label: 'Guided Walk — Multi-day' },
+    { value: 'guided_walk_day',            label: 'Guided Walk — Day' },
+    { value: 'cultural_tour',              label: 'Cultural Tour (Aboriginal-led)' },
+    { value: 'scenic_flight',              label: 'Scenic Flight' },
+    { value: 'helicopter_tour',            label: 'Helicopter Tour' },
+    { value: 'sailing_charter',            label: 'Sailing Charter' },
+    { value: 'sea_kayak_tour',             label: 'Sea Kayak Tour' },
+    { value: 'dive_operator',              label: 'Dive Operator' },
+    { value: 'fishing_guide',              label: 'Fishing Guide' },
+    { value: 'photography_expedition',     label: 'Photography Expedition' },
+    { value: 'specialist_natural_history', label: 'Specialist Natural History' },
+    { value: 'foraging_bushfood',          label: 'Foraging & Bush Food' },
+    { value: 'heritage_tour',              label: 'Heritage Tour' },
+    { value: 'workshop_intensive',         label: 'Workshop Intensive' },
+    { value: 'river_canoe_tour',           label: 'River & Canoe Tour' },
+    { value: 'horseback_expedition',       label: 'Horseback Expedition' },
+    { value: 'four_wheel_drive_expedition',label: '4WD Expedition' },
   ],
 }
 

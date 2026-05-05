@@ -6,12 +6,13 @@ import WYSIWYGEditor from '@/components/admin/WYSIWYGEditor'
 const VERTICAL_NAMES = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
   fine_grounds: 'Fine Grounds', rest: 'Rest', field: 'Field',
-  corner: 'Corner', found: 'Found', table: 'Table',
+  corner: 'Corner', found: 'Found', table: 'Table', way: 'Way',
 }
 
 const VERTICAL_COLORS = {
   sba: '#C49A3C', collection: '#7A6B8A', craft: '#C1603A', fine_grounds: '#8A7055',
   rest: '#5A8A9A', field: '#4A7C59', corner: '#5F8A7E', found: '#D4956A', table: '#C4634F',
+  way: '#6B7A4A',
 }
 
 const VERTICAL_URLS = {
@@ -24,6 +25,7 @@ const VERTICAL_URLS = {
   corner: 'https://corneratlas.com.au/shops',
   found: 'https://foundatlas.com.au/shops',
   table: 'https://tableatlas.com.au/listings',
+  way: 'https://wayatlas.com.au/operator',
 }
 
 // IMPORTANT: select option values MUST match the CHECK constraints in
@@ -119,6 +121,61 @@ const VERTICAL_FIELDS = {
     ]},
     { key: 'cafe_on_site', label: 'Cafe On Site', type: 'toggle' },
   ],
+  // Way Atlas — field set per Spec §III, §IV, §VI. cultural_authority_verified
+  // is intentionally read-only here; it flips via the cultural_authority_review
+  // queue resolution trigger (migration 115). Surfacing it as editable would
+  // bypass the review workflow that exists to enforce Gate 4.
+  way: [
+    { key: 'primary_type', label: 'Primary Type', type: 'select', options: [
+      { value: 'guided_walk_multiday',       label: 'Guided Walk — Multi-day' },
+      { value: 'guided_walk_day',            label: 'Guided Walk — Day' },
+      { value: 'cultural_tour',              label: 'Cultural Tour (Aboriginal-led)' },
+      { value: 'scenic_flight',              label: 'Scenic Flight' },
+      { value: 'helicopter_tour',            label: 'Helicopter Tour' },
+      { value: 'sailing_charter',            label: 'Sailing Charter' },
+      { value: 'sea_kayak_tour',             label: 'Sea Kayak Tour' },
+      { value: 'dive_operator',              label: 'Dive Operator' },
+      { value: 'fishing_guide',              label: 'Fishing Guide' },
+      { value: 'photography_expedition',     label: 'Photography Expedition' },
+      { value: 'specialist_natural_history', label: 'Specialist Natural History' },
+      { value: 'foraging_bushfood',          label: 'Foraging & Bush Food' },
+      { value: 'heritage_tour',              label: 'Heritage Tour' },
+      { value: 'workshop_intensive',         label: 'Workshop Intensive' },
+      { value: 'river_canoe_tour',           label: 'River & Canoe Tour' },
+      { value: 'horseback_expedition',       label: 'Horseback Expedition' },
+      { value: 'four_wheel_drive_expedition',label: '4WD Expedition' },
+    ]},
+    { key: 'operator_type', label: 'Operator Type', type: 'select', options: [
+      { value: 'independent',                     label: 'Independent' },
+      { value: 'aboriginal_community',            label: 'Aboriginal Community' },
+      { value: 'aboriginal_owned_led',            label: 'Aboriginal Owned & Led' },
+      { value: 'aboriginal_partnership',          label: 'Aboriginal Partnership' },
+      { value: 'concessionaire',                  label: 'Concessionaire (Parks)' },
+      { value: 'trust',                           label: 'Heritage Trust' },
+      { value: 'public_heritage',                 label: 'Public Heritage' },
+      { value: 'cultural_content_non_indigenous', label: 'Cultural Content — Non-Indigenous' },
+    ]},
+    { key: 'aboriginal_community',         label: 'Aboriginal Community / Nation', type: 'text' },
+    { key: 'operator_legal_name',          label: 'Legal Entity Name',             type: 'text' },
+    { key: 'presence_type', label: 'Presence Type', type: 'select', options: [
+      { value: 'permanent',         label: 'Permanent' },
+      { value: 'by_appointment',    label: 'By Appointment' },
+      { value: 'seasonal',          label: 'Seasonal' },
+      { value: 'year_round',        label: 'Year Round' },
+      { value: 'weather_dependent', label: 'Weather Dependent' },
+      { value: 'charter_only',      label: 'Charter Only' },
+      { value: 'tide_dependent',    label: 'Tide Dependent' },
+      { value: 'mobile',            label: 'Mobile' },
+      { value: 'online',            label: 'Online' },
+    ]},
+    { key: 'departure_point_name',         label: 'Departure Point Name',          type: 'text' },
+    { key: 'multiple_departure_points',    label: 'Multiple Departure Points',     type: 'toggle' },
+    { key: 'contact_name',                 label: 'Named Contact',                 type: 'text' },
+    { key: 'contact_email',                label: 'Contact Email',                 type: 'text' },
+    { key: 'booking_url',                  label: 'Booking URL',                   type: 'text' },
+    { key: 'established_year',             label: 'Established Year',              type: 'number' },
+    { key: 'cultural_authority_verified',  label: 'Cultural Authority Verified',   type: 'toggle', readOnly: true },
+  ],
 }
 
 // ── Identify which field key is the "category" field for each vertical ──
@@ -132,6 +189,7 @@ const VERTICAL_CATEGORY_KEY = {
   corner: 'shop_type',
   found: 'shop_type',
   table: 'food_type',
+  way: 'primary_type',
 }
 
 // ── Subcategory multi-select with primary/secondary ordering ──
