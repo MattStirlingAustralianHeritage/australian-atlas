@@ -7,9 +7,22 @@ async function getAuthed() {
   return { supabase, user }
 }
 
-export async function GET() {
+export async function GET(request) {
   const { supabase, user } = await getAuthed()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // Single-listing check: ?listing_id=<uuid> returns { saved: boolean }
+  const { searchParams } = new URL(request.url)
+  const listingId = searchParams.get('listing_id')
+  if (listingId) {
+    const { data } = await supabase
+      .from('user_saves')
+      .select('listing_id', { head: false })
+      .eq('user_id', user.id)
+      .eq('listing_id', listingId)
+      .maybeSingle()
+    return NextResponse.json({ saved: !!data })
+  }
 
   const { data } = await supabase
     .from('user_saves')

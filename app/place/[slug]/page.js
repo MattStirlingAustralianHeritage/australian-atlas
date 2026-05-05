@@ -13,6 +13,7 @@ import ListingCard, { TypographicCard, VERTICAL_TOKENS } from '@/components/List
 import ListingMap from '@/components/ListingMap'
 import InlineListingEditor from '@/components/InlineListingEditor'
 import StartTrailButton from '@/components/StartTrailButton'
+import SaveListingButton from '@/components/SaveListingButton'
 import ReportIssueButton from '@/components/ReportIssueButton'
 import OpeningHours from '@/components/OpeningHours'
 import PlaceMemories from '@/components/PlaceMemories'
@@ -577,6 +578,7 @@ export default async function PlacePage({ params }) {
                 </a>
               )}
               <StartTrailButton listing={{ id: listing.id, name: listing.name, slug: listing.slug, region: listing.region, state: listing.state, vertical: listing.vertical, lat: listing.lat, lng: listing.lng }} />
+              <SaveListingButton listingId={listing.id} listingName={listing.name} />
             </div>
 
             <ReportIssueButton listingId={listing.id} listingName={listing.name} />
