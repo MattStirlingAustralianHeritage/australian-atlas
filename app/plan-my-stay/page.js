@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 
 export const revalidate = 1800
 
@@ -23,61 +24,44 @@ const PER_REGION = 4
 async function getStaysByRegion() {
   const sb = getSupabaseAdmin()
 
-  // Gate display against the canonical live regions table.
-  // listings.region for Rest is contaminated with street addresses
-  // (sourced from rest-atlas properties.sub_region via mapRestListing).
-  // Non-matching rows are logged server-side and excluded from the page
-  // until the data backfill lands — no heuristics, no silent padding.
-  const { data: regionRows } = await sb
-    .from('regions')
-    .select('name')
-    .eq('status', 'live')
-
-  const liveRegions = new Set((regionRows || []).map(r => r.name.trim()))
-
-  if (liveRegions.size === 0) {
-    console.warn('[plan-my-stay] regions table returned zero live rows')
-    return []
-  }
-
   const { data } = await sb
     .from('listings')
-    .select('id, name, slug, region, state, hero_image_url, is_featured')
+    .select(`id, name, slug, hero_image_url, is_featured, ${LISTING_REGION_SELECT}`)
     .eq('vertical', 'rest')
     .eq('status', 'active')
-    .not('region', 'is', null)
     .not('lat', 'is', null)
     .order('is_featured', { ascending: false })
     .order('name', { ascending: true })
     .limit(500)
 
-  const byRegion = new Map()
+  const byRegionId = new Map()
   const excluded = []
 
   for (const l of data || []) {
-    const key = (l.region || '').trim()
-    if (!liveRegions.has(key)) {
+    const region = getListingRegion(l)
+    if (!region) {
       excluded.push(l)
       continue
     }
-    if (!byRegion.has(key)) byRegion.set(key, [])
-    const bucket = byRegion.get(key)
-    if (bucket.length < PER_REGION) bucket.push(l)
+    if (!byRegionId.has(region.id)) {
+      byRegionId.set(region.id, { region, listings: [] })
+    }
+    const bucket = byRegionId.get(region.id)
+    if (bucket.listings.length < PER_REGION) bucket.listings.push(l)
   }
 
   if (excluded.length > 0) {
-    console.warn(`[plan-my-stay] excluded ${excluded.length} Rest listings whose region does not match any live canonical region`)
-    for (const l of excluded) {
-      console.warn(`  id=${l.id} name=${JSON.stringify(l.name)} region=${JSON.stringify(l.region)}`)
-    }
+    const sampleIds = excluded.slice(0, 5).map(l => l.id)
+    console.warn('[plan-my-stay] Excluded Rest listings with no resolvable region', {
+      count: excluded.length,
+      sampleIds,
+    })
   }
 
   // Sort by state (alpha), then region name (alpha within state).
-  return [...byRegion.entries()].sort((a, b) => {
-    const stateA = a[1][0]?.state || 'ZZ'
-    const stateB = b[1][0]?.state || 'ZZ'
-    if (stateA !== stateB) return stateA.localeCompare(stateB)
-    return a[0].localeCompare(b[0])
+  return [...byRegionId.values()].sort((a, b) => {
+    if (a.region.state !== b.region.state) return a.region.state.localeCompare(b.region.state)
+    return a.region.name.localeCompare(b.region.name)
   })
 }
 
@@ -159,8 +143,8 @@ export default async function PlanMyStayPage() {
             </p>
           </div>
         ) : (
-          regions.map(([region, stays]) => (
-            <section key={region} style={{ marginBottom: 64 }}>
+          regions.map(({ region, listings }) => (
+            <section key={region.id} style={{ marginBottom: 64 }}>
               <h2 style={{
                 fontFamily: 'var(--font-display)',
                 fontWeight: 400,
@@ -170,8 +154,8 @@ export default async function PlanMyStayPage() {
                 paddingBottom: 12,
                 borderBottom: '1px solid var(--color-border, #e0ddd8)',
               }}>
-                {region}
-                {stays[0]?.state && (
+                {region.name}
+                {region.state && (
                   <span style={{
                     fontFamily: 'var(--font-body)',
                     fontSize: 12,
@@ -182,7 +166,7 @@ export default async function PlanMyStayPage() {
                     marginLeft: 12,
                     verticalAlign: 'middle',
                   }}>
-                    {stays[0].state}
+                    {region.state}
                   </span>
                 )}
               </h2>
@@ -191,7 +175,7 @@ export default async function PlanMyStayPage() {
                 gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
                 gap: 16,
               }}>
-                {stays.map(stay => (
+                {listings.map(stay => (
                   <Link
                     key={stay.id}
                     href={`/place/${stay.slug}`}
