@@ -102,14 +102,14 @@ async function getRegionListings(region) {
   const sb = getSupabaseAdmin()
   const select = `id, vertical, source_id, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website, ${LISTING_REGION_SELECT}`
 
-  // Decision 3 FK matching: prefer region_override_id, fall back to region_computed_id.
-  // The `region` row is the canonical regions table row resolved from slug, so
-  // region.id is the FK target.
+  // Override-wins resolution per docs/regions.md, via the
+  // listings_with_region view (migration 125). region_id is
+  // COALESCE(region_override_id, region_computed_id).
   const { data } = await sb
-    .from('listings')
+    .from('listings_with_region')
     .select(select)
     .eq('status', 'active')
-    .or(`region_computed_id.eq.${region.id},region_override_id.eq.${region.id}`)
+    .eq('region_id', region.id)
     .order('editors_pick', { ascending: false })
     .order('is_featured', { ascending: false })
     .order('name')

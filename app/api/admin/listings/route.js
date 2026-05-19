@@ -49,9 +49,10 @@ export async function GET(request) {
     const resolvedRegion = region ? await resolveRegionParam(region) : null
 
     // ─── Special: misplaced filter ────────────────────────
-    // Fetches all listings with coordinates and checks against state bounding boxes
+    // Fetches all listings with coordinates and checks against state bounding boxes.
+    // Read from listings_with_region for override-wins region_id (migration 125).
     if (status === 'misplaced') {
-      let mQuery = sb.from('listings').select(SELECT_COLS)
+      let mQuery = sb.from('listings_with_region').select(SELECT_COLS)
         .eq('status', 'active')
         .not('lat', 'is', null)
         .not('lng', 'is', null)
@@ -60,7 +61,7 @@ export async function GET(request) {
       if (vertical) mQuery = mQuery.eq('vertical', vertical)
       if (region) {
         if (resolvedRegion?.region?.id) {
-          mQuery = mQuery.or(`region_computed_id.eq.${resolvedRegion.region.id},region_override_id.eq.${resolvedRegion.region.id}`)
+          mQuery = mQuery.eq('region_id', resolvedRegion.region.id)
         } else {
           mQuery = mQuery.eq('region', region)
         }
@@ -81,12 +82,13 @@ export async function GET(request) {
     }
 
     // ─── Standard query ───────────────────────────────────
-    let query = sb.from('listings').select(SELECT_COLS, { count: 'exact' })
+    // Read from listings_with_region for override-wins region_id (migration 125).
+    let query = sb.from('listings_with_region').select(SELECT_COLS, { count: 'exact' })
 
     if (vertical) query = query.eq('vertical', vertical)
     if (region) {
       if (resolvedRegion?.region?.id) {
-        query = query.or(`region_computed_id.eq.${resolvedRegion.region.id},region_override_id.eq.${resolvedRegion.region.id}`)
+        query = query.eq('region_id', resolvedRegion.region.id)
       } else {
         query = query.eq('region', region)
       }

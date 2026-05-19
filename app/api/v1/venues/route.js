@@ -57,14 +57,16 @@ export async function GET(request) {
   const { region: resolvedRegion, redirectNeeded } = await resolveRegionParam(region)
 
   const sb = getSupabaseAdmin()
+  // Read from listings_with_region for override-wins region_id; the view
+  // exposes every listings column transparently. See migration 125.
   let query = sb
-    .from('listings')
+    .from('listings_with_region')
     .select(PUBLIC_FIELDS, { count: 'exact' })
     .eq('status', 'active')
 
   if (vertical) query = query.eq('vertical', vertical)
   if (resolvedRegion) {
-    query = query.or(`region_computed_id.eq.${resolvedRegion.id},region_override_id.eq.${resolvedRegion.id}`)
+    query = query.eq('region_id', resolvedRegion.id)
   } else if (region) {
     // Param supplied but no canonical region matched — fall back to legacy text ilike
     query = query.ilike('region', `%${region}%`)

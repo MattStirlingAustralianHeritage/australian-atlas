@@ -48,12 +48,13 @@ export async function GET(request, { params }) {
     return NextResponse.json({ error: 'Region not found' }, { status: 404 })
   }
 
-  // Query listings by FK match (computed or override) — Phase 3 Decision 3
+  // Query listings by override-wins resolved region_id, via the
+  // listings_with_region view (migration 125).
   let query = sb
-    .from('listings')
+    .from('listings_with_region')
     .select(PUBLIC_FIELDS, { count: 'exact' })
     .eq('status', 'active')
-    .or(`region_computed_id.eq.${region.id},region_override_id.eq.${region.id}`)
+    .eq('region_id', region.id)
 
   if (vertical) query = query.eq('vertical', vertical)
   query = query.order('is_featured', { ascending: false }).order('name').range(offset, offset + limit - 1)

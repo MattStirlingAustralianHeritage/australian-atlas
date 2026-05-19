@@ -207,19 +207,20 @@ async function getDiscoverClusters() {
     const clusterRegions = ['Barossa Valley', 'Mornington Peninsula', 'Hobart & Southern Tasmania', 'Byron Bay', 'Adelaide', 'Melbourne']
     const results = await Promise.all(
       clusterRegions.map(async (region) => {
-        // Decision 3 FK matching: resolve the cluster name to a region row,
-        // then filter via region_computed_id OR region_override_id. Falls back
-        // to legacy text eq for unresolvable names (none expected in current set).
+        // Override-wins resolution per docs/regions.md, via the
+        // listings_with_region view (migration 125). Falls back to
+        // legacy text eq for unresolvable names (none expected in current set).
         const { region: resolved } = await resolveRegionParam(region)
+        const fromTable = resolved ? 'listings_with_region' : 'listings'
         let query = sb
-          .from('listings')
+          .from(fromTable)
           .select(`id, name, vertical, slug, region, hero_image_url, ${LISTING_REGION_SELECT}`)
           .eq('status', 'active')
           .order('is_featured', { ascending: false })
           .order('editors_pick', { ascending: false })
           .limit(12)
         if (resolved) {
-          query = query.or(`region_computed_id.eq.${resolved.id},region_override_id.eq.${resolved.id}`)
+          query = query.eq('region_id', resolved.id)
         } else {
           query = query.eq('region', region)
         }
