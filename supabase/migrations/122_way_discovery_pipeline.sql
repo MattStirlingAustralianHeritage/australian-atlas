@@ -49,7 +49,7 @@
 --   Status transitions are application-managed, not trigger-managed.
 -- ============================================================
 
-create table way_candidates (
+create table if not exists way_candidates (
   id                       uuid primary key default gen_random_uuid(),
 
   -- Identity. name + website_url are the canonical de-dupe key; an
@@ -98,12 +98,13 @@ create table way_candidates (
   unique (website_url)
 );
 
-create index way_candidates_status_idx           on way_candidates (status);
-create index way_candidates_discovery_source_idx on way_candidates (discovery_source);
-create index way_candidates_total_score_idx      on way_candidates (total_score desc nulls last)
-                                                   where status = 'scored';
-create index way_candidates_region_hints_gin     on way_candidates using gin (region_hints);
+create index if not exists way_candidates_status_idx           on way_candidates (status);
+create index if not exists way_candidates_discovery_source_idx on way_candidates (discovery_source);
+create index if not exists way_candidates_total_score_idx      on way_candidates (total_score desc nulls last)
+                                                                 where status = 'scored';
+create index if not exists way_candidates_region_hints_gin     on way_candidates using gin (region_hints);
 
+drop trigger if exists way_candidates_updated_at on way_candidates;
 create trigger way_candidates_updated_at
   before update on way_candidates
   for each row execute function update_updated_at();
@@ -111,7 +112,7 @@ create trigger way_candidates_updated_at
 
 -- ─── way_candidate_signals ───────────────────────────────────────────
 
-create table way_candidate_signals (
+create table if not exists way_candidate_signals (
   id                       uuid primary key default gen_random_uuid(),
   candidate_id             uuid not null references way_candidates(id) on delete cascade,
 
@@ -180,12 +181,12 @@ create table way_candidate_signals (
   created_at               timestamptz not null default now()
 );
 
-create index way_candidate_signals_candidate_idx     on way_candidate_signals (candidate_id);
-create index way_candidate_signals_stage_idx         on way_candidate_signals (candidate_id, stage);
-create index way_candidate_signals_signal_type_idx   on way_candidate_signals (signal_type);
-create index way_candidate_signals_run_idx           on way_candidate_signals (run_id);
-create index way_candidate_signals_validated_idx     on way_candidate_signals (candidate_id, stage)
-                                                      where url_resolved = true;
+create index if not exists way_candidate_signals_candidate_idx     on way_candidate_signals (candidate_id);
+create index if not exists way_candidate_signals_stage_idx         on way_candidate_signals (candidate_id, stage);
+create index if not exists way_candidate_signals_signal_type_idx   on way_candidate_signals (signal_type);
+create index if not exists way_candidate_signals_run_idx           on way_candidate_signals (run_id);
+create index if not exists way_candidate_signals_validated_idx     on way_candidate_signals (candidate_id, stage)
+                                                                    where url_resolved = true;
 
 
 -- ─── View: validated signals for the scoring layer ───────────────────
