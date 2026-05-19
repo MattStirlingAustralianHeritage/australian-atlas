@@ -42,6 +42,7 @@ import { createClient } from '@supabase/supabase-js'
 import { readFileSync } from 'fs'
 import { runWayDiscoveryPipeline } from '../lib/prospector/way-discovery/pipeline.js'
 import { generateNameVariants } from '../lib/prospector/way-discovery/variants.js'
+import { scoreCandidate } from '../lib/prospector/way-discovery/score-candidate.js'
 
 // Manually parse .env.local — Node's --env-file flag silently skips some
 // keys (per scripts/prospect-candidates.mjs's existing comment: "dotenv
@@ -70,6 +71,8 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (a === '--dry-run') out.dryRun = true
+    else if (a === '--score') out.score = true
+    else if (a === '--score-only') out.scoreOnly = true
     else if (a.startsWith('--name=')) out.name = a.slice('--name='.length)
     else if (a === '--name')      out.name      = argv[++i]
     else if (a.startsWith('--url=')) out.url = a.slice('--url='.length)
@@ -90,11 +93,14 @@ function usage() {
     node --env-file=.env.local scripts/way-discover.mjs \\
       --name "wukalina Walk" --url "https://wukalinawalk.com.au" \\
       [--type cultural_tour] [--region "Tasmania East Coast"] \\
-      [--state TAS] [--dry-run]
+      [--state TAS] [--dry-run] [--score] [--score-only]
 
   Seed file (batch):
     node --env-file=.env.local scripts/way-discover.mjs \\
-      --seed-file scripts/data/way-calibration-seeds.json
+      --seed-file scripts/data/way-calibration-seeds.json [--score]
+
+  --score       Run scoring after discovery
+  --score-only  Skip discovery, score existing signals only
 `
 }
 
@@ -192,12 +198,38 @@ async function findOrCreateCandidate({ name, url, type, region, state }) {
 
 async function runOne(seed) {
   const candidate = await findOrCreateCandidate(seed)
-  console.error(`[way-discover] running pipeline for ${candidate.name} (${candidate.id})`)
-  const result = await runWayDiscoveryPipeline(candidate, supabase, {
-    dryRun: args.dryRun,
-    fieldClient,
-  })
-  return { candidate: { id: candidate.id, name: candidate.name, slug: candidate.slug }, result }
+  let result = null
+  let scores = null
+
+  if (!args.scoreOnly) {
+    console.error(`[way-discover] running pipeline for ${candidate.name} (${candidate.id})`)
+    result = await runWayDiscoveryPipeline(candidate, supabase, {
+      dryRun: args.dryRun,
+      fieldClient,
+    })
+  }
+
+  if (args.score || args.scoreOnly) {
+    console.error(`[way-discover] scoring ${candidate.name}`)
+    scores = await scoreCandidate(candidate, supabase, {
+      log: (msg) => console.error(`[scoring] ${msg}`),
+      dryRun: args.dryRun,
+    })
+  }
+
+  return {
+    candidate: { id: candidate.id, name: candidate.name, slug: candidate.slug },
+    result,
+    scores: scores ? {
+      gate1: scores.gate1.gate,
+      gate2: scores.gate2.score,
+      gate3: scores.gate3.score,
+      gate4: scores.gate4.operatorGate4,
+      total: scores.total,
+      surfaces: scores.surfaces,
+      surfaceReason: scores.surfaceReason,
+    } : null,
+  }
 }
 
 // ─── Main ────────────────────────────────────────────────────────
