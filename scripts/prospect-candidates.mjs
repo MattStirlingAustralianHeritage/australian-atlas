@@ -156,16 +156,20 @@ async function main() {
       }
 
       // Run each candidate through the quality gate pipeline
-      let passed = 0
+      let inserted = 0
+      let insertFailed = 0
       let failed = 0
 
       for (const candidate of rawCandidates) {
         const result = await runPipeline(candidate, sb, { dryRun, verbose: true })
 
-        if (result.passed) {
-          passed++
+        if (result.inserted) {
+          inserted++
           console.log(`    QUEUED: ${candidate.name} — score ${result.score}/100`)
           existingNames.add(candidate.name.toLowerCase().trim())
+        } else if (result.passed && !result.inserted) {
+          insertFailed++
+          console.log(`    INSERT_FAILED: ${candidate.name} — score ${result.score}/100, error ${result.insertError?.code || 'unknown'}`)
         } else {
           failed++
           console.log(`    DROPPED: ${candidate.name} — Gate ${result.failedGate} (${result.failReason})`)
@@ -175,9 +179,9 @@ async function main() {
         await sleep(1500)
       }
 
-      totalQueued += passed
+      totalQueued += inserted
       totalDisqualified += failed
-      console.log(`  Result: ${passed} queued, ${failed} disqualified`)
+      console.log(`  Result: ${inserted} queued, ${insertFailed} insert-failed, ${failed} disqualified`)
 
     } catch (err) {
       console.error(`  Error processing ${vertical}:`, err.message)

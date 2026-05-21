@@ -61,6 +61,7 @@ export async function GET(request) {
   const startTime = Date.now()
   const results = []
   let totalQueued = 0
+  let totalGatesPassedButNotInserted = 0
   let totalDisqualified = 0
   let totalDiscovered = 0
   const disqualifiedByGate = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 }
@@ -165,6 +166,7 @@ export async function GET(request) {
             .map(s => s.state)
 
       let verticalQueued = 0
+      let verticalGatesPassedButNotInserted = 0
       let verticalDisqualified = 0
       let verticalDiscovered = 0
 
@@ -233,9 +235,12 @@ export async function GET(request) {
           try {
             const result = await runPipeline(candidate, sb, { dryRun, verbose: false })
 
-            if (result.passed) {
+            if (result.inserted) {
               verticalQueued++
               console.log(`[prospect] QUEUED: "${candidate.name}" (${state}) — score ${result.score}`)
+            } else if (result.passed && !result.inserted) {
+              verticalGatesPassedButNotInserted++
+              console.log(`[prospect] INSERT_FAILED: "${candidate.name}" (${state}) — gates passed, score ${result.score}, error ${result.insertError?.code || 'unknown'}: ${result.insertError?.message || 'no details'}`)
             } else {
               verticalDisqualified++
               if (result.failedGate != null) {
@@ -257,6 +262,7 @@ export async function GET(request) {
       }
 
       totalQueued += verticalQueued
+      totalGatesPassedButNotInserted += verticalGatesPassedButNotInserted
       totalDisqualified += verticalDisqualified
       totalDiscovered += verticalDiscovered
 
@@ -266,6 +272,7 @@ export async function GET(request) {
         statesSearched: statesToSearch,
         discovered: verticalDiscovered,
         queued: verticalQueued,
+        gates_passed_but_not_inserted: verticalGatesPassedButNotInserted,
         disqualified: verticalDisqualified,
         status: 'ok',
       })
@@ -286,7 +293,7 @@ export async function GET(request) {
 
   const duration = ((Date.now() - startTime) / 1000).toFixed(1)
 
-  console.log(`[prospect] Done in ${duration}s — ${totalDiscovered} discovered, ${totalQueued} queued, ${totalDisqualified} disqualified`)
+  console.log(`[prospect] Done in ${duration}s — ${totalDiscovered} discovered, ${totalQueued} queued, ${totalGatesPassedButNotInserted} insert-failed, ${totalDisqualified} disqualified`)
 
   return NextResponse.json({
     success: true,
@@ -295,6 +302,7 @@ export async function GET(request) {
     duration_seconds: parseFloat(duration),
     total_discovered: totalDiscovered,
     total_queued: totalQueued,
+    total_gates_passed_but_not_inserted: totalGatesPassedButNotInserted,
     total_disqualified: totalDisqualified,
     disqualified_by_gate: {
       gate_0_dedup: disqualifiedByGate[0],

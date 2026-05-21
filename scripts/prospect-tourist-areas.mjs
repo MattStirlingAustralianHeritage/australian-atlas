@@ -271,9 +271,11 @@ async function main() {
       for (const candidate of filtered) {
         try {
           const result = await runPipeline(candidate, sb, { dryRun, verbose: false })
-          if (result.passed) {
+          if (result.inserted) {
             areaQueued++
             console.log(`    ✓ QUEUED: "${candidate.name}" — score ${result.score}`)
+          } else if (result.passed && !result.inserted) {
+            console.log(`    ⚠ INSERT_FAILED: "${candidate.name}" — score ${result.score}, error ${result.insertError?.code || 'unknown'}`)
           } else {
             areaDisqualified++
             if (result.failedGate != null) disqualifiedByGate[result.failedGate]++

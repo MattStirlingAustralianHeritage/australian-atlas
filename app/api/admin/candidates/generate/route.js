@@ -55,6 +55,7 @@ export async function POST(request) {
   const startTime = Date.now()
   const results = []
   let totalQueued = 0
+  let totalGatesPassedButNotInserted = 0
   let totalDisqualified = 0
   let totalDiscovered = 0
 
@@ -138,6 +139,7 @@ export async function POST(request) {
         .map(s => s.state)
 
       let verticalQueued = 0
+      let verticalGatesPassedButNotInserted = 0
       let verticalDisqualified = 0
       let verticalDiscovered = 0
 
@@ -181,8 +183,10 @@ export async function POST(request) {
 
           try {
             const result = await runPipeline(candidate, sb, { dryRun: false, verbose: false })
-            if (result.passed) {
+            if (result.inserted) {
               verticalQueued++
+            } else if (result.passed && !result.inserted) {
+              verticalGatesPassedButNotInserted++
             } else {
               verticalDisqualified++
             }
@@ -196,6 +200,7 @@ export async function POST(request) {
       }
 
       totalQueued += verticalQueued
+      totalGatesPassedButNotInserted += verticalGatesPassedButNotInserted
       totalDisqualified += verticalDisqualified
       totalDiscovered += verticalDiscovered
 
@@ -205,6 +210,7 @@ export async function POST(request) {
         statesSearched: statesToSearch,
         discovered: verticalDiscovered,
         queued: verticalQueued,
+        gates_passed_but_not_inserted: verticalGatesPassedButNotInserted,
         disqualified: verticalDisqualified,
         previousPending: currentPending,
         status: 'ok',
@@ -232,6 +238,7 @@ export async function POST(request) {
     duration_seconds: parseFloat(duration),
     total_discovered: totalDiscovered,
     total_queued: totalQueued,
+    total_gates_passed_but_not_inserted: totalGatesPassedButNotInserted,
     total_disqualified: totalDisqualified,
     results,
   })

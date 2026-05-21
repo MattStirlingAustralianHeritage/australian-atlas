@@ -176,9 +176,11 @@ async function main() {
 
         try {
           const result = await runPipeline(candidate, sb, { dryRun, verbose: false })
-          if (result.passed) {
+          if (result.inserted) {
             verticalQueued++
             console.log(`    ✓ QUEUED: "${candidate.name}" (${state}) — score ${result.score}`)
+          } else if (result.passed && !result.inserted) {
+            console.log(`    ⚠ INSERT_FAILED: "${candidate.name}" (${state}) — score ${result.score}, error ${result.insertError?.code || 'unknown'}`)
           } else {
             verticalDisqualified++
             if (result.failedGate != null) disqualifiedByGate[result.failedGate]++
