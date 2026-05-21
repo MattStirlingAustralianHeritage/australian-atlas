@@ -244,3 +244,30 @@ This is a hard, non-negotiable rule. It exists because the article sync pipeline
 | syncArticles.js | ✅ (on INSERT only) | — | — | ✅ |
 | Content recycling | ❌ | ✅ (if null) | ✅ | ❌ |
 | Any other agent | ❌ | ❌ | ❌ | ❌ |
+
+## Secret file handling
+
+The following files contain secrets and MUST NEVER be read with content-printing commands:
+
+- `.env`, `.env.local`, `.env.production`, `.env.*` (any env file)
+- Any file matching `*secret*`, `*credential*`, `*token*`, `*key*` (case-insensitive) that is not a public reference doc
+- `~/.aws/credentials`, `~/.ssh/id_*`, `~/.netrc`, `~/.pgpass`
+- Any Supabase service-role key file, regardless of name
+
+Banned commands against these files: `cat`, `less`, `more`, `head`, `tail`, `grep` (without `-c`), `awk`, `sed`, `od`, `xxd`, `hexdump`, `strings`, `vim`/`nano`/`emacs` in print mode, redirecting them into another command's stdin, or piping them anywhere except a length/existence check.
+
+Permitted operations:
+
+- `test -f .env.local` — check existence
+- `wc -l .env.local` — line count
+- `grep -c VARIABLE_NAME .env.local` — presence count (0 or 1), never the value
+- `grep -n VARIABLE_NAME .env.local | cut -d: -f1` — line number stripped of content, only if the pipe is verified to strip before any output is emitted
+
+If a secret value is ever printed to conversation output, tool output, or any log:
+
+1. Stop immediately. Do not continue with the current task.
+2. Notify the user with the specific key/credential leaked and the source file.
+3. Request immediate rotation. Provide the console URL or rotation steps.
+4. Refuse to run any further commands that touch the leaked credential until the user confirms rotation.
+
+The rule applies even when the leak appears incidental — a key fragment in a stack trace, a token in a URL, a credential in an error message. Stop, surface, request rotation. Do not weigh whether the leak "matters enough" to halt. Halt is the default.
