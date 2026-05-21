@@ -3,22 +3,19 @@ import { notFound } from 'next/navigation'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
-import { getVerticalUrl, getVerticalLabel } from '@/lib/verticalUrl'
+import { getVerticalUrl, getVerticalLabel, getVerticalTagline, getVerticalBrandColour } from '@/lib/verticalUrl'
 import { listingJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
 import { checkAdmin } from '@/lib/admin-auth'
 import { isApprovedImageSource } from '@/lib/image-utils'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
-import VerticalBadge from '@/components/VerticalBadge'
-import ListingCard, { TypographicCard, VERTICAL_TOKENS } from '@/components/ListingCard'
-import ListingMap from '@/components/ListingMap'
+import ListingCard, { TypographicCard } from '@/components/ListingCard'
+import EmbeddedNearbyMap from '@/components/EmbeddedNearbyMap'
 import InlineListingEditor from '@/components/InlineListingEditor'
 import StartTrailButton from '@/components/StartTrailButton'
 import SaveListingButton from '@/components/SaveListingButton'
 import ReportIssueButton from '@/components/ReportIssueButton'
 import OpeningHours from '@/components/OpeningHours'
 import PlaceMemories from '@/components/PlaceMemories'
-import SameSpirit from '@/components/SameSpirit'
-import { RelatedCollections } from '@/components/RelatedContent'
 import VerificationBadge from '@/components/VerificationBadge'
 
 export const revalidate = 3600
@@ -37,11 +34,7 @@ const VERTICAL_CATEGORY_LABELS = {
   table: 'Independent Dining',
 }
 
-const VERTICAL_COLORS = {
-  sba: '#C49A3C', collection: '#7A6B8A', craft: '#C1603A',
-  fine_grounds: '#8A7055', rest: '#5A8A9A', field: '#4A7C59',
-  corner: '#5F8A7E', found: '#D4956A', table: '#C4634F',
-}
+// Brand colours sourced from lib/verticalUrl.js (see getVerticalBrandColour).
 
 // ── Data fetching ─────────────────────────────────────────────
 
@@ -99,25 +92,16 @@ const getListing = cache(async function getListing(slug) {
   // to avoid PGRST116 if two verticals share a slug
   const { data, error } = await sb
     .from('listings')
-    .select(`id, vertical, name, slug, description, region, state, suburb, lat, lng, website, phone, address, hero_image_url, is_featured, is_claimed, editors_pick, status, hours, cluster_id, verified, sub_type, sub_types, ${LISTING_REGION_SELECT}`)
+    .select(`id, vertical, name, slug, description, region, state, suburb, lat, lng, website, phone, address, hero_image_url, is_featured, is_claimed, editors_pick, status, hours, verified, sub_type, sub_types, ${LISTING_REGION_SELECT}`)
     .eq('slug', slug)
     .eq('status', 'active')
     .order('updated_at', { ascending: false })
     .limit(1)
     .maybeSingle()
 
-  // If the query fails (e.g. missing column), retry without optional columns
-  if (error && !data) {
-    const retry = await sb
-      .from('listings')
-      .select(`id, vertical, name, slug, description, region, state, lat, lng, website, phone, address, hero_image_url, is_featured, is_claimed, editors_pick, status, ${LISTING_REGION_SELECT}`)
-      .eq('slug', slug)
-      .eq('status', 'active')
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    if (retry.error || !retry.data) return null
-    return retry.data
+  if (error) {
+    console.error('[place] Listing query failed for slug:', slug, '—', error.message, `[${error.code}]`)
+    return null
   }
 
   if (!data) return null
@@ -143,8 +127,8 @@ const getListing = cache(async function getListing(slug) {
         data._offers_classes = true
         data._classes = metaRow.classes
       }
-    } catch {
-      // Meta fetch failure is non-blocking
+    } catch (metaErr) {
+      console.error('[place] Meta lookup failed for listing', data.id, `(${metaLookup.table}):`, metaErr.message)
     }
   }
 
@@ -162,22 +146,33 @@ function haversineKm(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
-async function getNearbyListings(listing, limit = 4) {
-  if (!listing.lat || !listing.lng) return []
+/**
+ * Listings within an adaptive radius of the current listing for the
+ * "Nearby on Australian Atlas" map. Tries 2km → 15km → 30km in turn and
+ * picks the smallest band containing at least MIN_FOR_DENSITY listings, so
+ * dense urban areas show a tight cluster and outer-metro / regional /
+ * remote areas widen out.
+ *
+ * Returns { listings, radiusKm } so the caller can fit the map to the
+ * chosen radius. Always includes the current listing so the highlighted
+ * pin is part of the same data source.
+ */
+async function getMapNearbyListings(listing) {
+  const RADII_KM = [2, 15, 30]
+  const MIN_FOR_DENSITY = 3
+  const FALLBACK_RADIUS_KM = 30
+  if (!listing.lat || !listing.lng) {
+    return { listings: [listing], radiusKm: FALLBACK_RADIUS_KM }
+  }
   const sb = getSupabaseAdmin()
-
-  const PRIMARY_RADIUS_KM = 25
-  const MAX_RADIUS_KM = 50
-
-  const latDelta = MAX_RADIUS_KM / 111
-  const lngDelta = MAX_RADIUS_KM / (111 * Math.cos(listing.lat * Math.PI / 180))
+  const latDelta = FALLBACK_RADIUS_KM / 111
+  const lngDelta = FALLBACK_RADIUS_KM / (111 * Math.cos(listing.lat * Math.PI / 180))
 
   const { data } = await sb
     .from('listings')
-    .select(`id, name, slug, vertical, region, state, lat, lng, hero_image_url, description, is_featured, is_claimed, editors_pick, ${LISTING_REGION_SELECT}`)
+    .select('id, name, slug, vertical, region, state, lat, lng, is_featured, is_claimed, editors_pick, sub_type, address_on_request')
     .eq('status', 'active')
     .neq('id', listing.id)
-    .neq('vertical', listing.vertical)
     .or('address_on_request.eq.false,address_on_request.is.null')
     .or('visitable.eq.true,visitable.is.null,presence_type.eq.by_appointment')
     .gte('lat', listing.lat - latDelta)
@@ -186,102 +181,98 @@ async function getNearbyListings(listing, limit = 4) {
     .lte('lng', listing.lng + lngDelta)
     .not('lat', 'is', null)
     .not('lng', 'is', null)
-    .limit(100)
+    .limit(120)
 
-  if (!data || data.length === 0) return []
-
-  const withDist = data
+  const withDist = (data || [])
     .map(l => ({ ...l, _dist: haversineKm(listing.lat, listing.lng, l.lat, l.lng) }))
-    .filter(l => l._dist <= MAX_RADIUS_KM)
+    .filter(l => l._dist <= FALLBACK_RADIUS_KM)
     .sort((a, b) => a._dist - b._dist)
 
-  if (withDist.length === 0) return []
-
-  let pool = withDist.filter(l => l._dist <= PRIMARY_RADIUS_KM)
-  if (pool.length < limit) {
-    pool = withDist
-  }
-
-  // Cap per-vertical to ensure cross-vertical diversity
-  const result = []
-  const verticalCounts = {}
-  const usedIds = new Set()
-
-  const addFromPool = (cap) => {
-    for (const l of pool) {
-      if (result.length >= limit) break
-      if (usedIds.has(l.id)) continue
-      const vc = verticalCounts[l.vertical] || 0
-      if (cap != null && vc >= cap) continue
-      verticalCounts[l.vertical] = vc + 1
-      usedIds.add(l.id)
-      result.push(l)
+  let chosenRadius = FALLBACK_RADIUS_KM
+  for (const r of RADII_KM) {
+    if (withDist.filter(l => l._dist <= r).length >= MIN_FOR_DENSITY) {
+      chosenRadius = r
+      break
     }
   }
 
-  addFromPool(1)
-  addFromPool(2)
-  addFromPool(null)
+  const inBand = withDist.filter(l => l._dist <= chosenRadius)
+  return { listings: [listing, ...inBand], radiusKm: chosenRadius }
+}
 
-  return result
+/** Compute a bounding box around (lat, lng) for the given radius in km. */
+function radiusBounds(lat, lng, radiusKm) {
+  const latDelta = radiusKm / 111
+  const lngDelta = radiusKm / (111 * Math.cos(lat * Math.PI / 180))
+  return [[lng - lngDelta, lat - latDelta], [lng + lngDelta, lat + latDelta]]
 }
 
 async function getRegionListings(listing, excludeIds = [], limit = 4) {
   // Decision 1: NULL effective region → no cross-region recommendations.
   // Decision 3: override-wins precedence via getListingRegion.
+  // Adjacency: when the primary region's pool is thin (< MIN_PRIMARY), we
+  // top up from the same state but a different region. The label stays
+  // "More in [region]" — the user doesn't need to see the fallback.
   const region = getListingRegion(listing)
   if (!region) return []
   const sb = getSupabaseAdmin()
+  const SELECT = `id, name, slug, vertical, region, state, lat, lng, hero_image_url, description, is_featured, is_claimed, editors_pick, ${LISTING_REGION_SELECT}`
+  const MIN_PRIMARY = 8
+  const FETCH_PRIMARY = Math.max(MIN_PRIMARY, limit)
 
-  const { data } = await sb
-    .from('listings')
-    .select(`id, name, slug, vertical, region, state, lat, lng, hero_image_url, description, is_featured, is_claimed, editors_pick, ${LISTING_REGION_SELECT}`)
+  const excludeForQuery = [listing.id, ...excludeIds]
+
+  const { data: primary } = await sb
+    .from('listings_with_region')
+    .select(SELECT)
     .eq('status', 'active')
-    .or(`region_computed_id.eq.${region.id},region_override_id.eq.${region.id}`)
-    .not('id', 'in', `(${[listing.id, ...excludeIds].join(',')})`)
+    .eq('region_id', region.id)
+    .not('id', 'in', `(${excludeForQuery.join(',')})`)
     .order('editors_pick', { ascending: false })
-    .limit(limit)
+    .limit(FETCH_PRIMARY)
 
-  return data || []
-}
+  const primaryRows = primary || []
+  if (primaryRows.length >= MIN_PRIMARY || !region.state) {
+    return primaryRows.slice(0, limit)
+  }
 
-async function getCrossVerticalListings(listing, excludeIds = [], limit = 3) {
-  const region = getListingRegion(listing)
-  if (!region || !listing.vertical) return []
-  const sb = getSupabaseAdmin()
-
-  const { data } = await sb
+  // Top-up from same state, different region. Excludes anything we already
+  // have so the row stays free of duplicates. The "different region" check
+  // happens post-fetch via getListingRegion — Postgres NULL semantics make
+  // a column-level .neq tricky when override or computed can be null.
+  const usedIds = new Set([...excludeForQuery, ...primaryRows.map(r => r.id)])
+  const remaining = limit - primaryRows.length
+  const { data: stateData } = await sb
     .from('listings')
-    .select(`id, name, slug, vertical, region, state, lat, lng, hero_image_url, description, is_featured, is_claimed, editors_pick, ${LISTING_REGION_SELECT}`)
+    .select(SELECT)
     .eq('status', 'active')
-    .or(`region_computed_id.eq.${region.id},region_override_id.eq.${region.id}`)
-    .neq('vertical', listing.vertical)
-    .not('id', 'in', `(${[listing.id, ...excludeIds].join(',')})`)
+    .eq('state', region.state)
+    .not('id', 'in', `(${[...usedIds].join(',')})`)
     .order('editors_pick', { ascending: false })
-    .limit(limit)
+    .limit(remaining * 6)
 
-  return data || []
+  const stateRows = (stateData || []).filter(l => {
+    const eff = getListingRegion(l)
+    return !eff || eff.id !== region.id
+  }).slice(0, remaining)
+
+  return [...primaryRows, ...stateRows].slice(0, limit)
 }
 
 /**
- * Cluster-aware recommendations: listings in the same semantic cluster
- * but from different verticals. Gives recommendations semantic coherence
- * without being repetitive.
+ * Sibling rows representing the same physical place on a different vertical.
+ * Detected by an exact slug match across active rows — the master `listings`
+ * table holds one row per (vertical, source_id) pair, so a venue cross-listed
+ * across verticals shares its slug. Returns rows other than the current one.
  */
-async function getClusterSiblings(listing, excludeIds = [], limit = 3) {
-  if (!listing.cluster_id) return []
+async function getCrossListedSiblings(listing) {
   const sb = getSupabaseAdmin()
-
   const { data } = await sb
     .from('listings')
-    .select(`id, name, slug, vertical, region, state, lat, lng, hero_image_url, description, is_featured, is_claimed, editors_pick, ${LISTING_REGION_SELECT}`)
+    .select('id, vertical, slug')
+    .eq('slug', listing.slug)
     .eq('status', 'active')
-    .eq('cluster_id', listing.cluster_id)
-    .neq('vertical', listing.vertical)
-    .not('id', 'in', `(${[listing.id, ...excludeIds].join(',')})`)
-    .order('editors_pick', { ascending: false })
-    .limit(limit)
-
+    .neq('id', listing.id)
   return data || []
 }
 
@@ -352,17 +343,17 @@ export default async function PlacePage({ params }) {
     isAdmin = await checkAdmin(cookieStore)
   } catch { /* auth check failure = not admin */ }
 
-  const nearby = await getNearbyListings(listing)
-  const nearbyIds = nearby.map(n => n.id)
+  // Nearby pins for the in-page map. Density-aware radius (2/10/25 km).
+  const { listings: mapNearby, radiusKm: mapRadiusKm } = await getMapNearbyListings(listing)
+  const mapNearbyIds = mapNearby.map(n => n.id)
 
-  // Region-based internal linking
-  const regionListings = await getRegionListings(listing, nearbyIds)
-  const regionIds = regionListings.map(r => r.id)
-  const crossVerticalListings = await getCrossVerticalListings(listing, [...nearbyIds, ...regionIds])
-  const allUsedIds = [...nearbyIds, ...regionIds, ...crossVerticalListings.map(c => c.id)]
+  // The single surviving related row: "More in [region]". Excludes anything
+  // already on the map so we don't show the same card twice on one page.
+  const regionListings = await getRegionListings(listing, mapNearbyIds, 4)
 
-  // Cluster-aware recommendations: same semantic cluster, different vertical
-  const clusterSiblings = await getClusterSiblings(listing, allUsedIds)
+  // Cross-listed siblings: same slug, different vertical (e.g. a winery+restaurant
+  // on both Small Batch and Table). Used by the "Also listed on" meta section.
+  const crossListedSiblings = await getCrossListedSiblings(listing)
 
   // Fetch approved place memories (max 5)
   const sbMem = getSupabaseAdmin()
@@ -382,8 +373,7 @@ export default async function PlacePage({ params }) {
   const regionData = region
 
   const vertLabel = getVerticalLabel(listing.vertical)
-  const vertColor = VERTICAL_COLORS[listing.vertical] || '#5F8A7E'
-  const tokens = VERTICAL_TOKENS[listing.vertical] || VERTICAL_TOKENS.portal
+  const vertColor = getVerticalBrandColour(listing.vertical) || '#5F8A7E'
   const specificSubcategory = formatSubcategory(listing._subcategory || listing.sub_type)
   const categoryLabel = specificSubcategory || VERTICAL_CATEGORY_LABELS[listing.vertical] || 'Place'
   const secondarySubcategories = (listing.sub_types || []).slice(1).map(formatSubcategory).filter(Boolean)
@@ -411,8 +401,10 @@ export default async function PlacePage({ params }) {
       />
 
       {/* ── Hero ────────────────────────────────────────── */}
+      {/* Visible breadcrumb intentionally removed; SEO breadcrumbs are emitted via JSON-LD above. */}
+      {/* .atlas-hero-band height tiers live in app/globals.css */}
       {isApprovedImageSource(listing.hero_image_url) ? (
-        <div className="w-full relative overflow-hidden" style={{ minHeight: '50vh' }}>
+        <div className="atlas-hero-band w-full relative overflow-hidden">
           <img
             src={listing.hero_image_url}
             alt={listing.name}
@@ -448,72 +440,19 @@ export default async function PlacePage({ params }) {
           </div>
         </div>
       ) : (
-        <div className="w-full relative" style={{
-          minHeight: '40vh',
-          background: tokens.bg,
-          display: 'flex', flexDirection: 'column',
-          justifyContent: 'center', alignItems: 'center',
-          textAlign: 'center', padding: '3rem 1.5rem',
-        }}>
-          <div style={{
-            position: 'absolute', inset: 0,
-            backgroundImage: `radial-gradient(circle, ${tokens.text} 1px, transparent 1px)`,
-            backgroundSize: '16px 16px', opacity: 0.06, pointerEvents: 'none',
-          }} />
-          <div style={{ position: 'relative', zIndex: 1, maxWidth: '700px' }}>
-            <p style={{
-              fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 500,
-              letterSpacing: '0.15em', textTransform: 'uppercase',
-              color: tokens.text, opacity: 0.5, marginBottom: '16px',
-            }}>
-              {vertLabel} &middot; {categoryLabel}
-            </p>
-            <h1 style={{
-              fontFamily: 'var(--font-display)', fontWeight: 400,
-              fontSize: 'clamp(2rem, 5vw, 3.5rem)', lineHeight: 1.1,
-              color: tokens.text, margin: 0,
-            }}>
-              {listing.name}
-            </h1>
-            {location && (
-              <p style={{
-                fontFamily: 'var(--font-body)', fontSize: '15px', fontWeight: 300,
-                color: tokens.text, opacity: 0.6, marginTop: '10px',
-              }}>
-                {location}
-              </p>
-            )}
-          </div>
-        </div>
+        <TypographicCard
+          name={listing.name}
+          vertical={listing.vertical}
+          category={listing._subcategory || listing.sub_type}
+          region={cleanRegion}
+          state={listing.state}
+          size="hero"
+          showVerticalTag
+        />
       )}
 
       {/* ── Content ───────────────────────────────────────── */}
       <div className="max-w-4xl mx-auto px-6 sm:px-8 pb-20" style={{ marginTop: '48px' }}>
-
-        {/* Breadcrumb */}
-        <nav className="flex items-center gap-1.5 mb-8 text-xs flex-wrap" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)' }}>
-          <Link href="/map" className="hover:underline" style={{ padding: '6px 2px', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>Map</Link>
-          <span>&rsaquo;</span>
-          {listing.state && (
-            <>
-              <Link href={`/search?state=${encodeURIComponent(listing.state)}`} className="hover:underline" style={{ padding: '6px 2px', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}>{listing.state}</Link>
-              <span>&rsaquo;</span>
-            </>
-          )}
-          {cleanRegion && (
-            <>
-              <Link
-                href={`/regions/${regionData.slug}`}
-                className="hover:underline"
-                style={{ padding: '6px 2px', minHeight: 44, display: 'inline-flex', alignItems: 'center' }}
-              >
-                {cleanRegion}
-              </Link>
-              <span>&rsaquo;</span>
-            </>
-          )}
-          <span style={{ color: 'var(--color-ink)', padding: '6px 2px' }}>{listing.name}</span>
-        </nav>
 
         {/* Atlas Select / Featured badges */}
         {(listing.editors_pick || (listing.is_featured && listing.is_claimed)) && (
@@ -546,53 +485,60 @@ export default async function PlacePage({ params }) {
               </div>
             )}
 
-            {/* CTA buttons */}
-            <div className="flex flex-wrap items-center gap-4 mt-10">
-              {websiteUrl && (
-                <a
-                  href={websiteUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-medium text-white transition-opacity hover:opacity-90"
-                  style={{ background: 'var(--color-accent)', fontFamily: 'var(--font-body)', minHeight: 44 }}
-                >
-                  Visit Website
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                </a>
-              )}
-              {hasCoords && (
-                <a
-                  href={`https://www.google.com/maps/dir/?api=1&destination=${listing.lat},${listing.lng}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-sm font-medium transition-colors hover:opacity-70"
-                  style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)', minHeight: 44 }}
-                >
-                  <svg className="w-4 h-4" style={{ color: 'var(--color-accent)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  Get Directions
-                </a>
-              )}
-              <StartTrailButton listing={{ id: listing.id, name: listing.name, slug: listing.slug, region: listing.region, state: listing.state, vertical: listing.vertical, lat: listing.lat, lng: listing.lng }} />
-              <SaveListingButton listingId={listing.id} listingName={listing.name} />
+            {/* CTA buttons — two-tier hierarchy.
+                Primary pair (Visit Website + Start a trail here): equal visual
+                weight, stacked full-width on mobile, side-by-side on desktop.
+                Tertiary (Get Directions): text link with icon below.
+                DOM order matches keyboard tab order requirement. */}
+            <div className="mt-10 flex flex-col gap-4">
+              <div className="flex flex-col sm:flex-row gap-3">
+                {websiteUrl && (
+                  <a
+                    href={websiteUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full text-sm font-medium text-white transition-opacity hover:opacity-90 w-full sm:w-auto"
+                    style={{ background: 'var(--color-accent)', fontFamily: 'var(--font-body)', minHeight: 44 }}
+                  >
+                    Visit Website
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
+                )}
+                <StartTrailButton
+                  listing={{ id: listing.id, name: listing.name, slug: listing.slug, region: listing.region, state: listing.state, vertical: listing.vertical, lat: listing.lat, lng: listing.lng }}
+                  className="w-full sm:w-auto"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-4">
+                {hasCoords && (
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${listing.lat},${listing.lng}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-sm font-medium transition-colors hover:opacity-70"
+                    style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)', minHeight: 44 }}
+                  >
+                    <svg className="w-4 h-4" style={{ color: 'var(--color-accent)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    Get Directions
+                  </a>
+                )}
+                <SaveListingButton listingId={listing.id} listingName={listing.name} />
+              </div>
             </div>
 
             <ReportIssueButton listingId={listing.id} listingName={listing.name} />
           </div>
 
-          {/* Sidebar — details + map */}
+          {/* Sidebar — meta details. The small map that used to live here is
+              gone; map duties have moved to the full-width map section below. */}
           <div className="lg:col-span-2">
             <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--color-border)', background: 'var(--color-card-bg)' }}>
-              {hasCoords ? (
-                <div className="w-full overflow-hidden" style={{ height: '200px' }}>
-                  <ListingMap lat={listing.lat} lng={listing.lng} name={listing.name} color={vertColor} />
-                </div>
-              ) : null}
-
               <div className="p-5">
                 <div className="flex flex-col gap-4">
                   {listing.address && (
@@ -633,21 +579,53 @@ export default async function PlacePage({ params }) {
               </div>
             </div>
 
-            {/* Also listed on */}
-            <div className="flex items-center gap-3 mt-4 py-3 px-4 rounded-lg" style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}>
-              <VerticalBadge vertical={listing.vertical} size="sm" />
-              <span className="text-xs" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)' }}>
-                Also on
-              </span>
-              <a
-                href={verticalUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs font-medium hover:underline"
-                style={{ fontFamily: 'var(--font-body)', color: vertColor }}
+            {/* Also listed on — the cross-vertical line treatment.
+                Promoted from a chip to a labelled meta section. Renders one
+                line per vertical the listing exists on (always at least the
+                primary vertical, plus any cross-listed siblings). The link
+                opens in the same tab — moving across the network, not away. */}
+            <div className="mt-4 py-4 px-5 rounded-lg" style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}>
+              <p
+                className="mb-3"
+                style={{
+                  fontFamily: 'var(--font-body)', color: 'var(--color-muted)',
+                  letterSpacing: '0.08em', fontSize: '10px',
+                  fontWeight: 600, textTransform: 'uppercase',
+                }}
               >
-                {vertLabel} &rarr;
-              </a>
+                Also listed on
+              </p>
+              <ul style={{ display: 'flex', flexDirection: 'column', gap: '14px', margin: 0, padding: 0, listStyle: 'none' }}>
+                {[{ vertical: listing.vertical, slug: listing.slug }, ...crossListedSiblings].map(entry => {
+                  const label = getVerticalLabel(entry.vertical)
+                  const tagline = getVerticalTagline(entry.vertical)
+                  const href = getVerticalUrl(entry.vertical, entry.slug)
+                  const lineColor = getVerticalBrandColour(entry.vertical) || vertColor
+                  return (
+                    <li key={`${entry.vertical}-${entry.slug}`}>
+                      <a
+                        href={href}
+                        className="hover:underline"
+                        style={{
+                          fontFamily: 'var(--font-body)', fontSize: '14px',
+                          fontWeight: 500, color: lineColor,
+                        }}
+                      >
+                        {label} &rarr;
+                      </a>
+                      {tagline && (
+                        <p style={{
+                          fontFamily: 'var(--font-body)', fontSize: '12px',
+                          fontWeight: 400, color: 'var(--color-muted)',
+                          margin: '2px 0 0', lineHeight: 1.45,
+                        }}>
+                          {tagline}
+                        </p>
+                      )}
+                    </li>
+                  )
+                })}
+              </ul>
             </div>
           </div>
         </div>
@@ -657,33 +635,9 @@ export default async function PlacePage({ params }) {
           <PlaceMemories listingId={listing.id} initialMemories={memories} />
         )}
 
-        {/* ── Claim CTA (if unclaimed) ───────────────────── */}
-        {!listing.is_claimed && (
-          <div style={{
-            background: '#F5F0E8', margin: '0 -1.5rem', padding: '3rem 2rem',
-            textAlign: 'center', marginBottom: '3rem',
-          }}>
-            <p style={{
-              fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 400,
-              color: 'var(--color-ink)', margin: '0 0 8px',
-            }}>
-              Own {listing.name}?
-            </p>
-            <p className="mb-5" style={{
-              fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 300,
-              color: 'var(--color-muted)', maxWidth: '400px', margin: '0 auto 20px',
-            }}>
-              Claim your free listing to update your details and connect with visitors.
-            </p>
-            <Link
-              href={`/claim/${listing.slug}`}
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-medium text-white transition-opacity hover:opacity-90"
-              style={{ background: 'var(--color-accent)', fontFamily: 'var(--font-body)', minHeight: 44 }}
-            >
-              Claim this listing
-            </Link>
-          </div>
-        )}
+        {/* Claim CTA used to live here, between the listing's primary content
+            and the discovery content. It now sits below the More in row so
+            it doesn't interrupt the traveller flow. */}
 
         {/* ── Classes & Workshops (craft only) ────────────── */}
         {listing._offers_classes && listing._classes?.length > 0 && (
@@ -733,136 +687,97 @@ export default async function PlacePage({ params }) {
           </section>
         )}
 
-        {/* ── In the Same Spirit ─────────────────────────── */}
-        <SameSpirit
-          listingId={listing.id}
-          vertical={listing.vertical}
-          suburb={listing.suburb || ''}
-        />
-
-        {/* ── Nearby listings ────────────────────────────── */}
-        {nearby.length > 0 && (
-          <section>
-            <h2
-              className="mb-5"
-              style={{
-                fontFamily: 'var(--font-display)',
-                fontWeight: 400,
-                fontSize: '22px',
-                color: 'var(--color-ink)',
-              }}
+        {/* ── Nearby on Australian Atlas — full-width interactive map ──
+            Replaces the small sidebar map AND the previous nearby/region
+            carousel duplication. Pins are pre-fetched server-side with a
+            density-aware radius (2/10/25 km) so dense urban areas show a
+            tight cluster and remote areas widen out. */}
+        {hasCoords && (
+          <section className="mt-12">
+            <div className="flex items-end justify-between mb-4 gap-4 flex-wrap">
+              <h2 style={{
+                fontFamily: 'var(--font-display)', fontWeight: 400,
+                fontSize: '22px', color: 'var(--color-ink)', margin: 0,
+              }}>
+                Nearby on Australian Atlas
+              </h2>
+              <Link
+                href={`/map?lng=${listing.lng}&lat=${listing.lat}&zoom=12`}
+                className="hover:underline"
+                style={{
+                  fontFamily: 'var(--font-body)', fontSize: '13px',
+                  fontWeight: 500, color: vertColor,
+                }}
+              >
+                View on full map &rarr;
+              </Link>
+            </div>
+            <div
+              className="atlas-nearby-map rounded-xl overflow-hidden"
+              style={{ border: '1px solid var(--color-border)' }}
+              role="region"
+              aria-label={`Interactive map of ${listing.name} and nearby Australian Atlas listings within ${mapRadiusKm} km`}
             >
-              Nearby on Australian Atlas
-            </h2>
-            <style dangerouslySetInnerHTML={{ __html: `
-              .nearby-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
-              @media (max-width: 640px) {
-                .nearby-grid {
-                  display: flex; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory;
-                  -webkit-overflow-scrolling: touch; padding-bottom: 8px;
-                }
-                .nearby-grid::-webkit-scrollbar { display: none; }
-                .nearby-grid > * { scroll-snap-align: start; flex-shrink: 0; width: 75vw; max-width: 300px; }
-              }
-            `}} />
-            <div className="nearby-grid">
-              {nearby.map(n => (
-                <ListingCard key={n.id} listing={n} />
-              ))}
+              <EmbeddedNearbyMap
+                prefilteredListings={mapNearby}
+                initialBounds={radiusBounds(listing.lat, listing.lng, mapRadiusKm)}
+                highlightListingId={listing.id}
+              />
             </div>
           </section>
         )}
 
-        {/* ── More in region ─────────────────────────────── */}
+        {/* ── More in [region] — the only surviving related row ────────
+            3 cards on small screens, 4 on wide desktop. The "More in" pool
+            broadens to same-state-different-region when the primary region
+            is thin (see getRegionListings). Label stays the primary region.
+            Below this, the page ends — no further carousels by design. */}
         {cleanRegion && regionListings.length > 0 && (
           <section className="mt-12">
-            <h2
-              className="mb-5"
-              style={{
-                fontFamily: 'var(--font-display)',
-                fontWeight: 400,
-                fontSize: '22px',
-                color: 'var(--color-ink)',
-              }}
-            >
+            <h2 className="mb-5" style={{
+              fontFamily: 'var(--font-display)', fontWeight: 400,
+              fontSize: '22px', color: 'var(--color-ink)',
+            }}>
               More in {cleanRegion}
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {regionListings.map(r => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {regionListings.slice(0, 4).map(r => (
                 <ListingCard key={r.id} listing={r} />
               ))}
             </div>
           </section>
         )}
 
-        {/* ── Explore this region ────────────────────────── */}
-        {cleanRegion && (
-          <Link
-            href={`/regions/${regionData.slug}`}
-            className="block mt-10 py-5 px-6 rounded-lg transition-colors"
-            style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold tracking-wider uppercase mb-1" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)', letterSpacing: '0.08em', fontSize: '10px' }}>
-                  Explore Region
-                </p>
-                <p className="text-base font-medium" style={{ fontFamily: 'var(--font-display)', color: 'var(--color-ink)' }}>
-                  Explore all of {cleanRegion}, {listing.state}
-                </p>
-              </div>
-              <svg className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--color-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5l7 7-7 7" />
-              </svg>
-            </div>
-          </Link>
-        )}
-
-        {/* ── Cross-vertical discovery ───────────────────── */}
-        {cleanRegion && crossVerticalListings.length > 0 && (
-          <section className="mt-12">
-            <h3
-              className="mb-4"
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 400,
-                fontSize: '15px',
-                color: 'var(--color-muted)',
-              }}
+        {/* ── Claim CTA (if unclaimed) — moved to the bottom of the page
+            so it doesn't interrupt the traveller flow. Editorially important
+            to the platform, functionally irrelevant to the user, so it sits
+            after the discovery content rather than between primary and
+            discovery sections. */}
+        {!listing.is_claimed && (
+          <div className="mt-12" style={{
+            background: '#F5F0E8', margin: '3rem -1.5rem 0', padding: '3rem 2rem',
+            textAlign: 'center',
+          }}>
+            <p style={{
+              fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 400,
+              color: 'var(--color-ink)', margin: '0 0 8px',
+            }}>
+              Own {listing.name}?
+            </p>
+            <p className="mb-5" style={{
+              fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 300,
+              color: 'var(--color-muted)', maxWidth: '400px', margin: '0 auto 20px',
+            }}>
+              Claim your free listing to update your details and connect with visitors.
+            </p>
+            <Link
+              href={`/claim/${listing.slug}`}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-medium text-white transition-opacity hover:opacity-90"
+              style={{ background: 'var(--color-accent)', fontFamily: 'var(--font-body)', minHeight: 44 }}
             >
-              While you&rsquo;re in {cleanRegion}, also discover
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {crossVerticalListings.map(c => (
-                <ListingCard key={c.id} listing={c} />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* ── Collections from this region ─────────────────── */}
-        <RelatedCollections region={listing.region} vertical={listing.vertical} limit={2} />
-
-        {/* ── Semantically similar ── cluster-aware recommendations */}
-        {clusterSiblings.length > 0 && (
-          <section className="mt-12">
-            <h3
-              className="mb-4"
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 400,
-                fontSize: '15px',
-                color: 'var(--color-muted)',
-              }}
-            >
-              You might also like
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {clusterSiblings.map(c => (
-                <ListingCard key={c.id} listing={c} />
-              ))}
-            </div>
-          </section>
+              Claim this listing
+            </Link>
+          </div>
         )}
       </div>
 

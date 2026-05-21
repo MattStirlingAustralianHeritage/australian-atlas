@@ -1,3 +1,4 @@
+// TODO: This file depends on migration 066_listing_clusters.sql which was never applied to production. All queries referencing cluster_id or listing_clusters silently fail.
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'

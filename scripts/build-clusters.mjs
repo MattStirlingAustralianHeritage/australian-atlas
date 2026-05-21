@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// TODO: This script depends on migration 066_listing_clusters.sql which was never applied to production. All queries referencing cluster_id or listing_clusters will fail.
 // ============================================================
 // Build Clusters — The Independent Australia Corpus
 //
