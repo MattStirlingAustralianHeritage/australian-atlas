@@ -65,10 +65,10 @@ async function getRegionListings(regionId) {
   try {
     const sb = getSupabaseAdmin()
     const { data } = await sb
-      .from('listings')
+      .from('listings_with_region')
       .select('id, name, slug, vertical, suburb, state, hero_image_url')
       .eq('region_id', regionId)
-      .eq('is_active', true)
+      .eq('status', 'active')
       .limit(3)
     return data || []
   } catch {
