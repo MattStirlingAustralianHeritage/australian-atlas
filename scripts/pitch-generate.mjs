@@ -12,7 +12,7 @@
  * GATE 1 USAGE (required: --dry-run, ≤ 5 listings, run with the editor at
  * the keyboard):
  *
- *   node --env-file=.env.local scripts/pitch-generate.mjs \
+ *   node scripts/pitch-generate.mjs \
  *     --dry-run \
  *     --listing-slug=turkey-flat-vineyards \
  *     --listing-slug=bream-creek-vineyard \
@@ -21,17 +21,54 @@
  * PRODUCTION (writes to the pitches table; requires pitch_slots to be
  * seeded):
  *
- *   node --env-file=.env.local scripts/pitch-generate.mjs \
+ *   node scripts/pitch-generate.mjs \
  *     --listing-id=<uuid> \
  *     --slot-type=general
  *
  * The script never seeds pitch_slots. If no available slot exists for the
  * (vertical, slot_type), the pipeline returns 'no_slot_available' and the
  * candidate is skipped — slot seeding is a separate cleanup task.
+ *
+ * Env loading uses the hand-rolled loadEnv() pattern that the rest of the
+ * project's scripts use (see scripts/generate-editorial-brief.mjs). Node's
+ * built-in --env-file parser failed on this project's .env.local during the
+ * Phase 2 build; the hand-rolled parser is permissive enough to work around
+ * whatever line shape was tripping the built-in. Running with --env-file is
+ * NOT required.
  */
 
+import { readFileSync } from 'fs'
+import { resolve, dirname } from 'path'
+import { fileURLToPath } from 'url'
 import { createClient } from '@supabase/supabase-js'
 import { runPipeline } from '../lib/pitch/pipeline.mjs'
+
+// ── Env loading ─────────────────────────────────────────────────────────────
+//
+// Uses the inline-regex parsing body that the project's _check_*.mjs scripts
+// use (strips wrapping double or single quotes from values). Not the
+// generate-editorial-brief.mjs loadEnv() body — that variant does NOT strip
+// quotes and silently fails when .env.local has quoted values, which is the
+// current shape of this project's .env.local. The codebase has two competing
+// env-loading patterns; this is the one that works. Cleanup tracked separately.
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+
+function loadEnv() {
+  try {
+    const raw = readFileSync(resolve(__dirname, '../.env.local'), 'utf-8')
+    for (const line of raw.split('\n')) {
+      const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/)
+      if (!m) continue
+      let v = m[2].trim()
+      if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+        v = v.slice(1, -1)
+      }
+      process.env[m[1]] = v
+    }
+  } catch {}
+}
+loadEnv()
 
 // ── CLI arg parsing ─────────────────────────────────────────────────────────
 
@@ -292,7 +329,11 @@ function truncate(s, n) {
 
 function printUsage() {
   console.log(`Usage:
-  node --env-file=.env.local scripts/pitch-generate.mjs [options]
+  node scripts/pitch-generate.mjs [options]
+
+The script loads env vars from ./.env.local automatically (no --env-file
+flag required). NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and
+ANTHROPIC_API_KEY must be set there.
 
 Options:
   --listing-id=<uuid>        Listing UUID to generate a pitch for (repeatable).
@@ -305,7 +346,7 @@ Options:
 
 Gate 1 example (the editor names five listings, runs dry-run, traces every
 claim back to source data):
-  node --env-file=.env.local scripts/pitch-generate.mjs \\
+  node scripts/pitch-generate.mjs \\
     --dry-run \\
     --slot-type=general \\
     --listing-slug=turkey-flat-vineyards \\
