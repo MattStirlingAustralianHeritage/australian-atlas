@@ -37,3 +37,10 @@ Database state verified via the Supabase dashboard before this entry
 was written. The corresponding `.sql` files do not currently live in
 `supabase/migrations/` — flagged as a backlog item to reconstruct from
 the executed SQL and add for replay/audit completeness.
+
+## 2026-05-22 (continued)
+
+Migration files 129, 130, 131 reconstructed and written to disk per the
+intended schema state. 130 reflects the final reseed to 30 rows (Matt
+is applying that reseed via the SQL editor in parallel with this commit).
+Files are now part of the migration history for future replay.
