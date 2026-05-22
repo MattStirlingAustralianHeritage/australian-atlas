@@ -1,0 +1,339 @@
+[2026-05-22T06:00:28.805Z] [info] Ranker run starting
+[2026-05-22T06:00:28.807Z] [info] Wall-clock budget: 90 min
+[2026-05-22T06:00:28.807Z] [info] Inter-listing delay: 2000 ms
+[2026-05-22T06:00:28.807Z] [info] Max consecutive failures: 3
+[2026-05-22T06:00:28.807Z] [info] Picking listings...
+[2026-05-22T06:00:32.518Z] [info] picker: sba — 500 fetched, 498 eligible, picked 10
+[2026-05-22T06:00:32.951Z] [info] picker: craft — 500 fetched, 493 eligible, picked 10
+[2026-05-22T06:00:33.377Z] [info] picker: rest — 382 fetched, 381 eligible, picked 10
+[2026-05-22T06:00:33.624Z] [info] picker: table — 162 fetched, 161 eligible, picked 10
+[2026-05-22T06:00:34.050Z] [info] picker: collection — 500 fetched, 499 eligible, picked 10
+[2026-05-22T06:00:34.050Z] [info] Picked 50 listings across 5 verticals
+[2026-05-22T06:00:34.052Z] [info] [1/50] sba/bellarine-estate — starting Stage 1 (elapsed 0.1m)
+[2026-05-22T06:00:34.270Z] [info]   bellarine-estate: stage1: bellarine-estate (f3460187-e6b4-4866-a71c-bb084f9a327c) — fetching http://www.bellarineestate.com.au/
+[2026-05-22T06:00:36.262Z] [debug]   bellarine-estate: fetched http://www.bellarineestate.com.au/ (2001 chars)
+[2026-05-22T06:00:38.631Z] [debug]   bellarine-estate: fetched http://www.bellarineestate.com.au/about (855 chars)
+[2026-05-22T06:00:56.052Z] [debug]   bellarine-estate: fetched http://www.bellarineestate.com.au/contact (531 chars)
+[2026-05-22T06:01:21.015Z] [info] [1/50] bellarine-estate -> ok; pages=3/14; chars=4; sig=3; sources_inserted=3
+[2026-05-22T06:01:23.017Z] [info] [2/50] sba/slow-wine-co — starting Stage 1 (elapsed 0.9m)
+[2026-05-22T06:01:23.230Z] [info]   slow-wine-co: stage1: slow-wine-co (1f65fbe4-72c1-47a9-a45a-e8704de0213f) — fetching http://slowwineco.com.au/
+[2026-05-22T06:01:26.588Z] [debug]   slow-wine-co: fetched http://slowwineco.com.au/ (2680 chars)
+[2026-05-22T06:01:29.091Z] [debug]   slow-wine-co: fetched http://slowwineco.com.au/about (2369 chars)
+[2026-05-22T06:02:22.746Z] [info] [2/50] slow-wine-co -> ok; pages=2/14; chars=4; sig=6; sources_inserted=2
+[2026-05-22T06:02:24.749Z] [info] [3/50] sba/distil-on-the-hill — starting Stage 1 (elapsed 1.9m)
+[2026-05-22T06:02:24.952Z] [info]   distil-on-the-hill: stage1: distil-on-the-hill (7baf069c-bd85-4ab9-9dfe-51245e8402ac) — fetching http://www.distilonthehill.com/
+[2026-05-22T06:02:25.911Z] [debug]   distil-on-the-hill: fetched http://www.distilonthehill.com/ (169 chars)
+[2026-05-22T06:02:55.887Z] [debug]   distil-on-the-hill: fetched http://www.distilonthehill.com/contact (155 chars)
+[2026-05-22T06:03:02.979Z] [info] [3/50] distil-on-the-hill -> ok; pages=2/14; chars=0; sig=0; sources_inserted=2
+[2026-05-22T06:03:04.981Z] [info] [4/50] sba/found-lab — starting Stage 1 (elapsed 2.6m)
+[2026-05-22T06:03:05.193Z] [info]   found-lab: stage1: found-lab (7532439a-564d-4091-9031-b87f695b3de2) — fetching http://www.foundbeer.au/
+[2026-05-22T06:03:05.961Z] [debug]   found-lab: fetched http://www.foundbeer.au/ (1822 chars)
+[2026-05-22T06:03:10.792Z] [debug]   found-lab: fetched http://www.foundbeer.au/about-us (1344 chars)
+[2026-05-22T06:03:53.091Z] [info] [4/50] found-lab -> ok; pages=2/14; chars=4; sig=4; sources_inserted=2
+[2026-05-22T06:03:55.094Z] [info] [5/50] sba/clover-cellars — starting Stage 1 (elapsed 3.4m)
+[2026-05-22T06:03:55.301Z] [info]   clover-cellars: stage1: clover-cellars (2875a929-3042-4c7d-8a49-601cfb86fe35) — fetching http://www.hopandcloverbrewing.com.au/
+[2026-05-22T06:04:00.141Z] [debug]   clover-cellars: fetched http://www.hopandcloverbrewing.com.au/ (77 chars)
+[2026-05-22T06:04:07.356Z] [debug]   clover-cellars: fetched http://www.hopandcloverbrewing.com.au/our-story (77 chars)
+[2026-05-22T06:04:34.999Z] [info] [5/50] clover-cellars -> ok; pages=2/14; chars=0; sig=0; sources_inserted=2
+[2026-05-22T06:04:37.002Z] [info] [6/50] sba/woodstock-distillery — starting Stage 1 (elapsed 4.1m)
+[2026-05-22T06:04:37.221Z] [info]   woodstock-distillery: stage1: woodstock-distillery (ad989f1c-382b-4f75-8f6c-c3ce86165781) — fetching http://www.woodstockwine.com.au/
+[2026-05-22T06:04:37.876Z] [debug]   woodstock-distillery: fetched http://www.woodstockwine.com.au/ (717 chars)
+[2026-05-22T06:05:07.077Z] [info] [6/50] woodstock-distillery -> ok; pages=1/14; chars=0; sig=1; sources_inserted=1
+[2026-05-22T06:05:09.079Z] [info] [7/50] sba/kawal-rock-distillery — starting Stage 1 (elapsed 4.7m)
+[2026-05-22T06:05:09.290Z] [info]   kawal-rock-distillery: stage1: kawal-rock-distillery (1f8277da-1cca-4841-b68e-af8a3844b0ce) — fetching http://www.kawalrockdistillery.com/
+[2026-05-22T06:05:10.247Z] [debug]   kawal-rock-distillery: fetched http://www.kawalrockdistillery.com/ (3387 chars)
+[2026-05-22T06:05:53.655Z] [info] [7/50] kawal-rock-distillery -> ok; pages=1/14; chars=2; sig=5; sources_inserted=1
+[2026-05-22T06:05:55.658Z] [info] [8/50] sba/meander-valley-vineyard — starting Stage 1 (elapsed 5.4m)
+[2026-05-22T06:05:55.864Z] [info]   meander-valley-vineyard: stage1: meander-valley-vineyard (19e56c86-926b-457d-b5c4-3afa2c9eb448) — fetching http://meandervalleyvineyard.com.au/
+[2026-05-22T06:05:56.440Z] [debug]   meander-valley-vineyard: fetched http://meandervalleyvineyard.com.au/ (2661 chars)
+[2026-05-22T06:06:01.066Z] [debug]   meander-valley-vineyard: fetched http://meandervalleyvineyard.com.au/about (259 chars)
+[2026-05-22T06:06:06.854Z] [debug]   meander-valley-vineyard: fetched http://meandervalleyvineyard.com.au/about-us (259 chars)
+[2026-05-22T06:06:11.196Z] [debug]   meander-valley-vineyard: fetched http://meandervalleyvineyard.com.au/our-story (259 chars)
+[2026-05-22T06:06:14.218Z] [debug]   meander-valley-vineyard: fetched http://meandervalleyvineyard.com.au/the-story (259 chars)
+[2026-05-22T06:06:18.409Z] [debug]   meander-valley-vineyard: fetched http://meandervalleyvineyard.com.au/process (259 chars)
+[2026-05-22T06:06:23.100Z] [debug]   meander-valley-vineyard: fetched http://meandervalleyvineyard.com.au/studio (259 chars)
+[2026-05-22T06:06:26.782Z] [debug]   meander-valley-vineyard: fetched http://meandervalleyvineyard.com.au/makers (259 chars)
+[2026-05-22T06:06:30.931Z] [debug]   meander-valley-vineyard: fetched http://meandervalleyvineyard.com.au/team (259 chars)
+[2026-05-22T06:06:35.131Z] [debug]   meander-valley-vineyard: fetched http://meandervalleyvineyard.com.au/people (259 chars)
+[2026-05-22T06:06:39.579Z] [debug]   meander-valley-vineyard: fetched http://meandervalleyvineyard.com.au/founders (259 chars)
+[2026-05-22T06:06:46.788Z] [debug]   meander-valley-vineyard: fetched http://meandervalleyvineyard.com.au/contact (1300 chars)
+[2026-05-22T06:06:51.025Z] [debug]   meander-valley-vineyard: fetched http://meandervalleyvineyard.com.au/journal (259 chars)
+[2026-05-22T06:06:59.330Z] [debug]   meander-valley-vineyard: fetched http://meandervalleyvineyard.com.au/blog (259 chars)
+[2026-05-22T06:07:10.809Z] [info] [8/50] meander-valley-vineyard -> ok; pages=14/14; chars=2; sig=2; sources_inserted=14
+[2026-05-22T06:07:12.811Z] [info] [9/50] sba/wildbrumby-schnapps-distillery — starting Stage 1 (elapsed 6.7m)
+[2026-05-22T06:07:13.027Z] [info]   wildbrumby-schnapps-distillery: stage1: wildbrumby-schnapps-distillery (1652ce2f-37e4-484f-995f-239e4d0733bf) — fetching http://www.wildbrumby.com/
+[2026-05-22T06:07:13.957Z] [debug]   wildbrumby-schnapps-distillery: fetched http://www.wildbrumby.com/ (3742 chars)
+[2026-05-22T06:07:22.233Z] [debug]   wildbrumby-schnapps-distillery: fetched http://www.wildbrumby.com/our-story (7608 chars)
+[2026-05-22T06:07:40.443Z] [debug]   wildbrumby-schnapps-distillery: fetched http://www.wildbrumby.com/contact (1918 chars)
+[2026-05-22T06:07:44.730Z] [debug]   wildbrumby-schnapps-distillery: fetched http://www.wildbrumby.com/blog (4136 chars)
+[2026-05-22T06:08:20.138Z] [info] [9/50] wildbrumby-schnapps-distillery -> ok; pages=4/14; chars=3; sig=7; sources_inserted=4
+[2026-05-22T06:08:22.141Z] [info] [10/50] sba/gurneys-cidery — starting Stage 1 (elapsed 7.9m)
+[2026-05-22T06:08:22.347Z] [info]   gurneys-cidery: stage1: gurneys-cidery (aaac4652-9d27-412b-ba20-680463e2e227) — fetching https://gurneyscider.com.au/
+[2026-05-22T06:08:22.778Z] [debug]   gurneys-cidery: fetched https://gurneyscider.com.au/ (0 chars)
+[2026-05-22T06:08:49.801Z] [info] [10/50] gurneys-cidery -> ok; pages=1/14; chars=0; sig=0; sources_inserted=1
+[2026-05-22T06:08:51.803Z] [info] [11/50] craft/screenlab — starting Stage 1 (elapsed 8.4m)
+[2026-05-22T06:08:52.032Z] [info]   screenlab: stage1: screenlab (6f3ec94b-09fe-4edc-97ed-4427f05e9994) — fetching https://screenlab.co/
+[2026-05-22T06:08:52.309Z] [debug]   screenlab: fetched https://screenlab.co/ (13974 chars)
+[2026-05-22T06:08:55.218Z] [debug]   screenlab: fetched https://screenlab.co/about (3800 chars)
+[2026-05-22T06:08:58.121Z] [debug]   screenlab: fetched https://screenlab.co/about-us (3800 chars)
+[2026-05-22T06:09:33.458Z] [debug]   screenlab: fetched https://screenlab.co/contact (1707 chars)
+[2026-05-22T06:09:40.858Z] [debug]   screenlab: fetched https://screenlab.co/blog (679 chars)
+[2026-05-22T06:09:54.584Z] [info] [11/50] screenlab -> ok; pages=5/14; chars=0; sig=5; sources_inserted=5
+[2026-05-22T06:09:56.587Z] [info] [12/50] craft/w-j-robson-and-sons-glass — starting Stage 1 (elapsed 9.5m)
+[2026-05-22T06:09:56.807Z] [info]   w-j-robson-and-sons-glass: stage1: w-j-robson-and-sons-glass (c9607181-d479-47bb-b805-2145fbda1072) — fetching http://www.robsonglass.com.au/
+[2026-05-22T06:09:59.723Z] [debug]   w-j-robson-and-sons-glass: fetched http://www.robsonglass.com.au/ (2904 chars)
+[2026-05-22T06:10:01.760Z] [debug]   w-j-robson-and-sons-glass: fetched http://www.robsonglass.com.au/about (2491 chars)
+[2026-05-22T06:10:04.421Z] [debug]   w-j-robson-and-sons-glass: fetched http://www.robsonglass.com.au/about-us (2491 chars)
+[2026-05-22T06:10:23.434Z] [debug]   w-j-robson-and-sons-glass: fetched http://www.robsonglass.com.au/contact (1012 chars)
+[2026-05-22T06:10:31.801Z] [info] [12/50] w-j-robson-and-sons-glass -> ok; pages=4/14; chars=0; sig=1; sources_inserted=4
+[2026-05-22T06:10:33.804Z] [info] [13/50] craft/gold-coast-and-hinterland-spinners-and-weavers — starting Stage 1 (elapsed 10.1m)
+[2026-05-22T06:10:34.011Z] [info]   gold-coast-and-hinterland-spinners-and-weavers: stage1: gold-coast-and-hinterland-spinners-and-weavers (858f8cc1-772d-4e83-9828-5d3ea1fd4349) — fetching https://goldcoastspinningweaving.wordpress.com/
+[2026-05-22T06:10:34.959Z] [debug]   gold-coast-and-hinterland-spinners-and-weavers: fetched https://goldcoastspinningweaving.wordpress.com/ (2468 chars)
+[2026-05-22T06:10:38.024Z] [debug]   gold-coast-and-hinterland-spinners-and-weavers: fetched https://goldcoastspinningweaving.wordpress.com/about (3720 chars)
+[2026-05-22T06:10:55.928Z] [debug]   gold-coast-and-hinterland-spinners-and-weavers: fetched https://goldcoastspinningweaving.wordpress.com/contact (1000 chars)
+[2026-05-22T06:11:19.742Z] [info] [13/50] gold-coast-and-hinterland-spinners-and-weavers -> ok; pages=3/14; chars=1; sig=6; sources_inserted=3
+[2026-05-22T06:11:21.742Z] [info] [14/50] craft/room-for-clay — starting Stage 1 (elapsed 10.9m)
+[2026-05-22T06:11:21.945Z] [info]   room-for-clay: stage1: room-for-clay (70022019-e889-4c00-b389-f8358b1261d1) — fetching https://gasworks.org.au/whats-on/room-for-clay/
+[2026-05-22T06:11:28.409Z] [debug]   room-for-clay: fetched https://gasworks.org.au/ (1970 chars)
+[2026-05-22T06:11:33.453Z] [debug]   room-for-clay: fetched https://gasworks.org.au/about (1166 chars)
+[2026-05-22T06:11:37.913Z] [debug]   room-for-clay: fetched https://gasworks.org.au/about-us (1166 chars)
+[2026-05-22T06:11:49.865Z] [debug]   room-for-clay: fetched https://gasworks.org.au/studio (204 chars)
+[2026-05-22T06:12:08.122Z] [info] [14/50] room-for-clay -> ok; pages=4/14; chars=0; sig=0; sources_inserted=4
+[2026-05-22T06:12:10.125Z] [info] [15/50] craft/bestowed-jewellers — starting Stage 1 (elapsed 11.7m)
+[2026-05-22T06:12:10.325Z] [info]   bestowed-jewellers: stage1: bestowed-jewellers (d98b43fa-afed-4740-9eed-7549734f2cb6) — fetching https://bestowedjewellers.com.au/
+[2026-05-22T06:12:10.883Z] [debug]   bestowed-jewellers: fetched https://bestowedjewellers.com.au/ (5247 chars)
+[2026-05-22T06:12:12.569Z] [debug]   bestowed-jewellers: fetched https://bestowedjewellers.com.au/about (5247 chars)
+[2026-05-22T06:12:14.687Z] [debug]   bestowed-jewellers: fetched https://bestowedjewellers.com.au/about-us (5247 chars)
+[2026-05-22T06:12:33.246Z] [debug]   bestowed-jewellers: fetched https://bestowedjewellers.com.au/blog (5247 chars)
+[2026-05-22T06:12:35.554Z] [info] [15/50] bestowed-jewellers -> ok; pages=4/14; chars=0; sig=0; sources_inserted=4
+[2026-05-22T06:12:37.555Z] [info] [16/50] craft/studio-melt — starting Stage 1 (elapsed 12.1m)
+[2026-05-22T06:12:37.774Z] [info]   studio-melt: stage1: studio-melt (f3cbbd41-e00a-4ac0-b9c3-ddd53ed1c6b1) — fetching http://studiomelt.com.au/
+[2026-05-22T06:12:38.444Z] [debug]   studio-melt: fetched http://studiomelt.com.au/ (5836 chars)
+[2026-05-22T06:13:07.326Z] [info] [16/50] studio-melt -> ok; pages=1/14; chars=0; sig=2; sources_inserted=1
+[2026-05-22T06:13:09.329Z] [info] [17/50] craft/studio-potters-sa — starting Stage 1 (elapsed 12.7m)
+[2026-05-22T06:13:09.555Z] [info]   studio-potters-sa: stage1: studio-potters-sa (f4e15e27-f51f-4910-8946-8946bdfe5162) — fetching http://www.studiopotters.com/
+[2026-05-22T06:13:10.267Z] [debug]   studio-potters-sa: fetched http://www.studiopotters.com/ (649 chars)
+[2026-05-22T06:13:45.512Z] [info] [17/50] studio-potters-sa -> ok; pages=1/14; chars=0; sig=2; sources_inserted=1
+[2026-05-22T06:13:47.514Z] [info] [18/50] craft/indulge-contemporary-silver-jewellery — starting Stage 1 (elapsed 13.3m)
+[2026-05-22T06:13:47.719Z] [info]   indulge-contemporary-silver-jewellery: stage1: indulge-contemporary-silver-jewellery (f7b956a9-98b3-4a69-a512-36626bb8b367) — fetching http://www.myindulge.com.au/
+[2026-05-22T06:13:47.964Z] [debug]   indulge-contemporary-silver-jewellery: fetched http://www.myindulge.com.au/ (4441 chars)
+[2026-05-22T06:13:52.431Z] [debug]   indulge-contemporary-silver-jewellery: fetched http://www.myindulge.com.au/about-us (7911 chars)
+[2026-05-22T06:14:28.234Z] [info] [18/50] indulge-contemporary-silver-jewellery -> ok; pages=2/14; chars=2; sig=2; sources_inserted=2
+[2026-05-22T06:14:30.236Z] [info] [19/50] craft/mark-blyth-fine-jewellery — starting Stage 1 (elapsed 14.0m)
+[2026-05-22T06:14:30.444Z] [info]   mark-blyth-fine-jewellery: stage1: mark-blyth-fine-jewellery (f4f2885a-8b63-4de0-b258-facc84f2756e) — fetching http://mbfinejewellery.com.au/
+[2026-05-22T06:14:31.120Z] [debug]   mark-blyth-fine-jewellery: fetched http://mbfinejewellery.com.au/ (940 chars)
+[2026-05-22T06:14:33.791Z] [debug]   mark-blyth-fine-jewellery: fetched http://mbfinejewellery.com.au/about (1139 chars)
+[2026-05-22T06:14:56.728Z] [debug]   mark-blyth-fine-jewellery: fetched http://mbfinejewellery.com.au/contact (345 chars)
+[2026-05-22T06:15:14.798Z] [warn]   mark-blyth-fine-jewellery: stage1: mark-blyth-fine-jewellery — invalid attribute (attribute_excerpt_not_in_source): parent="Mark Blyth" type=background
+[2026-05-22T06:15:14.798Z] [warn]   mark-blyth-fine-jewellery: stage1: mark-blyth-fine-jewellery — invalid attribute (attribute_excerpt_not_in_source): parent="Mark Blyth" type=achievement
+[2026-05-22T06:15:14.798Z] [warn]   mark-blyth-fine-jewellery: stage1: mark-blyth-fine-jewellery — invalid attribute (attribute_excerpt_not_in_source): parent="Mark Blyth" type=technique
+[2026-05-22T06:15:14.799Z] [warn]   mark-blyth-fine-jewellery: stage1: mark-blyth-fine-jewellery — invalid attribute (attribute_excerpt_not_in_source): parent="Mark Blyth" type=quote
+[2026-05-22T06:15:14.799Z] [warn]   mark-blyth-fine-jewellery: stage1: mark-blyth-fine-jewellery — invalid attribute (attribute_excerpt_not_in_source): parent="Mark Blyth" type=philosophy
+[2026-05-22T06:15:15.817Z] [info] [19/50] mark-blyth-fine-jewellery -> ok; pages=3/14; chars=1; sig=2; sources_inserted=3
+[2026-05-22T06:15:17.820Z] [info] [20/50] craft/rowes — starting Stage 1 (elapsed 14.8m)
+[2026-05-22T06:15:18.049Z] [info]   rowes: stage1: rowes (ec329376-3e74-4281-90b3-27923a6b221b) — fetching https://www.rowes.com.au/
+[2026-05-22T06:15:18.434Z] [debug]   rowes: fetched https://www.rowes.com.au/ (13600 chars)
+[2026-05-22T06:15:44.827Z] [info] [20/50] rowes -> ok; pages=1/14; chars=0; sig=1; sources_inserted=1
+[2026-05-22T06:15:46.828Z] [info] [21/50] rest/the-village-b-b — starting Stage 1 (elapsed 15.3m)
+[2026-05-22T06:15:47.039Z] [info]   the-village-b-b: stage1: the-village-b-b (2f80cca3-b225-4713-982f-d478c62c5a18) — fetching https://thevillagebnb.com.au/
+[2026-05-22T06:15:50.362Z] [debug]   the-village-b-b: fetched https://thevillagebnb.com.au/ (4499 chars)
+[2026-05-22T06:15:56.849Z] [debug]   the-village-b-b: fetched https://thevillagebnb.com.au/about (7971 chars)
+[2026-05-22T06:16:03.225Z] [debug]   the-village-b-b: fetched https://thevillagebnb.com.au/about-us (7971 chars)
+[2026-05-22T06:16:41.537Z] [debug]   the-village-b-b: fetched https://thevillagebnb.com.au/contact (618 chars)
+[2026-05-22T06:16:52.840Z] [debug]   the-village-b-b: fetched https://thevillagebnb.com.au/blog (50 chars)
+[2026-05-22T06:17:16.484Z] [info] [21/50] the-village-b-b -> ok; pages=5/14; chars=2; sig=4; sources_inserted=5
+[2026-05-22T06:17:18.487Z] [info] [22/50] rest/seclude-rainforest-retreat — starting Stage 1 (elapsed 16.8m)
+[2026-05-22T06:17:18.694Z] [info]   seclude-rainforest-retreat: stage1: seclude-rainforest-retreat (f06377d2-f142-4178-8237-f67fe0aafc3d) — fetching https://www.seclude.com.au/
+[2026-05-22T06:17:20.139Z] [debug]   seclude-rainforest-retreat: fetched https://www.seclude.com.au/ (2982 chars)
+[2026-05-22T06:17:46.177Z] [debug]   seclude-rainforest-retreat: fetched https://www.seclude.com.au/contact (568 chars)
+[2026-05-22T06:17:57.720Z] [info] [22/50] seclude-rainforest-retreat -> ok; pages=2/14; chars=0; sig=1; sources_inserted=2
+[2026-05-22T06:17:59.723Z] [info] [23/50] rest/narrows-escape-rainforest-retreat — starting Stage 1 (elapsed 17.5m)
+[2026-05-22T06:17:59.956Z] [info]   narrows-escape-rainforest-retreat: stage1: narrows-escape-rainforest-retreat (e3b3d54a-ffa0-4607-b4e9-65c4d0b0f0a4) — fetching https://www.narrowsescape.com.au/
+[2026-05-22T06:18:01.887Z] [debug]   narrows-escape-rainforest-retreat: fetched https://www.narrowsescape.com.au/ (2474 chars)
+[2026-05-22T06:18:04.375Z] [debug]   narrows-escape-rainforest-retreat: fetched https://www.narrowsescape.com.au/about (15374 chars)
+[2026-05-22T06:18:27.827Z] [debug]   narrows-escape-rainforest-retreat: fetched https://www.narrowsescape.com.au/contact (840 chars)
+[2026-05-22T06:19:01.970Z] [info] [23/50] narrows-escape-rainforest-retreat -> ok; pages=3/14; chars=2; sig=5; sources_inserted=3
+[2026-05-22T06:19:03.973Z] [info] [24/50] rest/1965-lobethal-bed-and-breakfast — starting Stage 1 (elapsed 18.6m)
+[2026-05-22T06:19:04.185Z] [info]   1965-lobethal-bed-and-breakfast: stage1: 1965-lobethal-bed-and-breakfast (a8459cdd-dc17-4bd1-a559-cab453955cd5) — fetching https://www.1965lobethalbnb.com.au
+[2026-05-22T06:19:04.489Z] [debug]   1965-lobethal-bed-and-breakfast: fetched https://www.1965lobethalbnb.com.au/ (2328 chars)
+[2026-05-22T06:19:22.834Z] [debug]   1965-lobethal-bed-and-breakfast: fetched https://www.1965lobethalbnb.com.au/contact (994 chars)
+[2026-05-22T06:19:26.397Z] [debug]   1965-lobethal-bed-and-breakfast: fetched https://www.1965lobethalbnb.com.au/blog (2799 chars)
+[2026-05-22T06:19:37.718Z] [info] [24/50] 1965-lobethal-bed-and-breakfast -> ok; pages=3/14; chars=2; sig=2; sources_inserted=3
+[2026-05-22T06:19:39.720Z] [info] [25/50] rest/currawong-lakes — starting Stage 1 (elapsed 19.2m)
+[2026-05-22T06:19:39.931Z] [info]   currawong-lakes: stage1: currawong-lakes (8cc3300a-6dd8-470f-ad63-abf87a04d0fa) — fetching https://www.currawonglakes.com
+[2026-05-22T06:19:40.586Z] [debug]   currawong-lakes: fetched https://www.currawonglakes.com/ (2082 chars)
+[2026-05-22T06:19:42.818Z] [debug]   currawong-lakes: fetched https://www.currawonglakes.com/about (969 chars)
+[2026-05-22T06:20:03.881Z] [debug]   currawong-lakes: fetched https://www.currawonglakes.com/contact (390 chars)
+[2026-05-22T06:20:16.327Z] [info] [25/50] currawong-lakes -> ok; pages=3/14; chars=0; sig=2; sources_inserted=3
+[2026-05-22T06:20:18.330Z] [info] [26/50] rest/mount-lofty-house — starting Stage 1 (elapsed 19.8m)
+[2026-05-22T06:20:18.571Z] [info]   mount-lofty-house: stage1: mount-lofty-house (57da1813-17ac-4100-9c1e-47468f7e752d) — fetching https://www.mtloftyhouse.com.au
+[2026-05-22T06:20:18.796Z] [debug]   mount-lofty-house: fetched https://www.mtloftyhouse.com.au/ (4907 chars)
+[2026-05-22T06:20:21.262Z] [debug]   mount-lofty-house: fetched https://www.mtloftyhouse.com.au/about (5908 chars)
+[2026-05-22T06:20:42.363Z] [debug]   mount-lofty-house: fetched https://www.mtloftyhouse.com.au/team (5908 chars)
+[2026-05-22T06:20:51.262Z] [debug]   mount-lofty-house: fetched https://www.mtloftyhouse.com.au/contact (1030 chars)
+[2026-05-22T06:20:57.731Z] [debug]   mount-lofty-house: fetched https://www.mtloftyhouse.com.au/blog (1601 chars)
+[2026-05-22T06:21:20.606Z] [info] [26/50] mount-lofty-house -> ok; pages=5/14; chars=0; sig=14; sources_inserted=5
+[2026-05-22T06:21:22.609Z] [info] [27/50] rest/darlington-grove — starting Stage 1 (elapsed 20.9m)
+[2026-05-22T06:21:22.818Z] [info]   darlington-grove: stage1: darlington-grove (161b0c34-8110-4975-b647-7cf1e7cb9c3f) — fetching https://darlingtongrove.com.au/stay
+[2026-05-22T06:21:24.063Z] [debug]   darlington-grove: fetched https://darlingtongrove.com.au/ (416 chars)
+[2026-05-22T06:21:44.680Z] [debug]   darlington-grove: fetched https://darlingtongrove.com.au/contact (159 chars)
+[2026-05-22T06:21:52.055Z] [info] [27/50] darlington-grove -> ok; pages=2/14; chars=0; sig=0; sources_inserted=2
+[2026-05-22T06:21:54.058Z] [info] [28/50] rest/arkaroola-wilderness-sanctuary — starting Stage 1 (elapsed 21.4m)
+[2026-05-22T06:21:54.268Z] [info]   arkaroola-wilderness-sanctuary: stage1: arkaroola-wilderness-sanctuary (99aa2753-581e-4e3a-b1e3-c0fec203ced8) — fetching https://www.arkaroola.com.au/
+[2026-05-22T06:21:55.187Z] [debug]   arkaroola-wilderness-sanctuary: fetched https://www.arkaroola.com.au/ (6093 chars)
+[2026-05-22T06:22:19.165Z] [debug]   arkaroola-wilderness-sanctuary: fetched https://www.arkaroola.com.au/blog (2771 chars)
+[2026-05-22T06:22:35.393Z] [info] [28/50] arkaroola-wilderness-sanctuary -> ok; pages=2/14; chars=1; sig=5; sources_inserted=2
+[2026-05-22T06:22:37.394Z] [info] [29/50] rest/losari-retreat — starting Stage 1 (elapsed 22.1m)
+[2026-05-22T06:22:37.614Z] [info]   losari-retreat: stage1: losari-retreat (0e5f2666-8d7d-4d0e-9f69-d7cb7d8a7c91) — fetching https://www.walkintoluxury.com/accommodation/losari-retreat-margaret-river
+[2026-05-22T06:22:38.173Z] [debug]   losari-retreat: fetched https://www.walkintoluxury.com/ (16985 chars)
+[2026-05-22T06:22:43.668Z] [debug]   losari-retreat: fetched https://www.walkintoluxury.com/about (4147 chars)
+[2026-05-22T06:22:44.987Z] [debug]   losari-retreat: fetched https://www.walkintoluxury.com/about-us (11089 chars)
+[2026-05-22T06:23:40.737Z] [debug]   losari-retreat: fetched https://www.walkintoluxury.com/contact (4176 chars)
+[2026-05-22T06:24:19.823Z] [info] [29/50] losari-retreat -> ok; pages=4/14; chars=2; sig=8; sources_inserted=4
+[2026-05-22T06:24:21.826Z] [info] [30/50] rest/willunga-ridge-boutique-accommodation — starting Stage 1 (elapsed 23.9m)
+[2026-05-22T06:24:22.031Z] [info]   willunga-ridge-boutique-accommodation: stage1: willunga-ridge-boutique-accommodation (a33b3fc0-7107-4bef-8ce9-ae87bbdaeaad) — fetching https://www.willungaridge.com.au/
+[2026-05-22T06:24:22.658Z] [debug]   willunga-ridge-boutique-accommodation: fetched https://www.willungaridge.com.au/ (1589 chars)
+[2026-05-22T06:24:44.327Z] [debug]   willunga-ridge-boutique-accommodation: fetched https://www.willungaridge.com.au/contact (322 chars)
+[2026-05-22T06:25:02.225Z] [info] [30/50] willunga-ridge-boutique-accommodation -> ok; pages=2/14; chars=1; sig=3; sources_inserted=2
+[2026-05-22T06:25:04.225Z] [info] [31/50] table/tasmanian-produce-market — starting Stage 1 (elapsed 24.6m)
+[2026-05-22T06:25:04.426Z] [info]   tasmanian-produce-market: stage1: tasmanian-produce-market (9515f8aa-6a60-48ee-a6fe-0f9d2e6bb9bf) — fetching https://www.discovertasmania.com.au/things-to-do/shopping-and-markets/tasmanianproducemarket/
+[2026-05-22T06:25:04.632Z] [debug]   tasmanian-produce-market: fetched https://www.discovertasmania.com.au/ (22759 chars)
+[2026-05-22T06:25:06.023Z] [debug]   tasmanian-produce-market: fetched https://www.discovertasmania.com.au/about (22759 chars)
+[2026-05-22T06:25:21.131Z] [debug]   tasmanian-produce-market: fetched https://www.discovertasmania.com.au/contact (4011 chars)
+[2026-05-22T06:25:32.871Z] [info] [31/50] tasmanian-produce-market -> ok; pages=3/14; chars=0; sig=0; sources_inserted=3
+[2026-05-22T06:25:34.874Z] [info] [32/50] table/artisanal-bakehouse — starting Stage 1 (elapsed 25.1m)
+[2026-05-22T06:25:35.082Z] [info]   artisanal-bakehouse: stage1: artisanal-bakehouse (9715fec2-1ca6-4a1c-9716-62f47310dd89) — fetching https://www.artisanalbakehouse.com.au/
+[2026-05-22T06:25:36.060Z] [debug]   artisanal-bakehouse: fetched https://www.artisanalbakehouse.com.au/ (1384 chars)
+[2026-05-22T06:25:41.436Z] [debug]   artisanal-bakehouse: fetched https://www.artisanalbakehouse.com.au/our-story (2553 chars)
+[2026-05-22T06:26:15.354Z] [info] [32/50] artisanal-bakehouse -> ok; pages=2/14; chars=2; sig=2; sources_inserted=2
+[2026-05-22T06:26:17.357Z] [info] [33/50] table/thats-amore-cheese — starting Stage 1 (elapsed 25.8m)
+[2026-05-22T06:26:17.571Z] [info]   thats-amore-cheese: stage1: thats-amore-cheese (c75b76a5-b1d7-48a5-8b04-763e5c16a672) — fetching https://www.thatsamorecheese.com.au
+[2026-05-22T06:26:17.945Z] [debug]   thats-amore-cheese: fetched https://www.thatsamorecheese.com.au/ (1627 chars)
+[2026-05-22T06:26:23.179Z] [debug]   thats-amore-cheese: fetched https://www.thatsamorecheese.com.au/our-story (3477 chars)
+[2026-05-22T06:26:37.432Z] [debug]   thats-amore-cheese: fetched https://www.thatsamorecheese.com.au/contact (1163 chars)
+[2026-05-22T06:27:12.902Z] [info] [33/50] thats-amore-cheese -> ok; pages=3/14; chars=1; sig=8; sources_inserted=3
+[2026-05-22T06:27:14.903Z] [info] [34/50] table/little-cedar-farmhouse-goat-cheese — starting Stage 1 (elapsed 26.8m)
+[2026-05-22T06:27:15.115Z] [info]   little-cedar-farmhouse-goat-cheese: stage1: little-cedar-farmhouse-goat-cheese (35f84e47-e1e9-4767-ac69-385947990653) — fetching https://littlecedar.com.au/
+[2026-05-22T06:27:19.540Z] [debug]   little-cedar-farmhouse-goat-cheese: fetched https://littlecedar.com.au/ (1308 chars)
+[2026-05-22T06:27:24.176Z] [debug]   little-cedar-farmhouse-goat-cheese: fetched https://littlecedar.com.au/about (3864 chars)
+[2026-05-22T06:27:25.643Z] [debug]   little-cedar-farmhouse-goat-cheese: fetched https://littlecedar.com.au/about-us (3864 chars)
+[2026-05-22T06:27:48.784Z] [info] [34/50] little-cedar-farmhouse-goat-cheese -> ok; pages=3/14; chars=0; sig=0; sources_inserted=3
+[2026-05-22T06:27:50.786Z] [info] [35/50] table/beltana-farm — starting Stage 1 (elapsed 27.4m)
+[2026-05-22T06:27:51.000Z] [info]   beltana-farm: stage1: beltana-farm (99cf2945-1606-46bc-978a-54bf2710c3e1) — fetching https://beltanafarm.au/stay
+[2026-05-22T06:27:51.467Z] [debug]   beltana-farm: fetched https://beltanafarm.au/ (1226 chars)
+[2026-05-22T06:28:12.483Z] [debug]   beltana-farm: fetched https://beltanafarm.au/contact (229 chars)
+[2026-05-22T06:28:14.616Z] [debug]   beltana-farm: fetched https://beltanafarm.au/journal (1909 chars)
+[2026-05-22T06:28:25.926Z] [info] [35/50] beltana-farm -> ok; pages=3/14; chars=0; sig=3; sources_inserted=3
+[2026-05-22T06:28:27.929Z] [info] [36/50] table/starter-stories-sourdough-bakery — starting Stage 1 (elapsed 28.0m)
+[2026-05-22T06:28:28.162Z] [info]   starter-stories-sourdough-bakery: stage1: starter-stories-sourdough-bakery (82b147dc-5c14-4685-84d8-4456a3c1625a) — fetching https://www.starterstories.com.au/
+[2026-05-22T06:28:28.473Z] [debug]   starter-stories-sourdough-bakery: fetched https://www.starterstories.com.au/ (2359 chars)
+[2026-05-22T06:28:47.350Z] [debug]   starter-stories-sourdough-bakery: fetched https://www.starterstories.com.au/contact (392 chars)
+[2026-05-22T06:29:07.348Z] [info] [36/50] starter-stories-sourdough-bakery -> ok; pages=2/14; chars=1; sig=3; sources_inserted=2
+[2026-05-22T06:29:09.351Z] [info] [37/50] table/margaret-river-farmers-market — starting Stage 1 (elapsed 28.7m)
+[2026-05-22T06:29:09.557Z] [info]   margaret-river-farmers-market: stage1: margaret-river-farmers-market (f1ae597b-694c-47ee-ae4f-4abb70775424) — fetching https://www.margaretriverfarmersmarket.com.au/
+[2026-05-22T06:29:09.732Z] [debug]   margaret-river-farmers-market: fetched https://www.margaretriverfarmersmarket.com.au/ (2668 chars)
+[2026-05-22T06:29:11.811Z] [debug]   margaret-river-farmers-market: fetched https://www.margaretriverfarmersmarket.com.au/about (3056 chars)
+[2026-05-22T06:29:37.866Z] [debug]   margaret-river-farmers-market: fetched https://www.margaretriverfarmersmarket.com.au/contact (1594 chars)
+[2026-05-22T06:29:52.648Z] [info] [37/50] margaret-river-farmers-market -> ok; pages=3/14; chars=0; sig=3; sources_inserted=3
+[2026-05-22T06:29:54.651Z] [info] [38/50] table/the-simple-market — starting Stage 1 (elapsed 29.4m)
+[2026-05-22T06:29:54.876Z] [info]   the-simple-market: stage1: the-simple-market (a3cabe91-5fcf-409b-ae0a-374b8746a2f9) — fetching https://www.thesimplemarket.com.au/
+[2026-05-22T06:29:55.320Z] [debug]   the-simple-market: fetched https://www.thesimplemarket.com.au/ (3389 chars)
+[2026-05-22T06:30:18.105Z] [info] [38/50] the-simple-market -> ok; pages=1/14; chars=0; sig=0; sources_inserted=1
+[2026-05-22T06:30:20.108Z] [info] [39/50] table/farm-cove-eatery — starting Stage 1 (elapsed 29.9m)
+[2026-05-22T06:30:20.322Z] [info]   farm-cove-eatery: stage1: farm-cove-eatery (1860acf8-d9b8-4838-a1d2-02f9d6148fd8) — fetching https://www.botanichouse.com.au/farm-cove-eatery/
+[2026-05-22T06:30:22.508Z] [debug]   farm-cove-eatery: fetched https://www.botanichouse.com.au/ (1340 chars)
+[2026-05-22T06:30:52.476Z] [debug]   farm-cove-eatery: fetched https://www.botanichouse.com.au/contact (13916 chars)
+[2026-05-22T06:31:11.189Z] [info] [39/50] farm-cove-eatery -> ok; pages=2/14; chars=1; sig=2; sources_inserted=2
+[2026-05-22T06:31:13.190Z] [info] [40/50] table/caldermeade-farm-cafe — starting Stage 1 (elapsed 30.7m)
+[2026-05-22T06:31:13.402Z] [info]   caldermeade-farm-cafe: stage1: caldermeade-farm-cafe (e25cc33a-8f12-4a3d-9982-4eab4b0ff07e) — fetching https://caldermeadefarm.com.au/
+[2026-05-22T06:31:14.934Z] [debug]   caldermeade-farm-cafe: fetched https://caldermeadefarm.com.au/ (3251 chars)
+[2026-05-22T06:31:21.347Z] [debug]   caldermeade-farm-cafe: fetched https://caldermeadefarm.com.au/about-us (2093 chars)
+[2026-05-22T06:31:44.617Z] [debug]   caldermeade-farm-cafe: fetched https://caldermeadefarm.com.au/contact (1669 chars)
+[2026-05-22T06:32:01.435Z] [info] [40/50] caldermeade-farm-cafe -> ok; pages=3/14; chars=0; sig=5; sources_inserted=3
+[2026-05-22T06:32:03.437Z] [info] [41/50] collection/fremantle-prison-heritage-site — starting Stage 1 (elapsed 31.6m)
+[2026-05-22T06:32:03.702Z] [info]   fremantle-prison-heritage-site: stage1: fremantle-prison-heritage-site (54381ce7-e16d-4606-b004-85b82d761650) — fetching https://www.fremantleprison.com.au
+[2026-05-22T06:32:05.317Z] [debug]   fremantle-prison-heritage-site: fetched https://www.fremantleprison.com.au/ (787 chars)
+[2026-05-22T06:32:08.515Z] [debug]   fremantle-prison-heritage-site: fetched https://www.fremantleprison.com.au/about (4170 chars)
+[2026-05-22T06:32:31.355Z] [debug]   fremantle-prison-heritage-site: fetched https://www.fremantleprison.com.au/contact (907 chars)
+[2026-05-22T06:32:55.784Z] [info] [41/50] fremantle-prison-heritage-site -> ok; pages=3/14; chars=0; sig=10; sources_inserted=3
+[2026-05-22T06:32:57.786Z] [info] [42/50] collection/north-coast-regional-botanic-garden — starting Stage 1 (elapsed 32.5m)
+[2026-05-22T06:32:58.018Z] [info]   north-coast-regional-botanic-garden: stage1: north-coast-regional-botanic-garden (99d0ed76-e520-4f45-ba67-54b010d652ed) — fetching https://www.coffsharbour.nsw.gov.au/botanicgarden
+[2026-05-22T06:32:58.996Z] [debug]   north-coast-regional-botanic-garden: fetched https://www.coffsharbour.nsw.gov.au/ (11485 chars)
+[2026-05-22T06:33:23.803Z] [info] [42/50] north-coast-regional-botanic-garden -> ok; pages=1/14; chars=0; sig=0; sources_inserted=1
+[2026-05-22T06:33:25.806Z] [info] [43/50] collection/mercury-cinema — starting Stage 1 (elapsed 33.0m)
+[2026-05-22T06:33:26.030Z] [info]   mercury-cinema: stage1: mercury-cinema (b129766e-35c6-4326-9328-073a96178784) — fetching https://themercury.org.au/
+[2026-05-22T06:33:27.673Z] [debug]   mercury-cinema: fetched https://themercury.org.au/ (2661 chars)
+[2026-05-22T06:33:43.131Z] [debug]   mercury-cinema: fetched https://themercury.org.au/team (775 chars)
+[2026-05-22T06:33:49.099Z] [debug]   mercury-cinema: fetched https://themercury.org.au/contact (430 chars)
+[2026-05-22T06:34:28.465Z] [info] [43/50] mercury-cinema -> ok; pages=3/14; chars=15; sig=4; sources_inserted=3
+[2026-05-22T06:34:30.468Z] [info] [44/50] collection/makers-workshop — starting Stage 1 (elapsed 34.0m)
+[2026-05-22T06:34:30.671Z] [info]   makers-workshop: stage1: makers-workshop (d2c7a49a-91b5-4351-9b5d-c8165418a067) — fetching https://www.burnie.tas.gov.au/tourism/Experience/Makers-Workshop
+[2026-05-22T06:34:31.677Z] [debug]   makers-workshop: fetched https://www.burnie.tas.gov.au/ (14003 chars)
+[2026-05-22T06:34:53.944Z] [debug]   makers-workshop: fetched https://www.burnie.tas.gov.au/contact (10991 chars)
+[2026-05-22T06:34:59.597Z] [info] [44/50] makers-workshop -> ok; pages=2/14; chars=0; sig=0; sources_inserted=2
+[2026-05-22T06:35:01.599Z] [info] [45/50] collection/williamstown-botanic-gardens — starting Stage 1 (elapsed 34.5m)
+[2026-05-22T06:35:01.838Z] [info]   williamstown-botanic-gardens: stage1: williamstown-botanic-gardens (6d9ead63-bf8e-4666-916c-737cfb40cd02) — fetching https://www.hobsonsbay.vic.gov.au/
+[2026-05-22T06:35:04.202Z] [debug]   williamstown-botanic-gardens: fetched https://www.hobsonsbay.vic.gov.au/ (14419 chars)
+[2026-05-22T06:35:29.611Z] [info] [45/50] williamstown-botanic-gardens -> ok; pages=1/14; chars=0; sig=0; sources_inserted=1
+[2026-05-22T06:35:31.614Z] [info] [46/50] collection/warrnambool-art-gallery — starting Stage 1 (elapsed 35.0m)
+[2026-05-22T06:35:31.822Z] [info]   warrnambool-art-gallery: stage1: warrnambool-art-gallery (4f20acfe-d562-4b9e-9ca4-90c0052782d9) — fetching https://www.warrnamboolartgallery.com.au
+[2026-05-22T06:35:31.841Z] [warn]   warrnambool-art-gallery: error fetching https://www.warrnamboolartgallery.com.au/: fetch failed
+[2026-05-22T06:35:33.464Z] [warn]   warrnambool-art-gallery: error fetching https://www.warrnamboolartgallery.com.au/about: fetch failed
+[2026-05-22T06:35:34.615Z] [warn]   warrnambool-art-gallery: error fetching https://www.warrnamboolartgallery.com.au/about-us: fetch failed
+[2026-05-22T06:35:36.299Z] [warn]   warrnambool-art-gallery: error fetching https://www.warrnamboolartgallery.com.au/our-story: fetch failed
+[2026-05-22T06:35:37.383Z] [warn]   warrnambool-art-gallery: error fetching https://www.warrnamboolartgallery.com.au/the-story: fetch failed
+[2026-05-22T06:35:38.477Z] [warn]   warrnambool-art-gallery: error fetching https://www.warrnamboolartgallery.com.au/process: fetch failed
+[2026-05-22T06:35:40.071Z] [warn]   warrnambool-art-gallery: error fetching https://www.warrnamboolartgallery.com.au/studio: fetch failed
+[2026-05-22T06:35:41.495Z] [warn]   warrnambool-art-gallery: error fetching https://www.warrnamboolartgallery.com.au/makers: fetch failed
+[2026-05-22T06:35:42.754Z] [warn]   warrnambool-art-gallery: error fetching https://www.warrnamboolartgallery.com.au/team: fetch failed
+[2026-05-22T06:35:44.087Z] [warn]   warrnambool-art-gallery: error fetching https://www.warrnamboolartgallery.com.au/people: fetch failed
+[2026-05-22T06:35:45.867Z] [warn]   warrnambool-art-gallery: error fetching https://www.warrnamboolartgallery.com.au/founders: fetch failed
+[2026-05-22T06:35:47.529Z] [warn]   warrnambool-art-gallery: error fetching https://www.warrnamboolartgallery.com.au/contact: fetch failed
+[2026-05-22T06:35:48.696Z] [warn]   warrnambool-art-gallery: error fetching https://www.warrnamboolartgallery.com.au/journal: fetch failed
+[2026-05-22T06:35:49.955Z] [warn]   warrnambool-art-gallery: error fetching https://www.warrnamboolartgallery.com.au/blog: fetch failed
+[2026-05-22T06:35:49.955Z] [warn]   warrnambool-art-gallery: stage1: warrnambool-art-gallery — zero pages fetched (attempted 14, errors 14)
+[2026-05-22T06:35:49.956Z] [info] [46/50] warrnambool-art-gallery -> no_pages_fetched; pages=0/14; chars=0; sig=0; sources_inserted=0
+[2026-05-22T06:35:51.958Z] [info] [47/50] collection/monash-university-museum-of-art — starting Stage 1 (elapsed 35.4m)
+[2026-05-22T06:35:52.209Z] [info]   monash-university-museum-of-art: stage1: monash-university-museum-of-art (2a63a4f4-b974-4609-9ddb-c033c10fecf9) — fetching https://www.monash.edu/muma
+[2026-05-22T06:35:52.327Z] [warn]   monash-university-museum-of-art: http 403 fetching https://www.monash.edu/
+[2026-05-22T06:35:54.114Z] [debug]   monash-university-museum-of-art: fetched https://www.monash.edu/about (14345 chars)
+[2026-05-22T06:35:58.553Z] [warn]   monash-university-museum-of-art: http 403 fetching https://www.monash.edu/our-story
+[2026-05-22T06:36:00.611Z] [warn]   monash-university-museum-of-art: http 403 fetching https://www.monash.edu/the-story
+[2026-05-22T06:36:14.123Z] [debug]   monash-university-museum-of-art: fetched https://www.monash.edu/people (15619 chars)
+[2026-05-22T06:36:18.804Z] [debug]   monash-university-museum-of-art: fetched https://www.monash.edu/contact (15619 chars)
+[2026-05-22T06:36:26.834Z] [info] [47/50] monash-university-museum-of-art -> ok; pages=3/14; chars=0; sig=0; sources_inserted=3
+[2026-05-22T06:36:28.836Z] [info] [48/50] collection/elizabeth-bay-house — starting Stage 1 (elapsed 36.0m)
+[2026-05-22T06:36:29.059Z] [info]   elizabeth-bay-house: stage1: elizabeth-bay-house (da34ce3f-979f-4939-8251-603312c57414) — fetching https://sydneylivingmuseums.com.au/elizabeth-bay-house
+[2026-05-22T06:36:29.553Z] [debug]   elizabeth-bay-house: fetched https://sydneylivingmuseums.com.au/ (4118 chars)
+[2026-05-22T06:36:31.381Z] [debug]   elizabeth-bay-house: fetched https://sydneylivingmuseums.com.au/about (4118 chars)
+[2026-05-22T06:36:34.952Z] [debug]   elizabeth-bay-house: fetched https://sydneylivingmuseums.com.au/about-us (6792 chars)
+[2026-05-22T06:36:36.637Z] [debug]   elizabeth-bay-house: fetched https://sydneylivingmuseums.com.au/our-story (4118 chars)
+[2026-05-22T06:36:38.335Z] [debug]   elizabeth-bay-house: fetched https://sydneylivingmuseums.com.au/the-story (4118 chars)
+[2026-05-22T06:36:40.369Z] [debug]   elizabeth-bay-house: fetched https://sydneylivingmuseums.com.au/process (4118 chars)
+[2026-05-22T06:36:42.022Z] [debug]   elizabeth-bay-house: fetched https://sydneylivingmuseums.com.au/studio (4118 chars)
+[2026-05-22T06:36:43.634Z] [debug]   elizabeth-bay-house: fetched https://sydneylivingmuseums.com.au/makers (4118 chars)
+[2026-05-22T06:36:45.546Z] [debug]   elizabeth-bay-house: fetched https://sydneylivingmuseums.com.au/team (4118 chars)
+[2026-05-22T06:36:47.359Z] [debug]   elizabeth-bay-house: fetched https://sydneylivingmuseums.com.au/people (4118 chars)
+[2026-05-22T06:36:49.064Z] [debug]   elizabeth-bay-house: fetched https://sydneylivingmuseums.com.au/founders (4118 chars)
+[2026-05-22T06:36:50.946Z] [debug]   elizabeth-bay-house: fetched https://sydneylivingmuseums.com.au/contact (4118 chars)
+[2026-05-22T06:36:52.485Z] [debug]   elizabeth-bay-house: fetched https://sydneylivingmuseums.com.au/journal (4118 chars)
+[2026-05-22T06:36:54.387Z] [debug]   elizabeth-bay-house: fetched https://sydneylivingmuseums.com.au/blog (4118 chars)
+[2026-05-22T06:37:07.240Z] [info] [48/50] elizabeth-bay-house -> ok; pages=14/14; chars=1; sig=2; sources_inserted=14
+[2026-05-22T06:37:09.243Z] [info] [49/50] collection/hahndorf-academy — starting Stage 1 (elapsed 36.7m)
+[2026-05-22T06:37:09.450Z] [info]   hahndorf-academy: stage1: hahndorf-academy (d8307cae-ef51-4048-b5f7-de7d6049d4ef) — fetching https://www.hahndorfacademy.org.au
+[2026-05-22T06:37:10.267Z] [debug]   hahndorf-academy: fetched https://www.hahndorfacademy.org.au/ (3410 chars)
+[2026-05-22T06:37:13.259Z] [debug]   hahndorf-academy: fetched https://www.hahndorfacademy.org.au/about (265 chars)
+[2026-05-22T06:37:35.717Z] [debug]   hahndorf-academy: fetched https://www.hahndorfacademy.org.au/contact (265 chars)
+[2026-05-22T06:37:54.538Z] [info] [49/50] hahndorf-academy -> ok; pages=3/14; chars=0; sig=7; sources_inserted=3
+[2026-05-22T06:37:56.540Z] [info] [50/50] collection/mildura-arts-centre-garden-and-grounds — starting Stage 1 (elapsed 37.5m)
+[2026-05-22T06:37:56.747Z] [info]   mildura-arts-centre-garden-and-grounds: stage1: mildura-arts-centre-garden-and-grounds (9c03f793-2cb8-4695-8c96-0be3d8b7d2ed) — fetching https://www.milduraartscentre.com.au/
+[2026-05-22T06:37:58.909Z] [debug]   mildura-arts-centre-garden-and-grounds: fetched https://www.milduraartscentre.com.au/ (3599 chars)
+[2026-05-22T06:38:20.335Z] [debug]   mildura-arts-centre-garden-and-grounds: fetched https://www.milduraartscentre.com.au/contact (827 chars)
+[2026-05-22T06:38:25.490Z] [info] [50/50] mildura-arts-centre-garden-and-grounds -> ok; pages=2/14; chars=0; sig=0; sources_inserted=2
+[2026-05-22T06:38:25.491Z] [info] Loop done. Elapsed 37.9m. Reason: normal_completion
+[2026-05-22T06:38:25.491Z] [info] Scoring 50 listings...
+[2026-05-22T06:38:26.375Z] [info] Scored 50 listings
+[2026-05-22T06:38:26.379Z] [info] Report written: /Users/matt/Desktop/Australian Atlas Websites/australian-atlas/dry-run-stage1-ranker-2026-05-22.md
+[2026-05-22T06:38:26.379Z] [info] State JSONL: /Users/matt/Desktop/Australian Atlas Websites/australian-atlas/logs/ranker-state-2026-05-22.jsonl
+[2026-05-22T06:38:26.379Z] [info] Full log: /Users/matt/Desktop/Australian Atlas Websites/australian-atlas/logs/ranker-run-2026-05-22.log
+[2026-05-22T06:38:26.379Z] [info] Done.
