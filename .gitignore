@@ -33,8 +33,22 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# scrape cache
+/.cache/
+
 # audit output
 /audit/
+
+# one-off diagnostic scripts (underscore prefix convention)
+/scripts/_*
+
+# script output and logs
+/scripts/output/
+/scripts/region-reassign-logs/
+dry-run-*
+
+# supabase CLI local state
+/supabase/.temp/
 
 # vercel
 .vercel
