@@ -1,0 +1,298 @@
+
+════════════════════════════════════════════════════════════════════════
+  Listing 1/5 — id=790d2649-15a2-46c5-8526-43f284d94931
+════════════════════════════════════════════════════════════════════════
+  [info] stage1: black-gate-distillery-mendooran (790d2649-15a2-46c5-8526-43f284d94931) — fetching https://www.blackgatedistillery.com/?utm_source=google&utm_medium=wix_google_business_profile&utm_campaign=11264087470386142378
+
+  Slug:                black-gate-distillery-mendooran
+  Outcome:             ok
+  Pages attempted:     14
+  Pages fetched:       3
+  Characters:          1/1 validated
+  Attributes:          1/1 validated
+  Signals:             5/5 validated
+  Sources inserted:    0
+
+  ── VALIDATED CHARACTERS ─────────────────────────────────────
+
+  ✓ Brian (distiller)
+    source_url:     https://www.blackgatedistillery.com/blog
+    excerpt:        "Barrel 1: Distilled and matured right here in Mendooran by Brian – peated malt from Inverness, Scotland, direct-fired i…"
+    attributes (1):
+      • [technique] (explicit) Brian distills and matures whisky in Mendooran using peated malt from Inverness…
+        excerpt: "Distilled and matured right here in Mendooran by Brian – peated malt from Inverness, Scotland, dire…"
+
+  ── VALIDATED SIGNALS ────────────────────────────────────────
+
+  ✓ award
+    source_url:     https://www.blackgatedistillery.com/blog
+    excerpt:        "*Trophy - Best Whisky (Tasting Australia Awards) *Trophy - Champion Whisky (Royal Australian Spirit Awards)"
+    signal_data:    "{\"name\":\"Best Whisky\",\"awarding_body\":\"Tasting Australia Awards\"}"
+
+  ✓ award
+    source_url:     https://www.blackgatedistillery.com/blog
+    excerpt:        "*Trophy - Champion Whisky (Royal Australian Spirit Awards)"
+    signal_data:    "{\"name\":\"Champion Whisky\",\"awarding_body\":\"Royal Australian Spirit Awards\"}"
+
+  ✓ cross_reference
+    source_url:     https://www.blackgatedistillery.com/blog
+    excerpt:        "Country to Coast #6 – our latest limited-release peated whisky, crafted in partnership with the ripper crew at Fleurieu…"
+    signal_data:    "{\"partner\":\"Fleurieu Distillery\",\"product\":\"Country to Coast #6\",\"nature\":\"collaboration peated whisky\"}"
+
+  ✓ methodology_novelty
+    source_url:     https://www.blackgatedistillery.com/blog
+    excerpt:        "peated malt from Inverness, Scotland, direct-fired in our pot still"
+    signal_data:    "{\"method\":\"direct-fired pot still with peated malt imported from Inverness, Scotland\"}"
+
+  ✓ award
+    source_url:     https://www.blackgatedistillery.com/contact
+    excerpt:        "home to our award-winning Australian single malt whisky and dark rum"
+    signal_data:    "{}"
+
+════════════════════════════════════════════════════════════════════════
+  Listing 2/5 — id=b477732f-bec7-403c-9985-3892335d1f94
+════════════════════════════════════════════════════════════════════════
+  [info] stage1: timboon-distillery (b477732f-bec7-403c-9985-3892335d1f94) — fetching http://www.timboondistillery.com.au/
+
+  Slug:                timboon-distillery
+  Outcome:             ok
+  Pages attempted:     14
+  Pages fetched:       1
+  Characters:          0/0 validated
+  Attributes:          0/0 validated
+  Signals:             5/5 validated
+  Sources inserted:    0
+
+  ── VALIDATED SIGNALS ────────────────────────────────────────
+
+  ✓ methodology_novelty
+    source_url:     http://www.timboondistillery.com.au/
+    excerpt:        "We prepare and heavy char these barrels ourselves at our cooperage known as ABeckett's Creek Cooperage here in Timboon …"
+    signal_data:    "{\"detail\":\"Operates own on-site cooperage (ABeckett's Creek Cooperage) where they prepare and heavy char their own ex-fortified wine barrels\"}"
+
+  ✓ methodology_novelty
+    source_url:     http://www.timboondistillery.com.au/
+    excerpt:        "Making true small batch single malt whisky (and more) on site since 2007."
+    signal_data:    "{\"detail\":\"True small batch single malt whisky made on site since 2007\",\"since\":\"2007\"}"
+
+  ✓ unusual_location
+    source_url:     http://www.timboondistillery.com.au/
+    excerpt:        "HOUSED IN A HISTORIC RAILWAY SHED"
+    signal_data:    "{\"detail\":\"Distillery housed in a restored historic railway shed in Timboon\"}"
+
+  ✓ first_in_category
+    source_url:     http://www.timboondistillery.com.au/
+    excerpt:        "explore our restored railway shed distillery which houses the largest collection of true, Australian Craft Spirits in a…"
+    signal_data:    "{\"claim\":\"Largest collection of true Australian Craft Spirits in any Australian Distillery\"}"
+
+  ✓ cross_reference
+    source_url:     http://www.timboondistillery.com.au/
+    excerpt:        "Timboon’s whisky story began long before licences and distillery doors, when hidden bush stills supplied the district w…"
+    signal_data:    "{\"detail\":\"Venue ties itself to Timboon's heritage of illicit bush stills predating licensed distilling\"}"
+
+════════════════════════════════════════════════════════════════════════
+  Listing 3/5 — id=1ffa22ee-5285-4a85-aa04-7a0787bf63cd
+════════════════════════════════════════════════════════════════════════
+  [info] stage1: melbourne-tram-museum (1ffa22ee-5285-4a85-aa04-7a0787bf63cd) — fetching https://www.hawthorntramdepot.org.au/
+
+  Slug:                melbourne-tram-museum
+  Outcome:             ok
+  Pages attempted:     14
+  Pages fetched:       1
+  Characters:          0/0 validated
+  Attributes:          0/0 validated
+  Signals:             3/3 validated
+  Sources inserted:    0
+
+  ── VALIDATED SIGNALS ────────────────────────────────────────
+
+  ✓ unusual_location
+    source_url:     https://www.hawthorntramdepot.org.au/
+    excerpt:        "the most authentic tramway museum in Australia: the heritage-listed Hawthorn Tram Depot"
+    signal_data:    "{\"location\":\"Hawthorn Tram Depot\",\"heritage_status\":\"heritage-listed\"}"
+
+  ✓ methodology_novelty
+    source_url:     https://www.hawthorntramdepot.org.au/
+    excerpt:        "Melbourne’s cable tramways: new exhibition opens 9 May"
+    signal_data:    "{\"exhibition\":\"Melbourne’s cable tramways\",\"opens\":\"9 May\"}"
+
+  ✓ cross_reference
+    source_url:     https://www.hawthorntramdepot.org.au/
+    excerpt:        "Since 1885, Melbourne has been one of the world s great tramway cities."
+    signal_data:    "{\"reference\":\"Melbourne tramway history since 1885\"}"
+
+════════════════════════════════════════════════════════════════════════
+  Listing 4/5 — id=1d9c5f2d-e5d2-4e04-bb40-f3d9bf05a1ac
+════════════════════════════════════════════════════════════════════════
+  [info] stage1: apostle-whey-cheese (1d9c5f2d-e5d2-4e04-bb40-f3d9bf05a1ac) — fetching https://www.apostlewheycheese.com.au
+
+  Slug:                apostle-whey-cheese
+  Outcome:             ok
+  Pages attempted:     14
+  Pages fetched:       5
+  Characters:          3/3 validated
+  Attributes:          8/8 validated
+  Signals:             9/9 validated
+  Sources inserted:    0
+
+  ── VALIDATED CHARACTERS ─────────────────────────────────────
+
+  ✓ Julian Benson (Founder)
+    source_url:     https://www.apostlewheycheese.com.au/about
+    excerpt:        "Julian and Dianne Benson founded Apostle Whey Cheese on their Cooriemungle dairy farm in October 2005."
+    attributes (6):
+      • [biographical] (explicit) Co-founded Apostle Whey Cheese with Dianne Benson on their Cooriemungle dairy f…
+        excerpt: "Julian and Dianne Benson founded Apostle Whey Cheese on their Cooriemungle dairy farm in October 20…"
+      • [background] (explicit) Began dairy farming around 30 years before founding the cheese business, starti…
+        excerpt: "The move came some 30 years after they bought their first dairy herd of 65 cows and was designed to…"
+      • [quote] (explicit) Says the main secret to the cheese's success is the quality of the milk, and cr…
+        excerpt: ""The main secret to the success of our cheeses is the quality of our milk. Luke, our son, manages t…"
+      • [philosophy] (explicit) Believes farming is about the quality of the land and getting as much out of it…
+        excerpt: "“My idea about farming is about the quality of the land and getting as much out of it [the land] as…"
+      • [philosophy] (explicit) Identifies as a farmer and animal lover and emphasises animal welfare as critic…
+        excerpt: ""We're farmers and animal lovers at heart and it brings me a lot of joy to tell our visitors how cr…"
+      • [technique] (explicit) Breeds the dairy herd to produce milk with high butterfat and protein levels to…
+        excerpt: "The family’s dairy herd has been bred to produce milk with high butterfat and protein levels, which…"
+
+  ✓ Dianne Benson (Co-founder)
+    source_url:     https://www.apostlewheycheese.com.au/about
+    excerpt:        "Julian and Dianne Benson founded Apostle Whey Cheese on their Cooriemungle dairy farm in October 2005."
+    attributes (1):
+      • [biographical] (explicit) Co-founded Apostle Whey Cheese with Julian Benson at Cooriemungle in October 20…
+        excerpt: "Julian and Dianne Benson founded Apostle Whey Cheese on their Cooriemungle dairy farm in October 20…"
+
+  ✓ Luke Benson (Farm manager)
+    source_url:     https://www.apostlewheycheese.com.au/about
+    excerpt:        "Luke, our son, manages the farm now and his role in producing high-grade milk means we can make the quality of cheese t…"
+    attributes (1):
+      • [family_history] (explicit) Son of founders Julian and Dianne Benson who now manages the family dairy farm.
+        excerpt: "Luke, our son, manages the farm now and his role in producing high-grade milk means we can make the…"
+
+  ── VALIDATED SIGNALS ────────────────────────────────────────
+
+  ✓ award
+    source_url:     https://www.apostlewheycheese.com.au/
+    excerpt:        "Winner - Growers & Producers category,
+2025 Corangamite Shire Business Awards"
+    signal_data:    "{\"name\":\"Growers & Producers category winner\",\"year\":\"2025\",\"awarding_body\":\"Corangamite Shire Business Awards\"}"
+
+  ✓ award
+    source_url:     https://www.apostlewheycheese.com.au/about
+    excerpt:        "On the top shelf of the trophy cabinet is recognition of their brie (Southern Briez) as the best white mould cheese in …"
+    signal_data:    "{\"name\":\"Best white mould cheese in Australia\",\"year\":\"2019\",\"product\":\"Southern Briez brie\"}"
+
+  ✓ award
+    source_url:     https://www.apostlewheycheese.com.au/about
+    excerpt:        "The same cheese then went on to win gold at the International Cheese and Dairy Awards in Nantwich, England."
+    signal_data:    "{\"name\":\"Gold medal\",\"awarding_body\":\"International Cheese and Dairy Awards, Nantwich, England\",\"product\":\"Southern Briez brie\"}"
+
+  ✓ award
+    source_url:     https://www.apostlewheycheese.com.au/about
+    excerpt:        "Within two years, Apostle Way Full Cream Milk had won a silver medal for its authentic pasteurised (non-homogenised) bo…"
+    signal_data:    "{\"name\":\"Silver medal\",\"awarding_body\":\"Dairy Industry Association of Australia Awards\",\"product\":\"Apostle Way Full Cream Milk\"}"
+
+  ✓ founder_pivot
+    source_url:     https://www.apostlewheycheese.com.au/about
+    excerpt:        "The move came some 30 years after they bought their first dairy herd of 65 cows and was designed to diversify their inc…"
+    signal_data:    "{\"pivot\":\"Diversified from straight dairy farming into cheese-making in 2005 to alleviate tough times in the dairy industry\"}"
+
+  ✓ methodology_novelty
+    source_url:     https://www.apostlewheycheese.com.au/
+    excerpt:        "Visit an award-winning single origin dairy farm."
+    signal_data:    "{\"claim\":\"Single origin dairy farm — cheese, milk and gelato all made from milk from their own herd\"}"
+
+  ✓ methodology_novelty
+    source_url:     https://www.apostlewheycheese.com.au/
+    excerpt:        "Regenerative farming is an approach to agriculture that focuses on restoring and enhancing the entire ecosystem of a fa…"
+    signal_data:    "{\"claim\":\"Practices regenerative farming, recycling effluent as organic fertiliser\"}"
+
+  ✓ unusual_location
+    source_url:     https://www.apostlewheycheese.com.au/about
+    excerpt:        "thousands of visitors making the 15-minute drive from the Twelve Apostles to their farm gate for a unique experience wh…"
+    signal_data:    "{\"location\":\"Cooriemungle dairy farm, 15 minutes from the Twelve Apostles on the Great Ocean Road\"}"
+
+  ✓ cross_reference
+    source_url:     https://www.apostlewheycheese.com.au/blog
+    excerpt:        "We got in touch with Cheese Therapy and now, starting this month, we’ve got product going through a distribution centre…"
+    signal_data:    "{\"partner\":\"Cheese Therapy\",\"context\":\"National direct-to-consumer distribution via Geelong distribution centre\"}"
+
+════════════════════════════════════════════════════════════════════════
+  Listing 5/5 — id=9a28f587-418e-4165-bdde-05d59e81a454
+════════════════════════════════════════════════════════════════════════
+  [info] stage1: alkina-lodge (9a28f587-418e-4165-bdde-05d59e81a454) — fetching https://alkinalodge.com.au
+
+  Slug:                alkina-lodge
+  Outcome:             ok
+  Pages attempted:     14
+  Pages fetched:       3
+  Characters:          2/2 validated
+  Attributes:          4/4 validated
+  Signals:             5/5 validated
+  Sources inserted:    0
+
+  ── VALIDATED CHARACTERS ─────────────────────────────────────
+
+  ✓ Glenn Murcutt (Architect)
+    source_url:     https://alkinalodge.com.au/
+    excerpt:        "Designed by internationally renowned Australian architects Glenn Murcutt and Wendy Lewin to ‘touch the earth lightly’"
+    attributes (2):
+      • [background] (explicit) Described as an internationally renowned Australian architect who co-designed t…
+        excerpt: "Designed by internationally renowned Australian architects Glenn Murcutt and Wendy Lewin to ‘touch …"
+      • [philosophy] (explicit) Designed the lodges according to a 'touch the earth lightly' principle.
+        excerpt: "Designed by internationally renowned Australian architects Glenn Murcutt and Wendy Lewin to ‘touch …"
+
+  ✓ Wendy Lewin (Architect)
+    source_url:     https://alkinalodge.com.au/
+    excerpt:        "Designed by internationally renowned Australian architects Glenn Murcutt and Wendy Lewin to ‘touch the earth lightly’"
+    attributes (2):
+      • [background] (explicit) Described as an internationally renowned Australian architect who co-designed t…
+        excerpt: "Designed by internationally renowned Australian architects Glenn Murcutt and Wendy Lewin to ‘touch …"
+      • [philosophy] (explicit) Designed the lodges according to a 'touch the earth lightly' principle.
+        excerpt: "Designed by internationally renowned Australian architects Glenn Murcutt and Wendy Lewin to ‘touch …"
+
+  ── VALIDATED SIGNALS ────────────────────────────────────────
+
+  ✓ methodology_novelty
+    source_url:     https://alkinalodge.com.au/blog
+    excerpt:        "we’re delighted to announce that Alkina Lodge has now installed solar power and wind power to supply all of our energy …"
+    signal_data:    "{\"detail\":\"Alkina Lodge has installed solar power and wind power to supply all its energy needs\"}"
+
+  ✓ unusual_location
+    source_url:     https://alkinalodge.com.au/blog
+    excerpt:        "Our luxury accommodation is set on over 100 acres of pristine native bush on Australia’s Great Ocean Road."
+    signal_data:    "{\"detail\":\"Set on over 100 acres of pristine native bush on the Great Ocean Road\"}"
+
+  ✓ press_coverage
+    source_url:     https://alkinalodge.com.au/
+    excerpt:        "Check out Alkina Lodge’s latest media
+appearances and features from sites like
+Australia.com and nine.com.au"
+    signal_data:    "{\"publications\":[\"Australia.com\",\"nine.com.au\"]}"
+
+  ✓ award
+    source_url:     https://alkinalodge.com.au/
+    excerpt:        "Australian Tourism Award Winners"
+    signal_data:    "{\"name\":\"Australian Tourism Award\"}"
+
+  ✓ methodology_novelty
+    source_url:     https://alkinalodge.com.au/
+    excerpt:        "three unique, purpose-built, private contemporary residencies designed for discerning travellers who want to reconnect,…"
+    signal_data:    "{\"detail\":\"Three unique, purpose-built private contemporary residences designed by Glenn Murcutt and Wendy Lewin\"}"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Run summary
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Total listings:    5
+  Mode:              DRY-RUN (no DB writes)
+  Elapsed:           213.1s
+  Outcomes:
+    ok                           5
+  Aggregates (ok listings only):
+    pages_fetched                13
+    characters_extracted         6
+    characters_validated         6
+    attributes_extracted         13
+    attributes_validated         13
+    signals_extracted            27
+    signals_validated            27
+
