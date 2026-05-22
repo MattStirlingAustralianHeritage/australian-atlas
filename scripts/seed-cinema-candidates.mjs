@@ -103,10 +103,12 @@ function loadAndValidate() {
 // ─── Stage 2: Chain filter ──────────────────────────────────────
 
 async function loadCinemaScopedGroups() {
+  // Cinema chains (category=cinema) + any group whose scope includes
+  // 'collection' OR is global (NULL = applies everywhere).
   const { data, error } = await sb
     .from('commercial_groups')
     .select('group_name, brands, domains, vertical_scope, category')
-    .or('category.eq.cinema,and(category.eq.hotel_accommodation,vertical_scope.cs.{collection})')
+    .or('category.eq.cinema,and(category.eq.hotel_accommodation,vertical_scope.cs.{collection}),and(category.eq.hotel_accommodation,vertical_scope.is.null)')
 
   if (error) {
     console.error(`Failed to load commercial_groups: ${error.message}`)
