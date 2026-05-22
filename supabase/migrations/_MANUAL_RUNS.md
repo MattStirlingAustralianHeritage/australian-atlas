@@ -44,3 +44,11 @@ Migration files 129, 130, 131 reconstructed and written to disk per the
 intended schema state. 130 reflects the final reseed to 30 rows (Matt
 is applying that reseed via the SQL editor in parallel with this commit).
 Files are now part of the migration history for future replay.
+
+## 2026-05-22 (continued)
+
+Migration 132 applied via Supabase SQL editor and file reconstructed to disk.
+Creates pitch_sources, pitch_characters, pitch_character_attributes, and
+pitch_signals tables, plus pitch_source_type, pitch_attribute_confidence,
+and pitch_signal_type enums. Schema documented in
+docs/pitch-system-phase3-design.md.
