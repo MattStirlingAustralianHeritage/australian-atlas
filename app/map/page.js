@@ -32,13 +32,25 @@ export default async function MapPage({ searchParams }) {
     ? stateParam.toUpperCase()
     : ''
 
+  // Optional centre/zoom from listing page "View on full map →" link.
+  const lng = parseFloat(params?.lng)
+  const lat = parseFloat(params?.lat)
+  const zoom = parseFloat(params?.zoom)
+  const initialCenter = Number.isFinite(lng) && Number.isFinite(lat) ? [lng, lat] : null
+  const initialZoom = Number.isFinite(zoom) ? zoom : null
+
   return (
     <Suspense fallback={
       <div style={{ height: '100svh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-sans)', color: 'var(--color-muted)' }}>
         Loading map…
       </div>
     }>
-      <MapClient initialVertical={initialVertical} initialState={initialState} />
+      <MapClient
+        initialVertical={initialVertical}
+        initialState={initialState}
+        initialCenter={initialCenter}
+        initialZoom={initialZoom}
+      />
     </Suspense>
   )
 }

@@ -137,3 +137,19 @@ nav a, .inline-link { min-height: unset; }
 @keyframes autocomplete-spin {
   to { transform: translateY(-50%) rotate(360deg); }
 }
+
+/* Listing-page hero band — used by both <TypographicCard size="hero"> and
+   the image hero branch on /place/[slug]. Height tiers align with Tailwind
+   breakpoints (sm=640, lg=1024, xl=1280). */
+.atlas-hero-band { min-height: 320px; }
+@media (min-width: 640px)  { .atlas-hero-band { min-height: 380px; } }
+@media (min-width: 1024px) { .atlas-hero-band { min-height: 440px; } }
+@media (min-width: 1280px) { .atlas-hero-band { min-height: 480px; } }
+
+/* Listing-page embedded "Nearby on Australian Atlas" map — taller on desktop
+   (480–560 range) than mobile (360–400 range). MapClient in embedded mode
+   stretches to fill this container. */
+.atlas-nearby-map { height: 360px; }
+@media (min-width: 640px)  { .atlas-nearby-map { height: 400px; } }
+@media (min-width: 1024px) { .atlas-nearby-map { height: 480px; } }
+@media (min-width: 1280px) { .atlas-nearby-map { height: 540px; } }

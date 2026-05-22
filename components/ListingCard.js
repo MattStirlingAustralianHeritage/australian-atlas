@@ -88,11 +88,13 @@ export function TypographicCard({
   category,
   region,
   state,
+  size = 'card',
   aspectRatio = '4/5',
   showVerticalTag = false,
 }) {
   const tokens = VERTICAL_TOKENS[vertical] || VERTICAL_TOKENS.portal
   const isField = vertical === 'field'
+  const isHero = size === 'hero'
   const categoryLabel = formatCategory(category)
   const topLine = showVerticalTag
     ? `${tokens.label}${categoryLabel ? `  \u00B7  ${categoryLabel}` : ''}`.toUpperCase()
@@ -103,9 +105,25 @@ export function TypographicCard({
   const [line1, line2] = splitName(name)
   const bottomLine = [region, state].filter(Boolean).join(', ').toUpperCase()
 
-  return (
-    <div
-      style={{
+  // Hero height is delegated to the .atlas-hero-band class so it can use
+  // breakpoint-aware media queries the inline style can't carry. The class
+  // is defined once on the consumer page (e.g. /place/[slug]).
+  const containerStyle = isHero
+    ? {
+        position: 'relative',
+        width: '100%',
+        borderRadius: 0,
+        overflow: 'hidden',
+        background: tokens.bg,
+        color: tokens.text,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: '3rem 1.5rem',
+        textAlign: 'center',
+      }
+    : {
         position: 'relative',
         aspectRatio,
         borderRadius: '10px',
@@ -118,25 +136,39 @@ export function TypographicCard({
         alignItems: 'center',
         padding: '2rem 1.5rem',
         textAlign: 'center',
-      }}
-    >
+      }
+
+  const tagFontSize = isHero ? 11 : 9
+  const tagOpacity = isHero ? 0.5 : 0.4
+  const tagMarginBottom = isHero ? '1.5rem' : '1.25rem'
+  const ruleWidth = isHero ? 32 : 20
+  const ruleOpacity = isHero ? 0.35 : 0.3
+  const nameFontSize = isHero ? 'clamp(2rem, 5vw, 3.5rem)' : 19
+  const nameLineHeight = isHero ? 1.1 : 1.25
+  const nameLetterSpacing = isHero ? '0.005em' : '0.01em'
+  const dotOpacity = isHero ? 0.06 : 0.08
+  const contentMaxWidth = isHero ? 720 : '100%'
+  const bottomGap = isHero ? '1.75rem' : '1.25rem'
+
+  return (
+    <div className={isHero ? 'atlas-hero-band' : undefined} style={containerStyle}>
       {/* Dot grid texture */}
       <div style={{
         position: 'absolute', inset: 0,
         backgroundImage: `radial-gradient(circle, ${tokens.text} 1px, transparent 1px)`,
         backgroundSize: '16px 16px',
-        opacity: 0.08,
+        opacity: dotOpacity,
         pointerEvents: 'none',
       }} />
       {isField && <TopoLines color={tokens.text} />}
 
-      <div style={{ position: 'relative', zIndex: 1, width: '100%' }}>
+      <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: contentMaxWidth }}>
         {topLine && (
           <p style={{
             fontFamily: 'var(--font-body, "DM Sans", system-ui)',
-            fontSize: '9px', fontWeight: 500, letterSpacing: '0.15em',
-            textTransform: 'uppercase', opacity: 0.4,
-            margin: '0 0 1.25rem', lineHeight: 1.4,
+            fontSize: tagFontSize, fontWeight: 500, letterSpacing: '0.15em',
+            textTransform: 'uppercase', opacity: tagOpacity,
+            margin: `0 0 ${tagMarginBottom}`, lineHeight: 1.4,
           }}>
             {topLine}
           </p>
@@ -145,36 +177,55 @@ export function TypographicCard({
 
         {/* Rule line */}
         <div style={{
-          width: 20, height: 1,
-          background: tokens.text, opacity: 0.3,
+          width: ruleWidth, height: 1,
+          background: tokens.text, opacity: ruleOpacity,
           margin: '0 auto 0.875rem',
         }} />
 
-        {/* Name line 1 */}
-        <p style={{
-          fontFamily: 'var(--font-display, "Playfair Display", Georgia)',
-          fontSize: 19, fontWeight: 400, margin: 0, lineHeight: 1.25, letterSpacing: '0.01em',
-        }}>
-          {line1}
-        </p>
-        {/* Name line 2 (italic) */}
-        {line2 && (
-          <p style={{
+        {/* Name — wrapped in <h1> at hero size so the venue name acts as the
+            page heading; cards use a non-heading element so they don't pollute
+            the page outline when many cards share a grid. */}
+        {isHero ? (
+          <h1 style={{
             fontFamily: 'var(--font-display, "Playfair Display", Georgia)',
-            fontSize: 19, fontWeight: 400, fontStyle: 'italic',
-            margin: '0.2rem 0 0', lineHeight: 1.25, letterSpacing: '0.01em',
+            fontSize: nameFontSize, fontWeight: 400, margin: 0,
+            lineHeight: nameLineHeight, letterSpacing: nameLetterSpacing,
           }}>
-            {line2}
-          </p>
+            <span style={{ display: 'block' }}>{line1}</span>
+            {line2 && (
+              <span style={{ display: 'block', fontStyle: 'italic', marginTop: '0.2rem' }}>
+                {line2}
+              </span>
+            )}
+          </h1>
+        ) : (
+          <>
+            <p style={{
+              fontFamily: 'var(--font-display, "Playfair Display", Georgia)',
+              fontSize: nameFontSize, fontWeight: 400, margin: 0,
+              lineHeight: nameLineHeight, letterSpacing: nameLetterSpacing,
+            }}>
+              {line1}
+            </p>
+            {line2 && (
+              <p style={{
+                fontFamily: 'var(--font-display, "Playfair Display", Georgia)',
+                fontSize: nameFontSize, fontWeight: 400, fontStyle: 'italic',
+                margin: '0.2rem 0 0', lineHeight: nameLineHeight, letterSpacing: nameLetterSpacing,
+              }}>
+                {line2}
+              </p>
+            )}
+          </>
         )}
 
-        <div style={{ height: '1.25rem' }} />
+        <div style={{ height: bottomGap }} />
 
         {bottomLine && (
           <p style={{
             fontFamily: 'var(--font-body, "DM Sans", system-ui)',
-            fontSize: 9, fontWeight: 400, letterSpacing: '0.15em',
-            textTransform: 'uppercase', opacity: 0.4,
+            fontSize: tagFontSize, fontWeight: 400, letterSpacing: '0.15em',
+            textTransform: 'uppercase', opacity: tagOpacity,
             margin: 0, lineHeight: 1.4,
           }}>
             {bottomLine}

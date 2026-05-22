@@ -1,22 +1,15 @@
 'use client'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { useRef, useEffect, useState } from 'react'
-import { getVerticalUrl, getVerticalBadge, getVerticalLabel } from '@/lib/verticalUrl'
+import { getVerticalUrl, getVerticalBadge, getVerticalLabel, getVerticalBrandColour } from '@/lib/verticalUrl'
 
 const PRIMARY = '#5f8a7e'
 const PREMIUM_COLOR = '#c8943a'
 
-const VERTICAL_COLORS = {
-  sba:          '#C49A3C',
-  collection:   '#7A6B8A',
-  craft:        '#C1603A',
-  fine_grounds: '#8A7055',
-  rest:         '#5A8A9A',
-  field:        '#4A7C59',
-  corner:       '#5F8A7E',
-  found:        '#D4956A',
-  table:        '#C4634F',
-}
+// Brand colour lookup — sourced from lib/verticalUrl.js so all surfaces stay
+// in sync. The list of keys also drives the legend.
+const VERTICAL_KEYS = ['sba','collection','craft','fine_grounds','rest','field','corner','found','table']
+const verticalColor = (key) => getVerticalBrandColour(key) || PRIMARY
 
 const VERTICAL_FILTERS = [
   { key: 'all', label: 'All' },
@@ -94,7 +87,30 @@ const STATE_BOUNDS = {
   'ACT':  [148.76, -35.92, 149.40, -35.12],
 }
 
-export default function MapClient({ initialVertical = '', initialState = '' }) {
+/**
+ * MapClient
+ *
+ * mode='fullscreen' (default) — the network-wide /map page. Locks body scroll,
+ *   hides nav/footer, fetches all listings, renders all chrome (filters,
+ *   geocoding search, legend, mobile sheet, builder tab toggle).
+ *
+ * mode='embedded' — for in-page sections (e.g. /place/[slug] "Nearby on
+ *   Australian Atlas"). No body lock, no nav/footer hiding, no chrome.
+ *   Caller must pass `prefilteredListings` (skips the /api/map fetch) and
+ *   may pass `initialBounds` to constrain the view and `highlightListingId`
+ *   to render the matching pin distinctly.
+ */
+export default function MapClient({
+  initialVertical = '',
+  initialState = '',
+  initialCenter = null,  // [lng, lat] — overrides the Australia-overview default
+  initialZoom = null,    // number — used with initialCenter
+  mode = 'fullscreen',
+  prefilteredListings = null,
+  initialBounds = null,
+  highlightListingId = null,
+}) {
+  const isEmbedded = mode === 'embedded'
   const mapContainer = useRef(null)
   const map = useRef(null)
   const popup = useRef(null)
@@ -178,8 +194,10 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
     setShowPlaceDropdown(false)
   }
 
-  // Lock body scroll and hide footer + nav so the map takes full viewport
+  // Lock body scroll and hide footer + nav so the map takes full viewport.
+  // Skipped for embedded mode — the map is just a section in a normal page.
   useEffect(() => {
+    if (isEmbedded) return
     document.body.style.overflow = 'hidden'
     document.body.style.height = '100dvh'
     // Hide footer — it's rendered by the root layout outside our control
@@ -194,10 +212,17 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
       if (footer) footer.style.display = ''
       if (nav) nav.style.display = ''
     }
-  }, [])
+  }, [isEmbedded])
 
-  // Fetch all listings from dedicated map API (paginated server-side)
+  // Listings source: embedded callers pass a pre-filtered array; fullscreen
+  // mode fetches the full network listing set from /api/map.
   useEffect(() => {
+    if (prefilteredListings) {
+      setAllListings(prefilteredListings)
+      setCount(prefilteredListings.length)
+      setLoading(false)
+      return
+    }
     async function fetchData() {
       try {
         const res = await fetch('/api/map')
@@ -211,7 +236,7 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
       setLoading(false)
     }
     fetchData()
-  }, [])
+  }, [prefilteredListings])
 
   // Sub-type reset is handled inside toggleVertical()
 
@@ -226,12 +251,19 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
       map.current = new mapboxgl.default.Map({
         container: mapContainer.current,
         style: 'mapbox://styles/mattstirlingaustralianheritage/cmn32b0iz003401swccb7d21k',
-        center: [134, -27],
-        zoom: 3.8,
+        center: initialCenter || [134, -27],
+        zoom: initialZoom != null ? initialZoom : 3.8,
         attributionControl: false,
+        // Embedded maps drop the scroll-zoom hijack; mobile users still get
+        // pinch + double-tap, desktop users use the +/- nav control.
+        scrollZoom: !isEmbedded,
       })
 
       map.current.addControl(new mapboxgl.default.NavigationControl({ showCompass: false }), 'bottom-right')
+
+      if (initialBounds) {
+        map.current.fitBounds(initialBounds, { padding: 60, animate: false })
+      }
 
       popup.current = new mapboxgl.default.Popup({
         closeButton: true,
@@ -288,8 +320,24 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
           paint: { 'circle-radius': 9, 'circle-color': PREMIUM_COLOR, 'circle-stroke-width': 2.5, 'circle-stroke-color': '#ffffff', 'circle-opacity': 1 },
         })
 
+        // Highlight pin — only used in embedded mode to mark the current
+        // listing on the page. Larger ring + dot, on top of standard pins.
+        if (highlightListingId) {
+          map.current.addLayer({
+            id: 'pin-highlight-ring', type: 'circle', source: 'listings-clustered',
+            filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'id'], highlightListingId]],
+            paint: { 'circle-radius': 16, 'circle-color': 'transparent', 'circle-stroke-width': 2, 'circle-stroke-color': ['get', 'color'], 'circle-stroke-opacity': 0.45 },
+          })
+          map.current.addLayer({
+            id: 'pin-highlight', type: 'circle', source: 'listings-clustered',
+            filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'id'], highlightListingId]],
+            paint: { 'circle-radius': 10, 'circle-color': ['get', 'color'], 'circle-stroke-width': 3, 'circle-stroke-color': '#ffffff' },
+          })
+        }
+
         // Click + hover handlers
         const pinLayers = ['pins-basic', 'pins-featured-glow', 'pins-featured']
+        if (highlightListingId) pinLayers.push('pin-highlight-ring', 'pin-highlight')
         pinLayers.forEach(layer => {
           map.current.on('mouseenter', layer, () => { map.current.getCanvas().style.cursor = 'pointer' })
           map.current.on('mouseleave', layer, () => { map.current.getCanvas().style.cursor = '' })
@@ -306,6 +354,15 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
               ? `<span style="display:inline-flex;align-items:center;gap:5px;background:rgba(95,138,126,0.08);border:1px solid rgba(95,138,126,0.2);padding:3px 9px;border-radius:2px;"><span style="font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#6b6560;">${props.subTypeLabel}</span></span>`
               : ''
 
+            // The pin for the current listing (when highlightListingId is
+            // set) shows a "You are here" badge instead of a self-linking
+            // "View listing →" button — clicking the page you're already on
+            // would be a dead end.
+            const isCurrent = highlightListingId && props.id === highlightListingId
+            const ctaHtml = isCurrent
+              ? `<div style="display:block;margin-top:10px;padding:7px 0;text-align:center;background:rgba(95,138,126,0.10);color:${PRIMARY};font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;border-radius:2px;border:1px dashed rgba(95,138,126,0.35);">You are here</div>`
+              : `<a href="${props.url}" style="display:block;margin-top:10px;padding:7px 0;text-align:center;background:${PRIMARY};color:#fff;text-decoration:none;font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;border-radius:2px;">View listing →</a>`
+
             popup.current.setLngLat(coords).setHTML(
               `<div style="font-family:system-ui,-apple-system,sans-serif;padding:4px 2px;max-width:260px;">
                 <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
@@ -317,7 +374,7 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
                 <div style="font-family:Georgia,serif;font-size:17px;font-weight:400;color:#1a1614;margin-bottom:3px;letter-spacing:-0.01em;line-height:1.2;">${props.name}</div>
                 <div style="font-size:11px;color:#9a8878;margin-bottom:${desc ? 8 : 10}px;">${props.location}</div>
                 ${desc ? `<div style="font-size:12px;color:#5a4e45;line-height:1.5;margin-bottom:10px;">${desc}</div>` : ''}
-                <a href="${props.url}" style="display:block;margin-top:10px;padding:7px 0;text-align:center;background:${PRIMARY};color:#fff;text-decoration:none;font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;border-radius:2px;">View listing →</a>
+                ${ctaHtml}
               </div>`
             ).addTo(map.current)
           })
@@ -360,16 +417,25 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
     if (source) source.setData(buildGeoJSON(filtered))
   }, [allListings, selectedVerticals, subTypeFilter, stateFilter, search, mapReady])
 
-  // Zoom to state
+  // Zoom to state — only relevant when the state filter is in play.
+  // Skipped on the initial render when initialCenter was supplied, so a
+  // "View on full map →" link stays centred on the listing rather than
+  // snapping back to the Australia overview.
+  const hasUserChangedState = useRef(false)
   useEffect(() => {
-    if (!mapReady || !map.current) return
+    if (!mapReady || !map.current || isEmbedded) return
+    if (initialCenter && !hasUserChangedState.current) {
+      hasUserChangedState.current = true
+      return
+    }
+    hasUserChangedState.current = true
     if (stateFilter === 'All States') {
       map.current.flyTo({ center: [134, -27], zoom: 3.8, duration: 800 })
     } else {
       const bounds = STATE_BOUNDS[stateFilter]
       if (bounds) map.current.fitBounds([[bounds[0], bounds[1]], [bounds[2], bounds[3]]], { padding: 40, duration: 800 })
     }
-  }, [stateFilter, mapReady])
+  }, [stateFilter, mapReady, isEmbedded, initialCenter])
 
   const isAllVerticals = selectedVerticals.size === 0
   const activeFilterCount = (!isAllVerticals ? 1 : 0) + (subTypeFilter !== 'all' ? 1 : 0) + (stateFilter !== 'All States' ? 1 : 0) + (search ? 1 : 0)
@@ -378,9 +444,14 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
   const currentSubTypes = singleSelectedVertical ? SUB_TYPE_LABELS[singleSelectedVertical] || {} : {}
   const hasSubTypes = Object.keys(currentSubTypes).length > 0
 
+  const rootStyle = isEmbedded
+    ? { position: 'relative', width: '100%', height: '100%', background: '#faf8f5' }
+    : { position: 'fixed', inset: 0, zIndex: 50, background: '#faf8f5' }
+
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: '#faf8f5' }}>
-      {/* ── TAB TOGGLE: Map / Build a trail ── */}
+    <div style={rootStyle}>
+      {/* ── TAB TOGGLE: Map / Build a trail (skipped in embedded mode) ── */}
+      {!isEmbedded && (
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0, zIndex: 60,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -404,9 +475,10 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
           ))}
         </div>
       </div>
+      )}
 
-      {/* ── BUILDER TAB (iframe) ── */}
-      {activeTab === 'builder' && (
+      {/* ── BUILDER TAB (iframe) — fullscreen mode only ── */}
+      {!isEmbedded && activeTab === 'builder' && (
         <div style={{ position: 'absolute', inset: 0, paddingTop: 42 }}>
           <iframe
             src="/trails/builder?embed=1&tab=builder"
@@ -416,9 +488,10 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
         </div>
       )}
 
-      {/* ── MAP (fills entire viewport, nav is hidden) ── */}
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden', display: activeTab === 'map' ? 'block' : 'none' }}>
-        {/* ── DESKTOP TOOLBAR (overlays map) ── */}
+      {/* ── MAP — fills the container ── */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden', display: !isEmbedded && activeTab === 'builder' ? 'none' : 'block' }}>
+        {/* ── DESKTOP TOOLBAR (overlays map) — fullscreen mode only ── */}
+        {!isEmbedded && (
         <div className="map-desktop-toolbar" style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
           {/* Row 1: vertical + state filters */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '42px 20px 8px', borderBottom: hasSubTypes ? 'none' : '1px solid var(--color-border)', background: 'rgba(250,248,245,0.97)', backdropFilter: 'blur(8px)', flexWrap: 'wrap' }}>
@@ -451,7 +524,7 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
                 <button key={v.key} onClick={() => toggleVertical(v.key)} style={{
                   padding: '5px 12px', borderRadius: 2, border: 'none', cursor: 'pointer',
                   fontSize: 11, fontWeight: active ? 600 : 500, fontFamily: 'var(--font-sans)',
-                  background: active ? (VERTICAL_COLORS[v.key] || PRIMARY) : 'rgba(95,138,126,0.1)',
+                  background: active ? verticalColor(v.key) : 'rgba(95,138,126,0.1)',
                   color: active ? '#fff' : 'var(--color-muted)', transition: 'all 0.15s',
                 }}>{v.label}</button>
               )
@@ -475,26 +548,28 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 20px 10px', borderBottom: '1px solid var(--color-border)', background: 'rgba(250,248,245,0.97)', backdropFilter: 'blur(8px)', flexWrap: 'wrap' }}>
               <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', fontFamily: 'var(--font-sans)', marginRight: 4 }}>Type</span>
               <button onClick={() => setSubTypeFilter('all')} style={{
-                padding: '4px 10px', borderRadius: 12, border: `1px solid ${subTypeFilter === 'all' ? (VERTICAL_COLORS[singleSelectedVertical] || PRIMARY) : 'var(--color-border)'}`,
+                padding: '4px 10px', borderRadius: 12, border: `1px solid ${subTypeFilter === 'all' ? verticalColor(singleSelectedVertical) : 'var(--color-border)'}`,
                 cursor: 'pointer', fontSize: 10, fontWeight: 500, fontFamily: 'var(--font-sans)',
-                background: subTypeFilter === 'all' ? (VERTICAL_COLORS[singleSelectedVertical] || PRIMARY) : 'transparent',
+                background: subTypeFilter === 'all' ? verticalColor(singleSelectedVertical) : 'transparent',
                 color: subTypeFilter === 'all' ? '#fff' : 'var(--color-muted)', transition: 'all 0.15s',
               }}>All</button>
               {Object.entries(currentSubTypes).map(([key, label]) => (
                 <button key={key} onClick={() => setSubTypeFilter(key)} style={{
-                  padding: '4px 10px', borderRadius: 12, border: `1px solid ${subTypeFilter === key ? (VERTICAL_COLORS[singleSelectedVertical] || PRIMARY) : 'var(--color-border)'}`,
+                  padding: '4px 10px', borderRadius: 12, border: `1px solid ${subTypeFilter === key ? verticalColor(singleSelectedVertical) : 'var(--color-border)'}`,
                   cursor: 'pointer', fontSize: 10, fontWeight: 500, fontFamily: 'var(--font-sans)',
-                  background: subTypeFilter === key ? (VERTICAL_COLORS[singleSelectedVertical] || PRIMARY) : 'transparent',
+                  background: subTypeFilter === key ? verticalColor(singleSelectedVertical) : 'transparent',
                   color: subTypeFilter === key ? '#fff' : 'var(--color-muted)', transition: 'all 0.15s',
                 }}>{label}</button>
               ))}
             </div>
           )}
         </div>
+        )}
         {/* Map canvas */}
         <div ref={mapContainer} style={{ position: 'absolute', inset: 0 }} />
 
-        {/* Desktop legend */}
+        {/* Desktop legend — fullscreen mode only */}
+        {!isEmbedded && (
         <div className="map-desktop-toolbar" style={{ position: 'absolute', bottom: 40, left: 16, background: 'rgba(250,248,245,0.97)', border: '1px solid var(--color-border)', borderRadius: 4, zIndex: 5, overflow: 'hidden' }}>
           <button onClick={() => setLegendCollapsed(c => !c)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', gap: 24 }}>
             <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', fontFamily: 'var(--font-sans)' }}>Legend</span>
@@ -504,9 +579,9 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
             <div style={{ padding: '0 14px 12px' }}>
               <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', marginBottom: 8, fontFamily: 'var(--font-sans)' }}>Atlas Verticals</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px' }}>
-                {Object.entries(VERTICAL_COLORS).map(([v, color]) => (
+                {VERTICAL_KEYS.map(v => (
                   <div key={v} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, display: 'inline-block', flexShrink: 0 }} />
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: verticalColor(v), display: 'inline-block', flexShrink: 0 }} />
                     <span style={{ fontSize: 10, color: 'var(--color-muted)' }}>{getVerticalBadge(v)}</span>
                   </div>
                 ))}
@@ -521,8 +596,11 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
             </div>
           )}
         </div>
+        )}
 
-        {/* ── MOBILE FABs ── */}
+        {/* ── MOBILE FABs — fullscreen mode only ── */}
+        {!isEmbedded && (
+        <>
         <button className="map-mobile-only" onClick={() => setMobileSheetOpen(o => !o)} style={{
           position: 'absolute', bottom: 100, right: 16, zIndex: 10,
           width: 48, height: 48, borderRadius: '50%',
@@ -581,9 +659,9 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
           }}>
             <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', marginBottom: 8 }}>Atlas Verticals</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px' }}>
-              {Object.entries(VERTICAL_COLORS).map(([v, color]) => (
+              {VERTICAL_KEYS.map(v => (
                 <div key={v} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, display: 'inline-block', flexShrink: 0 }} />
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: verticalColor(v), display: 'inline-block', flexShrink: 0 }} />
                   <span style={{ fontSize: 10, color: 'var(--color-muted)' }}>{getVerticalBadge(v)}</span>
                 </div>
               ))}
@@ -617,9 +695,9 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
                   return (
                     <button key={v.key} onClick={() => toggleVertical(v.key)} style={{
                       padding: '10px 16px', borderRadius: 20, minHeight: 44,
-                      border: `1px solid ${active ? (VERTICAL_COLORS[v.key] || PRIMARY) : 'var(--color-border)'}`,
+                      border: `1px solid ${active ? verticalColor(v.key) : 'var(--color-border)'}`,
                       cursor: 'pointer', fontSize: 13, fontWeight: 500, fontFamily: 'var(--font-sans)',
-                      background: active ? (VERTICAL_COLORS[v.key] || PRIMARY) : 'transparent',
+                      background: active ? verticalColor(v.key) : 'transparent',
                       color: active ? '#fff' : 'var(--color-muted)', transition: 'all 0.15s',
                     }}>{v.label}</button>
                   )
@@ -634,17 +712,17 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   <button onClick={() => setSubTypeFilter('all')} style={{
                     padding: '10px 16px', borderRadius: 20, minHeight: 44,
-                    border: `1px solid ${subTypeFilter === 'all' ? (VERTICAL_COLORS[singleSelectedVertical] || PRIMARY) : 'var(--color-border)'}`,
+                    border: `1px solid ${subTypeFilter === 'all' ? verticalColor(singleSelectedVertical) : 'var(--color-border)'}`,
                     cursor: 'pointer', fontSize: 13, fontWeight: 500, fontFamily: 'var(--font-sans)',
-                    background: subTypeFilter === 'all' ? (VERTICAL_COLORS[singleSelectedVertical] || PRIMARY) : 'transparent',
+                    background: subTypeFilter === 'all' ? verticalColor(singleSelectedVertical) : 'transparent',
                     color: subTypeFilter === 'all' ? '#fff' : 'var(--color-muted)', transition: 'all 0.15s',
                   }}>All</button>
                   {Object.entries(currentSubTypes).map(([key, label]) => (
                     <button key={key} onClick={() => { setSubTypeFilter(key); setMobileSheetOpen(false) }} style={{
                       padding: '10px 16px', borderRadius: 20, minHeight: 44,
-                      border: `1px solid ${subTypeFilter === key ? (VERTICAL_COLORS[singleSelectedVertical] || PRIMARY) : 'var(--color-border)'}`,
+                      border: `1px solid ${subTypeFilter === key ? verticalColor(singleSelectedVertical) : 'var(--color-border)'}`,
                       cursor: 'pointer', fontSize: 13, fontWeight: 500, fontFamily: 'var(--font-sans)',
-                      background: subTypeFilter === key ? (VERTICAL_COLORS[singleSelectedVertical] || PRIMARY) : 'transparent',
+                      background: subTypeFilter === key ? verticalColor(singleSelectedVertical) : 'transparent',
                       color: subTypeFilter === key ? '#fff' : 'var(--color-muted)', transition: 'all 0.15s',
                     }}>{label}</button>
                   ))}
@@ -682,6 +760,8 @@ export default function MapClient({ initialVertical = '', initialState = '' }) {
             </div>
           </div>
         )}
+        </>
+        )}
       </div>
 
       <style>{`
@@ -714,7 +794,7 @@ function buildGeoJSON(listings) {
   return {
     type: 'FeatureCollection',
     features: listings.filter(l => l.lat && l.lng && !l.address_on_request).map(l => {
-      const color = VERTICAL_COLORS[l.vertical] || PRIMARY
+      const color = verticalColor(l.vertical)
       const subTypes = SUB_TYPE_LABELS[l.vertical] || {}
       return {
         type: 'Feature',

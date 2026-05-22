@@ -324,27 +324,18 @@ function StartTrailModal({ listing, onClose }) {
   )
 }
 
-export default function StartTrailButton({ listing }) {
+export default function StartTrailButton({ listing, className = '' }) {
   const [showModal, setShowModal] = useState(false)
 
   return (
     <>
       <button
         onClick={() => setShowModal(true)}
-        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-colors"
+        className={`inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full text-sm font-medium text-white transition-opacity hover:opacity-90 ${className}`}
         style={{
           fontFamily: 'var(--font-body)',
-          border: '1px solid var(--color-sage, #5F8A7E)',
-          color: 'var(--color-sage, #5F8A7E)',
-          background: 'transparent',
-        }}
-        onMouseEnter={e => {
-          e.currentTarget.style.background = 'var(--color-sage, #5F8A7E)'
-          e.currentTarget.style.color = '#fff'
-        }}
-        onMouseLeave={e => {
-          e.currentTarget.style.background = 'transparent'
-          e.currentTarget.style.color = 'var(--color-sage, #5F8A7E)'
+          background: 'var(--color-sage, #5F8A7E)',
+          minHeight: 44,
         }}
       >
         Start a trail here
