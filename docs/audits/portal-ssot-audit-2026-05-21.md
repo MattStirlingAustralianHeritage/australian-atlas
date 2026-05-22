@@ -1,7 +1,7 @@
 # Portal-as-Single-Source-of-Truth — Audit
 **Date:** 21 May 2026 (audit), 22 May 2026 (status update)
 **Author:** Matt Smith
-**Status:** Tier 1 fixes in progress (2 of 5 complete); Finding-0 resolved
+**Status:** Tier 1 complete (5 of 5); Finding-0 resolved; Tier 2 queued
 **Execution model:** Claude Code with repo + DB access, run section by section
 ---
 ## Status Update — 22 May 2026
@@ -21,8 +21,8 @@ Rule 4 names this as a target rather than a current state. The full migration (m
 |---|-----|--------|--------|-------|
 | 1 | events/[slug] silent failure | ✅ Complete | `46b9d98` | Two-line fix: `is_active` → `status='published'`; switched query to `listings_with_region` view |
 | 2 | Rest description drift (54%) | ✅ Complete | `a175cde` + repair/push | See "Fix 2 outcomes" below |
-| 3 | Fine Grounds row count mismatch | ⏳ Next | — | — |
-| 4 | Table Atlas cross-vertical scripts | ⏳ Pending | — | — |
+| 3 | Fine Grounds row count mismatch | ✅ Complete | `785f3af` | Archived 28 hallucinated, fixed 2 slugs, re-pushed 3, imported 7. Portal=130 active, vertical=130. See `fg-data-ops-2026-05-22.md` |
+| 4 | Table Atlas cross-vertical scripts | ✅ Complete | `ddef8ce` (Table repo) | 8 scripts deleted (6 cross-vertical + 2 self-enrichment), 8 hardcoded service keys scrubbed from git history |
 | 5 | Way Atlas credentials | ✅ Complete | (env-only, no commit) | Portal can now reach Way Atlas DB; operators table is empty by design (pre-curation phase) |
 ### Fix 2 outcomes — beyond what the audit predicted
 The audit reported 54% drift on Rest, 9.5% on SBA, 8.1% on Collection. Investigation revealed the root cause was not stale syncs but **active bidirectional overwrite**: the inbound vertical-to-portal sync was writing `description` from the vertical's stale copy onto the portal's rewritten copy, reversing the rewrite pipeline's editorial work.
@@ -31,6 +31,42 @@ The audit reported 54% drift on Rest, 9.5% on SBA, 8.1% on Collection. Investiga
 - **3,335 rewritten descriptions** were then pushed outbound to all nine verticals (description data on Way Atlas not yet relevant — empty by design).
 - **Zero reversions remaining** across all nine verticals after verification.
 The Fix 2 commit narrows the inbound sync to metadata-only and references Rule 4 explicitly. It is the first installment of portal-canonical for editorial fields.
+### Fix 3 outcomes — hallucination audit + Fine Grounds reconciliation
+Root cause of the 152→125 row count mismatch: portal source_ids pointed to deleted vertical rows. Investigation revealed the vertical DB had massive deletion runs (126 gaps in roasters auto-increment, 72 in cafes). The "missing" listings were a mix of hallucinated seed data and real venues with stale references.
+
+**Network-wide hallucination audit** (all 10 verticals):
+- Fine Grounds: ~27 hallucinated in 2026-04-01 seed cohort (actioned)
+- Corner Atlas: ~43 of 87 in 2026-04-01 cohort (50% fail rate, Tier 2)
+- Found Atlas: ~33 of 118 in 2026-04-01 cohort (28% fail rate, Tier 2)
+- All other verticals: clean (Table Atlas post-reseed, 168 listings all real)
+- **Total suspected network-wide: ~103**
+
+**Fine Grounds actions completed:**
+- B.1: HTTP-checked 4 site_unusable listings (2 real, 2 hallucinated)
+- B.2: Archived 28 listings (27 hallucinated + 1 NAY brand-not-venue)
+- B.3: Fixed 2 slug mismatches (noosa, margaret-river) to match venue self-identification
+- B.4: Re-pushed 3 real venues to vertical (Seven Seeds, Shenannigans ×2)
+- B.5: Imported 7 vertical-only listings to portal (Wolff ×2, Room 10, Hey Jupiter, Someday Coffee, Born in Brunswick, Traveller)
+- Final reconciliation: portal active (130) = vertical total (130) ✅
+
+### Fix 4 outcomes — Table Atlas enrichment scripts
+Investigation found 6 cross-vertical scripts (the 5 flagged plus `enrich-found-atlas.mjs`, a discovery) and 2 self-enrichment scripts. All 8 were dormant (no cron, no CI, no references from any other code), all from a single 2026-04-14 batch commit, all UPDATEs only (no INSERTs — no Section 1 violation). All 8 had Supabase service_role keys hardcoded inline, all matching current live keys. Repo is private on GitHub.
+
+Actions taken:
+- Deleted all 8 scripts
+- Scrubbed 8 unique service_role keys from git history via `git filter-repo`
+- Force-pushed rewritten history to GitHub remote
+- Re-cloned local working tree from scrubbed remote
+- `.pre-scrub` backup retained pending sign-off
+
+Key rotation deferred. Service_role keys cannot be rotated without rotating the project JWT secret, which invalidates all user sessions. Risk is contained (private repo, sole collaborator). Rotation scheduled as a prerequisite for commercial outreach phase.
+
+### New Tier 2 follow-ups surfaced during Fix 3 and Fix 4
+- **Corner Atlas hallucination cleanup**: ~43 suspected hallucinated listings in 2026-04-01 cohort. Same fingerprint as Fine Grounds (generic names, non-resolving URLs, invented descriptions). Separate session.
+- **Found Atlas hallucination cleanup**: ~33 suspected in 2026-04-01 cohort. Same fingerprint. Separate session.
+- **Fine Grounds bare source_id migration**: 49 portal listings have legacy bare numeric source_ids without `cafe_`/`roaster_` prefix. Functional but ambiguous (both tables have separate auto-increment). Low priority.
+- **Fine Grounds 2 orphaned source_ids**: `barefoot-barista` (roaster_50) and `north-beach-coffee-co-wollongong` (cafe_91) are real venues whose vertical rows were deleted. Need re-push (same as B.4 pattern).
+
 ### New Tier 2 follow-ups surfaced during Fix 2
 These are additions to the original Tier 2 list (items 6-10 in the original audit), discovered during Fix 1 and Fix 2 execution:
 - **Audit `is_featured` / `sub_type` / `sub_types` drift across all verticals.** Rule 4 names these as portal-authoritative. Fix 2 narrowed inbound sync to remove `description` only; the other three Rule-4 candidates need the same investigation-before-action treatment Fix 2 received. If drift exists, the fix is structurally identical (remove from inbound mapper).
