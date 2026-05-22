@@ -24,14 +24,23 @@ import { getListingRegion, LISTING_REGION_SELECT } from '../lib/regions/getListi
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 function loadEnv() {
+  // Inline-regex parser with explicit quote-stripping. The earlier
+  // indexOf('=')+slice form (above, replaced) did NOT strip surrounding
+  // quotes from values, which silently broke on this project's .env.local
+  // where the Supabase URL is written as NEXT_PUBLIC_SUPABASE_URL="https://…"
+  // — the literal quotes ended up in process.env and downstream callers
+  // (createClient) rejected the value as not a valid HTTP URL. Same pattern
+  // landed on scripts/pitch-generate.mjs in commit fd7fb52.
   try {
-    const lines = readFileSync(resolve(__dirname, '../.env.local'), 'utf-8').split('\n')
-    for (const line of lines) {
-      const t = line.trim()
-      if (!t || t.startsWith('#')) continue
-      const eq = t.indexOf('=')
-      if (eq === -1) continue
-      if (!process.env[t.slice(0, eq).trim()]) process.env[t.slice(0, eq).trim()] = t.slice(eq + 1).trim()
+    const raw = readFileSync(resolve(__dirname, '../.env.local'), 'utf-8')
+    for (const line of raw.split('\n')) {
+      const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/)
+      if (!m) continue
+      let v = m[2].trim()
+      if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+        v = v.slice(1, -1)
+      }
+      process.env[m[1]] = v
     }
   } catch {}
 }
