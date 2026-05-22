@@ -3,8 +3,11 @@
 // Phase 3 step 1, Batch 7 — pre-flight delta report
 //
 // Compares OLD vs NEW listing-count semantics for every region:
-//   OLD = legacy ilike + alias map (current updateRegionCounts.js)
-//   NEW = FK-based count via region_computed_id OR region_override_id
+//   OLD = legacy ilike + alias map (pre-FK updateRegionCounts.js)
+//   NEW = override-wins region_id via listings_with_region view
+//         (migration 123). Pre-migration this used the
+//         region_computed_id OR region_override_id pattern, which
+//         double-counted disagreement listings — see docs/regions.md.
 //
 // Writes a markdown report to docs/audits/2026-04-26-batch7-count-delta.md
 // and exits non-zero if any LIVE region's |delta/old| > 50% (or, when
@@ -105,10 +108,10 @@ async function oldCount(region, aliasReverse) {
 
 async function newCount(region) {
   const { count, error } = await sb
-    .from('listings')
+    .from('listings_with_region')
     .select('id', { count: 'exact', head: true })
     .eq('status', 'active')
-    .or(`region_computed_id.eq.${region.id},region_override_id.eq.${region.id}`)
+    .eq('region_id', region.id)
   if (error) throw new Error(`NEW count error for ${region.slug}: ${error.message}`)
   return count || 0
 }
@@ -178,8 +181,9 @@ async function main() {
   md.push('- **OLD** — current production logic from `lib/sync/updateRegionCounts.js`:')
   md.push('  - Primary: `count(*) FROM listings WHERE status=\'active\' AND region ILIKE \'%<region.name>%\'`')
   md.push('  - Plus aliases: same `ilike` against each entry in the alias map (skipping aliases whose value substring-includes the canonical name).')
-  md.push('- **NEW** — FK-based per Decision 3:')
-  md.push('  - `count(*) FROM listings WHERE status=\'active\' AND (region_computed_id = $id OR region_override_id = $id)`')
+  md.push('- **NEW** — override-wins via the `listings_with_region` view (migration 123):')
+  md.push('  - `count(*) FROM listings_with_region WHERE status=\'active\' AND region_id = $id`')
+  md.push('  - where `region_id = COALESCE(region_override_id, region_computed_id)`')
   md.push('')
   md.push(`Halt threshold (live regions only): \`|delta / old| > ${PCT_THRESHOLD * 100}%\`. For zero-base regions (\`old = 0\`), uses an absolute threshold of \`new > ${ZERO_BASE_ABS_THRESHOLD}\` listings (matches the materiality cut from the 2026-04-25 SBA region-mismatch diagnostic — region activations >20 listings count as magnitude shifts).`)
   md.push('')

@@ -83,16 +83,16 @@ function zoomToRadiusDeg(zoom) {
 }
 
 /**
- * Fetch all active listings for a region via FK match — Phase 3 Decision 3
- * (override-wins precedence). Replaces the previous bbox + text-fallback approach
- * since FK match is now canonical and more accurate than either bbox or ilike.
+ * Fetch all active listings for a region via the listings_with_region view
+ * (migration 123). region_id is COALESCE(override, computed) per
+ * docs/regions.md — override-wins resolution.
  */
 async function getRegionListings(region) {
   const { data } = await supabase
-    .from('listings')
+    .from('listings_with_region')
     .select('id, vertical, name, slug, description, region, state, is_featured, editors_pick')
     .eq('status', 'active')
-    .or(`region_computed_id.eq.${region.id},region_override_id.eq.${region.id}`)
+    .eq('region_id', region.id)
     .limit(200)
   if (data && data.length > 0) return data
 

@@ -59,14 +59,13 @@ const SYSTEM_PROMPT = `You are an editorial writer for the Australian Atlas Netw
 You write editorial prose, not marketing copy. Paragraphs, not bullet points. Sentences that a good travel editor would let stand.`
 
 async function getRegionContext(region) {
-  // Get listings grouped by vertical for this region — Phase 3 FK match per
-  // Decision 3 (override-or-computed). Caller now passes the full region row
-  // (id, name, …) instead of just the name string.
+  // Get listings grouped by vertical for this region. Override-wins resolution
+  // via the listings_with_region view (migration 123).
   const { data: listings } = await supabase
-    .from('listings')
+    .from('listings_with_region')
     .select('vertical, name, is_featured')
     .eq('status', 'active')
-    .or(`region_computed_id.eq.${region.id},region_override_id.eq.${region.id}`)
+    .eq('region_id', region.id)
     .limit(200)
 
   if (!listings || listings.length === 0) return null

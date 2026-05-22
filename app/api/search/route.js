@@ -346,17 +346,18 @@ export async function GET(request) {
   const { region: resolvedRegion } = await resolveRegionParam(region)
 
   try {
-    // Build base query with explicit filters
+    // Build base query with explicit filters. Read from listings_with_region
+    // so region_id (override-wins COALESCE) is available; the view exposes
+    // every listings column transparently. See migration 123.
     let baseQuery = sb
-      .from('listings')
+      .from('listings_with_region')
       .select(SELECT_FIELDS, { count: 'exact' })
       .eq('status', 'active')
 
     if (vertical) baseQuery = baseQuery.eq('vertical', vertical)
     if (state) baseQuery = baseQuery.eq('state', state)
     if (resolvedRegion) {
-      // FK filter via override-or-computed precedence
-      baseQuery = baseQuery.or(`region_computed_id.eq.${resolvedRegion.id},region_override_id.eq.${resolvedRegion.id}`)
+      baseQuery = baseQuery.eq('region_id', resolvedRegion.id)
     } else if (region) {
       // Param supplied but no canonical region matched — fall back to legacy text filter
       // so users searching for unactivated regions (e.g. "Riverina") still see anything tagged with that text
