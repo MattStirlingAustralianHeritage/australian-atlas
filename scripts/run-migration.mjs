@@ -51,11 +51,22 @@ if (!file) {
 const sql = fs.readFileSync(path.resolve(file), 'utf-8')
 
 const pool = new pg.Pool({
-  // Pooler region: ap-northeast-1 (Tokyo). Note: `aws-1`, NOT `aws-0`.
-  // The prior value (aws-0-ap-southeast-2 / Sydney) returned "Tenant or
-  // user not found" because the project doesn't exist in that region —
-  // both pieces were wrong. Confirmed via the Supabase Connect panel.
-  connectionString: `postgresql://postgres.${ref}:${password}@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres`,
+  // Pooler region: ap-northeast-1 (Tokyo). `aws-1`, NOT `aws-0`.
+  //
+  // Port 5432 = SESSION pooler. Required for migrations because it
+  // supports prepared statements, multi-statement transactions, and DDL
+  // cleanly. The transaction pooler at 6543 returns 28P01 on this
+  // project's session-pooler-only configuration — which masquerades as
+  // a password failure but is actually a pooler-mode mismatch.
+  // Confirmed via the Supabase Connect panel 2026-05-22.
+  //
+  // Username format `postgres.<project-ref>` is the tenant-scoped form
+  // required by the pooler (vs bare `postgres` for direct connections).
+  //
+  // Password is encodeURIComponent'd defensively against future rotations
+  // that may pick characters like @ : / ? # % & which would otherwise
+  // corrupt the connection string.
+  connectionString: `postgresql://postgres.${ref}:${encodeURIComponent(password)}@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres`,
   ssl: { rejectUnauthorized: false },
 })
 
