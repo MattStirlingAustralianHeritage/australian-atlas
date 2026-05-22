@@ -1,0 +1,290 @@
+
+════════════════════════════════════════════════════════════════════════
+  Listing 1/5 — id=790d2649-15a2-46c5-8526-43f284d94931
+════════════════════════════════════════════════════════════════════════
+  [info] stage1: black-gate-distillery-mendooran (790d2649-15a2-46c5-8526-43f284d94931) — fetching https://www.blackgatedistillery.com/?utm_source=google&utm_medium=wix_google_business_profile&utm_campaign=11264087470386142378
+
+  Slug:                black-gate-distillery-mendooran
+  Outcome:             ok
+  Pages attempted:     14
+  Pages fetched:       3
+  Characters:          1/1 validated
+  Attributes:          1/1 validated
+  Signals:             5/5 validated
+  Sources inserted:    0
+
+  ── VALIDATED CHARACTERS ─────────────────────────────────────
+
+  ✓ Brian (distiller)
+    source_url:     https://www.blackgatedistillery.com/blog
+    excerpt:        "Barrel 1: Distilled and matured right here in Mendooran by Brian – peated malt from Inverness, Scotland, direct-fired i…"
+    attributes (1):
+      • [technique] (explicit) Brian distils and matures peated whisky in Mendooran using peated malt from Inv…
+        excerpt: "Barrel 1: Distilled and matured right here in Mendooran by Brian – peated malt from Inverness, Scot…"
+
+  ── VALIDATED SIGNALS ────────────────────────────────────────
+
+  ✓ award
+    source_url:     https://www.blackgatedistillery.com/blog
+    excerpt:        "*Trophy - Best Whisky (Tasting Australia Awards) *Trophy - Champion Whisky (Royal Australian Spirit Awards) *Trophy - B…"
+    signal_data:    "{\"awards\":[{\"name\":\"Best Whisky\",\"awarding_body\":\"Tasting Australia Awards\"},{\"name\":\"Champion Whisky\",\"awarding_body\":\"Royal Australian Spirit Awards\"}]}"
+
+  ✓ cross_reference
+    source_url:     https://www.blackgatedistillery.com/blog
+    excerpt:        "Country to Coast #6 – our latest limited-release peated whisky, crafted in partnership with the ripper crew at Fleurieu…"
+    signal_data:    "{\"collaborator\":\"Fleurieu Distillery\",\"location\":\"South Australia\",\"product\":\"Country to Coast #6 peated whisky\"}"
+
+  ✓ methodology_novelty
+    source_url:     https://www.blackgatedistillery.com/blog
+    excerpt:        "peated malt from Inverness, Scotland, direct-fired in our pot still"
+    signal_data:    "{\"method\":\"direct-fired pot still using peated malt from Inverness, Scotland\"}"
+
+  ✓ award
+    source_url:     https://www.blackgatedistillery.com/blog
+    excerpt:        "Winning the Consistency of..."
+    signal_data:    "{\"award_context\":\"Consistency award referenced for Country to Coast blended whisky collaboration\"}"
+
+  ✓ press_coverage
+    source_url:     https://www.blackgatedistillery.com/blog
+    excerpt:        "What does Australia's Largest Private Chef Platform, Chefin, think about us??"
+    signal_data:    "{\"publication\":\"Chefin\"}"
+
+════════════════════════════════════════════════════════════════════════
+  Listing 2/5 — id=b477732f-bec7-403c-9985-3892335d1f94
+════════════════════════════════════════════════════════════════════════
+  [info] stage1: timboon-distillery (b477732f-bec7-403c-9985-3892335d1f94) — fetching http://www.timboondistillery.com.au/
+
+  Slug:                timboon-distillery
+  Outcome:             ok
+  Pages attempted:     14
+  Pages fetched:       1
+  Characters:          0/0 validated
+  Attributes:          0/0 validated
+  Signals:             5/5 validated
+  Sources inserted:    0
+
+  ── VALIDATED SIGNALS ────────────────────────────────────────
+
+  ✓ methodology_novelty
+    source_url:     http://www.timboondistillery.com.au/
+    excerpt:        "We prepare and heavy char these barrels ourselves at our cooperage known as ABeckett's Creek Cooperage here in Timboon …"
+    signal_data:    "{\"detail\":\"Operates their own on-site cooperage (ABeckett's Creek Cooperage) where they prepare and heavy char ex-fortified wine barrels themselves\"}"
+
+  ✓ methodology_novelty
+    source_url:     http://www.timboondistillery.com.au/
+    excerpt:        "Making true small batch single malt whisky (and more) on site since 2007."
+    signal_data:    "{\"detail\":\"True small batch single malt whisky produced on site since 2007\",\"since\":\"2007\"}"
+
+  ✓ first_in_category
+    source_url:     http://www.timboondistillery.com.au/
+    excerpt:        "explore our restored railway shed distillery which houses the largest collection of true, Australian Craft Spirits in a…"
+    signal_data:    "{\"claim\":\"Houses the largest collection of true Australian Craft Spirits in any Australian Distillery\"}"
+
+  ✓ unusual_location
+    source_url:     http://www.timboondistillery.com.au/
+    excerpt:        "HOUSED IN A HISTORIC RAILWAY SHED"
+    signal_data:    "{\"detail\":\"Distillery is housed in a restored historic railway shed in Timboon\"}"
+
+  ✓ cross_reference
+    source_url:     http://www.timboondistillery.com.au/
+    excerpt:        "Timboon’s whisky story began long before licences and distillery doors, when hidden bush stills supplied the district w…"
+    signal_data:    "{\"detail\":\"Venue ties its identity to Timboon's historic illicit bush still distilling heritage\"}"
+
+════════════════════════════════════════════════════════════════════════
+  Listing 3/5 — id=1ffa22ee-5285-4a85-aa04-7a0787bf63cd
+════════════════════════════════════════════════════════════════════════
+  [info] stage1: melbourne-tram-museum (1ffa22ee-5285-4a85-aa04-7a0787bf63cd) — fetching https://www.hawthorntramdepot.org.au/
+
+  Slug:                melbourne-tram-museum
+  Outcome:             ok
+  Pages attempted:     14
+  Pages fetched:       1
+  Characters:          0/0 validated
+  Attributes:          0/0 validated
+  Signals:             3/3 validated
+  Sources inserted:    0
+
+  ── VALIDATED SIGNALS ────────────────────────────────────────
+
+  ✓ unusual_location
+    source_url:     https://www.hawthorntramdepot.org.au/
+    excerpt:        "the most authentic tramway museum in Australia: the heritage-listed Hawthorn Tram Depot"
+    signal_data:    "{\"location\":\"Hawthorn Tram Depot\",\"note\":\"heritage-listed tramway building housing the museum\"}"
+
+  ✓ methodology_novelty
+    source_url:     https://www.hawthorntramdepot.org.au/
+    excerpt:        "Since 1885, Melbourne has been one of the world s great tramway cities. Explore the history of trams and the contributi…"
+    signal_data:    "{\"claim\":\"most authentic tramway museum in Australia\"}"
+
+  ✓ press_coverage
+    source_url:     https://www.hawthorntramdepot.org.au/
+    excerpt:        "Melbourne’s cable tramways: new exhibition opens 9 May"
+    signal_data:    "{\"exhibition\":\"Melbourne’s cable tramways\",\"opens\":\"9 May\"}"
+
+════════════════════════════════════════════════════════════════════════
+  Listing 4/5 — id=1d9c5f2d-e5d2-4e04-bb40-f3d9bf05a1ac
+════════════════════════════════════════════════════════════════════════
+  [info] stage1: apostle-whey-cheese (1d9c5f2d-e5d2-4e04-bb40-f3d9bf05a1ac) — fetching https://www.apostlewheycheese.com.au
+  [warn] stage1: apostle-whey-cheese — invalid attribute (attribute_excerpt_not_in_source): parent="Julian Benson" type=technique
+
+  Slug:                apostle-whey-cheese
+  Outcome:             ok
+  Pages attempted:     14
+  Pages fetched:       5
+  Characters:          3/3 validated
+  Attributes:          8/9 validated
+  Signals:             10/10 validated
+  Sources inserted:    0
+
+  ── VALIDATED CHARACTERS ─────────────────────────────────────
+
+  ✓ Julian Benson (Founder)
+    source_url:     https://www.apostlewheycheese.com.au/about
+    excerpt:        "Julian and Dianne Benson founded Apostle Whey Cheese on their Cooriemungle dairy farm in October 2005."
+    attributes (5):
+      • [biographical] (explicit) Julian Benson co-founded Apostle Whey Cheese on the family's Cooriemungle dairy…
+        excerpt: "Julian and Dianne Benson founded Apostle Whey Cheese on their Cooriemungle dairy farm in October 20…"
+      • [background] (explicit) Julian and Dianne bought their first dairy herd of 65 cows about 30 years befor…
+        excerpt: "The move came some 30 years after they bought their first dairy herd of 65 cows and was designed to…"
+      • [quote] (explicit) Julian credits the quality of the farm's milk — and his son Luke's management o…
+        excerpt: ""The main secret to the success of our cheeses is the quality of our milk. Luke, our son, manages t…"
+      • [philosophy] (explicit) Julian sees the quality of the land as the farm's biggest asset and the foundat…
+        excerpt: "“My idea about farming is about the quality of the land and getting as much out of it [the land] as…"
+      • [philosophy] (explicit) Julian considers animal welfare critical to the quality of the farm's products …
+        excerpt: ""We're farmers and animal lovers at heart and it brings me a lot of joy to tell our visitors how cr…"
+
+  ✓ Dianne Benson (Founder)
+    source_url:     https://www.apostlewheycheese.com.au/about
+    excerpt:        "Julian and Dianne Benson founded Apostle Whey Cheese on their Cooriemungle dairy farm in October 2005."
+    attributes (2):
+      • [biographical] (explicit) Dianne Benson co-founded Apostle Whey Cheese on the family's Cooriemungle dairy…
+        excerpt: "Julian and Dianne Benson founded Apostle Whey Cheese on their Cooriemungle dairy farm in October 20…"
+      • [family_history] (explicit) With Julian, Dianne bought their first dairy herd of 65 cows around 30 years be…
+        excerpt: "The move came some 30 years after they bought their first dairy herd of 65 cows and was designed to…"
+
+  ✓ Luke Benson (Farm manager)
+    source_url:     https://www.apostlewheycheese.com.au/about
+    excerpt:        ""The main secret to the success of our cheeses is the quality of our milk. Luke, our son, manages the farm now and his …"
+    attributes (1):
+      • [family_history] (explicit) Luke is Julian and Dianne Benson's son and now manages the family dairy farm.
+        excerpt: "Luke, our son, manages the farm now and his role in producing high-grade milk means we can make the…"
+
+  ── VALIDATED SIGNALS ────────────────────────────────────────
+
+  ✓ award
+    source_url:     https://www.apostlewheycheese.com.au/
+    excerpt:        "Winner - Growers & Producers category,
+2025 Corangamite Shire Business Awards"
+    signal_data:    "{\"name\":\"Growers & Producers category winner\",\"year\":\"2025\",\"awarding_body\":\"Corangamite Shire Business Awards\"}"
+
+  ✓ award
+    source_url:     https://www.apostlewheycheese.com.au/about
+    excerpt:        "On the top shelf of the trophy cabinet is recognition of their brie (Southern Briez) as the best white mould cheese in …"
+    signal_data:    "{\"name\":\"Best white mould cheese in Australia (Southern Briez brie)\",\"year\":\"2019\"}"
+
+  ✓ award
+    source_url:     https://www.apostlewheycheese.com.au/about
+    excerpt:        "The same cheese then went on to win gold at the International Cheese and Dairy Awards in Nantwich, England."
+    signal_data:    "{\"name\":\"Gold medal for Southern Briez brie\",\"awarding_body\":\"International Cheese and Dairy Awards, Nantwich, England\"}"
+
+  ✓ award
+    source_url:     https://www.apostlewheycheese.com.au/about
+    excerpt:        "Within two years, Apostle Way Full Cream Milk had won a silver medal for its authentic pasteurised (non-homogenised) bo…"
+    signal_data:    "{\"name\":\"Silver medal for pasteurised non-homogenised bottled milk\",\"awarding_body\":\"Dairy Industry Association of Australia Awards\"}"
+
+  ✓ founder_pivot
+    source_url:     https://www.apostlewheycheese.com.au/about
+    excerpt:        "The move came some 30 years after they bought their first dairy herd of 65 cows and was designed to diversify their inc…"
+    signal_data:    "{\"pivot\":\"Long-time dairy farmers diversified into cheesemaking in 2005 to alleviate tough times in the dairy industry\"}"
+
+  ✓ methodology_novelty
+    source_url:     https://www.apostlewheycheese.com.au/
+    excerpt:        "Visit an award-winning single origin dairy farm."
+    signal_data:    "{\"claim\":\"Single origin dairy farm — milk, cheese and gelato all made from their own herd\"}"
+
+  ✓ methodology_novelty
+    source_url:     https://www.apostlewheycheese.com.au/
+    excerpt:        "Regenerative farming is an approach to agriculture that focuses on restoring and enhancing the entire ecosystem of a fa…"
+    signal_data:    "{\"claim\":\"Regenerative farming practice including effluent recycling to fertilise pastures\"}"
+
+  ✓ methodology_novelty
+    source_url:     https://www.apostlewheycheese.com.au/about
+    excerpt:        "The family’s dairy herd has been bred to produce milk with high butterfat and protein levels, which is critical to the …"
+    signal_data:    "{\"claim\":\"Herd specifically bred for high butterfat and protein milk to drive cheese flavour\"}"
+
+  ✓ unusual_location
+    source_url:     https://www.apostlewheycheese.com.au/about
+    excerpt:        "Apostle Whey Cheese has become a major tourism drawcard, with thousands of visitors making the 15-minute drive from the…"
+    signal_data:    "{\"location\":\"Cooriemungle dairy farm, 15 minutes from the Twelve Apostles on the Great Ocean Road\"}"
+
+  ✓ press_coverage
+    source_url:     https://www.apostlewheycheese.com.au/blog
+    excerpt:        "Apostle Whey Cheese owners Julian and Dianne Benson are toasting their success on the world stage after winning gold an…"
+    signal_data:    "{\"headline\":\"Taking on the world is a Briez\"}"
+
+  ── REJECTED (1) ────────────────────────────────────────
+
+  ✗ attribute (parent: Julian Benson) — attribute_excerpt_not_in_source
+    type:     technique
+    excerpt:  "It's all part of Julian's vision to harness the power of video to show people the reality of farming, which we publish …"
+
+════════════════════════════════════════════════════════════════════════
+  Listing 5/5 — id=9a28f587-418e-4165-bdde-05d59e81a454
+════════════════════════════════════════════════════════════════════════
+  [info] stage1: alkina-lodge (9a28f587-418e-4165-bdde-05d59e81a454) — fetching https://alkinalodge.com.au
+
+  Slug:                alkina-lodge
+  Outcome:             ok
+  Pages attempted:     14
+  Pages fetched:       3
+  Characters:          0/0 validated
+  Attributes:          0/0 validated
+  Signals:             5/5 validated
+  Sources inserted:    0
+
+  ── VALIDATED SIGNALS ────────────────────────────────────────
+
+  ✓ methodology_novelty
+    source_url:     https://alkinalodge.com.au/
+    excerpt:        "Designed by internationally renowned Australian architects Glenn Murcutt and Wendy Lewin to ‘touch the earth lightly’, …"
+    signal_data:    "{\"architects\": [\"Glenn Murcutt\", \"Wendy Lewin\"], \"design_principle\": \"touch the earth lightly\"}"
+
+  ✓ methodology_novelty
+    source_url:     https://alkinalodge.com.au/blog
+    excerpt:        "we’re delighted to announce that Alkina Lodge has now installed solar power and wind power to supply all of our energy …"
+    signal_data:    "{\"detail\": \"solar and wind power supplying all energy needs\"}"
+
+  ✓ award
+    source_url:     https://alkinalodge.com.au/
+    excerpt:        "Australian Tourism Award Winners"
+    signal_data:    "{\"name\": \"Australian Tourism Award\"}"
+
+  ✓ press_coverage
+    source_url:     https://alkinalodge.com.au/
+    excerpt:        "Check out Alkina Lodge’s latest media
+appearances and features from sites like
+Australia.com and nine.com.au"
+    signal_data:    "{\"publications\": [\"Australia.com\", \"nine.com.au\"]}"
+
+  ✓ unusual_location
+    source_url:     https://alkinalodge.com.au/
+    excerpt:        "three unique, purpose-built, private contemporary residencies designed for discerning travellers who want to reconnect,…"
+    signal_data:    "{\"detail\": \"three private contemporary residencies on the Great Ocean Road near the Twelve Apostles\"}"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Run summary
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Total listings:    5
+  Mode:              DRY-RUN (no DB writes)
+  Elapsed:           203.2s
+  Outcomes:
+    ok                           5
+  Aggregates (ok listings only):
+    pages_fetched                13
+    characters_extracted         4
+    characters_validated         4
+    attributes_extracted         10
+    attributes_validated         9
+    signals_extracted            28
+    signals_validated            28
+
