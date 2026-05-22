@@ -36,7 +36,7 @@ Root cause of the 152→125 row count mismatch: portal source_ids pointed to del
 
 **Network-wide hallucination audit** (all 10 verticals):
 - Fine Grounds: ~27 hallucinated in 2026-04-01 seed cohort (actioned)
-- Corner Atlas: ~43 of 87 in 2026-04-01 cohort (50% fail rate, Tier 2)
+- Corner Atlas: 42 of 87 in 2026-04-01 cohort (48% fail rate, cleaned 2026-05-22)
 - Found Atlas: ~33 of 118 in 2026-04-01 cohort (28% fail rate, Tier 2)
 - All other verticals: clean (Table Atlas post-reseed, 168 listings all real)
 - **Total suspected network-wide: ~103**
@@ -62,7 +62,7 @@ Actions taken:
 Key rotation deferred. Service_role keys cannot be rotated without rotating the project JWT secret, which invalidates all user sessions. Risk is contained (private repo, sole collaborator). Rotation scheduled as a prerequisite for commercial outreach phase.
 
 ### New Tier 2 follow-ups surfaced during Fix 3 and Fix 4
-- **Corner Atlas hallucination cleanup**: ~43 suspected hallucinated listings in 2026-04-01 cohort. Same fingerprint as Fine Grounds (generic names, non-resolving URLs, invented descriptions). Separate session.
+- **Corner Atlas hallucination cleanup**: ✅ Cleaned 2026-05-22. 42 archived (of 87 in cohort). 2 excluded as potentially real (the-paperback-bookshop, new-edition-bookshop). 3 HTTP_OTHER deferred for manual review (readings-carlton, mr-toys-cairns, eckersleys-sydney). Backup: `scripts/output/corner-archive-backup-20260522.json`.
 - **Found Atlas hallucination cleanup**: ~33 suspected in 2026-04-01 cohort. Same fingerprint. Separate session.
 - **Fine Grounds bare source_id migration**: 49 portal listings have legacy bare numeric source_ids without `cafe_`/`roaster_` prefix. Functional but ambiguous (both tables have separate auto-increment). Low priority.
 - **Fine Grounds 2 orphaned source_ids**: `barefoot-barista` (roaster_50) and `north-beach-coffee-co-wollongong` (cafe_91) are real venues whose vertical rows were deleted. Need re-push (same as B.4 pattern).
