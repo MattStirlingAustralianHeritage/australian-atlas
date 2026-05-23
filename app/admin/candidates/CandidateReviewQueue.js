@@ -1,7 +1,11 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { WAY_PRIMARY_TYPE_OPTIONS } from '@/lib/wayLabels'
+import {
+  WAY_PRIMARY_TYPE_OPTIONS, WAY_OPERATOR_TYPE_OPTIONS,
+  WAY_PRESENCE_TYPE_OPTIONS, WAY_ACCREDITATION_OPTIONS,
+  MONTH_OPTIONS, requiresCulturalAuthority, isAboriginalOperatorType,
+} from '@/lib/wayLabels'
 
 const VERTICAL_NAMES = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
@@ -599,12 +603,68 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
   //   - manual:      reviewer changed the dropdown after auto-fill
   const [geocodeStatus, setGeocodeStatus] = useState('idle')
 
+  // ─── Way Atlas editorial classification state ─────────────────────
+  // Only relevant when vertical === 'way'. Each field maps to a
+  // way_meta column. The panel captures values; 4C wires the writes.
+  const [wayOperatorType, setWayOperatorType] = useState('')
+  const [wayAboriginalCommunity, setWayAboriginalCommunity] = useState('')
+  const [wayCulturalAuthorityVerified, setWayCulturalAuthorityVerified] = useState(false)
+  const [wayCulturalAuthorityNotes, setWayCulturalAuthorityNotes] = useState('')
+  const [wayAccreditations, setWayAccreditations] = useState([])
+  const [wayPrimaryRegionId, setWayPrimaryRegionId] = useState(() => {
+    if (candidate.vertical !== 'way') return null
+    return candidate.region_computed_id || null
+  })
+  const [wayAdditionalRegionIds, setWayAdditionalRegionIds] = useState([])
+  const [wayDeparturePointName, setWayDeparturePointName] = useState('')
+  const [waySecondaryTypes, setWaySecondaryTypes] = useState([])
+  const [wayEstablishedYear, setWayEstablishedYear] = useState('')
+  const [wayPresenceType, setWayPresenceType] = useState('year_round')
+  const [wayOperatingSeasonMonths, setWayOperatingSeasonMonths] = useState([])
+  const [wayMultipleDeparturePoints, setWayMultipleDeparturePoints] = useState(false)
+  const [wayOperatorName, setWayOperatorName] = useState('')
+  const [wayFormTouched, setWayFormTouched] = useState(false)
+
   const vertical = candidate.vertical || 'sba'
   const color = VERTICAL_COLORS[vertical] || '#5F8A7E'
   const confidence = candidate.confidence || 0
   const confidencePercent = Math.round(confidence * 100)
   const buttonsDisabled = status !== 'idle' && status !== 'error'
   const noSubcategory = !subcategory && (SUBCATEGORY_OPTIONS[vertical]?.length > 0)
+
+  // ── Way panel validation ──────────────────────────────────────
+  // Single derived value drives both button disabled state and
+  // inline error rendering. Returns true when not Way, so the
+  // check is safe to add to the publish button unconditionally.
+  const isWayPanelValid = vertical !== 'way' || (
+    !!wayOperatorType &&
+    (!isAboriginalOperatorType(wayOperatorType) || !!wayAboriginalCommunity.trim()) &&
+    (!requiresCulturalAuthority(subcategory, wayOperatorType) || wayCulturalAuthorityVerified) &&
+    (!wayCulturalAuthorityVerified || !!wayCulturalAuthorityNotes.trim()) &&
+    !!wayPrimaryRegionId &&
+    (wayPresenceType !== 'seasonal' || wayOperatingSeasonMonths.length > 0)
+  )
+
+  // Assembled payload — 4C reads this to write way_meta.
+  const wayClassification = vertical === 'way' ? {
+    operator_type: wayOperatorType || undefined,
+    aboriginal_community: isAboriginalOperatorType(wayOperatorType) ? (wayAboriginalCommunity.trim() || undefined) : undefined,
+    cultural_authority_verified: requiresCulturalAuthority(subcategory, wayOperatorType) ? wayCulturalAuthorityVerified : false,
+    cultural_authority_notes: (requiresCulturalAuthority(subcategory, wayOperatorType) && wayCulturalAuthorityVerified)
+      ? (wayCulturalAuthorityNotes.trim() || undefined) : undefined,
+    accreditations: wayAccreditations.length > 0 ? wayAccreditations : [],
+    primary_region_id: wayPrimaryRegionId || undefined,
+    operating_region_ids: wayPrimaryRegionId
+      ? [wayPrimaryRegionId, ...wayAdditionalRegionIds]
+      : [],
+    departure_point_name: (wayDeparturePointName.trim() || editSuburb.trim()) || undefined,
+    secondary_types: waySecondaryTypes.length > 0 ? waySecondaryTypes : [],
+    established_year: wayEstablishedYear ? parseInt(wayEstablishedYear, 10) : undefined,
+    presence_type: wayPresenceType || 'year_round',
+    operating_season_months: wayPresenceType === 'seasonal' ? wayOperatingSeasonMonths : [],
+    multiple_departure_points: wayMultipleDeparturePoints,
+    operator_name: wayOperatorName.trim() || undefined,
+  } : undefined
 
   // Cross-vertical duplicate check (e.g. Table Atlas cafe → also in Fine Grounds?)
   const [crossMatches, setCrossMatches] = useState([])
@@ -648,6 +708,46 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
       setSubcategorySecondary('')
     }
   }, [subcategory, subcategorySecondary])
+
+  // ── Way: clear hidden conditional fields on state change ──────
+  // When a field hides because its condition is no longer met,
+  // clear its value so orphan data doesn't persist into the payload.
+
+  // Clear aboriginal_community when operator_type is not aboriginal_*
+  useEffect(() => {
+    if (vertical === 'way' && !isAboriginalOperatorType(wayOperatorType)) {
+      setWayAboriginalCommunity('')
+    }
+  }, [vertical, wayOperatorType])
+
+  // Clear cultural authority fields when Gate 4 no longer applies
+  useEffect(() => {
+    if (vertical === 'way' && !requiresCulturalAuthority(subcategory, wayOperatorType)) {
+      setWayCulturalAuthorityVerified(false)
+      setWayCulturalAuthorityNotes('')
+    }
+  }, [vertical, subcategory, wayOperatorType])
+
+  // Clear cultural_authority_notes when verified is unchecked
+  useEffect(() => {
+    if (vertical === 'way' && !wayCulturalAuthorityVerified) {
+      setWayCulturalAuthorityNotes('')
+    }
+  }, [vertical, wayCulturalAuthorityVerified])
+
+  // Clear operating_season_months when presence changes from seasonal
+  useEffect(() => {
+    if (vertical === 'way' && wayPresenceType !== 'seasonal') {
+      setWayOperatingSeasonMonths([])
+    }
+  }, [vertical, wayPresenceType])
+
+  // Remove primary region from additional list when primary changes
+  useEffect(() => {
+    if (vertical === 'way' && wayPrimaryRegionId) {
+      setWayAdditionalRegionIds(prev => prev.filter(id => id !== wayPrimaryRegionId))
+    }
+  }, [vertical, wayPrimaryRegionId])
 
   // Geocode + spatial region lookup. Fires on blur of EITHER the address
   // field OR the suburb field — whichever loses focus last "wins" via a
@@ -775,6 +875,7 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
           visitable,
           presence_type: presenceType,
           offers_classes: offersClasses,
+          wayClassification,
           reviewerOverrides: {
             name: candidate.name || undefined,
             description: candidate.description || undefined,
@@ -951,20 +1052,23 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
           )}
         </div>
         <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-          <button data-action="approve" onClick={() => handleAction('approve')} disabled={buttonsDisabled || noSubcategory}
-            title={noSubcategory ? 'Select a subcategory before publishing' : 'Approve (Y or Right Arrow)'}
+          <button data-action="approve" onClick={() => handleAction('approve')} disabled={buttonsDisabled || noSubcategory || !isWayPanelValid}
+            title={noSubcategory ? 'Select a subcategory before publishing' : !isWayPanelValid ? 'Complete required Way Atlas editorial classification before approving.' : 'Approve (Y or Right Arrow)'}
             style={{
               height: 36, padding: '0 16px', borderRadius: 8,
-              background: noSubcategory ? '#a0b8ae' : status === 'approving' ? '#3a6a49' : '#4A7C59',
-              border: 'none', cursor: (buttonsDisabled || noSubcategory) ? 'default' : 'pointer',
+              background: (noSubcategory || !isWayPanelValid) ? '#a0b8ae' : status === 'approving' ? '#3a6a49' : '#4A7C59',
+              border: 'none', cursor: (buttonsDisabled || noSubcategory || !isWayPanelValid) ? 'default' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               transition: 'all 0.15s',
-              boxShadow: noSubcategory ? 'none' : '0 1px 3px rgba(74,124,89,0.3)',
+              boxShadow: (noSubcategory || !isWayPanelValid) ? 'none' : '0 1px 3px rgba(74,124,89,0.3)',
               opacity: (buttonsDisabled && status !== 'approving') ? 0.5 : 1,
               fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 600,
               color: '#fff', letterSpacing: '0.02em',
             }}
-            onMouseEnter={e => { if (!buttonsDisabled) e.currentTarget.style.transform = 'translateY(-1px)' }}
+            onMouseEnter={e => {
+              if (vertical === 'way' && !isWayPanelValid) setWayFormTouched(true)
+              if (!buttonsDisabled) e.currentTarget.style.transform = 'translateY(-1px)'
+            }}
             onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)' }}>
             {status === 'approving' ? (
               <>
@@ -1209,6 +1313,538 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
             />
           </div>
         </div>
+
+        {/* ── Way Atlas Editorial Classification ────────────── */}
+        {vertical === 'way' && (
+          <div style={{
+            marginBottom: 28, padding: '24px 24px 20px', borderRadius: 6,
+            background: '#faf8f4', border: '1px solid var(--color-border)',
+          }}>
+            {/* Section header */}
+            <div style={{ marginBottom: 22 }}>
+              <div style={{
+                fontSize: 11, fontWeight: 700, letterSpacing: '0.1em',
+                textTransform: 'uppercase', color: '#6B7A4A',
+                fontFamily: 'var(--font-body)', marginBottom: 4,
+              }}>
+                Way Atlas — Editorial Classification
+              </div>
+              <div style={{
+                fontSize: 12, color: 'var(--color-muted)',
+                fontFamily: 'var(--font-body)', lineHeight: 1.5,
+              }}>
+                Editorial classification required for Way listings. Fields marked <span style={{ color: '#a73838', fontWeight: 600 }}>*</span> block approval if empty.
+              </div>
+            </div>
+
+            {/* ── 1. Operator Type ──────────────────────────────── */}
+            <div style={{ marginBottom: 18 }}>
+              <label style={{ display: 'block' }}>
+                <span style={{
+                  fontSize: 9, fontWeight: 700, letterSpacing: '0.12em',
+                  textTransform: 'uppercase', color: 'var(--color-muted)',
+                  fontFamily: 'var(--font-body)', display: 'block', marginBottom: 4,
+                }}>
+                  Operator type <span style={{ color: '#a73838' }}>*</span>
+                </span>
+                <select
+                  value={wayOperatorType}
+                  onChange={e => { setWayOperatorType(e.target.value); setWayFormTouched(true) }}
+                  style={{
+                    width: '100%', padding: '8px 10px', fontSize: 13,
+                    fontFamily: 'var(--font-body)', color: wayOperatorType ? 'var(--color-ink)' : 'var(--color-muted)',
+                    background: '#fff', border: '1px solid var(--color-border)', borderRadius: 3,
+                  }}
+                >
+                  <option value="">Select operator type…</option>
+                  {WAY_OPERATOR_TYPE_OPTIONS.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </label>
+              <div style={{ fontSize: 11, color: 'var(--color-muted)', fontFamily: 'var(--font-body)', marginTop: 4, lineHeight: 1.4 }}>
+                Ownership and cultural governance model. Determines whether Aboriginal community attribution and Gate 4 cultural authority verification are required.
+              </div>
+              {wayFormTouched && !wayOperatorType && (
+                <div style={{ fontSize: 11, color: '#a73838', fontFamily: 'var(--font-body)', marginTop: 4 }}>
+                  Operator type is required.
+                </div>
+              )}
+            </div>
+
+            {/* ── 2. Aboriginal Community (conditional) ─────────── */}
+            {isAboriginalOperatorType(wayOperatorType) && (
+              <div style={{ marginBottom: 18 }}>
+                <label style={{ display: 'block' }}>
+                  <span style={{
+                    fontSize: 9, fontWeight: 700, letterSpacing: '0.12em',
+                    textTransform: 'uppercase', color: 'var(--color-muted)',
+                    fontFamily: 'var(--font-body)', display: 'block', marginBottom: 4,
+                  }}>
+                    Aboriginal community <span style={{ color: '#a73838' }}>*</span>
+                  </span>
+                  <input
+                    type="text"
+                    value={wayAboriginalCommunity}
+                    onChange={e => { setWayAboriginalCommunity(e.target.value); setWayFormTouched(true) }}
+                    placeholder="e.g. Anangu, Yolngu, Noongar"
+                    style={{
+                      width: '100%', padding: '8px 10px', fontSize: 13,
+                      fontFamily: 'var(--font-body)', color: 'var(--color-ink)',
+                      background: '#fff', border: '1px solid var(--color-border)', borderRadius: 3,
+                    }}
+                  />
+                </label>
+                <div style={{ fontSize: 11, color: 'var(--color-muted)', fontFamily: 'var(--font-body)', marginTop: 4, lineHeight: 1.4 }}>
+                  The specific Aboriginal community whose Country this experience operates on or who has authorised the experience.
+                </div>
+                {wayFormTouched && !wayAboriginalCommunity.trim() && (
+                  <div style={{ fontSize: 11, color: '#a73838', fontFamily: 'var(--font-body)', marginTop: 4 }}>
+                    Aboriginal community is required for Aboriginal-operated experiences.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── 3. Cultural Authority Block (conditional) ──────── */}
+            {requiresCulturalAuthority(subcategory, wayOperatorType) && (
+              <div style={{
+                background: '#F5F0E8', border: '1px solid #8B7355',
+                padding: '16px 20px', borderRadius: 6,
+                marginBottom: 18, marginTop: 4,
+              }}>
+                <div style={{
+                  fontSize: 10, fontWeight: 700, letterSpacing: '0.1em',
+                  textTransform: 'uppercase', color: '#6B5535',
+                  fontFamily: 'var(--font-body)', marginBottom: 10,
+                }}>
+                  Cultural Authority Verification
+                </div>
+                <div style={{ fontSize: 12, color: '#5A4A3A', fontFamily: 'var(--font-body)', lineHeight: 1.5, marginBottom: 14 }}>
+                  Gate 4 requires documented cultural authority for all cultural tours and Aboriginal-operated experiences. This listing will not publish without verification.
+                </div>
+
+                {/* 3a. Verified checkbox */}
+                <label style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  cursor: 'pointer', userSelect: 'none', marginBottom: 10,
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={wayCulturalAuthorityVerified}
+                    onChange={e => { setWayCulturalAuthorityVerified(e.target.checked); setWayFormTouched(true) }}
+                    style={{ margin: 0, accentColor: '#8B7355', width: 16, height: 16 }}
+                  />
+                  <span style={{
+                    fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600,
+                    color: wayCulturalAuthorityVerified ? '#4A3A2A' : '#7A6A5A',
+                  }}>
+                    Cultural authority verified <span style={{ color: '#a73838' }}>*</span>
+                  </span>
+                </label>
+                {wayFormTouched && !wayCulturalAuthorityVerified && (
+                  <div style={{ fontSize: 11, color: '#a73838', fontFamily: 'var(--font-body)', marginBottom: 10 }}>
+                    Cultural authority verification is required before this listing can be approved.
+                  </div>
+                )}
+
+                {/* 3b. Notes textarea (conditional on 3a) */}
+                {wayCulturalAuthorityVerified && (
+                  <div style={{ marginTop: 6 }}>
+                    <label style={{ display: 'block' }}>
+                      <span style={{
+                        fontSize: 9, fontWeight: 700, letterSpacing: '0.12em',
+                        textTransform: 'uppercase', color: '#6B5535',
+                        fontFamily: 'var(--font-body)', display: 'block', marginBottom: 4,
+                      }}>
+                        Verification notes <span style={{ color: '#a73838' }}>*</span>
+                      </span>
+                      <textarea
+                        value={wayCulturalAuthorityNotes}
+                        onChange={e => { setWayCulturalAuthorityNotes(e.target.value); setWayFormTouched(true) }}
+                        placeholder="e.g. Listed on NIAA registry, RAP sighted May 2026, community elder confirmed"
+                        rows={3}
+                        style={{
+                          width: '100%', padding: '8px 10px', fontSize: 13,
+                          fontFamily: 'var(--font-body)', color: '#4A3A2A',
+                          background: '#FFFDF8', border: '1px solid #B8A888', borderRadius: 3,
+                          resize: 'vertical', lineHeight: 1.5,
+                        }}
+                      />
+                    </label>
+                    <div style={{ fontSize: 11, color: '#6B5535', fontFamily: 'var(--font-body)', marginTop: 4, lineHeight: 1.4 }}>
+                      Brief record of the verification source and date. This is an editorial audit trail, not a public field.
+                    </div>
+                    {wayFormTouched && !wayCulturalAuthorityNotes.trim() && (
+                      <div style={{ fontSize: 11, color: '#a73838', fontFamily: 'var(--font-body)', marginTop: 4 }}>
+                        Verification notes are required when cultural authority is confirmed.
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Separator ──────────────────────────────────────── */}
+            <div style={{ borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
+
+            {/* ── 4. Accreditations ─────────────────────────────── */}
+            <div style={{ marginBottom: 18 }}>
+              <span style={{
+                fontSize: 9, fontWeight: 700, letterSpacing: '0.12em',
+                textTransform: 'uppercase', color: 'var(--color-muted)',
+                fontFamily: 'var(--font-body)', display: 'block', marginBottom: 8,
+              }}>
+                Accreditations
+              </span>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px 12px' }}>
+                {WAY_ACCREDITATION_OPTIONS.map(o => (
+                  <label key={o.value} style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    cursor: 'pointer', userSelect: 'none',
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={wayAccreditations.includes(o.value)}
+                      onChange={e => {
+                        setWayFormTouched(true)
+                        setWayAccreditations(prev =>
+                          e.target.checked ? [...prev, o.value] : prev.filter(v => v !== o.value)
+                        )
+                      }}
+                      style={{ margin: 0, accentColor: '#6B7A4A' }}
+                    />
+                    <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-ink)' }}>
+                      {o.label}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--color-muted)', fontFamily: 'var(--font-body)', marginTop: 6, lineHeight: 1.4 }}>
+                Industry accreditations held by the operator. Multiple selections allowed.
+              </div>
+            </div>
+
+            {/* ── Separator ──────────────────────────────────────── */}
+            <div style={{ borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
+
+            {/* ── 5. Operating Regions ──────────────────────────── */}
+            <div style={{ marginBottom: 18 }}>
+              <span style={{
+                fontSize: 9, fontWeight: 700, letterSpacing: '0.12em',
+                textTransform: 'uppercase', color: 'var(--color-muted)',
+                fontFamily: 'var(--font-body)', display: 'block', marginBottom: 8,
+              }}>
+                Operating regions
+              </span>
+
+              {/* Primary region */}
+              <div style={{ marginBottom: 12 }}>
+                <span style={{
+                  fontSize: 10, fontWeight: 600, color: 'var(--color-muted)',
+                  fontFamily: 'var(--font-body)', display: 'block', marginBottom: 4,
+                }}>
+                  Primary region <span style={{ color: '#a73838' }}>*</span>
+                </span>
+                <select
+                  value={wayPrimaryRegionId || ''}
+                  onChange={e => { setWayPrimaryRegionId(e.target.value || null); setWayFormTouched(true) }}
+                  style={{
+                    width: '100%', padding: '8px 10px', fontSize: 13,
+                    fontFamily: 'var(--font-body)',
+                    color: wayPrimaryRegionId ? 'var(--color-ink)' : 'var(--color-muted)',
+                    background: '#fff', border: '1px solid var(--color-border)', borderRadius: 3,
+                  }}
+                >
+                  <option value="">Select primary region…</option>
+                  {regions.map(r => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}{r.state ? ` (${r.state})` : ''}
+                    </option>
+                  ))}
+                </select>
+                {wayFormTouched && !wayPrimaryRegionId && (
+                  <div style={{ fontSize: 11, color: '#a73838', fontFamily: 'var(--font-body)', marginTop: 4 }}>
+                    Primary operating region is required.
+                  </div>
+                )}
+              </div>
+
+              {/* Additional operating regions */}
+              {wayPrimaryRegionId && (
+                <div style={{ marginBottom: 8 }}>
+                  <span style={{
+                    fontSize: 10, fontWeight: 600, color: 'var(--color-muted)',
+                    fontFamily: 'var(--font-body)', display: 'block', marginBottom: 6,
+                  }}>
+                    Additional operating regions
+                  </span>
+                  <div style={{
+                    maxHeight: 180, overflowY: 'auto', padding: '8px 10px',
+                    background: '#fff', border: '1px solid var(--color-border)', borderRadius: 3,
+                    display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '4px 12px',
+                  }}>
+                    {regions.filter(r => r.id !== wayPrimaryRegionId).map(r => (
+                      <label key={r.id} style={{
+                        display: 'flex', alignItems: 'center', gap: 5,
+                        cursor: 'pointer', userSelect: 'none',
+                      }}>
+                        <input
+                          type="checkbox"
+                          checked={wayAdditionalRegionIds.includes(r.id)}
+                          onChange={e => {
+                            setWayFormTouched(true)
+                            setWayAdditionalRegionIds(prev =>
+                              e.target.checked ? [...prev, r.id] : prev.filter(id => id !== r.id)
+                            )
+                          }}
+                          style={{ margin: 0, accentColor: '#6B7A4A', flexShrink: 0 }}
+                        />
+                        <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-ink)' }}>
+                          {r.name}{r.state ? ` (${r.state})` : ''}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div style={{ fontSize: 11, color: 'var(--color-muted)', fontFamily: 'var(--font-body)', marginTop: 6, lineHeight: 1.4 }}>
+                Mark one region as primary — where the operator is editorially most strongly associated. Add additional regions where experiences actually run. A scenic flight operator based in Adelaide Hills running flights over the Flinders Ranges has Adelaide Hills as primary and Flinders Ranges as additional.
+              </div>
+            </div>
+
+            {/* ── 6. Departure Point ───────────────────────────── */}
+            <div style={{ marginBottom: 18 }}>
+              <label style={{ display: 'block' }}>
+                <span style={{
+                  fontSize: 9, fontWeight: 700, letterSpacing: '0.12em',
+                  textTransform: 'uppercase', color: 'var(--color-muted)',
+                  fontFamily: 'var(--font-body)', display: 'block', marginBottom: 4,
+                }}>
+                  Departure point name
+                </span>
+                <input
+                  type="text"
+                  value={wayDeparturePointName}
+                  onChange={e => { setWayDeparturePointName(e.target.value); setWayFormTouched(true) }}
+                  placeholder={editSuburb || 'Defaults to suburb if left empty'}
+                  style={{
+                    width: '100%', padding: '8px 10px', fontSize: 13,
+                    fontFamily: 'var(--font-body)', color: 'var(--color-ink)',
+                    background: '#fff', border: '1px solid var(--color-border)', borderRadius: 3,
+                  }}
+                />
+              </label>
+              <div style={{ fontSize: 11, color: 'var(--color-muted)', fontFamily: 'var(--font-body)', marginTop: 4, lineHeight: 1.4 }}>
+                Where guests meet or depart from. Defaults to the listing suburb if left empty.
+              </div>
+            </div>
+
+            {/* ── Separator ──────────────────────────────────────── */}
+            <div style={{ borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
+
+            {/* ── 7. Secondary Experience Types ─────────────────── */}
+            <div style={{ marginBottom: 18 }}>
+              <span style={{
+                fontSize: 9, fontWeight: 700, letterSpacing: '0.12em',
+                textTransform: 'uppercase', color: 'var(--color-muted)',
+                fontFamily: 'var(--font-body)', display: 'block', marginBottom: 8,
+              }}>
+                Secondary experience types
+              </span>
+              <div style={{
+                display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px 12px',
+                maxHeight: 180, overflowY: 'auto', padding: '8px 10px',
+                background: '#fff', border: '1px solid var(--color-border)', borderRadius: 3,
+              }}>
+                {WAY_PRIMARY_TYPE_OPTIONS.filter(o => o.value !== subcategory).map(o => (
+                  <label key={o.value} style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    cursor: 'pointer', userSelect: 'none',
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={waySecondaryTypes.includes(o.value)}
+                      onChange={e => {
+                        setWayFormTouched(true)
+                        setWaySecondaryTypes(prev =>
+                          e.target.checked ? [...prev, o.value] : prev.filter(v => v !== o.value)
+                        )
+                      }}
+                      style={{ margin: 0, accentColor: '#6B7A4A', flexShrink: 0 }}
+                    />
+                    <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-ink)' }}>
+                      {o.label}
+                    </span>
+                  </label>
+                ))}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--color-muted)', fontFamily: 'var(--font-body)', marginTop: 6, lineHeight: 1.4 }}>
+                Additional experience types this operator offers beyond the primary category. The primary type is set by the subcategory selector in the toolbar.
+              </div>
+            </div>
+
+            {/* ── 8 + 12. Established Year + Operator Name ──────── */}
+            <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: 16, marginBottom: 18 }}>
+              <div>
+                <label style={{ display: 'block' }}>
+                  <span style={{
+                    fontSize: 9, fontWeight: 700, letterSpacing: '0.12em',
+                    textTransform: 'uppercase', color: 'var(--color-muted)',
+                    fontFamily: 'var(--font-body)', display: 'block', marginBottom: 4,
+                  }}>
+                    Established year
+                  </span>
+                  <input
+                    type="number"
+                    value={wayEstablishedYear}
+                    onChange={e => { setWayEstablishedYear(e.target.value); setWayFormTouched(true) }}
+                    placeholder="e.g. 2003"
+                    min="1800"
+                    max={new Date().getFullYear()}
+                    style={{
+                      width: '100%', padding: '8px 10px', fontSize: 13,
+                      fontFamily: 'var(--font-body)', color: 'var(--color-ink)',
+                      background: '#fff', border: '1px solid var(--color-border)', borderRadius: 3,
+                    }}
+                  />
+                </label>
+                <div style={{ fontSize: 11, color: 'var(--color-muted)', fontFamily: 'var(--font-body)', marginTop: 4, lineHeight: 1.4 }}>
+                  Year the operation was established, if known.
+                </div>
+              </div>
+              <div>
+                <label style={{ display: 'block' }}>
+                  <span style={{
+                    fontSize: 9, fontWeight: 700, letterSpacing: '0.12em',
+                    textTransform: 'uppercase', color: 'var(--color-muted)',
+                    fontFamily: 'var(--font-body)', display: 'block', marginBottom: 4,
+                  }}>
+                    Operator name
+                  </span>
+                  <input
+                    type="text"
+                    value={wayOperatorName}
+                    onChange={e => { setWayOperatorName(e.target.value); setWayFormTouched(true) }}
+                    placeholder="Person or entity behind the operation"
+                    style={{
+                      width: '100%', padding: '8px 10px', fontSize: 13,
+                      fontFamily: 'var(--font-body)', color: 'var(--color-ink)',
+                      background: '#fff', border: '1px solid var(--color-border)', borderRadius: 3,
+                    }}
+                  />
+                </label>
+                <div style={{ fontSize: 11, color: 'var(--color-muted)', fontFamily: 'var(--font-body)', marginTop: 4, lineHeight: 1.4 }}>
+                  The person or entity behind the operation, if distinct from the listing name.
+                </div>
+              </div>
+            </div>
+
+            {/* ── Separator ──────────────────────────────────────── */}
+            <div style={{ borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
+
+            {/* ── 9. Presence Type ──────────────────────────────── */}
+            <div style={{ marginBottom: 18 }}>
+              <label style={{ display: 'block' }}>
+                <span style={{
+                  fontSize: 9, fontWeight: 700, letterSpacing: '0.12em',
+                  textTransform: 'uppercase', color: 'var(--color-muted)',
+                  fontFamily: 'var(--font-body)', display: 'block', marginBottom: 4,
+                }}>
+                  Presence type <span style={{ color: '#a73838' }}>*</span>
+                </span>
+                <select
+                  value={wayPresenceType}
+                  onChange={e => { setWayPresenceType(e.target.value); setWayFormTouched(true) }}
+                  style={{
+                    width: '100%', padding: '8px 10px', fontSize: 13,
+                    fontFamily: 'var(--font-body)', color: 'var(--color-ink)',
+                    background: '#fff', border: '1px solid var(--color-border)', borderRadius: 3,
+                  }}
+                >
+                  {WAY_PRESENCE_TYPE_OPTIONS.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </label>
+              <div style={{ fontSize: 11, color: 'var(--color-muted)', fontFamily: 'var(--font-body)', marginTop: 4, lineHeight: 1.4 }}>
+                How and when this operator runs. Selecting &lsquo;Seasonal&rsquo; reveals a month selector.
+              </div>
+            </div>
+
+            {/* ── 10. Operating Season Months (conditional) ──────── */}
+            {wayPresenceType === 'seasonal' && (
+              <div style={{ marginBottom: 18 }}>
+                <span style={{
+                  fontSize: 9, fontWeight: 700, letterSpacing: '0.12em',
+                  textTransform: 'uppercase', color: 'var(--color-muted)',
+                  fontFamily: 'var(--font-body)', display: 'block', marginBottom: 8,
+                }}>
+                  Operating months <span style={{ color: '#a73838' }}>*</span>
+                </span>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px 12px' }}>
+                  {MONTH_OPTIONS.map(o => (
+                    <label key={o.value} style={{
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      cursor: 'pointer', userSelect: 'none',
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={wayOperatingSeasonMonths.includes(o.value)}
+                        onChange={e => {
+                          setWayFormTouched(true)
+                          setWayOperatingSeasonMonths(prev =>
+                            e.target.checked ? [...prev, o.value].sort((a, b) => a - b) : prev.filter(v => v !== o.value)
+                          )
+                        }}
+                        style={{ margin: 0, accentColor: '#6B7A4A' }}
+                      />
+                      <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-ink)' }}>
+                        {o.label}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--color-muted)', fontFamily: 'var(--font-body)', marginTop: 6, lineHeight: 1.4 }}>
+                  Months when this operator is active. Select all that apply.
+                </div>
+                {wayFormTouched && wayOperatingSeasonMonths.length === 0 && (
+                  <div style={{ fontSize: 11, color: '#a73838', fontFamily: 'var(--font-body)', marginTop: 4 }}>
+                    At least one operating month is required for seasonal operators.
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Separator ──────────────────────────────────────── */}
+            <div style={{ borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
+
+            {/* ── 11. Multiple Departure Points ─────────────────── */}
+            <div style={{ marginBottom: 18 }}>
+              <label style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                cursor: 'pointer', userSelect: 'none',
+              }}>
+                <input
+                  type="checkbox"
+                  checked={wayMultipleDeparturePoints}
+                  onChange={e => { setWayMultipleDeparturePoints(e.target.checked); setWayFormTouched(true) }}
+                  style={{ margin: 0, accentColor: '#6B7A4A', width: 15, height: 15 }}
+                />
+                <span style={{
+                  fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500,
+                  color: 'var(--color-ink)',
+                }}>
+                  Multiple departure points
+                </span>
+              </label>
+              <div style={{ fontSize: 11, color: 'var(--color-muted)', fontFamily: 'var(--font-body)', marginTop: 4, lineHeight: 1.4, paddingLeft: 23 }}>
+                Check if this operator departs from more than one location. The primary departure point is captured above.
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Action buttons */}
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 28 }}>
