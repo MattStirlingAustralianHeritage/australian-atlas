@@ -32,6 +32,7 @@ const VERTICAL_CATEGORY_LABELS = {
   corner: 'Independent Shop',
   found: 'Vintage & Secondhand',
   table: 'Independent Dining',
+  way: 'Experience',
 }
 
 // Brand colours sourced from lib/verticalUrl.js (see getVerticalBrandColour).
@@ -49,6 +50,7 @@ const META_CATEGORY_LOOKUP = {
   corner: { table: 'corner_meta', key: 'shop_type' },
   found: { table: 'found_meta', key: 'shop_type' },
   table: { table: 'table_meta', key: 'food_type' },
+  way: { table: 'way_meta', key: 'primary_type' },
 }
 
 // Subcategory display labels (matches ListingCard.CATEGORY_LABELS)
@@ -78,6 +80,16 @@ const SUBCATEGORY_LABELS = {
   restaurant: 'Restaurant', bakery: 'Bakery', farm_gate: 'Farm Gate',
   artisan_producer: 'Artisan Producer', specialty_retail: 'Specialty Retail',
   destination: 'Destination', providore: 'Providore',
+  // Way Atlas primary types
+  guided_walk_multiday: 'Multi-day guided walk', guided_walk_day: 'Day walk',
+  cultural_tour: 'Cultural tour', scenic_flight: 'Scenic flight',
+  helicopter_tour: 'Helicopter tour', sailing_charter: 'Sailing charter',
+  sea_kayak_tour: 'Sea kayak', dive_operator: 'Dive operator',
+  fishing_guide: 'Fishing guide', photography_expedition: 'Photography expedition',
+  specialist_natural_history: 'Natural history guide', foraging_bushfood: 'Foraging & bush food',
+  heritage_tour: 'Heritage tour', workshop_intensive: 'Workshop intensive',
+  river_canoe_tour: 'River canoe', horseback_expedition: 'Horseback expedition',
+  four_wheel_drive_expedition: 'Four-wheel drive expedition',
 }
 
 function formatSubcategory(value) {
@@ -111,9 +123,12 @@ const getListing = cache(async function getListing(slug) {
   const metaLookup = META_CATEGORY_LOOKUP[data.vertical]
   if (metaLookup) {
     try {
-      const metaFields = metaLookup.table === 'craft_meta'
-        ? `${metaLookup.key}, offers_classes, classes`
-        : metaLookup.key
+      let metaFields = metaLookup.key
+      if (metaLookup.table === 'craft_meta') {
+        metaFields = `${metaLookup.key}, offers_classes, classes`
+      } else if (metaLookup.table === 'way_meta') {
+        metaFields = 'primary_type, secondary_types, operator_type, aboriginal_community, accreditations, operating_region_ids, departure_point_name, cultural_authority_verified, presence_type'
+      }
       const { data: metaRow } = await sb
         .from(metaLookup.table)
         .select(metaFields)
@@ -126,6 +141,18 @@ const getListing = cache(async function getListing(slug) {
       if (metaRow?.offers_classes) {
         data._offers_classes = true
         data._classes = metaRow.classes
+      }
+      // Way Atlas: attach full meta for the operator detail section.
+      if (metaLookup.table === 'way_meta' && metaRow) {
+        data._wayMeta = metaRow
+        // Resolve operating_region_ids UUIDs to region names.
+        if (metaRow.operating_region_ids?.length) {
+          const { data: regionRows } = await sb
+            .from('regions')
+            .select('id, name, slug')
+            .in('id', metaRow.operating_region_ids)
+          data._wayMeta._operatingRegions = regionRows || []
+        }
       }
     } catch (metaErr) {
       console.error('[place] Meta lookup failed for listing', data.id, `(${metaLookup.table}):`, metaErr.message)
@@ -688,6 +715,68 @@ export default async function PlacePage({ params }) {
           </section>
         )}
 
+        {/* ── Operator Details (Way Atlas only) ─────────── */}
+        {listing._wayMeta && (
+          <section className="mb-10">
+            <h2 className="mb-4" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)' }}>
+              About this operator
+            </h2>
+            <div className="p-5 rounded-lg flex flex-col gap-4" style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}>
+              {listing._wayMeta.operator_type && (
+                <WayDetailRow label="Operator">
+                  {WAY_OPERATOR_TYPE_LABELS[listing._wayMeta.operator_type] || formatSubcategory(listing._wayMeta.operator_type)}
+                </WayDetailRow>
+              )}
+              {listing._wayMeta.aboriginal_community && (
+                <WayDetailRow label="Community / Nation">
+                  {listing._wayMeta.aboriginal_community}
+                </WayDetailRow>
+              )}
+              {listing._wayMeta._operatingRegions?.length > 0 && (
+                <WayDetailRow label="Operating regions">
+                  <div className="flex flex-wrap gap-1.5">
+                    {listing._wayMeta._operatingRegions.map(r => (
+                      <Link
+                        key={r.id}
+                        href={`/regions/${r.slug}`}
+                        className="inline-block px-2 py-0.5 rounded text-xs font-medium hover:underline"
+                        style={{ background: `${vertColor}12`, color: vertColor }}
+                      >
+                        {r.name}
+                      </Link>
+                    ))}
+                  </div>
+                </WayDetailRow>
+              )}
+              {listing._wayMeta.departure_point_name && (
+                <WayDetailRow label="Departing from">
+                  {listing._wayMeta.departure_point_name}
+                </WayDetailRow>
+              )}
+              {listing._wayMeta.accreditations?.length > 0 && (
+                <WayDetailRow label="Accreditations">
+                  <div className="flex flex-wrap gap-1.5">
+                    {listing._wayMeta.accreditations.map(a => (
+                      <span
+                        key={a}
+                        className="inline-block px-2 py-0.5 rounded text-xs font-medium"
+                        style={{ background: 'rgba(0,0,0,0.05)', color: 'var(--color-ink)' }}
+                      >
+                        {WAY_ACCREDITATION_LABELS[a] || a}
+                      </span>
+                    ))}
+                  </div>
+                </WayDetailRow>
+              )}
+              {listing._wayMeta.presence_type && listing._wayMeta.presence_type !== 'year_round' && (
+                <WayDetailRow label="Availability">
+                  {WAY_PRESENCE_LABELS[listing._wayMeta.presence_type] || formatSubcategory(listing._wayMeta.presence_type)}
+                </WayDetailRow>
+              )}
+            </div>
+          </section>
+        )}
+
         {/* ── Nearby on Australian Atlas — full-width interactive map ──
             Replaces the small sidebar map AND the previous nearby/region
             carousel duplication. Pins are pre-fetched server-side with a
@@ -815,6 +904,46 @@ export default async function PlacePage({ params }) {
           />
         </>
       )}
+    </div>
+  )
+}
+
+// ── Way Atlas operator detail helpers ─────────────────────────
+
+const WAY_OPERATOR_TYPE_LABELS = {
+  independent: 'Independent operator',
+  aboriginal_community: 'Aboriginal community',
+  aboriginal_owned_led: 'Aboriginal-owned and Aboriginal-led',
+  aboriginal_partnership: 'Aboriginal partnership',
+  concessionaire: 'Concessionaire',
+  trust: 'Trust',
+  public_heritage: 'Public heritage',
+  cultural_content_non_indigenous: 'Cultural content (non-Indigenous)',
+}
+
+const WAY_ACCREDITATION_LABELS = {
+  atap: 'ATAP', eco_cert: 'EcoTourism Australia', roc: 'Respecting Our Culture',
+  narta: 'NARTA', sat_quality: 'SAT Quality Assured', green_travel: 'Green Travel Leader',
+}
+
+const WAY_PRESENCE_LABELS = {
+  permanent: 'Year-round', by_appointment: 'By appointment', seasonal: 'Seasonal',
+  year_round: 'Year-round', weather_dependent: 'Weather dependent',
+  charter_only: 'Charter only', tide_dependent: 'Tide dependent',
+}
+
+function WayDetailRow({ label, children }) {
+  return (
+    <div>
+      <dt
+        className="text-xs font-semibold tracking-wider uppercase mb-1"
+        style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)', letterSpacing: '0.08em', fontSize: '10px' }}
+      >
+        {label}
+      </dt>
+      <dd className="text-sm" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-ink)' }}>
+        {children}
+      </dd>
     </div>
   )
 }
