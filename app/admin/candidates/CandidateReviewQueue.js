@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { WAY_PRIMARY_TYPE_OPTIONS } from '@/lib/wayLabels'
 
 const VERTICAL_NAMES = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft',

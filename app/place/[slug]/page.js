@@ -8,6 +8,12 @@ import { listingJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
 import { checkAdmin } from '@/lib/admin-auth'
 import { isApprovedImageSource } from '@/lib/image-utils'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
+import {
+  WAY_PRIMARY_TYPE_LABELS,
+  WAY_OPERATOR_TYPE_LABELS,
+  WAY_ACCREDITATION_LABELS,
+  WAY_PRESENCE_TYPE_LABELS,
+} from '@/lib/wayLabels'
 import ListingCard, { TypographicCard } from '@/components/ListingCard'
 import EmbeddedNearbyMap from '@/components/EmbeddedNearbyMap'
 import InlineListingEditor from '@/components/InlineListingEditor'
@@ -80,16 +86,8 @@ const SUBCATEGORY_LABELS = {
   restaurant: 'Restaurant', bakery: 'Bakery', farm_gate: 'Farm Gate',
   artisan_producer: 'Artisan Producer', specialty_retail: 'Specialty Retail',
   destination: 'Destination', providore: 'Providore',
-  // Way Atlas primary types
-  guided_walk_multiday: 'Multi-day guided walk', guided_walk_day: 'Day walk',
-  cultural_tour: 'Cultural tour', scenic_flight: 'Scenic flight',
-  helicopter_tour: 'Helicopter tour', sailing_charter: 'Sailing charter',
-  sea_kayak_tour: 'Sea kayak', dive_operator: 'Dive operator',
-  fishing_guide: 'Fishing guide', photography_expedition: 'Photography expedition',
-  specialist_natural_history: 'Natural history guide', foraging_bushfood: 'Foraging & bush food',
-  heritage_tour: 'Heritage tour', workshop_intensive: 'Workshop intensive',
-  river_canoe_tour: 'River canoe', horseback_expedition: 'Horseback expedition',
-  four_wheel_drive_expedition: 'Four-wheel drive expedition',
+  // Way Atlas primary types — sourced from lib/wayLabels.js
+  ...WAY_PRIMARY_TYPE_LABELS,
 }
 
 function formatSubcategory(value) {
@@ -770,7 +768,7 @@ export default async function PlacePage({ params }) {
               )}
               {listing._wayMeta.presence_type && listing._wayMeta.presence_type !== 'year_round' && (
                 <WayDetailRow label="Availability">
-                  {WAY_PRESENCE_LABELS[listing._wayMeta.presence_type] || formatSubcategory(listing._wayMeta.presence_type)}
+                  {WAY_PRESENCE_TYPE_LABELS[listing._wayMeta.presence_type] || formatSubcategory(listing._wayMeta.presence_type)}
                 </WayDetailRow>
               )}
             </div>
@@ -909,28 +907,7 @@ export default async function PlacePage({ params }) {
 }
 
 // ── Way Atlas operator detail helpers ─────────────────────────
-
-const WAY_OPERATOR_TYPE_LABELS = {
-  independent: 'Independent operator',
-  aboriginal_community: 'Aboriginal community',
-  aboriginal_owned_led: 'Aboriginal-owned and Aboriginal-led',
-  aboriginal_partnership: 'Aboriginal partnership',
-  concessionaire: 'Concessionaire',
-  trust: 'Trust',
-  public_heritage: 'Public heritage',
-  cultural_content_non_indigenous: 'Cultural content (non-Indigenous)',
-}
-
-const WAY_ACCREDITATION_LABELS = {
-  atap: 'ATAP', eco_cert: 'EcoTourism Australia', roc: 'Respecting Our Culture',
-  narta: 'NARTA', sat_quality: 'SAT Quality Assured', green_travel: 'Green Travel Leader',
-}
-
-const WAY_PRESENCE_LABELS = {
-  permanent: 'Year-round', by_appointment: 'By appointment', seasonal: 'Seasonal',
-  year_round: 'Year-round', weather_dependent: 'Weather dependent',
-  charter_only: 'Charter only', tide_dependent: 'Tide dependent',
-}
+// Label dictionaries imported from lib/wayLabels.js (single source of truth).
 
 function WayDetailRow({ label, children }) {
   return (
