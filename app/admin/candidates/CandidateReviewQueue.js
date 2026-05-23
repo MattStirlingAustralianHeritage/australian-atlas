@@ -663,7 +663,7 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
     presence_type: wayPresenceType || 'year_round',
     operating_season_months: wayPresenceType === 'seasonal' ? wayOperatingSeasonMonths : [],
     multiple_departure_points: wayMultipleDeparturePoints,
-    operator_name: wayOperatorName.trim() || undefined,
+    operator_legal_name: wayOperatorName.trim() || undefined,
   } : undefined
 
   // Cross-vertical duplicate check (e.g. Table Atlas cafe → also in Fine Grounds?)
