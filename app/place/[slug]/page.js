@@ -580,10 +580,10 @@ export default async function PlacePage({ params }) {
             </div>
 
             {/* Also listed on — the cross-vertical line treatment.
-                Promoted from a chip to a labelled meta section. Renders one
-                line per vertical the listing exists on (always at least the
-                primary vertical, plus any cross-listed siblings). The link
-                opens in the same tab — moving across the network, not away. */}
+                Only renders when the listing genuinely exists on a second
+                vertical (same slug, different vertical row). Self-references
+                (the listing's own primary vertical) are suppressed. */}
+            {crossListedSiblings.length > 0 && (
             <div className="mt-4 py-4 px-5 rounded-lg" style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}>
               <p
                 className="mb-3"
@@ -596,7 +596,7 @@ export default async function PlacePage({ params }) {
                 Also listed on
               </p>
               <ul style={{ display: 'flex', flexDirection: 'column', gap: '14px', margin: 0, padding: 0, listStyle: 'none' }}>
-                {[{ vertical: listing.vertical, slug: listing.slug }, ...crossListedSiblings].map(entry => {
+                {crossListedSiblings.map(entry => {
                   const label = getVerticalLabel(entry.vertical)
                   const tagline = getVerticalTagline(entry.vertical)
                   const href = getVerticalUrl(entry.vertical, entry.slug)
@@ -627,6 +627,7 @@ export default async function PlacePage({ params }) {
                 })}
               </ul>
             </div>
+            )}
           </div>
         </div>
 
