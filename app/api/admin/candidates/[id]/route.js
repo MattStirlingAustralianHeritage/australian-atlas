@@ -291,7 +291,7 @@ export async function POST(request, { params }) {
   }
 
   try {
-    const { action, subcategory, subcategory_secondary, address_on_request, visitable, presence_type, offers_classes, reviewerOverrides } = await request.json()
+    const { action, subcategory, subcategory_secondary, address_on_request, visitable, presence_type, offers_classes, reviewerOverrides, wayClassification } = await request.json()
 
     if (!['approve', 'reject'].includes(action)) {
       return NextResponse.json({ error: 'Invalid action — must be approve or reject' }, { status: 400 })
@@ -615,8 +615,26 @@ export async function POST(request, { params }) {
         }
         // Never overwrite hero_image_url from scraping — owner uploads on claim
 
-        await sb.from('listings').update(updatePayload).eq('id', listingId)
-        console.log(`[approve] Updated existing master listing ${listingId} (matched by ${matchedBy}: "${existingListing[matchedBy]}" → new slug: "${slug}")`)
+        if (vertical === 'way' && wayClassification) {
+          // Way: atomic listings UPDATE + way_meta UPSERT (replace-semantics) via RPC
+          const wayMetaPayload = { ...wayClassification, primary_type: effectiveCategory }
+          const { error: rpcError } = await sb.rpc('approve_way_candidate', {
+            p_listing: updatePayload,
+            p_way_meta: wayMetaPayload,
+            p_existing_listing_id: listingId,
+          })
+          if (rpcError) {
+            console.error(`[approve] Way approval RPC failed (UPDATE path):`, rpcError.message)
+            return NextResponse.json({
+              error: `Way Atlas update failed: ${rpcError.message}`,
+              detail: rpcError.details || null,
+            }, { status: 500 })
+          }
+          console.log(`[approve] Updated existing master listing + way_meta ${listingId} via RPC (matched by ${matchedBy}: "${existingListing[matchedBy]}" → new slug: "${slug}")`)
+        } else {
+          await sb.from('listings').update(updatePayload).eq('id', listingId)
+          console.log(`[approve] Updated existing master listing ${listingId} (matched by ${matchedBy}: "${existingListing[matchedBy]}" → new slug: "${slug}")`)
+        }
 
         // Sync to vertical — use the effective source_id for the update
         if (effectiveSourceId && !String(effectiveSourceId).startsWith('candidate-')) {
@@ -648,37 +666,78 @@ export async function POST(request, { params }) {
           })
         }
       } else {
-        const { data: listing, error: insertError } = await sb
-          .from('listings')
-          .insert(listingData)
-          .select('id')
-          .single()
+        // ── INSERT path ──────────────────────────────────────
+        if (vertical === 'way' && wayClassification) {
+          // Way: atomic listings INSERT + way_meta INSERT via RPC.
+          // Both writes succeed or both roll back — eliminates the
+          // partial-write failure mode that produced stranded listings.
+          const wayMetaPayload = { ...wayClassification, primary_type: effectiveCategory }
+          const { data: rpcResult, error: rpcError } = await sb.rpc('approve_way_candidate', {
+            p_listing: listingData,
+            p_way_meta: wayMetaPayload,
+            p_existing_listing_id: null,
+          })
 
-        if (insertError) {
-          if (insertError.code === '23505') {
-            // Unique constraint violation not caught by preventive checks — fetch conflicting listing for diagnostics
-            const { data: conflicts } = await sb
-              .from('listings')
-              .select('id, name, slug, source_id, status, needs_review, data_source, created_at')
-              .eq('vertical', vertical)
-              .or(`slug.eq.${slug},source_id.eq.${sourceId}`)
-              .limit(5)
+          if (rpcError) {
+            if (rpcError.code === '23505') {
+              // Unique constraint violation — same diagnostic as non-Way path
+              const { data: conflicts } = await sb
+                .from('listings')
+                .select('id, name, slug, source_id, status, needs_review, data_source, created_at')
+                .eq('vertical', vertical)
+                .or(`slug.eq.${slug},source_id.eq.${sourceId}`)
+                .limit(5)
 
-            console.error(`[approve] 23505 conflict for "${fullData.name}" (slug: ${slug}, source_id: ${sourceId}):`, JSON.stringify(conflicts))
-            return NextResponse.json({
-              error: `Duplicate conflict: ${conflicts?.length || 0} existing listing(s) in ${VERTICAL_DISPLAY_NAMES[vertical] || vertical} conflict with "${fullData.name}".`,
-              conflicting: (conflicts || []).map(c => ({
-                id: c.id, name: c.name, slug: c.slug, source_id: c.source_id,
-                status: c.status, needs_review: c.needs_review, data_source: c.data_source,
-                created_at: c.created_at,
-              })),
-              candidate: { slug, source_id: sourceId },
-              hint: 'An existing listing with a matching source_id or slug is blocking this insert. It may be hidden (needs_review=true) or from a failed previous approval. Check the admin listings page to resolve the duplicate.',
-            }, { status: 409 })
+              console.error(`[approve] 23505 conflict for "${fullData.name}" (slug: ${slug}, source_id: ${sourceId}):`, JSON.stringify(conflicts))
+              return NextResponse.json({
+                error: `Duplicate conflict: ${conflicts?.length || 0} existing listing(s) in ${VERTICAL_DISPLAY_NAMES[vertical] || vertical} conflict with "${fullData.name}".`,
+                conflicting: (conflicts || []).map(c => ({
+                  id: c.id, name: c.name, slug: c.slug, source_id: c.source_id,
+                  status: c.status, needs_review: c.needs_review, data_source: c.data_source,
+                  created_at: c.created_at,
+                })),
+                candidate: { slug, source_id: sourceId },
+                hint: 'An existing listing with a matching source_id or slug is blocking this insert. It may be hidden (needs_review=true) or from a failed previous approval. Check the admin listings page to resolve the duplicate.',
+              }, { status: 409 })
+            }
+            throw rpcError
           }
-          throw insertError
+          listingId = rpcResult.listing_id
+          console.log(`[approve] Created master listing + way_meta ${listingId} via RPC`)
+        } else {
+          // Non-Way: existing INSERT path (unchanged)
+          const { data: listing, error: insertError } = await sb
+            .from('listings')
+            .insert(listingData)
+            .select('id')
+            .single()
+
+          if (insertError) {
+            if (insertError.code === '23505') {
+              // Unique constraint violation not caught by preventive checks — fetch conflicting listing for diagnostics
+              const { data: conflicts } = await sb
+                .from('listings')
+                .select('id, name, slug, source_id, status, needs_review, data_source, created_at')
+                .eq('vertical', vertical)
+                .or(`slug.eq.${slug},source_id.eq.${sourceId}`)
+                .limit(5)
+
+              console.error(`[approve] 23505 conflict for "${fullData.name}" (slug: ${slug}, source_id: ${sourceId}):`, JSON.stringify(conflicts))
+              return NextResponse.json({
+                error: `Duplicate conflict: ${conflicts?.length || 0} existing listing(s) in ${VERTICAL_DISPLAY_NAMES[vertical] || vertical} conflict with "${fullData.name}".`,
+                conflicting: (conflicts || []).map(c => ({
+                  id: c.id, name: c.name, slug: c.slug, source_id: c.source_id,
+                  status: c.status, needs_review: c.needs_review, data_source: c.data_source,
+                  created_at: c.created_at,
+                })),
+                candidate: { slug, source_id: sourceId },
+                hint: 'An existing listing with a matching source_id or slug is blocking this insert. It may be hidden (needs_review=true) or from a failed previous approval. Check the admin listings page to resolve the duplicate.',
+              }, { status: 409 })
+            }
+            throw insertError
+          }
+          listingId = listing.id
         }
-        listingId = listing.id
 
         // Log the insert-path sync + trigger vertical cache revalidation.
         // pushToVerticalWithRetry happened earlier (before the listings
