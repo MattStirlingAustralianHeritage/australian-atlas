@@ -33,16 +33,23 @@ import { writeFileSync } from 'node:fs'
 import { argv, exit, env } from 'node:process'
 
 // ── Corpus weights — canonical source: docs/banned-phrase-corpus.md ──
+// Exported so the calibration runner reads the same constants the CLI uses.
 
-const WEIGHTS = {
+export const WEIGHTS = {
   template: 50,         // Tier 1-T verbatim template sentence (auto-HIGH)
   tier1: 10,            // Tier 1 phrase
   tier2_standard: 3,    // Tier 2 entries 2.1–2.6 (≤20% leak)
   tier2_tiebreaker: 1,  // Tier 2 entries 2.7–2.10 (>20% leak)
-  tier3: 4,             // Tier 3 structural pattern
+  tier3: 2,             // Tier 3 structural pattern
+  // Tier 3 lowered from 4 → 2 during calibration. The 3.1+3.4 stack on
+  // legitimate inventory-list descriptions (e.g. cheese listings, furniture
+  // brand stockists) was producing 8-point scores well above the LOW
+  // threshold. At weight 2 the stack scores 4 (CLEAN), while genuine
+  // hallucinations are still caught via their phrase signals (Tier 1 and
+  // template hits dominate the score regardless of Tier 3 weight).
 }
 
-const THRESHOLDS = {
+export const THRESHOLDS = {
   HIGH: 25,
   MEDIUM: 15,
   LOW: 5,
@@ -129,15 +136,24 @@ function tier3Patterns(text, listingName) {
     hits.push({ pattern: '3.2 known-for comma list' })
   }
 
-  // 3.3 CTA ending — final sentence contains promotional/CTA wording.
+  // 3.3 CTA ending — final sentence contains a CTA *phrase*, not just any
+  // CTA-flavoured word. Calibration showed the bare-word version false-fired
+  // on legitimate uses like "somewhere worth being" or "worth a watch".
+  // The phrase patterns are tighter and align with how the seed generator
+  // actually closed its templates.
   const sentences = text.split(/[.!?]+/).map(s => s.trim()).filter(Boolean)
   const lastSentence = sentences[sentences.length - 1] || ''
-  if (/\b(visit|destination|stop by|don't miss|worth|haven|must)\b/i.test(lastSentence)) {
+  const CTA_PHRASES = /\b(worth a visit|worth visiting|worth stopping|must[\s-]visit|must[\s-]see|don't miss|stop by|a haven for|a destination for|a delightful destination|a wonderful destination)\b/i
+  if (CTA_PHRASES.test(lastSentence)) {
     hits.push({ pattern: '3.3 CTA ending' })
   }
 
-  // 3.4 Long comma list — any sentence with 3+ commas.
-  if (sentences.some(s => (s.match(/,/g) || []).length >= 3)) {
+  // 3.4 Long comma list — any sentence with 4+ commas. Calibration showed
+  // the 3-comma threshold caught legitimate product lists ("HAY, Muuto,
+  // Ferm Living, Carl Hansen Søn"). 4+ commas raises the bar to actual
+  // inventory dumps without losing the seed-generator's pattern (which
+  // typically ran 4–7 commas per sentence in its closer lists).
+  if (sentences.some(s => (s.match(/,/g) || []).length >= 4)) {
     hits.push({ pattern: '3.4 long comma list' })
   }
 
@@ -164,13 +180,12 @@ function tier3Patterns(text, listingName) {
     }
   }
 
-  // 3.7 Missing apostrophe in possessive proper noun — e.g. "Fremantles".
-  // Strict heuristic: capitalised word ending in 's' followed by capital,
-  // where the prefix isn't a known plural pattern. Conservative regex:
-  // matches "Xxxxs Xxxx" where the preceding word starts with capital.
-  if (/\b[A-Z][a-z]{2,}s\s+[A-Z][a-z]+/.test(text)) {
-    hits.push({ pattern: '3.7 missing apostrophe in possessive' })
-  }
+  // 3.7 Missing apostrophe in possessive proper noun — REMOVED post-
+  // calibration. The corpus said this pattern was in only 1 of 94 archived
+  // descriptions (1.1%), but calibration showed it false-fires on any
+  // plural-capital followed by capital ("Owners Lesley", "Lakes National",
+  // "Heaths Old", any "Bay of Martyrs Blue" coastal place name). High FP
+  // rate, near-zero recall — net negative. Removed from scoring.
 
   // 3.8 Promotional "located in" suffix (promoted from Tier 2).
   if (LOCATED_IN_PROMOTIONAL_RE.test(text)) {
@@ -214,7 +229,7 @@ function findTemplateMatches(text) {
 
 // ── Scoring ──
 
-function score({ description, name }) {
+export function score({ description, name }) {
   if (!description) return { score: 0, signals: [], classification: 'CLEAN' }
 
   const signals = []
@@ -389,4 +404,8 @@ function printRow(r, compact) {
   }
 }
 
-main().catch(err => { console.error(err); exit(1) })
+// Only run main() when invoked directly as a CLI. When imported as a module
+// (e.g. by scripts/calibrate-detector.mjs), the scoring exports are reusable
+// without firing the network fetch.
+const isCli = import.meta.url === `file://${argv[1]}`
+if (isCli) main().catch(err => { console.error(err); exit(1) })
