@@ -40,6 +40,18 @@ const PACING_BUDGETS = {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
+   Ranking weights and thresholds
+   ═══════════════════════════════════════════════════════════════════════ */
+const RANKING_WEIGHTS = {
+  vertical_match:      0.40,
+  distance_score:      0.20,
+  description_quality: 0.30,
+  featured_boost:      0.10,
+}
+
+const DESCRIPTION_QUALITY_CAP = 800
+
+/* ═══════════════════════════════════════════════════════════════════════
    Math helpers
    ═══════════════════════════════════════════════════════════════════════ */
 function haversineKm(lat1, lng1, lat2, lng2) {
@@ -179,14 +191,14 @@ function rankCandidates(candidates, clusterCentroid, primaryVerticals, secondary
           ? 0.6
           : 0.3
       const distanceScore = 1 - (c.dist_from_centroid / maxDist)
-      const descQuality = Math.min(1.0, (c.description?.length || 0) / 500)
+      const descQuality = Math.min(1.0, (c.description?.length || 0) / DESCRIPTION_QUALITY_CAP)
       const featuredBoost = c.is_featured ? 1.0 : 0.0
 
       const score =
-        verticalMatch * 0.45 +
-        distanceScore * 0.30 +
-        descQuality * 0.15 +
-        featuredBoost * 0.10
+        verticalMatch * RANKING_WEIGHTS.vertical_match +
+        distanceScore * RANKING_WEIGHTS.distance_score +
+        descQuality * RANKING_WEIGHTS.description_quality +
+        featuredBoost * RANKING_WEIGHTS.featured_boost
 
       return { ...c, score, dist_from_centroid: Math.round(c.dist_from_centroid * 10) / 10 }
     })
