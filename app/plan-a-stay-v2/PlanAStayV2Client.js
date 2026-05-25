@@ -1,6 +1,6 @@
 'use client'
 
-import { useReducer, useEffect, useRef, useCallback } from 'react'
+import { useReducer, useEffect, useRef, useCallback, useState } from 'react'
 
 /* ─── Region data ────────────────────────────────────────────────────────
    25 regions with ≥5 active Rest listings (from coverage audit).
@@ -492,57 +492,99 @@ function ContinueButton({ onClick, visible }) {
 }
 
 /* ─── Loading screen ─────────────────────────────────────────────────── */
-function LoadingScreen({ onComplete }) {
+function LoadingScreen({ state, onComplete, onError }) {
   const lines = [
-    'Looking at what’s listed within range…',
-    'Sequencing the days…',
-    'Writing the trip…',
+    ‘Looking at what’s listed within range…’,
+    ‘Sequencing the days…’,
+    ‘Writing the trip…’,
   ]
 
   const [visibleCount, setVisibleCount] = useReducer(
     (s) => s + 1,
     0
   )
-  const completeCalled = useRef(false)
+  const fetchStarted = useRef(false)
 
   useEffect(() => {
     const timers = []
-    // Show first line after a brief beat
+    // Show first line immediately
     timers.push(setTimeout(() => setVisibleCount(), 100))
-    timers.push(setTimeout(() => setVisibleCount(), 900))
-    timers.push(setTimeout(() => setVisibleCount(), 1700))
-    timers.push(setTimeout(() => {
-      if (!completeCalled.current) {
-        completeCalled.current = true
-        onComplete()
+
+    // Fire the real API pipeline
+    if (!fetchStarted.current) {
+      fetchStarted.current = true
+
+      const answers = {
+        intent: state.intent,
+        pacing: state.pacing,
+        duration: state.duration,
+        region: state.region,
+        season: state.season,
+        anchor: null,
       }
-    }, 2500))
+
+      // Step 1: Retrieve
+      fetch(‘/api/plan-a-stay/retrieve’, {
+        method: ‘POST’,
+        headers: { ‘Content-Type’: ‘application/json’ },
+        body: JSON.stringify(answers),
+      })
+        .then(res => {
+          if (!res.ok) throw new Error(`Retrieve failed: ${res.status}`)
+          return res.json()
+        })
+        .then(retrieval => {
+          // Show line 2 — retrieve done, assemble starting
+          setVisibleCount()
+
+          // Step 2: Assemble
+          return fetch(‘/api/plan-a-stay/assemble’, {
+            method: ‘POST’,
+            headers: { ‘Content-Type’: ‘application/json’ },
+            body: JSON.stringify({ answers, retrieval }),
+          }).then(res => {
+            if (!res.ok) throw new Error(`Assemble failed: ${res.status}`)
+            return res.json()
+          })
+        })
+        .then(assembled => {
+          // Show line 3 — done
+          setVisibleCount()
+          // Brief pause so the user sees "Writing the trip…" before output
+          setTimeout(() => onComplete(assembled), 600)
+        })
+        .catch(err => {
+          console.error(‘[plan-a-stay] Pipeline error:’, err)
+          onError(err.message)
+        })
+    }
+
     return () => timers.forEach(clearTimeout)
-  }, [onComplete])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '40vh',
+      display: ‘flex’,
+      flexDirection: ‘column’,
+      alignItems: ‘center’,
+      justifyContent: ‘center’,
+      minHeight: ‘40vh’,
       gap: 12,
-      padding: '64px 24px',
+      padding: ‘64px 24px’,
     }}>
       {lines.map((line, i) => (
         <p
           key={i}
           style={{
-            fontFamily: 'var(--font-body)',
+            fontFamily: ‘var(--font-body)’,
             fontSize: 15,
-            fontStyle: 'italic',
-            color: 'var(--color-muted, #6B6760)',
+            fontStyle: ‘italic’,
+            color: ‘var(--color-muted, #6B6760)’,
             lineHeight: 1.5,
             margin: 0,
             opacity: i < visibleCount ? 1 : 0,
-            transform: i < visibleCount ? 'translateY(0)' : 'translateY(6px)',
-            transition: 'opacity 0.4s ease-out, transform 0.4s ease-out',
+            transform: i < visibleCount ? ‘translateY(0)’ : ‘translateY(6px)’,
+            transition: ‘opacity 0.4s ease-out, transform 0.4s ease-out’,
           }}
         >
           {line}
@@ -552,78 +594,357 @@ function LoadingScreen({ onComplete }) {
   )
 }
 
-/* ─── Output placeholder ─────────────────────────────────────────────── */
-function OutputScreen({ state, onReset }) {
-  const answers = {
-    intent: state.intent,
-    pacing: state.pacing,
-    duration: state.duration,
-    region: state.region,
-    season: state.season,
-    needsSeason: state.needsSeason,
-    hasAnchor: state.hasAnchor,
+/* ─── Vertical badge labels ──────────────────────────────────────────── */
+const VERTICAL_LABELS = {
+  craft: 'Craft',
+  collection: 'Collection',
+  table: 'Table',
+  sba: 'SBA',
+  rest: 'Rest',
+  field: 'Field',
+  found: 'Found',
+  corner: 'Corner',
+  fine_grounds: 'Fine Grounds',
+  culture: 'Culture',
+}
+
+/* ─── Stop card ──────────────────────────────────────────────────────── */
+function StopCard({ stop, index, prevStop }) {
+  // Compute distance from previous stop
+  let distLabel = null
+  if (prevStop) {
+    const R = 6371
+    const dLat = (stop.lat - prevStop.lat) * Math.PI / 180
+    const dLng = (stop.lng - prevStop.lng) * Math.PI / 180
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(prevStop.lat * Math.PI / 180) * Math.cos(stop.lat * Math.PI / 180) *
+      Math.sin(dLng / 2) ** 2
+    const km = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    if (km >= 1) distLabel = `${Math.round(km)}km from previous`
+    else distLabel = `${Math.round(km * 1000)}m from previous`
   }
 
   return (
-    <div style={{ padding: '64px 0 96px', textAlign: 'center' }}>
+    <div style={{
+      padding: '16px 20px',
+      background: 'rgba(28, 26, 23, 0.02)',
+      border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
+      borderRadius: 10,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 6 }}>
+        <span style={{
+          fontFamily: 'var(--font-body)',
+          fontSize: 12,
+          fontWeight: 600,
+          color: 'var(--color-muted, #6B6760)',
+          minWidth: 20,
+        }}>
+          {index + 1}
+        </span>
+        <span style={{
+          fontFamily: 'var(--font-display)',
+          fontWeight: 400,
+          fontSize: 17,
+          color: 'var(--color-ink, #1C1A17)',
+          lineHeight: 1.3,
+        }}>
+          {stop.name}
+        </span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 30, marginBottom: stop.description_excerpt ? 8 : 0 }}>
+        <span style={{
+          fontFamily: 'var(--font-body)',
+          fontSize: 11,
+          fontWeight: 600,
+          letterSpacing: '0.06em',
+          textTransform: 'uppercase',
+          color: '#C4973B',
+        }}>
+          {VERTICAL_LABELS[stop.vertical] || stop.vertical}
+        </span>
+        {stop.sub_type && (
+          <span style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: 11,
+            color: 'var(--color-muted, #6B6760)',
+          }}>
+            {stop.sub_type.replace(/_/g, ' ')}
+          </span>
+        )}
+        {distLabel && (
+          <span style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: 11,
+            color: 'var(--color-muted, #6B6760)',
+            opacity: 0.7,
+          }}>
+            · {distLabel}
+          </span>
+        )}
+      </div>
+      {stop.description_excerpt && (
+        <p style={{
+          fontFamily: 'var(--font-body)',
+          fontSize: 13,
+          color: 'var(--color-muted, #6B6760)',
+          lineHeight: 1.5,
+          margin: 0,
+          marginLeft: 30,
+        }}>
+          {stop.description_excerpt}
+        </p>
+      )}
+    </div>
+  )
+}
+
+/* ─── Output screen — real trip rendering ────────────────────────────── */
+function OutputScreen({ tripData, error, onReset }) {
+  // Error state
+  if (error) {
+    return (
+      <div style={{ padding: '64px 0 96px', textAlign: 'center' }}>
+        <h2 style={{
+          fontFamily: 'var(--font-display)',
+          fontWeight: 400,
+          fontSize: 24,
+          color: 'var(--color-ink, #1C1A17)',
+          lineHeight: 1.25,
+          marginBottom: 12,
+        }}>
+          Something went wrong.
+        </h2>
+        <p style={{
+          fontFamily: 'var(--font-body)',
+          fontSize: 15,
+          color: 'var(--color-muted, #6B6760)',
+          lineHeight: 1.6,
+          maxWidth: 440,
+          margin: '0 auto 32px',
+        }}>
+          {error}
+        </p>
+        <button
+          onClick={onReset}
+          style={{
+            fontFamily: 'var(--font-body)',
+            fontWeight: 500,
+            fontSize: 15,
+            color: 'var(--color-ink, #1C1A17)',
+            background: 'transparent',
+            border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
+            borderRadius: 8,
+            padding: '12px 32px',
+            cursor: 'pointer',
+          }}
+        >
+          Start over
+        </button>
+      </div>
+    )
+  }
+
+  // No data yet
+  if (!tripData?.trip) return null
+
+  const { trip } = tripData
+
+  return (
+    <div style={{
+      padding: '48px 0 96px',
+      maxWidth: 720,
+      margin: '0 auto',
+    }}>
+      {/* ── Title ─────────────────────────────────────────────── */}
       <h2 style={{
         fontFamily: 'var(--font-display)',
         fontWeight: 400,
-        fontSize: 28,
+        fontSize: 'clamp(24px, 4.5vw, 34px)',
         color: 'var(--color-ink, #1C1A17)',
-        lineHeight: 1.25,
+        lineHeight: 1.2,
+        textAlign: 'center',
         marginBottom: 12,
       }}>
-        Trip would render here.
+        {trip.title}
       </h2>
+
+      {/* ── Intro ─────────────────────────────────────────────── */}
       <p style={{
         fontFamily: 'var(--font-body)',
         fontSize: 15,
         color: 'var(--color-muted, #6B6760)',
         lineHeight: 1.6,
-        maxWidth: 440,
-        margin: '0 auto 32px',
+        textAlign: 'center',
+        marginBottom: trip.trip_disclosures?.length > 0 ? 16 : 40,
       }}>
-        This is a placeholder. The conversation surface is built; the retrieval and assembly layers are next.
+        {trip.intro}
       </p>
-      <pre style={{
-        textAlign: 'left',
-        fontFamily: 'monospace',
-        fontSize: 12,
-        lineHeight: 1.6,
-        color: 'var(--color-muted, #6B6760)',
-        opacity: 0.6,
-        background: 'rgba(28, 26, 23, 0.03)',
-        border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
-        borderRadius: 8,
-        padding: '20px 24px',
-        maxWidth: 480,
-        margin: '0 auto 40px',
-        overflowX: 'auto',
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-word',
+
+      {/* ── Trip disclosures ──────────────────────────────────── */}
+      {trip.trip_disclosures?.length > 0 && (
+        <div style={{ marginBottom: 40, textAlign: 'center' }}>
+          {trip.trip_disclosures.map((d, i) => (
+            <p key={i} style={{
+              fontFamily: 'var(--font-body)',
+              fontSize: 13,
+              fontStyle: 'italic',
+              color: 'var(--color-muted, #6B6760)',
+              lineHeight: 1.5,
+              margin: '4px 0',
+            }}>
+              {d}
+            </p>
+          ))}
+        </div>
+      )}
+
+      {/* ── Days ──────────────────────────────────────────────── */}
+      {trip.days?.map((day, dayIdx) => (
+        <div key={day.day_number} style={{ marginBottom: 48 }}>
+          {/* Day heading */}
+          <h3 style={{
+            fontFamily: 'var(--font-display)',
+            fontWeight: 400,
+            fontSize: 22,
+            color: 'var(--color-ink, #1C1A17)',
+            lineHeight: 1.3,
+            marginBottom: 4,
+          }}>
+            {day.heading}
+          </h3>
+
+          {/* Day theme */}
+          {day.theme && (
+            <p style={{
+              fontFamily: 'var(--font-body)',
+              fontSize: 14,
+              fontStyle: 'italic',
+              color: 'var(--color-muted, #6B6760)',
+              lineHeight: 1.5,
+              marginBottom: day.day_disclosures?.length > 0 ? 8 : 16,
+            }}>
+              {day.theme}
+            </p>
+          )}
+
+          {/* Day disclosures */}
+          {day.day_disclosures?.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              {day.day_disclosures.map((d, i) => (
+                <p key={i} style={{
+                  fontFamily: 'var(--font-body)',
+                  fontSize: 12,
+                  color: 'var(--color-muted, #6B6760)',
+                  lineHeight: 1.5,
+                  margin: '2px 0',
+                  opacity: 0.8,
+                }}>
+                  {d}
+                </p>
+              ))}
+            </div>
+          )}
+
+          {/* Static map */}
+          {day.map_url && (
+            <div style={{
+              marginBottom: 16,
+              borderRadius: 10,
+              overflow: 'hidden',
+              border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
+            }}>
+              <img
+                src={day.map_url}
+                alt={`Map for ${day.heading}`}
+                loading={dayIdx === 0 ? 'eager' : 'lazy'}
+                style={{
+                  width: '100%',
+                  height: 'auto',
+                  display: 'block',
+                  minHeight: 160,
+                  background: '#2d2a24',
+                }}
+              />
+            </div>
+          )}
+
+          {/* Stop cards */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {day.stops?.map((stop, stopIdx) => (
+              <StopCard
+                key={stop.listing_id}
+                stop={stop}
+                index={stopIdx}
+                prevStop={stopIdx > 0 ? day.stops[stopIdx - 1] : null}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {/* ── Action buttons ────────────────────────────────────── */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        gap: 12,
+        paddingTop: 24,
+        borderTop: '1px solid var(--color-border, rgba(28,26,23,0.12))',
       }}>
-        {JSON.stringify(answers, null, 2)}
-      </pre>
-      <button
-        onClick={onReset}
-        style={{
-          fontFamily: 'var(--font-body)',
-          fontWeight: 500,
-          fontSize: 15,
-          color: 'var(--color-ink, #1C1A17)',
-          background: 'transparent',
-          border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
-          borderRadius: 8,
-          padding: '12px 32px',
-          cursor: 'pointer',
-          transition: 'border-color 0.2s ease',
-        }}
-        onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(28,26,23,0.3)' }}
-        onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-border, rgba(28,26,23,0.12))' }}
-      >
-        Start over
-      </button>
+        <button
+          disabled
+          style={{
+            fontFamily: 'var(--font-body)',
+            fontWeight: 500,
+            fontSize: 14,
+            color: 'var(--color-muted, #6B6760)',
+            background: 'transparent',
+            border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
+            borderRadius: 8,
+            padding: '10px 24px',
+            cursor: 'not-allowed',
+            opacity: 0.5,
+          }}
+        >
+          Save — coming soon
+        </button>
+        <button
+          disabled
+          style={{
+            fontFamily: 'var(--font-body)',
+            fontWeight: 500,
+            fontSize: 14,
+            color: 'var(--color-muted, #6B6760)',
+            background: 'transparent',
+            border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
+            borderRadius: 8,
+            padding: '10px 24px',
+            cursor: 'not-allowed',
+            opacity: 0.5,
+          }}
+        >
+          Share — coming soon
+        </button>
+        <button
+          onClick={onReset}
+          style={{
+            fontFamily: 'var(--font-body)',
+            fontWeight: 500,
+            fontSize: 14,
+            color: 'var(--color-ink, #1C1A17)',
+            background: 'transparent',
+            border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
+            borderRadius: 8,
+            padding: '10px 24px',
+            cursor: 'pointer',
+            transition: 'border-color 0.2s ease',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(28,26,23,0.3)' }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-border, rgba(28,26,23,0.12))' }}
+        >
+          Start over
+        </button>
+      </div>
     </div>
   )
 }
@@ -633,6 +954,8 @@ function OutputScreen({ state, onReset }) {
    ═════════════════════════════════════════════════════════════════════════ */
 export default function PlanAStayV2Client() {
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE)
+  const [tripData, setTripData] = useState(null)
+  const [tripError, setTripError] = useState(null)
   const autoAdvanceTimer = useRef(null)
 
   // Clean up any pending auto-advance on unmount
@@ -656,9 +979,22 @@ export default function PlanAStayV2Client() {
   }
 
   /* ── Loading complete callback ───────────────────────────────────── */
-  const handleLoadingComplete = useCallback(() => {
+  const handleLoadingComplete = useCallback((assembled) => {
+    setTripData(assembled)
+    setTripError(null)
     dispatch({ type: 'GO_TO_STEP', value: 'output' })
   }, [])
+
+  const handleLoadingError = useCallback((errMsg) => {
+    setTripError(errMsg)
+    dispatch({ type: 'GO_TO_STEP', value: 'output' })
+  }, [])
+
+  function handleReset() {
+    setTripData(null)
+    setTripError(null)
+    dispatch({ type: 'RESET' })
+  }
 
   /* ── Summary lines for completed questions ───────────────────────── */
   const summaries = [
@@ -917,14 +1253,19 @@ export default function PlanAStayV2Client() {
 
         {/* ── Loading state ────────────────────────────────────────── */}
         {state.step === 'loading' && (
-          <LoadingScreen onComplete={handleLoadingComplete} />
+          <LoadingScreen
+            state={state}
+            onComplete={handleLoadingComplete}
+            onError={handleLoadingError}
+          />
         )}
 
-        {/* ── Output placeholder ───────────────────────────────────── */}
+        {/* ── Trip output ──────────────────────────────────────────── */}
         {state.step === 'output' && (
           <OutputScreen
-            state={state}
-            onReset={() => dispatch({ type: 'RESET' })}
+            tripData={tripData}
+            error={tripError}
+            onReset={handleReset}
           />
         )}
       </div>
