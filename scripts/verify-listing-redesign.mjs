@@ -86,16 +86,27 @@ async function findSamples(sb, vertical, totalCount, seed) {
   if (!all.length) return { samples: [], byState: { multiVertical: 0, nullRegion: 0, singleVertical: 0 } }
 
   // Cross-vertical sibling count per slug, looked up against the master
-  // listings table (other verticals, active, same slug).
+  // listings table (other verticals, active, same slug). PostgREST has a
+  // practical URL-length cap on .in(), so chunk the slug list.
   const slugs = [...new Set(all.map(l => l.slug))]
-  const { data: siblings = [] } = await sb
-    .from('listings')
-    .select('slug, vertical')
-    .neq('vertical', vertical)
-    .eq('status', 'active')
-    .in('slug', slugs)
+  const CHUNK = 200
   const siblingCount = new Map()
-  for (const s of siblings) siblingCount.set(s.slug, (siblingCount.get(s.slug) || 0) + 1)
+  for (let i = 0; i < slugs.length; i += CHUNK) {
+    const chunk = slugs.slice(i, i + CHUNK)
+    const { data: siblings, error } = await sb
+      .from('listings')
+      .select('slug, vertical')
+      .neq('vertical', vertical)
+      .eq('status', 'active')
+      .in('slug', chunk)
+    if (error) {
+      console.error(`siblings query failed for chunk ${i}–${i + chunk.length}: ${error.message}`)
+      continue
+    }
+    for (const s of (siblings || [])) {
+      siblingCount.set(s.slug, (siblingCount.get(s.slug) || 0) + 1)
+    }
+  }
 
   const enriched = all.map(l => ({
     ...l,
