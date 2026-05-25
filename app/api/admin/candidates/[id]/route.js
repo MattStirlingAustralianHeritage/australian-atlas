@@ -500,8 +500,15 @@ export async function POST(request, { params }) {
       }
 
       // 6. Push to the vertical's own database (synchronous with retries)
+      // For Way, merge wayClassification into the push payload so the
+      // outbound mapper has operator_type, accreditations, etc. The push
+      // runs BEFORE the RPC creates the portal listing + way_meta, so
+      // these fields come from the request body, not a database read.
+      const pushPayload = vertical === 'way' && wayClassification
+        ? { ...fullData, ...wayClassification, category: subcategory }
+        : fullData
       console.log(`[approve] Pushing to ${vertical} vertical DB (up to 3 attempts)...`)
-      const pushResult = await pushToVerticalWithRetry(vertical, fullData, 3)
+      const pushResult = await pushToVerticalWithRetry(vertical, pushPayload, 3)
       const verticalRowId = pushResult.success ? pushResult.id : null
       if (verticalRowId) {
         console.log(`[approve] Created in ${vertical} DB with id: ${verticalRowId} (attempt ${pushResult.attempts})`)
