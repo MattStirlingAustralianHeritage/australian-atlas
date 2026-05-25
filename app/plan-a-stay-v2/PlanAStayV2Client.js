@@ -45,7 +45,7 @@ const PACING_OPTIONS = [
   { id: 'out-early-back-late', label: 'Out early, back late', sub: 'Big walks, long drives, full days.' },
   { id: 'steady', label: 'Steady', sub: 'Moderate days, time to linger.' },
   { id: 'as-little-driving', label: 'As little driving as we can manage', sub: 'Anchored close, mostly local.' },
-  { id: 'surprise-us', label: 'Surprise us', sub: 'Whatever fits the rest of what you’ve said.' },
+  { id: 'surprise-us', label: 'Surprise us', sub: "Whatever fits the rest of what you've said." },
 ]
 
 const DURATION_OPTIONS = [
@@ -494,9 +494,9 @@ function ContinueButton({ onClick, visible }) {
 /* ─── Loading screen ─────────────────────────────────────────────────── */
 function LoadingScreen({ state, onComplete, onError }) {
   const lines = [
-    ‘Looking at what’s listed within range…’,
-    ‘Sequencing the days…’,
-    ‘Writing the trip…’,
+    `Looking at what's listed within range…`,
+    'Sequencing the days…',
+    'Writing the trip…',
   ]
 
   const [visibleCount, setVisibleCount] = useReducer(
@@ -524,9 +524,9 @@ function LoadingScreen({ state, onComplete, onError }) {
       }
 
       // Step 1: Retrieve
-      fetch(‘/api/plan-a-stay/retrieve’, {
-        method: ‘POST’,
-        headers: { ‘Content-Type’: ‘application/json’ },
+      fetch('/api/plan-a-stay/retrieve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(answers),
       })
         .then(res => {
@@ -538,9 +538,9 @@ function LoadingScreen({ state, onComplete, onError }) {
           setVisibleCount()
 
           // Step 2: Assemble
-          return fetch(‘/api/plan-a-stay/assemble’, {
-            method: ‘POST’,
-            headers: { ‘Content-Type’: ‘application/json’ },
+          return fetch('/api/plan-a-stay/assemble', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ answers, retrieval }),
           }).then(res => {
             if (!res.ok) throw new Error(`Assemble failed: ${res.status}`)
@@ -554,7 +554,7 @@ function LoadingScreen({ state, onComplete, onError }) {
           setTimeout(() => onComplete(assembled), 600)
         })
         .catch(err => {
-          console.error(‘[plan-a-stay] Pipeline error:’, err)
+          console.error('[plan-a-stay] Pipeline error:', err)
           onError(err.message)
         })
     }
@@ -564,27 +564,27 @@ function LoadingScreen({ state, onComplete, onError }) {
 
   return (
     <div style={{
-      display: ‘flex’,
-      flexDirection: ‘column’,
-      alignItems: ‘center’,
-      justifyContent: ‘center’,
-      minHeight: ‘40vh’,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: '40vh',
       gap: 12,
-      padding: ‘64px 24px’,
+      padding: '64px 24px',
     }}>
       {lines.map((line, i) => (
         <p
           key={i}
           style={{
-            fontFamily: ‘var(--font-body)’,
+            fontFamily: 'var(--font-body)',
             fontSize: 15,
-            fontStyle: ‘italic’,
-            color: ‘var(--color-muted, #6B6760)’,
+            fontStyle: 'italic',
+            color: 'var(--color-muted, #6B6760)',
             lineHeight: 1.5,
             margin: 0,
             opacity: i < visibleCount ? 1 : 0,
-            transform: i < visibleCount ? ‘translateY(0)’ : ‘translateY(6px)’,
-            transition: ‘opacity 0.4s ease-out, transform 0.4s ease-out’,
+            transform: i < visibleCount ? 'translateY(0)' : 'translateY(6px)',
+            transition: 'opacity 0.4s ease-out, transform 0.4s ease-out',
           }}
         >
           {line}
@@ -1065,7 +1065,7 @@ export default function PlanAStayV2Client() {
             lineHeight: 1.5,
             marginBottom: 28,
           }}>
-            Pick one or two. We{'’'}ll build from there.
+            Pick one or two. We{"'"}ll build from there.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {INTENT_OPTIONS.map(opt => (
@@ -1162,7 +1162,7 @@ export default function PlanAStayV2Client() {
             lineHeight: 1.5,
             marginBottom: 24,
           }}>
-            We{'’'}re well-covered in some regions and still building others. These are the ones with enough to plan a trip through.
+            We{"'"}re well-covered in some regions and still building others. These are the ones with enough to plan a trip through.
           </p>
           <div style={{
             border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
