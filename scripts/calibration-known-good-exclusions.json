@@ -1,0 +1,8 @@
+[
+  {
+    "slug": "avocado-moment-cafe",
+    "vertical": "table",
+    "excluded_at": "2026-05-28",
+    "reason": "data_source='manually_curated' and needs_review=false, created post-2026-04-02, but description content is pure template ('a down-to-earth cafe celebrating healthy, delicious food', 'this independent venue', 'commitment to sustainable practices' — zero anchors). Treating as known-good would inflate reported FP rate when corpus-expanded detector correctly flags it. Surfaced during Part 4a stratified eyeball (sub_type=null bucket); see docs/table-data-quality-findings-2026-05-25.md 2026-05-28 update."
+  }
+]

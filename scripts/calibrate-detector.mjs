@@ -24,11 +24,29 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { argv, exit, env } from 'node:process'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
 import { score, THRESHOLDS, WEIGHTS } from './detect-hallucinations.mjs'
 
 const KNOWN_GOOD_SIZE = 50
 const KNOWN_BAD_SIZE = 20
 const SEED = 42
+
+// Versioned, audited exclusion list for the known-good pool. Each entry
+// documents a listing whose data_source label misrepresents its content
+// (e.g. manually_curated label over template content). Surfaced during
+// Part 4a stratified eyeballing; mechanism documented in
+// docs/table-data-quality-findings-2026-05-25.md (2026-05-28 update).
+//
+// Exclusions are filtered out of the known-good pool AFTER the DB query
+// so the query predicate stays a documented intent. To add an exclusion,
+// edit the JSON directly with a `reason` field — the list is data, not
+// logic, and each entry should be individually justifiable from the file.
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const EXCLUSIONS_PATH = join(__dirname, 'calibration-known-good-exclusions.json')
+const KNOWN_GOOD_EXCLUSIONS = JSON.parse(readFileSync(EXCLUSIONS_PATH, 'utf-8'))
+const EXCLUDED_SLUGS = new Set(KNOWN_GOOD_EXCLUSIONS.map(e => e.slug))
 
 function mulberry32(seed) {
   let t = seed >>> 0
@@ -87,13 +105,25 @@ async function main() {
   //   - manually_curated: human curator wrote content directly
   //   - ai_generated (post-2026-04-01): went through Candidate Review with
   //     human approval — the corpus says these "should score CLEAN or LOW"
-  const goodPool = await fetchAll(sb, () => sb.from('listings')
+  const goodPoolRaw = await fetchAll(sb, () => sb.from('listings')
     .select('id, slug, vertical, name, description, data_source, created_at')
     .eq('status', 'active')
     .gt('created_at', '2026-04-02')
     .in('data_source', ['manually_curated', 'operator_verified', 'ai_generated'])
     .not('description', 'is', null)
     .order('id'))
+
+  // Post-fetch filter: drop listings whose data_source label is known to
+  // misrepresent the content. See calibration-known-good-exclusions.json.
+  const goodPool = goodPoolRaw.filter(l => !EXCLUDED_SLUGS.has(l.slug))
+  const excludedHits = goodPoolRaw.length - goodPool.length
+  if (excludedHits > 0) {
+    console.log(`Known-good pool: excluded ${excludedHits} mislabeled listing(s) per exclusions JSON:`)
+    for (const l of goodPoolRaw.filter(l => EXCLUDED_SLUGS.has(l.slug))) {
+      const reason = KNOWN_GOOD_EXCLUSIONS.find(e => e.slug === l.slug)?.reason ?? '(no reason)'
+      console.log(`  ${l.vertical}/${l.slug}: ${reason}`)
+    }
+  }
 
   // ── Known-bad pool: hidden archived from the SSOT cleanups ──
   // Per commit history: Found (n=24), Corner (n=42), Fine Grounds (n=27)
