@@ -164,6 +164,43 @@ function sortRestLast(stops) {
 }
 
 
+/* ─── Fold single-Rest-only days into the previous day ─────────────── */
+function foldSingleRestDays(days, tripCenter, pacing) {
+  if (days.length < 2) return days
+
+  const folded = []
+  for (const day of days) {
+    const isRestOnly =
+      day.stops.length > 0 && day.stops.every(s => s.vertical === 'rest')
+
+    if (isRestOnly && folded.length > 0) {
+      // Merge rest stop(s) into the previous day
+      const prev = folded[folded.length - 1]
+      prev.stops = sortRestLast([...prev.stops, ...day.stops])
+      prev.centroid = computeCentroid(prev.stops)
+      prev.loop_km = computeLoopKm(prev.stops)
+      prev.theme = generateDayTheme(prev.stops)
+      prev.map_url = buildStaticMapUrl(prev.stops)
+    } else {
+      folded.push(day)
+    }
+  }
+
+  // Regenerate numbering, headings, and disclosures if structure changed
+  if (folded.length < days.length) {
+    let prev = null
+    folded.forEach((d, i) => {
+      d.day_number = i + 1
+      d.heading = generateDayHeading(d.stops, i, tripCenter, pacing)
+      d.day_disclosures = generateDayDisclosures(d, prev)
+      prev = d
+    })
+  }
+
+  return folded
+}
+
+
 /* ═══════════════════════════════════════════════════════════════════════
    POST handler
    ═══════════════════════════════════════════════════════════════════════ */
@@ -208,7 +245,7 @@ export async function POST(request) {
       : null
 
     // ── Build days from clusters ──────────────────────────────────────
-    const days = []
+    let days = []
     let prevDay = null
 
     for (let i = 0; i < clusters.length; i++) {
@@ -252,6 +289,9 @@ export async function POST(request) {
       days.push(day)
       prevDay = day
     }
+
+    // ── Fold single-Rest-only days into previous day ───────────────────
+    days = foldSingleRestDays(days, tripCenter, answers.pacing || null)
 
     // ── Trip-level disclosures ────────────────────────────────────────
     const tripDisclosures = generateTripDisclosures(coverage, answers, { day_count: days.length })
