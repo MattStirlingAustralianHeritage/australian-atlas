@@ -326,10 +326,31 @@ export async function POST(request) {
       filterPath.push(`binding constraint: vertical_coverage (${candidates.length} < ${minCandidates} needed)`)
     }
 
+    // ── Hard 300km region/coordinate mismatch filter ────────────────
+    // Any listing whose coordinates are >300km from the region
+    // centroid is almost certainly a misassigned region FK.
+    const DATA_QUALITY_CUTOFF_KM = 300
+    const excludedFarFromCentroid = []
+
+    if (tripCenter) {
+      const beforeHard = candidates.length
+      candidates = candidates.filter(c => {
+        const d = haversineKm(c.lat, c.lng, tripCenter.lat, tripCenter.lng)
+        if (d > DATA_QUALITY_CUTOFF_KM) {
+          console.warn(`[plan-a-stay/retrieve] Excluding listing ${c.id} ("${c.name}"): ${Math.round(d)}km from region centroid (>${DATA_QUALITY_CUTOFF_KM}km)`)
+          excludedFarFromCentroid.push(c.id)
+          return false
+        }
+        return true
+      })
+      if (excludedFarFromCentroid.length > 0) {
+        filterPath.push(`data quality filter: removed ${excludedFarFromCentroid.length} listings >${DATA_QUALITY_CUTOFF_KM}km from region centroid`)
+      }
+    }
+
     // ── Pre-clustering spatial filter ──────────────────────────────
-    // Exclude gross outliers (misassigned region FKs, stale data)
-    // that would corrupt k-means. Use 2× the pacing radius as the
-    // cutoff — anything beyond that can't be in a viable cluster.
+    // Exclude remaining outliers using 2× the pacing radius —
+    // anything beyond that can't be in a viable cluster.
     if (tripCenter) {
       const spatialCutoff = budget.radius_km * 2
       const before = candidates.length
@@ -487,6 +508,12 @@ export async function POST(request) {
         candidates_before_clustering: candidatesBeforeClustering,
         candidates_after_clustering: candidatesAfterClustering,
         filter_path: filterPath,
+        data_quality_warnings: excludedFarFromCentroid.length > 0
+          ? {
+              excluded_far_from_centroid: excludedFarFromCentroid.length,
+              excluded_listing_ids: excludedFarFromCentroid,
+            }
+          : null,
       },
     })
   } catch (err) {
