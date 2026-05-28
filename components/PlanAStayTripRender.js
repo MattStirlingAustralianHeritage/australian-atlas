@@ -43,22 +43,23 @@ export function StopCard({ stop, index, prevStop }) {
     else distLabel = `${Math.round(km * 1000)}m from previous`
   }
 
+  const numeral = String(index + 1).padStart(2, '0')
+
   return (
     <div style={{
-      padding: '16px 20px',
-      background: 'rgba(28, 26, 23, 0.02)',
-      border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
-      borderRadius: 10,
+      padding: '20px 0',
+      background: 'transparent',
+      borderBottom: '1px solid rgba(28,26,23,0.08)',
     }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginBottom: 6 }}>
         <span style={{
-          fontFamily: 'var(--font-body)',
-          fontSize: 12,
-          fontWeight: 600,
+          fontFamily: 'var(--font-display)',
+          fontSize: 14,
           color: 'var(--color-muted, #6B6760)',
-          minWidth: 20,
+          opacity: 0.4,
+          minWidth: 28,
         }}>
-          {index + 1}
+          {numeral}
         </span>
         <span style={{
           fontFamily: 'var(--font-display)',
@@ -70,7 +71,7 @@ export function StopCard({ stop, index, prevStop }) {
           {stop.name}
         </span>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 30, marginBottom: stop.description_excerpt ? 8 : 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 42, marginBottom: stop.description_excerpt ? 8 : 0 }}>
         <span style={{
           fontFamily: 'var(--font-body)',
           fontSize: 11,
@@ -108,7 +109,7 @@ export function StopCard({ stop, index, prevStop }) {
           color: 'var(--color-muted, #6B6760)',
           lineHeight: 1.5,
           margin: 0,
-          marginLeft: 30,
+          marginLeft: 42,
         }}>
           {stop.description_excerpt}
         </p>
@@ -203,9 +204,9 @@ export function TripRender({ trip }) {
       <h2 style={{
         fontFamily: 'var(--font-display)',
         fontWeight: 400,
-        fontSize: 'clamp(24px, 4.5vw, 34px)',
+        fontSize: 'clamp(26px, 5vw, 40px)',
         color: 'var(--color-ink, #1C1A17)',
-        lineHeight: 1.2,
+        lineHeight: 1.1,
         textAlign: 'center',
         marginBottom: 12,
       }}>
@@ -249,7 +250,7 @@ export function TripRender({ trip }) {
           <h3 style={{
             fontFamily: 'var(--font-display)',
             fontWeight: 400,
-            fontSize: 22,
+            fontSize: 24,
             color: 'var(--color-ink, #1C1A17)',
             lineHeight: 1.3,
             marginBottom: 4,
@@ -313,7 +314,7 @@ export function TripRender({ trip }) {
           )}
 
           {/* Stop cards */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
             {day.stops?.map((stop, stopIdx) => (
               <StopCard
                 key={stop.listing_id}

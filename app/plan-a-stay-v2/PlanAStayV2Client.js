@@ -7,6 +7,7 @@ import {
   TripRender,
   StaysOnlyRender,
 } from '@/components/PlanAStayTripRender'
+import RegionMapSelect from '@/components/RegionMapSelect'
 
 /* ─── Region data ────────────────────────────────────────────────────────
    25 regions with ≥5 active Rest listings (from coverage audit).
@@ -262,133 +263,274 @@ function QuestionScreen({ children, visible }) {
 }
 
 /* ─── Option card ────────────────────────────────────────────────────── */
-function OptionCard({ label, sub, selected, onClick }) {
+function OptionCard({ label, sub, selected, onClick, index }) {
+  const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const numeral = String(index + 1).padStart(2, '0')
+
   return (
     <button
       onClick={onClick}
       style={{
-        display: 'block',
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 14,
         width: '100%',
         textAlign: 'left',
-        padding: '18px 20px',
-        background: selected ? 'rgba(28, 26, 23, 0.04)' : 'transparent',
-        border: selected
-          ? '1.5px solid var(--color-ink, #1C1A17)'
-          : '1px solid var(--color-border, rgba(28,26,23,0.12))',
-        borderRadius: 10,
+        padding: '16px 0',
+        background: 'transparent',
+        border: 'none',
+        borderBottom: '1px solid rgba(28,26,23,0.08)',
+        borderLeft: selected ? '2px solid var(--color-accent, #C4603A)' : '2px solid transparent',
+        paddingLeft: selected ? 14 : 16,
         cursor: 'pointer',
-        transition: 'border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease',
+        transition: prefersReducedMotion
+          ? 'border-color 0.18s ease, color 0.18s ease'
+          : 'border-color 0.18s ease, color 0.18s ease, transform 0.18s ease',
         minHeight: 48,
         fontFamily: 'var(--font-body)',
+        position: 'relative',
       }}
       onMouseEnter={e => {
-        if (!selected) {
-          e.currentTarget.style.borderColor = 'rgba(28,26,23,0.3)'
-          e.currentTarget.style.backgroundColor = 'rgba(28,26,23,0.02)'
+        e.currentTarget.style.borderBottomColor = 'rgba(28,26,23,0.2)'
+        if (!prefersReducedMotion) {
+          e.currentTarget.style.transform = 'translateY(-1px)'
+        }
+        const arrow = e.currentTarget.querySelector('[data-arrow]')
+        if (arrow) {
+          arrow.style.opacity = '1'
+          if (!prefersReducedMotion) {
+            arrow.style.transform = 'translateX(0)'
+          }
         }
       }}
       onMouseLeave={e => {
-        if (!selected) {
-          e.currentTarget.style.borderColor = 'var(--color-border, rgba(28,26,23,0.12))'
-          e.currentTarget.style.backgroundColor = 'transparent'
+        e.currentTarget.style.borderBottomColor = 'rgba(28,26,23,0.08)'
+        if (!prefersReducedMotion) {
+          e.currentTarget.style.transform = 'translateY(0)'
+        }
+        const arrow = e.currentTarget.querySelector('[data-arrow]')
+        if (arrow) {
+          arrow.style.opacity = '0'
+          if (!prefersReducedMotion) {
+            arrow.style.transform = 'translateX(4px)'
+          }
         }
       }}
     >
       <span style={{
-        display: 'block',
-        fontWeight: 600,
-        fontSize: 16,
-        color: 'var(--color-ink, #1C1A17)',
-        lineHeight: 1.3,
-        marginBottom: sub ? 4 : 0,
+        fontFamily: 'var(--font-display)',
+        fontSize: 14,
+        color: selected ? 'var(--color-accent, #C4603A)' : 'var(--color-muted, #6B6760)',
+        opacity: selected ? 1 : 0.4,
+        minWidth: 28,
+        lineHeight: 1.5,
+        transition: 'color 0.18s ease, opacity 0.18s ease',
       }}>
-        {label}
+        {numeral}
       </span>
-      {sub && (
+      <div style={{ flex: 1 }}>
         <span style={{
           display: 'block',
-          fontSize: 14,
-          color: 'var(--color-muted, #6B6760)',
-          lineHeight: 1.45,
+          fontWeight: 500,
+          fontSize: 16,
+          color: selected ? 'var(--color-accent, #C4603A)' : 'var(--color-ink, #1C1A17)',
+          lineHeight: 1.3,
+          marginBottom: sub ? 4 : 0,
+          transition: 'color 0.18s ease',
         }}>
-          {sub}
+          {label}
         </span>
-      )}
+        {sub && (
+          <span style={{
+            display: 'block',
+            fontSize: 13,
+            color: 'var(--color-muted, #6B6760)',
+            lineHeight: 1.45,
+          }}>
+            {sub}
+          </span>
+        )}
+      </div>
+      <span
+        data-arrow=""
+        style={{
+          fontSize: 16,
+          color: 'var(--color-muted, #6B6760)',
+          opacity: 0,
+          transform: prefersReducedMotion ? 'none' : 'translateX(4px)',
+          transition: prefersReducedMotion
+            ? 'opacity 0.18s ease'
+            : 'opacity 0.18s ease, transform 0.18s ease',
+          alignSelf: 'center',
+          flexShrink: 0,
+        }}
+      >
+        {'→'}
+      </span>
     </button>
   )
 }
 
-/* ─── Duration pill ──────────────────────────────────────────────────── */
-function DurationPill({ label, selected, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        padding: '12px 22px',
-        background: selected ? 'var(--color-ink, #1C1A17)' : 'transparent',
-        color: selected ? '#FAF8F4' : 'var(--color-ink, #1C1A17)',
-        border: selected
-          ? '1.5px solid var(--color-ink, #1C1A17)'
-          : '1px solid var(--color-border, rgba(28,26,23,0.12))',
-        borderRadius: 100,
-        cursor: 'pointer',
-        fontFamily: 'var(--font-body)',
-        fontWeight: 500,
-        fontSize: 15,
-        transition: 'all 0.2s ease',
-        minWidth: 48,
-        minHeight: 48,
-      }}
-      onMouseEnter={e => {
-        if (!selected) {
-          e.currentTarget.style.borderColor = 'rgba(28,26,23,0.3)'
-          e.currentTarget.style.backgroundColor = 'rgba(28,26,23,0.02)'
-        }
-      }}
-      onMouseLeave={e => {
-        if (!selected) {
-          e.currentTarget.style.borderColor = 'var(--color-border, rgba(28,26,23,0.12))'
-          e.currentTarget.style.backgroundColor = 'transparent'
-        }
-      }}
-    >
-      {label}
-    </button>
-  )
-}
+/* ─── Duration pill (editorial row) ─────────────────────────────────── */
+function DurationPill({ label, selected, onClick, index }) {
+  const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const numeral = String(index + 1).padStart(2, '0')
 
-/* ─── Region row ─────────────────────────────────────────────────────── */
-function RegionRow({ name, stateAbbr, selected, onClick }) {
   return (
     <button
       onClick={onClick}
       style={{
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'space-between',
+        gap: 14,
         width: '100%',
         textAlign: 'left',
-        padding: '14px 18px',
-        background: selected ? 'rgba(28, 26, 23, 0.04)' : 'transparent',
+        padding: '16px 0',
+        background: 'transparent',
         border: 'none',
-        borderBottom: '1px solid var(--color-border, rgba(28,26,23,0.12))',
+        borderBottom: '1px solid rgba(28,26,23,0.08)',
+        borderLeft: selected ? '2px solid var(--color-accent, #C4603A)' : '2px solid transparent',
+        paddingLeft: selected ? 14 : 16,
         cursor: 'pointer',
-        transition: 'background-color 0.15s ease',
-        minHeight: 48,
         fontFamily: 'var(--font-body)',
+        fontWeight: 500,
+        fontSize: 16,
+        color: selected ? 'var(--color-accent, #C4603A)' : 'var(--color-ink, #1C1A17)',
+        transition: prefersReducedMotion
+          ? 'border-color 0.18s ease, color 0.18s ease'
+          : 'border-color 0.18s ease, color 0.18s ease, transform 0.18s ease',
+        minHeight: 48,
+        position: 'relative',
       }}
       onMouseEnter={e => {
-        if (!selected) e.currentTarget.style.backgroundColor = 'rgba(28,26,23,0.02)'
+        e.currentTarget.style.borderBottomColor = 'rgba(28,26,23,0.2)'
+        if (!prefersReducedMotion) {
+          e.currentTarget.style.transform = 'translateY(-1px)'
+        }
+        const arrow = e.currentTarget.querySelector('[data-arrow]')
+        if (arrow) {
+          arrow.style.opacity = '1'
+          if (!prefersReducedMotion) {
+            arrow.style.transform = 'translateX(0)'
+          }
+        }
       }}
       onMouseLeave={e => {
-        if (!selected) e.currentTarget.style.backgroundColor = 'transparent'
+        e.currentTarget.style.borderBottomColor = 'rgba(28,26,23,0.08)'
+        if (!prefersReducedMotion) {
+          e.currentTarget.style.transform = 'translateY(0)'
+        }
+        const arrow = e.currentTarget.querySelector('[data-arrow]')
+        if (arrow) {
+          arrow.style.opacity = '0'
+          if (!prefersReducedMotion) {
+            arrow.style.transform = 'translateX(4px)'
+          }
+        }
       }}
     >
       <span style={{
+        fontFamily: 'var(--font-display)',
+        fontSize: 14,
+        color: selected ? 'var(--color-accent, #C4603A)' : 'var(--color-muted, #6B6760)',
+        opacity: selected ? 1 : 0.4,
+        minWidth: 28,
+        transition: 'color 0.18s ease, opacity 0.18s ease',
+      }}>
+        {numeral}
+      </span>
+      <span style={{ flex: 1 }}>{label}</span>
+      <span
+        data-arrow=""
+        style={{
+          fontSize: 16,
+          color: 'var(--color-muted, #6B6760)',
+          opacity: 0,
+          transform: prefersReducedMotion ? 'none' : 'translateX(4px)',
+          transition: prefersReducedMotion
+            ? 'opacity 0.18s ease'
+            : 'opacity 0.18s ease, transform 0.18s ease',
+          flexShrink: 0,
+        }}
+      >
+        {'→'}
+      </span>
+    </button>
+  )
+}
+
+/* ─── Region row ─────────────────────────────────────────────────────── */
+function RegionRow({ name, stateAbbr, selected, onClick, index }) {
+  const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const numeral = String(index + 1).padStart(2, '0')
+
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 14,
+        width: '100%',
+        textAlign: 'left',
+        padding: '16px 0',
+        background: 'transparent',
+        border: 'none',
+        borderBottom: '1px solid rgba(28,26,23,0.08)',
+        borderLeft: selected ? '2px solid var(--color-accent, #C4603A)' : '2px solid transparent',
+        paddingLeft: selected ? 14 : 16,
+        cursor: 'pointer',
+        transition: prefersReducedMotion
+          ? 'border-color 0.18s ease, color 0.18s ease'
+          : 'border-color 0.18s ease, color 0.18s ease, transform 0.18s ease',
+        minHeight: 48,
+        fontFamily: 'var(--font-body)',
+        position: 'relative',
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.borderBottomColor = 'rgba(28,26,23,0.2)'
+        if (!prefersReducedMotion) {
+          e.currentTarget.style.transform = 'translateY(-1px)'
+        }
+        const arrow = e.currentTarget.querySelector('[data-arrow]')
+        if (arrow) {
+          arrow.style.opacity = '1'
+          if (!prefersReducedMotion) {
+            arrow.style.transform = 'translateX(0)'
+          }
+        }
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.borderBottomColor = 'rgba(28,26,23,0.08)'
+        if (!prefersReducedMotion) {
+          e.currentTarget.style.transform = 'translateY(0)'
+        }
+        const arrow = e.currentTarget.querySelector('[data-arrow]')
+        if (arrow) {
+          arrow.style.opacity = '0'
+          if (!prefersReducedMotion) {
+            arrow.style.transform = 'translateX(4px)'
+          }
+        }
+      }}
+    >
+      <span style={{
+        fontFamily: 'var(--font-display)',
+        fontSize: 14,
+        color: selected ? 'var(--color-accent, #C4603A)' : 'var(--color-muted, #6B6760)',
+        opacity: selected ? 1 : 0.4,
+        minWidth: 28,
+        transition: 'color 0.18s ease, opacity 0.18s ease',
+      }}>
+        {numeral}
+      </span>
+      <span style={{
+        flex: 1,
         fontSize: 16,
-        fontWeight: selected ? 600 : 400,
-        color: 'var(--color-ink, #1C1A17)',
+        fontWeight: 500,
+        color: selected ? 'var(--color-accent, #C4603A)' : 'var(--color-ink, #1C1A17)',
         lineHeight: 1.3,
+        transition: 'color 0.18s ease',
       }}>
         {name}
       </span>
@@ -400,52 +542,113 @@ function RegionRow({ name, stateAbbr, selected, onClick }) {
         color: 'var(--color-muted, #6B6760)',
         opacity: 0.6,
         flexShrink: 0,
-        marginLeft: 16,
       }}>
         {stateAbbr}
+      </span>
+      <span
+        data-arrow=""
+        style={{
+          fontSize: 16,
+          color: 'var(--color-muted, #6B6760)',
+          opacity: 0,
+          transform: prefersReducedMotion ? 'none' : 'translateX(4px)',
+          transition: prefersReducedMotion
+            ? 'opacity 0.18s ease'
+            : 'opacity 0.18s ease, transform 0.18s ease',
+          flexShrink: 0,
+        }}
+      >
+        {'→'}
       </span>
     </button>
   )
 }
 
-/* ─── Season card (simpler, no subtitle) ─────────────────────────────── */
-function SeasonCard({ label, selected, onClick }) {
+/* ─── Season card (editorial row) ────────────────────────────────────── */
+function SeasonCard({ label, selected, onClick, index }) {
+  const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const numeral = String(index + 1).padStart(2, '0')
+
   return (
     <button
       onClick={onClick}
       style={{
-        display: 'block',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 14,
         width: '100%',
         textAlign: 'left',
-        padding: '16px 20px',
-        background: selected ? 'rgba(28, 26, 23, 0.04)' : 'transparent',
-        border: selected
-          ? '1.5px solid var(--color-ink, #1C1A17)'
-          : '1px solid var(--color-border, rgba(28,26,23,0.12))',
-        borderRadius: 10,
+        padding: '16px 0',
+        background: 'transparent',
+        border: 'none',
+        borderBottom: '1px solid rgba(28,26,23,0.08)',
+        borderLeft: selected ? '2px solid var(--color-accent, #C4603A)' : '2px solid transparent',
+        paddingLeft: selected ? 14 : 16,
         cursor: 'pointer',
-        transition: 'border-color 0.2s ease, background-color 0.2s ease',
+        transition: prefersReducedMotion
+          ? 'border-color 0.18s ease, color 0.18s ease'
+          : 'border-color 0.18s ease, color 0.18s ease, transform 0.18s ease',
         minHeight: 48,
         fontFamily: 'var(--font-body)',
         fontWeight: 500,
         fontSize: 16,
-        color: 'var(--color-ink, #1C1A17)',
+        color: selected ? 'var(--color-accent, #C4603A)' : 'var(--color-ink, #1C1A17)',
         lineHeight: 1.3,
+        position: 'relative',
       }}
       onMouseEnter={e => {
-        if (!selected) {
-          e.currentTarget.style.borderColor = 'rgba(28,26,23,0.3)'
-          e.currentTarget.style.backgroundColor = 'rgba(28,26,23,0.02)'
+        e.currentTarget.style.borderBottomColor = 'rgba(28,26,23,0.2)'
+        if (!prefersReducedMotion) {
+          e.currentTarget.style.transform = 'translateY(-1px)'
+        }
+        const arrow = e.currentTarget.querySelector('[data-arrow]')
+        if (arrow) {
+          arrow.style.opacity = '1'
+          if (!prefersReducedMotion) {
+            arrow.style.transform = 'translateX(0)'
+          }
         }
       }}
       onMouseLeave={e => {
-        if (!selected) {
-          e.currentTarget.style.borderColor = 'var(--color-border, rgba(28,26,23,0.12))'
-          e.currentTarget.style.backgroundColor = 'transparent'
+        e.currentTarget.style.borderBottomColor = 'rgba(28,26,23,0.08)'
+        if (!prefersReducedMotion) {
+          e.currentTarget.style.transform = 'translateY(0)'
+        }
+        const arrow = e.currentTarget.querySelector('[data-arrow]')
+        if (arrow) {
+          arrow.style.opacity = '0'
+          if (!prefersReducedMotion) {
+            arrow.style.transform = 'translateX(4px)'
+          }
         }
       }}
     >
-      {label}
+      <span style={{
+        fontFamily: 'var(--font-display)',
+        fontSize: 14,
+        color: selected ? 'var(--color-accent, #C4603A)' : 'var(--color-muted, #6B6760)',
+        opacity: selected ? 1 : 0.4,
+        minWidth: 28,
+        transition: 'color 0.18s ease, opacity 0.18s ease',
+      }}>
+        {numeral}
+      </span>
+      <span style={{ flex: 1 }}>{label}</span>
+      <span
+        data-arrow=""
+        style={{
+          fontSize: 16,
+          color: 'var(--color-muted, #6B6760)',
+          opacity: 0,
+          transform: prefersReducedMotion ? 'none' : 'translateX(4px)',
+          transition: prefersReducedMotion
+            ? 'opacity 0.18s ease'
+            : 'opacity 0.18s ease, transform 0.18s ease',
+          flexShrink: 0,
+        }}
+      >
+        {'→'}
+      </span>
     </button>
   )
 }
@@ -947,7 +1150,7 @@ export default function PlanAStayV2Client() {
       background: 'var(--color-bg, #F8F6F1)',
     }}>
       <div style={{
-        maxWidth: 640,
+        maxWidth: 560,
         margin: '0 auto',
         padding: '0 24px 96px',
       }}>
@@ -972,10 +1175,11 @@ export default function PlanAStayV2Client() {
           <h1 style={{
             fontFamily: 'var(--font-display)',
             fontWeight: 400,
-            fontSize: 'clamp(26px, 4vw, 34px)',
+            fontSize: 'clamp(28px, 5vw, 42px)',
             color: 'var(--color-ink, #1C1A17)',
-            lineHeight: 1.2,
+            lineHeight: 1.1,
             marginBottom: 8,
+            maxWidth: 440,
           }}>
             What kind of trip is this?
           </h1>
@@ -988,14 +1192,15 @@ export default function PlanAStayV2Client() {
           }}>
             Pick one or two. We{"'"}ll build from there.
           </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {INTENT_OPTIONS.map(opt => (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {INTENT_OPTIONS.map((opt, i) => (
               <OptionCard
                 key={opt.id}
                 label={opt.label}
                 sub={opt.sub}
                 selected={state.intent.includes(opt.id)}
                 onClick={() => dispatch({ type: 'SET_INTENT', value: opt.id })}
+                index={i}
               />
             ))}
           </div>
@@ -1010,15 +1215,16 @@ export default function PlanAStayV2Client() {
           <h1 style={{
             fontFamily: 'var(--font-display)',
             fontWeight: 400,
-            fontSize: 'clamp(26px, 4vw, 34px)',
+            fontSize: 'clamp(28px, 5vw, 42px)',
             color: 'var(--color-ink, #1C1A17)',
-            lineHeight: 1.2,
+            lineHeight: 1.1,
             marginBottom: 28,
+            maxWidth: 440,
           }}>
             How are you wanting to spend the days?
           </h1>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {PACING_OPTIONS.map(opt => (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {PACING_OPTIONS.map((opt, i) => (
               <OptionCard
                 key={opt.id}
                 label={opt.label}
@@ -1028,6 +1234,7 @@ export default function PlanAStayV2Client() {
                   dispatch({ type: 'SET_PACING', value: opt.id })
                   autoAdvance()
                 }}
+                index={i}
               />
             ))}
           </div>
@@ -1038,19 +1245,20 @@ export default function PlanAStayV2Client() {
           <h1 style={{
             fontFamily: 'var(--font-display)',
             fontWeight: 400,
-            fontSize: 'clamp(26px, 4vw, 34px)',
+            fontSize: 'clamp(28px, 5vw, 42px)',
             color: 'var(--color-ink, #1C1A17)',
-            lineHeight: 1.2,
+            lineHeight: 1.1,
             marginBottom: 28,
+            maxWidth: 440,
           }}>
             How many days?
           </h1>
           <div style={{
             display: 'flex',
-            flexWrap: 'wrap',
-            gap: 10,
+            flexDirection: 'column',
+            gap: 0,
           }}>
-            {DURATION_OPTIONS.map(opt => (
+            {DURATION_OPTIONS.map((opt, i) => (
               <DurationPill
                 key={opt.id}
                 label={opt.label}
@@ -1059,6 +1267,7 @@ export default function PlanAStayV2Client() {
                   dispatch({ type: 'SET_DURATION', value: opt.id })
                   autoAdvance()
                 }}
+                index={i}
               />
             ))}
           </div>
@@ -1069,10 +1278,11 @@ export default function PlanAStayV2Client() {
           <h1 style={{
             fontFamily: 'var(--font-display)',
             fontWeight: 400,
-            fontSize: 'clamp(26px, 4vw, 34px)',
+            fontSize: 'clamp(28px, 5vw, 42px)',
             color: 'var(--color-ink, #1C1A17)',
-            lineHeight: 1.2,
+            lineHeight: 1.1,
             marginBottom: 8,
+            maxWidth: 440,
           }}>
             Where in Australia?
           </h1>
@@ -1085,24 +1295,14 @@ export default function PlanAStayV2Client() {
           }}>
             We{"'"}re well-covered in some regions and still building others. These are the ones with enough to plan a trip through.
           </p>
-          <div style={{
-            border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
-            borderRadius: 10,
-            overflow: 'hidden',
-          }}>
-            {COVERED_REGIONS.map(r => (
-              <RegionRow
-                key={r.name}
-                name={r.name}
-                stateAbbr={r.state}
-                selected={state.region === r.name}
-                onClick={() => {
-                  dispatch({ type: 'SET_REGION', value: r.name })
-                  autoAdvance()
-                }}
-              />
-            ))}
-          </div>
+          <RegionMapSelect
+            regions={COVERED_REGIONS}
+            selectedRegion={state.region}
+            onSelect={(name) => {
+              dispatch({ type: 'SET_REGION', value: name })
+              autoAdvance()
+            }}
+          />
           {/* "Not sure yet" — disabled until recommendation flow exists */}
           <div style={{ padding: '16px 0 0' }}>
             <div
@@ -1147,15 +1347,16 @@ export default function PlanAStayV2Client() {
           <h1 style={{
             fontFamily: 'var(--font-display)',
             fontWeight: 400,
-            fontSize: 'clamp(26px, 4vw, 34px)',
+            fontSize: 'clamp(28px, 5vw, 42px)',
             color: 'var(--color-ink, #1C1A17)',
-            lineHeight: 1.2,
+            lineHeight: 1.1,
             marginBottom: 28,
+            maxWidth: 440,
           }}>
             When are you thinking?
           </h1>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {SEASON_OPTIONS.map(opt => (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {SEASON_OPTIONS.map((opt, i) => (
               <SeasonCard
                 key={opt.id}
                 label={opt.label}
@@ -1164,6 +1365,7 @@ export default function PlanAStayV2Client() {
                   dispatch({ type: 'SET_SEASON', value: opt.id })
                   autoAdvance()
                 }}
+                index={i}
               />
             ))}
           </div>
