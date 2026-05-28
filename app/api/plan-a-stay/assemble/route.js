@@ -201,7 +201,7 @@ export async function POST(request) {
     }
 
     // ── Trip-level disclosures ────────────────────────────────────────
-    const tripDisclosures = generateTripDisclosures(coverage, answers)
+    const tripDisclosures = generateTripDisclosures(coverage, answers, { day_count: days.length })
 
     // ── Intro line ────────────────────────────────────────────────────
     const totalStops = days.reduce((sum, d) => sum + d.stops.length, 0)
