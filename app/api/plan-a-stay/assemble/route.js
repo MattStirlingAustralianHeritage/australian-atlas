@@ -65,13 +65,29 @@ function buildStaticMapUrl(stops, width = 720, height = 300) {
 
 
 /* ─── Description excerpt helper ────────────────────────────────────── */
-function excerptDescription(desc, maxLen = 140) {
+function excerptDescription(desc, maxLen = 200) {
   if (!desc) return ''
   if (desc.length <= maxLen) return desc
-  // Cut at last word boundary before maxLen
-  const cut = desc.slice(0, maxLen)
-  const lastSpace = cut.lastIndexOf(' ')
-  return (lastSpace > 80 ? cut.slice(0, lastSpace) : cut) + '…'
+
+  const slice = desc.slice(0, maxLen)
+
+  // Prefer cutting at a sentence boundary (". " or "! " or "? ")
+  const sentenceBreak = Math.max(
+    slice.lastIndexOf('. '),
+    slice.lastIndexOf('! '),
+    slice.lastIndexOf('? ')
+  )
+  if (sentenceBreak > maxLen * 0.5) {
+    return slice.slice(0, sentenceBreak + 1)
+  }
+
+  // Fall back to word boundary
+  const wordBreak = slice.lastIndexOf(' ')
+  if (wordBreak > 0) {
+    return slice.slice(0, wordBreak) + '…'
+  }
+
+  return slice + '…'
 }
 
 
