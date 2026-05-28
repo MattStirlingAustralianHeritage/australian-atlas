@@ -97,16 +97,41 @@ async function enrichStopsWithDescriptions(clusters) {
 /* ─── Per-day diversity constraint ──────────────────────────────────── */
 const MAX_REST_PER_DAY = 1
 
+const SUBTYPE_CAPS = {
+  // SBA — cap at 3 to avoid winery walls
+  winery: 3, brewery: 3, distillery: 3, cidery: 3,
+  // Table
+  restaurant: 3, farm_gate: 3, market: 3, bakery: 3,
+  // Rest — already capped by MAX_REST_PER_DAY, but belt-and-braces
+  boutique_hotel: 1, cottage: 1, glamping: 1, farm_stay: 1,
+  // Craft / Collection — 2 keeps variety
+  craft: 2, collection: 2,
+}
+const DEFAULT_SUBTYPE_CAP = 3
+
 function pickDayStops(rankedCandidates, targetCount = 4) {
   const picked = []
   let restCount = 0
+  const subtypeCounts = {}
 
   for (const candidate of rankedCandidates) {
     if (picked.length >= targetCount) break
+
+    // Rest cap (vertical-level)
     if (candidate.vertical === 'rest') {
       if (restCount >= MAX_REST_PER_DAY) continue
       restCount++
     }
+
+    // Sub-type saturation cap
+    const st = candidate.sub_type
+    if (st) {
+      const cap = SUBTYPE_CAPS[st] ?? DEFAULT_SUBTYPE_CAP
+      const count = subtypeCounts[st] || 0
+      if (count >= cap) continue
+      subtypeCounts[st] = count + 1
+    }
+
     picked.push(candidate)
   }
   return picked
