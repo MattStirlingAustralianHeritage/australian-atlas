@@ -1,6 +1,12 @@
 'use client'
 
 import { useReducer, useEffect, useRef, useCallback, useState } from 'react'
+import {
+  VERTICAL_LABELS,
+  StopCard,
+  TripRender,
+  StaysOnlyRender,
+} from '@/components/PlanAStayTripRender'
 
 /* ─── Region data ────────────────────────────────────────────────────────
    25 regions with ≥5 active Rest listings (from coverage audit).
@@ -551,7 +557,7 @@ function LoadingScreen({ state, onComplete, onError }) {
           // Show line 3 — done
           setVisibleCount()
           // Brief pause so the user sees "Writing the trip…" before output
-          setTimeout(() => onComplete(assembled), 600)
+          setTimeout(() => onComplete(assembled, answers), 600)
         })
         .catch(err => {
           console.error('[plan-a-stay] Pipeline error:', err)
@@ -594,113 +600,11 @@ function LoadingScreen({ state, onComplete, onError }) {
   )
 }
 
-/* ─── Vertical badge labels ──────────────────────────────────────────── */
-const VERTICAL_LABELS = {
-  craft: 'Craft',
-  collection: 'Collection',
-  table: 'Table',
-  sba: 'SBA',
-  rest: 'Rest',
-  field: 'Field',
-  found: 'Found',
-  corner: 'Corner',
-  fine_grounds: 'Fine Grounds',
-  culture: 'Culture',
-}
-
-/* ─── Stop card ──────────────────────────────────────────────────────── */
-function StopCard({ stop, index, prevStop }) {
-  // Compute distance from previous stop
-  let distLabel = null
-  if (prevStop) {
-    const R = 6371
-    const dLat = (stop.lat - prevStop.lat) * Math.PI / 180
-    const dLng = (stop.lng - prevStop.lng) * Math.PI / 180
-    const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos(prevStop.lat * Math.PI / 180) * Math.cos(stop.lat * Math.PI / 180) *
-      Math.sin(dLng / 2) ** 2
-    const km = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-    if (km >= 1) distLabel = `${Math.round(km)}km from previous`
-    else distLabel = `${Math.round(km * 1000)}m from previous`
-  }
-
-  return (
-    <div style={{
-      padding: '16px 20px',
-      background: 'rgba(28, 26, 23, 0.02)',
-      border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
-      borderRadius: 10,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 6 }}>
-        <span style={{
-          fontFamily: 'var(--font-body)',
-          fontSize: 12,
-          fontWeight: 600,
-          color: 'var(--color-muted, #6B6760)',
-          minWidth: 20,
-        }}>
-          {index + 1}
-        </span>
-        <span style={{
-          fontFamily: 'var(--font-display)',
-          fontWeight: 400,
-          fontSize: 17,
-          color: 'var(--color-ink, #1C1A17)',
-          lineHeight: 1.3,
-        }}>
-          {stop.name}
-        </span>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 30, marginBottom: stop.description_excerpt ? 8 : 0 }}>
-        <span style={{
-          fontFamily: 'var(--font-body)',
-          fontSize: 11,
-          fontWeight: 600,
-          letterSpacing: '0.06em',
-          textTransform: 'uppercase',
-          color: '#C4973B',
-        }}>
-          {VERTICAL_LABELS[stop.vertical] || stop.vertical}
-        </span>
-        {stop.sub_type && (
-          <span style={{
-            fontFamily: 'var(--font-body)',
-            fontSize: 11,
-            color: 'var(--color-muted, #6B6760)',
-          }}>
-            {stop.sub_type.replace(/_/g, ' ')}
-          </span>
-        )}
-        {distLabel && (
-          <span style={{
-            fontFamily: 'var(--font-body)',
-            fontSize: 11,
-            color: 'var(--color-muted, #6B6760)',
-            opacity: 0.7,
-          }}>
-            · {distLabel}
-          </span>
-        )}
-      </div>
-      {stop.description_excerpt && (
-        <p style={{
-          fontFamily: 'var(--font-body)',
-          fontSize: 13,
-          color: 'var(--color-muted, #6B6760)',
-          lineHeight: 1.5,
-          margin: 0,
-          marginLeft: 30,
-        }}>
-          {stop.description_excerpt}
-        </p>
-      )}
-    </div>
-  )
-}
-
 /* ─── Output screen — real trip rendering ────────────────────────────── */
 function OutputScreen({ tripData, error, onReset }) {
+  const [shareState, setShareState] = useState('idle') // idle | sharing | shared | error
+  const [shareUrl, setShareUrl] = useState(null)
+
   // Error state
   if (error) {
     return (
@@ -791,90 +695,17 @@ function OutputScreen({ tripData, error, onReset }) {
 
   // Stays-only — region has accommodation but nothing curated to do
   if (tripData?.stays_only) {
-    const so = tripData.stays_only
-    const subtypeLabels = {
-      boutique_hotel: 'Boutique hotel',
-      cottage: 'Cottage',
-      glamping: 'Glamping',
-      farm_stay: 'Farm stay',
-    }
     return (
-      <div style={{ padding: '64px 0 96px', maxWidth: 520, margin: '0 auto' }}>
-        <p style={{
-          fontFamily: 'var(--font-body)',
-          fontSize: 15,
-          color: 'var(--color-ink, #1C1A17)',
-          lineHeight: 1.6,
-          marginBottom: 32,
-        }}>
-          {so.framing}
-        </p>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          {so.stays.map(stay => (
-            <a
-              key={stay.id}
-              href={`/place/${stay.slug}`}
-              style={{
-                display: 'flex',
-                alignItems: 'baseline',
-                gap: 8,
-                padding: '14px 0',
-                borderBottom: '1px solid var(--color-border, rgba(28,26,23,0.08))',
-                textDecoration: 'none',
-                color: 'inherit',
-              }}
-            >
-              <span style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 500,
-                fontSize: 15,
-                color: 'var(--color-ink, #1C1A17)',
-              }}>
-                {stay.name}
-              </span>
-              {(stay.sub_type || stay.suburb) && (
-                <span style={{
-                  fontFamily: 'var(--font-body)',
-                  fontSize: 13,
-                  color: 'var(--color-muted, #6B6760)',
-                }}>
-                  {[subtypeLabels[stay.sub_type], stay.suburb].filter(Boolean).join(' · ')}
-                </span>
-              )}
-            </a>
-          ))}
-        </div>
-
-        <p style={{
-          fontFamily: 'var(--font-body)',
-          fontSize: 13,
-          color: 'var(--color-muted, #6B6760)',
-          lineHeight: 1.5,
-          marginTop: 32,
-          marginBottom: 32,
-        }}>
-          {so.redirect}
-        </p>
-
-        <div style={{ textAlign: 'center' }}>
-          <button
-            onClick={onReset}
-            style={{
-              fontFamily: 'var(--font-body)',
-              fontWeight: 500,
-              fontSize: 15,
-              color: 'var(--color-ink, #1C1A17)',
-              background: 'transparent',
-              border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
-              borderRadius: 8,
-              padding: '12px 32px',
-              cursor: 'pointer',
-            }}
-          >
-            Start over
-          </button>
-        </div>
+      <div>
+        <StaysOnlyRender staysOnly={tripData.stays_only} />
+        <ActionButtons
+          tripData={tripData}
+          onReset={onReset}
+          shareState={shareState}
+          setShareState={setShareState}
+          shareUrl={shareUrl}
+          setShareUrl={setShareUrl}
+        />
       </div>
     )
   }
@@ -882,202 +713,157 @@ function OutputScreen({ tripData, error, onReset }) {
   // No data yet
   if (!tripData?.trip) return null
 
-  const { trip } = tripData
+  return (
+    <div>
+      <TripRender trip={tripData.trip} />
+      <ActionButtons
+        tripData={tripData}
+        onReset={onReset}
+        shareState={shareState}
+        setShareState={setShareState}
+        shareUrl={shareUrl}
+        setShareUrl={setShareUrl}
+      />
+    </div>
+  )
+}
+
+
+/* ─── Action buttons (Share / Save / Start over) ─────────────────────── */
+function ActionButtons({ tripData, onReset, shareState, setShareState, shareUrl, setShareUrl }) {
+  async function handleShare() {
+    if (shareState === 'sharing') return
+
+    setShareState('sharing')
+    try {
+      const payload = {
+        answers: tripData._answers || {},
+      }
+
+      if (tripData.stays_only) {
+        payload.stays_only = tripData.stays_only
+      } else {
+        payload.trip = tripData.trip
+      }
+
+      const res = await fetch('/api/plan-a-stay/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      if (!res.ok) throw new Error(`Share failed: ${res.status}`)
+
+      const result = await res.json()
+      const fullUrl = `${window.location.origin}${result.url}`
+      setShareUrl(fullUrl)
+
+      // Copy to clipboard
+      try {
+        await navigator.clipboard.writeText(fullUrl)
+      } catch {
+        // Clipboard may fail on non-HTTPS — still show the URL
+      }
+
+      setShareState('shared')
+    } catch (err) {
+      console.error('[plan-a-stay] Share error:', err)
+      setShareState('error')
+      // Reset after a moment so user can retry
+      setTimeout(() => setShareState('idle'), 3000)
+    }
+  }
+
+  const shareLabel =
+    shareState === 'sharing' ? 'Sharing…' :
+    shareState === 'shared' ? 'Link copied' :
+    shareState === 'error' ? 'Failed — try again' :
+    'Share'
 
   return (
     <div style={{
-      padding: '48px 0 96px',
       maxWidth: 720,
       margin: '0 auto',
     }}>
-      {/* ── Title ─────────────────────────────────────────────── */}
-      <h2 style={{
-        fontFamily: 'var(--font-display)',
-        fontWeight: 400,
-        fontSize: 'clamp(24px, 4.5vw, 34px)',
-        color: 'var(--color-ink, #1C1A17)',
-        lineHeight: 1.2,
-        textAlign: 'center',
-        marginBottom: 12,
-      }}>
-        {trip.title}
-      </h2>
-
-      {/* ── Intro ─────────────────────────────────────────────── */}
-      <p style={{
-        fontFamily: 'var(--font-body)',
-        fontSize: 15,
-        color: 'var(--color-muted, #6B6760)',
-        lineHeight: 1.6,
-        textAlign: 'center',
-        marginBottom: trip.trip_disclosures?.length > 0 ? 16 : 40,
-      }}>
-        {trip.intro}
-      </p>
-
-      {/* ── Trip disclosures ──────────────────────────────────── */}
-      {trip.trip_disclosures?.length > 0 && (
-        <div style={{ marginBottom: 40, textAlign: 'center' }}>
-          {trip.trip_disclosures.map((d, i) => (
-            <p key={i} style={{
-              fontFamily: 'var(--font-body)',
-              fontSize: 13,
-              fontStyle: 'italic',
-              color: 'var(--color-muted, #6B6760)',
-              lineHeight: 1.5,
-              margin: '4px 0',
-            }}>
-              {d}
-            </p>
-          ))}
-        </div>
-      )}
-
-      {/* ── Days ──────────────────────────────────────────────── */}
-      {trip.days?.map((day, dayIdx) => (
-        <div key={day.day_number} style={{ marginBottom: 48 }}>
-          {/* Day heading */}
-          <h3 style={{
-            fontFamily: 'var(--font-display)',
-            fontWeight: 400,
-            fontSize: 22,
-            color: 'var(--color-ink, #1C1A17)',
-            lineHeight: 1.3,
-            marginBottom: 4,
-          }}>
-            {day.heading}
-          </h3>
-
-          {/* Day theme */}
-          {day.theme && (
-            <p style={{
-              fontFamily: 'var(--font-body)',
-              fontSize: 14,
-              fontStyle: 'italic',
-              color: 'var(--color-muted, #6B6760)',
-              lineHeight: 1.5,
-              marginBottom: day.day_disclosures?.length > 0 ? 8 : 16,
-            }}>
-              {day.theme}
-            </p>
-          )}
-
-          {/* Day disclosures */}
-          {day.day_disclosures?.length > 0 && (
-            <div style={{ marginBottom: 16 }}>
-              {day.day_disclosures.map((d, i) => (
-                <p key={i} style={{
-                  fontFamily: 'var(--font-body)',
-                  fontSize: 12,
-                  color: 'var(--color-muted, #6B6760)',
-                  lineHeight: 1.5,
-                  margin: '2px 0',
-                  opacity: 0.8,
-                }}>
-                  {d}
-                </p>
-              ))}
-            </div>
-          )}
-
-          {/* Static map */}
-          {day.map_url && (
-            <div style={{
-              marginBottom: 16,
-              borderRadius: 10,
-              overflow: 'hidden',
-              border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
-            }}>
-              <img
-                src={day.map_url}
-                alt={`Map for ${day.heading}`}
-                loading={dayIdx === 0 ? 'eager' : 'lazy'}
-                style={{
-                  width: '100%',
-                  height: 'auto',
-                  display: 'block',
-                  minHeight: 160,
-                  background: '#2d2a24',
-                }}
-              />
-            </div>
-          )}
-
-          {/* Stop cards */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {day.stops?.map((stop, stopIdx) => (
-              <StopCard
-                key={stop.listing_id}
-                stop={stop}
-                index={stopIdx}
-                prevStop={stopIdx > 0 ? day.stops[stopIdx - 1] : null}
-              />
-            ))}
-          </div>
-        </div>
-      ))}
-
-      {/* ── Action buttons ────────────────────────────────────── */}
       <div style={{
         display: 'flex',
-        justifyContent: 'center',
+        flexDirection: 'column',
+        alignItems: 'center',
         gap: 12,
         paddingTop: 24,
         borderTop: '1px solid var(--color-border, rgba(28,26,23,0.12))',
       }}>
-        <button
-          disabled
-          style={{
+        <div style={{ display: 'flex', gap: 12 }}>
+          <button
+            disabled
+            style={{
+              fontFamily: 'var(--font-body)',
+              fontWeight: 500,
+              fontSize: 14,
+              color: 'var(--color-muted, #6B6760)',
+              background: 'transparent',
+              border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
+              borderRadius: 8,
+              padding: '10px 24px',
+              cursor: 'not-allowed',
+              opacity: 0.5,
+            }}
+          >
+            Save to account — coming later
+          </button>
+          <button
+            onClick={handleShare}
+            disabled={shareState === 'sharing'}
+            style={{
+              fontFamily: 'var(--font-body)',
+              fontWeight: 500,
+              fontSize: 14,
+              color: shareState === 'shared'
+                ? '#5a7c5a'
+                : 'var(--color-ink, #1C1A17)',
+              background: 'transparent',
+              border: `1px solid ${shareState === 'shared' ? 'rgba(90,124,90,0.3)' : 'var(--color-border, rgba(28,26,23,0.12))'}`,
+              borderRadius: 8,
+              padding: '10px 24px',
+              cursor: shareState === 'sharing' ? 'wait' : 'pointer',
+              transition: 'border-color 0.2s ease, color 0.2s ease',
+            }}
+          >
+            {shareLabel}
+          </button>
+          <button
+            onClick={onReset}
+            style={{
+              fontFamily: 'var(--font-body)',
+              fontWeight: 500,
+              fontSize: 14,
+              color: 'var(--color-ink, #1C1A17)',
+              background: 'transparent',
+              border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
+              borderRadius: 8,
+              padding: '10px 24px',
+              cursor: 'pointer',
+              transition: 'border-color 0.2s ease',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(28,26,23,0.3)' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-border, rgba(28,26,23,0.12))' }}
+          >
+            Start over
+          </button>
+        </div>
+
+        {/* Show URL after sharing */}
+        {shareState === 'shared' && shareUrl && (
+          <p style={{
             fontFamily: 'var(--font-body)',
-            fontWeight: 500,
-            fontSize: 14,
+            fontSize: 12,
             color: 'var(--color-muted, #6B6760)',
-            background: 'transparent',
-            border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
-            borderRadius: 8,
-            padding: '10px 24px',
-            cursor: 'not-allowed',
-            opacity: 0.5,
-          }}
-        >
-          Save — coming soon
-        </button>
-        <button
-          disabled
-          style={{
-            fontFamily: 'var(--font-body)',
-            fontWeight: 500,
-            fontSize: 14,
-            color: 'var(--color-muted, #6B6760)',
-            background: 'transparent',
-            border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
-            borderRadius: 8,
-            padding: '10px 24px',
-            cursor: 'not-allowed',
-            opacity: 0.5,
-          }}
-        >
-          Share — coming soon
-        </button>
-        <button
-          onClick={onReset}
-          style={{
-            fontFamily: 'var(--font-body)',
-            fontWeight: 500,
-            fontSize: 14,
-            color: 'var(--color-ink, #1C1A17)',
-            background: 'transparent',
-            border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
-            borderRadius: 8,
-            padding: '10px 24px',
-            cursor: 'pointer',
-            transition: 'border-color 0.2s ease',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(28,26,23,0.3)' }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-border, rgba(28,26,23,0.12))' }}
-        >
-          Start over
-        </button>
+            margin: '4px 0 0',
+            wordBreak: 'break-all',
+          }}>
+            {shareUrl}
+          </p>
+        )}
       </div>
     </div>
   )
@@ -1113,8 +899,9 @@ export default function PlanAStayV2Client() {
   }
 
   /* ── Loading complete callback ───────────────────────────────────── */
-  const handleLoadingComplete = useCallback((assembled) => {
-    setTripData(assembled)
+  const handleLoadingComplete = useCallback((assembled, answers) => {
+    // Attach answers so the Share button can send them to the share endpoint
+    setTripData({ ...assembled, _answers: answers })
     setTripError(null)
     dispatch({ type: 'GO_TO_STEP', value: 'output' })
   }, [])
