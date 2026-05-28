@@ -1,8 +1,8 @@
 # Portal-as-Single-Source-of-Truth — Audit
 
-**Date:** 21 May 2026 (audit), 25 May 2026 (latest status update)
+**Date:** 21 May 2026 (audit), 28 May 2026 (latest status update)
 **Author:** Matt Smith
-**Status:** Tier 1 complete; Tier 2 hallucination cleanup complete across three verticals; manual review queue complete; two new findings surfaced (hallucinated descriptions on real venues, franchise/chain operators past independence gate)
+**Status:** Tier 1 complete; Tier 2 hallucination cleanup complete across three verticals; manual review queue complete; Finding A scored 77 HIGH (now 40 after Gate 1 hides); Finding B augmented and re-run, network clean after 39 institutional-outlet and chain-franchise hides; Gate 1 independence policy codified in `docs/gate-1-independence-policy.md`
 **Execution model:** Claude Code with repo + DB access, run section by section
 
 ---
@@ -108,51 +108,103 @@ Ten listings surfaced during Corner and Found cleanup that required manual judge
 | 9 | `mr-toys-cairns` | Corner | **Franchise chain (Toyworld)** — hidden, fails Gate 1 independence |
 | 10 | `eckersleys-sydney` | Corner | Listing already gone — no action |
 
-### Finding A — hallucinated descriptions on real venues (NEW)
+### Finding A — hallucinated descriptions on real venues — ✅ Detection complete, 77 rewrite candidates surfaced
 
 The 2026-04-01 seed produced two kinds of corruption, not one:
 
-1. **Fake venues with fake websites** — caught by HTTP-failure detection in Fix 3 and the Corner/Found cleanup. ~94 listings archived to date.
-2. **Real venues with fabricated descriptions** — *not* caught by the existing audit. Surfaced manually during the review queue.
+1. **Fake venues with fake websites** — caught by HTTP-failure detection in Fix 3 and the Corner/Found cleanup. 94 listings archived.
+2. **Real venues with fabricated descriptions** — *not* caught by the HTTP audit. This finding addresses category 2.
 
-Examples confirmed during this review:
-- **New Edition Bookshop** (Fremantle) — real venue, real shop, but the listing's URL was fabricated and the description was template-generated ("beautifully curated", "passionate booksellers", "Fremantles West End" with missing apostrophe). Rewritten from venue's actual site.
-- **Chapel Street Bazaar** (Prahran) — real venue, no website, but listing had a directory URL and a description claiming "Chapel Street's renowned shopping precinct and its long history of vintage bazaars" — the Bazaar IS the thing, not part of a history of vintage bazaars. Rewritten.
-- **Modern Times Fitzroy** — real venue (now closed), description claimed "Fitzroy, Melbourne's original bohemian quarter" — factually wrong (Carlton has the stronger historical claim); generic gallery-shop copy throughout.
-- **Mr Toys Toyworld** — description with "delightful destination for families and gift buyers", "tropical Cairns" / "tropical Far North Queensland" doubled-up location adjectives, no specific anchors.
+**Detection approach used:** deterministic banned-phrase pattern matching, no LLM. A three-tier corpus was empirically derived from the 94 archived hallucinated descriptions (`docs/banned-phrase-corpus.md`), then calibrated against:
 
-**Hallucination fingerprint on descriptions (independent of URL status):**
-- Banned phrases or near-banned phrases ("delightful destination", "beautifully curated", "must-visit", "carefully selected")
-- Doubled-up location adjectives ("tropical Cairns in tropical Far North Queensland")
-- Generic category-listing posing as observation ("Known for Water toys, LEGO, and outdoor play equipment")
-- Factual claims that don't survive a check ("Melbourne's original bohemian quarter")
-- Missing apostrophes, casing slips ("Fremantles West End")
-- Zero specific anchors — no named people, no founding years, no specific products, no concrete dates
+- **Sample 1** — 555 known-good listings (post-April `ai_generated` and `manually_curated`). Final result: 0 HIGH, 0 MEDIUM. Zero false positives.
+- **Sample 2** — the 10-case manual review set. Final result: 4/4 hallucinated → HIGH, 6/6 real/rewritten → CLEAN or LOW. Perfect separation.
 
-**Scope:** unknown but likely large. The HTTP audit caught ~94 listings (resolved); description hallucination could affect any percentage of the remaining ~6,500 active listings depending on which were seeded vs which were curated through Candidate Review.
+Two threshold adjustments during calibration: Tier 3 weight 5 → 4, MEDIUM threshold 15 → 16. Both surfaced and approved.
 
-**Detection approach (to be designed):** description-only hallucination is harder to detect than URL-only because the signal is linguistic rather than mechanical. Possible approaches:
-- Pattern-match descriptions against the banned-phrases list and template-shape heuristics
-- Cross-reference with `curation_review` table — listings that never received a YAY through Candidate Review are higher-risk
-- LLM-assisted classification on a sample to validate before bulk action
+**Cohort scan results** — full scan across the 5,721 active `manually_curated` listings from 2026-04-01:
 
-### Finding B — franchise/chain operators past Gate 1 independence (NEW)
+| Vertical | Total | HIGH | MEDIUM | LOW | CLEAN |
+|----------|-------|------|--------|-----|-------|
+| collection | 902 | 0 | 4 | 399 | 499 |
+| corner | 43 | 21 | 1 | 5 | 16 |
+| craft | 2,265 | 0 | 8 | 834 | 1,423 |
+| field | 167 | 0 | 1 | 14 | 152 |
+| fine_grounds | 73 | 0 | 0 | 25 | 48 |
+| found | 90 | 56 | 0 | 7 | 27 |
+| rest | 47 | 0 | 0 | 3 | 44 |
+| sba | 2,132 | 0 | 1 | 381 | 1,750 |
+| table | 2 | 0 | 0 | 0 | 2 |
+| **TOTAL** | **5,721** | **77** | **15** | **1,668** | **3,961** |
 
-**Mr Toys Toyworld** (a franchise of the 65+ store Toyworld buying group) was actively listed on Corner Atlas with status='active'. This is a Gate 1 failure — the operational-independence filter that defines the entire network let a franchise chain through. The fact that **Eckersleys** (also a chain, art supplies, multiple stores across NSW/VIC) was on the audit's HTTP_OTHER list — even though the listing turned out to be already gone — suggests the seed process didn't apply the known_groups exclusions at all, or applied them inconsistently.
+**Distribution analysis.** 77 HIGH (1.3% of cohort). All 77 have working URLs and zero chain matches from Finding B — they are all rewrite candidates under the action decision tree.
 
-**Scope:** unknown. The 2026-04-01 seed was the source of most surfaced hallucinations and these two chain-store entries. Likely the seed pulled listings without checking against known_groups. Other franchise chains the seed might have grabbed: Toyworld (other stores), Eckersleys (other branches if any landed), national bookstore chains, national homewares chains, hardware franchises.
+**HIGH concentration is in Corner (21/43 = 49%) and Found (56/90 = 62%).** Other verticals show zero HIGH. This does NOT mean those verticals are clean — it means their seed process used different templates that don't trip the corpus. SBA, Collection, Craft, Fine Grounds, Rest, and Field hallucinations (where they exist) would need per-vertical template analysis or LLM-assisted classification to detect. **Scoped limitation of this pass.**
 
-**Detection approach:** straightforward. Cross-reference all active listings' operator names against the `known_groups` table (or equivalent). Every match is a Gate 1 violation. Scope is bounded by the known_groups list; execution is a SQL join.
+**Notable items in the 77 HIGH list:**
 
-**Action approach:** for each match, hide with `hidden_reason='fails_independence_gate'` or `chain_franchise`. Preserve the record (per Rule 4 / CLAUDE.md "never delete listings without logging what was deleted").
+- **toyworld-alice-springs** (Corner, score 75) — Toyworld franchise chain, same shape as Mr Toys Cairns. Gate 1 violation, not just a description problem. Toyworld is not in `commercial_groups`, which is why Finding B didn't catch it. Action: hide, then add Toyworld (and probably other missing chains) to `commercial_groups` and re-run Finding B.
+- **Multiple charity shops** (Salvos, Vinnies, Brotherhood, Red Cross, Anglicare across both Corner and Found) — real venues, hallucinated descriptions. These present an editorial question separate from the description fix: each store is locally operated but part of a national charitable organisation. Independence determination requires a framework decision before any action on the listings themselves.
+- **dirty-janes-bowral** (Found, score 68) — already addressed in the manual review queue.
+
+**Output:** `scripts/output/finding-a-full-cohort-2026-05-25.json`.
+
+**Status:** detection complete. Action items below. No archiving performed.
+
+### Finding B — franchise/chain operators past Gate 1 independence — ✅ Augmented, re-run, 39 hides actioned
+
+**Two-phase finding.** Initial investigation 25 May 2026 found the network clean against the existing `commercial_groups` table (11 matches, 8 case-by-case luxury operators correctly in network, 2 false positives, 1 ambiguous resolved). But Finding A's HIGH list and the manual review queue surfaced chain operators not in `commercial_groups` — Toyworld, Eckersleys, and the entire category of national charity-shop networks. The chain audit was only as strong as the chain inventory, and the inventory had gaps.
+
+**Augmentation, 28 May 2026.** Following codification of the Gate 1 Independence Policy (`docs/gate-1-independence-policy.md`, commit `19291a4`), 14 entries were added to `commercial_groups`:
+
+- 12 charity chains (category `charity_chain`): Salvation Army, St Vincent de Paul, Brotherhood of St Laurence, Red Cross, Anglicare, Save the Children, Lifeline, RSPCA, Diabetes Australia, Cancer Council, Endeavour Foundation, MS Australia
+- 2 commercial chains (category `retail_chain`): Toyworld, Eckersleys
+
+Total `commercial_groups` rows: 39 → 53.
+
+**Re-run results, 28 May 2026.** Re-applying the chain audit against the augmented table produced 52 matches (up from 11):
+
+- 38 charity_chain matches → hidden with `hidden_reason = 'institutional_outlet'`
+- 1 retail_chain match (`toyworld-alice-springs`) → hidden with `hidden_reason = 'chain_franchise'`
+- 8 case-by-case luxury operators → no action (as expected)
+- 3 false positives from prefix matching → no action (Fairfield/Aloft/Merivale Studios, same as 25 May run)
+- 2 events deferred for case-by-case → no action (Lifeline Canberra Bookfair, Toowoomba Lifeline Bookfest — flagged as periodic events rather than venues, separate question about Atlas's stance on events)
+
+**Total hides actioned: 39.** Zero failures. All hides verified post-execution.
+
+**Cross-reference with Finding A's 77 HIGH list:** 36 of the hidden listings were also Finding A HIGH (chain operators with hallucinated descriptions). Toyworld Alice Springs (also Finding A HIGH) hidden as chain_franchise. The two deferred Lifeline bookfairs were Finding A HIGH but remain active pending case-by-case review. Net reduction in HIGH rewrite queue: 77 → 40.
+
+**Conclusion: the network is clean on chain infiltration against the augmented `commercial_groups`.** The Gate 1 framework now matches the policy as written.
+
+**Outstanding items from Finding B:**
+
+1. **Case-by-case review of 4 deferred listings:** `mill-markets-daylesford`, `mill-markets-ballarat`, `lifeline-canberra-bookfair`, `toowoomba-lifeline-bookfest`. Mill Markets is a multi-location private operator (Gate 1 question); the Lifeline listings are events rather than venues (separate question about Atlas's stance on events).
+2. **Smith Family + Mission Australia:** investigated, both skipped from `commercial_groups`. Smith Family exited retail December 2019. Mission Australia operates ~8-10 op shops in NSW Illawarra/South Coast only — regional rather than national scale.
+3. **Gate 1 prefix match precision** still worth tuning — `Fairfield` and `Aloft` continue to trip the gate as false positives. Require exact match for brand names under ~6-8 characters.
+
+**Outputs:**
+- `scripts/output/finding-b-chain-audit-2026-05-25.json` (original 11-match run)
+- Augmented commercial_groups inserts and Finding B re-run results documented in this audit, 28 May 2026
 
 ### Updated Tier 2 follow-ups list
 
 - ~~**Corner Atlas hallucination cleanup (~43 listings).**~~ ✅ Done 2026-05-25 (commit `28d8f6c`).
 - ~~**Found Atlas hallucination cleanup (~33 listings).**~~ ✅ Done 2026-05-25 (commit `755e12d`).
 - ~~**Manual review queue (10 listings).**~~ ✅ Done 2026-05-25 (no commit — work was in the listings editor, not git).
-- **Finding A — audit description hallucinations across all verticals.** Likely the largest remaining piece of seed corruption. Design detection approach, run on a sample to validate, scale to network. New top of Tier 2.
-- **Finding B — audit Corner, Found, and other verticals for franchise/chain operators past Gate 1.** SQL join against known_groups. Bounded scope, straightforward execution. Strong candidate for fast win.
+- ~~**Finding A — design and execute hallucinated description detection.**~~ ✅ Done 2026-05-25. Corpus + scorer in `docs/banned-phrase-corpus.md` + `scripts/finding-a-scorer.mjs`. 77 HIGH rewrite candidates identified.
+- ~~**Finding B — audit franchise/chain operators past Gate 1.**~~ ✅ Done 2026-05-25 (initial run, network clean against existing table) and 2026-05-28 (augmented with 14 new entries, 39 hides actioned, network confirmed clean against augmented table).
+- ~~**Charity shops framework decision.**~~ ✅ Done 2026-05-25. Reading B (charity shops fail Gate 1 on operational grounds). Policy codified in `docs/gate-1-independence-policy.md` (commit `19291a4`).
+- ~~**Add Toyworld and missing franchises to `commercial_groups`.**~~ ✅ Done 2026-05-28 as part of Finding B augmentation. Toyworld + Eckersleys + 12 charity chains added.
+
+**Open from Findings A and B (new work items):**
+
+- **Rewrite the 40 remaining HIGH descriptions from Finding A.** Real venues that pass Gate 1, hallucinated descriptions need replacing. Work shape is one-listing-at-a-time, same as the manual review queue from 25 May. Even split across Corner (20) and Found (20). Decision pending on whether to batch this work or trickle as listings come up naturally.
+- **Case-by-case review of 4 deferred listings:** Mill Markets ×2 (Gate 1 question for multi-location private antique-market operator), Lifeline Canberra Bookfair and Toowoomba Lifeline Bookfest (events rather than venues, separate question about Atlas's stance on events).
+- **Tune Gate 1 prefix match mode for short brand names.** Require exact match for brand names under ~6-8 characters to eliminate the Fairfield/Aloft class of false positives.
+- **Per-vertical hallucination detection for SBA, Collection, Craft, Fine Grounds, Rest, Field.** The Finding A corpus catches Corner/Found template patterns. Other verticals likely have hallucinations using different templates. Would require per-vertical template analysis (each vertical's seed process) or LLM-assisted classification.
+
+**Open from earlier (still pending):**
+
 - **Re-push 2 more real venues to Fine Grounds vertical.** `barefoot-barista` (roaster_50) and `north-beach-coffee-co-wollongong` (cafe_91) — real venues whose vertical rows were deleted during the hallucination cleanup. Five-minute task.
 - **Backfill bare numeric source_ids on Fine Grounds (49 listings).** Legacy pre-prefix convention; lookup happens to work today but is ambiguous.
 - **Confirm Table Atlas reseed status.** CLAUDE.md says 331 hallucinated and flagged for reseed; the 22 May audit found Table sampling clean. Verify which happened and update CLAUDE.md.
