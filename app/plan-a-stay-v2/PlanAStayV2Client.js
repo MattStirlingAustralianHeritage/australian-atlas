@@ -1226,45 +1226,42 @@ export default function PlanAStayV2Client() {
               />
             ))}
           </div>
-          {/* Separator before the "not sure" option */}
+          {/* "Not sure yet" — disabled until recommendation flow exists */}
           <div style={{ padding: '16px 0 0' }}>
-            <button
-              onClick={() => {
-                dispatch({ type: 'SET_REGION', value: '__not_sure' })
-                autoAdvance()
-              }}
+            <div
               style={{
                 display: 'block',
                 width: '100%',
                 textAlign: 'left',
                 padding: '14px 18px',
-                background: state.region === '__not_sure' ? 'rgba(28,26,23,0.04)' : 'transparent',
+                background: 'transparent',
                 border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
                 borderRadius: 10,
-                cursor: 'pointer',
+                cursor: 'default',
                 fontFamily: 'var(--font-body)',
+                opacity: 0.45,
+                minHeight: 48,
+              }}
+            >
+              <span style={{
+                display: 'block',
                 fontSize: 15,
                 fontStyle: 'italic',
                 color: 'var(--color-muted, #6B6760)',
                 lineHeight: 1.3,
-                minHeight: 48,
-                transition: 'border-color 0.2s ease, background-color 0.2s ease',
-              }}
-              onMouseEnter={e => {
-                if (state.region !== '__not_sure') {
-                  e.currentTarget.style.borderColor = 'rgba(28,26,23,0.3)'
-                  e.currentTarget.style.backgroundColor = 'rgba(28,26,23,0.02)'
-                }
-              }}
-              onMouseLeave={e => {
-                if (state.region !== '__not_sure') {
-                  e.currentTarget.style.borderColor = 'var(--color-border, rgba(28,26,23,0.12))'
-                  e.currentTarget.style.backgroundColor = 'transparent'
-                }
-              }}
-            >
-              Not sure yet — recommend a region.
-            </button>
+              }}>
+                Not sure yet — recommend a region.
+              </span>
+              <span style={{
+                display: 'block',
+                fontSize: 12,
+                color: 'var(--color-muted, #6B6760)',
+                lineHeight: 1.4,
+                marginTop: 2,
+              }}>
+                Coming soon — region recommendations.
+              </span>
+            </div>
           </div>
         </QuestionScreen>
 
