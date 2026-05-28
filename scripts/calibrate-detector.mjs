@@ -105,9 +105,20 @@ async function main() {
   //   - manually_curated: human curator wrote content directly
   //   - ai_generated (post-2026-04-01): went through Candidate Review with
   //     human approval — the corpus says these "should score CLEAN or LOW"
+  //
+  // The needs_review=false predicate (added 2026-05-28) excludes the
+  // "ai_generated + needs_review=true" subset that hadn't yet been
+  // CR-approved when sampled. Before this filter, those tautologically
+  // appeared in the known-good pool (because the predicate was loose),
+  // contaminating both the FP calibration and the stacking-check signal.
+  // The exclusion-list mechanism (calibration-known-good-exclusions.json)
+  // remains as belt-and-braces for the genuine anomalies that survive
+  // this predicate — manually-cleared needs_review on template content
+  // (avocado-moment-cafe, bloomwood, cutler).
   const goodPoolRaw = await fetchAll(sb, () => sb.from('listings')
-    .select('id, slug, vertical, name, description, data_source, created_at')
+    .select('id, slug, vertical, name, description, data_source, needs_review, created_at')
     .eq('status', 'active')
+    .eq('needs_review', false)
     .gt('created_at', '2026-04-02')
     .in('data_source', ['manually_curated', 'operator_verified', 'ai_generated'])
     .not('description', 'is', null)
