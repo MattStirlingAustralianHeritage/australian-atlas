@@ -27,6 +27,35 @@ Single hit warrants flagging. These phrases appear exclusively or near-exclusive
 | 1.11 | `artisan craftsmanship` | 7 (7.4%) | 2 | 0 | Jewellery-shop template. Sounds like a gift-shop sign. |
 | 1.12 | `quality pressings` | 8 (8.5%) | 3 | 0 | Record-store template. No real record shop calls them "quality pressings." |
 
+### Part 4a — Table-template additions (2026-05-28)
+
+These phrases were extracted from 7 hand-tagged unambiguously-templated Table listings during Part 4a corpus expansion (bakery-cafe-hazel, butcher-and-the-farmer-tramsheds, farm-cove-eatery, daci-daci-bakers, farmhouse-kings-cross, patina-at-customs-house, avocado-moment-cafe). Leak analysis ran against four pools: 7-seed (target), 948-listing known-good control (post-April Candidate Review across all verticals, minus the avocado-moment-cafe exclusion), 98-listing Table real subset (score==0 active + eyeballed-real from sampling passes), and 521-listing cross-vertical food-adjacent (rest + small_batch + fine_grounds).
+
+Single-seed promotion rule was loosened from strict ≥3-seed frequency to "rare-and-structurally-distinctive" with zero true-external-leak gate. The seed pool is small (7); single-seed frequency is genuinely informative when the phrase is unusual (marketing register, unusual collocation, paired-gerund scaffold). Strict frequency rule would have rejected the corpus's best discriminators.
+
+| # | Phrase / regex | Seed hits (of 7) | True external leak | Distinctness | Rationale |
+|---|---|---|---|---|---|
+| 1.13 | `expertly crafted (dishes\|meals\|items\|food\|cocktails\|pastries\|drinks\|cuisine\|coffee\|breads)` | 1 | 0 | high | Marketing verb-noun; rare in editorial register. |
+| 1.14 | `honou?ring classic [\w\- ]+ traditions` | 1 | 0 | high | Unusual gerund chain; corporate-cultural register. |
+| 1.15 | `while embracing` | 1 | 0 | high | Paired-gerund template scaffold (honor X while embrace Y). |
+| 1.16 | `creates? the perfect setting for` | 1 | 0 | high | Marketing CTA construction. |
+| 1.17 | `combines culinary creativity with` | 1 | 0 | high | Corporate phrasing; "culinary creativity" is template register. |
+| 1.18 | `commitment to sustainable practices` | 1 | 0 | high | Corporate-marketing boilerplate. |
+| 1.19 | `exceptional ingredients` | 1 | 0 | high | Marketing phrase; editorial names specific suppliers. |
+| 1.20 | `designed for passing around` | 1 | 0 | high | Shared-dining marketing trope. |
+| 1.21 | `elegant dining spaces?` | 1 | 0 | high | Marketing phrase; editorial describes rooms specifically. |
+| 1.22 | `selection of complementary` | 1 | 0 | high | Unusual collocation; marketing register. |
+| 1.23 | `complemented by an impressive selection` | 1 | 0 | high | Marketing register; "impressive selection" is template. |
+
+### Part 4a iteration additions (2026-05-28)
+
+After the initial Part 4a corpus expansion, 3 of 7 templated seeds remained at LOW band (score 5-13), 6-10 points short of MEDIUM. A targeted iteration pass sampled 8 listings from the Table active score-2 cohort (single-Tier-3-pattern fire — the "almost caught" band). 4 of 8 came back templated, each using a *different* rhetorical scaffold. Family analysis surfaced one phrase shared across ≥2 listings of the bakery-cafe-hazel family ("A charming [vertical]" → pattern 3.10) plus two single-listing micro-patterns with high distinctness and zero true-external-leak.
+
+| # | Phrase / regex | Seed hits (of 11) | True external leak | Distinctness | Rationale |
+|---|---|---|---|---|---|
+| 1.24 | `culinary fusion` | 1 (bloomwood) | 0 | high | Single-seed but the broad phrase has zero hits across the 936-listing known-good control. The marketing register is absent from real editorial. Pairs with "blending X with Y" in template content. |
+| 1.25 | `evolved approach to contemporary cuisine` | 1 (cutler) | 0 | high | Corporate-jargon construction; "evolved approach" + "contemporary cuisine" is template register. Zero leak across all four pools. |
+
 ### Template Sentences (Tier 1-T)
 
 These are complete sentences copy-pasted verbatim across multiple hallucinated descriptions. Any active listing containing one of these is flagged HIGH automatically, regardless of other signals.
@@ -68,6 +97,14 @@ The 20% leak-rate ceiling was set by reasoning (not data) when resolving Open Qu
 | 2.9 | `thoughtfully curated` | 9 (9.6%) | 29 | 8 | 27.6% | **1** | Used by both the seed generator and the Candidate Review AI. Above leak ceiling — tiebreaker only. |
 | 2.10 | `carefully curated` | — | 39 | 9 | 23.1% | **1** | Same as 2.9. Reviewed AI content uses this phrase legitimately. Above leak ceiling — tiebreaker only. |
 
+### Part 4a — Table-template additions (2026-05-28)
+
+| # | Phrase / regex | Seed hits (of 7) | True external leak | Distinctness | Weight | Rationale |
+|---|---|---|---|---|---|---|
+| 2.11 | `this independent (venue\|restaurant\|establishment\|cafe\|café\|bakery\|patisserie\|shop\|store\|destination\|space)` | 2/7 | 1 (corner/books-stones, real Corner editorial) | high | **3** | Demonstrative + "independent" + venue noun; template self-reference. Real Corner editorial uses the phrase naturally in a single sentence surrounded by anchors. Single Tier 2_std hit yields score 3, well below LOW (5); only counts in combination. |
+| 2.12 | `alongside classic [\w\- ]+ (favorites\|favourites\|dishes\|options)` | 1/7 | 0 | moderate | **3** | Rhetorical scaffolding ("alongside classic Italian dishes", "alongside classic comfort food favorites"). Zero external leak currently; demoted from initially-proposed Tier 1 to Tier 2 std because the construction is generic enough that single-occurrence flagging at weight 10 would be too much trust. |
+| 2.13 | `with a focus on` | 3/7 | 3 (2 fine_grounds curated coffee, 1 corner template) | moderate | **1** | Common phrase; cross-vertical leak into legitimate food editorial. Tiebreaker weight 1 — single hit yields score 1, only contributes in stacks. |
+
 ### Removed from Tier 2
 
 - `mid-century` — **dropped entirely**. 60% leak rate. Real mid-century furniture shops legitimately use the term as a primary descriptor; flagging on it would catch them by definition. Structural patterns 3.1 (no anchors) and 3.3 (CTA ending) still catch hallucinated mid-century furniture descriptions without this phrase.
@@ -84,11 +121,13 @@ Sentence-level and description-level patterns that are harder to match with simp
 | 3.1 | **No specific anchors** — no founding years, named founders, specific dates, or concrete numbers | 94 (100%) | Regex: absence of `\b(19\|20)\d{2}\b` AND absence of named-person patterns | The single strongest structural signal. Every hallucinated description lacks verifiable specifics. Real Atlas descriptions anchor in named people, dates, and numbers. |
 | 3.2 | **"Known for [bare comma list]"** — inventory-dump structure: `Known for X, Y, Z.` with no article or context | 67 (71.3%) | Regex: `Known for [A-Z][^.]{5,60}[,]` | The seed generator dumped category keywords into a comma list. Real descriptions integrate specialties into prose. |
 | 3.3 | **CTA ending** — description ends with an invitation/recommendation | 34 (36.2%) | Regex: final sentence contains `visit\|destination\|stop by\|don't miss\|worth\|haven\|must` | Atlas editorial voice describes, it doesn't sell. A closing sales pitch is a hallucination flag. |
-| 3.4 | **Long comma list** — sentence with 3+ commas (inventory dump) | 33 (35.1%) | Count commas per sentence | The seed generator used comma-separated lists to simulate specificity without any actual knowledge. |
+| 3.4 | **Long comma list** — sentence with 5+ commas (inventory dump) | 33 (35.1%) | Count commas per sentence | The seed generator used comma-separated lists to simulate specificity without any actual knowledge. Threshold history: ≥3 (Part 3 initial), then ≥4 (Part 3 calibration, to avoid firing on furniture brand stockist lists like "HAY, Muuto, Ferm Living, Carl Hansen Søn"), then ≥5 (Part 4a, to avoid firing on legitimate Table producer/menu lists — Africola's wine producers, sprout-artisan's wholesale customers, panna-artisan's product attribute lists). The seed generator's true inventory dumps ran 5–7 commas per closer; ≥5 still catches the pattern. |
 | 3.5 | **"[Name] is a [category] in [place]" opener** | 23 (24.5%) | Regex: description starts with venue name + `is a\|is an\|is the` within first 80 chars | Template opener. Real Atlas descriptions don't start with "[X] is a [thing]" — they start with what makes the place distinctive. |
 | 3.6 | **Doubled location adjectives** — same adjective used twice with different geographic scopes | 4 (4.3%) | Regex: repeated location adjective (`vibrant\|tropical\|bustling\|coastal\|charming\|picturesque`) | Low frequency but high specificity. "Tropical Cairns in tropical Far North Queensland" is unmistakable. |
 | 3.7 | **Missing apostrophes in proper nouns** — capitalised place name ending in 's' in possessive context | 1 (1.1%) | Regex: `[A-Z][a-z]+s\s+[A-Z]` where context implies possession (e.g. "Fremantles West End") | Low frequency but near-certain when present. The seed generator dropped apostrophes from possessive place names. Confirmed in New Edition Bookshop case (Fremantle). |
 | 3.8 | **Promotional "located in [Place], [Place]'s [adj] [noun]" suffix** — the seed generator's geographic-filler template | 14 (14.9%) | Regex: `/located in [A-Z][a-z]+(\s[A-Z][a-z]+)*, [A-Z][a-z]+(\s[A-Z][a-z]+)*'s \w+ \w+ (known\|famous\|renowned\|celebrated) for [^.]{20,}/i` | Promoted from Tier 2 row 2.9. Bare "located in" is too common (163 active hits, only 5.5% leak but too noisy at that volume). The diagnostic pattern is the full promotional structure: "Located in Adelaide, South Australia's elegant capital known for its festivals…". Verb list (`known\|famous\|renowned\|celebrated`) handles template variants. The optional `(\s[A-Z][a-z]+)*` group handles multi-word place names ("New South Wales", "Far North Queensland"). |
+| 3.9 | **"Celebrating [adj], [adj] [foodword]"** — gerund + comma-separated adjective pair + food noun (Part 4a addition) | n/a (Part 4a; 2/7 seed) | Regex: `/celebrating [a-z]+,\s*[a-z]+\s+(ingredients\|food\|dishes\|produce\|cuisine\|fare\|offerings\|flavou?rs)/i` | Distinctive structural scaffold. Examples: "celebrating premium, seasonal ingredients" (butcher-and-the-farmer-tramsheds), "celebrating healthy, delicious food" (avocado-moment-cafe). Zero external leak in Part 4a four-pool analysis. |
+| 3.10 | **"^A charming [vertical]" description-opener** — anchored at description start (Part 4a iteration) | n/a (Part 4a iteration; 2/11 seed) | Regex: `/^A charming [\w\- ]+(cafe\|café\|bakery\|restaurant\|patisserie\|venue\|destination\|space\|establishment\|market\|dairy\|farm\|shop\|store\|hobby)/i` | Structural signature of the seed-generator's opener template. The `^` anchor matters — mid-sentence "charming" is common editorial register and would over-fire; opener position is the specific rhetorical move the template makes. Cross-vertical catch: hits Table (bakery-cafe-hazel, scenic-rim-farm-shop) AND Corner (astoria-romance-fantasy-bookstore — same template family). Future Corner iterations will benefit automatically. Zero true external leak (the only raw KG hits are templated content the corpus would want to flag anyway). |
 
 ### FG-specific template (not scored separately — caught by 3.1 + 3.3)
 
@@ -109,9 +148,11 @@ These are harder to detect mechanically because the details sound specific (e.g.
 |-------------|---------------|
 | Template sentence (Tier 1-T) | **50** (auto-HIGH) |
 | Tier 1 phrase | **10** |
-| Tier 2 phrase (standard — entries 2.1–2.6) | **3** |
-| Tier 2 phrase (tiebreaker — entries 2.7–2.10: `anyone seeking`, `rare finds`, `thoughtfully curated`, `carefully curated`) | **1** |
-| Tier 3 structural pattern | **4** |
+| Tier 2 phrase (standard — entries 2.1–2.6, 2.11–2.12) | **3** |
+| Tier 2 phrase (tiebreaker — entries 2.7–2.10, 2.13: `anyone seeking`, `rare finds`, `thoughtfully curated`, `carefully curated`, `with a focus on`) | **1** |
+| Tier 3 structural pattern | **2** |
+
+Tier 3 weight was originally specified as 4 but reduced to 2 during Part 3 calibration. The 3.1+3.4 stack on legitimate inventory-list descriptions (cheese listings, furniture brand stockists) produced 8-point scores at weight 4, above the LOW threshold. At weight 2 the same stack scores 4 (CLEAN), while genuine hallucinations remain caught via their phrase signals (Tier 1 and template hits dominate the score regardless of Tier 3 weight). Earlier versions of this document said weight 4; this is the calibrated production value.
 
 ### Calculation
 
@@ -244,3 +285,51 @@ If precision becomes the bottleneck later, the roaster cross-reference is its ow
 ### Scope of action — detection vs. action
 
 This corpus and the detector built on it identify hallucinated **descriptions**. Whether the underlying venue is real, whether the URL works, and whether the listing should be rewritten or archived are separate operator decisions captured in the Action Decision Tree (Scoring Formula → Action Decision Tree, above). The detector outputs scores; humans (Matt) decide rewrite-vs-archive. Detection ≠ action.
+
+### Part 4a — Table-template corpus expansion (2026-05-28)
+
+The original 94-archived analysis characterised Found, Corner, and Fine Grounds template styles. Part 4a peek work surfaced that Table's templated content uses a *different* template style — softer adjectives ("charming", "contemporary"), different verbs ("specializing", "celebrating", "honoring", "embracing"), no "haven for" or "must-visit" CTAs. The detector's initial run on Table flagged only 3 listings at LOW — not because Table content was clean, but because Table templates were never in the original corpus's training data. Corpus gap, not detector failure. See `docs/table-data-quality-findings-2026-05-25.md` for the full reframing.
+
+#### Seed and pools
+
+- **Seed (7 unambiguously templated Table listings):** bakery-cafe-hazel, butcher-and-the-farmer-tramsheds, farm-cove-eatery, daci-daci-bakers, farmhouse-kings-cross, patina-at-customs-house, avocado-moment-cafe. Stratified-sampled across sub-types {restaurant, cafe, bakery, market, providore, farm_gate, creamery, null}, hand-tagged. One originally-tagged seed (`little-french-nest`) was dropped after re-reading showed it had been rewritten to real editorial content between the prior pass and Part 4a; updated_at confirmed a 2026-05-26 rewrite.
+- **Borderline cohort (4, used as calibration material not extraction material):** chapters-boathouse, meelup-farmhouse, self-raised-bread-shoppe, midden-by-mark-olive. They have anchors but template scaffolding; they test whether extracted phrases fire on partial-template content without over-firing on real anchors.
+- **Leak analysis pools:**
+  - **Known-good control** — 948 listings, post-April Candidate Review across all verticals, minus the `avocado-moment-cafe` mislabel exclusion (see `scripts/calibration-known-good-exclusions.json`).
+  - **Table real subset** — 98 listings, score==0 active Table (58) ∪ eyeballed-real (42, deduped).
+  - **Cross-vertical food-adjacent** — 521 listings, active rest + small_batch + fine_grounds.
+
+#### Methodology for single-seed promotion
+
+The earlier scope specified ≥3-seed-frequency for Tier 1/2 corpus promotion. Part 4a loosened this to a **distinctiveness rule**: a phrase promotes from a single seed when the phrase is structurally distinctive (marketing-register, unusual collocation, paired-gerund scaffold) AND zero true-external-leak in the four-pool analysis. The seed pool is small (7); single-seed frequency is genuinely informative when the phrase is unusual. Strict frequency would have rejected the corpus's best discriminators (`expertly crafted dishes`, `honoring classic X traditions`, `create the perfect setting for`). The distinctiveness call is the only discretionary input in tier assignment; leak count is data; weight follows mechanically.
+
+"True external leak" subtracts seed/borderline appearances from raw known-good hits. The known-good predicate doesn't filter `needs_review=false` (a pre-existing pool composition issue), so seed listings — which are `ai_generated`+`needs_review=true` — appear in raw counts. Subtracting them isolates real false-positive risk.
+
+#### Phrase-vs-regex choice
+
+Regex when variants are the same rhetorical move with different objects (`expertly crafted (dishes|meals|items|...)`). Phrase when variants are independent moves that happen to share rarity (`commitment to sustainable practices`, `combines culinary creativity with`, `create the perfect setting for`).
+
+#### Cross-vertical leak handling
+
+Single-corpus integrity preserved: phrases that leak into food-adjacent verticals' real editorial were rejected outright, not given vertical-scope tags. Two candidates failed this gate and were dropped: `[adj] [venue] nestled in [Proper Noun]` (Rest accommodation editorial uses "nestled in" naturally as marketing register) and `celebrating [adj noun]` no-comma variant (zero seed hits — not corpus-evidenced).
+
+#### Pattern 3.4 threshold raise
+
+Comma threshold raised from ≥4 to ≥5. The previous ≥4 fired on legitimate Table proper-noun lists (Africola's wine producers, sprout-artisan's wholesale customers, panna-artisan's product attribute lists). Raising to ≥5 preserves catch on seed-generator inventory dumps (typically 5–7 commas per closer) while clearing the false-fires. If recalibration regresses Found/Corner/FG known-bad catch by >3 percentage points, escalate to proper-noun-list exclusion regex. Otherwise the threshold raise is the final fix.
+
+#### Side fixes
+
+- `scripts/calibration-known-good-exclusions.json` introduced as versioned audit trail for known-good pool contamination (initial entry: avocado-moment-cafe — manually_curated label over template content post-2026-04-02).
+- `the-orchard-table` had a `Description (40-80 words):\n\n` prompt-template line leaked into its description column; stripped in commit `3a95c0b` after a placeholder-bleed scan confirmed n=1 across all verticals.
+
+#### Iteration pass (2026-05-28)
+
+The initial Part 4a expansion caught 4 of 7 seeds at HIGH/MEDIUM (57%), below the 80% proposed target. Three seeds stayed at LOW. Diagnosis: each LOW seed used a different template-family phrasing with limited overlap across seeds. The 80% target was a guess, not a calibrated number — chasing it through phrase-list memorisation would over-fit. Per Part 3 framing, the calibrated catch is the honest number.
+
+The iteration ran one targeted-sampling pass per the rule: pull 8 listings from the score-2 cohort (the "almost caught" band), eyeball for template families. 4 of 8 came back templated (50% rate vs ~25% in prior stratified samples), confirming the cohort holds more templated content but using *varied* rhetorical scaffolding. Family analysis yielded one ≥2-listing shared phrase (3.10) plus two single-listing micro-patterns (1.24, 1.25). All three have zero true-external-leak.
+
+Two additional known-good mislabels surfaced (`bloomwood`, `cutler` — both `manually_curated`+`needs_review=false` over template content). Combined with `avocado-moment-cafe`, three mislabels in the 50-sample control = ~6% contamination. The exclusion-list mechanism handles the cases now but the pattern argues for predicate tightening — adding `needs_review=false` to the known-good DB query in `calibrate-detector.mjs` would prevent recurrence on every future calibration. Logged as a near-term follow-up, not part of this work.
+
+#### Catch-ceiling framing
+
+Some Table-templated listings (e.g. `charlies-paddock`: "this food-focused outdoor restaurant offers alfresco dining…") use template phrasings that don't share family with any of the 7+4 seed listings. Catching them would require generalising "this independent [venue]" → "this [adj] [venue]" with broad adjectives, which has a real leak risk into food-adjacent verticals. The corpus catches what generalises across observed template variants; isolated phrasings outside that bound require either more seed sampling (productive but bounded) or a different detection method (semantic similarity, embeddings — separate work). The honest calibrated catch is the result, not 80%.
