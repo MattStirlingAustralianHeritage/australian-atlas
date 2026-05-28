@@ -30,6 +30,8 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { writeFileSync } from 'node:fs'
+import { resolve as resolvePath } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { argv, exit, env } from 'node:process'
 
 // ── Corpus weights — canonical source: docs/banned-phrase-corpus.md ──
@@ -55,22 +57,63 @@ export const THRESHOLDS = {
   LOW: 5,
 }
 
-// ── Tier 1: 12 strong-signal phrases (single hit warrants flagging) ──
-// All have 0 non-April hits in the corpus analysis.
+// ── Tier 1: strong-signal entries (single hit warrants flagging) ──
+//
+// Each entry is either:
+//   { phrase: 'string' }          — case-insensitive substring match
+//   { regex: /.../i, label: '…' } — regex pattern with display label
+//
+// Original 12 entries from the May 2026 Found/Corner/FG analysis: zero
+// non-April hits each.
+// Entries 1.13–1.23 added in Part 4a (2026-05-28) from Table-template
+// corpus expansion. Each had zero true-external leak across the four-pool
+// leak analysis (seed / known-good / table-real / cross-vertical food-adj).
 
-const TIER_1_PHRASES = [
-  'particularly known for',
-  'must-visit',
-  'worth a visit',
-  'delightful destination',
-  'a wonderful destination',
-  'destination for families',
-  'passionate booksellers',
-  'personal recommendations',
-  'stationery lovers',
-  'anyone looking to discover',
-  'artisan craftsmanship',
-  'quality pressings',
+const TIER_1_ENTRIES = [
+  // ── Original Found/Corner/Fine Grounds corpus (1.1–1.12) ──
+  { phrase: 'particularly known for' },
+  { phrase: 'must-visit' },
+  { phrase: 'worth a visit' },
+  { phrase: 'delightful destination' },
+  { phrase: 'a wonderful destination' },
+  { phrase: 'destination for families' },
+  { phrase: 'passionate booksellers' },
+  { phrase: 'personal recommendations' },
+  { phrase: 'stationery lovers' },
+  { phrase: 'anyone looking to discover' },
+  { phrase: 'artisan craftsmanship' },
+  { phrase: 'quality pressings' },
+  // ── Part 4a Table-template additions (1.13–1.23) ──
+  { regex: /expertly crafted (dishes|meals|items|food|cocktails|pastries|drinks|cuisine|coffee|breads)/gi,
+    label: 'expertly crafted [object]' },
+  { regex: /honou?ring classic [\w\- ]+ traditions/gi,
+    label: 'honoring classic [X] traditions' },
+  { regex: /while embracing/gi,
+    label: 'while embracing' },
+  { regex: /creates? the perfect setting for/gi,
+    label: 'create the perfect setting for' },
+  { regex: /combines culinary creativity with/gi,
+    label: 'combines culinary creativity with' },
+  { regex: /commitment to sustainable practices/gi,
+    label: 'commitment to sustainable practices' },
+  { regex: /exceptional ingredients/gi,
+    label: 'exceptional ingredients' },
+  { regex: /designed for passing around/gi,
+    label: 'designed for passing around' },
+  { regex: /elegant dining spaces?/gi,
+    label: 'elegant dining spaces' },
+  { regex: /selection of complementary/gi,
+    label: 'selection of complementary' },
+  { regex: /complemented by an impressive selection/gi,
+    label: 'complemented by an impressive selection' },
+  // ── Part 4a iteration additions (1.24–1.25) ──
+  // Single-seed entries with zero true-external leak. Promoted under the
+  // "rare and structurally distinctive" rule. Surfaced during the
+  // score-2 cohort iteration sampling pass.
+  { regex: /culinary fusion/gi,
+    label: 'culinary fusion' },
+  { regex: /evolved approach to contemporary cuisine/gi,
+    label: 'evolved approach to contemporary cuisine' },
 ]
 
 // ── Tier 1-T: 9 verbatim template sentences (auto-HIGH on match) ──
@@ -88,23 +131,32 @@ const TIER_1_TEMPLATES = [
 ]
 
 // ── Tier 2: weak signals, accumulation-only. Two weight bands. ──
+// Same entry shape as TIER_1_ENTRIES (phrase or regex).
 
-const TIER_2_STANDARD = [
-  // entries 2.1–2.6 (≤20% leak rate)
-  'known for',
-  'specialising in',
-  'a haven for',
-  'destination for anyone',
-  'for anyone',
-  'book lovers',
+const TIER_2_STANDARD_ENTRIES = [
+  // entries 2.1–2.6 (≤20% leak rate, original corpus)
+  { phrase: 'known for' },
+  { phrase: 'specialising in' },
+  { phrase: 'a haven for' },
+  { phrase: 'destination for anyone' },
+  { phrase: 'for anyone' },
+  { phrase: 'book lovers' },
+  // ── Part 4a Table-template additions (2.11–2.12) ──
+  { regex: /this independent (venue|restaurant|establishment|cafe|café|bakery|patisserie|shop|store|destination|space)/gi,
+    label: 'this independent [venue]' },
+  { regex: /alongside classic [\w\- ]+ (favorites|favourites|dishes|options)/gi,
+    label: 'alongside classic [X] favorites' },
 ]
 
-const TIER_2_TIEBREAKER = [
+const TIER_2_TIEBREAKER_ENTRIES = [
   // entries 2.7–2.10 (>20% leak rate — tiebreaker only)
-  'anyone seeking',
-  'rare finds',
-  'thoughtfully curated',
-  'carefully curated',
+  { phrase: 'anyone seeking' },
+  { phrase: 'rare finds' },
+  { phrase: 'thoughtfully curated' },
+  { phrase: 'carefully curated' },
+  // ── Part 4a Table-template addition (2.13) ──
+  { regex: /with a focus on/gi,
+    label: 'with a focus on' },
 ]
 
 // ── Tier 3: structural patterns 3.1–3.8 ──
@@ -148,12 +200,15 @@ function tier3Patterns(text, listingName) {
     hits.push({ pattern: '3.3 CTA ending' })
   }
 
-  // 3.4 Long comma list — any sentence with 4+ commas. Calibration showed
-  // the 3-comma threshold caught legitimate product lists ("HAY, Muuto,
-  // Ferm Living, Carl Hansen Søn"). 4+ commas raises the bar to actual
-  // inventory dumps without losing the seed-generator's pattern (which
-  // typically ran 4–7 commas per sentence in its closer lists).
-  if (sentences.some(s => (s.match(/,/g) || []).length >= 4)) {
+  // 3.4 Long comma list — any sentence with 5+ commas. Threshold history:
+  //   Part 3 set ≥3, then ≥4 to avoid false-fires on furniture brand
+  //   stockist lists ("HAY, Muuto, Ferm Living, Carl Hansen Søn").
+  //   Part 4a raised to ≥5 because ≥4 still caught legitimate Table
+  //   producer/menu lists (Africola's wine producers, sprout-artisan's
+  //   wholesale customers, panna-artisan's product attribute lists).
+  //   The seed-generator's true inventory dumps ran 5–7 commas per
+  //   sentence in their closer lists, so ≥5 still catches the pattern.
+  if (sentences.some(s => (s.match(/,/g) || []).length >= 5)) {
     hits.push({ pattern: '3.4 long comma list' })
   }
 
@@ -192,6 +247,30 @@ function tier3Patterns(text, listingName) {
     hits.push({ pattern: '3.8 located-in promotional suffix' })
   }
 
+  // 3.9 Celebrating + adj-pair + foodword (Part 4a addition). Gerund
+  // construction with comma-separated adjective pair before a food noun.
+  // Example matches: "celebrating premium, seasonal ingredients"
+  // (butcher-and-the-farmer-tramsheds), "celebrating healthy, delicious
+  // food" (avocado-moment-cafe). Structural scaffold, zero external leak
+  // in Part 4a four-pool analysis.
+  const CELEBRATING_ADJ_PAIR_RE = /celebrating [a-z]+,\s*[a-z]+\s+(ingredients|food|dishes|produce|cuisine|fare|offerings|flavou?rs)/i
+  if (CELEBRATING_ADJ_PAIR_RE.test(text)) {
+    hits.push({ pattern: '3.9 celebrating adj-pair foodword' })
+  }
+
+  // 3.10 "^A charming [vertical]" description-opener (Part 4a iteration).
+  // Structural signature of the seed generator's "A charming [adj]
+  // [vertical] [...]" template. Cross-vertical: catches both Table
+  // (bakery-cafe-hazel, scenic-rim-farm-shop) and Corner (astoria-
+  // romance-fantasy-bookstore) listings sharing the template family.
+  // Anchored at description start — mid-sentence "charming" is common
+  // editorial use and would over-fire; opener position is the specific
+  // rhetorical move the template makes.
+  const CHARMING_OPENER_RE = /^A charming [\w\- ]+(cafe|café|bakery|restaurant|patisserie|venue|destination|space|establishment|market|dairy|farm|shop|store|hobby)/i
+  if (CHARMING_OPENER_RE.test(text)) {
+    hits.push({ pattern: '3.10 A charming opener' })
+  }
+
   return hits
 }
 
@@ -201,13 +280,13 @@ function escapeRegex(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-function findPhraseMatches(text, phrases) {
+function findEntryMatches(text, entries) {
   const hits = []
-  for (const p of phrases) {
-    const re = new RegExp(escapeRegex(p), 'gi')
+  for (const e of entries) {
+    const re = e.regex || new RegExp(escapeRegex(e.phrase), 'gi')
     const matches = text.match(re)
     if (matches && matches.length > 0) {
-      hits.push({ phrase: p, count: matches.length })
+      hits.push({ value: e.label || e.phrase, count: matches.length })
     }
   }
   return hits
@@ -245,18 +324,18 @@ export function score({ description, name }) {
   }
 
   // Tier 1
-  for (const h of findPhraseMatches(description, TIER_1_PHRASES)) {
-    signals.push({ type: 'tier1', value: h.phrase, count: h.count, points: WEIGHTS.tier1 * h.count })
+  for (const h of findEntryMatches(description, TIER_1_ENTRIES)) {
+    signals.push({ type: 'tier1', value: h.value, count: h.count, points: WEIGHTS.tier1 * h.count })
   }
 
   // Tier 2 standard
-  for (const h of findPhraseMatches(description, TIER_2_STANDARD)) {
-    signals.push({ type: 'tier2_std', value: h.phrase, count: h.count, points: WEIGHTS.tier2_standard * h.count })
+  for (const h of findEntryMatches(description, TIER_2_STANDARD_ENTRIES)) {
+    signals.push({ type: 'tier2_std', value: h.value, count: h.count, points: WEIGHTS.tier2_standard * h.count })
   }
 
   // Tier 2 tiebreaker
-  for (const h of findPhraseMatches(description, TIER_2_TIEBREAKER)) {
-    signals.push({ type: 'tier2_tb', value: h.phrase, count: h.count, points: WEIGHTS.tier2_tiebreaker * h.count })
+  for (const h of findEntryMatches(description, TIER_2_TIEBREAKER_ENTRIES)) {
+    signals.push({ type: 'tier2_tb', value: h.value, count: h.count, points: WEIGHTS.tier2_tiebreaker * h.count })
   }
 
   // Tier 3 structural
@@ -389,7 +468,9 @@ async function main() {
     console.log(`CSV written to ${args.csv} (${flagged.length} rows)`)
   }
 
-  exit(0)
+  // No exit(0) — let main() return naturally so buffered stdout flushes.
+  // Calling process.exit() here was racing the flush and producing empty
+  // CLI output on some terminals.
 }
 
 function printRow(r, compact) {
@@ -407,5 +488,13 @@ function printRow(r, compact) {
 // Only run main() when invoked directly as a CLI. When imported as a module
 // (e.g. by scripts/calibrate-detector.mjs), the scoring exports are reusable
 // without firing the network fetch.
-const isCli = import.meta.url === `file://${argv[1]}`
+//
+// Comparing import.meta.url against argv[1] directly is brittle:
+//   - argv[1] may be relative (`scripts/x.mjs`) while import.meta.url is absolute.
+//   - argv[1] is undefined when this module is dynamic-imported.
+//   - Paths with spaces get URL-encoded in import.meta.url (%20).
+// fileURLToPath normalises all three.
+const scriptPath = fileURLToPath(import.meta.url)
+const argvPath = argv[1] ? resolvePath(argv[1]) : null
+const isCli = argvPath !== null && scriptPath === argvPath
 if (isCli) main().catch(err => { console.error(err); exit(1) })
