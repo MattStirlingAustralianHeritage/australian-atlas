@@ -265,7 +265,7 @@ export async function POST(request) {
 
     let query = sb
       .from('listings')
-      .select('id, name, slug, vertical, sub_type, lat, lng, description, is_featured')
+      .select('id, name, slug, vertical, sub_type, lat, lng, description, is_featured, suburb')
       .eq('status', 'active')
       .eq('visitable', true)
       .not('lat', 'is', null)
@@ -298,7 +298,7 @@ export async function POST(request) {
 
       let fallbackQuery = sb
         .from('listings')
-        .select('id, name, slug, vertical, sub_type, lat, lng, description, is_featured')
+        .select('id, name, slug, vertical, sub_type, lat, lng, description, is_featured, suburb')
         .eq('status', 'active')
         .eq('visitable', true)
         .not('lat', 'is', null)
@@ -450,6 +450,17 @@ export async function POST(request) {
       filterPath.push(`binding constraint: region_size (${validClusters.length} clusters from ${candidatesBeforeClustering} candidates; region lacks geographic diversity for ${duration} days)`)
     }
 
+    // ── Region compactness detection ──────────────────────────────
+    // If all candidates are within a tight radius of trip centre,
+    // the region is compact — downstream disclosures can adapt copy.
+    let regionCompact = false
+    if (tripCenter && candidates.length > 0) {
+      const maxSpread = Math.max(
+        ...candidates.map(c => haversineKm(c.lat, c.lng, tripCenter.lat, tripCenter.lng))
+      )
+      regionCompact = maxSpread < budget.radius_km * 0.5
+    }
+
     // ── Rank within each cluster ───────────────────────────────────
     const outputClusters = validClusters.map((cluster, idx) => {
       const clusterCandidates = cluster.members.map(i => candidates[i])
@@ -472,6 +483,7 @@ export async function POST(request) {
           sub_type: c.sub_type,
           lat: c.lat,
           lng: c.lng,
+          suburb: c.suburb || null,
           is_featured: c.is_featured,
           score: Math.round(c.score * 1000) / 1000,
           dist_from_centroid_km: c.dist_from_centroid,
@@ -502,6 +514,7 @@ export async function POST(request) {
         clusters_requested: duration,
         intent_match_rate: intentMatchRate,
         binding_constraint: bindingConstraint,
+        region_compact: regionCompact,
         fallbacks_used: fallbacksUsed,
       },
       diagnostics: {

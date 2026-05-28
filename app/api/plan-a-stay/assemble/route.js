@@ -208,13 +208,14 @@ export async function POST(request) {
         sub_type: c.sub_type || null,
         lat: c.lat,
         lng: c.lng,
+        suburb: c.suburb || null,
         description_excerpt: excerptDescription(descMap.get(c.id) || ''),
       }))
       const stops = sortRestLast(unsortedStops)
 
       const centroid = computeCentroid(stops)
       const loopKm = computeLoopKm(stops)
-      const heading = generateDayHeading(stops, i, tripCenter)
+      const heading = generateDayHeading(stops, i, tripCenter, answers.pacing || null)
       const theme = generateDayTheme(stops)
 
       const day = {
