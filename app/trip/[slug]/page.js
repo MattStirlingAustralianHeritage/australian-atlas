@@ -1,7 +1,8 @@
 import { cache } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { getSupabase } from '@/lib/supabase/clients'
+import { TripRender, StaysOnlyRender } from '@/components/PlanAStayTripRender'
 
 export const revalidate = 3600
 
@@ -29,8 +30,21 @@ const VERTICAL_NAMES = {
   table: 'Table',
 }
 
+/* ─── Plan-a-Stay trip lookup (checked first) ────────────────────────── */
+const getPlanAStayTrip = cache(async function getPlanAStayTrip(slug) {
+  const sb = getSupabase()
+  const { data } = await sb
+    .from('plan_a_stay_trips')
+    .select('id, share_slug, trip, stays_only, answers, is_public')
+    .eq('share_slug', slug)
+    .eq('is_public', true)
+    .maybeSingle()
+  return data
+})
+
+/* ─── Road trip lookup (v1 fallback) ──────────────────────────────────── */
 const getTrip = cache(async function getTrip(slug) {
-  const sb = getSupabaseAdmin()
+  const sb = getSupabase()
   const { data } = await sb
     .from('road_trips')
     .select('*')
@@ -41,6 +55,30 @@ const getTrip = cache(async function getTrip(slug) {
 
 export async function generateMetadata({ params }) {
   const { slug } = await params
+
+  // Check plan-a-stay first
+  const pasTrip = await getPlanAStayTrip(slug)
+  if (pasTrip) {
+    const title = pasTrip.trip?.title || `${pasTrip.answers?.region || 'Trip'} stays`
+    const intro = pasTrip.trip?.intro || `A curated stay in ${pasTrip.answers?.region || 'Australia'}.`
+    return {
+      title: `${title} | Australian Atlas`,
+      description: intro,
+      openGraph: {
+        title,
+        description: intro,
+        url: `https://australianatlas.com.au/trip/${slug}`,
+        siteName: 'Australian Atlas',
+        locale: 'en_AU',
+        type: 'article',
+      },
+      alternates: {
+        canonical: `https://australianatlas.com.au/trip/${slug}`,
+      },
+    }
+  }
+
+  // Fall back to road trip
   const trip = await getTrip(slug)
   if (!trip) return {}
   const description = trip.intro || `A road trip from ${trip.start_name} to ${trip.end_name} via the Australian Atlas network.`
@@ -93,6 +131,14 @@ function isSingleDay(days) {
 
 export default async function TripPage({ params }) {
   const { slug } = await params
+
+  // ── Plan-a-Stay trip (checked first) ──────────────────────────────
+  const pasTrip = await getPlanAStayTrip(slug)
+  if (pasTrip) {
+    return <PlanAStayPage pasTrip={pasTrip} slug={slug} />
+  }
+
+  // ── Road trip (v1 fallback) ───────────────────────────────────────
   const trip = await getTrip(slug)
   if (!trip) notFound()
 
@@ -258,6 +304,119 @@ export default async function TripPage({ params }) {
     </div>
   )
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Plan-a-Stay shared trip page
+   ═══════════════════════════════════════════════════════════════════════ */
+function PlanAStayPage({ pasTrip, slug }) {
+  const region = pasTrip.answers?.region || 'Australia'
+
+  return (
+    <div style={{ background: '#F8F6F1', minHeight: '100vh' }}>
+      {/* Minimal header bar */}
+      <div style={{
+        padding: '20px 24px',
+        borderBottom: '1px solid var(--color-border, rgba(28,26,23,0.12))',
+      }}>
+        <div style={{
+          maxWidth: 720,
+          margin: '0 auto',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}>
+          <Link
+            href="/"
+            style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: 14,
+              color: 'var(--color-ink, #1C1A17)',
+              textDecoration: 'none',
+              opacity: 0.6,
+            }}
+          >
+            Australian Atlas
+          </Link>
+          <Link
+            href="/plan-a-stay-v2"
+            style={{
+              fontFamily: 'var(--font-body)',
+              fontSize: 12,
+              fontWeight: 500,
+              color: 'var(--color-ink, #1C1A17)',
+              textDecoration: 'none',
+              padding: '6px 16px',
+              border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
+              borderRadius: 6,
+            }}
+          >
+            Plan your own
+          </Link>
+        </div>
+      </div>
+
+      <div style={{ padding: '0 24px' }}>
+        {/* Stays-only */}
+        {pasTrip.stays_only ? (
+          <StaysOnlyRender staysOnly={pasTrip.stays_only} />
+        ) : pasTrip.trip ? (
+          <TripRender trip={pasTrip.trip} />
+        ) : (
+          <div style={{ padding: '64px 0', textAlign: 'center' }}>
+            <p style={{
+              fontFamily: 'var(--font-body)',
+              fontSize: 15,
+              color: 'var(--color-muted, #6B6760)',
+            }}>
+              This trip is no longer available.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* CTA */}
+      <section style={{
+        maxWidth: 520, margin: '0 auto',
+        padding: '0 24px 80px',
+      }}>
+        <div style={{
+          borderTop: '1px solid rgba(108,103,96,0.12)',
+          paddingTop: 40,
+          textAlign: 'center',
+        }}>
+          <p style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: 13,
+            color: 'var(--color-muted, #6B6760)',
+            lineHeight: 1.6,
+            marginBottom: 20,
+          }}>
+            Built with Plan a Stay — find independent places to eat, drink, stay, and explore across Australia.
+          </p>
+          <Link
+            href="/plan-a-stay-v2"
+            style={{
+              display: 'inline-block',
+              padding: '12px 28px',
+              background: 'var(--color-ink, #1C1A17)',
+              color: '#F8F6F1',
+              textDecoration: 'none',
+              fontSize: 12,
+              fontWeight: 600,
+              letterSpacing: '0.1em',
+              textTransform: 'uppercase',
+              fontFamily: 'var(--font-body)',
+              borderRadius: 4,
+            }}
+          >
+            Plan your own stay
+          </Link>
+        </div>
+      </section>
+    </div>
+  )
+}
+
 
 /* ---------- Day section (multi-day trips) ---------- */
 
