@@ -1,13 +1,17 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { getQualifyingRegions } from '@/lib/plan-a-stay/qualifying-regions'
 
 export const runtime = 'nodejs'
 
 /* ═══════════════════════════════════════════════════════════════════════
    Plan-a-Stay v2 — Region GeoJSON endpoint
    ═══════════════════════════════════════════════════════════════════════
-   Returns a GeoJSON FeatureCollection of the 25 trip-eligible regions
+   Returns a GeoJSON FeatureCollection of trip-eligible regions
    with simplified polygons for the interactive map selector.
+
+   Region set derived live from the ≥5 active Rest threshold query
+   (same source as the client list and /api/plan-a-stay/regions).
 
    Geometry: ST_SimplifyPreserveTopology at 0.01° (~1km) to keep
    coastlines legible while keeping total payload under 500KB.
@@ -15,46 +19,26 @@ export const runtime = 'nodejs'
    Public, non-sensitive boundary data. Cached for 1 hour.            */
 
 
-/* ─── The 25 trip-eligible regions (must match COVERED_REGIONS) ──────── */
-const COVERED_REGION_NAMES = [
-  'Hobart & Southern Tasmania',
-  'Sydney',
-  'Hobart City',
-  'Adelaide',
-  'Launceston & Tamar Valley',
-  'Perth',
-  'Scenic Rim',
-  'Adelaide Hills',
-  'Margaret River',
-  'Cradle Country',
-  'Sunshine Coast Hinterland',
-  'Barossa Valley',
-  'Darwin & Top End',
-  'Blue Mountains',
-  'Cairns & Tropical North',
-  'Brisbane',
-  'Melbourne',
-  'Yarra Valley',
-  'Canberra District',
-  'Southern Highlands',
-  'Victorian High Country',
-  'McLaren Vale',
-  'East Coast Tasmania',
-  'South Coast NSW',
-  'Mornington Peninsula',
-]
-
-
 export async function GET() {
   try {
     const sb = getSupabaseAdmin()
+
+    // Derive qualifying region names from live threshold query
+    const qualifying = await getQualifyingRegions()
+    const regionNames = qualifying.map(r => r.name)
+
+    if (regionNames.length === 0) {
+      return NextResponse.json({ type: 'FeatureCollection', features: [] }, {
+        headers: { 'Cache-Control': 'public, max-age=3600, s-maxage=3600' },
+      })
+    }
 
     // Query regions with simplified polygons as GeoJSON
     // ST_SimplifyPreserveTopology(polygon, 0.01) ≈ 1km tolerance
     // ST_AsGeoJSON outputs the geometry as a JSON string
     const { data, error } = await sb
       .rpc('get_plan_a_stay_regions_geojson', {
-        region_names: COVERED_REGION_NAMES,
+        region_names: regionNames,
         simplify_tolerance: 0.01,
       })
 
@@ -64,7 +48,7 @@ export async function GET() {
       const { data: rawData, error: rawError } = await sb
         .from('regions')
         .select('id, name, slug, state, center_lat, center_lng')
-        .in('name', COVERED_REGION_NAMES)
+        .in('name', regionNames)
 
       if (rawError) {
         console.error('[regions-geojson] Fallback query error:', rawError.message)

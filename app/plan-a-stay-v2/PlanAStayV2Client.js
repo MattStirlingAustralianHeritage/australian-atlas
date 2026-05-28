@@ -10,34 +10,9 @@ import {
 import RegionMapSelect from '@/components/RegionMapSelect'
 
 /* ─── Region data ────────────────────────────────────────────────────────
-   25 regions with ≥5 active Rest listings (from coverage audit).
-   Will swap for a real fetch in a later build.                          */
-const COVERED_REGIONS = [
-  { name: 'Hobart & Southern Tasmania', state: 'TAS' },
-  { name: 'Sydney', state: 'NSW' },
-  { name: 'Hobart City', state: 'TAS' },
-  { name: 'Adelaide', state: 'SA' },
-  { name: 'Launceston & Tamar Valley', state: 'TAS' },
-  { name: 'Perth', state: 'WA' },
-  { name: 'Scenic Rim', state: 'QLD' },
-  { name: 'Adelaide Hills', state: 'SA' },
-  { name: 'Margaret River', state: 'WA' },
-  { name: 'Cradle Country', state: 'TAS' },
-  { name: 'Sunshine Coast Hinterland', state: 'QLD' },
-  { name: 'Barossa Valley', state: 'SA' },
-  { name: 'Darwin & Top End', state: 'NT' },
-  { name: 'Blue Mountains', state: 'NSW' },
-  { name: 'Cairns & Tropical North', state: 'QLD' },
-  { name: 'Brisbane', state: 'QLD' },
-  { name: 'Melbourne', state: 'VIC' },
-  { name: 'Yarra Valley', state: 'VIC' },
-  { name: 'Canberra District', state: 'ACT' },
-  { name: 'Southern Highlands', state: 'NSW' },
-  { name: 'Victorian High Country', state: 'VIC' },
-  { name: 'McLaren Vale', state: 'SA' },
-  { name: 'East Coast Tasmania', state: 'TAS' },
-  { name: 'South Coast NSW', state: 'NSW' },
-]
+   Regions with ≥5 active Rest listings, derived live from threshold
+   query. Passed as prop from the server page component.
+   Shape: [{ name, state, slug, listing_count }]                       */
 
 /* ─── Question definitions ───────────────────────────────────────────── */
 const INTENT_OPTIONS = [
@@ -1075,7 +1050,7 @@ function ActionButtons({ tripData, onReset, shareState, setShareState, shareUrl,
 /* ═════════════════════════════════════════════════════════════════════════
    Main component
    ═════════════════════════════════════════════════════════════════════════ */
-export default function PlanAStayV2Client() {
+export default function PlanAStayV2Client({ regions = [] }) {
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE)
   const [tripData, setTripData] = useState(null)
   const [tripError, setTripError] = useState(null)
@@ -1296,7 +1271,7 @@ export default function PlanAStayV2Client() {
             We{"'"}re well-covered in some regions and still building others. These are the ones with enough to plan a trip through.
           </p>
           <RegionMapSelect
-            regions={COVERED_REGIONS}
+            regions={regions}
             selectedRegion={state.region}
             onSelect={(name) => {
               dispatch({ type: 'SET_REGION', value: name })
