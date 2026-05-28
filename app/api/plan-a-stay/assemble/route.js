@@ -112,9 +112,6 @@ export async function POST(request) {
     const clusters = retrieval.clusters || []
     const coverage = retrieval.coverage || {}
 
-    // ── Generate title ────────────────────────────────────────────────
-    const title = await generateTripTitle(answers, retrieval)
-
     // ── Fetch descriptions for excerpt generation ─────────────────────
     const descMap = await enrichStopsWithDescriptions(clusters)
 
@@ -174,6 +171,24 @@ export async function POST(request) {
     const dayWord = days.length === 1 ? 'day' : 'days'
     const stopWord = totalStops === 1 ? 'stop' : 'stops'
     const intro = `${days.length} ${dayWord}, ${totalStops} ${stopWord}, anchored around ${answers.region || 'the region'}.`
+
+    // ── Build assembled summary for title generation ──────────────────
+    const assembled = {
+      day_count: days.length,
+      total_stops: totalStops,
+      region: answers.region || 'the region',
+      days: days.map(d => ({
+        day_number: d.day_number,
+        heading: d.heading,
+        theme: d.theme,
+        stop_summary: d.stops.map(s => `${s.name} (${s.vertical})`),
+        stop_types: d.stops.map(s => ({ vertical: s.vertical, sub_type: s.sub_type })),
+      })),
+      disclosures: tripDisclosures,
+    }
+
+    // ── Generate title from assembled trip ────────────────────────────
+    const title = await generateTripTitle({ answers, assembled })
 
     // ── Assemble trip object ──────────────────────────────────────────
     const trip = {
