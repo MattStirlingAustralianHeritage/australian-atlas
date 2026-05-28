@@ -745,6 +745,50 @@ function OutputScreen({ tripData, error, onReset }) {
     )
   }
 
+  // Empty state — no candidates found
+  if (tripData?.empty_state) {
+    return (
+      <div style={{ padding: '64px 0 96px', textAlign: 'center' }}>
+        <h2 style={{
+          fontFamily: 'var(--font-display)',
+          fontWeight: 400,
+          fontSize: 24,
+          color: 'var(--color-ink, #1C1A17)',
+          lineHeight: 1.25,
+          marginBottom: 12,
+        }}>
+          {"We couldn't build a trip."}
+        </h2>
+        <p style={{
+          fontFamily: 'var(--font-body)',
+          fontSize: 15,
+          color: 'var(--color-muted, #6B6760)',
+          lineHeight: 1.6,
+          maxWidth: 440,
+          margin: '0 auto 32px',
+        }}>
+          {tripData.empty_state.message}
+        </p>
+        <button
+          onClick={onReset}
+          style={{
+            fontFamily: 'var(--font-body)',
+            fontWeight: 500,
+            fontSize: 15,
+            color: 'var(--color-ink, #1C1A17)',
+            background: 'transparent',
+            border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
+            borderRadius: 8,
+            padding: '12px 32px',
+            cursor: 'pointer',
+          }}
+        >
+          Try again
+        </button>
+      </div>
+    )
+  }
+
   // No data yet
   if (!tripData?.trip) return null
 

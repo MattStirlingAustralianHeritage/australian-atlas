@@ -131,6 +131,22 @@ export async function POST(request) {
     const clusters = retrieval.clusters || []
     const coverage = retrieval.coverage || {}
 
+    // ── Zero-candidate guard ─────────────────────────────────────────
+    const totalCandidates = clusters.reduce(
+      (sum, c) => sum + (c.candidates?.length || 0), 0
+    )
+
+    if (totalCandidates === 0) {
+      return NextResponse.json({
+        trip: null,
+        empty_state: {
+          reason: 'no_candidates',
+          message: "We couldn't build a trip from these inputs. Try a different region or broader intent.",
+          answers,
+        },
+      }, { status: 200 })
+    }
+
     // ── Fetch descriptions for excerpt generation ─────────────────────
     const descMap = await enrichStopsWithDescriptions(clusters)
 
