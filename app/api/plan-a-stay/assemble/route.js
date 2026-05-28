@@ -113,6 +113,16 @@ function pickDayStops(rankedCandidates, targetCount = 4) {
 }
 
 
+/* ─── Sort Rest stops to end of day sequence ───────────────────────── */
+function sortRestLast(stops) {
+  return stops.slice().sort((a, b) => {
+    const aRest = a.vertical === 'rest' ? 1 : 0
+    const bRest = b.vertical === 'rest' ? 1 : 0
+    return aRest - bRest
+  })
+}
+
+
 /* ═══════════════════════════════════════════════════════════════════════
    POST handler
    ═══════════════════════════════════════════════════════════════════════ */
@@ -166,7 +176,7 @@ export async function POST(request) {
       const candidates = pickDayStops(cluster.candidates || [], 5)
       const lowDiversity = candidates.length < 2
 
-      const stops = candidates.map(c => ({
+      const unsortedStops = candidates.map(c => ({
         listing_id: c.id,
         name: c.name,
         vertical: c.vertical,
@@ -175,6 +185,7 @@ export async function POST(request) {
         lng: c.lng,
         description_excerpt: excerptDescription(descMap.get(c.id) || ''),
       }))
+      const stops = sortRestLast(unsortedStops)
 
       const centroid = computeCentroid(stops)
       const loopKm = computeLoopKm(stops)
