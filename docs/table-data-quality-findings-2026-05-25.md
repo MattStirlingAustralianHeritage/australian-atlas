@@ -197,3 +197,88 @@ The "Table Atlas hallucinations awaiting reseed" item that has been on Matt's pr
 - **The visibility problem is the bigger user-facing issue** than the hallucination problem at this point. ~85–95 listings of real content are currently 404ing in production per the data-integrity rule. Unblocking them is high-impact, low-risk work (re-exposing real content, not creating new content).
 
 The detector did its job by surfacing this. The four-quadrant cross-reference was the mechanism that turned a presumed "archive these 122" into a much more accurate "archive ~25, rewrite some of them, unblock ~95".
+
+---
+
+## 2026-05-28 Update — refined estimates after stratified sampling
+
+Three days after the original analysis, returned to complete the seed-tagging work for Part 4a (corpus expansion). Did three additional passes: Q1-LOW peek (3 listings), stratified 20-sample pass across {restaurant, cafe, bakery, market, farm_gate}, follow-up 8-sample pass across {creamery, sub_type=null}. 28 fresh listings tagged total. The original analysis is intact; what follows refines it on five axes.
+
+### Pool drift
+
+| Date | Active total | Score==2 cohort |
+|---|---|---|
+| 2026-05-25 (original analysis) | 162 | 66 |
+| 2026-05-28 (this update) | 174 | 92 |
+| Delta | +12 | +26 |
+
+Source of drift unidentified. Possible candidates: Candidate Review active runs, operator submissions, scheduled import job, or other ingestion. Worth investigating as its own task; not blocking Part 4a since the detector is calibrated against the live pool and will catch new templated content as it arrives.
+
+### Real-ratio shift
+
+The original 18-sample score-2 follow-up returned 67–72% real / 28–33% templated. The stratified passes returned a different rate:
+
+| Pass | Fresh samples | Unambiguous templated | Borderline | Real |
+|---|---|---|---|---|
+| Restaurant/cafe/bakery/market/farm_gate | 17 | 6% | 0% | 94% |
+| Creamery | 4 | 0% | 0% | 100% |
+| Sub_type=null | 4 | 25% | 25% | 50% |
+| Q1 LOW (detector-flagged) | 3 | 33% | 67% | 0% |
+| **Combined stratified (28 fresh)** | **28** | **~11%** | **~11%** | **~78%** |
+
+The original 18-sample pass appears to have over-weighted templated content by accident of random sampling. Stratified coverage produced a tighter estimate of the true rate.
+
+### Hypothesis (A) confirmed — templated content concentrates in sub_type=null
+
+The bucket-rate table above shows the variance: sub_type=null carries 50% templated lean (1 unambiguous + 1 borderline of 4) vs creamery at 0% and the other curator-tagged sub_types at 6%. Q1 (which is sub_type-mixed but detector-pre-selected) is 100% templated or borderline.
+
+**Durable insight worth surfacing into the corpus doc:** sub_type assignment correlates with editorial quality. Absence of sub_type tagging correlates with template-era ingestion that never received the editorial pass. For future curation triage: untagged listings should be reviewed first. This is the single best heuristic for prioritising future cleanup passes.
+
+### Refined templated upper bound
+
+Original extrapolation in this doc: ~25–30 truly templated listings. Refined: **~12–22**.
+
+Composition:
+- Score==2 cohort (92 listings) at observed ~11% unambiguous rate: ~9–15 templated.
+- Q1 LOW cohort (3 listings): all templated or borderline.
+- Score==4 cohort (12 listings, unsampled): ~1–4 at similar rates.
+
+Tightens the Part 4a expected re-run outcome from "20–35 flagged at HIGH/MEDIUM" to "12–22". Reduces the target-action workload meaningfully.
+
+### Calibration known-good pool contamination
+
+`avocado-moment-cafe` is `data_source='manually_curated'`, `needs_review=false`, created post-2026-04-02, but the description content is pure template ("a down-to-earth cafe celebrating healthy, delicious food", "this independent venue", "commitment to sustainable practices" — zero anchors).
+
+The calibration script's known-good pool relies on `data_source` being accurate. The existing comment in `calibrate-detector.mjs` already documents pre-April mislabel contamination (red-cross-subiaco, salvos-bunbury) and uses the date filter to dodge it. avocado-moment-cafe shows the mislabel pattern didn't fully end at 2026-04-01.
+
+**Implication for Part 4a recalibration:** the calibration's reported false-positive rate is overstated when contaminated listings get correctly flagged by the corpus-expanded detector. At current 2.0% reported FP, contamination of 1–3 listings out of the 50-sample known-good control could push the threshold check ("FP < 5%") to spurious failure during recalibration.
+
+**Fix:** introduce `scripts/calibration-known-good-exclusions.json` as a versioned audited exclusion list. Spot-check the known-good control before recalibration; manually exclude any avocado-moment-cafe-style mislabels. Each entry carries `slug`, `vertical`, `excluded_at`, `reason`. List is data, not logic — separate file makes growth auditable and each exclusion individually justifiable. Lands as Part 4a setup before phrase extraction.
+
+### Seed lock at 12 for Part 4a phrase extraction
+
+```
+Unambiguous templated (8):
+  bakery-cafe-hazel
+  butcher-and-the-farmer-tramsheds
+  farm-cove-eatery
+  daci-daci-bakers
+  little-french-nest
+  farmhouse-kings-cross
+  patina-at-customs-house
+  avocado-moment-cafe
+
+Borderline-leans-templated (4):
+  chapters-boathouse
+  meelup-farmhouse
+  self-raised-bread-shoppe
+  midden-by-mark-olive
+```
+
+Inside (ii)'s 10–15 target. Phrase extraction proceeds primarily on the 8 unambiguous; the 4 borderline are edge-case calibration material — they test whether extracted phrases fire on partial-template content without over-firing.
+
+### Side fix landed: prompt-template placeholder bleed (n=1)
+
+During stratified sampling, `the-orchard-table` description was found to begin with the literal string `Description (40-80 words):\n\n` — a prompt-template instruction line that leaked into stored data via the AI-generation pipeline. Scanned all active listings (all 9 verticals) for 16 placeholder patterns; only this one listing affected.
+
+Fixed in commit `3a95c0b`. Scan tool kept as `scripts/scan-placeholder-bleed.mjs` for future audits.
