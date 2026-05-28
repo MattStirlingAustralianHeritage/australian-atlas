@@ -789,6 +789,96 @@ function OutputScreen({ tripData, error, onReset }) {
     )
   }
 
+  // Stays-only — region has accommodation but nothing curated to do
+  if (tripData?.stays_only) {
+    const so = tripData.stays_only
+    const subtypeLabels = {
+      boutique_hotel: 'Boutique hotel',
+      cottage: 'Cottage',
+      glamping: 'Glamping',
+      farm_stay: 'Farm stay',
+    }
+    return (
+      <div style={{ padding: '64px 0 96px', maxWidth: 520, margin: '0 auto' }}>
+        <p style={{
+          fontFamily: 'var(--font-body)',
+          fontSize: 15,
+          color: 'var(--color-ink, #1C1A17)',
+          lineHeight: 1.6,
+          marginBottom: 32,
+        }}>
+          {so.framing}
+        </p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          {so.stays.map(stay => (
+            <a
+              key={stay.id}
+              href={`/place/${stay.slug}`}
+              style={{
+                display: 'flex',
+                alignItems: 'baseline',
+                gap: 8,
+                padding: '14px 0',
+                borderBottom: '1px solid var(--color-border, rgba(28,26,23,0.08))',
+                textDecoration: 'none',
+                color: 'inherit',
+              }}
+            >
+              <span style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 500,
+                fontSize: 15,
+                color: 'var(--color-ink, #1C1A17)',
+              }}>
+                {stay.name}
+              </span>
+              {(stay.sub_type || stay.suburb) && (
+                <span style={{
+                  fontFamily: 'var(--font-body)',
+                  fontSize: 13,
+                  color: 'var(--color-muted, #6B6760)',
+                }}>
+                  {[subtypeLabels[stay.sub_type], stay.suburb].filter(Boolean).join(' · ')}
+                </span>
+              )}
+            </a>
+          ))}
+        </div>
+
+        <p style={{
+          fontFamily: 'var(--font-body)',
+          fontSize: 13,
+          color: 'var(--color-muted, #6B6760)',
+          lineHeight: 1.5,
+          marginTop: 32,
+          marginBottom: 32,
+        }}>
+          {so.redirect}
+        </p>
+
+        <div style={{ textAlign: 'center' }}>
+          <button
+            onClick={onReset}
+            style={{
+              fontFamily: 'var(--font-body)',
+              fontWeight: 500,
+              fontSize: 15,
+              color: 'var(--color-ink, #1C1A17)',
+              background: 'transparent',
+              border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
+              borderRadius: 8,
+              padding: '12px 32px',
+              cursor: 'pointer',
+            }}
+          >
+            Start over
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   // No data yet
   if (!tripData?.trip) return null
 

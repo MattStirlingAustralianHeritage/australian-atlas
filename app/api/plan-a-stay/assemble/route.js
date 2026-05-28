@@ -201,6 +201,18 @@ function foldSingleRestDays(days, tripCenter, pacing) {
 }
 
 
+/* ─── Stays-only copy (all-Rest regions) ───────────────────────────── */
+function staysOnlyFraming(answers) {
+  const region = answers.region || 'this region'
+  return `${region} has good independent places to stay, but not enough else listed yet for a full trip. Rather than build a day-by-day plan that isn't really there, here are the stays worth knowing about.`
+}
+
+function staysOnlyRedirect(answers) {
+  const region = answers.region || 'this region'
+  return `Try a different kind of trip in ${region}, or look for a quiet-and-slow trip in a region with more range.`
+}
+
+
 /* ═══════════════════════════════════════════════════════════════════════
    POST handler
    ═══════════════════════════════════════════════════════════════════════ */
@@ -231,6 +243,37 @@ export async function POST(request) {
           reason: 'no_candidates',
           message: "We couldn't build a trip from these inputs. Try a different region or broader intent.",
           answers,
+        },
+      }, { status: 200 })
+    }
+
+    // ── All-Rest detection ───────────────────────────────────────────
+    // Region has accommodation but nothing curated to do for this intent.
+    // Return a stays-only response rather than a hollow itinerary.
+    const allCandidates = clusters.flatMap(cl => cl.candidates || [])
+    const allRest = allCandidates.length > 0 &&
+      allCandidates.every(c => c.vertical === 'rest')
+
+    if (allRest) {
+      const stays = allCandidates
+        .slice()
+        .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+        .slice(0, 6)
+
+      return NextResponse.json({
+        trip: null,
+        stays_only: {
+          region: answers.region,
+          intent: answers.intent,
+          framing: staysOnlyFraming(answers),
+          redirect: staysOnlyRedirect(answers),
+          stays: stays.map(s => ({
+            id: s.id,
+            name: s.name,
+            slug: s.slug,
+            sub_type: s.sub_type || null,
+            suburb: s.suburb || null,
+          })),
         },
       }, { status: 200 })
     }
