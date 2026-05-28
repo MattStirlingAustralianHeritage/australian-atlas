@@ -22,23 +22,6 @@ export const runtime = 'nodejs'
    static maps, and persists the result.                                */
 
 
-/* ─── Slugify helper ────────────────────────────────────────────────── */
-function slugify(text) {
-  return text
-    .toLowerCase()
-    .replace(/['']/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 60)
-}
-
-function generateShareSlug(title) {
-  const base = slugify(title)
-  const suffix = Math.random().toString(36).slice(2, 6)
-  return `${base}-${suffix}`
-}
-
-
 /* ─── Mapbox static map URL builder ─────────────────────────────────── */
 const MAPBOX_STYLE = 'mattstirlingaustralianheritage/cmn32b0iz003401swccb7d21k'
 
@@ -371,37 +354,8 @@ export async function POST(request) {
       days,
     }
 
-    // ── Generate share slug ───────────────────────────────────────────
-    const shareSlug = generateShareSlug(title)
-
-    // ── Persist to plan_a_stay_trips ──────────────────────────────────
-    let tripId = null
-    try {
-      const sb = getSupabaseAdmin()
-      const { data: inserted, error: insertError } = await sb
-        .from('plan_a_stay_trips')
-        .insert({
-          share_slug: shareSlug,
-          answers,
-          retrieval,
-          trip,
-        })
-        .select('id')
-        .single()
-
-      if (insertError) {
-        console.error('[plan-a-stay/assemble] Failed to persist trip:', insertError.message)
-      } else {
-        tripId = inserted.id
-      }
-    } catch (err) {
-      console.error('[plan-a-stay/assemble] Trip persistence error:', err.message)
-    }
-
     return NextResponse.json({
       trip,
-      trip_id: tripId,
-      share_slug: shareSlug,
     })
   } catch (err) {
     console.error('[plan-a-stay/assemble]', err)
