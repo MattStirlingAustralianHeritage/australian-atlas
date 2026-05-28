@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
 import { pushToVerticalWithRetry, updateInVertical, getVerticalListingUrl, VERTICAL_DISPLAY_NAMES, VERTICAL_CATEGORIES, recordSyncAndRevalidate } from '@/lib/sync/pushToVertical'
 import { resolveRegionName } from '@/lib/regions'
+import { extractStateFromPlaceName, deriveStateFromCoords, VALID_STATES } from '@/lib/geo/stateDerivation'
 // Hero image scraping removed — all new listings use the default fallback hero.
 // Venue owners upload their own hero image when they claim the listing.
 
@@ -428,9 +429,40 @@ export async function POST(request, { params }) {
       // field blank.
       const formAddress = (ro.address || '').trim() || candidate.address || null
       const formSuburb = (ro.suburb || '').trim() || enriched.suburb || null
-      const formState = (ro.state || '').trim() || candidate.state || enriched.state || null
       const formLat = ro.lat ?? candidate.lat ?? coords?.lat ?? null
       const formLng = ro.lng ?? candidate.lng ?? coords?.lng ?? null
+
+      let formState = null
+      let stateSource = 'null'
+      const roState = (ro.state || '').trim()
+      if (roState) { formState = roState; stateSource = 'reviewer' }
+      else if (candidate.state) { formState = candidate.state; stateSource = 'candidate' }
+      else if (enriched.state) { formState = enriched.state; stateSource = 'enriched' }
+      else {
+        const fromPlaceName = extractStateFromPlaceName(coords?.place_name)
+        if (fromPlaceName) { formState = fromPlaceName; stateSource = 'place_name' }
+        else {
+          const fromCoords = deriveStateFromCoords(formLat, formLng)
+          if (fromCoords) { formState = fromCoords; stateSource = 'coords' }
+        }
+      }
+
+      const effectiveVisitable = visitable ?? true
+      console.log(`[approve] state resolved`, {
+        candidate_id: candidate.id,
+        name: candidate.name,
+        resolved_state: formState,
+        source: stateSource,
+        has_coords: !!(formLat && formLng),
+        visitable: effectiveVisitable,
+      })
+
+      if (effectiveVisitable && !VALID_STATES.includes(formState)) {
+        return NextResponse.json({
+          error: `Cannot approve visitable listing without a valid Australian state. Resolved state: ${formState || 'null'}. Set the state manually in the review form, or ensure the address can be geocoded.`,
+        }, { status: 422 })
+      }
+
       const regionOverrideId = ro.region_override_id || null
 
       // Resolve region NAME for downstream vertical sync via the same
