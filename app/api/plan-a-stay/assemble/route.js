@@ -94,6 +94,25 @@ async function enrichStopsWithDescriptions(clusters) {
 }
 
 
+/* ─── Per-day diversity constraint ──────────────────────────────────── */
+const MAX_REST_PER_DAY = 1
+
+function pickDayStops(rankedCandidates, targetCount = 4) {
+  const picked = []
+  let restCount = 0
+
+  for (const candidate of rankedCandidates) {
+    if (picked.length >= targetCount) break
+    if (candidate.vertical === 'rest') {
+      if (restCount >= MAX_REST_PER_DAY) continue
+      restCount++
+    }
+    picked.push(candidate)
+  }
+  return picked
+}
+
+
 /* ═══════════════════════════════════════════════════════════════════════
    POST handler
    ═══════════════════════════════════════════════════════════════════════ */
@@ -127,8 +146,9 @@ export async function POST(request) {
 
     for (let i = 0; i < clusters.length; i++) {
       const cluster = clusters[i]
-      // Take top candidates as stops (up to 5, usually 3–5)
-      const candidates = (cluster.candidates || []).slice(0, 5)
+      // Apply diversity constraint: max 1 Rest per day
+      const candidates = pickDayStops(cluster.candidates || [], 5)
+      const lowDiversity = candidates.length < 2
 
       const stops = candidates.map(c => ({
         listing_id: c.id,
@@ -150,6 +170,7 @@ export async function POST(request) {
         heading,
         theme,
         stops,
+        low_diversity: lowDiversity,
         day_disclosures: [],
         centroid,
         loop_km: loopKm,
