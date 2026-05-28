@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { extractStateFromPlaceName } from '@/lib/geo/stateDerivation'
 
 // ─────────────────────────────────────────────────────────────────────
 // POST /api/admin/candidates/[id]/geocode
@@ -106,10 +107,19 @@ export async function POST(request, { params }) {
     })
   }
 
-  // Persist lat/lng to the candidate.
+  // Persist lat/lng (and derived state when the reviewer didn't
+  // explicitly provide one) to the candidate row.
+  const geoPatch = { lat: geo.lat, lng: geo.lng }
+  if (!state) {
+    const derivedState = extractStateFromPlaceName(geo.place_name)
+    if (derivedState) {
+      geoPatch.state = derivedState
+      console.log(`[geocode] Derived state ${derivedState} from place_name for candidate ${id}`)
+    }
+  }
   await sb
     .from('listing_candidates')
-    .update({ lat: geo.lat, lng: geo.lng })
+    .update(geoPatch)
     .eq('id', id)
 
   // Spatial-containment lookup. NULL when the point falls in any of the
