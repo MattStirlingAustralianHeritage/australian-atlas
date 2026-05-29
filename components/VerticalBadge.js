@@ -8,6 +8,7 @@ const VERTICAL_STYLES = {
   table:        { bg: '#FCEBEB', text: '#A32D2D', label: 'Table' },
   corner:       { bg: '#FBEAF0', text: '#993556', label: 'Corner' },
   found:        { bg: '#F1EFE8', text: '#5F5E5A', label: 'Found' },
+  way:          { bg: '#EEF0E2', text: '#525E36', label: 'Way' },
 }
 
 export { VERTICAL_STYLES }

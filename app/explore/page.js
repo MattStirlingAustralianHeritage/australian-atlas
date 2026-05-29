@@ -2,12 +2,21 @@ import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { VERTICAL_STYLES } from '@/components/VerticalBadge'
 import RegionMapCard from '@/components/RegionMapCard'
+import { isVerticalPublic } from '@/lib/verticalUrl'
 
 export const revalidate = 3600
 
 const SITE_URL = 'https://australianatlas.com.au'
 
-const VERTICAL_ORDER = ['sba', 'fine_grounds', 'collection', 'craft', 'rest', 'field', 'corner', 'found', 'table']
+// Curated explore ordering (sba + coffee lead), filtered through the go-live
+// gate so gated verticals (e.g. Way) drop out of the grid and count until launch.
+const VERTICAL_ORDER = ['sba', 'fine_grounds', 'collection', 'craft', 'rest', 'field', 'corner', 'found', 'table', 'way']
+const PUBLIC_VERTICAL_ORDER = VERTICAL_ORDER.filter(isVerticalPublic)
+
+const COUNT_WORDS = { 8: 'eight', 9: 'nine', 10: 'ten', 11: 'eleven', 12: 'twelve' }
+const countWord = COUNT_WORDS[PUBLIC_VERTICAL_ORDER.length] || String(PUBLIC_VERTICAL_ORDER.length)
+const CountWord = countWord.charAt(0).toUpperCase() + countWord.slice(1)
+const EXPLORE_DESCRIPTION = `Discover independent Australia. Browse regions, curated collections, and ${countWord} directories of makers, producers, stays, and places worth the drive.`
 
 const VERTICAL_INFO = {
   sba: { name: 'Small Batch', desc: 'Distilleries, wineries and artisan producers', url: 'https://smallbatchatlas.com.au' },
@@ -19,6 +28,7 @@ const VERTICAL_INFO = {
   corner: { name: 'Corner', desc: 'Independent shops and curated retail', url: 'https://corneratlas.com.au' },
   found: { name: 'Found', desc: 'Vintage, antique and secondhand finds', url: 'https://foundatlas.com.au' },
   table: { name: 'Table', desc: 'Independent dining and food producers', url: 'https://tableatlas.com.au' },
+  way: { name: 'Way', desc: 'Guided walks, tours and adventure experiences', url: 'https://wayatlas.com.au' },
 }
 
 const VERTICAL_JOURNAL_URLS = {
@@ -31,6 +41,7 @@ const VERTICAL_JOURNAL_URLS = {
   corner: 'https://corneratlas.com.au/journal',
   found: 'https://foundatlas.com.au/journal',
   table: 'https://tableatlas.com.au/journal',
+  way: 'https://wayatlas.com.au/journal',
 }
 
 function articleUrl(article) {
@@ -46,10 +57,10 @@ const STATE_LABELS = {
 
 export const metadata = {
   title: 'Explore — Australian Atlas',
-  description: 'Discover independent Australia. Browse regions, curated collections, and nine directories of makers, producers, stays, and places worth the drive.',
+  description: EXPLORE_DESCRIPTION,
   openGraph: {
     title: 'Explore — Australian Atlas',
-    description: 'Discover independent Australia. Browse regions, curated collections, and nine directories of makers, producers, stays, and places worth the drive.',
+    description: EXPLORE_DESCRIPTION,
     url: `${SITE_URL}/explore`,
     siteName: 'Australian Atlas',
     locale: 'en_AU',
@@ -130,7 +141,7 @@ export default async function ExplorePage() {
             color: 'var(--color-muted)', marginTop: '0.625rem',
             maxWidth: '36rem', lineHeight: 1.6,
           }}>
-            Regions, collections, and nine directories of the places that make a road trip worth the drive.
+            Regions, collections, and {countWord} directories of the places that make a road trip worth the drive.
           </p>
         </div>
       </div>
@@ -234,11 +245,11 @@ export default async function ExplorePage() {
               fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--color-muted)',
               marginTop: '0.25rem',
             }}>
-              Nine directories, each dedicated to a corner of Australian culture
+              {CountWord} directories, each dedicated to a corner of Australian culture
             </p>
           </div>
           <div className="explore-verticals">
-            {VERTICAL_ORDER.map(key => {
+            {PUBLIC_VERTICAL_ORDER.map(key => {
               const info = VERTICAL_INFO[key]
               const vs = VERTICAL_STYLES[key]
               return (
