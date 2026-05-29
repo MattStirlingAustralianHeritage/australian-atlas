@@ -680,7 +680,14 @@ export async function POST(request, { params }) {
           let updateSuccess = false
           let updateErrorMessage = null
           try {
-            const syncResult = await updateInVertical(vertical, effectiveSourceId, fullData)
+            // For Way, merge wayClassification so the mapper receives
+            // operator_type, accreditations, secondary_types, etc.
+            // Without this, mapToVerticalSchema's || [] defaults blank
+            // out the fields that pushToVerticalWithRetry wrote earlier.
+            const syncData = vertical === 'way' && wayClassification
+              ? { ...fullData, ...wayClassification }
+              : fullData
+            const syncResult = await updateInVertical(vertical, effectiveSourceId, syncData)
             if (syncResult.success) {
               console.log(`[approve] Synced retry update to ${vertical} vertical (source_id: ${effectiveSourceId})`)
               updateSuccess = true
