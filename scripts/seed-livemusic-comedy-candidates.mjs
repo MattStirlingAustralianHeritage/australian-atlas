@@ -16,11 +16,20 @@
  *   7. Host dedup vs existing collection listings
  *   8. Scope filter — drop clear non-venues (promoter/ticketing pages, festivals,
  *      schools, community sport clubs); stands in for the prospector's vertical-fit gate
- *   9. Classify clean vs VERIFY, build row, insert (or report under --dry-run)
+ *   9. Pokies pre-screen — fetch the venue's OWN site, scan for gaming signals;
+ *      confirmed pokies → HARD EXCLUDE; can't determine → INCLUDE + VERIFY (pokies)
+ *  10. Classify clean vs VERIFY, build row, insert (or report under --dry-run)
  *
- * INDEPENDENCE is a light pre-screen, not a verdict. Only outright group/major
- * matches are excluded. Anything uncertain is INCLUDED and flagged VERIFY for
- * the human reviewer. Government/council venues are NOT excluded.
+ * Step 4 dedups against every existing collection candidate, so re-running is
+ * ADDITIVE — it only proposes venues not already in the queue or live listings.
+ *
+ * Two pre-screens, two different finalities:
+ *  - INDEPENDENCE is a light pre-screen, not a verdict. Only outright group/major
+ *    matches are excluded; uncertainty is INCLUDED + flagged VERIFY. Government/
+ *    council venues are NOT excluded on independence grounds.
+ *  - POKIES is a HARD EXCLUDE (network pokies-free editorial line). Confirmed gaming
+ *    excludes outright, same finality as a group match — even for public venues.
+ *    Uncertainty is INCLUDED + flagged VERIFY (pokies) for review to resolve.
  *
  * Usage:
  *   node scripts/seed-livemusic-comedy-candidates.mjs --dry-run --max-cities=2
@@ -56,16 +65,19 @@ const MAX_CITIES = (() => {
 
 const VERTICAL = 'collection'
 const SOURCE = 'automated_discovery' // SOURCE_MAP[google_places] in lib/prospector/pipeline.js
-const SOURCE_DETAIL = 'culture_atlas_livemusic_comedy_seed_2026_05 (Google Places)'
+// Canonical source tag for the single pokies-screened batch. The prior
+// '...seed_2026_05 (Google Places)' batch was deleted before this run, so this
+// IS the canonical first batch — a distinct tag keeps the audit trail clear.
+const SOURCE_DETAIL = 'culture_atlas_livemusic_comedy_seed_2026_05b (Google Places, pokies-screened)'
 
-const TOP_N_PER_SEARCH = 8
+const TOP_N_PER_SEARCH = 12 // deeper than the first pass — its top results are deduped out
 const MAX_INSERT = 100 // global ceiling — top of Matt's 50-100 guide
 // Per-city, per-type caps keep the batch balanced: a heavy live-music skew,
 // jazz/listening rooms represented (feature), scarce comedy included, and the
 // two big cities prevented from swamping regional coverage.
 const CAP_COMEDY_PER_CITY = 3
 const CAP_JAZZ_PER_CITY = 2 // jazz/listening-room character
-const CAP_MUSIC_PER_CITY = 5 // non-jazz live music
+const CAP_MUSIC_PER_CITY = 6 // non-jazz live music (the first pass already took each city's top rooms)
 const SEARCH_SLEEP_MS = 1200
 const DETAIL_SLEEP_MS = 1100
 const SEARCH_RADIUS_M = 30000 // ~30km city bias
@@ -172,6 +184,74 @@ function classifyScope(name, host) {
     verify.push('general performing-arts/civic venue — confirm dedicated live-music or comedy programming, not a hire hall')
   }
   return { exclude: null, verify }
+}
+
+// ─── Pokies pre-screen (HARD EXCLUDE — network pokies-free editorial line) ──
+// Unambiguous gaming signals on the venue's OWN site → confirmed pokies → EXCLUDE
+// (same finality as a group match, public venues included). Pokies are often
+// absent from a venue's music-facing pages even when a gaming room exists, so
+// silence is NOT proof of pokies-free: pub/hotel/club-class names, a failed
+// fetch, or a missing site all yield "unknown" → INCLUDE + VERIFY (pokies).
+const POKIES_EXCLUDE_RE = /(pokies?|poker machine|gaming machine|electronic gaming|\begms?\b|gaming lounge|gaming room|gaming floor|gamble responsibly|responsible gambling|gambling helpline|gambler.{0,3}s help)/i
+// Softer gambling-adjacent terms — INCLUDE but flag VERIFY (pokies), don't exclude.
+const POKIES_VERIFY_RE = /(\bkeno\b|wagering|sports betting|sportsbet|tab & keno|tab and keno|tab outlet|tab agency)/i
+const FETCH_TIMEOUT_MS = 7000
+const FETCH_SLEEP_MS = 1200 // rate-limit venue-site fetches to a sane pace
+
+// Fetch a venue's own site and return de-tagged lowercase-able text, or null on
+// any failure (timeout / non-OK / network). Capped to avoid pathological pages.
+async function fetchSiteText(url) {
+  if (!url) return null
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS)
+  try {
+    const res = await fetch(url, {
+      signal: ctrl.signal,
+      redirect: 'follow',
+      headers: { 'user-agent': 'AtlasProspector/1.0 (venue independence + pokies pre-screen)' },
+    })
+    if (!res.ok) return null
+    const html = (await res.text()).slice(0, 500000)
+    return html
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&[a-z]+;/gi, ' ')
+      .replace(/\s+/g, ' ')
+  } catch {
+    return null
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+// Returns { pokies:'true'|'false'|'unknown', exclude, verify:[reason...], signal }.
+function screenPokies(name, website, siteText) {
+  if (siteText && POKIES_EXCLUDE_RE.test(siteText)) {
+    return { pokies: 'true', exclude: true, verify: [], signal: (siteText.match(POKIES_EXCLUDE_RE) || [''])[0] }
+  }
+  const verify = []
+  if (PUB_HOTEL_NAME_RE.test(name)) {
+    verify.push('pub/hotel/club-class venue — pokies common in this class and often absent from music pages; confirm pokies-free')
+  }
+  if (siteText && POKIES_VERIFY_RE.test(siteText)) {
+    verify.push(`gambling-adjacent term "${(siteText.match(POKIES_VERIFY_RE) || [''])[0]}" on site — confirm no pokies/gaming machines`)
+  }
+  if (!website) verify.push('no website to check for gaming — confirm pokies-free')
+  else if (siteText === null) verify.push('venue site fetch failed — could not check for gaming; confirm pokies-free')
+  if (verify.length) return { pokies: 'unknown', exclude: false, verify, signal: null }
+  return { pokies: 'false', exclude: false, verify: [], signal: null }
+}
+
+// Approx capacity from the venue's own site, if it states one plainly. Factual
+// only — returns null when nothing credible is found (never fabricate).
+function extractCapacity(siteText) {
+  if (!siteText) return null
+  const m = siteText.match(/capacity[^0-9]{0,15}(\d{2,4})/i)
+        || siteText.match(/(\d{2,4})[\s-]*(?:person|people|patron|capacity|cap\.)/i)
+  if (!m) return null
+  const n = parseInt(m[1], 10)
+  return (n >= 20 && n <= 6000) ? n : null
 }
 
 // ─── Helpers ────────────────────────────────────────────────────
@@ -375,7 +455,7 @@ async function main() {
 
   // ─── Stage 3: details + independence + host dedup + classify ──
   console.log(`\n[3] Place Details + independence pre-screen (${toDetail.length} places, ~${DETAIL_SLEEP_MS}ms each):`)
-  const chainRejected = [], majorRejected = [], dupListingHost = [], detailFailed = [], scopeExcluded = []
+  const chainRejected = [], majorRejected = [], dupListingHost = [], detailFailed = [], scopeExcluded = [], pokiesRejected = []
   const accepted = []
   let i = 0
   for (const p of toDetail) {
@@ -433,23 +513,42 @@ async function main() {
       continue
     }
 
-    // Classify clean vs VERIFY (include either way)
-    const verifyReasons = [...scope.verify]
-    if (PUB_HOTEL_NAME_RE.test(p.name)) verifyReasons.push('name suggests pub/hotel — confirm dedicated live-music room, not incidental pokies-pub gigs')
-    if (!website) verifyReasons.push('no website returned by Google — needs URL verification')
-    const status = verifyReasons.length ? 'verify' : 'clean'
+    // Pokies (HARD EXCLUDE): fetch the venue's OWN site and scan for gaming.
+    // Confirmed gaming → exclude outright. Can't determine → VERIFY (pokies).
+    const siteText = await fetchSiteText(website)
+    if (website) await sleep(FETCH_SLEEP_MS)
+    const pk = screenPokies(p.name, website, siteText)
+    if (pk.exclude) {
+      console.log(`\n  [POKIES-REJECT] ${p.name}: gaming signal "${pk.signal}"`)
+      pokiesRejected.push({ name: p.name, signal: pk.signal, website })
+      continue
+    }
+    const capacity = extractCapacity(siteText)
+
+    // Typed VERIFY flags (scope / independence / pokies) — INCLUDE either way.
+    const verifyFlags = []
+    for (const r of scope.verify) verifyFlags.push({ type: 'scope', reason: r })
+    if (PUB_HOTEL_NAME_RE.test(p.name)) verifyFlags.push({ type: 'independence', reason: 'name suggests pub/hotel/club — confirm a dedicated, independently-operated room' })
+    if (!website) verifyFlags.push({ type: 'independence', reason: 'no website returned by Google — verify operator and URL' })
+    for (const r of pk.verify) verifyFlags.push({ type: 'pokies', reason: r })
+    const status = verifyFlags.length ? 'verify' : 'clean'
 
     accepted.push({
       place: p, website, host, phone, address, state, region, types, rating, ratingCount,
-      bizStatus, status, verifyReasons,
+      bizStatus, status, verifyFlags, pokies: pk.pokies, capacity,
     })
     process.stdout.write(`\r  Detailed ${i}/${toDetail.length} — accepted ${accepted.length}        `)
   }
-  console.log(`\n  chain-rejected=${chainRejected.length}  major-rejected=${majorRejected.length}  dup-listing-host=${dupListingHost.length}  scope-excluded=${scopeExcluded.length}  detail-failed=${detailFailed.length}`)
+  console.log(`\n  chain-rejected=${chainRejected.length}  major-rejected=${majorRejected.length}  dup-listing-host=${dupListingHost.length}  scope-excluded=${scopeExcluded.length}  pokies-rejected=${pokiesRejected.length}  detail-failed=${detailFailed.length}`)
   console.log(`  → ${accepted.length} accepted (clean=${accepted.filter(a => a.status === 'clean').length}, verify=${accepted.filter(a => a.status === 'verify').length})`)
 
   // ─── Stage 4: balance the batch ───────────────────────────────
-  const cleanFirst = (x, y) => (y.status === 'clean' ? 1 : 0) - (x.status === 'clean' ? 1 : 0)
+  // Within each city×type bucket, keep the MOST ESTABLISHED rooms (by Google
+  // review count) rather than clean-status-first. Selecting on establishment
+  // surfaces iconic, long-running pub-rock rooms — which often carry a
+  // VERIFY (pokies) flag — instead of capping them out in favour of newer,
+  // lower-profile clean rooms. The pokies VERIFY pile is the point of the batch.
+  const byEstablished = (x, y) => (y.ratingCount || 0) - (x.ratingCount || 0)
   const byCityMap = new Map()
   for (const a of accepted) {
     const k = a.place.searchCity.name
@@ -459,9 +558,9 @@ async function main() {
   let capped = []
   let cappedOut = 0
   for (const [, list] of byCityMap) {
-    const comedy = list.filter(a => a.place.category === 'comedy_club').sort(cleanFirst)
-    const jazz = list.filter(a => a.place.category === 'live_music_venue' && a.place.character).sort(cleanFirst)
-    const music = list.filter(a => a.place.category === 'live_music_venue' && !a.place.character).sort(cleanFirst)
+    const comedy = list.filter(a => a.place.category === 'comedy_club').sort(byEstablished)
+    const jazz = list.filter(a => a.place.category === 'live_music_venue' && a.place.character).sort(byEstablished)
+    const music = list.filter(a => a.place.category === 'live_music_venue' && !a.place.character).sort(byEstablished)
     const keep = [
       ...comedy.slice(0, CAP_COMEDY_PER_CITY),
       ...jazz.slice(0, CAP_JAZZ_PER_CITY),
@@ -470,12 +569,13 @@ async function main() {
     cappedOut += list.length - keep.length
     capped.push(...keep)
   }
-  // Global ceiling — trim VERIFY rows before clean ones, type-agnostic. The
-  // per-city caps above already enforce the heavy live-music skew and scarce-
-  // comedy inclusion, so this trim must not re-bias the type mix (an earlier
-  // comedy-first rule over-protected comedy against the intended music skew).
-  const keepPriority = (a) => (a.status === 'clean' ? 0 : 1)
-  capped.sort((a, b) => keepPriority(a) - keepPriority(b))
+  // Global ceiling — if the per-city caps still total over MAX_INSERT, keep the
+  // most-established rooms (same criterion as the bucket selection). Trimming
+  // clean-first here would re-bury the VERIFY (pokies) pile the buckets just
+  // surfaced; trimming by establishment keeps iconic rooms (incl. pokies-VERIFY)
+  // and only sheds the lowest-profile overflow. The per-city caps already
+  // enforce the live-music skew and regional spread before this point.
+  capped.sort(byEstablished)
   const overflow = Math.max(0, capped.length - MAX_INSERT)
   if (overflow) capped = capped.slice(0, MAX_INSERT)
 
@@ -488,13 +588,15 @@ async function main() {
     const p = a.place
     const term = [...p.terms][0]
     const confidence = a.status === 'clean' ? CONF_CLEAN : CONF_VERIFY
+    const typeLabel = p.category === 'comedy_club' ? 'Comedy Club' : 'Live Music Venue'
+    // SHORT factual note: kind of room + (site-sourced) capacity + pokies flag +
+    // VERIFY flags + source for traceability. No editorial copy, no banned phrases.
     const noteParts = [
-      `Sourced via Google Places search "${term}" near ${p.searchCity.name}, ${a.state}.`,
-      a.types.length ? `Google categories: ${a.types.slice(0, 5).join(', ')}.` : null,
-      a.rating ? `Rating ${a.rating} (${a.ratingCount || 0} reviews).` : null,
-      a.bizStatus ? `Status: ${a.bizStatus.toLowerCase()}.` : null,
-      p.character ? `Search match suggests a ${p.character}; record as Live Music Venue with this as finer character.` : null,
-      ...a.verifyReasons.map(r => `VERIFY: ${r}.`),
+      `Proposed ${typeLabel}${p.character ? ` — ${p.character}` : ''}.`,
+      a.capacity ? `Venue site lists approx capacity ${a.capacity}.` : null,
+      `Pokies: ${a.pokies}.`,
+      ...a.verifyFlags.map(f => `VERIFY (${f.type}): ${f.reason}.`),
+      `Source: Google Places search "${term}" near ${p.searchCity.name}, ${a.state}.`,
     ].filter(Boolean)
 
     const row = {
@@ -512,8 +614,9 @@ async function main() {
         character: p.character || null,  // finer character (not a dropdown value)
         presence_type: 'permanent',
         visitable: true,
-        pokies: 'unknown',               // flag only — needs human/site verification
-        independence: { status: a.status, reason: a.verifyReasons.join('; ') || 'no group/major match' },
+        pokies: a.pokies,                // 'false' (site checked, clear) or 'unknown' (VERIFY); 'true' never reaches here (hard-excluded)
+        independence: { status: a.status, reason: a.verifyFlags.filter(f => f.type === 'independence').map(f => f.reason).join('; ') || 'no group/major match' },
+        verify_flags: a.verifyFlags,     // typed [{type:'scope'|'independence'|'pokies', reason}]
         source: 'google_places',
         google_places: {
           place_id: p.place_id,
@@ -539,11 +642,11 @@ async function main() {
     proposed.push({
       name: row.name, category: p.category, character: p.character,
       suburb: row.region, state: row.state, website: row.website_url,
-      independence: a.status, terms: [...p.terms],
+      status: a.status, pokies: a.pokies, verify: a.verifyFlags, terms: [...p.terms],
     })
 
     if (DRY_RUN) {
-      console.log(`  [WOULD-INSERT] ${row.name} (${p.category}${p.character ? '/' + p.character : ''}) ${row.region}, ${row.state} [${a.status}] — ${row.website_url || 'no site'}`)
+      console.log(`  [WOULD-INSERT] ${row.name} (${p.category}${p.character ? '/' + p.character : ''}) ${row.region}, ${row.state} [${a.status}, pokies=${a.pokies}] — ${row.website_url || 'no site'}`)
     } else {
       const r = await insertCandidate(row)
       if (r.outcome === 'inserted') { inserted++; }
@@ -566,6 +669,7 @@ async function main() {
   console.log(`Chain-rejected:         ${chainRejected.length}${chainRejected.length ? ' — ' + chainRejected.map(r => `${r.name}→${r.matched}`).join('; ') : ''}`)
   console.log(`Major-rejected:         ${majorRejected.length}${majorRejected.length ? ' — ' + majorRejected.map(r => `${r.name}→${r.matched}`).join('; ') : ''}`)
   console.log(`Scope-excluded:         ${scopeExcluded.length}${scopeExcluded.length ? ' — ' + scopeExcluded.map(r => `${r.name} (${r.reason})`).join('; ') : ''}`)
+  console.log(`Pokies-rejected (HARD): ${pokiesRejected.length}${pokiesRejected.length ? ' — ' + pokiesRejected.map(r => `${r.name} ("${r.signal}")`).join('; ') : ''}`)
   console.log(`Detail-call failures:   ${detailFailed.length}`)
   console.log(`Accepted:               ${accepted.length}  (clean=${accepted.filter(a => a.status === 'clean').length}, verify=${accepted.filter(a => a.status === 'verify').length})`)
   console.log(`Per-city capped out:    ${cappedOut} (depth available for a later batch)`)
@@ -573,6 +677,11 @@ async function main() {
   console.log(`Batch size:             ${capped.length}`)
   console.log(`By type:   ${Object.entries(byCat).map(([k, v]) => `${k}=${v}`).join(', ')}`)
   console.log(`By state:  ${Object.entries(byState).sort().map(([k, v]) => `${k}=${v}`).join(', ')}`)
+  const byPokies = {}
+  for (const pr of proposed) byPokies[pr.pokies] = (byPokies[pr.pokies] || 0) + 1
+  const pokiesVerifyPile = proposed.filter(pr => pr.verify.some(f => f.type === 'pokies'))
+  console.log(`By pokies: ${Object.entries(byPokies).sort().map(([k, v]) => `${k}=${v}`).join(', ')}`)
+  console.log(`VERIFY (pokies) pile:   ${pokiesVerifyPile.length}${pokiesVerifyPile.length ? ' — ' + pokiesVerifyPile.map(pr => pr.name).join(', ') : ''}`)
   if (DRY_RUN) {
     console.log(`Would insert:           ${capped.length}`)
   } else {
