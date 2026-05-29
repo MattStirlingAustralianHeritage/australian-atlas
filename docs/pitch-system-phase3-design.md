@@ -5,6 +5,13 @@
 **Date:** 22 May 2026
 **Supersedes:** The "tables dropped" decision in `docs/pitch-system-design.md` line 305. Those four tables (`pitch_sources`, `pitch_characters`, `pitch_character_attributes`, `pitch_signals`) are deliberately re-introduced as the foundation of the discovery layer.
 
+> **AS-BUILT NOTE — 2026-05-29**
+>
+> "Phase 3" is overloaded: **this** doc means the *discovery layer*; the older `pitch-system-design.md` uses "Phase 3" to mean *calibration at scale*. The reconciled current-state record is `pitch-system-state-audit-2026-05-29.md`.
+>
+> - **Stage 1 (first-party discovery) is built and ran in production on 22 May** — 450 rows across the four discovery tables; the substring validator demonstrably dropped invented content under load. The formal n=5 → n=20 → n=50 gate ceremony was **skipped**; no signed-off calibration report exists. **Stages 2–6 are design-only (no code).**
+> - **The live pitch path does NOT read these tables.** The Phase 2 generator and the batch runner (`scripts/pitch-run-batch.mjs`) ground on the master `listings` table ONLY. The discovery → composition integration this doc anticipates is **not wired**. The first production pitch run (2026-05-29) grounded entirely on `listings`.
+
 ## Purpose
 
 Phase 2 calibrated the in-pipeline pitch generator. It takes a listing plus pre-existing supporting signal data and produces a structured editorial pitch with fact-check guarantees. What it does not do is **find** the signal data. Phase 3 is that work: a discovery layer that fetches venue first-party sources, extracts characters and signals into structured database rows, and surfaces those rows to Phase 2 as inputs.
