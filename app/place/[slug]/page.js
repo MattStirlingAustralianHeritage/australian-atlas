@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
-import { getVerticalUrl, getVerticalLabel, getVerticalTagline, getVerticalBrandColour } from '@/lib/verticalUrl'
+import { getVerticalUrl, getVerticalLabel, getVerticalTagline, getVerticalBrandColour, getPublicVerticals } from '@/lib/verticalUrl'
 import { listingJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
 import { checkAdmin } from '@/lib/admin-auth'
 import { isApprovedImageSource } from '@/lib/image-utils'
@@ -105,6 +105,10 @@ const getListing = cache(async function getListing(slug) {
     .select(`id, vertical, name, slug, description, region, state, suburb, lat, lng, website, phone, address, hero_image_url, is_featured, is_claimed, editors_pick, status, hours, verified, sub_type, sub_types, ${LISTING_REGION_SELECT}`)
     .eq('slug', slug)
     .eq('status', 'active')
+    // Go-live gate: a flag-gated vertical (e.g. way while WAY_ATLAS_PUBLIC is
+    // unset) must not render its detail page by direct URL. getPublicVerticals()
+    // is called inside this cache()'d fn so per-slug dedup is preserved.
+    .in('vertical', getPublicVerticals())
     .order('updated_at', { ascending: false })
     .limit(1)
     .maybeSingle()
