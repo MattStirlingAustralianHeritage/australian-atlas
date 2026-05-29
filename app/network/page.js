@@ -1,29 +1,36 @@
 import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
+import { getPublicVerticals } from '@/lib/verticalUrl'
 
-export const metadata = {
-  title: 'The Network — Australian Atlas',
-  description: 'Live listing counts, recent additions, and coverage data across the nine-vertical Australian Atlas network.',
+const ATLAS_COUNT_WORDS = { 8: 'eight', 9: 'nine', 10: 'ten', 11: 'eleven', 12: 'twelve' }
+
+export async function generateMetadata() {
+  const count = getPublicVerticals().length
+  const word = ATLAS_COUNT_WORDS[count] || count
+  return {
+    title: 'The Network — Australian Atlas',
+    description: `Live listing counts, recent additions, and coverage data across the ${word}-vertical Australian Atlas network.`,
+  }
 }
 
 const VERTICAL_NAMES = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
   fine_grounds: 'Fine Grounds', rest: 'Rest', field: 'Field',
-  corner: 'Corner', found: 'Found', table: 'Table',
+  corner: 'Corner', found: 'Found', table: 'Table', way: 'Way',
 }
 
-async function getNetworkData() {
+async function getNetworkData(publicVerticals) {
   const sb = getSupabaseAdmin()
   try {
     // Total counts
-    const { count: total } = await sb.from('listings').select('*', { count: 'exact', head: true }).eq('status', 'active')
+    const { count: total } = await sb.from('listings').select('*', { count: 'exact', head: true }).eq('status', 'active').in('vertical', publicVerticals)
     const { count: regionCount } = await sb.from('regions').select('*', { count: 'exact', head: true })
-    const { count: claimed } = await sb.from('listings').select('*', { count: 'exact', head: true }).eq('status', 'active').eq('is_claimed', true)
+    const { count: claimed } = await sb.from('listings').select('*', { count: 'exact', head: true }).eq('status', 'active').eq('is_claimed', true).in('vertical', publicVerticals)
 
     // Per-vertical counts
     const verticalCounts = {}
-    for (const key of Object.keys(VERTICAL_NAMES)) {
+    for (const key of publicVerticals) {
       const { count } = await sb.from('listings').select('*', { count: 'exact', head: true }).eq('vertical', key).eq('status', 'active')
       verticalCounts[key] = count || 0
     }
@@ -33,6 +40,7 @@ async function getNetworkData() {
       .from('listings')
       .select(`id, name, vertical, region, state, created_at, ${LISTING_REGION_SELECT}`)
       .eq('status', 'active')
+      .in('vertical', publicVerticals)
       .order('created_at', { ascending: false })
       .limit(20)
 
@@ -42,6 +50,7 @@ async function getNetworkData() {
       .from('listings')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'active')
+      .in('vertical', publicVerticals)
       .gte('created_at', weekAgo)
 
     // Region coverage: regions with at least one listing
@@ -77,7 +86,10 @@ function timeAgo(dateStr) {
 }
 
 export default async function NetworkPage() {
-  const data = await getNetworkData()
+  const publicVerticals = getPublicVerticals()
+  const data = await getNetworkData(publicVerticals)
+  const atlasCount = publicVerticals.length
+  const atlasCountWord = ATLAS_COUNT_WORDS[atlasCount] || atlasCount
 
   return (
     <div style={{ background: 'var(--color-bg)', minHeight: '100vh' }}>
@@ -100,7 +112,7 @@ export default async function NetworkPage() {
           fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 15,
           color: 'var(--color-muted)', lineHeight: 1.6, maxWidth: 500, margin: '0 auto',
         }}>
-          Every number on this page is live. The network grows daily as venues are verified, claimed, and added across nine curated directories.
+          Every number on this page is live. The network grows daily as venues are verified, claimed, and added across {atlasCountWord} curated directories.
         </p>
       </section>
 
@@ -113,7 +125,7 @@ export default async function NetworkPage() {
         }}>
           {[
             { n: data.total.toLocaleString(), label: 'Verified listings' },
-            { n: '9', label: 'Curated atlases' },
+            { n: String(atlasCount), label: 'Curated atlases' },
             { n: String(data.regionCount), label: 'Mapped regions' },
             { n: data.claimed.toLocaleString(), label: 'Operator-claimed' },
             { n: `+${data.addedThisWeek}`, label: 'Added this week' },
@@ -142,13 +154,13 @@ export default async function NetworkPage() {
           By Atlas
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
-          {Object.entries(VERTICAL_NAMES).map(([key, name]) => (
+          {Object.keys(VERTICAL_NAMES).filter(k => publicVerticals.includes(k)).map(key => (
             <div key={key} style={{
               padding: '14px 18px', borderRadius: 8,
               border: '1px solid var(--color-border)', background: '#fff',
               display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
             }}>
-              <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--color-ink)' }}>{name}</span>
+              <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--color-ink)' }}>{VERTICAL_NAMES[key] || key}</span>
               <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, color: 'var(--color-muted)' }}>{(data.verticalCounts[key] || 0).toLocaleString()}</span>
             </div>
           ))}

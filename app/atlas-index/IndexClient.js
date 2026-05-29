@@ -16,6 +16,7 @@ const VERTICALS = [
   { key: 'corner', label: 'Corner Atlas', color: '#7c5a7c' },
   { key: 'found', label: 'Found Atlas', color: '#5a7c6b' },
   { key: 'table', label: 'Table Atlas', color: '#7c6b5a' },
+  { key: 'way', label: 'Way Atlas', color: '#6B7A4A' },
 ]
 
 const VERTICAL_COLOR_MAP = Object.fromEntries(
@@ -242,7 +243,7 @@ function LetterSection({ letter, items, onVisible }) {
 
 // ── Main client component ───────────────────────────────────
 
-export default function IndexClient({ listings, totalCount }) {
+export default function IndexClient({ listings, totalCount, publicVerticals = [] }) {
   const [activeVertical, setActiveVertical] = useState('')
   const [activeState, setActiveState] = useState('')
   const [activeLetter, setActiveLetter] = useState('A')
@@ -327,7 +328,7 @@ export default function IndexClient({ listings, totalCount }) {
         {/* Vertical pills */}
         <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
           <div style={{ display: 'flex', gap: '0.375rem', paddingBottom: '0.375rem', minWidth: 'max-content' }}>
-            {VERTICALS.map((v) => {
+            {VERTICALS.filter(v => v.key === '' || publicVerticals.includes(v.key)).map((v) => {
               const isActive = activeVertical === v.key
               return (
                 <button

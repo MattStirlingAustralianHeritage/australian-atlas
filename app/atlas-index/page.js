@@ -1,5 +1,6 @@
 import { cache } from 'react'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { getPublicVerticals } from '@/lib/verticalUrl'
 import IndexClient from './IndexClient'
 
 export const dynamic = 'force-dynamic' // uses getSupabaseAdmin (no-store fetch)
@@ -8,6 +9,7 @@ export const dynamic = 'force-dynamic' // uses getSupabaseAdmin (no-store fetch)
 
 const getAllListings = cache(async function getAllListings() {
   const sb = getSupabaseAdmin()
+  const publicVerticals = getPublicVerticals()
   const PAGE_SIZE = 1000
   let all = []
   let from = 0
@@ -17,6 +19,7 @@ const getAllListings = cache(async function getAllListings() {
       .from('listings')
       .select('id, name, slug, vertical, suburb, state, region')
       .eq('status', 'active')
+      .in('vertical', publicVerticals)
       .order('name', { ascending: true })
       .range(from, from + PAGE_SIZE - 1)
 
@@ -53,5 +56,6 @@ export async function generateMetadata() {
 
 export default async function AtlasIndexPage() {
   const listings = await getAllListings()
-  return <IndexClient listings={listings} totalCount={listings.length} />
+  const publicVerticals = getPublicVerticals()
+  return <IndexClient listings={listings} totalCount={listings.length} publicVerticals={publicVerticals} />
 }
