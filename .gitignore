@@ -46,6 +46,7 @@ yarn-error.log*
 /scripts/output/
 /scripts/region-reassign-logs/
 dry-run-*
+pitch-run-*.jsonl
 
 # supabase CLI local state
 /supabase/.temp/
