@@ -522,6 +522,7 @@ function ContentZone({ stats, loading }) {
   const contentLinks = [
     { label: 'Articles', description: 'Create and publish journal articles', href: '/admin/articles' },
     { label: 'Editorial Queue', description: 'Story ideas and interview pipeline', href: '/admin/editorial' },
+    { label: 'Pitch Triage', description: 'Review generated editorial pitches', href: '/admin/pitches' },
     { label: 'Trails', description: 'Editorial trails linking venues', href: '/admin/trails' },
     { label: 'Events', description: 'Manage community events', href: '/admin/events' },
   ]
