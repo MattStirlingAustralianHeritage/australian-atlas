@@ -42,6 +42,7 @@ import { resolve, dirname } from 'path'
 import { fileURLToPath } from 'url'
 import { createClient } from '@supabase/supabase-js'
 import { runPipeline } from '../lib/pitch/pipeline.mjs'
+import { sumUsage, estimateCost, formatUsage } from '../lib/pitch/usage.mjs'
 
 // ── Env loading ─────────────────────────────────────────────────────────────
 //
@@ -167,6 +168,7 @@ async function main() {
     slot_type: slotType,
     outcomes: [],
   }
+  const usages = []
 
   let i = 0
   for (const listingId of resolvedIds) {
@@ -187,8 +189,13 @@ async function main() {
 
     summary.outcomes.push({ listing_id: listingId, kind: result.kind })
     printResult(result, listingId)
+    if (result.usage) {
+      usages.push(result.usage)
+      console.log(`\n    ${formatUsage('tokens', result.usage)}`)
+    }
   }
 
+  const totalUsage = sumUsage(usages)
   console.log(`\n${'━'.repeat(72)}`)
   console.log('  Run summary')
   console.log(`${'━'.repeat(72)}`)
@@ -202,6 +209,9 @@ async function main() {
   for (const [kind, n] of Object.entries(counts).sort()) {
     console.log(`    ${kind.padEnd(28)} ${n}`)
   }
+  console.log(`  Tokens:            in=${totalUsage.input_tokens} out=${totalUsage.output_tokens} ` +
+    `cache_w=${totalUsage.cache_creation_input_tokens} cache_r=${totalUsage.cache_read_input_tokens}`)
+  console.log(`  Est. cost:         $${estimateCost(totalUsage).toFixed(4)} (Sonnet 4.6 rates)`)
   console.log('')
 }
 
@@ -217,7 +227,8 @@ function printResult(result, listingId) {
       console.log(`    pitch_id:        ${result.pitch_id}`)
       console.log(`    slot_id:         ${result.slot_id}`)
       console.log(`    confidence:      ${result.confidence.score}/90`)
-      console.log(`    fact_check:      passed (${result.fact_check?.passed ? 'true' : 'false'})`)
+      console.log(`    fact_check:      passed`)
+      console.log(`    verification:    passed (0 flags) — prose gate cleared`)
       break
     case 'insufficient_data':
       console.log(`\n  ⊘ INSUFFICIENT DATA — model declined to ground a pitch.`)
@@ -228,22 +239,30 @@ function printResult(result, listingId) {
     case 'fact_check_failed':
       console.log(`\n  ✗ FACT-CHECK FAILED — pitch not written.`)
       console.log(`    Reason:          ${result.reason}`)
-      for (let idx = 0; idx < result.attempts.length; idx++) {
-        const a = result.attempts[idx]
-        console.log(`\n    Attempt ${idx + 1}/${result.attempts.length} (${a.kind}):`)
-        if (a.kind === 'pitch' && a.fact_check && !a.fact_check.passed) {
-          for (const c of a.fact_check.failed_claims) {
-            console.log(`      ✗ "${truncate(c.fact?.claim, 80)}"`)
-            console.log(`          field=${c.fact?.field}  reason=${c.reason}`)
-            console.log(`          source_value=${truncate(JSON.stringify(c.source_value), 80)}`)
-          }
-        } else if (a.kind === 'insufficient_data') {
-          console.log(`      reason: ${a.reason}`)
-        } else if (a.kind === 'llm_error') {
-          console.log(`      error: ${a.error}`)
+      console.log(`    Attempts:        ${result.attempts}`)
+      if (Array.isArray(result.failed_claims) && result.failed_claims.length) {
+        console.log(`    Failed claims (final attempt):`)
+        for (const c of result.failed_claims) {
+          console.log(`      ✗ "${truncate(c.fact?.claim ?? c.claim, 80)}"`)
+          console.log(`          field=${c.fact?.field ?? c.field}  reason=${c.reason}`)
+          console.log(`          source_value=${truncate(JSON.stringify(c.source_value), 80)}`)
         }
       }
-      console.log(`\n    Logged:          ${result.logged ? 'yes (pitch_generation_failures)' : 'no (dry-run)'}`)
+      console.log(`    Logged:          ${result.logged ? 'yes (pitch_generation_failures)' : 'no (dry-run)'}`)
+      break
+    case 'verification_failed':
+      console.log(`\n  ✗ PROSE VERIFICATION FAILED — pitch not written.`)
+      console.log(`    Reason:          ${result.reason}`)
+      console.log(`    Attempts:        ${result.attempts}`)
+      console.log(`    Verify error:    ${result.verify_error ? 'YES — verification call threw; failed closed' : 'no'}`)
+      if (Array.isArray(result.flags) && result.flags.length) {
+        console.log(`    Flagged claims (final attempt):`)
+        for (const f of result.flags) {
+          console.log(`      ⚑ "${truncate(f.claim, 80)}"`)
+          console.log(`          ${f.reason}`)
+        }
+      }
+      console.log(`    Logged:          no (enum has no 'verification_failed'; surfaced to caller)`)
       break
     case 'llm_error':
       console.log(`\n  ✗ LLM ERROR — Anthropic call failed.`)
@@ -308,6 +327,15 @@ function printDryRun(result) {
   console.log(`\n    FACT-CHECK`)
   console.log(`    ──────────`)
   console.log(`    passed: ${result.fact_check?.passed ? 'YES — all ' + p.verified_facts.length + ' claims trace to the source record' : 'NO'}`)
+  console.log(`\n    PROSE VERIFICATION`)
+  console.log(`    ──────────────────`)
+  console.log(`    passed: ${result.verification?.passed ? 'YES — no derivation / inference / recombination / absent claims in the prose' : 'NO'}`)
+  if (result.verification && !result.verification.passed) {
+    for (const f of (result.verification.flags || [])) {
+      console.log(`      ⚑ "${truncate(f.claim, 80)}"`)
+      console.log(`          ${f.reason}`)
+    }
+  }
   console.log(`\n    CONFIDENCE`)
   console.log(`    ──────────`)
   console.log(`    score: ${result.confidence.score}/90  (single-anchor max is 75)`)
