@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { createHash } from 'crypto'
 import { LISTING_REGION_SELECT, resolveRegionParam } from '@/lib/regions'
+import { getPublicVerticals, isVerticalPublic } from '@/lib/verticalUrl'
 
 const SELECT_FIELDS = `id, vertical, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website, address, ${LISTING_REGION_SELECT}`
 
@@ -47,6 +48,7 @@ const VERTICAL_KEYWORDS = {
   corner: ['bookshop', 'bookshops', 'book shop', 'record store', 'record stores', 'homewares', 'indie shop', 'indie retail', 'independent shop'],
   found: ['vintage', 'op shop', 'op shops', 'antique', 'antiques', 'secondhand', 'second hand', 'thrift', 'retro', 'market'],
   table: ['farm gate', 'bakery', 'bakeries', 'food producer', 'providore', 'providores', 'butcher', 'cheese maker', 'cheese makers', 'cheese', 'olive oil', 'honey', 'sourdough', 'oyster', 'seafood', 'restaurant', 'restaurants', 'dining', 'cooking school', 'cooking schools'],
+  way: ['tour', 'tours', 'guided tour', 'guided tours', 'guided walk', 'guided walks', 'walking tour', 'walking tours', 'cultural tour', 'cultural tours', 'sailing', 'sailing charter', 'sailing charters', 'charter', 'charters', 'kayak', 'kayaking', 'canoe', 'canoeing', 'cruise', 'cruises', 'snorkel', 'snorkelling', 'snorkeling', 'scuba', 'diving', 'whale watching', 'wildlife tour', 'wildlife tours', 'eco tour', 'eco tours', 'boat tour', 'boat tours', 'adventure tour', 'adventure tours', 'scenic flight', 'scenic flights', 'fishing charter', 'fishing charters', 'expedition', 'expeditions'],
 }
 
 // Map region keywords to region names for ilike matching
@@ -176,6 +178,9 @@ function parseQueryHints(rawQuery) {
   //    This ensures "cheese makers" (table) beats "makers" (craft).
   const allVerticalPairs = []
   for (const [vKey, keywords] of Object.entries(VERTICAL_KEYWORDS)) {
+    // Gated verticals' keywords don't route until go-live — when Way is OFF,
+    // "kayak tour" stays free text rather than resolving to an unreachable filter.
+    if (!isVerticalPublic(vKey)) continue
     for (const kw of keywords) allVerticalPairs.push([kw, vKey])
   }
   allVerticalPairs.sort((a, b) => b[0].length - a[0].length)
@@ -340,6 +345,11 @@ export async function GET(request) {
 
   const sb = getSupabaseAdmin()
 
+  // Gated verticals (e.g. Way until go-live) must never surface in search.
+  // This is the authoritative no-leak boundary — applied to every query below,
+  // including explicit ?vertical=way (intersected to empty) and the fallbacks.
+  const publicVerticals = getPublicVerticals()
+
   // Decision 2 dual-acceptance: accept slug-shaped or name-shaped ?region= param,
   // resolve internally to a regions row, filter via FK below. No redirect from
   // this API route — URL canonicalisation belongs at the page level.
@@ -353,6 +363,7 @@ export async function GET(request) {
       .from('listings_with_region')
       .select(SELECT_FIELDS, { count: 'exact' })
       .eq('status', 'active')
+      .in('vertical', publicVerticals)
 
     if (vertical) baseQuery = baseQuery.eq('vertical', vertical)
     if (state) baseQuery = baseQuery.eq('state', state)
@@ -423,6 +434,7 @@ export async function GET(request) {
           .from('listings')
           .select(SELECT_FIELDS)
           .eq('status', 'active')
+          .in('vertical', publicVerticals)
           .limit(500)
 
         if (hintState) crossQuery = crossQuery.eq('state', hintState)
@@ -461,6 +473,7 @@ export async function GET(request) {
           .from('listings')
           .select(SELECT_FIELDS)
           .eq('status', 'active')
+          .in('vertical', publicVerticals)
           .limit(200)
 
         if (vertical) fuzzyQuery = fuzzyQuery.eq('vertical', vertical)
