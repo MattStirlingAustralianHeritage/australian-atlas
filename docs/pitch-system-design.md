@@ -6,6 +6,22 @@
 
 ---
 
+> **AS-BUILT RECONCILIATION — 2026-05-29**
+>
+> This document is the original Phase 2 spec (30 Apr 2026) and has **drifted** from what shipped. The authoritative current-state record is `pitch-system-state-audit-2026-05-29.md`. The deltas below reconcile this spec to the code that actually runs and to the first production run.
+>
+> - **Models.** Composition (`lib/pitch/generate.mjs`) and the verification gate (`lib/pitch/verify.mjs`) both run on `claude-sonnet-4-6`. No Opus anywhere.
+> - **Two gates, not one.** This spec describes a single substring fact-check. The shipped pipeline runs **two** gates in series, both before `finalize()`:
+>     1. *Substring fact-check* (`fact-check.mjs`) — validates each self-declared `verified_facts[]` claim is a literal substring of the anchor listing.
+>     2. *Prose verification gate* (`verify.mjs`, **new**) — a second Sonnet pass that reads the composed **prose** and flags ARITHMETIC/DATE-MATH, INFERENCE-BEYOND-RECORD, RECOMBINATION, and ABSENCE claims. Any flag → the pitch **fails** (no DB write, slot stays empty); at most **one** recomposition with the flags fed back, then it fails closed. This catches the class the substring checker cannot — a true fact recombined into a false implication, or a number derived from source dates (the "Morris 166 Years" bug). In `pipeline.mjs`, `finalize()` (the only path to the INSERT) is reached only when **both** gates pass.
+> - **Token + cost logging (new).** Every model call captures `response.usage` (`lib/pitch/usage.mjs`); the batch runner rolls it into a per-run total + dollar estimate at Sonnet 4.6 rates ($3/M in, $15/M out, $3.75/M cache-write, $0.30/M cache-read). The pipeline had never measured a token before this build.
+> - **Batch runner (new).** `scripts/pitch-run-batch.mjs` wires Phase 1 scoring → Phase 2 generation across every empty `pitch_slot` in one bounded pass (one scorer subprocess per vertical/slot_type, K+margin candidates, global `--max-runs` ceiling). Production is the default; `--dry-run` opts out. No cron.
+> - **Single-anchor.** This spec describes multi-listing pitches; Phase 2 as built composes from a **single anchor listing**, confidence capped at 75 (`confidence.mjs`).
+> - **Triage surface (new).** `/admin/pitches` is built (middleware-gated server page → `PitchesQueue` client → `/api/admin/pitches`). Keep → `approved_pitches` (slot stays filled, status → `approved`); Dismiss → `rejected_pitches` snapshot + delete pitch (FK reopens the slot).
+> - **`pitch_failure_mode` enum.** Live values are `{fact_check_failed, insufficient_data_returned, llm_error, bail_token_detected}`. There is **no** `verification_failed` value — verification failures live in the JSONL run log + run summary only, never in `pitch_generation_failures`.
+> - **`portal` is unserveable.** `pitch_slots` seeds a `portal` vertical (3 slots) but the scorer has no portal candidate pool; portal pairs are skipped and reported as unserved. **27 of 30** seeded slots are fillable.
+> - **First production run — 2026-05-29 (INTERRUPTED).** First-ever live write; grounded entirely on the master `listings` table. Reached 5 of 9 scorer verticals before the process was killed mid-run (session teardown) at `rest/new_producer`. **19 candidates processed → 9 pitches written, 10 rejected by the prose gate, 0 by fact-check.** Gate flags: RECOMBINATION ×6, INFERENCE-BEYOND-RECORD ×2, ARITHMETIC/DATE-MATH ×2 (incl. National Wool Museum, 9 flags). **Cost: $1.35 total / $0.149 per written pitch.** 9/30 slots filled; the remaining 18 fillable slots are empty (re-run `pitch-run-batch.mjs` to fill). The prose gate rejected **53%** of fact-check-passing candidates — exactly the recombination/derived-numeric class the substring checker cannot catch, validating the two-gate design.
+
 ## Purpose
 
 The Pitch System produces editorial article briefs for the Atlas Network, grounded entirely in verified listing data. It replaces the original editorial pitch generator, which was disabled after producing fabricated journalism — invented venues, invented operators, invented backstories presented as factual pitches.
