@@ -3,6 +3,11 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 
 /* ═══════════════════════════════════════════════════════════════════════
+   DEAD CODE — replaced by ghost-watermark design in RegionMapSelect.js
+   (Fix 13d).  Kept for reference; safe to delete in a later clean-up.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════════════════════════
    StaticRegionMap — local SVG map with HTML overlay markers
    ═══════════════════════════════════════════════════════════════════════
    Renders a dark-styled SVG of Australia as a single <img>,

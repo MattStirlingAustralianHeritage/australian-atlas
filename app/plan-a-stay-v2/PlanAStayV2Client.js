@@ -1278,43 +1278,19 @@ export default function PlanAStayV2Client({ regions = [] }) {
               autoAdvance()
             }}
           />
-          {/* "Not sure yet" — disabled until recommendation flow exists */}
-          <div style={{ padding: '16px 0 0' }}>
-            <div
-              style={{
-                display: 'block',
-                width: '100%',
-                textAlign: 'left',
-                padding: '14px 18px',
-                background: 'transparent',
-                border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
-                borderRadius: 10,
-                cursor: 'default',
-                fontFamily: 'var(--font-body)',
-                opacity: 0.45,
-                minHeight: 48,
-              }}
-            >
-              <span style={{
-                display: 'block',
-                fontSize: 15,
-                fontStyle: 'italic',
-                color: 'var(--color-muted, #6B6760)',
-                lineHeight: 1.3,
-              }}>
-                Not sure yet — recommend a region.
-              </span>
-              <span style={{
-                display: 'block',
-                fontSize: 12,
-                color: 'var(--color-muted, #6B6760)',
-                lineHeight: 1.4,
-                marginTop: 2,
-              }}>
-                Coming soon — region recommendations.
-              </span>
-            </div>
-          </div>
+          {/* "Not sure yet" — delicate footer line */}
+          <p style={{
+            textAlign: 'center',
+            fontFamily: 'var(--font-body)',
+            fontSize: 13,
+            fontStyle: 'italic',
+            color: 'var(--color-muted, #6B6760)',
+            opacity: 0.45,
+            marginTop: 28,
+            lineHeight: 1.4,
+          }}>
+            Not sure yet? Region recommendations coming soon.
+          </p>
         </QuestionScreen>
 
         {/* ── Question 5: Season (conditional) ─────────────────────── */}
