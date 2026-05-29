@@ -53,6 +53,8 @@ const SUBCATEGORY_OPTIONS = {
     { value: 'sculpture_park', label: 'Sculpture Park' },
     { value: 'cinema', label: 'Cinema' },
     { value: 'drive_in', label: 'Drive-In' },
+    { value: 'live_music_venue', label: 'Live Music Venue' },
+    { value: 'comedy_club', label: 'Comedy Club' },
   ],
   craft: [
     { value: 'ceramics_clay', label: 'Ceramics & Clay' },
