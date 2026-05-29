@@ -3,43 +3,62 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
 
 /* ═══════════════════════════════════════════════════════════════════════
-   StaticRegionMap — Mapbox Static Images API map with HTML overlay markers
+   StaticRegionMap — local SVG map with HTML overlay markers
    ═══════════════════════════════════════════════════════════════════════
-   Renders the Atlas custom style as a single <img>, with region markers
-   positioned via lat/lng → pixel conversion over the known bounding box.
+   Renders a dark-styled Ultimaps SVG of Australia as a single <img>,
+   with region markers positioned via lat/lng → pixel conversion.
 
-   No Mapbox GL runtime. No tile loading. No style fallback possible.
-   The map's job is orientation; the list is the precision tool.        */
+   No Mapbox runtime, no third-party tile service. The SVG is a local
+   asset in /public/maps/. The map's job is orientation; the list is
+   the precision tool.                                                  */
 
-const MAPBOX_STYLE = 'mattstirlingaustralianheritage/cmn32b0iz003401swccb7d21k'
 
-/* ─── Australia bounding box for the static image ─────────────────────── */
-const BBOX = {
+/* ─── SVG coordinate system ──────────────────────────────────────────── */
+const SVG_SIZE = 1200                      // viewBox: 0 0 1200 1200
+const MAP_OFFSET_X = 10                    // map group translate-x
+const MAP_OFFSET_Y = 20.536               // map group translate-y
+const MAP_WIDTH = 1180                     // map background width
+const MAP_HEIGHT = 1158.928               // map background height
+
+/* ─── Geographic extent the SVG covers ───────────────────────────────── */
+const GEO = {
   west: 112.0,
-  south: -44.5,
   east: 155.0,
   north: -9.5,
+  south: -44.5,
 }
 
-/* ─── Image dimensions ────────────────────────────────────────────────── */
-const IMG_WIDTH = 800
-const IMG_HEIGHT = 600
-
-/* ─── Web Mercator projection helpers ─────────────────────────────────── */
+/* ─── Web Mercator projection helper ─────────────────────────────────── */
 function latToMercatorY(lat) {
   const latRad = (lat * Math.PI) / 180
   return Math.log(Math.tan(Math.PI / 4 + latRad / 2))
 }
 
-function lngToPixelX(lng, containerWidth) {
-  return ((lng - BBOX.west) / (BBOX.east - BBOX.west)) * containerWidth
+/* ─── Image bounds within container (object-fit: contain on a 1:1 SVG) */
+function getImageBounds(containerWidth, containerHeight) {
+  const imgSize = Math.min(containerWidth, containerHeight)
+  return {
+    imgSize,
+    offsetX: (containerWidth - imgSize) / 2,
+    offsetY: (containerHeight - imgSize) / 2,
+  }
 }
 
-function latToPixelY(lat, containerHeight) {
-  const yNorth = latToMercatorY(BBOX.north)
-  const ySouth = latToMercatorY(BBOX.south)
+/* ─── Coordinate conversion: lng → pixel X ───────────────────────────── */
+function lngToPixelX(lng, containerWidth, containerHeight) {
+  const { imgSize, offsetX } = getImageBounds(containerWidth, containerHeight)
+  const svgX = ((lng - GEO.west) / (GEO.east - GEO.west)) * MAP_WIDTH + MAP_OFFSET_X
+  return (svgX / SVG_SIZE) * imgSize + offsetX
+}
+
+/* ─── Coordinate conversion: lat → pixel Y ───────────────────────────── */
+function latToPixelY(lat, containerWidth, containerHeight) {
+  const { imgSize, offsetY } = getImageBounds(containerWidth, containerHeight)
+  const yNorth = latToMercatorY(GEO.north)
+  const ySouth = latToMercatorY(GEO.south)
   const yPoint = latToMercatorY(lat)
-  return ((yNorth - yPoint) / (yNorth - ySouth)) * containerHeight
+  const svgY = ((yNorth - yPoint) / (yNorth - ySouth)) * MAP_HEIGHT + MAP_OFFSET_Y
+  return (svgY / SVG_SIZE) * imgSize + offsetY
 }
 
 
@@ -75,15 +94,6 @@ export default function StaticRegionMap({
     return () => ro.disconnect()
   }, [])
 
-  /* ─── Static image URL ───────────────────────────────────────────── */
-  const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
-  const staticUrl = useMemo(() => {
-    if (!token) return null
-    // bbox format: [west,south,east,north]
-    const bbox = `[${BBOX.west},${BBOX.south},${BBOX.east},${BBOX.north}]`
-    return `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/static/${bbox}/${IMG_WIDTH}x${IMG_HEIGHT}@2x?access_token=${token}&attribution=false&logo=false`
-  }, [token])
-
   /* ─── Regions with valid coordinates ─────────────────────────────── */
   const mappableRegions = useMemo(() =>
     regions.filter(r => r.lat != null && r.lng != null),
@@ -99,31 +109,29 @@ export default function StaticRegionMap({
         borderRadius: 10,
         overflow: 'hidden',
         background: '#2d2a24',
-        aspectRatio: `${IMG_WIDTH} / ${IMG_HEIGHT}`,
+        aspectRatio: '4 / 3',
       }}
     >
-      {/* Static map image */}
-      {staticUrl && (
-        <img
-          src={staticUrl}
-          alt="Map of Australia showing covered regions"
-          loading="eager"
-          onLoad={() => setImageLoaded(true)}
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            display: 'block',
-            opacity: imageLoaded ? 1 : 0,
-            transition: prefersReducedMotion ? 'none' : 'opacity 0.3s ease',
-          }}
-        />
-      )}
+      {/* Local SVG map image */}
+      <img
+        src="/maps/australia-states.svg"
+        alt="Map of Australia showing covered regions"
+        loading="eager"
+        onLoad={() => setImageLoaded(true)}
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'contain',
+          display: 'block',
+          opacity: imageLoaded ? 1 : 0,
+          transition: prefersReducedMotion ? 'none' : 'opacity 0.3s ease',
+        }}
+      />
 
       {/* Overlay markers */}
       {imageLoaded && containerSize.width > 0 && mappableRegions.map(r => {
-        const x = lngToPixelX(r.lng, containerSize.width)
-        const y = latToPixelY(r.lat, containerSize.height)
+        const x = lngToPixelX(r.lng, containerSize.width, containerSize.height)
+        const y = latToPixelY(r.lat, containerSize.width, containerSize.height)
         const isSelected = selectedRegion === r.name
         const isHovered = hoveredRegion === r.name
         const isHighlighted = isSelected || isHovered
@@ -210,17 +218,28 @@ export default function StaticRegionMap({
         )
       })}
 
-      {/* Mapbox attribution (required) */}
+      {/* Ultimaps attribution */}
       <span style={{
         position: 'absolute',
         bottom: 2,
         right: 4,
         fontSize: 9,
-        color: 'rgba(255,255,255,0.4)',
+        color: 'rgba(255,255,255,0.35)',
         fontFamily: 'var(--font-body)',
         pointerEvents: 'none',
       }}>
-        © Mapbox
+        Map: <a
+          href="https://ultimaps.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            color: 'inherit',
+            textDecoration: 'none',
+          }}
+          onClick={e => e.stopPropagation()}
+        >
+          Ultimaps.com
+        </a>
       </span>
     </div>
   )
