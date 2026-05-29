@@ -17,6 +17,11 @@ const nextConfig = {
         destination: '/plan-my-stay',
         permanent: true,
       },
+      {
+        source: '/plan-a-stay-v2',
+        destination: '/plan-a-stay',
+        permanent: true,
+      },
     ]
   },
 };

@@ -8,6 +8,7 @@ import NearbySection from '@/components/NearbySection'
 import { getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
 import { getListingRegion, LISTING_REGION_SELECT, resolveRegionParam } from '@/lib/regions'
 import { getPublicVerticals } from '@/lib/verticalUrl'
+import { getQualifyingRegions } from '@/lib/plan-a-stay/qualifying-regions'
 
 export const revalidate = 1800
 
@@ -278,9 +279,13 @@ async function getFeaturedListings() {
 export default async function Home() {
   const publicVerticals = getPublicVerticals()
   const verticalCount = publicVerticals.length
-  const [stats, articlesRaw, clusters, featured] = await Promise.all([
-    getStats(publicVerticals), getLatestArticles(), getDiscoverClusters(), getFeaturedListings(),
+  const [stats, articlesRaw, clusters, featured, qualifyingRegions] = await Promise.all([
+    getStats(publicVerticals), getLatestArticles(), getDiscoverClusters(), getFeaturedListings(), getQualifyingRegions(),
   ])
+  // Region name → slug for clusters that clear the Plan-a-Stay threshold, so a
+  // cluster card can deep-link into a pre-seeded weekend. Non-qualifying
+  // clusters get no link rather than one that lands on the unseeded flow.
+  const planSeedSlugByRegion = new Map(qualifyingRegions.map(r => [r.name, r.slug]))
   const articles = articlesRaw.length > 0 ? articlesRaw : []
   const articlesWithImages = articles.filter(a => a.hero_image_url).slice(0, 2)
   const featuredArticle = articlesWithImages[0] || articles[0]
@@ -616,6 +621,16 @@ export default async function Home() {
                       }}>
                         {cluster.total} listings across {cluster.verticalCount} atlases
                       </p>
+                      {planSeedSlugByRegion.has(cluster.region) && (
+                        <Link
+                          href={`/plan-a-stay?region=${planSeedSlugByRegion.get(cluster.region)}`}
+                          className="inline-flex items-center gap-1.5 mt-2 hover:opacity-80 transition-opacity"
+                          style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: GOLD }}
+                        >
+                          Plan a weekend here
+                          <span style={{ fontSize: 14 }}>&rarr;</span>
+                        </Link>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -667,9 +682,16 @@ export default async function Home() {
             fontFamily: 'var(--font-display)', fontWeight: 400,
             fontSize: 'clamp(24px, 3vw, 36px)', color: 'var(--color-ink)',
           }}>
-            Plan a trip
+            <Link
+              href="/plan"
+              className="group inline-flex items-center gap-2 hover:opacity-80 transition-opacity"
+              style={{ color: 'inherit', textDecoration: 'none' }}
+            >
+              Plan a trip
+              <span className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: GOLD, fontSize: 22 }}>&rarr;</span>
+            </Link>
           </h2>
-          <div className="max-w-xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-3xl mx-auto">
             <Link
               href="/on-this-road"
               className="reveal group listing-card block rounded-2xl"
@@ -701,6 +723,39 @@ export default async function Home() {
                 color: GOLD,
               }}>
                 Plan a road trip &rarr;
+              </span>
+            </Link>
+            <Link
+              href="/plan-a-stay"
+              className="reveal group listing-card block rounded-2xl"
+              data-reveal-index="2"
+              style={{
+                background: '#2C2420',
+                border: '1px solid transparent',
+                padding: '32px 28px',
+                minHeight: '200px',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              <h3 style={{
+                fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '26px',
+                color: '#FAF8F4', lineHeight: 1.25, marginBottom: 10,
+              }}>
+                Not sure where to go?
+              </h3>
+              <p style={{
+                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px',
+                color: 'rgba(250,248,244,0.6)', lineHeight: 1.6,
+              }}>
+                Tell us what you&apos;re into and we&apos;ll plan the weekend.
+              </p>
+              <div style={{ flex: 1, minHeight: 24 }} />
+              <span style={{
+                fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
+                color: GOLD,
+              }}>
+                Plan a weekend &rarr;
               </span>
             </Link>
           </div>

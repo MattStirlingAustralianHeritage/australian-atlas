@@ -141,7 +141,7 @@ export default async function SharedPlanPage({ params }) {
           }}>
             Want to plan your own trip?
           </p>
-          <Link href="/plan" style={{
+          <Link href="/plan/concierge" style={{
             display: 'inline-block', padding: '11px 24px',
             background: 'var(--color-ink, #1c1a17)', color: '#fff',
             textDecoration: 'none', borderRadius: 6,

@@ -57,6 +57,7 @@ export default function Nav() {
   ]
 
   const secondaryLinks = [
+    { href: '/plan', label: 'Plan' },
     { href: '/near-me', label: 'Near Me' },
     { href: '/trails', label: 'Trails' },
     { href: '/discover', label: 'Discover' },

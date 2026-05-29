@@ -338,7 +338,7 @@ function PlanAStayPage({ pasTrip, slug }) {
             Australian Atlas
           </Link>
           <Link
-            href="/plan-a-stay-v2"
+            href="/plan-a-stay"
             style={{
               fontFamily: 'var(--font-body)',
               fontSize: 12,
@@ -394,7 +394,7 @@ function PlanAStayPage({ pasTrip, slug }) {
             Built with Plan a Stay — find independent places to eat, drink, stay, and explore across Australia.
           </p>
           <Link
-            href="/plan-a-stay-v2"
+            href="/plan-a-stay"
             style={{
               display: 'inline-block',
               padding: '12px 28px',

@@ -1050,8 +1050,13 @@ function ActionButtons({ tripData, onReset, shareState, setShareState, shareUrl,
 /* ═════════════════════════════════════════════════════════════════════════
    Main component
    ═════════════════════════════════════════════════════════════════════════ */
-export default function PlanAStayV2Client({ regions = [] }) {
-  const [state, dispatch] = useReducer(reducer, INITIAL_STATE)
+export default function PlanAStayV2Client({ regions = [], seedRegion = null }) {
+  const [state, dispatch] = useReducer(reducer, INITIAL_STATE, (initial) => {
+    if (!seedRegion) return initial
+    const seeded = { ...initial, region: seedRegion }
+    seeded.needsSeason = computeNeedsSeason(seeded)
+    return seeded
+  })
   const [tripData, setTripData] = useState(null)
   const [tripError, setTripError] = useState(null)
   const autoAdvanceTimer = useRef(null)
