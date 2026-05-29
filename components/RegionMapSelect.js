@@ -1,265 +1,45 @@
 'use client'
 
-import 'mapbox-gl/dist/mapbox-gl.css'
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useRef, useMemo } from 'react'
+import StaticRegionMap from './StaticRegionMap'
 
 /* ═══════════════════════════════════════════════════════════════════════
-   RegionMapSelect — synced map + list region selector
+   RegionMapSelect — static map + synced list region selector
    ═══════════════════════════════════════════════════════════════════════
-   Two-panel layout: interactive Mapbox map (left) + scrollable list (right).
-   Hover/select synced both ways. Used by Q4 in the Plan-a-Stay planner.
+   Two-panel layout: Atlas-styled static map (left) + scrollable editorial
+   list (right). Hover/select synced both ways.
 
    Desktop: map ~55%, list ~45%. Narrow: stacked, list primary.
-   Map: covered regions as accent-fill polygons, uncovered plain.
+   Map: Mapbox Static Images API with HTML overlay markers.
    List: editorial rows with numeral, name, state code.                */
 
 
-const MAPBOX_STYLE = 'mapbox://styles/mattstirlingaustralianheritage/cmn32b0iz003401swccb7d21k'
-
 /* ─── Detect reduced motion preference ────────────────────────────────── */
 function usePrefersReducedMotion() {
-  const [prefersReduced, setPrefersReduced] = useState(false)
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
-    setPrefersReduced(mq.matches)
-    const handler = (e) => setPrefersReduced(e.matches)
-    mq.addEventListener('change', handler)
-    return () => mq.removeEventListener('change', handler)
+  return useMemo(() => {
+    if (typeof window === 'undefined') return false
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches
   }, [])
-  return prefersReduced
 }
 
-/* ─── Australia bounding box (leans southeast — honest) ───────────────── */
-const AUSTRALIA_BOUNDS = [
-  [112.0, -44.0],   // SW
-  [154.0, -10.0],   // NE
-]
 
-
-export default function RegionMapSelect({ regions, selectedRegion, onSelect, onHover }) {
+export default function RegionMapSelect({ regions, selectedRegion, onSelect }) {
   const [hoveredRegion, setHoveredRegion] = useState(null)
-  const [geojsonData, setGeojsonData] = useState(null)
-  const [geojsonLoading, setGeojsonLoading] = useState(true)
-  const [mapLoaded, setMapLoaded] = useState(false)
   const [showMap, setShowMap] = useState(false) // mobile toggle
-  const mapContainerRef = useRef(null)
-  const mapRef = useRef(null)
   const listRowRefs = useRef({})
   const prefersReducedMotion = usePrefersReducedMotion()
 
-  // Regions keyed by name for fast lookup
-  const regionsByName = useMemo(() => {
-    const map = new Map()
-    regions.forEach(r => map.set(r.name, r))
-    return map
-  }, [regions])
-
-  // ── Fetch GeoJSON ──────────────────────────────────────────────────
-  useEffect(() => {
-    fetch('/api/plan-a-stay/regions-geojson')
-      .then(res => {
-        if (!res.ok) throw new Error(`GeoJSON fetch failed: ${res.status}`)
-        return res.json()
-      })
-      .then(fc => {
-        setGeojsonData(fc)
-        setGeojsonLoading(false)
-      })
-      .catch(err => {
-        console.error('[RegionMapSelect] GeoJSON fetch error:', err)
-        setGeojsonLoading(false)
-      })
-  }, [])
-
-  // ── Initialize Mapbox ──────────────────────────────────────────────
-  useEffect(() => {
-    if (!geojsonData || !mapContainerRef.current) return
-    // Only init map if container is visible (desktop or mobile toggle on)
-    if (mapRef.current) return
-
-    let cancelled = false
-
-    import('mapbox-gl').then(({ default: mapboxgl }) => {
-      if (cancelled) return
-
-      mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
-
-      const map = new mapboxgl.Map({
-        container: mapContainerRef.current,
-        style: MAPBOX_STYLE,
-        bounds: AUSTRALIA_BOUNDS,
-        fitBoundsOptions: { padding: 30 },
-        interactive: true,
-        attributionControl: false,
-      })
-
-      map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'bottom-right')
-
-      map.on('load', () => {
-        if (cancelled) return
-
-        // Add region polygons source
-        map.addSource('plan-regions', {
-          type: 'geojson',
-          data: geojsonData,
-          promoteId: 'name',
-        })
-
-        // Fill layer — covered regions
-        map.addLayer({
-          id: 'region-fills',
-          type: 'fill',
-          source: 'plan-regions',
-          paint: {
-            'fill-color': [
-              'case',
-              ['boolean', ['feature-state', 'selected'], false],
-              '#C4603A',   // accent when selected
-              ['boolean', ['feature-state', 'hover'], false],
-              'rgba(196, 96, 58, 0.35)',   // accent at 35% on hover
-              'rgba(196, 96, 58, 0.12)',   // subtle accent tint default
-            ],
-            'fill-opacity': 1,
-          },
-        })
-
-        // Border layer
-        map.addLayer({
-          id: 'region-borders',
-          type: 'line',
-          source: 'plan-regions',
-          paint: {
-            'line-color': [
-              'case',
-              ['boolean', ['feature-state', 'selected'], false],
-              '#C4603A',
-              ['boolean', ['feature-state', 'hover'], false],
-              'rgba(196, 96, 58, 0.6)',
-              'rgba(196, 96, 58, 0.25)',
-            ],
-            'line-width': [
-              'case',
-              ['boolean', ['feature-state', 'selected'], false],
-              2,
-              1,
-            ],
-          },
-        })
-
-        // Label layer — region names on hover/select
-        map.addLayer({
-          id: 'region-labels',
-          type: 'symbol',
-          source: 'plan-regions',
-          layout: {
-            'text-field': ['get', 'name'],
-            'text-font': ['DIN Pro Medium', 'Arial Unicode MS Regular'],
-            'text-size': 11,
-            'text-anchor': 'center',
-            'text-allow-overlap': false,
-          },
-          paint: {
-            'text-color': '#1C1A17',
-            'text-halo-color': 'rgba(248, 246, 241, 0.9)',
-            'text-halo-width': 1.5,
-            'text-opacity': [
-              'case',
-              ['boolean', ['feature-state', 'hover'], false],
-              1,
-              ['boolean', ['feature-state', 'selected'], false],
-              1,
-              0,
-            ],
-          },
-        })
-
-        // ── Mouse interactions ─────────────────────────────────────
-        let hoveredId = null
-
-        map.on('mousemove', 'region-fills', (e) => {
-          if (e.features.length > 0) {
-            const name = e.features[0].properties.name
-            if (hoveredId && hoveredId !== name) {
-              map.setFeatureState({ source: 'plan-regions', id: hoveredId }, { hover: false })
-            }
-            hoveredId = name
-            map.setFeatureState({ source: 'plan-regions', id: name }, { hover: true })
-            map.getCanvas().style.cursor = 'pointer'
-            setHoveredRegion(name)
-            if (onHover) onHover(name)
-          }
-        })
-
-        map.on('mouseleave', 'region-fills', () => {
-          if (hoveredId) {
-            map.setFeatureState({ source: 'plan-regions', id: hoveredId }, { hover: false })
-            hoveredId = null
-          }
-          map.getCanvas().style.cursor = ''
-          setHoveredRegion(null)
-          if (onHover) onHover(null)
-        })
-
-        map.on('click', 'region-fills', (e) => {
-          if (e.features.length > 0) {
-            const name = e.features[0].properties.name
-            onSelect(name)
-          }
-        })
-
-        setMapLoaded(true)
-        mapRef.current = map
-      })
-    })
-
-    return () => {
-      cancelled = true
-      if (mapRef.current) {
-        mapRef.current.remove()
-        mapRef.current = null
-      }
-    }
-  }, [geojsonData, onSelect, onHover])
-
-  // ── Sync selected state to map ─────────────────────────────────────
-  useEffect(() => {
-    if (!mapRef.current || !mapLoaded || !geojsonData) return
-
-    // Clear all selected states, then set the selected one
-    geojsonData.features.forEach(f => {
-      const name = f.properties.name
-      mapRef.current.setFeatureState(
-        { source: 'plan-regions', id: name },
-        { selected: name === selectedRegion }
-      )
-    })
-  }, [selectedRegion, mapLoaded, geojsonData])
-
-  // ── Sync hovered region from list to map ───────────────────────────
-  const handleListHover = useCallback((regionName) => {
-    if (!mapRef.current || !mapLoaded) return
-
-    // Clear previous hover
-    if (geojsonData) {
-      geojsonData.features.forEach(f => {
-        mapRef.current.setFeatureState(
-          { source: 'plan-regions', id: f.properties.name },
-          { hover: f.properties.name === regionName }
-        )
-      })
-    }
+  // ── Hover handler (bidirectional: map ↔ list) ──────────────────────
+  const handleHover = (regionName) => {
     setHoveredRegion(regionName)
-  }, [mapLoaded, geojsonData])
-
-  // ── Scroll hovered region into view in list ────────────────────────
-  useEffect(() => {
-    if (hoveredRegion && listRowRefs.current[hoveredRegion]) {
-      listRowRefs.current[hoveredRegion].scrollIntoView({
+    // Scroll hovered region into view in list
+    if (regionName && listRowRefs.current[regionName]) {
+      listRowRefs.current[regionName].scrollIntoView({
         behavior: prefersReducedMotion ? 'auto' : 'smooth',
         block: 'nearest',
       })
     }
-  }, [hoveredRegion, prefersReducedMotion])
+  }
 
 
   return (
@@ -297,18 +77,22 @@ export default function RegionMapSelect({ regions, selectedRegion, onSelect, onH
       }}
         className="region-map-panels"
       >
-        {/* Map panel */}
+        {/* Map panel — static image with overlay markers */}
         <div
-          ref={mapContainerRef}
           style={{
             flex: '0 0 55%',
-            borderRadius: 10,
-            overflow: 'hidden',
-            background: '#2d2a24',
-            minHeight: 400,
+            minHeight: 300,
           }}
           className="region-map-panel"
-        />
+        >
+          <StaticRegionMap
+            regions={regions}
+            selectedRegion={selectedRegion}
+            hoveredRegion={hoveredRegion}
+            onSelect={onSelect}
+            onHover={handleHover}
+          />
+        </div>
 
         {/* List panel */}
         <div
@@ -333,10 +117,10 @@ export default function RegionMapSelect({ regions, selectedRegion, onSelect, onH
                 aria-selected={isSelected}
                 aria-label={`${r.name}, ${r.state}`}
                 onClick={() => onSelect(r.name)}
-                onMouseEnter={() => handleListHover(r.name)}
-                onMouseLeave={() => handleListHover(null)}
-                onFocus={() => handleListHover(r.name)}
-                onBlur={() => handleListHover(null)}
+                onMouseEnter={() => handleHover(r.name)}
+                onMouseLeave={() => handleHover(null)}
+                onFocus={() => handleHover(r.name)}
+                onBlur={() => handleHover(null)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -428,7 +212,6 @@ export default function RegionMapSelect({ regions, selectedRegion, onSelect, onH
           .region-map-panel {
             flex: none !important;
             display: ${showMap ? 'block' : 'none'} !important;
-            min-height: 280px !important;
           }
           .region-list-panel {
             max-height: 360px !important;
