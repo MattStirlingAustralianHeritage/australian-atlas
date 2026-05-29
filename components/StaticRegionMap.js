@@ -5,7 +5,7 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 /* ═══════════════════════════════════════════════════════════════════════
    StaticRegionMap — local SVG map with HTML overlay markers
    ═══════════════════════════════════════════════════════════════════════
-   Renders a dark-styled Ultimaps SVG of Australia as a single <img>,
+   Renders a dark-styled SVG of Australia as a single <img>,
    with region markers positioned via lat/lng → pixel conversion.
 
    No Mapbox runtime, no third-party tile service. The SVG is a local
@@ -13,52 +13,57 @@ import { useState, useMemo, useRef, useEffect } from 'react'
    the precision tool.                                                  */
 
 
-/* ─── SVG coordinate system ──────────────────────────────────────────── */
-const SVG_SIZE = 1200                      // viewBox: 0 0 1200 1200
-const MAP_OFFSET_X = 10                    // map group translate-x
-const MAP_OFFSET_Y = 20.536               // map group translate-y
-const MAP_WIDTH = 1180                     // map background width
-const MAP_HEIGHT = 1158.928               // map background height
+/* ─── SVG coordinate system (cropped to filled map only) ─────────────── */
+const SVG_WIDTH  = 2500                    // viewBox width (cropped)
+const SVG_HEIGHT = 2870.86                 // viewBox height
 
-/* ─── Geographic extent the SVG covers ───────────────────────────────── */
+/* ─── Geographic extent the SVG viewBox covers ───────────────────────── */
+/* The filled Australia map sits at SVG ≈(670, 600)→(2392, 2175).       *
+ * These GEO bounds map the full viewBox to geographic coordinates.     *
+ * Calibrated iteratively against known city positions.                  */
 const GEO = {
-  west: 112.0,
-  east: 155.0,
-  north: -9.5,
-  south: -44.5,
+  west:  96.0,
+  east:  162.0,
+  north: 2.0,
+  south: -57.0,
 }
 
-/* ─── Web Mercator projection helper ─────────────────────────────────── */
-function latToMercatorY(lat) {
-  const latRad = (lat * Math.PI) / 180
-  return Math.log(Math.tan(Math.PI / 4 + latRad / 2))
-}
-
-/* ─── Image bounds within container (object-fit: contain on a 1:1 SVG) */
+/* ─── Image bounds within container (object-fit: contain, non-square SVG) */
 function getImageBounds(containerWidth, containerHeight) {
-  const imgSize = Math.min(containerWidth, containerHeight)
+  const svgAspect = SVG_WIDTH / SVG_HEIGHT
+  const containerAspect = containerWidth / containerHeight
+  let renderedWidth, renderedHeight
+
+  if (containerAspect > svgAspect) {
+    /* Container is wider than SVG — image constrained by height */
+    renderedHeight = containerHeight
+    renderedWidth  = containerHeight * svgAspect
+  } else {
+    /* Container is taller than SVG — image constrained by width */
+    renderedWidth  = containerWidth
+    renderedHeight = containerWidth / svgAspect
+  }
+
   return {
-    imgSize,
-    offsetX: (containerWidth - imgSize) / 2,
-    offsetY: (containerHeight - imgSize) / 2,
+    renderedWidth,
+    renderedHeight,
+    offsetX: (containerWidth  - renderedWidth)  / 2,
+    offsetY: (containerHeight - renderedHeight) / 2,
   }
 }
 
-/* ─── Coordinate conversion: lng → pixel X ───────────────────────────── */
+/* ─── Coordinate conversion: lng → pixel X (equirectangular) ─────────── */
 function lngToPixelX(lng, containerWidth, containerHeight) {
-  const { imgSize, offsetX } = getImageBounds(containerWidth, containerHeight)
-  const svgX = ((lng - GEO.west) / (GEO.east - GEO.west)) * MAP_WIDTH + MAP_OFFSET_X
-  return (svgX / SVG_SIZE) * imgSize + offsetX
+  const { renderedWidth, offsetX } = getImageBounds(containerWidth, containerHeight)
+  const fraction = (lng - GEO.west) / (GEO.east - GEO.west)
+  return fraction * renderedWidth + offsetX
 }
 
-/* ─── Coordinate conversion: lat → pixel Y ───────────────────────────── */
+/* ─── Coordinate conversion: lat → pixel Y (equirectangular) ─────────── */
 function latToPixelY(lat, containerWidth, containerHeight) {
-  const { imgSize, offsetY } = getImageBounds(containerWidth, containerHeight)
-  const yNorth = latToMercatorY(GEO.north)
-  const ySouth = latToMercatorY(GEO.south)
-  const yPoint = latToMercatorY(lat)
-  const svgY = ((yNorth - yPoint) / (yNorth - ySouth)) * MAP_HEIGHT + MAP_OFFSET_Y
-  return (svgY / SVG_SIZE) * imgSize + offsetY
+  const { renderedHeight, offsetY } = getImageBounds(containerWidth, containerHeight)
+  const fraction = (GEO.north - lat) / (GEO.north - GEO.south)
+  return fraction * renderedHeight + offsetY
 }
 
 
@@ -217,30 +222,6 @@ export default function StaticRegionMap({
           </button>
         )
       })}
-
-      {/* Ultimaps attribution */}
-      <span style={{
-        position: 'absolute',
-        bottom: 2,
-        right: 4,
-        fontSize: 9,
-        color: 'rgba(255,255,255,0.35)',
-        fontFamily: 'var(--font-body)',
-        pointerEvents: 'none',
-      }}>
-        Map: <a
-          href="https://ultimaps.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            color: 'inherit',
-            textDecoration: 'none',
-          }}
-          onClick={e => e.stopPropagation()}
-        >
-          Ultimaps.com
-        </a>
-      </span>
     </div>
   )
 }
