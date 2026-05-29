@@ -7,22 +7,15 @@ import ScrollReveal from '@/components/ScrollReveal'
 import NearbySection from '@/components/NearbySection'
 import { getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
 import { getListingRegion, LISTING_REGION_SELECT, resolveRegionParam } from '@/lib/regions'
+import { getPublicVerticals } from '@/lib/verticalUrl'
 
 export const revalidate = 1800
 
 const GOLD = '#C4973B'
 
-const verticals = [
-  { key: 'sba', name: 'Small Batch Atlas', tag: 'Small Batch', desc: 'Craft breweries, wineries, distilleries, cideries and cellar doors', url: 'https://smallbatchatlas.com.au' },
-  { key: 'collection', name: 'Culture Atlas', tag: 'Culture', desc: 'Museums, galleries, heritage sites and cultural centres', url: 'https://collectionatlas.com.au' },
-  { key: 'craft', name: 'Craft Atlas', tag: 'Craft', desc: 'Makers, artists and studios across every discipline', url: 'https://craftatlas.com.au' },
-  { key: 'fine_grounds', name: 'Fine Grounds Atlas', tag: 'Fine Grounds', desc: 'Specialty coffee roasters and independent cafes', url: 'https://finegroundsatlas.com.au' },
-  { key: 'rest', name: 'Rest Atlas', tag: 'Rest', desc: 'Boutique hotels, farm stays, glamping and cottages', url: 'https://restatlas.com.au' },
-  { key: 'field', name: 'Field Atlas', tag: 'Field', desc: 'Swimming holes, waterfalls, lookouts and natural places', url: 'https://fieldatlas.com.au' },
-  { key: 'corner', name: 'Corner Atlas', tag: 'Corner', desc: 'Bookshops, record stores, homewares and indie retail', url: 'https://corneratlas.com.au' },
-  { key: 'found', name: 'Found Atlas', tag: 'Found', desc: 'Vintage stores, op shops, antique dealers and markets', url: 'https://foundatlas.com.au' },
-  { key: 'table', name: 'Table Atlas', tag: 'Table', desc: 'Farm gates, bakeries, food producers and providores', url: 'https://tableatlas.com.au' },
-]
+// Number words for the hero headline ("Nine atlases" / "Ten atlases"), derived
+// from the count of public verticals so the headline tracks go-live state.
+const NUMBER_WORDS = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten']
 
 const VERTICAL_CARD_COLORS = {
   sba:          { bg: '#3D2B1F', text: '#FAF8F4' },
@@ -93,17 +86,17 @@ function firstSentence(text) {
   return match ? match[1] : text.slice(0, 160)
 }
 
-async function getStats() {
+async function getStats(publicVerticals) {
   try {
     const sb = getSupabaseAdmin()
     const [{ count }, { count: regionCount }] = await Promise.all([
-      sb.from('listings').select('*', { count: 'exact', head: true }).eq('status', 'active').not('name', 'ilike', '\\_%'),
+      sb.from('listings').select('*', { count: 'exact', head: true }).eq('status', 'active').in('vertical', publicVerticals).not('name', 'ilike', '\\_%'),
       sb.from('regions').select('*', { count: 'exact', head: true }),
     ])
     const verticalCountResults = await Promise.all(
-      verticals.map(v =>
-        sb.from('listings').select('*', { count: 'exact', head: true }).eq('vertical', v.key).eq('status', 'active').not('name', 'ilike', '\\_%')
-          .then(({ count: c }) => [v.key, c || 0])
+      publicVerticals.map(key =>
+        sb.from('listings').select('*', { count: 'exact', head: true }).eq('vertical', key).eq('status', 'active').not('name', 'ilike', '\\_%')
+          .then(({ count: c }) => [key, c || 0])
       )
     )
     const verticalCounts = Object.fromEntries(verticalCountResults)
@@ -283,8 +276,10 @@ async function getFeaturedListings() {
 }
 
 export default async function Home() {
+  const publicVerticals = getPublicVerticals()
+  const verticalCount = publicVerticals.length
   const [stats, articlesRaw, clusters, featured] = await Promise.all([
-    getStats(), getLatestArticles(), getDiscoverClusters(), getFeaturedListings(),
+    getStats(publicVerticals), getLatestArticles(), getDiscoverClusters(), getFeaturedListings(),
   ])
   const articles = articlesRaw.length > 0 ? articlesRaw : []
   const articlesWithImages = articles.filter(a => a.hero_image_url).slice(0, 2)
@@ -307,7 +302,7 @@ export default async function Home() {
           fontSize: 'clamp(2.5rem, 6vw, 5rem)', lineHeight: 1.1,
           color: 'var(--color-ink)', maxWidth: '820px', textWrap: 'balance',
         }}>
-          Nine atlases. One guide to{' '}
+          {NUMBER_WORDS[verticalCount] || verticalCount} atlases. One guide to{' '}
           <em style={{ fontStyle: 'italic' }}>independent</em> Australia.
         </h1>
 
@@ -328,7 +323,7 @@ export default async function Home() {
             </span>
             <span style={{ color: GOLD, fontSize: '5px' }}>●</span>
             <span>
-              <span style={{ color: GOLD, fontWeight: 500 }}>9</span>
+              <span style={{ color: GOLD, fontWeight: 500 }}>{verticalCount}</span>
               <span style={{ color: 'var(--color-muted)' }}> atlases</span>
             </span>
             <span style={{ color: GOLD, fontSize: '5px' }}>●</span>
