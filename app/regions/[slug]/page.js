@@ -7,6 +7,7 @@ import RegionMapHero from '@/components/RegionMapHero'
 import RegionTrailCTA from '@/components/RegionTrailCTA'
 import { RelatedCollections, RelatedArticles } from '@/components/RelatedContent'
 import { LISTING_REGION_SELECT } from '@/lib/regions'
+import { getPublicVerticals } from '@/lib/verticalUrl'
 
 export const revalidate = 21600
 
@@ -21,6 +22,9 @@ export async function generateStaticParams() {
   }
 }
 
+// Generic venue verticals rendered by the standard region_id-grouped loop. Way
+// is intentionally NOT here — it's an experiences vertical keyed off way_meta
+// (based vs runs), handled by its own section below.
 const VERTICAL_ORDER = ['sba', 'fine_grounds', 'collection', 'craft', 'rest', 'field', 'corner', 'found', 'table']
 
 const VERTICAL_LABELS = {
@@ -33,6 +37,7 @@ const VERTICAL_LABELS = {
   corner: 'Corner',
   found: 'Found',
   table: 'Table',
+  way: 'Way',
 }
 
 const VERTICAL_COLORS = {
@@ -45,12 +50,13 @@ const VERTICAL_COLORS = {
   corner: '#5F8A7E',
   found: '#D4956A',
   table: '#C4634F',
+  way: '#6B7A4A',
 }
 
 const VERTICAL_CARD_BG = {
   sba: '#3D2B1F', collection: '#2D3436', craft: '#4A3728',
   fine_grounds: '#2C1810', rest: '#1B2631', field: '#1E3A2F',
-  corner: '#3B2F2F', found: '#2F2B26', table: '#3A2E1F',
+  corner: '#3B2F2F', found: '#2F2B26', table: '#3A2E1F', way: '#2B3320',
 }
 
 const VERTICAL_DESCRIPTIONS = {
@@ -63,6 +69,7 @@ const VERTICAL_DESCRIPTIONS = {
   corner: 'Independent shops and curated retail',
   found: 'Vintage, antique, and secondhand finds',
   table: 'Independent dining and food producers',
+  way: 'Guided walks, tours, and adventure experiences',
 }
 
 const VERTICAL_URLS = {
@@ -75,6 +82,7 @@ const VERTICAL_URLS = {
   corner: 'https://corneratlas.com.au/shops',
   found: 'https://foundatlas.com.au/shops',
   table: 'https://tableatlas.com.au/listings',
+  way: 'https://wayatlas.com.au/operators',
 }
 
 const STATE_LABELS = {
@@ -98,17 +106,20 @@ async function getRegionNarrative(regionId) {
   return data
 }
 
-async function getRegionListings(region) {
+async function getRegionListings(region, venueVerticals) {
   const sb = getSupabaseAdmin()
   const select = `id, vertical, source_id, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website, ${LISTING_REGION_SELECT}`
 
   // Override-wins resolution per docs/regions.md, via the
   // listings_with_region view (migration 125). region_id is
-  // COALESCE(region_override_id, region_computed_id).
+  // COALESCE(region_override_id, region_computed_id). Restricted to the
+  // public venue verticals — gated verticals never leak, and Way is excluded
+  // here because it's surfaced via way_meta (based/runs) in its own section.
   const { data } = await sb
     .from('listings_with_region')
     .select(select)
     .eq('status', 'active')
+    .in('vertical', venueVerticals)
     .eq('region_id', region.id)
     .order('editors_pick', { ascending: false })
     .order('is_featured', { ascending: false })
@@ -116,6 +127,58 @@ async function getRegionListings(region) {
     .limit(200)
 
   return data || []
+}
+
+// Way operators are surfaced by way_meta, not the spatial region_id (marine
+// departure points often fall in no region polygon, leaving region_id NULL).
+// "Based" = way_meta.primary_region_id; "runs" = operating_region_ids contains
+// the region. Returns {} when Way is gated off, so nothing leaks pre-launch.
+async function getWayInRegion(region, publicVerticals) {
+  if (!publicVerticals.includes('way')) return { based: [], runs: [] }
+  const sb = getSupabaseAdmin()
+
+  const [basedRes, runsRes] = await Promise.all([
+    sb.from('way_meta')
+      .select('listing_id, primary_region_id, operating_region_ids, departure_point_name, multiple_departure_points')
+      .eq('primary_region_id', region.id),
+    sb.from('way_meta')
+      .select('listing_id, primary_region_id, operating_region_ids, departure_point_name, multiple_departure_points')
+      .contains('operating_region_ids', [region.id]),
+  ])
+
+  const metaById = {}
+  for (const m of (basedRes.data || [])) metaById[m.listing_id] = m
+  for (const m of (runsRes.data || [])) if (!metaById[m.listing_id]) metaById[m.listing_id] = m
+  const ids = Object.keys(metaById)
+  if (ids.length === 0) return { based: [], runs: [] }
+
+  const select = 'id, vertical, source_id, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website'
+  const { data: rows } = await sb
+    .from('listings')
+    .select(select)
+    .eq('status', 'active')
+    .eq('vertical', 'way')
+    .in('id', ids)
+    .order('editors_pick', { ascending: false })
+    .order('is_featured', { ascending: false })
+    .order('name')
+
+  // Resolve home-region names so runs-here cards can say "Based in X".
+  const homeIds = [...new Set(Object.values(metaById).map(m => m.primary_region_id).filter(Boolean))]
+  let homeNameById = {}
+  if (homeIds.length) {
+    const { data: homeRegions } = await sb.from('regions').select('id, name').in('id', homeIds)
+    homeNameById = Object.fromEntries((homeRegions || []).map(r => [r.id, r.name]))
+  }
+
+  const based = [], runs = []
+  for (const l of (rows || [])) {
+    const m = metaById[l.id]
+    const enriched = { ...l, _way: m, _homeRegion: m?.primary_region_id ? homeNameById[m.primary_region_id] : null }
+    if (m && m.primary_region_id === region.id) based.push(enriched)
+    else runs.push(enriched)
+  }
+  return { based, runs }
 }
 
 function truncateEditorial(text) {
@@ -134,6 +197,49 @@ function truncateDescription(text, max = 100) {
   const cut = text.substring(0, max)
   const lastSpace = cut.lastIndexOf(' ')
   return (lastSpace > max * 0.5 ? cut.substring(0, lastSpace) : cut) + '\u2026'
+}
+
+// Way card. mode 'based' = operator based in this region; mode 'runs' = based
+// elsewhere but runs experiences through it (eyebrow names the home region).
+function WayExperienceCard({ listing, mode }) {
+  const href = listing.slug ? `/place/${listing.slug}` : '#'
+  const dep = listing._way?.departure_point_name
+  const multi = listing._way?.multiple_departure_points
+  const eyebrow = mode === 'runs'
+    ? (listing._homeRegion ? `Based in ${listing._homeRegion}` : 'Visiting operator')
+    : (multi ? 'Multiple departure points' : (dep ? `Departs ${dep}` : 'Based here'))
+  const desc = truncateDescription(listing.description, 90)
+  return (
+    <a
+      href={href}
+      className="listing-card"
+      style={{
+        display: 'block', padding: '1.25rem 1.5rem', borderRadius: '10px',
+        background: VERTICAL_CARD_BG.way, textDecoration: 'none', minHeight: '120px',
+      }}
+    >
+      <span style={{
+        fontFamily: 'var(--font-body)', fontSize: '9px', fontWeight: 500,
+        letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)',
+      }}>
+        {eyebrow}
+      </span>
+      <h3 style={{
+        fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '1.125rem',
+        color: '#fff', margin: '0.375rem 0', lineHeight: 1.3,
+      }}>
+        {listing.name}
+      </h3>
+      {desc && (
+        <p style={{
+          fontFamily: 'var(--font-body)', fontSize: '13px', fontWeight: 300,
+          color: 'rgba(255,255,255,0.85)', lineHeight: 1.5, margin: 0,
+        }}>
+          {desc}
+        </p>
+      )}
+    </a>
+  )
 }
 
 export async function generateMetadata({ params }) {
@@ -164,10 +270,17 @@ export default async function RegionPage({ params }) {
   const region = await getRegion(slug)
   if (!region) notFound()
 
-  const [listings, narrative] = await Promise.all([
-    getRegionListings(region),
+  const publicVerticals = getPublicVerticals()
+  const venueVerticals = publicVerticals.filter(v => v !== 'way')
+
+  const [listings, narrative, way] = await Promise.all([
+    getRegionListings(region, venueVerticals),
     getRegionNarrative(region.id),
+    getWayInRegion(region, publicVerticals),
   ])
+  const wayBased = way.based
+  const wayRuns = way.runs
+  const wayCount = wayBased.length + wayRuns.length
 
   // Group by vertical
   const grouped = {}
@@ -233,7 +346,7 @@ export default async function RegionPage({ params }) {
         </nav>
 
         {/* ── 3. VERTICAL ANCHOR PILLS ──────────────────── */}
-        {Object.keys(verticalCounts).length > 0 && (
+        {(activeVerticals.length > 0 || wayCount > 0) && (
           <div style={{
             display: 'flex',
             flexWrap: 'wrap',
@@ -266,6 +379,20 @@ export default async function RegionPage({ params }) {
                 </a>
               )
             })}
+            {wayCount > 0 && (
+              <a
+                href="#vertical-way"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '0.375rem',
+                  padding: '0.375rem 0.75rem', borderRadius: '100px',
+                  backgroundColor: `${VERTICAL_COLORS.way}14`, color: VERTICAL_COLORS.way,
+                  fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '12px',
+                  textDecoration: 'none', transition: 'opacity 0.15s',
+                }}
+              >
+                {VERTICAL_LABELS.way} <strong style={{ fontWeight: 700 }}>{wayCount}</strong>
+              </a>
+            )}
           </div>
         )}
 
@@ -503,7 +630,7 @@ export default async function RegionPage({ params }) {
         })()}
 
         {/* ── VERTICAL SECTIONS WITH LISTING CARDS ── */}
-        {listings.length > 0 ? (
+        {listings.length > 0 && (
           <div style={{ paddingBottom: '3rem' }}>
             {/* Main vertical sections (3+ listings) */}
             {activeVerticals.filter(v => grouped[v].length >= 3).map((vertical, idx) => {
@@ -690,7 +817,86 @@ export default async function RegionPage({ params }) {
               )
             })()}
           </div>
-        ) : (
+        )}
+
+        {/* ── WAY: experiences based in or running through this region ── */}
+        {(wayBased.length > 0 || wayRuns.length > 0) && (
+          <section id="vertical-way" style={{ marginTop: '3rem', paddingBottom: '3rem' }}>
+            {/* Section header */}
+            <div style={{ marginBottom: '1.25rem' }}>
+              <h2 style={{
+                fontFamily: 'var(--font-display)',
+                fontWeight: 400,
+                fontSize: '1.5rem',
+                color: 'var(--color-ink)',
+                margin: '0 0 0.25rem',
+              }}>
+                {VERTICAL_LABELS.way}
+              </h2>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.75rem' }}>
+                <span style={{
+                  fontFamily: 'var(--font-body)', fontSize: '13px',
+                  fontWeight: 400, color: 'var(--color-muted)',
+                }}>
+                  {VERTICAL_DESCRIPTIONS.way}
+                </span>
+                <span style={{
+                  fontFamily: 'var(--font-body)', fontSize: '12px',
+                  fontWeight: 500, color: VERTICAL_COLORS.way,
+                }}>
+                  {wayCount} experience{wayCount !== 1 ? 's' : ''}
+                </span>
+              </div>
+            </div>
+
+            {/* Based in this region */}
+            {wayBased.length > 0 && (
+              <div style={{ marginBottom: wayRuns.length > 0 ? '2rem' : 0 }}>
+                <h3 style={{
+                  fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
+                  letterSpacing: '0.1em', textTransform: 'uppercase',
+                  color: 'var(--color-muted)', margin: '0 0 0.75rem',
+                }}>
+                  Based in {region.name}
+                </h3>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                  gap: '1rem',
+                }}>
+                  {wayBased.map(listing => (
+                    <WayExperienceCard key={listing.id} listing={listing} mode="based" />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Runs experiences through this region */}
+            {wayRuns.length > 0 && (
+              <div>
+                <h3 style={{
+                  fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
+                  letterSpacing: '0.1em', textTransform: 'uppercase',
+                  color: 'var(--color-muted)', margin: '0 0 0.75rem',
+                }}>
+                  Also runs experiences here
+                </h3>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                  gap: '1rem',
+                }}>
+                  {wayRuns.map(listing => (
+                    <WayExperienceCard key={listing.id} listing={listing} mode="runs" />
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Empty state — nothing at all in this region */}
+        {listings.length === 0 && wayCount === 0 && (
           <div style={{ textAlign: 'center', padding: '4rem 0' }}>
             <p style={{ color: 'var(--color-muted)', fontFamily: 'var(--font-body)', fontSize: '15px' }}>
               No listings synced for this region yet.
