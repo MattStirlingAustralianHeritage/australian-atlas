@@ -593,7 +593,7 @@ export default function DashboardPage() {
             letterSpacing: '0.18em', textTransform: 'uppercase',
             color: 'var(--color-sage, #5f8a7e)', marginBottom: 12,
           }}>
-            Operator Dashboard
+            Vendor Dashboard
           </p>
           <h1 style={{
             fontFamily: 'var(--font-display, Georgia)', fontWeight: 400, fontSize: '2rem',
@@ -633,7 +633,7 @@ export default function DashboardPage() {
             letterSpacing: '0.18em', textTransform: 'uppercase',
             color: 'var(--color-sage, #5f8a7e)', marginBottom: 12,
           }}>
-            Operator Dashboard
+            Vendor Dashboard
           </p>
           <h1 style={{
             fontFamily: 'var(--font-display, Georgia)', fontWeight: 400, fontSize: '2rem',
@@ -680,7 +680,7 @@ export default function DashboardPage() {
               letterSpacing: '0.18em', textTransform: 'uppercase',
               color: 'var(--color-sage, #5f8a7e)', margin: '0 0 6px',
             }}>
-              Operator Dashboard
+              Vendor Dashboard
             </p>
             <h1 style={{
               fontFamily: 'var(--font-display, Georgia)', fontWeight: 400, fontSize: '1.75rem',

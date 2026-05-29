@@ -179,6 +179,7 @@ Before applying any migration to production:
 - Post-login redirect goes to `/account` (not `/dashboard`)
 - `/dashboard` remains vendor-specific (My Listings, Analytics, Producer Picks, etc.)
 - Nav is auth-aware: shows user avatar + dropdown when logged in, "Sign In" when not
+- NOTE (future task): "operator" and "vendor" are used interchangeably (the shelved B2B operator product vs. the `vendor` role for venue claimants). An operator→vendor vocabulary reconciliation is a deliberate, separate future task — do not rename roles ad hoc.
 
 ## File Structure
 
@@ -195,7 +196,7 @@ scripts/        — data sync, seeding, editorial generation
 ## Key Conventions
 
 - All pages use App Router (lowercase page.js, layout.js)
-- Portal does NOT have its own detail pages — cards link to vertical canonical URLs
+- Portal has its own detail page (`app/place/[slug]`) that hosts the venue claim CTA; cards may still deep-link to vertical canonical URLs
 - One-directional sync: verticals → master (via cron/sync API)
 - Embeddings: 1536-dim vectors (OpenAI text-embedding-3-small compatible)
 - CSS uses custom properties (--color-cream, --color-accent, --color-ink, etc.)

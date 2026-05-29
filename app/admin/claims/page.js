@@ -16,7 +16,7 @@ export default async function ClaimsPage() {
   try {
     const { data, error } = await sb
       .from('claims_review')
-      .select('id, status, vertical, claimant_email, contact_email, claimant_name, contact_name, venue_name, listing_name, tier, selected_tier, created_at, reviewed_at, admin_notes, source_claim_id, listing_id, listings(name)')
+      .select('id, status, vertical, claimant_email, claimant_name, tier, created_at, reviewed_at, admin_notes, source_claim_id, listing_id, listings(name)')
       .order('created_at', { ascending: false })
       .limit(100)
 
