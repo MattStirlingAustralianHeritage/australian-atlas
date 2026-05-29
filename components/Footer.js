@@ -1,5 +1,10 @@
 import Link from 'next/link'
 import NewsletterSignup from './NewsletterSignup'
+import { getPublicVerticals, isVerticalPublic } from '@/lib/verticalUrl'
+
+const ATLAS_COUNT_WORDS = { 8: 'Eight', 9: 'Nine', 10: 'Ten', 11: 'Eleven', 12: 'Twelve' }
+
+const WAY_NETWORK_LINK = { name: 'Way Atlas', url: 'https://wayatlas.com.au' }
 
 const verticals = [
   { name: 'Small Batch Atlas', url: 'https://smallbatchatlas.com.au' },
@@ -14,6 +19,9 @@ const verticals = [
 ]
 
 export default function Footer() {
+  const networkVerticals = isVerticalPublic('way') ? [...verticals, WAY_NETWORK_LINK] : verticals
+  const atlasCount = getPublicVerticals().length
+  const atlasCountWord = ATLAS_COUNT_WORDS[atlasCount] || atlasCount
   return (
     <footer style={{ background: '#1A1A1A', borderTop: '1px solid rgba(250,248,244,0.08)' }}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12">
@@ -40,7 +48,7 @@ export default function Footer() {
                 color: 'rgba(250,248,244,0.5)',
               }}
             >
-              The complete guide to independent Australia. Nine atlases, one map.
+              The complete guide to independent Australia. {atlasCountWord} atlases, one map.
             </p>
           </div>
 
@@ -59,7 +67,7 @@ export default function Footer() {
               The Network
             </h4>
             <ul className="space-y-1.5">
-              {verticals.map(v => (
+              {networkVerticals.map(v => (
                 <li key={v.url}>
                   <a
                     href={v.url}
@@ -100,6 +108,7 @@ export default function Footer() {
                 { href: '/map', label: 'Map' },
                 { href: '/regions', label: 'Browse by region' },
                 { href: '/search', label: 'Search all listings' },
+                { href: '/plan', label: 'Plan a trip' },
                 { href: '/for-councils', label: 'For Councils' },
                 { href: '/operators', label: 'For Operators' },
                 { href: '/about', label: 'About' },
