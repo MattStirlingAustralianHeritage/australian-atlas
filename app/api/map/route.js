@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { getPublicVerticals } from '@/lib/verticalUrl'
 
 // Cache for 5 minutes via ISR — avoids Vercel timeout on every request
 export const revalidate = 300
@@ -25,11 +26,16 @@ export async function GET() {
   try {
     const sb = getSupabaseAdmin()
 
+    // Only ship listings for verticals that are publicly live. This is the
+    // authoritative no-leak boundary — gated verticals (e.g. Way until go-live)
+    // never reach the client payload. The flag is read server-side here.
+    const publicVerticals = getPublicVerticals()
+
     // Single query — sub_type is already on the listings table from sync
     const allListings = await fetchAllPages(
       sb, 'listings',
       'id, vertical, name, slug, description, region, state, lat, lng, is_featured, sub_type',
-      [q => q.eq('status', 'active'), q => q.not('lat', 'is', null), q => q.not('lng', 'is', null)]
+      [q => q.eq('status', 'active'), q => q.in('vertical', publicVerticals), q => q.not('lat', 'is', null), q => q.not('lng', 'is', null)]
     )
 
     return NextResponse.json({ listings: allListings, total: allListings.length })

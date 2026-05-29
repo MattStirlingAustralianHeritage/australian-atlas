@@ -1,5 +1,6 @@
 import { Suspense } from 'react'
 import MapClient from '@/components/MapClient'
+import { getPublicVerticals, isVerticalPublic } from '@/lib/verticalUrl'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,6 +20,7 @@ const VERTICAL_SLUG_MAP = {
   'corner': 'corner',
   'found': 'found',
   'table': 'table',
+  'way': 'way',
 }
 
 export default async function MapPage({ searchParams }) {
@@ -26,8 +28,11 @@ export default async function MapPage({ searchParams }) {
   const verticalSlug = params?.vertical || ''
   const stateParam = params?.state || ''
 
-  // Resolve slug to internal key
-  const initialVertical = VERTICAL_SLUG_MAP[verticalSlug] || (verticalSlug === 'all' ? 'all' : '')
+  // Resolve slug to internal key. A slug for a gated (non-public) vertical
+  // resolves to no filter, so a stale /map?vertical=way link can't pre-select
+  // a vertical that has no pins or chip while Way is OFF.
+  const resolvedVertical = VERTICAL_SLUG_MAP[verticalSlug] || (verticalSlug === 'all' ? 'all' : '')
+  const initialVertical = resolvedVertical && resolvedVertical !== 'all' && !isVerticalPublic(resolvedVertical) ? '' : resolvedVertical
   const initialState = ['NSW', 'VIC', 'QLD', 'SA', 'WA', 'TAS', 'ACT', 'NT'].includes(stateParam?.toUpperCase())
     ? stateParam.toUpperCase()
     : ''
@@ -50,6 +55,7 @@ export default async function MapPage({ searchParams }) {
         initialState={initialState}
         initialCenter={initialCenter}
         initialZoom={initialZoom}
+        publicVerticals={getPublicVerticals()}
       />
     </Suspense>
   )

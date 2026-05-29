@@ -1,28 +1,15 @@
 'use client'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { useRef, useEffect, useState } from 'react'
-import { getVerticalUrl, getVerticalBadge, getVerticalLabel, getVerticalBrandColour } from '@/lib/verticalUrl'
+import { getVerticalUrl, getVerticalBadge, getVerticalLabel, getVerticalBrandColour, getPublicVerticals } from '@/lib/verticalUrl'
 
 const PRIMARY = '#5f8a7e'
 const PREMIUM_COLOR = '#c8943a'
 
 // Brand colour lookup — sourced from lib/verticalUrl.js so all surfaces stay
-// in sync. The list of keys also drives the legend.
-const VERTICAL_KEYS = ['sba','collection','craft','fine_grounds','rest','field','corner','found','table']
+// in sync. The vertical key list (legend + filter chips) is derived per-render
+// from the public-vertical registry passed down from the server (see below).
 const verticalColor = (key) => getVerticalBrandColour(key) || PRIMARY
-
-const VERTICAL_FILTERS = [
-  { key: 'all', label: 'All' },
-  { key: 'sba', label: 'Small Batch' },
-  { key: 'craft', label: 'Craft' },
-  { key: 'collection', label: 'Culture' },
-  { key: 'fine_grounds', label: 'Fine Grounds' },
-  { key: 'rest', label: 'Rest' },
-  { key: 'field', label: 'Field' },
-  { key: 'corner', label: 'Corner' },
-  { key: 'found', label: 'Found' },
-  { key: 'table', label: 'Table' },
-]
 
 // Sub-type labels per vertical — shown as secondary filter pills
 const SUB_TYPE_LABELS = {
@@ -109,8 +96,15 @@ export default function MapClient({
   prefilteredListings = null,
   initialBounds = null,
   highlightListingId = null,
+  publicVerticals = null,
 }) {
   const isEmbedded = mode === 'embedded'
+
+  // Legend + filter chips derive from the public-vertical list. Fullscreen
+  // /map passes it from the server so the WAY_ATLAS_PUBLIC override is honoured;
+  // other callers fall back to the registry default (gated verticals excluded).
+  const verticalKeys = publicVerticals || getPublicVerticals()
+  const verticalFilters = [{ key: 'all', label: 'All' }, ...verticalKeys.map(k => ({ key: k, label: getVerticalBadge(k) }))]
   const mapContainer = useRef(null)
   const map = useRef(null)
   const popup = useRef(null)
@@ -518,7 +512,7 @@ export default function MapClient({
               )}
             </div>
             <div style={{ width: 1, height: 18, background: 'var(--color-border)' }} />
-            {VERTICAL_FILTERS.map(v => {
+            {verticalFilters.map(v => {
               const active = v.key === 'all' ? isAllVerticals : selectedVerticals.has(v.key)
               return (
                 <button key={v.key} onClick={() => toggleVertical(v.key)} style={{
@@ -579,7 +573,7 @@ export default function MapClient({
             <div style={{ padding: '0 14px 12px' }}>
               <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', marginBottom: 8, fontFamily: 'var(--font-sans)' }}>Atlas Verticals</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px' }}>
-                {VERTICAL_KEYS.map(v => (
+                {verticalKeys.map(v => (
                   <div key={v} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ width: 7, height: 7, borderRadius: '50%', background: verticalColor(v), display: 'inline-block', flexShrink: 0 }} />
                     <span style={{ fontSize: 10, color: 'var(--color-muted)' }}>{getVerticalBadge(v)}</span>
@@ -659,7 +653,7 @@ export default function MapClient({
           }}>
             <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', marginBottom: 8 }}>Atlas Verticals</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px' }}>
-              {VERTICAL_KEYS.map(v => (
+              {verticalKeys.map(v => (
                 <div key={v} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{ width: 7, height: 7, borderRadius: '50%', background: verticalColor(v), display: 'inline-block', flexShrink: 0 }} />
                   <span style={{ fontSize: 10, color: 'var(--color-muted)' }}>{getVerticalBadge(v)}</span>
@@ -690,7 +684,7 @@ export default function MapClient({
             <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--color-border)' }}>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', marginBottom: 10, fontFamily: 'var(--font-sans)' }}>Category</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                {VERTICAL_FILTERS.map(v => {
+                {verticalFilters.map(v => {
                   const active = v.key === 'all' ? isAllVerticals : selectedVerticals.has(v.key)
                   return (
                     <button key={v.key} onClick={() => toggleVertical(v.key)} style={{
