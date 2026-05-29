@@ -265,8 +265,8 @@ export default function AnalyticsDashboard() {
                       >
                         {config.label}
                       </button>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--color-muted)', fontVariantNumeric: 'tabular-nums' }}>
-                        {v.unique_visitors ? `${v.unique_visitors.toLocaleString()} · ` : ''}{v.total_pageviews?.toLocaleString()}
+                      <span title={`${(v.unique_visitors || 0).toLocaleString()} unique visitors`} style={{ fontSize: '0.8rem', color: 'var(--color-muted)', fontVariantNumeric: 'tabular-nums' }}>
+                        {(v.total_pageviews || 0).toLocaleString()}
                       </span>
                     </div>
                     <div style={{ height: 4, borderRadius: 2, background: 'var(--color-border, #E5E0D8)', overflow: 'hidden' }}>
