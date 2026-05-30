@@ -130,6 +130,8 @@ const getListing = cache(async function getListing(slug) {
         metaFields = `${metaLookup.key}, offers_classes, classes`
       } else if (metaLookup.table === 'way_meta') {
         metaFields = 'primary_type, secondary_types, operator_type, aboriginal_community, accreditations, operating_region_ids, departure_point_name, cultural_authority_verified, presence_type'
+      } else if (metaLookup.table === 'fine_grounds_meta') {
+        metaFields = 'entity_type, roast_style, beans_origin, brewing_methods, features, has_tasting_room, food_offering'
       }
       const { data: metaRow } = await sb
         .from(metaLookup.table)
@@ -143,6 +145,10 @@ const getListing = cache(async function getListing(slug) {
       if (metaRow?.offers_classes) {
         data._offers_classes = true
         data._classes = metaRow.classes
+      }
+      // Fine Grounds: attach meta for the roasting/origins detail section.
+      if (metaLookup.table === 'fine_grounds_meta' && metaRow) {
+        data._fgMeta = metaRow
       }
       // Way Atlas: attach full meta for the operator detail section.
       if (metaLookup.table === 'way_meta' && metaRow) {
@@ -412,6 +418,16 @@ export default async function PlacePage({ params }) {
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''
   const websiteUrl = listing.website?.startsWith('http') ? listing.website : listing.website ? `https://${listing.website}` : null
 
+  // Fine Grounds coffee detail — mirrors the roast profile / origins / features
+  // block on the vertical. roast_style is a scalar (may be comma-joined); the
+  // rest are text[] columns synced from the Fine Grounds source DB.
+  const fgMeta = listing._fgMeta || null
+  const fgRoastStyles = fgMeta?.roast_style ? String(fgMeta.roast_style).split(',').map(s => s.trim()).filter(Boolean) : []
+  const fgOrigins = Array.isArray(fgMeta?.beans_origin) ? fgMeta.beans_origin.filter(Boolean) : []
+  const fgBrewing = Array.isArray(fgMeta?.brewing_methods) ? fgMeta.brewing_methods.filter(Boolean) : []
+  const fgFeatures = Array.isArray(fgMeta?.features) ? fgMeta.features.filter(Boolean) : []
+  const fgHasDetail = !!(fgMeta && (fgRoastStyles.length || fgOrigins.length || fgBrewing.length || fgFeatures.length || fgMeta.has_tasting_room))
+
   return (
     <div className="min-h-screen" style={{ background: 'var(--color-bg)' }}>
 
@@ -669,6 +685,29 @@ export default async function PlacePage({ params }) {
             and the discovery content. It now sits below the More in row so
             it doesn't interrupt the traveller flow. */}
 
+        {/* ── Roasting & origins (Fine Grounds only) ──────────
+            Surfaces the same roast profile / origins / features detail the
+            vertical shows. Data comes from fine_grounds_meta (synced from the
+            Fine Grounds source DB). Renders only when at least one field is set. */}
+        {fgHasDetail && (
+          <section className="mb-10">
+            <h2 className="mb-4" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)' }}>
+              {fgMeta.entity_type === 'cafe' ? 'Coffee & menu' : 'Roasting & origins'}
+            </h2>
+            <div className="p-5 rounded-lg flex flex-col gap-4" style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}>
+              <MetaPillGroup label="Roast Profile" items={fgRoastStyles} vertColor={vertColor} />
+              <MetaPillGroup label="Origins" items={fgOrigins} vertColor={vertColor} />
+              <MetaPillGroup label="Brewing Methods" items={fgBrewing} vertColor={vertColor} />
+              <MetaPillGroup label="Features" items={fgFeatures} vertColor={vertColor} muted />
+              {fgMeta.has_tasting_room && (
+                <p className="text-sm" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-ink)', margin: 0 }}>
+                  Tasting room available
+                </p>
+              )}
+            </div>
+          </section>
+        )}
+
         {/* ── Classes & Workshops (craft only) ────────────── */}
         {listing._offers_classes && listing._classes?.length > 0 && (
           <section className="mb-10">
@@ -912,6 +951,36 @@ export default async function PlacePage({ params }) {
 
 // ── Way Atlas operator detail helpers ─────────────────────────
 // Label dictionaries imported from lib/wayLabels.js (single source of truth).
+
+// Renders a labelled row of pills (Fine Grounds roast profile / origins /
+// features). Returns null when there are no items so empty groups don't leave
+// a dangling label. `muted` uses a neutral chip; otherwise vertical-branded.
+function MetaPillGroup({ label, items, vertColor, muted = false }) {
+  if (!items || items.length === 0) return null
+  return (
+    <div>
+      <dt
+        className="text-xs font-semibold tracking-wider uppercase mb-2"
+        style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)', letterSpacing: '0.08em', fontSize: '10px' }}
+      >
+        {label}
+      </dt>
+      <dd className="flex flex-wrap gap-2" style={{ margin: 0 }}>
+        {items.map((item, i) => (
+          <span
+            key={i}
+            className="inline-block px-3 py-1 rounded-full text-xs font-medium"
+            style={muted
+              ? { background: 'rgba(0,0,0,0.05)', color: 'var(--color-ink)' }
+              : { background: `${vertColor}14`, color: vertColor }}
+          >
+            {item}
+          </span>
+        ))}
+      </dd>
+    </div>
+  )
+}
 
 function WayDetailRow({ label, children }) {
   return (
