@@ -8,6 +8,7 @@ import { listingJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
 import { checkAdmin } from '@/lib/admin-auth'
 import { isApprovedImageSource } from '@/lib/image-utils'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
+import { listOutgoing, listIncoming } from '@/lib/picks/producerPicks'
 import {
   WAY_PRIMARY_TYPE_LABELS,
   WAY_OPERATOR_TYPE_LABELS,
@@ -22,6 +23,7 @@ import SaveListingButton from '@/components/SaveListingButton'
 import ReportIssueButton from '@/components/ReportIssueButton'
 import OpeningHours from '@/components/OpeningHours'
 import PlaceMemories from '@/components/PlaceMemories'
+import ProducerPicks from '@/components/ProducerPicks'
 import VerificationBadge from '@/components/VerificationBadge'
 
 export const revalidate = 3600
@@ -400,6 +402,17 @@ export default async function PlacePage({ params }) {
     .order('created_at', { ascending: false })
     .limit(5)
 
+  // Producer picks — cross-venue endorsements stored in listing_relationships.
+  //   picksGiven    = venues this place vouches for (outgoing)
+  //   picksReceived = venues that have vouched for this place ("picked by")
+  // Both are filtered to active venues so a pick never links to a hidden listing.
+  const [picksGivenRaw, picksReceivedRaw] = await Promise.all([
+    listOutgoing(sbMem, [listing.id]),
+    listIncoming(sbMem, [listing.id]),
+  ])
+  const picksGiven = picksGivenRaw.filter(p => p.pickedStatus === 'active')
+  const picksReceived = picksReceivedRaw.filter(p => p.curatorStatus === 'active')
+
   // Effective region via the FK helper. Returns canonical { id, slug, name, state }
   // from regions table, or null when both region_computed_id and region_override_id
   // are NULL (the ~917 quarantine listings). Per Decision 1, no fallback to legacy text.
@@ -675,6 +688,11 @@ export default async function PlacePage({ params }) {
             )}
           </div>
         </div>
+
+        {/* ── Producer Picks — cross-venue endorsements (public) ──
+            Outgoing = venues this place vouches for; incoming = venues that
+            have vouched for it. Renders nothing when both are empty. */}
+        <ProducerPicks venueName={listing.name} picks={picksGiven} pickedBy={picksReceived} />
 
         {/* ── Place Memories — only if has memories ───────── */}
         {memories && memories.length > 0 && (

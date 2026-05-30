@@ -1,137 +1,127 @@
 import { NextResponse } from 'next/server'
 import { createAuthServerClient } from '@/lib/supabase/auth-clients'
-import { getSupabaseAdmin, getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
+import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import {
+  MAX_PICKS,
+  listOutgoing,
+  listIncoming,
+  createPick,
+  deletePick,
+  hydrateListings,
+} from '@/lib/picks/producerPicks'
+import { revalidatePlacePages } from '@/lib/picks/revalidate'
 
-const PICKS_CONFIG = [
-  {
-    vertical: 'sba',
-    picksTable: 'producer_picks',
-    junctionTable: 'producer_pick_venues',
-    curatorFk: 'curator_venue_id',
-    pickedFk: 'venue_id',
-    venueTable: 'venues',
-    label: 'Small Batch',
-  },
-  {
-    vertical: 'rest',
-    picksTable: 'host_picks',
-    junctionTable: 'host_pick_properties',
-    curatorFk: 'curator_property_id',
-    pickedFk: 'property_id',
-    venueTable: 'properties',
-    label: 'Rest',
-  },
-  {
-    vertical: 'fine_grounds',
-    picksTable: 'roaster_picks',
-    junctionTable: 'roaster_pick_entities',
-    curatorFk: 'curator_entity_id',
-    pickedFk: 'entity_id',
-    venueTable: 'roasters',
-    label: 'Fine Grounds',
-  },
-]
+// Resolve the listings owned by the signed-in user via the canonical
+// ownership table (listing_claims: claimed_by + status='active'). This is the
+// authoritative owner link — listings.is_claimed alone has no owner attribution.
+async function getMyListingIds(admin, userId) {
+  const { data } = await admin
+    .from('listing_claims')
+    .select('listing_id')
+    .eq('claimed_by', userId)
+    .eq('status', 'active')
+  return [...new Set((data || []).map(c => c.listing_id).filter(Boolean))]
+}
 
-export async function GET() {
+async function requireUser() {
   const supabase = await createAuthServerClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { data: { user }, error } = await supabase.auth.getUser()
+  if (error || !user) return null
+  return user
+}
+
+// GET — the signed-in operator's outgoing picks, incoming picks, and the set
+// of listings they own (so the UI can pick which one is doing the vouching).
+export async function GET() {
+  const user = await requireUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const admin = getSupabaseAdmin()
+  const myIds = await getMyListingIds(admin, user.id)
 
-  const { data: userListings } = await admin
-    .from('listings')
-    .select('id, name, slug, vertical, source_id, region')
-    .eq('is_claimed', true)
-
-  if (!userListings?.length) return NextResponse.json({ outgoing: [], incoming: [] })
-
-  const outgoing = []
-  const incoming = []
-
-  for (const cfg of PICKS_CONFIG) {
-    const myListings = userListings.filter(l => l.vertical === cfg.vertical)
-    if (!myListings.length) continue
-
-    try {
-      const vClient = getVerticalClient(cfg.vertical)
-      const sourceIds = myListings.map(l => l.source_id)
-
-      const { data: outPicks } = await vClient
-        .from(cfg.picksTable)
-        .select(`id, slug, framing_line, published_at, ${cfg.curatorFk}`)
-        .in(cfg.curatorFk, sourceIds)
-        .eq('status', 'published')
-
-      for (const pick of (outPicks || [])) {
-        const myListing = myListings.find(l => String(l.source_id) === String(pick[cfg.curatorFk]))
-        if (!myListing) continue
-
-        const { data: pickedVenues } = await vClient
-          .from(cfg.junctionTable)
-          .select(`position, curator_note, ${cfg.pickedFk}`)
-          .eq('pick_id', pick.id)
-          .order('position')
-
-        for (const pv of (pickedVenues || [])) {
-          const { data: venue } = await vClient
-            .from(cfg.venueTable)
-            .select('name, slug')
-            .eq('id', pv[cfg.pickedFk])
-            .single()
-
-          outgoing.push({
-            vertical: cfg.vertical,
-            verticalLabel: cfg.label,
-            curatorVenueName: myListing.name,
-            pickedVenueName: venue?.name || 'Unknown',
-            pickedVenueSlug: venue?.slug,
-            note: pv.curator_note,
-            position: pv.position,
-            pickSlug: pick.slug,
-          })
-        }
-      }
-
-      const { data: inPicks } = await vClient
-        .from(cfg.junctionTable)
-        .select(`pick_id, curator_note, position, ${cfg.pickedFk}`)
-        .in(cfg.pickedFk, sourceIds)
-
-      for (const pv of (inPicks || [])) {
-        const myListing = myListings.find(l => String(l.source_id) === String(pv[cfg.pickedFk]))
-        if (!myListing) continue
-
-        const { data: pick } = await vClient
-          .from(cfg.picksTable)
-          .select(`id, slug, framing_line, ${cfg.curatorFk}`)
-          .eq('id', pv.pick_id)
-          .eq('status', 'published')
-          .single()
-
-        if (!pick) continue
-
-        const { data: curatorVenue } = await vClient
-          .from(cfg.venueTable)
-          .select('name, slug')
-          .eq('id', pick[cfg.curatorFk])
-          .single()
-
-        incoming.push({
-          vertical: cfg.vertical,
-          verticalLabel: cfg.label,
-          curatorVenueName: curatorVenue?.name || 'Unknown',
-          curatorVenueSlug: curatorVenue?.slug,
-          pickedVenueName: myListing.name,
-          note: pv.curator_note,
-          framingLine: pick.framing_line,
-          pickSlug: pick.slug,
-        })
-      }
-    } catch {
-      // Vertical DB may be unreachable or picks table may not exist
-    }
+  if (!myIds.length) {
+    return NextResponse.json({ outgoing: [], incoming: [], myListings: [], maxPicks: MAX_PICKS })
   }
 
-  return NextResponse.json({ outgoing, incoming })
+  const [outgoing, incoming, listingMap] = await Promise.all([
+    listOutgoing(admin, myIds),
+    listIncoming(admin, myIds),
+    hydrateListings(admin, myIds),
+  ])
+
+  const myListings = myIds
+    .map(id => listingMap[id])
+    .filter(Boolean)
+    .map(l => ({
+      id: l.id,
+      name: l.name,
+      vertical: l.vertical,
+      slug: l.slug,
+      pickCount: outgoing.filter(p => p.curatorId === l.id).length,
+    }))
+
+  return NextResponse.json({ outgoing, incoming, myListings, maxPicks: MAX_PICKS })
+}
+
+// POST — create a pick. Body: { curatorListingId, pickedListingId, note? }.
+// The curator listing must be owned by the signed-in user.
+export async function POST(request) {
+  const user = await requireUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  let body
+  try { body = await request.json() } catch { return NextResponse.json({ error: 'Invalid body' }, { status: 400 }) }
+  const { curatorListingId, pickedListingId, note } = body || {}
+
+  const admin = getSupabaseAdmin()
+  const myIds = await getMyListingIds(admin, user.id)
+  if (!myIds.includes(curatorListingId)) {
+    return NextResponse.json({ error: 'You can only add picks for a listing you own' }, { status: 403 })
+  }
+
+  const result = await createPick(admin, {
+    curatorId: curatorListingId,
+    pickedId: pickedListingId,
+    note,
+    source: 'operator',
+    createdBy: 'operator',
+  })
+
+  if (!result.ok) {
+    const status = result.code === 'cap' ? 409 : result.code === 'duplicate' ? 409 : 400
+    return NextResponse.json({ error: result.error, code: result.code }, { status })
+  }
+  await revalidatePlacePages(admin, [curatorListingId, pickedListingId])
+  return NextResponse.json({ pick: result.pick })
+}
+
+// DELETE — remove one of the operator's own picks. Body: { id } or ?id=.
+export async function DELETE(request) {
+  const user = await requireUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { searchParams } = new URL(request.url)
+  let id = searchParams.get('id')
+  if (!id) {
+    try { id = (await request.json())?.id } catch { /* no body */ }
+  }
+  if (!id) return NextResponse.json({ error: 'Missing pick id' }, { status: 400 })
+
+  const admin = getSupabaseAdmin()
+  const myIds = await getMyListingIds(admin, user.id)
+
+  // Confirm the pick was made by one of the user's listings before deleting.
+  const { data: rel } = await admin
+    .from('listing_relationships')
+    .select('id, listing_id_a, listing_id_b')
+    .eq('id', id)
+    .maybeSingle()
+  if (!rel || !myIds.includes(rel.listing_id_a)) {
+    return NextResponse.json({ error: 'Pick not found' }, { status: 404 })
+  }
+
+  const result = await deletePick(admin, { id })
+  if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 })
+  await revalidatePlacePages(admin, [rel.listing_id_a, rel.listing_id_b])
+  return NextResponse.json({ success: true, deletedId: id })
 }
