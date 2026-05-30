@@ -62,7 +62,7 @@ export default async function PitchesPage() {
           Pitch Triage
         </h1>
         <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 14, color: 'var(--color-muted)' }}>
-          Review each generated pitch, then keep it for the research queue or dismiss it.
+          Review each generated pitch, then keep it to open in the Editorial queue or dismiss it.
         </p>
       </div>
 
