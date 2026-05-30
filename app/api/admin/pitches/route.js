@@ -66,7 +66,7 @@ export async function POST(request) {
     }
 
     if (action === 'keep') {
-      // Move to research queue: record the approval, flip status to 'approved'.
+      // Keep = approve the pitch AND open it in the Editorial Queue.
       // The slot stays filled — an approved pitch still occupies its editorial
       // slot until it is written into an article. approved_by references
       // auth.users; the admin cookie isn't a Supabase user, so it stays null.
@@ -74,6 +74,35 @@ export async function POST(request) {
         .from('approved_pitches')
         .insert({ pitch_id: pitchId })
       if (insErr) throw insErr
+
+      // Surface it on /admin/editorial as an in-progress piece. anchor_listing_id
+      // is FK-guaranteed to be a real listings row (or null), so it's safe to
+      // reuse as story_ideas.listing_id; we read the listing only for display.
+      let venueName = null
+      let region = null
+      if (pitch.anchor_listing_id) {
+        const { data: listing } = await sb
+          .from('listings')
+          .select('name, region')
+          .eq('id', pitch.anchor_listing_id)
+          .maybeSingle()
+        venueName = listing?.name ?? null
+        region = listing?.region ?? null
+      }
+
+      const { error: ideaErr } = await sb
+        .from('story_ideas')
+        .insert({
+          venue_name: venueName,
+          listing_id: pitch.anchor_listing_id ?? null,
+          vertical: pitch.vertical ?? null,
+          region,
+          story_angle: pitch.headline || pitch.angle || null,
+          notes: pitch.headline ? (pitch.angle || null) : null,
+          source: 'pitch',
+          status: 'in_progress',
+        })
+      if (ideaErr) throw ideaErr
 
       const { error: updErr } = await sb
         .from('pitches')

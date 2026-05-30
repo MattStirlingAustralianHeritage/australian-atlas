@@ -244,7 +244,7 @@ function PitchCard({ pitch, listing, onResolved }) {
             opacity: busy ? 0.6 : 1, boxShadow: '0 1px 3px rgba(74,124,89,0.3)',
           }}
         >
-          {status === 'keeping' ? 'Keeping…' : 'Keep — add to research queue'}
+          {status === 'keeping' ? 'Keeping…' : 'Keep — add to Editorial (In Progress)'}
         </button>
 
         {!showReason ? (
