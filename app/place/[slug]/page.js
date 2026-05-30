@@ -922,7 +922,13 @@ export default async function PlacePage({ params }) {
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {regionListings.slice(0, 4).map(r => (
-                <ListingCard key={r.id} listing={r} />
+                <ListingCard
+                  key={r.id}
+                  listing={r}
+                  distanceKm={hasCoords && r.lat != null && r.lng != null
+                    ? haversineKm(listing.lat, listing.lng, r.lat, r.lng)
+                    : null}
+                />
               ))}
             </div>
           </section>

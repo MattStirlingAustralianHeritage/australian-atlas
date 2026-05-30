@@ -307,7 +307,17 @@ export function VerticalIdentityCard({ vertical, tagline, aspectRatio = '4/3' })
 
 // ── Main ListingCard: the full linked card used in grids ──
 
-export default function ListingCard({ listing, meta, linkToVertical = false }) {
+// Formats an as-the-crow-flies distance for the corner chip. Sub-kilometre
+// distances read in metres (rounded to 50 m) so very-near venues don't all
+// collapse to a single bucket; one decimal under 10 km; whole km beyond.
+function formatDistance(km) {
+  if (km == null || !isFinite(km)) return null
+  if (km < 1) return `${Math.max(50, Math.round(km * 1000 / 50) * 50)} m`
+  if (km < 10) return `${km.toFixed(1)} km`
+  return `${Math.round(km)} km`
+}
+
+export default function ListingCard({ listing, meta, linkToVertical = false, distanceKm = null }) {
   const derivedMeta = meta || {}
   if (!derivedMeta.entity_type && listing.vertical === 'fine_grounds' && listing.source_id) {
     if (listing.source_id.startsWith('cafe_')) derivedMeta.entity_type = 'cafe'
@@ -323,6 +333,7 @@ export default function ListingCard({ listing, meta, linkToVertical = false }) {
   const hasRealImage = listing.hero_image_url && isApprovedImageSource(listing.hero_image_url)
   const tokens = VERTICAL_TOKENS[listing.vertical] || VERTICAL_TOKENS.portal
   const region = getListingRegion(listing)
+  const distanceLabel = formatDistance(distanceKm)
 
   return (
     <a
@@ -396,6 +407,32 @@ export default function ListingCard({ listing, meta, linkToVertical = false }) {
         <div style={{ position: 'absolute', bottom: 10, left: 10, zIndex: 3 }}>
           <VerticalBadge vertical={listing.vertical} size="sm" />
         </div>
+
+        {/* Distance chip — mirrors the vertical badge in the opposite corner.
+            Frosted-glass pill echoing the verification badge treatment. */}
+        {distanceLabel && (
+          <div
+            title={`${distanceLabel} from here`}
+            style={{
+              position: 'absolute', bottom: 10, right: 10, zIndex: 3,
+              display: 'inline-flex', alignItems: 'center', gap: '4px',
+              padding: '4px 9px 4px 7px', borderRadius: 100,
+              background: 'rgba(255,255,255,0.92)',
+              backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+              border: '1px solid rgba(0,0,0,0.06)',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.06)',
+              fontFamily: 'var(--font-body, "DM Sans", system-ui, sans-serif)',
+              fontSize: '10.5px', fontWeight: 600, letterSpacing: '0.01em',
+              color: '#2A2925', lineHeight: 1, whiteSpace: 'nowrap',
+            }}
+          >
+            <svg width="10" height="11" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ flexShrink: 0, display: 'block' }}>
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="var(--color-accent, #C4603A)" />
+              <circle cx="12" cy="9" r="2.6" fill="#fff" />
+            </svg>
+            {distanceLabel}
+          </div>
+        )}
 
         {/* Curation badges */}
         {isAtlasSelect && (
