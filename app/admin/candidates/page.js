@@ -4,7 +4,7 @@ import CandidateReviewQueue from './CandidateReviewQueue'
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Listing Candidates — Admin' }
 
-const ALL_VERTICALS = ['sba', 'collection', 'craft', 'fine_grounds', 'rest', 'field', 'corner', 'found', 'table']
+const ALL_VERTICALS = ['sba', 'collection', 'craft', 'fine_grounds', 'rest', 'field', 'corner', 'found', 'table', 'way']
 
 export default async function CandidatesPage() {
   // Auth handled by middleware — no page-level check needed
