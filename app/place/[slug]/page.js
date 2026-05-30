@@ -130,6 +130,8 @@ const getListing = cache(async function getListing(slug) {
         metaFields = 'primary_type, secondary_types, operator_type, aboriginal_community, accreditations, operating_region_ids, departure_point_name, cultural_authority_verified, presence_type'
       } else if (metaLookup.table === 'fine_grounds_meta') {
         metaFields = 'entity_type, roast_style, beans_origin, brewing_methods, features, has_tasting_room, food_offering'
+      } else if (metaLookup.table === 'sba_meta') {
+        metaFields = 'producer_type, subtype, features'
       }
       const { data: metaRow } = await sb
         .from(metaLookup.table)
@@ -147,6 +149,10 @@ const getListing = cache(async function getListing(slug) {
       // Fine Grounds: attach meta for the roasting/origins detail section.
       if (metaLookup.table === 'fine_grounds_meta' && metaRow) {
         data._fgMeta = metaRow
+      }
+      // Small Batch: attach meta for the "Visiting" highlights section.
+      if (metaLookup.table === 'sba_meta' && metaRow) {
+        data._sbaMeta = metaRow
       }
       // Way Atlas: attach full meta for the operator detail section.
       if (metaLookup.table === 'way_meta' && metaRow) {
@@ -437,6 +443,15 @@ export default async function PlacePage({ params }) {
   const fgFeatures = Array.isArray(fgMeta?.features) ? fgMeta.features.filter(Boolean) : []
   const fgHasDetail = !!(fgMeta && (fgRoastStyles.length || fgOrigins.length || fgBrewing.length || fgFeatures.length || fgMeta.has_tasting_room))
 
+  // Small Batch (sba) "Visiting" highlights. features is the curated source of
+  // truth (the has_* booleans are sparse/duplicative — e.g. has_cellar_door is
+  // unpopulated while "Cellar Door" appears in features); subtype is the
+  // specialty descriptor (e.g. "Cool Climate", "Whisky", "Gin").
+  const sbaMeta = listing._sbaMeta || null
+  const sbaFeatures = Array.isArray(sbaMeta?.features) ? sbaMeta.features.filter(Boolean) : []
+  const sbaSubtype = sbaMeta?.subtype ? String(sbaMeta.subtype).trim() : null
+  const sbaHasDetail = !!(sbaMeta && (sbaFeatures.length || sbaSubtype))
+
   return (
     <div className="min-h-screen" style={{ background: 'var(--color-bg)' }}>
 
@@ -718,6 +733,22 @@ export default async function PlacePage({ params }) {
                   Tasting room available
                 </p>
               )}
+            </div>
+          </section>
+        )}
+
+        {/* ── Visiting (Small Batch only) ──────────────────────
+            Surfaces the curated features + specialty the Small Batch vertical
+            shows (cellar door, tastings, taproom, tours, restaurant, etc.).
+            Data comes from sba_meta.features/subtype. Renders only when set. */}
+        {sbaHasDetail && (
+          <section className="mb-10">
+            <h2 className="mb-4" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)' }}>
+              Visiting
+            </h2>
+            <div className="p-5 rounded-lg flex flex-col gap-4" style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}>
+              <MetaPillGroup label="Specialty" items={sbaSubtype ? [sbaSubtype] : []} vertColor={vertColor} />
+              <MetaPillGroup label="Features" items={sbaFeatures} vertColor={vertColor} />
             </div>
           </section>
         )}
