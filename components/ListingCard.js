@@ -18,6 +18,7 @@ export const VERTICAL_TOKENS = {
   corner:       { bg: '#3B2F2F', text: '#FAF8F4', label: 'Corner Atlas' },
   found:        { bg: '#2F2B26', text: '#FAF8F4', label: 'Found Atlas' },
   table:        { bg: '#3A2E1F', text: '#FAF8F4', label: 'Table Atlas' },
+  way:          { bg: '#2D331C', text: '#FAF8F4', label: 'Way Atlas' },
   portal:       { bg: '#0f0e0c', text: '#FAF8F4', label: 'Australian Atlas' },
 }
 
