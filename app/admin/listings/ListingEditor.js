@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import WYSIWYGEditor from '@/components/admin/WYSIWYGEditor'
+import ListingPicksEditor from '@/components/admin/ListingPicksEditor'
 
 const VERTICAL_NAMES = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
@@ -994,6 +995,9 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
               </a>
             )}
           </div>
+
+          {/* Producer Picks — record vouches between venues */}
+          <ListingPicksEditor listingId={listing.id} listingName={listing.name} />
 
           {/* Delete — separate row, visually distinct */}
           <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 10, marginTop: 10 }}>
