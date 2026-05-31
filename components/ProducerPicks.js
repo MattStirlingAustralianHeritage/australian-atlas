@@ -80,6 +80,16 @@ function PickGroup({ heading, subhead, children }) {
   )
 }
 
+// Notes sometimes arrive already wrapped in quote marks; strip any surrounding
+// quotes/whitespace so the card's own typographic quotes don't double up.
+function cleanNote(note) {
+  if (!note) return ''
+  return note
+    .trim()
+    .replace(/^[\s"'“”‘’]+/, '')
+    .replace(/[\s"'“”‘’]+$/, '')
+}
+
 // The single endorsement card — used for both directions. A cream editorial
 // card carrying a hairline brand rail (the venue's vertical colour), the venue
 // name in display serif, a refined uppercase meta line, and any note as a
@@ -87,6 +97,7 @@ function PickGroup({ heading, subhead, children }) {
 function EndorsementCard({ name, slug, vertical, region, note }) {
   const brand = getVerticalBrandColour(vertical) || 'var(--color-accent)'
   const meta = [getVerticalBadge(vertical), region].filter(Boolean).join(' · ')
+  const quote = cleanNote(note)
 
   const inner = (
     <article
@@ -111,13 +122,13 @@ function EndorsementCard({ name, slug, vertical, region, note }) {
             </span>
           )}
         </div>
-        {note && (
+        {quote && (
           <blockquote style={{
             margin: '10px 0 0',
             fontFamily: 'var(--font-display)', fontStyle: 'italic', fontWeight: 400,
             fontSize: '15px', lineHeight: 1.55, color: 'var(--color-ink)',
           }}>
-            &ldquo;{note}&rdquo;
+            &ldquo;{quote}&rdquo;
           </blockquote>
         )}
       </div>
