@@ -7,20 +7,39 @@ import LocationBar from './LocationBar'
 
 export default function Nav() {
   const [user, setUser] = useState(null)
+  const [profile, setProfile] = useState(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef(null)
   const supabase = getAuthSupabase()
 
   useEffect(() => {
+    let active = true
+
+    async function loadProfile() {
+      try {
+        const res = await fetch('/api/auth/profile')
+        if (!active) return
+        setProfile(res.ok ? (await res.json()).profile ?? null : null)
+      } catch {
+        if (active) setProfile(null)
+      }
+    }
+
     supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!active) return
       setUser(user)
+      if (user) loadProfile()
+      else setProfile(null)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
+      const nextUser = session?.user ?? null
+      setUser(nextUser)
+      if (nextUser) loadProfile()
+      else setProfile(null)
     })
 
-    return () => subscription.unsubscribe()
+    return () => { active = false; subscription.unsubscribe() }
   }, [])
 
   // Close dropdown on outside click
@@ -84,6 +103,13 @@ export default function Nav() {
   const initials = displayName
     ? displayName.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase()
     : '?'
+
+  // A claimed listing promotes the profile to the vendor role (and records the
+  // vertical in vendor_verticals). Either signal means there's a listing to manage.
+  const vendorVerticals = profile?.vendor_verticals || {}
+  const canManageListings = profile?.role === 'vendor'
+    || profile?.role === 'admin'
+    || Object.values(vendorVerticals).some(Boolean)
 
   return (
     <nav
@@ -210,6 +236,32 @@ export default function Nav() {
             )}
           </button>
 
+          {/* Manage listings — appears once a claim promotes the user to vendor */}
+          {user && canManageListings && (
+            <Link
+              href="/dashboard"
+              className="hidden sm:inline-flex items-center"
+              style={{
+                gap: '6px',
+                padding: '7px 14px',
+                borderRadius: '6px',
+                background: 'var(--color-sage)',
+                color: '#fff',
+                fontFamily: 'var(--font-body)',
+                fontSize: '12px',
+                fontWeight: 500,
+                letterSpacing: '0.02em',
+                textDecoration: 'none',
+                whiteSpace: 'nowrap',
+                transition: 'opacity 0.15s',
+              }}
+              onMouseOver={(e) => e.currentTarget.style.opacity = '0.85'}
+              onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
+            >
+              Manage listings
+            </Link>
+          )}
+
           {/* Auth state */}
           {user ? (
             <div ref={menuRef} style={{ position: 'relative' }}>
@@ -285,6 +337,9 @@ export default function Nav() {
 
                   {/* Menu items */}
                   <div style={{ padding: '0.375rem 0' }}>
+                    {canManageListings && (
+                      <DropdownLink href="/dashboard" label="Manage listings" accent onClick={() => setMenuOpen(false)} />
+                    )}
                     <DropdownLink href="/account" label="My Account" onClick={() => setMenuOpen(false)} />
                     <DropdownLink href="/account/saved" label="Saved places" onClick={() => setMenuOpen(false)} />
                     <DropdownLink href="/account/trails" label="My trails" onClick={() => setMenuOpen(false)} />
@@ -357,6 +412,23 @@ export default function Nav() {
               {link.label}
             </Link>
           ))}
+          {user && canManageListings && (
+            <Link
+              href="/dashboard"
+              onClick={() => setMobileMenuOpen(false)}
+              style={{
+                display: 'block',
+                padding: '0.625rem 1.5rem',
+                fontFamily: 'var(--font-body)',
+                fontWeight: 600,
+                fontSize: '14px',
+                color: 'var(--color-sage)',
+                textDecoration: 'none',
+              }}
+            >
+              Manage listings
+            </Link>
+          )}
           {!user && (
             <Link
               href="/login"
@@ -383,7 +455,7 @@ export default function Nav() {
   )
 }
 
-function DropdownLink({ href, label, onClick }) {
+function DropdownLink({ href, label, onClick, accent }) {
   return (
     <Link
       href={href}
@@ -393,7 +465,8 @@ function DropdownLink({ href, label, onClick }) {
         padding: '0.5rem 1rem',
         fontFamily: 'var(--font-body)',
         fontSize: '0.825rem',
-        color: 'var(--color-ink)',
+        color: accent ? 'var(--color-sage)' : 'var(--color-ink)',
+        fontWeight: accent ? 600 : 400,
         textDecoration: 'none',
         transition: 'background 0.1s',
       }}
