@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { getListingRegion } from '@/lib/regions'
+import { getDashboardToken } from '@/lib/dashboard-token'
 
 const VERTICAL_LABELS = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
@@ -529,58 +530,59 @@ export default function DashboardPage() {
   const [liveStats, setLiveStats] = useState({})
 
   useEffect(() => {
-    const token = localStorage.getItem('atlas_auth_token')
-    if (!token) {
-      setLoading(false)
-      return
-    }
+    getDashboardToken().then(token => {
+      if (!token) {
+        setLoading(false)
+        return
+      }
 
-    const payload = decodeJWT(token)
-    if (!payload) {
-      setLoading(false)
-      return
-    }
+      const payload = decodeJWT(token)
+      if (!payload) {
+        setLoading(false)
+        return
+      }
 
-    setUser({
-      id: payload.sub,
-      email: payload.email,
-      name: payload.name,
-      role: payload.role,
-      verticals: payload.verticals || {},
-    })
+      setUser({
+        id: payload.sub,
+        email: payload.email,
+        name: payload.name,
+        role: payload.role,
+        verticals: payload.verticals || {},
+      })
 
-    // Fetch dashboard data
-    fetch('/api/dashboard', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (data.error) {
-          setError(data.error)
-        } else {
-          const fetchedListings = data.listings || []
-          setListings(fetchedListings)
+      // Fetch dashboard data
+      fetch('/api/dashboard', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.error) {
+            setError(data.error)
+          } else {
+            const fetchedListings = data.listings || []
+            setListings(fetchedListings)
 
-          // Fetch live stats for each listing
-          for (const listing of fetchedListings) {
-            fetch(`/api/dashboard/stats?listing_id=${listing.id}`, {
-              headers: { Authorization: `Bearer ${token}` },
-            })
-              .then(r => r.ok ? r.json() : null)
-              .then(stats => {
-                if (stats && !stats.error) {
-                  setLiveStats(prev => ({ ...prev, [listing.id]: stats }))
-                }
+            // Fetch live stats for each listing
+            for (const listing of fetchedListings) {
+              fetch(`/api/dashboard/stats?listing_id=${listing.id}`, {
+                headers: { Authorization: `Bearer ${token}` },
               })
-              .catch(() => { /* stats fetch failed silently */ })
+                .then(r => r.ok ? r.json() : null)
+                .then(stats => {
+                  if (stats && !stats.error) {
+                    setLiveStats(prev => ({ ...prev, [listing.id]: stats }))
+                  }
+                })
+                .catch(() => { /* stats fetch failed silently */ })
+            }
           }
-        }
-        setLoading(false)
-      })
-      .catch(() => {
-        setError('Failed to load dashboard')
-        setLoading(false)
-      })
+          setLoading(false)
+        })
+        .catch(() => {
+          setError('Failed to load dashboard')
+          setLoading(false)
+        })
+    })
   }, [])
 
   // Not authenticated
@@ -608,7 +610,7 @@ export default function DashboardPage() {
             Sign in to view your claimed listings, track search performance, and keep your profile up to date.
           </p>
           <Link
-            href="/auth"
+            href="/login"
             style={{
               display: 'inline-block', padding: '14px 32px', borderRadius: 8,
               background: 'var(--color-ink, #2D2A26)', color: '#fff',

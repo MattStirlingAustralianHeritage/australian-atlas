@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { getAuthSupabase } from '@/lib/supabase/auth-clients'
 import { getVerticalFeatures } from '@/lib/vertical-features'
+import { getDashboardToken } from '@/lib/dashboard-token'
 
 const AuthContext = createContext(null)
 
@@ -69,13 +70,13 @@ export default function DashboardLayout({ children }) {
       setLoading(false)
     })
 
-    const token = typeof window !== 'undefined' ? localStorage.getItem('atlas_auth_token') : null
-    if (token) {
+    getDashboardToken().then(token => {
+      if (!token) return
       try {
         const payload = JSON.parse(atob(token.split('.')[1]))
         setVendorVerticals(payload.verticals || {})
       } catch { /* silent */ }
-    }
+    })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
