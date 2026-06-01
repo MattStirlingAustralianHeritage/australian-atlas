@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { verifySharedToken } from '@/lib/shared-auth'
 import { updateListing } from '@/lib/admin/updateListing'
+import { isApprovedImageSource } from '@/lib/image-utils'
+import { writeGallery, isListingPaid, MAX_GALLERY_PHOTOS } from '@/lib/listing-gallery'
 
 /**
  * PATCH /api/dashboard/listing — operator self-service edit of a claimed listing.
@@ -11,13 +13,18 @@ import { updateListing } from '@/lib/admin/updateListing'
  * token's vendor_verticals — NOT the listing_claims table (that ownership model
  * is unpopulated; the Overview/dashboard auth model is the working one).
  *
- * Body: { listing_id, website?, phone?, hours?, hero_image_url? }
+ * Body: { listing_id, website?, phone?, hours?, hero_image_url?, gallery_image_urls? }
  *
  * website / phone / hero_image_url flow through the canonical updateListing(),
  * which writes master AND pushes to the vertical source DB — so the next inbound
  * sync is a no-op diff and the edit survives. hours is written directly to
  * listings.hours (JSONB): the inbound field maps never set listings.hours, so a
  * master-only write is sync-safe by omission (same contract as description).
+ *
+ * gallery_image_urls is a PAID perk (active standard claim) and is stored as a
+ * master-only storage manifest (see lib/listing-gallery) — not a listings
+ * column — so it too survives sync and needs no DDL. Each URL must pass
+ * isApprovedImageSource (our own Storage host), capping arbitrary external URLs.
  */
 
 const DAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
@@ -124,11 +131,38 @@ export async function PATCH(request) {
     }
   }
 
+  // ── gallery → master-only storage manifest (PAID perk: active standard claim) ──
+  let savedGallery
+  if ('gallery_image_urls' in body) {
+    const raw = body.gallery_image_urls
+    if (!Array.isArray(raw)) {
+      return NextResponse.json({ error: 'gallery_image_urls must be an array' }, { status: 400 })
+    }
+    const urls = []
+    for (const u of raw) {
+      if (typeof u !== 'string' || !u) continue
+      if (!isApprovedImageSource(u)) {
+        return NextResponse.json({ error: 'Gallery photos must be uploaded through the editor' }, { status: 400 })
+      }
+      if (!urls.includes(u)) urls.push(u)
+    }
+    if (urls.length > MAX_GALLERY_PHOTOS) {
+      return NextResponse.json({ error: `A gallery can hold at most ${MAX_GALLERY_PHOTOS} photos` }, { status: 400 })
+    }
+    // Adding photos requires a paid listing; admins may stage on any listing.
+    if (urls.length > 0 && user.role !== 'admin' && !(await isListingPaid(sb, listingId))) {
+      return NextResponse.json({ error: 'Photo galleries are a paid feature — upgrade this listing to add photos.' }, { status: 403 })
+    }
+    savedGallery = await writeGallery(sb, listingId, urls)
+  }
+
   const { data: fresh } = await sb
     .from('listings')
     .select('id, name, slug, vertical, website, phone, hours, hero_image_url, description, is_claimed, status')
     .eq('id', listingId)
     .single()
+
+  if (fresh && savedGallery !== undefined) fresh.gallery_image_urls = savedGallery
 
   return NextResponse.json({ success: true, listing: fresh, verticalSync })
 }

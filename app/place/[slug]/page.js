@@ -8,7 +8,8 @@ import { listingJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
 import { checkAdmin } from '@/lib/admin-auth'
 import { isApprovedImageSource } from '@/lib/image-utils'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
-import { listOutgoing, listIncoming } from '@/lib/picks/producerPicks'
+import { listOutgoing, listIncoming, filterPaidListingIds } from '@/lib/picks/producerPicks'
+import { readGallery } from '@/lib/listing-gallery'
 import {
   WAY_PRIMARY_TYPE_LABELS,
   WAY_OPERATOR_TYPE_LABELS,
@@ -412,12 +413,19 @@ export default async function PlacePage({ params }) {
   //   picksGiven    = venues this place vouches for (outgoing)
   //   picksReceived = venues that have vouched for this place ("picked by")
   // Both are filtered to active venues so a pick never links to a hidden listing.
-  const [picksGivenRaw, picksReceivedRaw] = await Promise.all([
+  const [picksGivenRaw, picksReceivedRaw, paidCuratorSet] = await Promise.all([
     listOutgoing(sbMem, [listing.id]),
     listIncoming(sbMem, [listing.id]),
+    filterPaidListingIds(sbMem, [listing.id]),
   ])
   const picksGiven = picksGivenRaw.filter(p => p.pickedStatus === 'active')
   const picksReceived = picksReceivedRaw.filter(p => p.curatorStatus === 'active')
+
+  // Photo gallery — a paid perk, stored as a master-only storage manifest. Only
+  // surfaced for paid (active standard) listings; each URL is host-validated.
+  const galleryUrls = paidCuratorSet.has(listing.id)
+    ? (await readGallery(sbMem, listing.id)).filter(isApprovedImageSource)
+    : []
 
   // Effective region via the FK helper. Returns canonical { id, slug, name, state }
   // from regions table, or null when both region_computed_id and region_override_id
@@ -703,6 +711,32 @@ export default async function PlacePage({ params }) {
             )}
           </div>
         </div>
+
+        {/* ── Photo gallery — paid perk, operator-uploaded. Renders only when
+            the listing is paid and has photos (see galleryUrls above). ── */}
+        {galleryUrls.length > 0 && (
+          <section className="mb-12">
+            <h2 className="mb-4" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)' }}>
+              Gallery
+            </h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {galleryUrls.map((url, i) => (
+                <div
+                  key={url}
+                  className="overflow-hidden rounded-lg"
+                  style={{ aspectRatio: '4 / 3', border: '1px solid var(--color-border)', background: 'var(--color-cream)' }}
+                >
+                  <img
+                    src={url}
+                    alt={`${listing.name} — photo ${i + 1}`}
+                    loading="lazy"
+                    className="w-full h-full object-cover transition-transform duration-300 hover:scale-[1.03]"
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* ── Producer Picks — cross-venue endorsements (public) ──
             Outgoing = venues this place vouches for; incoming = venues that

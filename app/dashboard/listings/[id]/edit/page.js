@@ -40,6 +40,9 @@ const VERTICAL_CATEGORY_LABELS = {
   way: 'Experience',
 }
 
+// Paid-tier photo gallery cap (mirrors MAX_GALLERY_PHOTOS in lib/listing-gallery).
+const MAX_GALLERY = 15
+
 function defaultDays() {
   const out = {}
   for (const d of DAY_KEYS) out[d] = { enabled: false, open: '09:00', close: '17:00' }
@@ -125,6 +128,7 @@ const ICONS = {
   pencil: <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M10.5 1.5L12.5 3.5L4.5 11.5L1.5 12.5L2.5 9.5L10.5 1.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" /></svg>,
   camera: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" /><circle cx="12" cy="13" r="4" /></svg>,
   external: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>,
+  trash: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" /><path d="M10 11v6M14 11v6" /></svg>,
 }
 
 // ── Shared styles for inline-edit primitives ─────────────────
@@ -272,19 +276,22 @@ export default function EditListingPage() {
   const [website, setWebsite] = useState('')
   const [phone, setPhone] = useState('')
   const [heroImageUrl, setHeroImageUrl] = useState('')
+  const [gallery, setGallery] = useState([])
   const [days, setDays] = useState(defaultDays)
   const [hoursEditing, setHoursEditing] = useState(false)
 
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState(null)
+  const [galleryUploading, setGalleryUploading] = useState(0)
+  const [galleryError, setGalleryError] = useState(null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
   const [justSaved, setJustSaved] = useState(false)
 
-  const baselineRef = useRef({ website: '', phone: '', heroImageUrl: '', hoursKey: 'null' })
+  const baselineRef = useRef({ website: '', phone: '', heroImageUrl: '', hoursKey: 'null', galleryKey: '[]' })
 
-  const setBaseline = useCallback((w, p, h, d) => {
-    baselineRef.current = { website: w, phone: p, heroImageUrl: h, hoursKey: JSON.stringify(daysToHours(d)) }
+  const setBaseline = useCallback((w, p, h, d, g) => {
+    baselineRef.current = { website: w, phone: p, heroImageUrl: h, hoursKey: JSON.stringify(daysToHours(d)), galleryKey: JSON.stringify(g || []) }
   }, [])
 
   useEffect(() => { setMounted(true) }, [])
@@ -308,12 +315,14 @@ export default function EditListingPage() {
             } else {
               const w = l.website || '', p = l.phone || '', h = l.hero_image_url || ''
               const d = hoursToDays(l.hours)
+              const g = Array.isArray(l.gallery_image_urls) ? l.gallery_image_urls : []
               setListing(l)
               setWebsite(w)
               setPhone(p)
               setHeroImageUrl(h)
+              setGallery(g)
               setDays(d)
-              setBaseline(w, p, h, d)
+              setBaseline(w, p, h, d, g)
             }
           }
           setLoading(false)
@@ -351,14 +360,63 @@ export default function EditListingPage() {
     }
   }
 
+  // Gallery: upload one or many files, appending each returned URL up to the cap.
+  async function handleGalleryAdd(e) {
+    const files = Array.from(e.target.files || [])
+    e.target.value = ''
+    if (!files.length) return
+    setGalleryError(null)
+    const remaining = MAX_GALLERY - gallery.length
+    if (remaining <= 0) { setGalleryError(`You can add up to ${MAX_GALLERY} photos.`); return }
+    const toUpload = files.slice(0, remaining)
+    if (files.length > remaining) {
+      setGalleryError(`Only ${remaining} more photo${remaining === 1 ? '' : 's'} can be added — extra files were skipped.`)
+    }
+    setGalleryUploading(n => n + toUpload.length)
+    for (const file of toUpload) {
+      try {
+        const fd = new FormData()
+        fd.append('file', file)
+        const res = await fetch('/api/dashboard/listing/upload', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: fd,
+        })
+        const data = await res.json()
+        if (!res.ok) setGalleryError(data.error || 'Some photos failed to upload')
+        else if (data.url) setGallery(prev => (prev.length < MAX_GALLERY && !prev.includes(data.url) ? [...prev, data.url] : prev))
+      } catch {
+        setGalleryError('Some photos failed to upload')
+      } finally {
+        setGalleryUploading(n => Math.max(0, n - 1))
+      }
+    }
+  }
+
+  function removeGalleryAt(i) {
+    setGallery(prev => prev.filter((_, idx) => idx !== i))
+  }
+
+  function moveGallery(i, dir) {
+    setGallery(prev => {
+      const j = i + dir
+      if (j < 0 || j >= prev.length) return prev
+      const next = [...prev]
+      ;[next[i], next[j]] = [next[j], next[i]]
+      return next
+    })
+  }
+
   function handleDiscard() {
     const b = baselineRef.current
     setWebsite(b.website)
     setPhone(b.phone)
     setHeroImageUrl(b.heroImageUrl)
+    setGallery(JSON.parse(b.galleryKey))
     setDays(hoursToDays(JSON.parse(b.hoursKey)))
     setHoursEditing(false)
     setSaveError(null)
+    setGalleryError(null)
   }
 
   async function handleSave() {
@@ -374,6 +432,7 @@ export default function EditListingPage() {
           phone: phone.trim() || null,
           hours: daysToHours(days),
           hero_image_url: heroImageUrl || null,
+          gallery_image_urls: gallery,
         }),
       })
       const data = await res.json()
@@ -383,11 +442,12 @@ export default function EditListingPage() {
         if (data.listing) {
           const w = data.listing.website || '', p = data.listing.phone || '', h = data.listing.hero_image_url || ''
           const d = hoursToDays(data.listing.hours)
+          const g = Array.isArray(data.listing.gallery_image_urls) ? data.listing.gallery_image_urls : gallery
           setListing(prev => ({ ...prev, ...data.listing }))
-          setWebsite(w); setPhone(p); setHeroImageUrl(h); setDays(d)
-          setBaseline(w, p, h, d)
+          setWebsite(w); setPhone(p); setHeroImageUrl(h); setGallery(g); setDays(d)
+          setBaseline(w, p, h, d, g)
         } else {
-          setBaseline(website, phone, heroImageUrl, days)
+          setBaseline(website, phone, heroImageUrl, days, gallery)
         }
         setHoursEditing(false)
         setJustSaved(true)
@@ -430,11 +490,13 @@ export default function EditListingPage() {
   const hasCoords = listing.lat && listing.lng
   const websiteUrl = website?.trim() ? (website.startsWith('http') ? website : `https://${website}`) : null
 
+  const isPaid = !!listing.paid
   const dirty =
     website !== baselineRef.current.website ||
     phone !== baselineRef.current.phone ||
     heroImageUrl !== baselineRef.current.heroImageUrl ||
-    JSON.stringify(daysToHours(days)) !== baselineRef.current.hoursKey
+    JSON.stringify(daysToHours(days)) !== baselineRef.current.hoursKey ||
+    JSON.stringify(gallery) !== baselineRef.current.galleryKey
 
   const showBar = dirty || saving || justSaved || saveError
 
@@ -447,6 +509,9 @@ export default function EditListingPage() {
         .aa-edit:hover .aa-pencil { opacity: 0.45; }
         .aa-hero-btn { transition: background 0.12s ease; }
         .aa-hero-btn:hover { background: rgba(28,26,23,0.8) !important; }
+        .aa-gtile .aa-gtile-bar { opacity: 0; transition: opacity 0.12s ease; }
+        .aa-gtile:hover .aa-gtile-bar, .aa-gtile:focus-within .aa-gtile-bar { opacity: 1; }
+        .aa-gadd:hover { border-color: var(--color-sage) !important; color: var(--color-sage) !important; background: rgba(122,143,107,0.06) !important; }
       `}</style>
 
       {/* ── Toolbar ── */}
@@ -583,6 +648,63 @@ export default function EditListingPage() {
               </p>
             </div>
           </div>
+
+          {/* ── Photo gallery (paid perk) ── */}
+          <div style={{ marginTop: 36, paddingTop: 28, borderTop: '1px solid var(--color-border)' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 4, flexWrap: 'wrap' }}>
+              <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)', margin: 0 }}>Photo gallery</h2>
+              {isPaid && (
+                <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-muted)' }}>{gallery.length} / {MAX_GALLERY}</span>
+              )}
+            </div>
+            {isPaid && (
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '0 0 16px', lineHeight: 1.5 }}>
+                Up to {MAX_GALLERY} photos, shown as a gallery on your public listing. Hover a photo to reorder or remove it.
+              </p>
+            )}
+
+            {isPaid ? (
+              <>
+                {galleryError && <div style={errBox}>{galleryError}</div>}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12 }}>
+                  {gallery.map((url, i) => (
+                    <div key={url} className="aa-gtile" style={galleryTile}>
+                      <img src={url} alt={`Photo ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      <span style={galleryIndex}>{i + 1}</span>
+                      <div className="aa-gtile-bar" style={galleryTileBar}>
+                        <button type="button" onClick={() => moveGallery(i, -1)} disabled={i === 0} aria-label="Move earlier" title="Move earlier" style={{ ...gBtn, opacity: i === 0 ? 0.4 : 1, cursor: i === 0 ? 'default' : 'pointer' }}>&lsaquo;</button>
+                        <button type="button" onClick={() => removeGalleryAt(i)} aria-label="Remove photo" title="Remove" style={gBtn}>{ICONS.trash}</button>
+                        <button type="button" onClick={() => moveGallery(i, 1)} disabled={i === gallery.length - 1} aria-label="Move later" title="Move later" style={{ ...gBtn, opacity: i === gallery.length - 1 ? 0.4 : 1, cursor: i === gallery.length - 1 ? 'default' : 'pointer' }}>&rsaquo;</button>
+                      </div>
+                    </div>
+                  ))}
+                  {Array.from({ length: galleryUploading }).map((_, k) => (
+                    <div key={`up-${k}`} style={{ ...galleryTile, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-muted)' }}>Uploading…</span>
+                    </div>
+                  ))}
+                  {gallery.length + galleryUploading < MAX_GALLERY && (
+                    <label className="aa-gadd" style={galleryAddTile}>
+                      <span style={{ display: 'inline-flex' }}>{ICONS.camera}</span>
+                      <span style={{ marginTop: 6, fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500 }}>Add photos</span>
+                      <input type="file" accept="image/*" multiple onChange={handleGalleryAdd} style={{ display: 'none' }} />
+                    </label>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div style={galleryLockCard}>
+                <span style={{ display: 'inline-flex', color: 'var(--color-sage)', flexShrink: 0 }}>{ICONS.camera}</span>
+                <div>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600, color: 'var(--color-ink)', margin: 0 }}>Showcase up to {MAX_GALLERY} photos</p>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '4px 0 0', lineHeight: 1.5 }}>
+                    A photo gallery is part of a paid listing. Upgrade to bring your space to life with a full set of images.
+                  </p>
+                  <Link href="/dashboard/subscription" style={{ display: 'inline-block', marginTop: 10, fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600, color: 'var(--color-sage)', textDecoration: 'none' }}>View subscription options →</Link>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -612,3 +734,12 @@ export default function EditListingPage() {
 
 // Hero overlay control button (shared by Add / Replace / Remove).
 const heroBtn = { display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(28,26,23,0.58)', color: '#fff', border: '1px solid rgba(255,255,255,0.22)', borderRadius: 8, padding: '7px 12px', fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 600, cursor: 'pointer', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }
+
+// ── Gallery styles ──
+const errBox = { marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', fontFamily: 'var(--font-body)', fontSize: 13 }
+const galleryTile = { position: 'relative', aspectRatio: '4 / 3', borderRadius: 10, overflow: 'hidden', border: '1px solid var(--color-border)', background: 'var(--color-cream)' }
+const galleryTileBar = { position: 'absolute', left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, padding: 6, background: 'linear-gradient(to top, rgba(28,26,23,0.72), transparent)' }
+const gBtn = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 6, border: '1px solid rgba(255,255,255,0.25)', background: 'rgba(28,26,23,0.55)', color: '#fff', fontSize: 16, lineHeight: 1, padding: 0, cursor: 'pointer', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)' }
+const galleryIndex = { position: 'absolute', top: 6, left: 6, minWidth: 18, height: 18, padding: '0 5px', borderRadius: 9, background: 'rgba(28,26,23,0.62)', color: '#fff', fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }
+const galleryAddTile = { aspectRatio: '4 / 3', borderRadius: 10, border: '1.5px dashed var(--color-border)', background: 'transparent', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--color-muted)', transition: 'all 0.12s ease' }
+const galleryLockCard = { display: 'flex', gap: 14, alignItems: 'flex-start', padding: 18, borderRadius: 12, border: '1px solid var(--color-border)', background: 'var(--color-card-bg)' }
