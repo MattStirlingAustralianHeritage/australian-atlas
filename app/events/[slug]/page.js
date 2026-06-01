@@ -1,20 +1,11 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { getPublishedEventBySlug } from '@/lib/events'
+import { getVerticalBadge, getVerticalBrandColour } from '@/lib/verticalUrl'
 import CopyUrlButton from './CopyUrlButton'
 
 export const revalidate = 3600
-
-const VERTICAL_COLORS = {
-  sba: '#C49A3C', collection: '#7A6B8A', craft: '#C1603A',
-  fine_grounds: '#8A7055', rest: '#5A8A9A', field: '#4A7C59',
-  corner: '#5F8A7E', found: '#D4956A', table: '#C4634F',
-}
-const VERTICAL_LABELS = {
-  sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
-  fine_grounds: 'Fine Grounds', rest: 'Rest', field: 'Field',
-  corner: 'Corner', found: 'Found', table: 'Table',
-}
 
 function formatDateRange(startDate, endDate) {
   const start = new Date(startDate)
@@ -35,69 +26,41 @@ function formatDateRange(startDate, endDate) {
   const weekdayEnd = end.toLocaleDateString('en-AU', { weekday: 'long' })
 
   if (monthStart === monthEnd && yearStart === yearEnd) {
-    return `${weekdayStart} ${dayStart} \u2013 ${weekdayEnd} ${dayEnd} ${monthStart} ${yearStart}`
+    return `${weekdayStart} ${dayStart} – ${weekdayEnd} ${dayEnd} ${monthStart} ${yearStart}`
   }
 
   if (yearStart === yearEnd) {
-    return `${dayStart} ${monthStart} \u2013 ${dayEnd} ${monthEnd} ${yearStart}`
+    return `${dayStart} ${monthStart} – ${dayEnd} ${monthEnd} ${yearStart}`
   }
 
-  return `${dayStart} ${monthStart} ${yearStart} \u2013 ${dayEnd} ${monthEnd} ${yearEnd}`
-}
-
-async function getEvent(slug) {
-  try {
-    const sb = getSupabaseAdmin()
-    const { data } = await sb
-      .from('events')
-      .select('id, name, slug, description, start_date, end_date, ticket_url, category, state, region, region_id, image_url, website_url, location_name, suburb, address, lat, lng, verticals, status')
-      .eq('slug', slug)
-      .eq('status', 'approved')
-      .single()
-    return data
-  } catch {
-    return null
-  }
-}
-
-async function getRegionListings(regionId) {
-  if (!regionId) return []
-  try {
-    const sb = getSupabaseAdmin()
-    const { data } = await sb
-      .from('listings_with_region')
-      .select('id, name, slug, vertical, suburb, state, hero_image_url')
-      .eq('region_id', regionId)
-      .eq('status', 'active')
-      .limit(3)
-    return data || []
-  } catch {
-    return []
-  }
+  return `${dayStart} ${monthStart} ${yearStart} – ${dayEnd} ${monthEnd} ${yearEnd}`
 }
 
 export async function generateMetadata({ params }) {
   const { slug } = await params
-  const event = await getEvent(slug)
+  const sb = getSupabaseAdmin()
+  const event = await getPublishedEventBySlug(sb, slug)
 
   if (!event) {
-    return { title: 'Event not found \u2014 Australian Atlas' }
+    return { title: 'Event not found — Australian Atlas' }
   }
 
+  const venue = event.listing
+  const place = [venue?.suburb || venue?.region, event.state].filter(Boolean).join(', ')
   const description = event.description
     ? event.description.substring(0, 160)
-    : `${event.name} in ${[event.suburb, event.state].filter(Boolean).join(', ')}`
+    : `${event.title}${place ? ` in ${place}` : ''}`
   return {
-    title: `${event.name} \u2014 Australian Atlas Events`,
+    title: `${event.title} — Australian Atlas Events`,
     description,
     openGraph: {
-      title: event.name,
+      title: event.title,
       description,
       url: `https://australianatlas.com.au/events/${slug}`,
       siteName: 'Australian Atlas',
       locale: 'en_AU',
       type: 'article',
-      images: event.image_url ? [{ url: event.image_url, width: 1200, height: 630 }] : [],
+      images: event.hero_image_url ? [{ url: event.hero_image_url, width: 1200, height: 630 }] : [],
     },
     alternates: {
       canonical: `https://australianatlas.com.au/events/${slug}`,
@@ -107,21 +70,22 @@ export async function generateMetadata({ params }) {
 
 export default async function EventDetailPage({ params }) {
   const { slug } = await params
-  const event = await getEvent(slug)
+  const sb = getSupabaseAdmin()
+  const event = await getPublishedEventBySlug(sb, slug)
 
   if (!event) notFound()
 
-  const regionListings = await getRegionListings(event.region_id)
-  const verticals = Array.isArray(event.verticals) ? event.verticals : []
+  const venue = event.listing
+  const place = [venue?.suburb || venue?.region, event.state].filter(Boolean).join(', ')
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
       {/* Hero image */}
-      {event.image_url && (
+      {event.hero_image_url && (
         <div className="rounded-2xl overflow-hidden max-h-[400px]">
           <img
-            src={event.image_url}
-            alt={event.name}
+            src={event.hero_image_url}
+            alt={event.title}
             className="w-full h-full object-cover max-h-[400px]"
           />
         </div>
@@ -131,24 +95,20 @@ export default async function EventDetailPage({ params }) {
         {/* Badges */}
         <div className="flex flex-wrap gap-2 mb-3">
           {event.category && (
-            <span className="bg-[#F1EFE8] text-[#5F5E5A] text-xs px-2.5 py-1 rounded-full">
+            <span className="bg-[#F1EFE8] text-[#5F5E5A] text-xs px-2.5 py-1 rounded-full capitalize">
               {event.category}
             </span>
           )}
-          {verticals.map(v => (
-            <span
-              key={v}
-              className="text-xs px-2.5 py-1 rounded-full text-white"
-              style={{ backgroundColor: VERTICAL_COLORS[v] || '#888' }}
-            >
-              {VERTICAL_LABELS[v] || v}
+          {event.is_free && (
+            <span className="text-xs px-2.5 py-1 rounded-full" style={{ background: 'rgba(122,143,107,0.16)', color: '#3a7d44' }}>
+              Free
             </span>
-          ))}
+          )}
         </div>
 
         {/* Title */}
         <h1 className="font-[family-name:var(--font-serif)] italic text-3xl sm:text-4xl font-bold text-[var(--color-ink)] leading-tight">
-          {event.name}
+          {event.title}
         </h1>
 
         {/* Date */}
@@ -156,12 +116,11 @@ export default async function EventDetailPage({ params }) {
           {formatDateRange(event.start_date, event.end_date)}
         </p>
 
-        {/* Location */}
-        <p className="mt-1 text-[var(--color-muted)]">
-          {[event.location_name, event.suburb, event.state].filter(Boolean).join(', ')}
-        </p>
-        {event.address && (
-          <p className="mt-0.5 text-sm text-[var(--color-muted)]">{event.address}</p>
+        {/* Location / venue */}
+        {(venue?.name || place) && (
+          <p className="mt-1 text-[var(--color-muted)]">
+            {[venue?.name, place].filter(Boolean).join(' · ')}
+          </p>
         )}
 
         {/* Description */}
@@ -173,25 +132,23 @@ export default async function EventDetailPage({ params }) {
 
         {/* CTAs */}
         <div className="mt-8 flex flex-wrap gap-3">
-          {event.website_url && (
-            <a
-              href={event.website_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-[var(--color-ink)] text-[var(--color-ink)] text-sm font-medium hover:bg-[var(--color-ink)] hover:text-white transition-colors"
-            >
-              Visit website
-            </a>
-          )}
           {event.ticket_url && (
             <a
               href={event.ticket_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-[var(--color-ink)] text-[var(--color-ink)] text-sm font-medium hover:bg-[var(--color-ink)] hover:text-white transition-colors"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[var(--color-sage)] text-white text-sm font-medium hover:opacity-90 transition-opacity"
             >
               Get tickets
             </a>
+          )}
+          {venue && (
+            <Link
+              href={`/place/${venue.slug}`}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-[var(--color-ink)] text-[var(--color-ink)] text-sm font-medium hover:bg-[var(--color-ink)] hover:text-white transition-colors"
+            >
+              Visit venue
+            </Link>
           )}
         </div>
 
@@ -199,62 +156,31 @@ export default async function EventDetailPage({ params }) {
         <div className="mt-6">
           <CopyUrlButton />
         </div>
-
-        {/* Map / Address */}
-        {event.lat && event.lng && (
-          <div className="mt-8">
-            <img
-              src={`https://api.mapbox.com/styles/v1/mattstirlingaustralianheritage/cmn32b0iz003401swccb7d21k/static/pin-s+5f8a7e(${event.lng},${event.lat})/${event.lng},${event.lat},12,0/600x300@2x?access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''}`}
-              alt={`Map of ${event.location_name || event.name}`}
-              className="w-full rounded-xl border border-[var(--color-border)]"
-              loading="lazy"
-            />
-          </div>
-        )}
       </div>
 
-      {/* Also in this region */}
-      {regionListings.length > 0 && (
+      {/* Hosted by */}
+      {venue && (
         <div className="mt-14 border-t border-[var(--color-border)] pt-8">
           <h2 className="font-[family-name:var(--font-serif)] text-xl font-bold text-[var(--color-ink)] mb-5">
-            Also in this region
+            Hosted by
           </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {regionListings.map(listing => (
-              <Link
-                key={listing.id}
-                href={`/explore/${listing.vertical}/${listing.slug}`}
-                className="group block rounded-xl overflow-hidden border border-[var(--color-border)] bg-white hover:shadow-md transition-shadow"
-              >
-                {listing.hero_image_url ? (
-                  <div className="aspect-[16/9] overflow-hidden">
-                    <img
-                      src={listing.hero_image_url}
-                      alt={listing.name}
-                      loading="lazy"
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                  </div>
-                ) : (
-                  <div className="aspect-[16/9] bg-[#F1EFE8]" />
-                )}
-                <div className="p-3">
-                  <span
-                    className="text-xs px-2 py-0.5 rounded-full text-white"
-                    style={{ backgroundColor: VERTICAL_COLORS[listing.vertical] || '#888' }}
-                  >
-                    {VERTICAL_LABELS[listing.vertical] || listing.vertical}
-                  </span>
-                  <h3 className="mt-1.5 font-[family-name:var(--font-serif)] font-bold text-sm text-[var(--color-ink)] leading-tight">
-                    {listing.name}
-                  </h3>
-                  <p className="mt-0.5 text-xs text-[var(--color-muted)]">
-                    {[listing.suburb, listing.state].filter(Boolean).join(', ')}
-                  </p>
-                </div>
-              </Link>
-            ))}
-          </div>
+          <Link
+            href={`/place/${venue.slug}`}
+            className="group inline-flex flex-col rounded-xl border border-[var(--color-border)] bg-white p-4 hover:shadow-md transition-shadow"
+          >
+            <span
+              className="self-start text-xs px-2 py-0.5 rounded-full text-white"
+              style={{ backgroundColor: getVerticalBrandColour(venue.vertical) || '#888' }}
+            >
+              {getVerticalBadge(venue.vertical)}
+            </span>
+            <h3 className="mt-1.5 font-[family-name:var(--font-serif)] font-bold text-base text-[var(--color-ink)] leading-tight group-hover:text-[var(--color-sage)] transition-colors">
+              {venue.name}
+            </h3>
+            <p className="mt-0.5 text-sm text-[var(--color-muted)]">
+              {[venue.suburb || venue.region, venue.state].filter(Boolean).join(', ')}
+            </p>
+          </Link>
         </div>
       )}
 
@@ -270,4 +196,3 @@ export default async function EventDetailPage({ params }) {
     </div>
   )
 }
-

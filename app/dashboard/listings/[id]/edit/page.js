@@ -6,6 +6,8 @@ import Link from 'next/link'
 import { getDashboardToken } from '@/lib/dashboard-token'
 import { getListingRegion } from '@/lib/regions'
 import { getVerticalLabel, getVerticalBrandColour } from '@/lib/verticalUrl'
+import EventsSection from './EventsSection'
+import PicksSection from './PicksSection'
 
 /**
  * WYSIWYG operator listing editor.
@@ -705,6 +707,9 @@ export default function EditListingPage() {
               </div>
             )}
           </div>
+
+          <EventsSection listingId={id} token={token} isPaid={isPaid} listingSlug={listing.slug} />
+          <PicksSection listingId={id} token={token} isPaid={isPaid} listing={listing} />
         </div>
       </div>
 

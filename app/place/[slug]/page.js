@@ -10,6 +10,7 @@ import { isApprovedImageSource } from '@/lib/image-utils'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 import { listOutgoing, listIncoming } from '@/lib/picks/producerPicks'
 import { readGallery, filterPaidListingIds } from '@/lib/listing-gallery'
+import { listEventsForListing } from '@/lib/events'
 import {
   WAY_PRIMARY_TYPE_LABELS,
   WAY_OPERATOR_TYPE_LABELS,
@@ -28,6 +29,26 @@ import ProducerPicks from '@/components/ProducerPicks'
 import VerificationBadge from '@/components/VerificationBadge'
 
 export const revalidate = 3600
+
+// Compact date range for the listing's "Upcoming events" cards.
+function formatEventDate(startDate, endDate) {
+  const start = new Date(startDate)
+  const end = endDate ? new Date(endDate) : null
+  const d = dt => dt.getDate()
+  const m = dt => dt.toLocaleDateString('en-AU', { month: 'short' })
+  const y = dt => dt.getFullYear()
+
+  if (!end || start.toDateString() === end.toDateString()) {
+    return `${d(start)} ${m(start)} ${y(start)}`
+  }
+  if (m(start) === m(end) && y(start) === y(end)) {
+    return `${d(start)}–${d(end)} ${m(start)} ${y(start)}`
+  }
+  if (y(start) === y(end)) {
+    return `${d(start)} ${m(start)} – ${d(end)} ${m(end)} ${y(start)}`
+  }
+  return `${d(start)} ${m(start)} ${y(start)} – ${d(end)} ${m(end)} ${y(end)}`
+}
 
 // ── Vertical category labels ──────────────────────────────────
 
@@ -413,10 +434,11 @@ export default async function PlacePage({ params }) {
   //   picksGiven    = venues this place vouches for (outgoing)
   //   picksReceived = venues that have vouched for this place ("picked by")
   // Both are filtered to active venues so a pick never links to a hidden listing.
-  const [picksGivenRaw, picksReceivedRaw, paidCuratorSet] = await Promise.all([
+  const [picksGivenRaw, picksReceivedRaw, paidCuratorSet, upcomingEvents] = await Promise.all([
     listOutgoing(sbMem, [listing.id]),
     listIncoming(sbMem, [listing.id]),
     filterPaidListingIds(sbMem, [listing.id]),
+    listEventsForListing(sbMem, listing.id, { includeUnpublished: false }),
   ])
   const picksGiven = picksGivenRaw.filter(p => p.pickedStatus === 'active')
   const picksReceived = picksReceivedRaw.filter(p => p.curatorStatus === 'active')
@@ -733,6 +755,58 @@ export default async function PlacePage({ params }) {
                     className="w-full h-full object-cover transition-transform duration-300 hover:scale-[1.03]"
                   />
                 </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ── Upcoming events — published events this venue is hosting (a paid
+            perk authored from the listing editor). Each links to its public
+            /events/[slug] page. Renders nothing when there are none. */}
+        {upcomingEvents.length > 0 && (
+          <section className="mb-12">
+            <h2 className="mb-4" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)' }}>
+              Upcoming events
+            </h2>
+            <div className="flex flex-col gap-3">
+              {upcomingEvents.map(event => (
+                <Link
+                  key={event.id}
+                  href={`/events/${event.slug}`}
+                  className="group flex rounded-lg overflow-hidden transition-shadow hover:shadow-md"
+                  style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}
+                >
+                  {event.hero_image_url && (
+                    <div className="shrink-0" style={{ width: 120 }}>
+                      <img
+                        src={event.hero_image_url}
+                        alt={event.title}
+                        loading="lazy"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0 p-4">
+                    <p className="text-xs" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)', margin: 0 }}>
+                      {formatEventDate(event.start_date, event.end_date)}
+                    </p>
+                    <h3 className="mt-1 leading-tight" style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 400, color: 'var(--color-ink)' }}>
+                      {event.title}
+                    </h3>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {event.category && (
+                        <span className="text-xs px-2 py-0.5 rounded-full capitalize" style={{ background: '#F1EFE8', color: '#5F5E5A' }}>
+                          {event.category}
+                        </span>
+                      )}
+                      {event.is_free && (
+                        <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(122,143,107,0.16)', color: '#3a7d44' }}>
+                          Free
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </Link>
               ))}
             </div>
           </section>
