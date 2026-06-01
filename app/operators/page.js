@@ -46,7 +46,7 @@ const BENEFITS = [
   },
   {
     title: 'Recommend places you love',
-    body: 'Producer Picks lets you highlight other independents — the winery down the road, the ceramicist next door. Cross-promotion that benefits the whole community.',
+    body: "Producer's Picks lets you highlight other independents — the winery down the road, the ceramicist next door. Cross-promotion that benefits the whole community.",
   },
 ]
 
@@ -71,7 +71,7 @@ const STEPS = [
 const FEATURES = [
   'Full listing management — photos, hours, description',
   'Listing Insights — views, search appearances, saves, trail inclusions',
-  'Producer Picks — recommend other venues you love',
+  "Producer's Picks — recommend other venues you love",
   'Direct link to your website (we never act as a booking intermediary)',
   'Appear in curated editorial trails and regional collections',
 ]

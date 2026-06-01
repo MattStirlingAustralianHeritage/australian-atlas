@@ -50,7 +50,7 @@ export default function ListingPicksEditor({ listingId, listingName }) {
   return (
     <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 12, marginTop: 10 }}>
       <p style={{ fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#7A6B8A', marginBottom: 4 }}>
-        Producer Picks
+        {"Producer's Picks"}
       </p>
       <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-muted)', margin: '0 0 12px', lineHeight: 1.5 }}>
         Record that another venue has vouched for <strong>{listingName}</strong>, or remove an existing pick.

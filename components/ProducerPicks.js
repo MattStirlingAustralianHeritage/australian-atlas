@@ -17,7 +17,7 @@ export default function ProducerPicks({ venueName, picks = [], pickedBy = [] }) 
       {picks.length > 0 && (
         <>
           <h2 className="mb-1" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)' }}>
-            Producer Picks
+            {"Producer's Picks"}
           </h2>
           <p className="mb-4" style={{ fontFamily: 'var(--font-body)', fontSize: '13px', fontWeight: 300, color: 'var(--color-muted)' }}>
             Places {venueName} personally vouches for.
