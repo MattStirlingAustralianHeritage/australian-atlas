@@ -8,7 +8,7 @@ import { listingJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
 import { checkAdmin } from '@/lib/admin-auth'
 import { isApprovedImageSource } from '@/lib/image-utils'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
-import { listOutgoing, listIncoming } from '@/lib/picks/producerPicks'
+import { listOutgoing, listIncoming, filterPaidListingIds } from '@/lib/picks/producerPicks'
 import {
   WAY_PRIMARY_TYPE_LABELS,
   WAY_OPERATOR_TYPE_LABELS,
@@ -408,11 +408,17 @@ export default async function PlacePage({ params }) {
   //   picksGiven    = venues this place vouches for (outgoing)
   //   picksReceived = venues that have vouched for this place ("picked by")
   // Both are filtered to active venues so a pick never links to a hidden listing.
-  const [picksGivenRaw, picksReceivedRaw] = await Promise.all([
+  const [picksGivenRaw, picksReceivedRaw, paidCuratorSet] = await Promise.all([
     listOutgoing(sbMem, [listing.id]),
     listIncoming(sbMem, [listing.id]),
+    filterPaidListingIds(sbMem, [listing.id]),
   ])
-  const picksGiven = picksGivenRaw.filter(p => p.pickedStatus === 'active')
+  // Producer's Picks is a Standard-tier perk: a venue's own picks surface
+  // publicly only while it holds an active standard claim. "Picked by"
+  // (incoming) isn't gated — it reflects other venues vouching for this one.
+  const picksGiven = paidCuratorSet.has(listing.id)
+    ? picksGivenRaw.filter(p => p.pickedStatus === 'active')
+    : []
   const picksReceived = picksReceivedRaw.filter(p => p.curatorStatus === 'active')
 
   // Effective region via the FK helper. Returns canonical { id, slug, name, state }

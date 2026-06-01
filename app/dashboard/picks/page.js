@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import Link from 'next/link'
 
 const VERTICAL_LABELS = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft', fine_grounds: 'Fine Grounds',
@@ -13,6 +14,7 @@ export default function DashboardPicks() {
   const [myListings, setMyListings] = useState([])
   const [maxPicks, setMaxPicks] = useState(5)
   const [curatorId, setCuratorId] = useState(null)
+  const [ownsListings, setOwnsListings] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -24,6 +26,7 @@ export default function DashboardPicks() {
       setIncoming(data.incoming || [])
       setMyListings(data.myListings || [])
       setMaxPicks(data.maxPicks || 5)
+      setOwnsListings(!!data.ownsListings)
       setCuratorId(prev => prev || data.myListings?.[0]?.id || null)
     } catch {
       setError('Could not load your picks.')
@@ -47,7 +50,7 @@ export default function DashboardPicks() {
     <div>
       <div style={{ marginBottom: '2rem' }}>
         <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '1.75rem', fontWeight: 600, color: 'var(--color-ink)', margin: '0 0 0.25rem' }}>
-          Producer Picks
+          {"Producer's Picks"}
         </h1>
         <p style={{ fontFamily: 'var(--font-sans)', fontSize: '0.95rem', color: 'var(--color-muted)', margin: 0 }}>
           Vouch for up to {maxPicks} other venues in the Atlas network. Your picks appear on your public listing.
@@ -91,16 +94,28 @@ export default function DashboardPicks() {
         {loading ? (
           <SkeletonCard />
         ) : !curatorId ? (
-          <EmptyState
-            title="No claimed listing yet"
-            body="Producer picks let your venue recommend others in the network. Claim your listing to start vouching for the producers, cafes, and stays you rate."
-          />
+          ownsListings ? (
+            <EmptyState
+              title="A Standard feature"
+              body="Producer's Picks lets your venue recommend up to five others in the network. Upgrade a listing to Standard to start vouching."
+              cta={
+                <Link href="/dashboard/subscription" style={{ display: 'inline-block', fontFamily: 'var(--font-sans)', fontSize: '0.82rem', fontWeight: 600, padding: '0.5rem 1.1rem', borderRadius: 8, background: 'var(--color-sage, #4A7C59)', color: '#fff', textDecoration: 'none' }}>
+                  Upgrade to Standard
+                </Link>
+              }
+            />
+          ) : (
+            <EmptyState
+              title="No claimed listing yet"
+              body="Producer's Picks lets your venue recommend others in the network. Claim your listing to start vouching for the producers, cafes, and stays you rate."
+            />
+          )
         ) : (
           <>
             {myOutgoing.length === 0 ? (
               <EmptyState
                 title="No picks yet"
-                body={`Add up to ${maxPicks} venues you personally vouch for. They'll appear on your public listing as your Producer Picks.`}
+                body={`Add up to ${maxPicks} venues you personally vouch for. They'll appear on your public listing as your Producer's Picks.`}
               />
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1rem' }}>
@@ -214,7 +229,7 @@ function AddPick({ curatorId, existingPickedIds, onAdded }) {
     return (
       <button onClick={() => setOpen(true)}
         style={{ fontFamily: 'var(--font-sans)', fontSize: '0.85rem', fontWeight: 500, color: 'var(--color-sage, #4A7C59)', background: '#fff', border: '1px dashed var(--color-border)', borderRadius: 10, padding: '0.7rem 1rem', cursor: 'pointer', width: '100%', textAlign: 'left' }}>
-        + Add a producer pick
+        {"+ Add a producer's pick"}
       </button>
     )
   }
@@ -273,11 +288,12 @@ function AddPick({ curatorId, existingPickedIds, onAdded }) {
   )
 }
 
-function EmptyState({ title, body }) {
+function EmptyState({ title, body, cta }) {
   return (
     <div style={{ background: '#fff', borderRadius: 12, border: '1px solid var(--color-border)', padding: '2rem', textAlign: 'center' }}>
       <p style={{ fontFamily: 'var(--font-serif)', fontSize: '1rem', color: 'var(--color-ink)', margin: '0 0 0.375rem' }}>{title}</p>
       <p style={{ fontFamily: 'var(--font-sans)', fontSize: '0.825rem', color: 'var(--color-muted)', margin: '0 auto', maxWidth: 460 }}>{body}</p>
+      {cta && <div style={{ marginTop: '1.25rem' }}>{cta}</div>}
     </div>
   )
 }

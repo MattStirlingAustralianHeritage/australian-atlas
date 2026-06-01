@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { getAuthSupabase } from '@/lib/supabase/auth-clients'
-import { getVerticalFeatures } from '@/lib/vertical-features'
+import { getVerticalFeatures, PRODUCER_PICKS_LABEL } from '@/lib/vertical-features'
 import { getDashboardToken } from '@/lib/dashboard-token'
 
 const AuthContext = createContext(null)
@@ -20,7 +20,7 @@ const NAV_ITEMS = [
   { label: 'My Listings', href: '/dashboard/listings', icon: 'list' },
   { label: 'Your Description', href: '/dashboard/description', icon: 'doc' },
   { label: 'Listing Insights', href: '/dashboard/analytics', icon: 'chart' },
-  { label: 'Producer Picks', href: '/dashboard/picks', icon: 'star', picksOnly: true },
+  { label: PRODUCER_PICKS_LABEL, href: '/dashboard/picks', icon: 'star', picksOnly: true },
   { label: 'Editorial', href: '/dashboard/editorial', icon: 'pen' },
   { label: 'Subscription', href: '/dashboard/subscription', icon: 'card' },
 ]

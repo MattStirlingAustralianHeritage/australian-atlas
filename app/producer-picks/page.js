@@ -8,11 +8,11 @@ export const revalidate = 3600
 const SITE_URL = 'https://australianatlas.com.au'
 
 export const metadata = {
-  title: 'Producer Picks | Australian Atlas',
+  title: "Producer's Picks | Australian Atlas",
   description:
     'The independent places vouched for by their peers. Every venue here has been personally picked by another verified operator on the Australian Atlas network.',
   openGraph: {
-    title: 'Producer Picks | Australian Atlas',
+    title: "Producer's Picks | Australian Atlas",
     description:
       'The independent places vouched for by their peers. Every venue here has been personally picked by another verified operator on the Australian Atlas network.',
     url: `${SITE_URL}/producer-picks`,
@@ -44,7 +44,7 @@ export default async function ProducerPicksPage() {
             color: 'var(--color-sage)', marginBottom: 16,
             fontFamily: 'var(--font-body)', fontWeight: 600,
           }}>
-            Producer Picks
+            {"Producer's Picks"}
           </p>
           <h1 style={{
             fontFamily: 'var(--font-display)',
@@ -72,7 +72,7 @@ export default async function ProducerPicksPage() {
             textAlign: 'center', padding: '48px 0',
             color: 'var(--color-muted)', fontFamily: 'var(--font-body)', fontSize: 14,
           }}>
-            No producer picks yet. As venues across the network vouch for one another, their picks will appear here.
+            {"No producer's picks yet. As venues across the network vouch for one another, their picks will appear here."}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">

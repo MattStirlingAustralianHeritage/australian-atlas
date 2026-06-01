@@ -44,7 +44,7 @@ export default function ProducerPicks({ venueName, picks = [], pickedBy = [] }) 
       )}
 
       {picks.length > 0 && (
-        <PickGroup heading="Producer Picks" subhead={`Places ${venueName} personally vouches for.`}>
+        <PickGroup heading="Producer's Picks" subhead={`Places ${venueName} personally vouches for.`}>
           {picks.map(p => (
             <EndorsementCard
               key={p.id}

@@ -16,7 +16,7 @@ const TIERS = [
     name: 'Standard',
     price: 99,
     description: 'Full listing management with all features.',
-    features: ['Everything in Free', 'Photo gallery', 'Website & social links', 'Listing Insights', 'Producer Picks'],
+    features: ['Everything in Free', 'Photo gallery', 'Website & social links', 'Listing Insights', "Producer's Picks"],
     recommended: true,
   },
 ]

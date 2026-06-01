@@ -8,6 +8,7 @@ import {
   createPick,
   deletePick,
   hydrateListings,
+  filterPaidListingIds,
 } from '@/lib/picks/producerPicks'
 import { revalidatePlacePages } from '@/lib/picks/revalidate'
 
@@ -40,16 +41,23 @@ export async function GET() {
   const myIds = await getMyListingIds(admin, user.id)
 
   if (!myIds.length) {
-    return NextResponse.json({ outgoing: [], incoming: [], myListings: [], maxPicks: MAX_PICKS })
+    return NextResponse.json({ outgoing: [], incoming: [], myListings: [], maxPicks: MAX_PICKS, ownsListings: false })
   }
 
+  // Producer's Picks is a Standard-tier perk: only paid listings may curate, so
+  // curator options + outgoing are limited to standard-claim listings. Incoming
+  // ("picked by") is shown for every owned listing — being vouched for isn't
+  // gated, and seeing it gives a free operator a reason to upgrade.
+  const paidSet = await filterPaidListingIds(admin, myIds)
+  const standardIds = myIds.filter(id => paidSet.has(id))
+
   const [outgoing, incoming, listingMap] = await Promise.all([
-    listOutgoing(admin, myIds),
+    listOutgoing(admin, standardIds),
     listIncoming(admin, myIds),
     hydrateListings(admin, myIds),
   ])
 
-  const myListings = myIds
+  const myListings = standardIds
     .map(id => listingMap[id])
     .filter(Boolean)
     .map(l => ({
@@ -60,7 +68,7 @@ export async function GET() {
       pickCount: outgoing.filter(p => p.curatorId === l.id).length,
     }))
 
-  return NextResponse.json({ outgoing, incoming, myListings, maxPicks: MAX_PICKS })
+  return NextResponse.json({ outgoing, incoming, myListings, maxPicks: MAX_PICKS, ownsListings: true })
 }
 
 // POST — create a pick. Body: { curatorListingId, pickedListingId, note? }.
@@ -77,6 +85,15 @@ export async function POST(request) {
   const myIds = await getMyListingIds(admin, user.id)
   if (!myIds.includes(curatorListingId)) {
     return NextResponse.json({ error: 'You can only add picks for a listing you own' }, { status: 403 })
+  }
+
+  // Producer's Picks is a Standard-tier perk — a free listing can't curate.
+  const paidSet = await filterPaidListingIds(admin, [curatorListingId])
+  if (!paidSet.has(curatorListingId)) {
+    return NextResponse.json(
+      { error: "Producer's Picks is a Standard feature. Upgrade this listing to add picks.", code: 'tier' },
+      { status: 403 },
+    )
   }
 
   const result = await createPick(admin, {

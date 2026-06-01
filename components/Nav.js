@@ -81,7 +81,7 @@ export default function Nav() {
     { href: '/trails', label: 'Trails' },
     { href: '/discover', label: 'Discover' },
     { href: '/collections', label: 'Collections' },
-    { href: '/producer-picks', label: 'Producer Picks' },
+    { href: '/producer-picks', label: "Producer's Picks" },
     { href: '/events', label: 'Events' },
     { href: '/atlas-index', label: 'Index' },
     { href: '/for-councils', label: 'For Councils' },
