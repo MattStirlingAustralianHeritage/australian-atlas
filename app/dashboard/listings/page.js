@@ -2,6 +2,7 @@
 
 import { useAuth } from '../layout'
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { getListingRegion } from '@/lib/regions'
 
 const VERTICAL_COLORS = {
@@ -28,31 +29,17 @@ const VERTICAL_LABELS = {
   table: 'Table Atlas',
 }
 
-const VERTICAL_EDIT_CONFIG = {
-  sba:          { baseUrl: 'https://smallbatchatlas.com.au',  path: '/vendor/edit' },
-  collection:   { baseUrl: 'https://collectionatlas.com.au',  path: '/vendor/edit' },
-  craft:        { baseUrl: 'https://craftatlas.com.au',       path: '/vendor/edit' },
-  fine_grounds: { baseUrl: 'https://finegroundsatlas.com.au', path: '/vendor/edit' },
-  rest:         { baseUrl: 'https://restatlas.com.au',        path: '/vendor/edit' },
-}
-
-function getEditUrl(vertical) {
-  const config = VERTICAL_EDIT_CONFIG[vertical]
-  if (!config) return null
-  return `${config.baseUrl}${config.path}`
-}
-
 function ListingCard({ vertical, data, onToast }) {
+  const router = useRouter()
   const color = VERTICAL_COLORS[vertical]
   const label = VERTICAL_LABELS[vertical]
   const venue = data.venue
   const master = data.masterListing
   const tier = data.tier || 'free'
-  const editUrl = getEditUrl(vertical)
 
   function handleEdit() {
-    if (editUrl) {
-      window.open(editUrl, '_blank')
+    if (master?.id) {
+      router.push(`/dashboard/listings/${master.id}/edit`)
     } else {
       onToast(`Listing editing for ${label} is coming soon`)
     }

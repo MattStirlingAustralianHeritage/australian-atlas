@@ -23,25 +23,14 @@ const VERTICAL_URLS = {
   table:        { base: 'https://tableatlas.com.au',         path: '/listings' },
 }
 
-const VERTICAL_EDIT_PATHS = {
-  sba:          '/vendor/edit',
-  collection:   '/vendor/edit',
-  craft:        '/vendor/edit',
-  fine_grounds: '/vendor/edit',
-  rest:         '/vendor/edit',
-}
-
 function getPublicUrl(vertical, slug) {
   const config = VERTICAL_URLS[vertical]
   if (!config) return '#'
   return `${config.base}${config.path}/${slug}`
 }
 
-function getEditUrl(vertical) {
-  const config = VERTICAL_URLS[vertical]
-  const editPath = VERTICAL_EDIT_PATHS[vertical]
-  if (!config || !editPath) return null
-  return `${config.base}${editPath}`
+function getEditUrl(listingId) {
+  return `/dashboard/listings/${listingId}/edit`
 }
 
 function decodeJWT(token) {
@@ -74,7 +63,7 @@ function ScoreBar({ score }) {
 }
 
 function CompletenessChecklist({ listing }) {
-  const vendorUrl = getEditUrl(listing.vertical)
+  const editUrl = getEditUrl(listing.id)
 
   const checks = [
     {
@@ -175,11 +164,9 @@ function CompletenessChecklist({ listing }) {
                 }}>
                   {check.label} added
                 </span>
-              ) : vendorUrl ? (
-                <a
-                  href={vendorUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+              ) : (
+                <Link
+                  href={editUrl}
                   style={{
                     fontFamily: 'var(--font-body, system-ui)',
                     fontSize: 12,
@@ -199,18 +186,7 @@ function CompletenessChecklist({ listing }) {
                   }}>
                     &mdash; {check.hint}
                   </span>
-                </a>
-              ) : (
-                <span style={{
-                  fontFamily: 'var(--font-body, system-ui)',
-                  fontSize: 12,
-                  color: '#dc2626',
-                  fontWeight: 500,
-                  display: 'block',
-                  lineHeight: '18px',
-                }}>
-                  {check.label} missing
-                </span>
+                </Link>
               )}
             </div>
           </div>
@@ -455,45 +431,24 @@ function ListingCard({ listing, liveStats }) {
 
         {/* Quick links */}
         <div style={{ display: 'flex', gap: 8 }}>
-          {getEditUrl(listing.vertical) ? (
-            <a
-              href={getEditUrl(listing.vertical)}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                flex: 1,
-                display: 'block',
-                textAlign: 'center',
-                padding: '10px 12px',
-                borderRadius: 8,
-                background: 'var(--color-ink, #2D2A26)',
-                color: '#fff',
-                fontFamily: 'var(--font-body, system-ui)',
-                fontSize: 12,
-                fontWeight: 500,
-                textDecoration: 'none',
-              }}
-            >
-              Edit listing
-            </a>
-          ) : (
-            <span
-              style={{
-                flex: 1,
-                display: 'block',
-                textAlign: 'center',
-                padding: '10px 12px',
-                borderRadius: 8,
-                background: '#f3f4f6',
-                color: 'var(--color-muted, #888)',
-                fontFamily: 'var(--font-body, system-ui)',
-                fontSize: 12,
-                fontWeight: 500,
-              }}
-            >
-              Edit coming soon
-            </span>
-          )}
+          <Link
+            href={getEditUrl(listing.id)}
+            style={{
+              flex: 1,
+              display: 'block',
+              textAlign: 'center',
+              padding: '10px 12px',
+              borderRadius: 8,
+              background: 'var(--color-ink, #2D2A26)',
+              color: '#fff',
+              fontFamily: 'var(--font-body, system-ui)',
+              fontSize: 12,
+              fontWeight: 500,
+              textDecoration: 'none',
+            }}
+          >
+            Edit listing
+          </Link>
           <a
             href={getPublicUrl(listing.vertical, listing.slug)}
             target="_blank"
