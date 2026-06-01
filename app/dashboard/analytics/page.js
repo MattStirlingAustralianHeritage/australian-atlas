@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { getDashboardToken } from '@/lib/dashboard-token'
 
 const VERTICAL_LABELS = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
@@ -99,54 +100,55 @@ export default function DashboardAnalytics() {
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    const token = localStorage.getItem('atlas_auth_token')
-    if (!token) {
-      setLoading(false)
-      setError('Sign in to view analytics')
-      return
-    }
-
-    fetch('/api/dashboard', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(r => r.json())
-      .then(data => {
-        if (data.error) {
-          setError(data.error)
-          setLoading(false)
-          return
-        }
-        const fetched = data.listings || []
-        setListings(fetched)
-
-        if (fetched.length === 0) {
-          setLoading(false)
-          return
-        }
-
-        let completed = 0
-        for (const listing of fetched) {
-          fetch(`/api/dashboard/stats?listing_id=${listing.id}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          })
-            .then(r => r.ok ? r.json() : null)
-            .then(stats => {
-              if (stats && !stats.error) {
-                setStatsMap(prev => ({ ...prev, [listing.id]: stats }))
-              }
-              completed++
-              if (completed >= fetched.length) setLoading(false)
-            })
-            .catch(() => {
-              completed++
-              if (completed >= fetched.length) setLoading(false)
-            })
-        }
-      })
-      .catch(() => {
-        setError('Failed to load analytics')
+    getDashboardToken().then(token => {
+      if (!token) {
         setLoading(false)
+        setError('Sign in to view analytics')
+        return
+      }
+
+      fetch('/api/dashboard', {
+        headers: { Authorization: `Bearer ${token}` },
       })
+        .then(r => r.json())
+        .then(data => {
+          if (data.error) {
+            setError(data.error)
+            setLoading(false)
+            return
+          }
+          const fetched = data.listings || []
+          setListings(fetched)
+
+          if (fetched.length === 0) {
+            setLoading(false)
+            return
+          }
+
+          let completed = 0
+          for (const listing of fetched) {
+            fetch(`/api/dashboard/stats?listing_id=${listing.id}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            })
+              .then(r => r.ok ? r.json() : null)
+              .then(stats => {
+                if (stats && !stats.error) {
+                  setStatsMap(prev => ({ ...prev, [listing.id]: stats }))
+                }
+                completed++
+                if (completed >= fetched.length) setLoading(false)
+              })
+              .catch(() => {
+                completed++
+                if (completed >= fetched.length) setLoading(false)
+              })
+          }
+        })
+        .catch(() => {
+          setError('Failed to load analytics')
+          setLoading(false)
+        })
+    })
   }, [])
 
   const totals = Object.values(statsMap).reduce(
