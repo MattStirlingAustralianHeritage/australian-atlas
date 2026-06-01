@@ -8,8 +8,8 @@ import { listingJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
 import { checkAdmin } from '@/lib/admin-auth'
 import { isApprovedImageSource } from '@/lib/image-utils'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
-import { listOutgoing, listIncoming, filterPaidListingIds } from '@/lib/picks/producerPicks'
-import { readGallery } from '@/lib/listing-gallery'
+import { listOutgoing, listIncoming } from '@/lib/picks/producerPicks'
+import { readGallery, filterPaidListingIds } from '@/lib/listing-gallery'
 import {
   WAY_PRIMARY_TYPE_LABELS,
   WAY_OPERATOR_TYPE_LABELS,
