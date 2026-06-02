@@ -576,13 +576,13 @@ export default async function Home() {
                 fontFamily: 'var(--font-display)', fontWeight: 400,
                 fontSize: 'clamp(24px, 3vw, 36px)', color: 'var(--color-ink)',
               }}>
-                Discover a cluster
+                More than one reason to go
               </h2>
               <p className="mt-3" style={{
                 fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
                 color: 'var(--color-muted)', maxWidth: '480px', margin: '12px auto 0',
               }}>
-                Regions where makers, stays, culture, and food overlap. One place, many reasons to go.
+                Where stays, tables, makers, and culture share a region.
               </p>
             </div>
 
@@ -591,28 +591,33 @@ export default async function Home() {
                 const regionSlug = CLUSTER_REGION_SLUGS[cluster.region]
                 return (
                   <div key={cluster.region} className="reveal" data-reveal-index={ci + 1}>
-                    <div style={{ marginBottom: '16px' }}>
+                    <div style={{
+                      marginBottom: '16px',
+                      display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', gap: '4px 12px',
+                    }}>
                       {regionSlug ? (
-                        <Link href={`/regions/${regionSlug}`} className="group inline-block">
+                        <Link href={`/regions/${regionSlug}`} className="group inline-flex items-baseline">
                           <h3 style={{
-                            fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 26,
-                            color: 'var(--color-ink)', lineHeight: 1.25,
+                            fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 600,
+                            letterSpacing: '0.12em', textTransform: 'uppercase',
+                            color: 'var(--color-muted)', lineHeight: 1.4,
                           }}>
                             {cluster.region}
-                            <span className="inline-block ml-2 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: GOLD, fontSize: 18 }}>&rarr;</span>
+                            <span className="inline-block ml-1.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: GOLD, fontSize: 11 }}>&rarr;</span>
                           </h3>
                         </Link>
                       ) : (
                         <h3 style={{
-                          fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 26,
-                          color: 'var(--color-ink)', lineHeight: 1.25,
+                          fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 600,
+                          letterSpacing: '0.12em', textTransform: 'uppercase',
+                          color: 'var(--color-muted)', lineHeight: 1.4,
                         }}>
                           {cluster.region}
                         </h3>
                       )}
                       <p style={{
                         fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13,
-                        color: 'var(--color-muted)', marginTop: 4,
+                        color: 'var(--color-muted)', margin: 0,
                       }}>
                         {cluster.total} listings across {cluster.verticalCount} atlases
                       </p>
@@ -656,6 +661,11 @@ export default async function Home() {
                 )
               })}
             </div>
+
+            <div aria-hidden="true" style={{
+              maxWidth: '64px', height: '1px', background: '#E8E0D4',
+              margin: '56px auto 0',
+            }} />
           </div>
         </ScrollReveal>
       )}
