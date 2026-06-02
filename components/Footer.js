@@ -108,6 +108,7 @@ export default function Footer() {
                 { href: '/map', label: 'Map' },
                 { href: '/regions', label: 'Browse by region' },
                 { href: '/search', label: 'Search all listings' },
+                { href: '/events', label: 'Events' },
                 { href: '/plan', label: 'Plan a trip' },
                 { href: '/for-councils', label: 'For Councils' },
                 { href: '/operators', label: 'For Operators' },

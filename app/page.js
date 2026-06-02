@@ -86,6 +86,28 @@ function firstSentence(text) {
   return match ? match[1] : text.slice(0, 160)
 }
 
+const EVENT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+const EVENT_CATEGORY_LABELS = {
+  festival: 'Festival', market: 'Market', dinner: 'Dinner', tour: 'Tour',
+  exhibition: 'Exhibition', workshop: 'Workshop', other: 'Event',
+}
+
+const EVENT_STATE_ORDER = ['NSW', 'VIC', 'QLD', 'SA', 'WA', 'TAS', 'ACT', 'NT']
+
+// Compact date for homepage event cards: "12 Jun", "12–14 Jun", "30 Jun – 2 Jul".
+function formatEventDateShort(startDate, endDate) {
+  const s = new Date(startDate)
+  const e = endDate ? new Date(endDate) : null
+  const sd = s.getDate()
+  const sm = EVENT_MONTHS[s.getMonth()]
+  if (!e || s.toDateString() === e.toDateString()) return `${sd} ${sm}`
+  const ed = e.getDate()
+  const em = EVENT_MONTHS[e.getMonth()]
+  if (sm === em) return `${sd}–${ed} ${sm}`
+  return `${sd} ${sm} – ${ed} ${em}`
+}
+
 async function getStats(publicVerticals) {
   try {
     const sb = getSupabaseAdmin()
@@ -275,12 +297,33 @@ async function getFeaturedListings() {
   }
 }
 
+async function getUpcomingEvents() {
+  try {
+    const sb = getSupabaseAdmin()
+    const today = new Date().toISOString().split('T')[0]
+    const { data } = await sb
+      .from('events')
+      .select('id, name, slug, start_date, end_date, suburb, state, category, image_url')
+      .eq('status', 'approved')
+      .gte('end_date', today)
+      .order('start_date', { ascending: true })
+      .limit(12)
+    return data || []
+  } catch {
+    return []
+  }
+}
+
 export default async function Home() {
   const publicVerticals = getPublicVerticals()
   const verticalCount = publicVerticals.length
-  const [stats, articlesRaw, clusters, featured] = await Promise.all([
-    getStats(publicVerticals), getLatestArticles(), getDiscoverClusters(), getFeaturedListings(),
+  const [stats, articlesRaw, clusters, featured, upcomingEvents] = await Promise.all([
+    getStats(publicVerticals), getLatestArticles(), getDiscoverClusters(), getFeaturedListings(), getUpcomingEvents(),
   ])
+  // States that actually have upcoming events become the "browse by state"
+  // chips (in fixed geographic order); the soonest six show as cards.
+  const eventStates = EVENT_STATE_ORDER.filter(s => upcomingEvents.some(e => e.state === s))
+  const eventCards = upcomingEvents.slice(0, 6)
   const articles = articlesRaw.length > 0 ? articlesRaw : []
   const articlesWithImages = articles.filter(a => a.hero_image_url).slice(0, 2)
   const featuredArticle = articlesWithImages[0] || articles[0]
@@ -780,18 +823,174 @@ export default async function Home() {
       </ScrollReveal>
 
       {/* ── 8. Newsletter ─────────────────────────────── */}
-      <section style={{ paddingBlock: '64px', background: '#F5F0E8' }}>
+      <section style={{
+        background: 'linear-gradient(180deg, #211B15 0%, #1A1510 100%)',
+        paddingBlock: '88px',
+      }}>
         <div className="max-w-xl mx-auto px-6 sm:px-12 text-center">
+          <div aria-hidden="true" style={{
+            width: '40px', height: '1px', background: GOLD,
+            margin: '0 auto 26px', opacity: 0.85,
+          }} />
+          <p style={{
+            fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
+            letterSpacing: '0.22em', textTransform: 'uppercase',
+            color: GOLD, marginBottom: '18px',
+          }}>
+            The Newsletter
+          </p>
           <h2 style={{
             fontFamily: 'var(--font-display)', fontWeight: 400,
-            fontSize: 'clamp(22px, 3vw, 28px)', color: 'var(--color-ink)',
-            marginBottom: '24px',
+            fontSize: 'clamp(26px, 3.4vw, 34px)', lineHeight: 1.18,
+            color: '#FAF8F4', marginBottom: '14px', textWrap: 'balance',
           }}>
             One independent place, every week.
           </h2>
+          <p style={{
+            fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
+            lineHeight: 1.65, color: 'rgba(250,248,244,0.6)',
+            maxWidth: '460px', margin: '0 auto 28px',
+          }}>
+            New openings, the occasional essay, and the quiet finds worth a detour — one considered email a week. No noise, no algorithms.
+          </p>
           <NewsletterSignup variant="homepage" />
+          <p style={{
+            fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '12px',
+            letterSpacing: '0.02em', color: 'rgba(250,248,244,0.4)',
+            marginTop: '16px',
+          }}>
+            Free. Unsubscribe anytime.
+          </p>
         </div>
       </section>
+
+      {/* ── 9. What's on (Events) ─────────────────────── */}
+      <ScrollReveal as="section" style={{ paddingBlock: '80px', background: '#F8F6F1' }}>
+        <div className="max-w-5xl mx-auto px-6 sm:px-12">
+          <div className="reveal text-center" style={{ marginBottom: '40px' }}>
+            <h2 style={{
+              fontFamily: 'var(--font-display)', fontWeight: 400,
+              fontSize: 'clamp(24px, 3vw, 36px)', color: 'var(--color-ink)',
+            }}>
+              What&apos;s on
+            </h2>
+            <p className="mt-3" style={{
+              fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
+              color: 'var(--color-muted)', maxWidth: '480px', margin: '12px auto 0',
+            }}>
+              Festivals, markets, and long-table dinners across the network.
+            </p>
+          </div>
+
+          {eventCards.length > 0 ? (
+            <>
+              {eventStates.length > 1 && (
+                <div className="reveal flex flex-wrap items-center justify-center gap-2" style={{ marginBottom: '36px' }}>
+                  {eventStates.map(s => (
+                    <Link
+                      key={s}
+                      href={`/events?state=${s}`}
+                      className="hover:opacity-80 transition-opacity"
+                      style={{
+                        fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '12px',
+                        letterSpacing: '0.08em', textTransform: 'uppercase',
+                        color: 'var(--color-ink)', background: '#fff',
+                        border: '1px solid var(--color-border)', borderRadius: '999px',
+                        padding: '7px 14px',
+                      }}
+                    >
+                      {s}
+                    </Link>
+                  ))}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {eventCards.map((event, ei) => (
+                  <Link
+                    key={event.id}
+                    href={`/events/${event.slug}`}
+                    className="reveal group listing-card block rounded-xl overflow-hidden"
+                    data-reveal-index={ei + 1}
+                    style={{ background: '#fff', border: '1px solid var(--color-border)' }}
+                  >
+                    {event.image_url && (
+                      <div className="overflow-hidden" style={{ height: '160px' }}>
+                        <img
+                          src={event.image_url}
+                          alt=""
+                          loading="lazy"
+                          className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700"
+                        />
+                      </div>
+                    )}
+                    <div style={{ padding: '18px 20px 22px' }}>
+                      <p style={{
+                        fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 600,
+                        letterSpacing: '0.08em', textTransform: 'uppercase',
+                        color: GOLD, marginBottom: '8px',
+                      }}>
+                        {formatEventDateShort(event.start_date, event.end_date)}
+                      </p>
+                      <h3 style={{
+                        fontFamily: 'var(--font-display)', fontWeight: 400,
+                        fontSize: '20px', lineHeight: 1.28,
+                        color: 'var(--color-ink)', marginBottom: '6px',
+                      }}>
+                        {event.name}
+                      </h3>
+                      <p style={{
+                        fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '13px',
+                        color: 'var(--color-muted)',
+                      }}>
+                        {[EVENT_CATEGORY_LABELS[event.category] || 'Event', [event.suburb, event.state].filter(Boolean).join(', ')].filter(Boolean).join(' · ')}
+                      </p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+
+              <div className="mt-10 flex items-center justify-center gap-6 flex-wrap">
+                <Link href="/events" className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity" style={{
+                  fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', color: GOLD,
+                }}>
+                  Browse all events &rarr;
+                </Link>
+                <Link href="/events/submit" className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity" style={{
+                  fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', color: 'var(--color-muted)',
+                }}>
+                  Submit an event
+                </Link>
+              </div>
+            </>
+          ) : (
+            <div className="reveal text-center" style={{
+              maxWidth: '440px', margin: '0 auto',
+              border: '1px solid var(--color-border)', borderRadius: '16px',
+              padding: '48px 32px', background: '#fff',
+            }}>
+              <p style={{
+                fontFamily: 'var(--font-display)', fontWeight: 400, fontStyle: 'italic',
+                fontSize: '20px', color: 'var(--color-ink)', marginBottom: '10px',
+              }}>
+                Nothing on the calendar just yet.
+              </p>
+              <p style={{
+                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px',
+                lineHeight: 1.6, color: 'var(--color-muted)', marginBottom: '24px',
+              }}>
+                Markets, festivals, openings, and long-table dinners will appear here as they&apos;re announced.
+              </p>
+              <Link href="/events/submit" className="inline-flex items-center gap-2 px-6 py-3 rounded-full hover:opacity-90 transition-opacity" style={{
+                fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
+                background: '#1A1A1A', color: '#FAF8F4',
+              }}>
+                Submit an event
+              </Link>
+            </div>
+          )}
+        </div>
+      </ScrollReveal>
     </>
   )
 }
