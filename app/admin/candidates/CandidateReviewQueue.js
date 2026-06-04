@@ -6,6 +6,8 @@ import {
   WAY_PRESENCE_TYPE_OPTIONS, WAY_ACCREDITATION_OPTIONS,
   MONTH_OPTIONS, requiresCulturalAuthority, isAboriginalOperatorType,
 } from '@/lib/wayLabels'
+import AddListingForm from './AddListingForm'
+import SuggestUrlPill from './SuggestUrlPill'
 
 const VERTICAL_NAMES = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
@@ -2701,6 +2703,17 @@ export default function CandidateReviewQueue({ initialCandidates = [], initialRe
     // Reload the page to pick up new candidates
     window.location.reload()
   }, [])
+  const handleCreated = useCallback((newCandidate) => {
+    if (!newCandidate?.id) return
+    // Prepend so the manually-added listing becomes the focused review card,
+    // and switch the filter to its vertical so it's immediately visible.
+    setCandidates(prev => [newCandidate, ...prev])
+    setVerticalFilter(newCandidate.vertical || null)
+    setDepth(prev => ({
+      ...prev,
+      [newCandidate.vertical]: (prev[newCandidate.vertical] || 0) + 1,
+    }))
+  }, [])
 
   const progressPct = totalQueue > 0 ? (totalReviewed / totalQueue) * 100 : 0
   const queueEmpty = filteredCandidates.length === 0
@@ -2750,6 +2763,12 @@ export default function CandidateReviewQueue({ initialCandidates = [], initialRe
             onFilterChange={setVerticalFilter}
             queueDepth={depth}
           />
+
+          {/* Drop a URL → auto-sort into a vertical */}
+          <SuggestUrlPill onCreated={handleCreated} />
+
+          {/* Manually add a listing the admin came across */}
+          <AddListingForm onCreated={handleCreated} />
 
           {/* Generate button — shown when queue is low */}
           {candidates.length < 50 && (
