@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getSupabaseAdmin, VERTICAL_CONFIG } from '@/lib/supabase/clients'
+import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { grantClaim } from '@/lib/claims/grantClaim'
 
 function getStripe() {
@@ -339,10 +339,11 @@ const VERTICAL_NAMES = {
   corner: 'Corner Atlas', found: 'Found Atlas', table: 'Table Atlas',
 }
 
-function getVerticalVendorUrl(vertical) {
-  const config = VERTICAL_CONFIG[vertical]
-  if (!config?.baseUrl) return null
-  return `${config.baseUrl}/vendor/login`
+// Operators manage claimed listings on the PORTAL dashboard. The old per-vertical
+// /vendor/login destination is deprecated (those routes do not exist).
+function getOperatorDashboardUrl() {
+  const site = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.australianatlas.com.au'
+  return `${site}/dashboard`
 }
 
 // ─── Paid claim auto-approve ─────────────────────────────────────────────────
@@ -443,13 +444,11 @@ async function handlePaidClaimAutoApprove(sb, {
       const resend = new Resend(process.env.RESEND_API_KEY)
 
       const verticalName = VERTICAL_NAMES[effectiveVertical] || effectiveVertical || 'Australian Atlas'
-      const vendorUrl = getVerticalVendorUrl(effectiveVertical)
+      const dashboardUrl = getOperatorDashboardUrl()
       const displayName = listingName || listingRecord?.name || 'your listing'
 
-      const vendorLink = vendorUrl
-        ? `<p><a href="${vendorUrl}" style="display:inline-block;padding:12px 28px;background:#5F8A7E;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Sign in to your dashboard</a></p>
-           <p style="color:#888;font-size:13px;">If you don't have an account yet, create one at <a href="${vendorUrl}">${vendorUrl}</a> using <strong>${effectiveEmail}</strong> — your approved claim will be linked automatically.</p>`
-        : ''
+      const vendorLink = `<p><a href="${dashboardUrl}" style="display:inline-block;padding:12px 28px;background:#5F8A7E;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Manage your listing</a></p>
+           <p style="color:#888;font-size:13px;">New to Australian Atlas? We've emailed a separate invitation to set up your account for <strong>${effectiveEmail}</strong>. Once you set a password you can manage your listing anytime at <a href="${dashboardUrl}">${dashboardUrl}</a>.</p>`
 
       await resend.emails.send({
         from: 'Australian Atlas <noreply@australianatlas.com.au>',

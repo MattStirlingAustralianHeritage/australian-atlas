@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { getSupabaseAdmin, getVerticalClient, VERTICAL_CONFIG, getVerticalClaimsTable } from '@/lib/supabase/clients'
+import { getSupabaseAdmin, getVerticalClient, getVerticalClaimsTable } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
 import { grantClaim } from '@/lib/claims/grantClaim'
 
@@ -72,10 +72,11 @@ const VERTICAL_NAMES = {
 
 // Claim table config now imported from lib/supabase/clients.js (getVerticalClaimsTable)
 
-function getVerticalVendorUrl(vertical) {
-  const config = VERTICAL_CONFIG[vertical]
-  if (!config?.baseUrl) return null
-  return `${config.baseUrl}/vendor/login`
+// Operators manage claimed listings on the PORTAL dashboard. The old per-vertical
+// /vendor/login destination is deprecated (those routes do not exist).
+function getOperatorDashboardUrl() {
+  const site = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.australianatlas.com.au'
+  return `${site}/dashboard`
 }
 
 // ─── Approve ──────────────────────────────────────────────
@@ -158,7 +159,7 @@ async function handleApprove({ claimId, vertical, sourceClaimId, usingPortalTabl
     const claimantName = claimRecord?.claimant_name
     const venueName = listingRecord?.name || ''
     const verticalName = VERTICAL_NAMES[effectiveVertical] || effectiveVertical || 'Australian Atlas'
-    const vendorUrl = getVerticalVendorUrl(effectiveVertical)
+    const dashboardUrl = getOperatorDashboardUrl()
     const tier = claimRecord?.tier || 'free'
 
     if (email && process.env.RESEND_API_KEY) {
@@ -169,10 +170,8 @@ async function handleApprove({ claimId, vertical, sourceClaimId, usingPortalTabl
         ? `<p>You selected the <strong>Standard tier ($99/yr)</strong>. To activate your subscription, sign in to your vendor dashboard and complete payment through Stripe.</p>`
         : `<p>Your listing is on the <strong>Free tier</strong>. You can upgrade to Standard ($99/yr) anytime from your vendor dashboard for unlimited photos, analytics, and more.</p>`
 
-      const vendorLink = vendorUrl
-        ? `<p><a href="${vendorUrl}" style="display:inline-block;padding:12px 28px;background:#5F8A7E;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Sign in to your dashboard</a></p>
-           <p style="color:#888;font-size:13px;">If you don't have an account yet, create one at <a href="${vendorUrl}">${vendorUrl}</a> using <strong>${email}</strong> — your approved claim will be linked automatically.</p>`
-        : ''
+      const vendorLink = `<p><a href="${dashboardUrl}" style="display:inline-block;padding:12px 28px;background:#5F8A7E;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Manage your listing</a></p>
+           <p style="color:#888;font-size:13px;">New to Australian Atlas? We've emailed a separate invitation to set up your account for <strong>${email}</strong>. Once you set a password you can manage your listing anytime at <a href="${dashboardUrl}">${dashboardUrl}</a>.</p>`
 
       await resend.emails.send({
         from: 'Australian Atlas <noreply@australianatlas.com.au>',

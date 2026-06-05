@@ -83,8 +83,9 @@ export async function PATCH(request) {
 
   const sb = getSupabaseAdmin()
 
-  // ── Ownership: listing must exist, be claimed, and (for vendors) be in a
-  //    vertical this operator manages. Admins bypass the vertical check. ──
+  // ── Ownership: per-listing via listing_claims.claimed_by — the auth uid, carried
+  //    as the token's `sub` (→ user.id). A vendor may edit ONLY a listing they own;
+  //    admins bypass the ownership check. (Previously vertical-scoped — too broad.) ──
   const { data: owned, error: ownErr } = await sb
     .from('listings')
     .select('id, vertical, is_claimed')
@@ -94,11 +95,20 @@ export async function PATCH(request) {
   if (ownErr || !owned) {
     return NextResponse.json({ error: 'Listing not found' }, { status: 404 })
   }
-  if (!owned.is_claimed) {
-    return NextResponse.json({ error: 'Listing is not claimed' }, { status: 403 })
-  }
-  if (user.role !== 'admin' && !(user.verticals || {})[owned.vertical]) {
-    return NextResponse.json({ error: 'You do not manage this listing' }, { status: 403 })
+  if (user.role !== 'admin') {
+    const { data: ownership, error: ownLookupErr } = await sb
+      .from('listing_claims')
+      .select('id')
+      .eq('listing_id', listingId)
+      .eq('claimed_by', user.id)
+      .eq('status', 'active')
+      .maybeSingle()
+    if (ownLookupErr) {
+      return NextResponse.json({ error: 'Failed to verify ownership' }, { status: 500 })
+    }
+    if (!ownership) {
+      return NextResponse.json({ error: 'You do not own this listing' }, { status: 403 })
+    }
   }
 
   // ── Base fields → canonical updateListing (master write + vertical sync-back) ──

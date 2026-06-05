@@ -37,17 +37,38 @@ export async function GET(request) {
   const sb = getSupabaseAdmin()
   const { searchParams } = new URL(request.url)
   const listingId = searchParams.get('listing_id')
+  const isAdmin = user.role === 'admin'
 
   try {
     let listings = []
 
+    // Ownership is per-listing via listing_claims.claimed_by — the auth uid, carried
+    // as the token's `sub` (→ user.id). A vendor sees ONLY listings they own; admins
+    // are unrestricted. (Previously this was vertical-scoped, so any vendor in a
+    // vertical could read every claimed listing in that vertical.)
+    let ownedIds = null // null = unrestricted (admin)
+    if (!isAdmin) {
+      const { data: claims, error: claimsErr } = await sb
+        .from('listing_claims')
+        .select('listing_id')
+        .eq('claimed_by', user.id)
+        .eq('status', 'active')
+      if (claimsErr) {
+        console.error('Dashboard ownership query error:', claimsErr)
+        return NextResponse.json({ error: 'Failed to resolve ownership' }, { status: 500 })
+      }
+      ownedIds = (claims || []).map(c => c.listing_id)
+    }
+
     if (listingId) {
-      // Fetch a specific listing
+      // Vendors may only fetch a listing they own.
+      if (ownedIds && !ownedIds.includes(listingId)) {
+        return NextResponse.json({ error: 'Listing not found' }, { status: 404 })
+      }
       const { data, error } = await sb
         .from('listings')
         .select(`id, name, slug, vertical, region, state, lat, lng, website, phone, address, hero_image_url, is_claimed, is_featured, status, description, hours, created_at, updated_at, ${LISTING_REGION_SELECT}`)
         .eq('id', listingId)
-        .eq('is_claimed', true)
         .single()
 
       if (error || !data) {
@@ -55,25 +76,19 @@ export async function GET(request) {
       }
       listings = [data]
     } else {
-      // Fetch all claimed listings for verticals this vendor operates in
-      const vendorVerticals = user.verticals || {}
-      const activeVerticals = Object.entries(vendorVerticals)
-        .filter(([, active]) => active)
-        .map(([v]) => v)
-
-      if (activeVerticals.length === 0) {
-        return NextResponse.json({ listings: [], message: 'No active verticals found for this vendor' })
+      // Vendor with no owned claims → empty (not an error).
+      if (ownedIds && ownedIds.length === 0) {
+        return NextResponse.json({ listings: [] })
       }
 
-      // Get claimed listings in vendor's verticals
-      // TODO: Once vendor_user_id is added to listings, filter by that directly
-      const { data, error } = await sb
+      let query = sb
         .from('listings')
         .select(`id, name, slug, vertical, region, state, lat, lng, website, phone, address, hero_image_url, is_claimed, is_featured, status, description, hours, created_at, updated_at, ${LISTING_REGION_SELECT}`)
-        .eq('is_claimed', true)
-        .in('vertical', activeVerticals)
         .order('name')
+      if (ownedIds) query = query.in('id', ownedIds)         // vendor: only owned
+      else query = query.eq('is_claimed', true)              // admin: all claimed
 
+      const { data, error } = await query
       if (error) {
         console.error('Dashboard listings query error:', error)
         return NextResponse.json({ error: 'Failed to fetch listings' }, { status: 500 })

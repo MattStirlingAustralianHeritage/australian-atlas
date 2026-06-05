@@ -77,16 +77,23 @@ export default function ClaimForm({ listingId, listingName, slug, vertColor }) {
           }),
         })
 
-        const checkoutData = await checkoutRes.json()
+        let checkoutData = {}
+        try { checkoutData = await checkoutRes.json() } catch { /* non-JSON error body */ }
 
         if (checkoutRes.ok && checkoutData.url) {
           window.location.href = checkoutData.url
           return
         }
 
-        // If Stripe checkout fails, claim is still submitted — redirect to success
+        // Payment could not be started. The claim IS saved (pending), but we must
+        // NEVER show a success screen for an unpaid Standard claim — surface the
+        // error and keep the operator on the form.
         console.error('Stripe checkout failed:', checkoutData.error)
-        router.push('/claim/success')
+        setError(
+          (checkoutData.error ? `${checkoutData.error} — ` : '') +
+          'We couldn’t start payment for the Standard tier. Your claim has been saved as pending; ' +
+          'choose the Free tier to finish now, or contact listings@australianatlas.com.au to complete the upgrade.'
+        )
         return
       }
 
