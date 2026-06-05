@@ -868,6 +868,48 @@ export default async function Home() {
         </div>
       </section>
 
+      {/* ── 8.5 Plan a stay ───────────────────────────── */}
+      <section style={{
+        background: 'linear-gradient(180deg, #F2ECE0 0%, #ECE3D3 100%)',
+        paddingBlock: '96px',
+        borderTop: '1px solid rgba(28,26,23,0.06)',
+      }}>
+        <div className="max-w-2xl mx-auto px-6 sm:px-12 text-center">
+          <div aria-hidden="true" style={{
+            width: '40px', height: '1px', background: GOLD,
+            margin: '0 auto 26px', opacity: 0.85,
+          }} />
+          <p style={{
+            fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
+            letterSpacing: '0.22em', textTransform: 'uppercase',
+            color: GOLD, marginBottom: '18px',
+          }}>
+            Plan a stay
+          </p>
+          <h2 style={{
+            fontFamily: 'var(--font-display)', fontWeight: 400,
+            fontSize: 'clamp(28px, 3.6vw, 40px)', lineHeight: 1.15,
+            color: 'var(--color-ink)', marginBottom: '16px', textWrap: 'balance',
+          }}>
+            Tell us the kind of trip. We&apos;ll build the days.
+          </h2>
+          <p style={{
+            fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
+            lineHeight: 1.65, color: 'var(--color-muted)',
+            maxWidth: '480px', margin: '0 auto 32px',
+          }}>
+            Coffee to start, a long lunch in the middle, and somewhere good to stay — a day-by-day trip drawn entirely from the independent places listed across the network.
+          </p>
+          <Link href="/plan-a-stay-v2" className="inline-flex items-center gap-2 rounded-full hover:opacity-90 transition-opacity" style={{
+            fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px',
+            background: '#1A1A1A', color: '#FAF8F4',
+            padding: '14px 32px',
+          }}>
+            Plan a stay &rarr;
+          </Link>
+        </div>
+      </section>
+
       {/* ── 9. What's on (Events) ─────────────────────── */}
       <ScrollReveal as="section" style={{ paddingBlock: '80px', background: '#F8F6F1' }}>
         <div className="max-w-5xl mx-auto px-6 sm:px-12">
