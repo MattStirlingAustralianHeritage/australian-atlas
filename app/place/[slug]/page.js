@@ -285,7 +285,16 @@ async function getRegionListings(listing, excludeIds = [], limit = 4) {
   const sb = getSupabaseAdmin()
   const SELECT = `id, name, slug, vertical, region, state, lat, lng, hero_image_url, description, is_featured, is_claimed, editors_pick, ${LISTING_REGION_SELECT}`
   const MIN_PRIMARY = 8
-  const FETCH_PRIMARY = Math.max(MIN_PRIMARY, limit)
+  // Big-city regions (e.g. "Melbourne") span 30km+, so a region-only match can
+  // surface a venue 30km away under "More in [city]". The urban density gate
+  // below caps the row at URBAN_RADIUS_KM whenever the surrounding area is dense
+  // enough to be a large city/town; sparse/regional areas are left alone (their
+  // nearest venues are legitimately farther out). Fetch a generous pool so the
+  // distance filter has candidates — a dense region can hold hundreds of rows,
+  // and ordering by editors_pick alone would otherwise bury the nearby ones.
+  const URBAN_RADIUS_KM = 10
+  const URBAN_MIN_DENSITY = 3 // matches getMapNearbyListings' MIN_FOR_DENSITY
+  const FETCH_PRIMARY = 120
 
   const excludeForQuery = [listing.id, ...excludeIds]
 
@@ -299,6 +308,25 @@ async function getRegionListings(listing, excludeIds = [], limit = 4) {
     .limit(FETCH_PRIMARY)
 
   const primaryRows = primary || []
+
+  // Urban density gate. When at least URBAN_MIN_DENSITY same-region venues sit
+  // within URBAN_RADIUS_KM of the current listing, the area is a large city/town
+  // — restrict the row to that band (curation first, then nearest) so a far-flung
+  // same-region venue can't appear under "More in [city]". Sparse areas fall
+  // through to the region-wide pool below, where farther venues are expected.
+  if (listing.lat != null && listing.lng != null) {
+    const within = primaryRows
+      .filter(r => r.lat != null && r.lng != null)
+      .map(r => ({ row: r, dist: haversineKm(listing.lat, listing.lng, r.lat, r.lng) }))
+      .filter(d => d.dist <= URBAN_RADIUS_KM)
+    if (within.length >= URBAN_MIN_DENSITY) {
+      within.sort((a, b) =>
+        (Number(b.row.editors_pick) - Number(a.row.editors_pick)) || (a.dist - b.dist)
+      )
+      return within.slice(0, limit).map(d => d.row)
+    }
+  }
+
   if (primaryRows.length >= MIN_PRIMARY || !region.state) {
     return primaryRows.slice(0, limit)
   }
