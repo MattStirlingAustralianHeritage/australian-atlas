@@ -146,6 +146,7 @@ const SUBCATEGORY_OPTIONS = {
     { value: 'sailing_charter',            label: 'Sailing Charter' },
     { value: 'sea_kayak_tour',             label: 'Sea Kayak Tour' },
     { value: 'dive_operator',              label: 'Dive Operator' },
+    { value: 'whale_watching',             label: 'Whale Watching' },
     { value: 'fishing_guide',              label: 'Fishing Guide' },
     { value: 'photography_expedition',     label: 'Photography Expedition' },
     { value: 'specialist_natural_history', label: 'Specialist Natural History' },
