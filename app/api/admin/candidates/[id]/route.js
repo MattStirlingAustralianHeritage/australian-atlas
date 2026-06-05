@@ -251,7 +251,7 @@ export async function PATCH(request, { params }) {
   try {
     const body = await request.json()
 
-    const allowed = ['name', 'vertical', 'region', 'website_url', 'description', 'notes', 'confidence', 'pipeline_stage', 'priority', 'sub_type', 'state']
+    const allowed = ['name', 'vertical', 'verticals', 'region', 'website_url', 'description', 'notes', 'confidence', 'pipeline_stage', 'priority', 'sub_type', 'state']
     const updates = {}
     for (const key of allowed) {
       if (key in body) updates[key] = body[key]
@@ -262,12 +262,28 @@ export async function PATCH(request, { params }) {
     }
 
     const sb = getSupabaseAdmin()
-    const { data, error } = await sb
+    let { data, error } = await sb
       .from('listing_candidates')
       .update(updates)
       .eq('id', id)
       .select()
       .single()
+
+    // Forward-compat: `verticals` (migration 142) may be absent. Drop it and
+    // retry so other inline edits still persist pre-migration.
+    if (error && (error.code === '42703' || /column .*verticals.* does not exist/i.test(error.message || '')) && 'verticals' in updates) {
+      console.warn('[admin/candidates/PATCH] verticals column absent (migration 142 pending) — saving without it')
+      delete updates.verticals
+      if (Object.keys(updates).length === 0) {
+        return NextResponse.json({ candidate: null, warning: 'verticals column not yet migrated' })
+      }
+      ;({ data, error } = await sb
+        .from('listing_candidates')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single())
+    }
 
     if (error) throw error
 
@@ -799,6 +815,31 @@ export async function POST(request, { params }) {
           errorMessage: verticalRowId ? null : pushResult?.error,
           category: fullData.category,
         })
+      }
+
+      // 7b. Cross-vertical tags (migration 142) — best-effort, non-fatal.
+      // Reflect the reviewer's vertical assignment(s) onto the published
+      // listing so it can appear under more than one vertical. The DB trigger
+      // guarantees the primary `vertical` is always present; here we add any
+      // admin-chosen secondary verticals. The Way RPC path also lands here
+      // (after listingId is set), so Way cross-listing works too.
+      try {
+        const chosenVerticals = Array.isArray(candidate.verticals) ? candidate.verticals : []
+        if (chosenVerticals.length > 0) {
+          const VALID_VERTICALS = ['sba', 'collection', 'craft', 'fine_grounds', 'rest', 'field', 'corner', 'found', 'table', 'way']
+          const verticalsSet = [vertical, ...chosenVerticals]
+            .filter((v, i, arr) => v && VALID_VERTICALS.includes(v) && arr.indexOf(v) === i)
+          const { error: vErr } = await sb.from('listings').update({ verticals: verticalsSet }).eq('id', listingId)
+          if (vErr && (vErr.code === '42703' || /column .*verticals.* does not exist/i.test(vErr.message || ''))) {
+            console.warn('[approve] verticals column absent (migration 142 pending) — cross-vertical tags not written')
+          } else if (vErr) {
+            console.warn('[approve] failed to set cross-vertical tags:', vErr.message)
+          } else if (verticalsSet.length > 1) {
+            console.log(`[approve] Set cross-vertical tags for ${listingId}: ${verticalsSet.join(', ')}`)
+          }
+        }
+      } catch (vTagErr) {
+        console.warn('[approve] cross-vertical tag step errored (non-fatal):', vTagErr.message)
       }
 
       // 8. Mark candidate as converted

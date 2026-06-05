@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
 import { validateCouncilSession } from '@/lib/council-session'
 
 // GET: Fetch council dashboard data
@@ -107,7 +108,7 @@ export async function GET(req) {
         .eq('status', 'active')
 
       if (vertical) {
-        query = query.eq('vertical', vertical)
+        query = filterByVertical(query, vertical, await relationHasVerticals(sb, 'listings'))
       }
 
       const { data: listings, count } = await query

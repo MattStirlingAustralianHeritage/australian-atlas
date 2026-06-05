@@ -1,6 +1,7 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { NextResponse } from 'next/server'
 import { LISTING_REGION_SELECT } from '@/lib/regions'
+import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
 
 // Haversine distance in km
 function haversineKm(lat1, lng1, lat2, lng2) {
@@ -141,7 +142,7 @@ export async function GET(request) {
     .limit(200)
 
   if (vertical) {
-    query = query.eq('vertical', vertical)
+    query = filterByVertical(query, vertical, await relationHasVerticals(sb, 'listings'))
   }
 
   const { data, error } = await query

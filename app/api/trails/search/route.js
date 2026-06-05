@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 
 /**
@@ -36,7 +37,7 @@ export async function GET(request) {
       .limit(limit)
 
     if (vertical) {
-      query = query.eq('vertical', vertical)
+      query = filterByVertical(query, vertical, await relationHasVerticals(sb, 'listings'))
     }
 
     const { data: listings, error } = await query

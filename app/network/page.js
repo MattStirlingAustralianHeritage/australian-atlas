@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 import { getPublicVerticals } from '@/lib/verticalUrl'
+import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
 
 const ATLAS_COUNT_WORDS = { 8: 'eight', 9: 'nine', 10: 'ten', 11: 'eleven', 12: 'twelve' }
 
@@ -31,7 +32,9 @@ async function getNetworkData(publicVerticals) {
     // Per-vertical counts
     const verticalCounts = {}
     for (const key of publicVerticals) {
-      const { count } = await sb.from('listings').select('*', { count: 'exact', head: true }).eq('vertical', key).eq('status', 'active')
+      let cq = sb.from('listings').select('*', { count: 'exact', head: true }).eq('status', 'active')
+      cq = filterByVertical(cq, key, await relationHasVerticals(sb, 'listings'))
+      const { count } = await cq
       verticalCounts[key] = count || 0
     }
 

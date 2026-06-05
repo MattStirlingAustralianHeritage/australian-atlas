@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { createHash } from 'crypto'
 import { LISTING_REGION_SELECT, resolveRegionParam } from '@/lib/regions'
 import { getPublicVerticals, isVerticalPublic } from '@/lib/verticalUrl'
+import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
 
 const SELECT_FIELDS = `id, vertical, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website, address, ${LISTING_REGION_SELECT}`
 
@@ -365,7 +366,7 @@ export async function GET(request) {
       .eq('status', 'active')
       .in('vertical', publicVerticals)
 
-    if (vertical) baseQuery = baseQuery.eq('vertical', vertical)
+    if (vertical) baseQuery = filterByVertical(baseQuery, vertical, await relationHasVerticals(sb, 'listings_with_region'))
     if (state) baseQuery = baseQuery.eq('state', state)
     if (resolvedRegion) {
       baseQuery = baseQuery.eq('region_id', resolvedRegion.id)
@@ -381,7 +382,7 @@ export async function GET(request) {
 
       // Apply vertical hint if no explicit vertical filter was provided
       if (hintVertical && !vertical) {
-        baseQuery = baseQuery.eq('vertical', hintVertical)
+        baseQuery = filterByVertical(baseQuery, hintVertical, await relationHasVerticals(sb, 'listings_with_region'))
       }
 
       // Apply state hint if no explicit state filter
@@ -476,8 +477,8 @@ export async function GET(request) {
           .in('vertical', publicVerticals)
           .limit(200)
 
-        if (vertical) fuzzyQuery = fuzzyQuery.eq('vertical', vertical)
-        else if (hintVertical) fuzzyQuery = fuzzyQuery.eq('vertical', hintVertical)
+        if (vertical) fuzzyQuery = filterByVertical(fuzzyQuery, vertical, await relationHasVerticals(sb, 'listings'))
+        else if (hintVertical) fuzzyQuery = filterByVertical(fuzzyQuery, hintVertical, await relationHasVerticals(sb, 'listings'))
         if (state) fuzzyQuery = fuzzyQuery.eq('state', state)
         else if (hintState) fuzzyQuery = fuzzyQuery.eq('state', hintState)
 

@@ -2,6 +2,7 @@
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { useRef, useEffect, useState } from 'react'
 import { getVerticalUrl, getVerticalBadge, getVerticalLabel, getVerticalBrandColour, getPublicVerticals } from '@/lib/verticalUrl'
+import { listingVerticals } from '@/lib/listings/verticalFilter'
 
 const PRIMARY = '#5f8a7e'
 const PREMIUM_COLOR = '#c8943a'
@@ -776,7 +777,7 @@ export default function MapClient({
 
 function getFiltered(listings, selectedVerticals, subTypeFilter, stateFilter, search) {
   return listings.filter(l => {
-    const matchVertical = selectedVerticals.size === 0 || selectedVerticals.has(l.vertical)
+    const matchVertical = selectedVerticals.size === 0 || listingVerticals(l).some(v => selectedVerticals.has(v))
     const matchSubType = subTypeFilter === 'all' || l.sub_type === subTypeFilter
     const matchState = stateFilter === 'All States' || l.state === stateFilter
     const matchSearch = !search || l.name.toLowerCase().includes(search.toLowerCase())

@@ -19,7 +19,7 @@ const VERTICAL_OPTIONS = [
 
 const STATE_OPTIONS = ['VIC', 'NSW', 'QLD', 'SA', 'WA', 'TAS', 'ACT', 'NT']
 
-const EMPTY = { name: '', vertical: '', website_url: '', address: '', state: '', region: '', notes: '' }
+const EMPTY = { name: '', vertical: '', vertical_secondary: '', website_url: '', address: '', state: '', region: '', notes: '' }
 
 const labelStyle = {
   display: 'block', fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 600,
@@ -171,6 +171,16 @@ export default function AddListingForm({ onCreated }) {
             <select value={form.vertical} onChange={set('vertical')} style={inputStyle}>
               <option value="">Select…</option>
               {VERTICAL_OPTIONS.map(v => (
+                <option key={v.value} value={v.value}>{v.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Also in <span style={{ textTransform: 'none', fontWeight: 400 }}>(optional)</span></label>
+            <select value={form.vertical_secondary} onChange={set('vertical_secondary')} style={inputStyle} disabled={!form.vertical}>
+              <option value="">—</option>
+              {VERTICAL_OPTIONS.filter(v => v.value !== form.vertical).map(v => (
                 <option key={v.value} value={v.value}>{v.label}</option>
               ))}
             </select>

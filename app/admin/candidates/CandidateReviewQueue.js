@@ -146,7 +146,6 @@ const SUBCATEGORY_OPTIONS = {
     { value: 'sailing_charter',            label: 'Sailing Charter' },
     { value: 'sea_kayak_tour',             label: 'Sea Kayak Tour' },
     { value: 'dive_operator',              label: 'Dive Operator' },
-    { value: 'whale_watching',             label: 'Whale Watching' },
     { value: 'fishing_guide',              label: 'Fishing Guide' },
     { value: 'photography_expedition',     label: 'Photography Expedition' },
     { value: 'specialist_natural_history', label: 'Specialist Natural History' },
@@ -300,7 +299,7 @@ function Kbd({ children }) {
   )
 }
 
-function VerticalSelect({ value, candidateId, onSaved }) {
+function VerticalSelect({ value, secondary, candidateId, onSaved }) {
   const [saving, setSaving] = useState(false)
   const color = VERTICAL_COLORS[value] || 'var(--color-muted)'
 
@@ -309,14 +308,19 @@ function VerticalSelect({ value, candidateId, onSaved }) {
     if (newVertical === value) return
     setSaving(true)
     try {
+      // Keep the cross-vertical array coherent: new primary first, retain an
+      // existing secondary unless it now collides with the new primary.
+      const verticals = secondary && secondary !== newVertical
+        ? [newVertical, secondary]
+        : [newVertical]
       const res = await fetch(`/api/admin/candidates/${candidateId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vertical: newVertical }),
+        body: JSON.stringify({ vertical: newVertical, verticals }),
       })
       if (res.ok) {
         const { candidate } = await res.json()
-        onSaved?.(candidate)
+        if (candidate) onSaved?.(candidate)
       }
     } catch (err) {
       console.error('Vertical update failed:', err)
@@ -341,6 +345,61 @@ function VerticalSelect({ value, candidateId, onSaved }) {
       }}>
       {Object.entries(VERTICAL_NAMES).map(([key, label]) => (
         <option key={key} value={key} style={{ background: '#fff', color: '#333', textTransform: 'none' }}>{label}</option>
+      ))}
+    </select>
+  )
+}
+
+// Optional second vertical — lets a venue be published across two verticals
+// (e.g. a distillery that also has a cellar-door café). Ghost pill until set,
+// then mirrors the chosen vertical's colour as an outline. Persists via the
+// candidate `verticals` array (primary first).
+function SecondaryVerticalSelect({ primary, value, candidateId, onSaved }) {
+  const [saving, setSaving] = useState(false)
+  const color = VERTICAL_COLORS[value] || 'var(--color-muted)'
+
+  const handleChange = async (e) => {
+    const next = e.target.value
+    if (next === (value || '')) return
+    setSaving(true)
+    try {
+      const verticals = next ? [primary, next] : [primary]
+      const res = await fetch(`/api/admin/candidates/${candidateId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ verticals }),
+      })
+      if (res.ok) {
+        const { candidate } = await res.json()
+        if (candidate) onSaved?.(candidate)
+      }
+    } catch (err) {
+      console.error('Secondary vertical update failed:', err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <select value={value || ''} onChange={handleChange} disabled={saving}
+      title="Also list under a second vertical (optional)"
+      style={{
+        fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 10,
+        letterSpacing: '0.12em', textTransform: 'uppercase',
+        color: value ? color : 'var(--color-muted)',
+        background: value ? color + '14' : 'transparent',
+        padding: '4px 22px 4px 10px', borderRadius: 3,
+        border: `1px ${value ? 'solid' : 'dashed'} ${value ? color : 'var(--color-border)'}`,
+        cursor: 'pointer', outline: 'none',
+        appearance: 'none', WebkitAppearance: 'none',
+        backgroundImage: `url("data:image/svg+xml,%3Csvg width='8' height='5' viewBox='0 0 8 5' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L4 4L7 1' stroke='%23999' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: 'right 6px center',
+        opacity: saving ? 0.6 : 1,
+      }}>
+      <option value="" style={{ background: '#fff', color: '#333', textTransform: 'none' }}>+ 2nd vertical</option>
+      {Object.entries(VERTICAL_NAMES).filter(([key]) => key !== primary).map(([key, label]) => (
+        <option key={key} value={key} style={{ background: '#fff', color: '#333', textTransform: 'none' }}>Also: {label}</option>
       ))}
     </select>
   )
@@ -631,6 +690,8 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
   const [wayFormTouched, setWayFormTouched] = useState(false)
 
   const vertical = candidate.vertical || 'sba'
+  // Cross-vertical: a candidate may carry a second vertical in `verticals`.
+  const secondaryVertical = (Array.isArray(candidate.verticals) ? candidate.verticals : []).find(v => v && v !== vertical) || ''
   const color = VERTICAL_COLORS[vertical] || '#5F8A7E'
   const confidence = candidate.confidence || 0
   const confidencePercent = Math.round(confidence * 100)
@@ -959,7 +1020,8 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
         borderBottom: '1px solid var(--color-border)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <VerticalSelect value={vertical} candidateId={candidate.id} onSaved={onUpdate} />
+          <VerticalSelect value={vertical} secondary={secondaryVertical} candidateId={candidate.id} onSaved={onUpdate} />
+          <SecondaryVerticalSelect primary={vertical} value={secondaryVertical} candidateId={candidate.id} onSaved={onUpdate} />
           <SubcategorySelect vertical={vertical} value={subcategory} onChange={setSubcategory} placeholder="Primary..." />
           <SubcategorySelect vertical={vertical} value={subcategorySecondary} onChange={setSubcategorySecondary} exclude={subcategory} placeholder="Secondary..." />
           <span style={{

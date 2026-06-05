@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { validateApiKey, logApiRequest } from '@/lib/api-auth'
 import { LISTING_REGION_SELECT, resolveRegionParam } from '@/lib/regions'
+import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
 
 /**
  * Public API: GET /api/v1/venues
@@ -64,7 +65,7 @@ export async function GET(request) {
     .select(PUBLIC_FIELDS, { count: 'exact' })
     .eq('status', 'active')
 
-  if (vertical) query = query.eq('vertical', vertical)
+  if (vertical) query = filterByVertical(query, vertical, await relationHasVerticals(sb, 'listings_with_region'))
   if (resolvedRegion) {
     query = query.eq('region_id', resolvedRegion.id)
   } else if (region) {

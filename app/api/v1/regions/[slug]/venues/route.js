@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { validateApiKey, logApiRequest } from '@/lib/api-auth'
 import { LISTING_REGION_SELECT } from '@/lib/regions'
+import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
 
 const PUBLIC_FIELDS = [
   'id', 'name', 'slug', 'vertical', 'category',
@@ -56,7 +57,7 @@ export async function GET(request, { params }) {
     .eq('status', 'active')
     .eq('region_id', region.id)
 
-  if (vertical) query = query.eq('vertical', vertical)
+  if (vertical) query = filterByVertical(query, vertical, await relationHasVerticals(sb, 'listings_with_region'))
   query = query.order('is_featured', { ascending: false }).order('name').range(offset, offset + limit - 1)
 
   const { data, count, error } = await query

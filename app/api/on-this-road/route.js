@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getDistanceBudget, getStopLimits } from '@/lib/route-budgets'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
+import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
 
 export const maxDuration = 120
 
@@ -707,6 +708,11 @@ async function buildItinerary({
   const effectiveBufferKm = isCycling ? Math.min(detourConfig.bufferKm, 5) : detourConfig.bufferKm
 
   const SELECT_COLS = `id, name, slug, vertical, region, state, suburb, lat, lng, hero_image_url, quality_score, description, sub_type, visit_type, best_season, ${LISTING_REGION_SELECT}`
+  // Cross-vertical (142): match the rest/accommodation leg by ANY vertical (a
+  // venue tagged `rest` secondary still offers stays). The in-memory route
+  // clusters (table/fine_grounds) stay primary-only — fanning a venue into
+  // multiple clusters would double-place it as a route stop.
+  const hasVerticals = await relationHasVerticals(sb, 'listings')
 
   // Run all point queries in parallel batches of 10
   const BATCH_SIZE = 10
@@ -757,11 +763,10 @@ async function buildItinerary({
       const [pLng, pLat] = point
       const latDelta = restBuffer / 111
       const lngDelta = restBuffer / (111 * Math.cos(pLat * Math.PI / 180))
-      return sb
-        .from('listings')
-        .select(SELECT_COLS)
-        .eq('status', 'active')
-        .eq('vertical', 'rest')
+      return filterByVertical(
+        sb.from('listings').select(SELECT_COLS).eq('status', 'active'),
+        'rest', hasVerticals,
+      )
         .or('address_on_request.eq.false,address_on_request.is.null')
         .or('visitable.eq.true,visitable.is.null,presence_type.eq.by_appointment')
         .or('trail_suitable.eq.true,trail_suitable.is.null')
@@ -789,11 +794,10 @@ async function buildItinerary({
         const [pLng, pLat] = point
         const latDelta = 60 / 111
         const lngDelta = 60 / (111 * Math.cos(pLat * Math.PI / 180))
-        return sb
-          .from('listings')
-          .select(SELECT_COLS)
-          .eq('status', 'active')
-          .eq('vertical', 'rest')
+        return filterByVertical(
+          sb.from('listings').select(SELECT_COLS).eq('status', 'active'),
+          'rest', hasVerticals,
+        )
           .or('address_on_request.eq.false,address_on_request.is.null')
           .or('trail_suitable.eq.true,trail_suitable.is.null')
           .gte('lat', pLat - latDelta)

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getPublicVerticals } from '@/lib/verticalUrl'
+import { relationHasVerticals } from '@/lib/listings/verticalFilter'
 
 // Cache for 5 minutes via ISR — avoids Vercel timeout on every request
 export const revalidate = 300
@@ -31,10 +32,15 @@ export async function GET() {
     // never reach the client payload. The flag is read server-side here.
     const publicVerticals = getPublicVerticals()
 
+    // Cross-vertical (142): ship `verticals` when present so the client can show
+    // a cross-listed pin under either vertical's filter. Forward-compatible —
+    // omitted until the column exists; the client falls back to the scalar.
+    const hasVerticals = await relationHasVerticals(sb, 'listings')
+
     // Single query — sub_type is already on the listings table from sync
     const allListings = await fetchAllPages(
       sb, 'listings',
-      'id, vertical, name, slug, description, region, state, lat, lng, is_featured, sub_type',
+      `id, vertical, ${hasVerticals ? 'verticals, ' : ''}name, slug, description, region, state, lat, lng, is_featured, sub_type`,
       [q => q.eq('status', 'active'), q => q.in('vertical', publicVerticals), q => q.not('lat', 'is', null), q => q.not('lng', 'is', null)]
     )
 

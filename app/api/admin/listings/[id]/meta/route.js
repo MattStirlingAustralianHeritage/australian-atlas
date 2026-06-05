@@ -18,15 +18,26 @@ export async function GET(request, { params }) {
   const { id } = await params
   const sb = getSupabaseAdmin()
 
-  // Get the listing to find its vertical
-  const { data: listing } = await sb.from('listings').select('vertical').eq('id', id).single()
+  // Get the listing to find its vertical (+ cross-vertical tags, migration 142).
+  // Forward-compat: if `verticals` isn't migrated yet, fall back and omit it so
+  // the editor doesn't try to round-trip a column the DB doesn't have.
+  let listing = null
+  let verticals  // undefined when the column isn't present
+  const withVerticals = await sb.from('listings').select('vertical, verticals').eq('id', id).single()
+  if (withVerticals.error && (withVerticals.error.code === '42703' || /column .*verticals.* does not exist/i.test(withVerticals.error.message || ''))) {
+    const fallback = await sb.from('listings').select('vertical').eq('id', id).single()
+    listing = fallback.data
+  } else {
+    listing = withVerticals.data
+    if (listing) verticals = Array.isArray(listing.verticals) ? listing.verticals : (listing.vertical ? [listing.vertical] : [])
+  }
   if (!listing) return NextResponse.json({ meta: null })
 
   const table = EXTENSION_TABLES[listing.vertical]
-  if (!table) return NextResponse.json({ meta: null })
+  if (!table) return NextResponse.json({ meta: null, verticals })
 
   const { data: meta } = await sb.from(table).select('listing_id, entity_type, subcategory, tags, features, extra').eq('listing_id', id).maybeSingle()
-  return NextResponse.json({ meta: meta || null })
+  return NextResponse.json({ meta: meta || null, verticals })
 }
 
 export async function PATCH(request, { params }) {

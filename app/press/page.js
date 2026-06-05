@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
 
 export const revalidate = 86400
 
@@ -36,11 +37,9 @@ async function getPressStats() {
     // Per-vertical counts
     const verticalCounts = {}
     for (const v of verticals) {
-      const { count: c } = await sb
-        .from('listings')
-        .select('*', { count: 'exact', head: true })
-        .eq('vertical', v.key)
-        .eq('status', 'active')
+      let cq = sb.from('listings').select('*', { count: 'exact', head: true }).eq('status', 'active')
+      cq = filterByVertical(cq, v.key, await relationHasVerticals(sb, 'listings'))
+      const { count: c } = await cq
       verticalCounts[v.key] = c || 0
     }
 

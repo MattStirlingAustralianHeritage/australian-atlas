@@ -94,6 +94,23 @@ export async function POST(request) {
       return NextResponse.json({ error: `Create failed: ${error.message}` }, { status: 500 })
     }
 
+    // Optional secondary vertical (cross-vertical listing, migration 142).
+    // Best-effort post-insert so the core insert above is never affected when
+    // the column is absent. The published listing inherits these on approve.
+    const verticalSecondary = (body.vertical_secondary || '').trim()
+    if (data?.id && verticalSecondary && verticalSecondary !== vertical && ALLOWED_VERTICALS.includes(verticalSecondary)) {
+      const verticalsSet = [vertical, verticalSecondary]
+      const { error: vErr } = await sb
+        .from('listing_candidates')
+        .update({ verticals: verticalsSet })
+        .eq('id', data.id)
+      if (vErr && (vErr.code === '42703' || /column .*verticals.* does not exist/i.test(vErr.message || ''))) {
+        console.warn('[admin/candidates/create] verticals column absent (migration 142 pending) — secondary vertical not saved')
+      } else if (!vErr) {
+        data.verticals = verticalsSet
+      }
+    }
+
     return NextResponse.json({ candidate: data })
   } catch (err) {
     console.error('[admin/candidates/create] Error:', err.message)

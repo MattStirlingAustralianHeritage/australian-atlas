@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 
 export const revalidate = 1800
@@ -24,12 +25,15 @@ const PER_REGION = 4
 async function getStaysByRegion() {
   const sb = getSupabaseAdmin()
 
-  const { data } = await sb
-    .from('listings')
-    .select(`id, name, slug, hero_image_url, is_featured, ${LISTING_REGION_SELECT}`)
-    .eq('vertical', 'rest')
-    .eq('status', 'active')
-    .not('lat', 'is', null)
+  const hasVerticals = await relationHasVerticals(sb, 'listings')
+  const { data } = await filterByVertical(
+    sb
+      .from('listings')
+      .select(`id, name, slug, hero_image_url, is_featured, ${LISTING_REGION_SELECT}`)
+      .eq('status', 'active')
+      .not('lat', 'is', null),
+    'rest', hasVerticals,
+  )
     .order('is_featured', { ascending: false })
     .order('name', { ascending: true })
     .limit(500)

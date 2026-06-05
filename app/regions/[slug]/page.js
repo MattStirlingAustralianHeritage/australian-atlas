@@ -8,6 +8,7 @@ import RegionTrailCTA from '@/components/RegionTrailCTA'
 import { RelatedCollections, RelatedArticles } from '@/components/RelatedContent'
 import { LISTING_REGION_SELECT } from '@/lib/regions'
 import { getPublicVerticals } from '@/lib/verticalUrl'
+import { relationHasVerticals, listingVerticals } from '@/lib/listings/verticalFilter'
 
 export const revalidate = 21600
 
@@ -108,19 +109,23 @@ async function getRegionNarrative(regionId) {
 
 async function getRegionListings(region, venueVerticals) {
   const sb = getSupabaseAdmin()
-  const select = `id, vertical, source_id, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website, ${LISTING_REGION_SELECT}`
+  const hasVerticals = await relationHasVerticals(sb, 'listings_with_region')
+  const select = `id, vertical, source_id, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website, ${hasVerticals ? 'verticals, ' : ''}${LISTING_REGION_SELECT}`
 
   // Override-wins resolution per docs/regions.md, via the
   // listings_with_region view (migration 125). region_id is
   // COALESCE(region_override_id, region_computed_id). Restricted to the
   // public venue verticals — gated verticals never leak, and Way is excluded
   // here because it's surfaced via way_meta (based/runs) in its own section.
-  const { data } = await sb
+  // Cross-vertical (142): match by ANY vertical so a venue whose secondary is a
+  // venue vertical still appears; the group-side fan-out places it under each.
+  let q = sb
     .from('listings_with_region')
     .select(select)
     .eq('status', 'active')
-    .in('vertical', venueVerticals)
     .eq('region_id', region.id)
+  q = hasVerticals ? q.overlaps('verticals', venueVerticals) : q.in('vertical', venueVerticals)
+  const { data } = await q
     .order('editors_pick', { ascending: false })
     .order('is_featured', { ascending: false })
     .order('name')
@@ -286,9 +291,13 @@ export default async function RegionPage({ params }) {
   const grouped = {}
   const verticalCounts = {}
   for (const l of listings) {
-    if (!grouped[l.vertical]) grouped[l.vertical] = []
-    grouped[l.vertical].push(l)
-    verticalCounts[l.vertical] = (verticalCounts[l.vertical] || 0) + 1
+    // Cross-vertical (142): a venue appears under EACH of its venue verticals.
+    const groupVerticals = listingVerticals(l).filter(v => venueVerticals.includes(v))
+    for (const gv of (groupVerticals.length ? groupVerticals : [l.vertical])) {
+      if (!grouped[gv]) grouped[gv] = []
+      grouped[gv].push(l)
+      verticalCounts[gv] = (verticalCounts[gv] || 0) + 1
+    }
   }
 
   const activeVerticals = VERTICAL_ORDER.filter(v => grouped[v]?.length > 0)
