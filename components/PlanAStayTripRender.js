@@ -229,6 +229,10 @@ function DayAccommodation({ day, chosen, keepForAll, onChoose, onClear, onToggle
   const [open, setOpen] = useState(false)
   const options = day.accommodation_options || []
 
+  // Nothing to offer and nothing chosen (e.g. older shared trips that predate
+  // this feature) — render no accommodation UI at all.
+  if (!chosen && options.length === 0) return null
+
   const labelStyle = {
     fontFamily: 'var(--font-body)',
     fontSize: 10,
@@ -320,18 +324,16 @@ function DayAccommodation({ day, chosen, keepForAll, onChoose, onClear, onToggle
       {!open ? (
         <button
           onClick={() => setOpen(true)}
-          disabled={options.length === 0}
           style={{
             fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500,
-            color: options.length === 0 ? 'var(--color-muted, #6B6760)' : REST_ACCENT,
+            color: REST_ACCENT,
             background: 'transparent',
-            border: `1px dashed ${options.length === 0 ? 'rgba(28,26,23,0.18)' : 'rgba(138,90,107,0.45)'}`,
+            border: '1px dashed rgba(138,90,107,0.45)',
             borderRadius: 8, padding: '10px 18px',
-            cursor: options.length === 0 ? 'not-allowed' : 'pointer',
-            opacity: options.length === 0 ? 0.6 : 1,
+            cursor: 'pointer',
           }}
         >
-          {options.length === 0 ? 'No stays listed nearby yet' : '+ Need somewhere to stay?'}
+          + Need somewhere to stay?
         </button>
       ) : (
         <div>
