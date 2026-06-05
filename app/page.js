@@ -8,6 +8,7 @@ import NearbySection from '@/components/NearbySection'
 import { getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
 import { getListingRegion, LISTING_REGION_SELECT, resolveRegionParam } from '@/lib/regions'
 import { getPublicVerticals } from '@/lib/verticalUrl'
+import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
 
 export const revalidate = 1800
 
@@ -115,10 +116,13 @@ async function getStats(publicVerticals) {
       sb.from('listings').select('*', { count: 'exact', head: true }).eq('status', 'active').in('vertical', publicVerticals).not('name', 'ilike', '\\_%'),
       sb.from('regions').select('*', { count: 'exact', head: true }),
     ])
+    const hasVerticals = await relationHasVerticals(sb, 'listings')
     const verticalCountResults = await Promise.all(
       publicVerticals.map(key =>
-        sb.from('listings').select('*', { count: 'exact', head: true }).eq('vertical', key).eq('status', 'active').not('name', 'ilike', '\\_%')
-          .then(({ count: c }) => [key, c || 0])
+        filterByVertical(
+          sb.from('listings').select('*', { count: 'exact', head: true }).eq('status', 'active').not('name', 'ilike', '\\_%'),
+          key, hasVerticals
+        ).then(({ count: c }) => [key, c || 0])
       )
     )
     const verticalCounts = Object.fromEntries(verticalCountResults)

@@ -4,6 +4,7 @@ import { cookies } from 'next/headers'
 import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getVerticalUrl, getVerticalLabel, getVerticalTagline, getVerticalBrandColour, getPublicVerticals } from '@/lib/verticalUrl'
+import { relationHasVerticals, listingVerticals } from '@/lib/listings/verticalFilter'
 import { listingJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
 import { checkAdmin } from '@/lib/admin-auth'
 import { isApprovedImageSource } from '@/lib/image-utils'
@@ -124,9 +125,10 @@ const getListing = cache(async function getListing(slug) {
   const sb = getSupabaseAdmin()
   // slug is NOT unique across verticals — use limit(1) instead of .single()
   // to avoid PGRST116 if two verticals share a slug
+  const hasVerticals = await relationHasVerticals(sb, 'listings')
   const { data, error } = await sb
     .from('listings')
-    .select(`id, vertical, name, slug, description, region, state, suburb, lat, lng, website, phone, address, hero_image_url, is_featured, is_claimed, editors_pick, status, hours, verified, sub_type, sub_types, ${LISTING_REGION_SELECT}`)
+    .select(`id, vertical, name, slug, description, region, state, suburb, lat, lng, website, phone, address, hero_image_url, is_featured, is_claimed, editors_pick, status, hours, verified, sub_type, sub_types, ${hasVerticals ? 'verticals, ' : ''}${LISTING_REGION_SELECT}`)
     .eq('slug', slug)
     .eq('status', 'active')
     // Go-live gate: a flag-gated vertical (e.g. way while WAY_ATLAS_PUBLIC is
@@ -332,13 +334,27 @@ async function getRegionListings(listing, excludeIds = [], limit = 4) {
  */
 async function getCrossListedSiblings(listing) {
   const sb = getSupabaseAdmin()
+  // Legacy model: a venue cross-listed as two source rows shares its slug.
+  // These genuinely exist on the other vertical's site → link out (portal:false).
   const { data } = await sb
     .from('listings')
     .select('id, vertical, slug')
     .eq('slug', listing.slug)
     .eq('status', 'active')
     .neq('id', listing.id)
-  return data || []
+  const siblings = (data || []).map(r => ({ ...r, portal: false }))
+
+  // Array model (migration 142): secondary verticals tagged on THIS row. The
+  // venue isn't pushed to the secondary vertical's site, so link to the portal
+  // vertical view (portal:true), not an external URL that would 404.
+  const seen = new Set(siblings.map(s => s.vertical))
+  for (const v of listingVerticals(listing)) {
+    if (v !== listing.vertical && !seen.has(v)) {
+      siblings.push({ id: listing.id, vertical: v, slug: listing.slug, portal: true })
+      seen.add(v)
+    }
+  }
+  return siblings
 }
 
 // ── Helper: clean website for display ─────────────────────────
@@ -702,7 +718,7 @@ export default async function PlacePage({ params }) {
                 {crossListedSiblings.map(entry => {
                   const label = getVerticalLabel(entry.vertical)
                   const tagline = getVerticalTagline(entry.vertical)
-                  const href = getVerticalUrl(entry.vertical, entry.slug)
+                  const href = entry.portal ? `/search?vertical=${entry.vertical}` : getVerticalUrl(entry.vertical, entry.slug)
                   const lineColor = getVerticalBrandColour(entry.vertical) || vertColor
                   return (
                     <li key={`${entry.vertical}-${entry.slug}`}>

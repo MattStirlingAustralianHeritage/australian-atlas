@@ -593,6 +593,11 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
       fetch(`/api/admin/listings/${listing.id}/meta`)
         .then(r => r.ok ? r.json() : null)
         .then(data => {
+          // Cross-vertical tags (migration 142) — surfaced via the meta route
+          // so the editor can show/edit a listing's secondary vertical.
+          if (data?.verticals) {
+            setDraft(prev => prev ? { ...prev, verticals: data.verticals } : prev)
+          }
           if (data?.meta) {
             setMeta(data.meta)
             setDraft(prev => prev ? { ...prev, ...data.meta } : prev)
@@ -849,8 +854,22 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
               currentLng={draft.lng}
               onSelect={(lat, lng) => { updateDraft('lat', lat); updateDraft('lng', lng) }}
             />
-            <Field label="Vertical" value={draft.vertical} onChange={v => updateDraft('vertical', v)}
+            <Field label="Vertical" value={draft.vertical}
+              onChange={v => {
+                // Reassign primary; retain an existing secondary unless it now
+                // collides. Keeps the cross-vertical `verticals` array coherent.
+                const cur = draft.vertical || listing.vertical
+                const sec = (Array.isArray(draft.verticals) ? draft.verticals : []).find(x => x && x !== cur) || ''
+                setDraft(prev => ({ ...prev, vertical: v, verticals: v ? (sec && sec !== v ? [v, sec] : [v]) : [] }))
+              }}
               options={Object.entries(VERTICAL_NAMES).map(([k, v]) => ({ value: k, label: v }))} />
+            <Field label="Also in vertical"
+              value={(Array.isArray(draft.verticals) ? draft.verticals : []).find(v => v && v !== (draft.vertical || listing.vertical)) || ''}
+              onChange={newSec => {
+                const p = draft.vertical || listing.vertical
+                updateDraft('verticals', newSec ? [p, newSec] : (p ? [p] : []))
+              }}
+              options={Object.entries(VERTICAL_NAMES).filter(([k]) => k !== (draft.vertical || listing.vertical)).map(([k, v]) => ({ value: k, label: v }))} />
             <Field label="Status" value={draft.status} onChange={v => updateDraft('status', v)}
               options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }, { value: 'pending', label: 'Pending' }, { value: 'hidden', label: 'Hidden' }]} />
           </div>
