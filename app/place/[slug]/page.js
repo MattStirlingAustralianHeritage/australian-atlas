@@ -274,6 +274,24 @@ function radiusBounds(lat, lng, radiusKm) {
   return [[lng - lngDelta, lat - latDelta], [lng + lngDelta, lat + latDelta]]
 }
 
+/**
+ * Collapse a list to at most one row per vertical — first occurrence wins,
+ * input order preserved — returning up to `limit` rows. Keeps the "More in
+ * [region]" row diverse across the network; without it a dense coffee strip
+ * could fill every card with the same vertical (e.g. three Fine Grounds cafes).
+ */
+function onePerVertical(rows, limit) {
+  const seen = new Set()
+  const out = []
+  for (const r of rows) {
+    if (r.vertical && seen.has(r.vertical)) continue
+    if (r.vertical) seen.add(r.vertical)
+    out.push(r)
+    if (out.length >= limit) break
+  }
+  return out
+}
+
 async function getRegionListings(listing, excludeIds = [], limit = 4) {
   // Decision 1: NULL effective region → no cross-region recommendations.
   // Decision 3: override-wins precedence via getListingRegion.
@@ -323,20 +341,22 @@ async function getRegionListings(listing, excludeIds = [], limit = 4) {
       within.sort((a, b) =>
         (Number(b.row.editors_pick) - Number(a.row.editors_pick)) || (a.dist - b.dist)
       )
-      return within.slice(0, limit).map(d => d.row)
+      return onePerVertical(within.map(d => d.row), limit)
     }
   }
 
-  if (primaryRows.length >= MIN_PRIMARY || !region.state) {
-    return primaryRows.slice(0, limit)
+  // One per vertical: a region pool ordered only by editors_pick can stack the
+  // same vertical (e.g. three Fine Grounds cafes). De-dup before slicing so we
+  // reach past same-vertical repeats to the next distinct network.
+  const primaryPicked = onePerVertical(primaryRows, limit)
+  if (primaryPicked.length >= limit || primaryRows.length >= MIN_PRIMARY || !region.state) {
+    return primaryPicked
   }
 
-  // Top-up from same state, different region. Excludes anything we already
-  // have so the row stays free of duplicates. The "different region" check
-  // happens post-fetch via getListingRegion — Postgres NULL semantics make
-  // a column-level .neq tricky when override or computed can be null.
+  // Thin region → top up from the same state, a different region, AND a vertical
+  // we haven't shown yet, so the row stays both full and diverse.
   const usedIds = new Set([...excludeForQuery, ...primaryRows.map(r => r.id)])
-  const remaining = limit - primaryRows.length
+  const remaining = limit - primaryPicked.length
   const { data: stateData } = await sb
     .from('listings')
     .select(SELECT)
@@ -344,14 +364,14 @@ async function getRegionListings(listing, excludeIds = [], limit = 4) {
     .eq('state', region.state)
     .not('id', 'in', `(${[...usedIds].join(',')})`)
     .order('editors_pick', { ascending: false })
-    .limit(remaining * 6)
+    .limit(Math.max(remaining * 12, 24))
 
   const stateRows = (stateData || []).filter(l => {
     const eff = getListingRegion(l)
     return !eff || eff.id !== region.id
-  }).slice(0, remaining)
+  })
 
-  return [...primaryRows, ...stateRows].slice(0, limit)
+  return onePerVertical([...primaryPicked, ...stateRows], limit)
 }
 
 /**
