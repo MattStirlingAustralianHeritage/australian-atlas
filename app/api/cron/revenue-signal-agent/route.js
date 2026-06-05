@@ -102,10 +102,11 @@ export async function GET(request) {
   let topUnclaimed = []
   let previousSnapshot = null
 
-  // New claims this week
+  // New claims this week (claims_review is the canonical intake/moderation record;
+  // the legacy `claims` table was retired — see migration 140 notes)
   try {
     const { count, error } = await sb
-      .from('claims')
+      .from('claims_review')
       .select('id', { count: 'exact', head: true })
       .gte('created_at', sevenDaysAgo.toISOString())
 
@@ -116,10 +117,10 @@ export async function GET(request) {
     errors.push(`New claims: ${err.message}`)
   }
 
-  // Claims awaiting payment
+  // Claims pending review (intake queue; legacy `claims` table retired)
   try {
     const { count, error } = await sb
-      .from('claims')
+      .from('claims_review')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'pending')
 

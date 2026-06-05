@@ -153,8 +153,9 @@ export async function GET(request) {
 
   // ── 5. Operator signals ─────────────────────────────────
   try {
+    // claims_review is the canonical intake record; legacy `claims` table retired.
     const { count: newClaims, error: err1 } = await sb
-      .from('claims')
+      .from('claims_review')
       .select('id', { count: 'exact', head: true })
       .gte('created_at', sevenDaysAgo)
 
