@@ -8,10 +8,10 @@ import { writeGallery, isListingPaid, MAX_GALLERY_PHOTOS } from '@/lib/listing-g
 /**
  * PATCH /api/dashboard/listing — operator self-service edit of a claimed listing.
  *
- * Auth: Bearer atlas shared JWT. Caller must be vendor (managing the listing's
- * vertical) or admin. Ownership is enforced against listings.is_claimed plus the
- * token's vendor_verticals — NOT the listing_claims table (that ownership model
- * is unpopulated; the Overview/dashboard auth model is the working one).
+ * Auth: Bearer atlas shared JWT. Caller must be admin, or the OWNER of the
+ * listing — an active listing_claims row whose claimed_by is the authenticated
+ * user. Vertical membership no longer grants edit rights (that let any vendor in
+ * a vertical edit every claimed listing in it). Admins bypass the ownership check.
  *
  * Body: { listing_id, website?, phone?, hours?, hero_image_url?, gallery_image_urls? }
  *
@@ -83,8 +83,10 @@ export async function PATCH(request) {
 
   const sb = getSupabaseAdmin()
 
-  // ── Ownership: listing must exist, be claimed, and (for vendors) be in a
-  //    vertical this operator manages. Admins bypass the vertical check. ──
+  // ── Ownership: listing must exist and be claimed. Non-admins may edit ONLY a
+  //    listing they own — an active listing_claims row whose claimed_by is the
+  //    authenticated user (across whatever verticals they own). Vertical
+  //    membership no longer grants edit rights. Admins bypass the check. ──
   const { data: owned, error: ownErr } = await sb
     .from('listings')
     .select('id, vertical, is_claimed')
@@ -97,8 +99,17 @@ export async function PATCH(request) {
   if (!owned.is_claimed) {
     return NextResponse.json({ error: 'Listing is not claimed' }, { status: 403 })
   }
-  if (user.role !== 'admin' && !(user.verticals || {})[owned.vertical]) {
-    return NextResponse.json({ error: 'You do not manage this listing' }, { status: 403 })
+  if (user.role !== 'admin') {
+    const { data: ownClaim } = await sb
+      .from('listing_claims')
+      .select('id')
+      .eq('listing_id', listingId)
+      .eq('claimed_by', user.id)
+      .eq('status', 'active')
+      .maybeSingle()
+    if (!ownClaim) {
+      return NextResponse.json({ error: 'You do not own this listing' }, { status: 403 })
+    }
   }
 
   // ── Base fields → canonical updateListing (master write + vertical sync-back) ──

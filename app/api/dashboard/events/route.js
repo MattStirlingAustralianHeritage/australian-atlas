@@ -10,9 +10,10 @@ import { listEventsForListing, createEvent, updateEvent, deleteEvent } from '@/l
  * /api/dashboard/events — operator self-service events for a claimed listing.
  *
  * Auth: Bearer atlas shared JWT (same contract as /api/dashboard/listing).
- * Caller must be vendor (managing the listing's vertical) or admin. Ownership is
- * enforced against listings.is_claimed + the token's verticals — the working
- * editor model (NOT listing_claims).
+ * Caller must be admin, or the OWNER of the listing — an active listing_claims
+ * row whose claimed_by is the authenticated user. Vertical membership no longer
+ * grants access (it let any vendor in a vertical manage every claimed listing
+ * in it). Admins bypass the ownership check.
  *
  * Events are a PAID perk: writes require an active standard claim (isListingPaid;
  * admins bypass) — the same gate as the photo gallery. When published, an event
@@ -49,8 +50,17 @@ async function authorize(request, listingId) {
     .single()
   if (error || !listing) return { fail: NextResponse.json({ error: 'Listing not found' }, { status: 404 }) }
   if (!listing.is_claimed) return { fail: NextResponse.json({ error: 'Listing is not claimed' }, { status: 403 }) }
-  if (user.role !== 'admin' && !(user.verticals || {})[listing.vertical]) {
-    return { fail: NextResponse.json({ error: 'You do not manage this listing' }, { status: 403 }) }
+  if (user.role !== 'admin') {
+    const { data: ownClaim } = await sb
+      .from('listing_claims')
+      .select('id')
+      .eq('listing_id', listingId)
+      .eq('claimed_by', user.id)
+      .eq('status', 'active')
+      .maybeSingle()
+    if (!ownClaim) {
+      return { fail: NextResponse.json({ error: 'You do not own this listing' }, { status: 403 }) }
+    }
   }
   return { sb, user, listing }
 }

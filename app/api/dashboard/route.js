@@ -5,18 +5,33 @@ import { LISTING_REGION_SELECT } from '@/lib/regions'
 import { readGallery, isListingPaid } from '@/lib/listing-gallery'
 
 /**
- * GET /api/dashboard — Fetch dashboard data for a vendor's claimed listings.
+ * GET /api/dashboard — Fetch dashboard data for the operator's OWNED listings.
  *
  * Auth: Bearer token (atlas shared JWT) in Authorization header.
  *
  * Query params:
  *   listing_id (optional) — fetch data for a specific listing
  *
- * If no listing_id is provided, attempts to find all claimed listings
- * where the listing's source vertical matches the vendor's vendor_verticals.
- * Since the master DB doesn't have vendor_user_id on listings yet,
- * this uses an email-based lookup via the profiles table.
+ * Ownership is keyed on listing_claims.claimed_by = the authenticated user id:
+ * a vendor sees only listings they own, across whatever verticals they own.
+ * Admins bypass ownership and see all claimed listings.
  */
+
+// Columns the dashboard renders per listing (+ resolved region fields).
+const LISTING_SELECT = `id, name, slug, vertical, region, state, lat, lng, website, phone, address, hero_image_url, is_claimed, is_featured, status, description, hours, created_at, updated_at, ${LISTING_REGION_SELECT}`
+
+// True if `userId` holds an active ownership claim on `listingId`.
+async function ownsListing(sb, listingId, userId) {
+  const { data } = await sb
+    .from('listing_claims')
+    .select('id')
+    .eq('listing_id', listingId)
+    .eq('claimed_by', userId)
+    .eq('status', 'active')
+    .maybeSingle()
+  return !!data
+}
+
 export async function GET(request) {
   // Verify JWT
   const authHeader = request.headers.get('authorization')
@@ -40,12 +55,13 @@ export async function GET(request) {
 
   try {
     let listings = []
+    const isAdmin = user.role === 'admin'
 
     if (listingId) {
-      // Fetch a specific listing
+      // Fetch a specific listing — non-admins must OWN it (active claim row).
       const { data, error } = await sb
         .from('listings')
-        .select(`id, name, slug, vertical, region, state, lat, lng, website, phone, address, hero_image_url, is_claimed, is_featured, status, description, hours, created_at, updated_at, ${LISTING_REGION_SELECT}`)
+        .select(LISTING_SELECT)
         .eq('id', listingId)
         .eq('is_claimed', true)
         .single()
@@ -53,25 +69,44 @@ export async function GET(request) {
       if (error || !data) {
         return NextResponse.json({ error: 'Listing not found' }, { status: 404 })
       }
-      listings = [data]
-    } else {
-      // Fetch all claimed listings for verticals this vendor operates in
-      const vendorVerticals = user.verticals || {}
-      const activeVerticals = Object.entries(vendorVerticals)
-        .filter(([, active]) => active)
-        .map(([v]) => v)
-
-      if (activeVerticals.length === 0) {
-        return NextResponse.json({ listings: [], message: 'No active verticals found for this vendor' })
+      if (!isAdmin && !(await ownsListing(sb, listingId, user.id))) {
+        // Don't disclose listings the caller doesn't own.
+        return NextResponse.json({ error: 'Listing not found' }, { status: 404 })
       }
-
-      // Get claimed listings in vendor's verticals
-      // TODO: Once vendor_user_id is added to listings, filter by that directly
+      listings = [data]
+    } else if (isAdmin) {
+      // Admin bypass: every claimed listing.
       const { data, error } = await sb
         .from('listings')
-        .select(`id, name, slug, vertical, region, state, lat, lng, website, phone, address, hero_image_url, is_claimed, is_featured, status, description, hours, created_at, updated_at, ${LISTING_REGION_SELECT}`)
+        .select(LISTING_SELECT)
         .eq('is_claimed', true)
-        .in('vertical', activeVerticals)
+        .order('name')
+
+      if (error) {
+        console.error('Dashboard listings query error:', error)
+        return NextResponse.json({ error: 'Failed to fetch listings' }, { status: 500 })
+      }
+      listings = data || []
+    } else {
+      // Vendor: only listings they own — listing_claims.claimed_by = uid, active.
+      // Vertical membership no longer grants visibility (it exposed every claimed
+      // listing in the vertical, including other operators').
+      const { data: claims } = await sb
+        .from('listing_claims')
+        .select('listing_id')
+        .eq('claimed_by', user.id)
+        .eq('status', 'active')
+
+      const ownedIds = [...new Set((claims || []).map((c) => c.listing_id))]
+      if (ownedIds.length === 0) {
+        return NextResponse.json({ listings: [] })
+      }
+
+      const { data, error } = await sb
+        .from('listings')
+        .select(LISTING_SELECT)
+        .in('id', ownedIds)
+        .eq('is_claimed', true)
         .order('name')
 
       if (error) {
