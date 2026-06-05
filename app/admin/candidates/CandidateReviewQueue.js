@@ -134,7 +134,7 @@ const SUBCATEGORY_OPTIONS = {
     { value: 'food_trail', label: 'Food Trail' },
     { value: 'creamery', label: 'Creamery' },
   ],
-  // Way Atlas — 17 primary types per Spec §III. Order matches the spec's
+  // Way Atlas primary types (extends Spec §III). Order matches the spec's
   // narrative grouping: walks → cultural → flights → marine → specialist
   // → heritage → workshop → mobility.
   way: [
@@ -155,6 +155,9 @@ const SUBCATEGORY_OPTIONS = {
     { value: 'river_canoe_tour',           label: 'River & Canoe Tour' },
     { value: 'horseback_expedition',       label: 'Horseback Expedition' },
     { value: 'four_wheel_drive_expedition',label: '4WD Expedition' },
+    { value: 'hot_air_balloon',            label: 'Hot Air Ballooning' },
+    { value: 'marine_wildlife_swim',       label: 'Marine Wildlife Swim' },
+    { value: 'whale_watching',             label: 'Whale Watching' },
   ],
 }
 

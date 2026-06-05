@@ -145,6 +145,9 @@ const VERTICAL_FIELDS = {
       { value: 'river_canoe_tour',           label: 'River & Canoe Tour' },
       { value: 'horseback_expedition',       label: 'Horseback Expedition' },
       { value: 'four_wheel_drive_expedition',label: '4WD Expedition' },
+      { value: 'hot_air_balloon',            label: 'Hot Air Ballooning' },
+      { value: 'marine_wildlife_swim',       label: 'Marine Wildlife Swim' },
+      { value: 'whale_watching',             label: 'Whale Watching' },
     ]},
     { key: 'operator_type', label: 'Operator Type', type: 'select', options: [
       { value: 'independent',                     label: 'Independent' },
