@@ -225,6 +225,28 @@ export function StaysOnlyRender({ staysOnly }) {
 
 
 /* ─── Day accommodation picker ───────────────────────────────────────── */
+function RestGlyph({ size = 14, color = REST_ACCENT }) {
+  // Crescent moon — "stay the night".
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={color} aria-hidden="true" style={{ flexShrink: 0 }}>
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </svg>
+  )
+}
+
+function AccommodationEyebrow({ suffix }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 7, marginBottom: 12,
+      fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 700,
+      letterSpacing: '0.16em', textTransform: 'uppercase', color: REST_ACCENT,
+    }}>
+      <RestGlyph />
+      <span>Where you{"'"}ll stay{suffix}</span>
+    </div>
+  )
+}
+
 function DayAccommodation({ day, chosen, keepForAll, onChoose, onClear, onToggleKeepForAll }) {
   const [open, setOpen] = useState(false)
   const options = day.accommodation_options || []
@@ -233,84 +255,79 @@ function DayAccommodation({ day, chosen, keepForAll, onChoose, onClear, onToggle
   // this feature) — render no accommodation UI at all.
   if (!chosen && options.length === 0) return null
 
-  const labelStyle = {
-    fontFamily: 'var(--font-body)',
-    fontSize: 10,
-    fontWeight: 700,
-    letterSpacing: '0.14em',
-    textTransform: 'uppercase',
-    color: REST_ACCENT,
-    marginBottom: 10,
-  }
-
   const wrapStyle = {
-    marginTop: 8,
-    paddingTop: 18,
-    borderTop: '1px dashed rgba(138,90,107,0.35)',
+    marginTop: 20,
+    paddingTop: 22,
+    borderTop: '1px solid rgba(28,26,23,0.1)',
   }
 
   // ── Chosen state ───────────────────────────────────────────────────
   if (chosen) {
     return (
       <div style={wrapStyle}>
-        <div style={labelStyle}>Where you{"'"}ll stay{keepForAll ? ' · every night' : ''}</div>
+        <AccommodationEyebrow suffix={keepForAll ? ' · every night' : ''} />
         <div style={{
-          background: '#EDEAE4',
-          border: '1px solid rgba(138,90,107,0.2)',
-          borderRadius: 8,
-          padding: '14px 16px',
+          background: 'linear-gradient(180deg, #F1ECE4 0%, #EBE4D9 100%)',
+          border: '1px solid rgba(138,90,107,0.18)',
+          borderLeft: `3px solid ${REST_ACCENT}`,
+          borderRadius: 10,
+          padding: '16px 18px',
         }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
             <div>
               {chosen.slug ? (
                 <Link href={`/place/${chosen.slug}`} style={{
-                  fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 400,
-                  color: 'var(--color-ink, #1C1A17)', textDecoration: 'none',
+                  fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 400,
+                  color: 'var(--color-ink, #1C1A17)', textDecoration: 'none', lineHeight: 1.25,
                 }}>
                   {chosen.name}
                 </Link>
               ) : (
                 <span style={{
-                  fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 400,
-                  color: 'var(--color-ink, #1C1A17)',
+                  fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 400,
+                  color: 'var(--color-ink, #1C1A17)', lineHeight: 1.25,
                 }}>
                   {chosen.name}
                 </span>
               )}
               {(chosen.sub_type || chosen.suburb) && (
                 <div style={{
-                  fontFamily: 'var(--font-body)', fontSize: 12,
-                  color: 'var(--color-muted, #6B6760)', marginTop: 2,
+                  fontFamily: 'var(--font-body)', fontSize: 12.5,
+                  color: 'var(--color-muted, #6B6760)', marginTop: 3,
                 }}>
                   {[prettySubtype(chosen.sub_type), chosen.suburb].filter(Boolean).join(' · ')}
                 </div>
               )}
             </div>
             <span style={{
-              fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 600,
-              letterSpacing: '0.1em', textTransform: 'uppercase',
-              color: REST_ACCENT, background: 'rgba(138,90,107,0.1)',
-              padding: '2px 8px', borderRadius: 3, whiteSpace: 'nowrap',
+              fontFamily: 'var(--font-body)', fontSize: 9.5, fontWeight: 700,
+              letterSpacing: '0.12em', textTransform: 'uppercase',
+              color: REST_ACCENT, background: 'rgba(138,90,107,0.12)',
+              padding: '3px 9px', borderRadius: 999, whiteSpace: 'nowrap',
             }}>
               Rest
             </span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 12, flexWrap: 'wrap' }}>
-            <button onClick={() => { onClear(); setOpen(true) }} style={textBtnStyle}>Change</button>
-            <button onClick={onClear} style={textBtnStyle}>Remove</button>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10, marginTop: 14,
+            paddingTop: 12, borderTop: '1px solid rgba(138,90,107,0.15)', flexWrap: 'wrap',
+          }}>
+            <button onClick={() => { onClear(); setOpen(true) }} style={pillBtnStyle}>Change</button>
+            <button onClick={onClear} style={pillBtnStyle}>Remove</button>
             <label style={{
-              display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto',
-              fontFamily: 'var(--font-body)', fontSize: 12,
-              color: 'var(--color-muted, #6B6760)', cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center', gap: 7, marginLeft: 'auto',
+              fontFamily: 'var(--font-body)', fontSize: 12.5,
+              color: keepForAll ? REST_ACCENT : 'var(--color-muted, #6B6760)',
+              fontWeight: keepForAll ? 600 : 400, cursor: 'pointer',
             }}>
               <input
                 type="checkbox"
                 checked={!!keepForAll}
                 onChange={(e) => onToggleKeepForAll(e.target.checked)}
-                style={{ accentColor: REST_ACCENT, cursor: 'pointer' }}
+                style={{ accentColor: REST_ACCENT, cursor: 'pointer', width: 15, height: 15 }}
               />
-              Use this place every night
+              Stay here every night
             </label>
           </div>
         </div>
@@ -318,57 +335,95 @@ function DayAccommodation({ day, chosen, keepForAll, onChoose, onClear, onToggle
     )
   }
 
-  // ── Empty state — prompt + options list ────────────────────────────
+  // ── Empty state — invitation + options ─────────────────────────────
   return (
     <div style={wrapStyle}>
+      <AccommodationEyebrow suffix="" />
       {!open ? (
         <button
           onClick={() => setOpen(true)}
           style={{
-            fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500,
-            color: REST_ACCENT,
-            background: 'transparent',
-            border: '1px dashed rgba(138,90,107,0.45)',
-            borderRadius: 8, padding: '10px 18px',
-            cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left',
+            fontFamily: 'var(--font-body)',
+            background: 'rgba(138,90,107,0.05)',
+            border: '1px dashed rgba(138,90,107,0.4)',
+            borderRadius: 10, padding: '14px 18px', cursor: 'pointer',
+            transition: 'background 0.18s ease, border-color 0.18s ease',
           }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(138,90,107,0.09)'; e.currentTarget.style.borderColor = 'rgba(138,90,107,0.6)' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(138,90,107,0.05)'; e.currentTarget.style.borderColor = 'rgba(138,90,107,0.4)' }}
         >
-          + Need somewhere to stay?
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            width: 30, height: 30, borderRadius: 999, flexShrink: 0,
+            background: 'rgba(138,90,107,0.13)', color: REST_ACCENT,
+            fontSize: 20, fontWeight: 300, lineHeight: 1, paddingBottom: 2,
+          }}>+</span>
+          <span style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-ink, #1C1A17)' }}>
+              Add somewhere to stay
+            </span>
+            <span style={{ fontSize: 12, color: 'var(--color-muted, #6B6760)', marginTop: 1 }}>
+              {options.length} independent {options.length === 1 ? 'place' : 'places'} nearby
+            </span>
+          </span>
         </button>
       ) : (
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <div style={{ ...labelStyle, marginBottom: 0 }}>Places to stay nearby</div>
-            <button onClick={() => setOpen(false)} style={textBtnStyle}>Hide</button>
+        <div style={{
+          border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
+          borderRadius: 10, overflow: 'hidden', background: '#fff',
+        }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '10px 16px', background: 'rgba(138,90,107,0.05)',
+            borderBottom: '1px solid rgba(28,26,23,0.08)',
+          }}>
+            <span style={{
+              fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 700,
+              letterSpacing: '0.14em', textTransform: 'uppercase', color: REST_ACCENT,
+            }}>
+              Places to stay nearby
+            </span>
+            <button onClick={() => setOpen(false)} style={pillBtnStyle}>Close</button>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-            {options.map(opt => (
+          <div>
+            {options.map((opt, i) => (
               <button
                 key={opt.listing_id}
                 onClick={() => { onChoose(opt); setOpen(false) }}
                 style={{
-                  display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8,
-                  width: '100%', textAlign: 'left',
-                  padding: '12px 0', background: 'transparent', cursor: 'pointer',
-                  border: 'none', borderBottom: '1px solid rgba(28,26,23,0.08)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+                  width: '100%', textAlign: 'left', padding: '13px 16px',
+                  background: 'transparent', cursor: 'pointer', border: 'none',
+                  borderTop: i === 0 ? 'none' : '1px solid rgba(28,26,23,0.06)',
+                  transition: 'background 0.15s ease',
                 }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(138,90,107,0.04)' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(138,90,107,0.06)' }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
               >
-                <span style={{
-                  fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500,
-                  color: 'var(--color-ink, #1C1A17)',
-                }}>
-                  {opt.name}
-                </span>
-                {(opt.sub_type || opt.suburb) && (
+                <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                   <span style={{
-                    fontFamily: 'var(--font-body)', fontSize: 12,
-                    color: 'var(--color-muted, #6B6760)', whiteSpace: 'nowrap',
+                    fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500,
+                    color: 'var(--color-ink, #1C1A17)',
                   }}>
-                    {[prettySubtype(opt.sub_type), opt.suburb].filter(Boolean).join(' · ')}
+                    {opt.name}
                   </span>
-                )}
+                  {(opt.sub_type || opt.suburb) && (
+                    <span style={{
+                      fontFamily: 'var(--font-body)', fontSize: 12,
+                      color: 'var(--color-muted, #6B6760)', marginTop: 1,
+                    }}>
+                      {[prettySubtype(opt.sub_type), opt.suburb].filter(Boolean).join(' · ')}
+                    </span>
+                  )}
+                </span>
+                <span style={{
+                  fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600,
+                  letterSpacing: '0.06em', textTransform: 'uppercase',
+                  color: REST_ACCENT, whiteSpace: 'nowrap', flexShrink: 0,
+                }}>
+                  Select
+                </span>
               </button>
             ))}
           </div>
@@ -378,10 +433,11 @@ function DayAccommodation({ day, chosen, keepForAll, onChoose, onClear, onToggle
   )
 }
 
-const textBtnStyle = {
+const pillBtnStyle = {
   fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500,
-  color: 'var(--color-muted, #6B6760)', background: 'transparent',
-  border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline',
+  color: 'var(--color-ink, #1C1A17)', background: '#fff',
+  border: '1px solid var(--color-border, rgba(28,26,23,0.16))',
+  borderRadius: 999, padding: '5px 14px', cursor: 'pointer',
 }
 
 
@@ -562,7 +618,7 @@ export function TripRender({ trip, onAccommodationChange }) {
                   height: 'auto',
                   display: 'block',
                   minHeight: 160,
-                  background: '#2d2a24',
+                  background: '#E8E2D6',
                 }}
               />
             </div>

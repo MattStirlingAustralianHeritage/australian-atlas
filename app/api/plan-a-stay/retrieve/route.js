@@ -209,51 +209,55 @@ function rankCandidates(candidates, clusterCentroid, primaryVerticals, secondary
 /* ═══════════════════════════════════════════════════════════════════════
    Meal + accommodation pools
    ═══════════════════════════════════════════════════════════════════════
-   Fetched region-wide and independent of the trip's intent, so every day
-   can open with a coffee, anchor a lunch, and offer somewhere to stay —
-   even when none of those verticals matched the chosen interests.        */
+   Fetched independent of the trip's intent, so every day can open with a
+   coffee, anchor a lunch, and offer somewhere to stay — even when none of
+   those verticals matched the chosen interests.
+
+   Selected by PROXIMITY to the trip centre rather than strict region FK:
+   coffee/lunch/rest listings are small nationally (~700 rows total), and a
+   region can hold just one café. Casting a wider, distance-bounded net (and
+   always keeping anything inside the chosen region) surfaces enough UNIQUE
+   nearby options that no day has to repeat a stop.                         */
 const POOL_DATA_QUALITY_CUTOFF_KM = 300
+const POOL_MIN_RADIUS_KM = 25
 
-async function fetchMealAndRestPools(sb, regionId, tripCenter) {
-  async function regionScoped(verticals) {
-    let q = sb
-      .from('listings')
-      .select('id, name, slug, vertical, sub_type, lat, lng, suburb')
-      .eq('status', 'active')
-      .eq('visitable', true)
-      .not('lat', 'is', null)
-      .not('lng', 'is', null)
-      .in('vertical', verticals)
+async function fetchMealAndRestPools(sb, { regionId, tripCenter, radiusKm }) {
+  const { data, error } = await sb
+    .from('listings')
+    .select('id, name, slug, vertical, sub_type, lat, lng, suburb, region_computed_id, region_override_id')
+    .eq('status', 'active')
+    .eq('visitable', true)
+    .not('lat', 'is', null)
+    .not('lng', 'is', null)
+    .in('vertical', ['fine_grounds', 'table', 'rest'])
+    .limit(2000)
 
-    if (regionId) {
-      q = q.or(`region_computed_id.eq.${regionId},region_override_id.eq.${regionId}`)
-    }
-    q = q.limit(400)
-
-    const { data, error } = await q
-    if (error) {
-      console.warn('[plan-a-stay/retrieve] pool query failed:', error.message)
-      return []
-    }
-    let rows = data || []
-    // Drop coordinate/region mismatches the same way the activity query does.
-    if (tripCenter) {
-      rows = rows.filter(r =>
-        haversineKm(r.lat, r.lng, tripCenter.lat, tripCenter.lng) <= POOL_DATA_QUALITY_CUTOFF_KM
-      )
-    }
-    return rows
+  if (error) {
+    console.warn('[plan-a-stay/retrieve] pool query failed:', error.message)
+    return { coffee: [], lunch: [], rest: [] }
   }
 
-  const [mealRows, restRows] = await Promise.all([
-    regionScoped(['fine_grounds', 'table']),
-    regionScoped(['rest']),
-  ])
+  const inChosenRegion = (r) =>
+    regionId && (r.region_computed_id === regionId || r.region_override_id === regionId)
+
+  let rows = data || []
+  if (tripCenter) {
+    const cutoff = Math.min(POOL_DATA_QUALITY_CUTOFF_KM, Math.max(radiusKm || 0, POOL_MIN_RADIUS_KM))
+    rows = rows
+      .map(r => ({ row: r, d: haversineKm(r.lat, r.lng, tripCenter.lat, tripCenter.lng) }))
+      .filter(x => x.d <= cutoff || inChosenRegion(x.row))
+      .sort((a, b) => a.d - b.d)
+      .map(x => x.row)
+  } else if (regionId) {
+    rows = rows.filter(inChosenRegion)
+  } else {
+    rows = []
+  }
 
   return {
-    coffee: mealRows.filter(isCoffeeListing),
-    lunch: mealRows.filter(isLunchListing),
-    rest: restRows,
+    coffee: rows.filter(isCoffeeListing),
+    lunch: rows.filter(isLunchListing),
+    rest: rows.filter(r => r.vertical === 'rest'),
   }
 }
 
@@ -425,7 +429,7 @@ export async function POST(request) {
     }
 
     if (!tripCenter) {
-      const pools = await fetchMealAndRestPools(sb, regionId, null)
+      const pools = await fetchMealAndRestPools(sb, { regionId, tripCenter: null, radiusKm: budget.radius_km })
       return NextResponse.json({
         clusters: [],
         pools,
@@ -563,7 +567,7 @@ export async function POST(request) {
     const candidatesAfterClustering = allReturnedCandidates.length
 
     // ── Meal + accommodation pools (region-wide, intent-independent) ───
-    const pools = await fetchMealAndRestPools(sb, regionId, tripCenter)
+    const pools = await fetchMealAndRestPools(sb, { regionId, tripCenter, radiusKm: budget.radius_km })
 
     return NextResponse.json({
       clusters: outputClusters,

@@ -17,27 +17,29 @@ export const runtime = 'nodejs'
 
 
 /* ─── Mapbox static map URL builder ─────────────────────────────────── */
-const MAPBOX_STYLE = 'mattstirlingaustralianheritage/cmn32b0iz003401swccb7d21k'
+// Clean, legible base map. The previous custom style
+// (mattstirlingaustralianheritage/cmn32b0iz…) renders the static API as a
+// near-empty dark canvas — no roads, towns, or terrain — so the day maps read
+// as black boxes. light-v11 is the same style the region detail pages use.
+const MAPBOX_STYLE = 'mapbox/light-v11'
 
 function buildStaticMapUrl(stops, width = 720, height = 300) {
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
   if (!token || !stops || stops.length === 0) return null
 
-  // Build numbered markers
-  const markers = stops.map((stop, i) => {
-    const label = i + 1
-    // Use pin-s (small) with amber colour
-    return `pin-s-${label}+C4973B(${stop.lng},${stop.lat})`
-  }).join(',')
+  // Numbered amber pins, in itinerary order.
+  const markers = stops.map((stop, i) =>
+    `pin-s-${i + 1}+C4973B(${stop.lng},${stop.lat})`
+  ).join(',')
 
-  // Single stop — centre on it
+  // Single stop — centre on it at a sensible neighbourhood zoom.
   if (stops.length === 1) {
     const s = stops[0]
-    return `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/static/${markers}/${s.lng},${s.lat},13,0/${width}x${height}@2x?access_token=${token}&padding=40`
+    return `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/static/${markers}/${s.lng},${s.lat},12,0/${width}x${height}@2x?access_token=${token}&padding=48`
   }
 
-  // Use auto-fit with padding
-  return `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/static/${markers}/auto/${width}x${height}@2x?access_token=${token}&padding=40`
+  // Auto-fit all pins with generous padding so none sit on the edge.
+  return `https://api.mapbox.com/styles/v1/${MAPBOX_STYLE}/static/${markers}/auto/${width}x${height}@2x?access_token=${token}&padding=56`
 }
 
 
