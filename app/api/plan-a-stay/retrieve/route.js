@@ -1,5 +1,6 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { NextResponse } from 'next/server'
+import { isCoffeeListing, isLunchListing } from '@/lib/plan-a-stay/assemble-days'
 
 export const runtime = 'nodejs'
 
@@ -206,6 +207,58 @@ function rankCandidates(candidates, clusterCentroid, primaryVerticals, secondary
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
+   Meal + accommodation pools
+   ═══════════════════════════════════════════════════════════════════════
+   Fetched region-wide and independent of the trip's intent, so every day
+   can open with a coffee, anchor a lunch, and offer somewhere to stay —
+   even when none of those verticals matched the chosen interests.        */
+const POOL_DATA_QUALITY_CUTOFF_KM = 300
+
+async function fetchMealAndRestPools(sb, regionId, tripCenter) {
+  async function regionScoped(verticals) {
+    let q = sb
+      .from('listings')
+      .select('id, name, slug, vertical, sub_type, lat, lng, suburb')
+      .eq('status', 'active')
+      .eq('visitable', true)
+      .not('lat', 'is', null)
+      .not('lng', 'is', null)
+      .in('vertical', verticals)
+
+    if (regionId) {
+      q = q.or(`region_computed_id.eq.${regionId},region_override_id.eq.${regionId}`)
+    }
+    q = q.limit(400)
+
+    const { data, error } = await q
+    if (error) {
+      console.warn('[plan-a-stay/retrieve] pool query failed:', error.message)
+      return []
+    }
+    let rows = data || []
+    // Drop coordinate/region mismatches the same way the activity query does.
+    if (tripCenter) {
+      rows = rows.filter(r =>
+        haversineKm(r.lat, r.lng, tripCenter.lat, tripCenter.lng) <= POOL_DATA_QUALITY_CUTOFF_KM
+      )
+    }
+    return rows
+  }
+
+  const [mealRows, restRows] = await Promise.all([
+    regionScoped(['fine_grounds', 'table']),
+    regionScoped(['rest']),
+  ])
+
+  return {
+    coffee: mealRows.filter(isCoffeeListing),
+    lunch: mealRows.filter(isLunchListing),
+    rest: restRows,
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════
    POST handler
    ═══════════════════════════════════════════════════════════════════════ */
 export async function POST(request) {
@@ -372,8 +425,10 @@ export async function POST(request) {
     }
 
     if (!tripCenter) {
+      const pools = await fetchMealAndRestPools(sb, regionId, null)
       return NextResponse.json({
         clusters: [],
+        pools,
         coverage: {
           clusters_found: 0,
           clusters_requested: duration,
@@ -507,8 +562,12 @@ export async function POST(request) {
 
     const candidatesAfterClustering = allReturnedCandidates.length
 
+    // ── Meal + accommodation pools (region-wide, intent-independent) ───
+    const pools = await fetchMealAndRestPools(sb, regionId, tripCenter)
+
     return NextResponse.json({
       clusters: outputClusters,
+      pools,
       coverage: {
         clusters_found: outputClusters.length,
         clusters_requested: duration,

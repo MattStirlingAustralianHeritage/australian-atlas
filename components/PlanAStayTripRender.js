@@ -7,9 +7,13 @@
    1. The planner UI (OutputScreen in PlanAStayV2Client)
    2. The public share page (/trip/[slug])
 
-   Pure presentation — no fetch, no state mutation, no persistence.    */
+   Mostly presentation. The one piece of state is accommodation: each day
+   offers a "need somewhere to stay?" picker, and a chosen place can be kept
+   across every night. Choices are surfaced via onAccommodationChange so the
+   planner can fold them into a shared/saved trip.                        */
 
 import Link from 'next/link'
+import { useState, useEffect } from 'react'
 
 /* ─── Vertical badge labels ──────────────────────────────────────────── */
 export const VERTICAL_LABELS = {
@@ -23,6 +27,26 @@ export const VERTICAL_LABELS = {
   corner: 'Corner',
   fine_grounds: 'Fine Grounds',
   culture: 'Culture',
+}
+
+/* ─── Meal-slot eyebrow labels ───────────────────────────────────────── */
+const MEAL_SLOT_LABELS = {
+  coffee: 'Morning coffee',
+  lunch: 'Lunch',
+}
+
+const REST_ACCENT = '#8a5a6b'
+
+const SUBTYPE_LABELS = {
+  boutique_hotel: 'Boutique hotel',
+  cottage: 'Cottage',
+  glamping: 'Glamping',
+  farm_stay: 'Farm stay',
+}
+
+function prettySubtype(s) {
+  if (!s) return ''
+  return SUBTYPE_LABELS[s] || s.replace(/_/g, ' ')
 }
 
 
@@ -44,6 +68,7 @@ export function StopCard({ stop, index, prevStop }) {
   }
 
   const numeral = String(index + 1).padStart(2, '0')
+  const mealLabel = MEAL_SLOT_LABELS[stop.meal_slot]
 
   return (
     <div style={{
@@ -51,6 +76,20 @@ export function StopCard({ stop, index, prevStop }) {
       background: 'transparent',
       borderBottom: '1px solid rgba(28,26,23,0.08)',
     }}>
+      {mealLabel && (
+        <div style={{
+          marginLeft: 42,
+          marginBottom: 6,
+          fontFamily: 'var(--font-body)',
+          fontSize: 10,
+          fontWeight: 700,
+          letterSpacing: '0.14em',
+          textTransform: 'uppercase',
+          color: '#C4973B',
+        }}>
+          {mealLabel}
+        </div>
+      )}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginBottom: 6 }}>
         <span style={{
           fontFamily: 'var(--font-display)',
@@ -120,13 +159,6 @@ export function StopCard({ stop, index, prevStop }) {
 
 
 /* ─── Stays-only render ──────────────────────────────────────────────── */
-const SUBTYPE_LABELS = {
-  boutique_hotel: 'Boutique hotel',
-  cottage: 'Cottage',
-  glamping: 'Glamping',
-  farm_stay: 'Farm stay',
-}
-
 export function StaysOnlyRender({ staysOnly }) {
   const so = staysOnly
   return (
@@ -192,8 +224,229 @@ export function StaysOnlyRender({ staysOnly }) {
 }
 
 
+/* ─── Day accommodation picker ───────────────────────────────────────── */
+function DayAccommodation({ day, chosen, keepForAll, onChoose, onClear, onToggleKeepForAll }) {
+  const [open, setOpen] = useState(false)
+  const options = day.accommodation_options || []
+
+  const labelStyle = {
+    fontFamily: 'var(--font-body)',
+    fontSize: 10,
+    fontWeight: 700,
+    letterSpacing: '0.14em',
+    textTransform: 'uppercase',
+    color: REST_ACCENT,
+    marginBottom: 10,
+  }
+
+  const wrapStyle = {
+    marginTop: 8,
+    paddingTop: 18,
+    borderTop: '1px dashed rgba(138,90,107,0.35)',
+  }
+
+  // ── Chosen state ───────────────────────────────────────────────────
+  if (chosen) {
+    return (
+      <div style={wrapStyle}>
+        <div style={labelStyle}>Where you{"'"}ll stay{keepForAll ? ' · every night' : ''}</div>
+        <div style={{
+          background: '#EDEAE4',
+          border: '1px solid rgba(138,90,107,0.2)',
+          borderRadius: 8,
+          padding: '14px 16px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+            <div>
+              {chosen.slug ? (
+                <Link href={`/place/${chosen.slug}`} style={{
+                  fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 400,
+                  color: 'var(--color-ink, #1C1A17)', textDecoration: 'none',
+                }}>
+                  {chosen.name}
+                </Link>
+              ) : (
+                <span style={{
+                  fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 400,
+                  color: 'var(--color-ink, #1C1A17)',
+                }}>
+                  {chosen.name}
+                </span>
+              )}
+              {(chosen.sub_type || chosen.suburb) && (
+                <div style={{
+                  fontFamily: 'var(--font-body)', fontSize: 12,
+                  color: 'var(--color-muted, #6B6760)', marginTop: 2,
+                }}>
+                  {[prettySubtype(chosen.sub_type), chosen.suburb].filter(Boolean).join(' · ')}
+                </div>
+              )}
+            </div>
+            <span style={{
+              fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 600,
+              letterSpacing: '0.1em', textTransform: 'uppercase',
+              color: REST_ACCENT, background: 'rgba(138,90,107,0.1)',
+              padding: '2px 8px', borderRadius: 3, whiteSpace: 'nowrap',
+            }}>
+              Rest
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 12, flexWrap: 'wrap' }}>
+            <button onClick={() => { onClear(); setOpen(true) }} style={textBtnStyle}>Change</button>
+            <button onClick={onClear} style={textBtnStyle}>Remove</button>
+            <label style={{
+              display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto',
+              fontFamily: 'var(--font-body)', fontSize: 12,
+              color: 'var(--color-muted, #6B6760)', cursor: 'pointer',
+            }}>
+              <input
+                type="checkbox"
+                checked={!!keepForAll}
+                onChange={(e) => onToggleKeepForAll(e.target.checked)}
+                style={{ accentColor: REST_ACCENT, cursor: 'pointer' }}
+              />
+              Use this place every night
+            </label>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Empty state — prompt + options list ────────────────────────────
+  return (
+    <div style={wrapStyle}>
+      {!open ? (
+        <button
+          onClick={() => setOpen(true)}
+          disabled={options.length === 0}
+          style={{
+            fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500,
+            color: options.length === 0 ? 'var(--color-muted, #6B6760)' : REST_ACCENT,
+            background: 'transparent',
+            border: `1px dashed ${options.length === 0 ? 'rgba(28,26,23,0.18)' : 'rgba(138,90,107,0.45)'}`,
+            borderRadius: 8, padding: '10px 18px',
+            cursor: options.length === 0 ? 'not-allowed' : 'pointer',
+            opacity: options.length === 0 ? 0.6 : 1,
+          }}
+        >
+          {options.length === 0 ? 'No stays listed nearby yet' : '+ Need somewhere to stay?'}
+        </button>
+      ) : (
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <div style={{ ...labelStyle, marginBottom: 0 }}>Places to stay nearby</div>
+            <button onClick={() => setOpen(false)} style={textBtnStyle}>Hide</button>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {options.map(opt => (
+              <button
+                key={opt.listing_id}
+                onClick={() => { onChoose(opt); setOpen(false) }}
+                style={{
+                  display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8,
+                  width: '100%', textAlign: 'left',
+                  padding: '12px 0', background: 'transparent', cursor: 'pointer',
+                  border: 'none', borderBottom: '1px solid rgba(28,26,23,0.08)',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(138,90,107,0.04)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+              >
+                <span style={{
+                  fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500,
+                  color: 'var(--color-ink, #1C1A17)',
+                }}>
+                  {opt.name}
+                </span>
+                {(opt.sub_type || opt.suburb) && (
+                  <span style={{
+                    fontFamily: 'var(--font-body)', fontSize: 12,
+                    color: 'var(--color-muted, #6B6760)', whiteSpace: 'nowrap',
+                  }}>
+                    {[prettySubtype(opt.sub_type), opt.suburb].filter(Boolean).join(' · ')}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const textBtnStyle = {
+  fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500,
+  color: 'var(--color-muted, #6B6760)', background: 'transparent',
+  border: 'none', padding: 0, cursor: 'pointer', textDecoration: 'underline',
+}
+
+
+/* ─── Accommodation state init from a (possibly saved) trip ──────────── */
+function initAccommodation(days) {
+  const byDay = {}
+  for (const d of days || []) {
+    if (d.accommodation) byDay[d.day_number] = d.accommodation
+  }
+  const dayNums = (days || []).map(d => d.day_number)
+  const allSame =
+    dayNums.length > 1 &&
+    dayNums.every(n => byDay[n]) &&
+    new Set(dayNums.map(n => byDay[n].listing_id)).size === 1
+  return { byDay, keepForAll: allSame }
+}
+
+
 /* ─── Normal trip render ─────────────────────────────────────────────── */
-export function TripRender({ trip }) {
+export function TripRender({ trip, onAccommodationChange }) {
+  const days = trip.days || []
+  const initial = initAccommodation(days)
+  const [accommodationByDay, setAccommodationByDay] = useState(initial.byDay)
+  const [keepForAll, setKeepForAll] = useState(initial.keepForAll)
+
+  // Surface choices to the parent (for share/save) whenever they change.
+  useEffect(() => {
+    if (onAccommodationChange) onAccommodationChange(accommodationByDay)
+  }, [accommodationByDay, onAccommodationChange])
+
+  function chooseForDay(dayNumber, stay) {
+    setAccommodationByDay(prev => {
+      if (keepForAll) {
+        const next = {}
+        for (const d of days) next[d.day_number] = stay
+        return next
+      }
+      return { ...prev, [dayNumber]: stay }
+    })
+  }
+
+  function clearForDay(dayNumber) {
+    if (keepForAll) {
+      setKeepForAll(false)
+      setAccommodationByDay({})
+      return
+    }
+    setAccommodationByDay(prev => {
+      const next = { ...prev }
+      delete next[dayNumber]
+      return next
+    })
+  }
+
+  function toggleKeepForAll(dayNumber, checked) {
+    if (checked) {
+      const stay = accommodationByDay[dayNumber]
+      if (!stay) return
+      const next = {}
+      for (const d of days) next[d.day_number] = stay
+      setAccommodationByDay(next)
+      setKeepForAll(true)
+    } else {
+      setKeepForAll(false)
+    }
+  }
+
   return (
     <div style={{
       padding: '48px 0 96px',
@@ -244,7 +497,7 @@ export function TripRender({ trip }) {
       )}
 
       {/* ── Days ──────────────────────────────────────────────── */}
-      {trip.days?.map((day, dayIdx) => (
+      {days.map((day, dayIdx) => (
         <div key={day.day_number} style={{ marginBottom: 48 }}>
           {/* Day heading */}
           <h3 style={{
@@ -324,6 +577,16 @@ export function TripRender({ trip }) {
               />
             ))}
           </div>
+
+          {/* Accommodation */}
+          <DayAccommodation
+            day={day}
+            chosen={accommodationByDay[day.day_number] || null}
+            keepForAll={keepForAll}
+            onChoose={(stay) => chooseForDay(day.day_number, stay)}
+            onClear={() => clearForDay(day.day_number)}
+            onToggleKeepForAll={(checked) => toggleKeepForAll(day.day_number, checked)}
+          />
         </div>
       ))}
     </div>

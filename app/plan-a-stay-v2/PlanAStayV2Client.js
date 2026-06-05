@@ -782,6 +782,9 @@ function LoadingScreen({ state, onComplete, onError }) {
 function OutputScreen({ tripData, error, onReset }) {
   const [shareState, setShareState] = useState('idle') // idle | sharing | shared | error
   const [shareUrl, setShareUrl] = useState(null)
+  // Accommodation the visitor picks per day (day_number → stay), lifted here
+  // so the Share button can fold the choices into the saved trip.
+  const [accommodationByDay, setAccommodationByDay] = useState({})
 
   // Error state
   if (error) {
@@ -893,9 +896,10 @@ function OutputScreen({ tripData, error, onReset }) {
 
   return (
     <div>
-      <TripRender trip={tripData.trip} />
+      <TripRender trip={tripData.trip} onAccommodationChange={setAccommodationByDay} />
       <ActionButtons
         tripData={tripData}
+        accommodationByDay={accommodationByDay}
         onReset={onReset}
         shareState={shareState}
         setShareState={setShareState}
@@ -908,7 +912,7 @@ function OutputScreen({ tripData, error, onReset }) {
 
 
 /* ─── Action buttons (Share / Save / Start over) ─────────────────────── */
-function ActionButtons({ tripData, onReset, shareState, setShareState, shareUrl, setShareUrl }) {
+function ActionButtons({ tripData, accommodationByDay, onReset, shareState, setShareState, shareUrl, setShareUrl }) {
   async function handleShare() {
     if (shareState === 'sharing') return
 
@@ -921,7 +925,16 @@ function ActionButtons({ tripData, onReset, shareState, setShareState, shareUrl,
       if (tripData.stays_only) {
         payload.stays_only = tripData.stays_only
       } else {
-        payload.trip = tripData.trip
+        // Fold the visitor's accommodation choices into the saved trip so
+        // the shared page shows the same stays they picked.
+        const byDay = accommodationByDay || {}
+        payload.trip = {
+          ...tripData.trip,
+          days: (tripData.trip.days || []).map(d => ({
+            ...d,
+            accommodation: byDay[d.day_number] || null,
+          })),
+        }
       }
 
       const res = await fetch('/api/plan-a-stay/share', {
