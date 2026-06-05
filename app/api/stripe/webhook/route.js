@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
-import { getSupabaseAdmin, getVerticalClient, VERTICAL_CONFIG, getClaimFieldConfig, buildClaimPayload, getVerticalClaimsTable } from '@/lib/supabase/clients'
-
-const ATLAS_AUTH_URL = process.env.NEXT_PUBLIC_ATLAS_AUTH_URL || 'https://www.australianatlas.com.au'
+import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { grantClaim } from '@/lib/claims/grantClaim'
 
 function getStripe() {
   const Stripe = require('stripe')
@@ -61,6 +60,7 @@ export async function POST(request) {
             claimId: session.metadata?.claim_id,
             listingId: session.metadata?.listing_id,
             subscriptionId: session.subscription,
+            customerId: session.customer,
             customerEmail: session.metadata?.contact_email,
             customerName: session.metadata?.contact_name,
             vertical: session.metadata?.vertical,
@@ -123,19 +123,36 @@ export async function POST(request) {
           break
         }
 
-        // Listing subscription cancellation
-        const listingId = subscription.metadata?.listing_id
-        if (!listingId) break
+        // Listing (vendor claim) subscription cancellation.
+        // Commercial state lives in listing_claims (never on listings), so we
+        // resolve the ownership row by Stripe subscription id, deactivate it,
+        // and clear the display flag via updateListing. No phantom listings
+        // columns.
+        const { data: claimRow } = await sb
+          .from('listing_claims')
+          .select('id, listing_id')
+          .eq('stripe_subscription_id', subscription.id)
+          .eq('status', 'active')
+          .maybeSingle()
+
+        if (!claimRow) {
+          console.log(`[stripe-webhook] No active claim for cancelled subscription ${subscription.id}`)
+          break
+        }
 
         await sb
-          .from('listings')
-          .update({
-            subscription_tier: 'free',
-            subscription_id: null,
-          })
-          .eq('id', listingId)
+          .from('listing_claims')
+          .update({ status: 'inactive', updated_at: new Date().toISOString() })
+          .eq('id', claimRow.id)
 
-        console.log(`[stripe-webhook] Subscription cancelled for listing ${listingId}`)
+        try {
+          const { updateListing } = await import('@/lib/admin/updateListing')
+          await updateListing(claimRow.listing_id, { is_claimed: false }, { action: 'claim-cancel' })
+        } catch (e) {
+          console.error(`[stripe-webhook] Failed to clear is_claimed for listing ${claimRow.listing_id}:`, e.message)
+        }
+
+        console.log(`[stripe-webhook] Deactivated claim ${claimRow.id} (listing ${claimRow.listing_id}) for cancelled subscription ${subscription.id}`)
         break
       }
 
@@ -314,7 +331,7 @@ export async function POST(request) {
   }
 }
 
-// ─── Vertical display names & vendor URLs ────────────────────────────────────
+// ─── Vertical display names ──────────────────────────────────────────────────
 
 const VERTICAL_NAMES = {
   sba: 'Small Batch Atlas', collection: 'Culture Atlas', craft: 'Craft Atlas',
@@ -322,16 +339,15 @@ const VERTICAL_NAMES = {
   corner: 'Corner Atlas', found: 'Found Atlas', table: 'Table Atlas',
 }
 
-function getVerticalVendorUrl(vertical) {
-  const config = VERTICAL_CONFIG[vertical]
-  if (!config?.baseUrl) return null
-  return `${config.baseUrl}/vendor/login`
-}
+// Operator access lives on the portal itself (australianatlas.com.au), never a
+// vertical /vendor/login surface. Sign-in is driven off the Supabase invite that
+// grantClaim sends; this is the fallback / existing-user sign-in base.
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.australianatlas.com.au'
 
 // ─── Paid claim auto-approve ─────────────────────────────────────────────────
 
 async function handlePaidClaimAutoApprove(sb, {
-  claimId, listingId, subscriptionId, customerEmail, customerName,
+  claimId, listingId, subscriptionId, customerId, customerEmail, customerName,
   vertical, listingName, listingSlug,
 }) {
   // ── 1. Resolve the claim record ────────────────────────────────────────────
@@ -358,7 +374,7 @@ async function handlePaidClaimAutoApprove(sb, {
   // ── 2. Fetch the full claim + listing ──────────────────────────────────────
   const { data: claimRecord } = await sb
     .from('claims_review')
-    .select('id, listing_id, vertical, claimant_email, claimant_name, admin_notes, source_claim_id, tier')
+    .select('id, listing_id, vertical, claimant_email, claimant_name, admin_notes')
     .eq('id', resolvedClaimId)
     .single()
 
@@ -382,7 +398,10 @@ async function handlePaidClaimAutoApprove(sb, {
     listingRecord = data
   }
 
-  // ── 3. Approve the claim + update subscription ─────────────────────────────
+  // ── 3. Approve the claim in the portal moderation record ───────────────────
+  // claims_review is the authoritative moderation/intake record. Commercial
+  // state (tier, Stripe ids) lives in listing_claims, written by grantClaim
+  // below — never on listings, never in a vertical DB.
   const existingNotes = claimRecord.admin_notes || ''
   await sb
     .from('claims_review')
@@ -393,148 +412,27 @@ async function handlePaidClaimAutoApprove(sb, {
     })
     .eq('id', resolvedClaimId)
 
-  // Mark listing as claimed + store subscription
-  if (effectiveListingId) {
-    try {
-      const { updateListing } = await import('@/lib/admin/updateListing')
-      await updateListing(effectiveListingId, {
-        is_claimed: true,
-        subscription_tier: 'standard',
-        subscription_id: subscriptionId,
-      }, { action: 'auto-approve-payment' })
-    } catch {
-      // Fallback: direct write
-      await sb.from('listings').update({
-        is_claimed: true,
-        subscription_tier: 'standard',
-        subscription_id: subscriptionId,
-      }).eq('id', effectiveListingId)
-    }
-  }
+  // ── 4. Grant the claim (single idempotent entry point) ─────────────────────
+  // grantClaim resolves/provisions the user by email, promotes to vendor +
+  // vertical, inserts the listing_claims ownership row (tier 'standard' with
+  // the Stripe ids), and flips listings.is_claimed via updateListing. On
+  // failure it records failed_role_promotions for admin retry. This replaces
+  // the former phantom listings write, the per-vertical commercial-row write,
+  // and the separate promote-role call.
+  const grant = await grantClaim({
+    listing_id: effectiveListingId,
+    vertical: effectiveVertical,
+    claimant_email: effectiveEmail,
+    tier: 'standard',
+    stripe_subscription_id: subscriptionId,
+    stripe_customer_id: customerId,
+    source_review_id: resolvedClaimId,
+  })
 
-  console.log(`[stripe-webhook] Auto-approved claim ${resolvedClaimId} for listing ${effectiveListingId}`)
-
-  // ── 4. Sync to vertical DB ─────────────────────────────────────────────────
-  let verticalUserId = null
-
-  if (effectiveVertical && claimRecord.source_claim_id) {
-    // Path A: Vertical-originated claim
-    try {
-      const verticalClient = getVerticalClient(effectiveVertical)
-      const claimConfig = getVerticalClaimsTable(effectiveVertical)
-
-      await verticalClient
-        .from(claimConfig.table)
-        .update({ status: 'approved' })
-        .eq('id', claimRecord.source_claim_id)
-
-      const { data: verticalClaim } = await verticalClient
-        .from(claimConfig.table)
-        .select(`${claimConfig.entityKey}, user_id`)
-        .eq('id', claimRecord.source_claim_id)
-        .maybeSingle()
-
-      const entityId = verticalClaim?.[claimConfig.entityKey]
-      if (entityId) {
-        const venueTable = VERTICAL_CONFIG[effectiveVertical]?.table || 'venues'
-        const payload = buildClaimPayload(effectiveVertical, verticalClaim?.user_id)
-        if (payload) {
-          await verticalClient
-            .from(venueTable)
-            .update(payload)
-            .eq('id', entityId)
-        }
-      }
-
-      verticalUserId = verticalClaim?.user_id
-    } catch (err) {
-      console.error(`[stripe-webhook] Vertical sync error (${effectiveVertical}):`, err.message)
-    }
-  } else if (effectiveVertical && listingRecord?.source_id) {
-    // Path B: Portal-originated claim — create on vertical + mark claimed
-    try {
-      const verticalClient = getVerticalClient(effectiveVertical)
-      const config = VERTICAL_CONFIG[effectiveVertical]
-      let venueTable = config?.table || 'venues'
-      let venueId = listingRecord.source_id
-
-      // Fine Grounds prefixed source_ids
-      if (effectiveVertical === 'fine_grounds') {
-        if (venueId.startsWith('roaster_')) {
-          venueTable = 'roasters'
-          venueId = venueId.replace('roaster_', '')
-        } else if (venueId.startsWith('cafe_')) {
-          venueTable = 'cafes'
-          venueId = venueId.replace('cafe_', '')
-        }
-      }
-
-      // Mark venue as claimed using correct field per vertical
-      const claimFieldCfg = getClaimFieldConfig(effectiveVertical)
-      if (claimFieldCfg && claimFieldCfg.claimable !== false) {
-        const payload = buildClaimPayload(effectiveVertical, null)
-        if (payload) {
-          await verticalClient
-            .from(venueTable)
-            .update(payload)
-            .eq('id', venueId)
-        }
-      }
-
-      // Create pre-approved claim on vertical
-      try {
-        const claimConfig = getVerticalClaimsTable(effectiveVertical)
-        const claimInsertData = {
-          [claimConfig.entityKey]: venueId,
-          [claimConfig.nameKey]: effectiveName,
-          [claimConfig.emailKey]: effectiveEmail,
-          status: 'approved',
-          selected_tier: 'standard',
-          user_id: null,
-        }
-        if (claimConfig.table === 'claims') {
-          claimInsertData.venue_name = listingRecord.name || effectiveName
-        }
-        if (claimConfig.table === 'listing_claims') {
-          claimInsertData.listing_name = listingRecord.name || effectiveName
-        }
-        await verticalClient
-          .from(claimConfig.table)
-          .insert(claimInsertData)
-      } catch {
-        // Non-fatal — not all verticals have a claims table
-      }
-    } catch (err) {
-      console.error(`[stripe-webhook] Vertical sync error (${effectiveVertical}):`, err.message)
-    }
-  }
-
-  // ── 5. Promote user to vendor role ─────────────────────────────────────────
-  if (verticalUserId) {
-    try {
-      await fetch(`${ATLAS_AUTH_URL}/api/auth/promote-role`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-secret': process.env.SHARED_API_SECRET || process.env.SHARED_AUTH_SECRET,
-        },
-        body: JSON.stringify({
-          userId: verticalUserId,
-          role: 'vendor',
-          vertical: effectiveVertical,
-        }),
-      })
-    } catch (promoteErr) {
-      // Log to failed_role_promotions for admin retry
-      console.error('[stripe-webhook] Promote-role error:', promoteErr.message)
-      await sb.from('failed_role_promotions').insert({
-        claim_id: resolvedClaimId,
-        user_email: effectiveEmail,
-        target_role: 'vendor',
-        vertical: effectiveVertical,
-        error_message: promoteErr.message,
-      }).then(null, () => {})
-    }
+  if (grant.ok) {
+    console.log(`[stripe-webhook] Auto-approved + granted claim ${resolvedClaimId} for listing ${effectiveListingId}`)
+  } else {
+    console.error(`[stripe-webhook] grantClaim failed for claim ${resolvedClaimId}:`, grant.error)
   }
 
   // ── 6. Send approval email ─────────────────────────────────────────────────
@@ -544,13 +442,15 @@ async function handlePaidClaimAutoApprove(sb, {
       const resend = new Resend(process.env.RESEND_API_KEY)
 
       const verticalName = VERTICAL_NAMES[effectiveVertical] || effectiveVertical || 'Australian Atlas'
-      const vendorUrl = getVerticalVendorUrl(effectiveVertical)
       const displayName = listingName || listingRecord?.name || 'your listing'
 
-      const vendorLink = vendorUrl
-        ? `<p><a href="${vendorUrl}" style="display:inline-block;padding:12px 28px;background:#5F8A7E;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Sign in to your dashboard</a></p>
-           <p style="color:#888;font-size:13px;">If you don't have an account yet, create one at <a href="${vendorUrl}">${vendorUrl}</a> using <strong>${effectiveEmail}</strong> — your approved claim will be linked automatically.</p>`
-        : ''
+      // Access is driven off the Supabase invite grantClaim sends to new operators
+      // (redirectTo → /account). No /vendor/login, no auto-link promise.
+      const accessBlock = grant.provisioned
+        ? `<p>We've just sent a separate email to <strong>${effectiveEmail}</strong> with a secure sign-in link. Click it to finish setting up access and open your operator dashboard.</p>
+           <p style="color:#888;font-size:13px;">You can also sign in any time at <a href="${SITE_URL}/login">${SITE_URL.replace(/^https?:\/\//, '')}/login</a>.</p>`
+        : `<p><a href="${SITE_URL}/login" style="display:inline-block;padding:12px 28px;background:#5F8A7E;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Sign in to your dashboard</a></p>
+           <p style="color:#888;font-size:13px;">Sign in to your Australian Atlas account (<strong>${effectiveEmail}</strong>) to manage your listing.</p>`
 
       await resend.emails.send({
         from: 'Australian Atlas <noreply@australianatlas.com.au>',
@@ -562,7 +462,7 @@ async function handlePaidClaimAutoApprove(sb, {
           <p>Hi ${effectiveName || 'there'},</p>
           <p>Great news! Your Standard plan claim for <strong>${displayName}</strong> on <strong>${verticalName}</strong> has been automatically approved.</p>
           <p>Your subscription is now active and will renew in 12 months.</p>
-          ${vendorLink}
+          ${accessBlock}
           <p>From your dashboard you can update your listing details, add photos, manage your subscription, and track page views.</p>
           <p style="color:#888;font-size:13px;margin-top:24px;">Thanks for being part of the Australian Atlas network.</p>
         `,

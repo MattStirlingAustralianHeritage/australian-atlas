@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { getSupabaseAdmin, getVerticalClient, VERTICAL_CONFIG, getClaimFieldConfig, buildClaimPayload, getVerticalClaimsTable } from '@/lib/supabase/clients'
+import { getSupabaseAdmin, getVerticalClient, getVerticalClaimsTable } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
-
-const ATLAS_AUTH_URL = process.env.NEXT_PUBLIC_ATLAS_AUTH_URL || 'https://www.australianatlas.com.au'
+import { grantClaim } from '@/lib/claims/grantClaim'
 
 // GET — return pending claims (for potential future API consumers)
 export async function GET() {
@@ -63,7 +62,7 @@ export async function POST(request) {
   }
 }
 
-// ─── Vertical display names & vendor URLs ────────────────
+// ─── Vertical display names ──────────────────────────────
 
 const VERTICAL_NAMES = {
   sba: 'Small Batch Atlas', collection: 'Culture Atlas', craft: 'Craft Atlas',
@@ -73,21 +72,18 @@ const VERTICAL_NAMES = {
 
 // Claim table config now imported from lib/supabase/clients.js (getVerticalClaimsTable)
 
-function getVerticalVendorUrl(vertical) {
-  const config = VERTICAL_CONFIG[vertical]
-  if (!config?.baseUrl) return null
-  return `${config.baseUrl}/vendor/login`
-}
+// Operator access lives on the portal itself (australianatlas.com.au), never a
+// vertical /vendor/login surface. Sign-in is driven off the Supabase invite that
+// grantClaim sends; this is the fallback / existing-user sign-in base.
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.australianatlas.com.au'
 
 // ─── Approve ──────────────────────────────────────────────
 
 async function handleApprove({ claimId, vertical, sourceClaimId, usingPortalTable, admin_notes }) {
   const sb = getSupabaseAdmin()
 
-  // ── 1. Fetch the full claim record ──────────────────────
+  // ── 1. Fetch the claim from claims_review (canonical intake/moderation record) ──
   let claimRecord = null
-  let listingRecord = null
-
   if (usingPortalTable) {
     const { data } = await sb
       .from('claims_review')
@@ -97,21 +93,49 @@ async function handleApprove({ claimId, vertical, sourceClaimId, usingPortalTabl
     claimRecord = data
   }
 
-  // Look up the master listing for vertical sync context
-  if (claimRecord?.listing_id) {
-    const { data } = await sb
-      .from('listings')
-      .select('id, vertical, source_id, name, slug')
-      .eq('id', claimRecord.listing_id)
-      .single()
-    listingRecord = data
+  // Identity + ownership are resolved from the portal claim record. Vertical-direct
+  // approval (no claims_review row) is no longer supported — every claim now funnels
+  // through claims_review (public intake + the internal sync-claim endpoint).
+  if (!claimRecord?.listing_id || !claimRecord?.claimant_email) {
+    console.error('[admin/claims] Approve needs a claims_review record with listing_id + claimant_email')
+    return NextResponse.json(
+      { error: 'Claim not found in claims_review (vertical-direct approval is no longer supported)' },
+      { status: 422 }
+    )
   }
 
-  // Use listing vertical if claim vertical is missing
-  const effectiveVertical = vertical || claimRecord?.vertical || listingRecord?.vertical
+  const effectiveVertical = vertical || claimRecord.vertical
 
-  // ── 2. Update the portal claims_review table ────────────
-  if (usingPortalTable) {
+  // Listing context for the approval email
+  const { data: listingRecord } = await sb
+    .from('listings')
+    .select('id, name')
+    .eq('id', claimRecord.listing_id)
+    .maybeSingle()
+
+  // ── 2. Grant the claim (idempotent) ──
+  // grantClaim resolves identity by email (provisioning the auth user if needed),
+  // promotes to vendor + vertical, inserts the single ownership row, and flips
+  // listings.is_claimed=true (the only claim field that syncs to the vertical).
+  // tier='free' = manual/concierge grant; paid grants arrive via the Stripe webhook
+  // (tier='standard') and upgrade this row in place. grantClaim logs its own failures
+  // to failed_role_promotions. We grant BEFORE recording approval so the
+  // "is_claimed ⟺ exactly one active claim" invariant holds before the moderation
+  // row is marked done; on failure the claim stays pending and stays actionable.
+  const grant = await grantClaim({
+    listing_id: claimRecord.listing_id,
+    vertical: effectiveVertical,
+    claimant_email: claimRecord.claimant_email,
+    tier: 'free',
+    source_review_id: claimId,
+  })
+  if (!grant.ok) {
+    console.error(`[admin/claims] grantClaim failed for claim ${claimId}:`, grant.error)
+    return NextResponse.json({ error: `Grant failed: ${grant.error}` }, { status: 500 })
+  }
+
+  // ── 3. Record the approval on claims_review ──
+  {
     const { error } = await sb
       .from('claims_review')
       .update({
@@ -120,177 +144,24 @@ async function handleApprove({ claimId, vertical, sourceClaimId, usingPortalTabl
         reviewed_at: new Date().toISOString(),
       })
       .eq('id', claimId)
-
     if (error) {
-      console.error('[admin/claims] Portal table update error:', error)
-      return NextResponse.json({ error: 'Failed to update portal claim' }, { status: 500 })
-    }
-
-    // Mark the master listing as claimed (with vertical sync via canonical function)
-    if (claimRecord?.listing_id) {
-      const { updateListing } = await import('@/lib/admin/updateListing')
-      const claimResult = await updateListing(claimRecord.listing_id, { is_claimed: true }, { action: 'claim-approve' })
-      if (!claimResult.success) {
-        console.warn('[admin/claims] Master is_claimed update failed:', claimResult.error)
-        // Fallback: direct write (non-fatal)
-        await sb.from('listings').update({ is_claimed: true }).eq('id', claimRecord.listing_id)
-      }
+      // The grant already succeeded; surface the bookkeeping failure without unwinding it.
+      console.error('[admin/claims] claims_review approval update error:', error)
+      return NextResponse.json({ error: 'Claim granted but failed to record approval' }, { status: 500 })
     }
   }
 
-  // ── 3. Sync to vertical DB ─────────────────────────────
-  let verticalUserId = null
-
-  if (effectiveVertical && sourceClaimId) {
-    // ── Path A: Vertical-originated claim (has sourceClaimId) ──
-    try {
-      const verticalClient = getVerticalClient(effectiveVertical)
-      const claimConfig = getVerticalClaimsTable(effectiveVertical)
-
-      await verticalClient
-        .from(claimConfig.table)
-        .update({ status: 'approved' })
-        .eq('id', sourceClaimId)
-
-      const { data: verticalClaim } = await verticalClient
-        .from(claimConfig.table)
-        .select(`${claimConfig.entityKey}, user_id`)
-        .eq('id', sourceClaimId)
-        .maybeSingle()
-
-      const entityId = verticalClaim?.[claimConfig.entityKey]
-      if (entityId) {
-        const claimFieldConfig = getClaimFieldConfig(effectiveVertical)
-        if (claimFieldConfig && claimFieldConfig.claimable !== false) {
-          const venueTable = VERTICAL_CONFIG[effectiveVertical]?.table || 'venues'
-          const payload = buildClaimPayload(effectiveVertical, verticalClaim?.user_id)
-          if (payload) {
-            await verticalClient
-              .from(venueTable)
-              .update(payload)
-              .eq('id', entityId)
-          }
-        }
-      }
-
-      verticalUserId = verticalClaim?.user_id
-    } catch (err) {
-      console.error(`[admin/claims] Vertical claim sync error (${effectiveVertical}):`, err.message)
-    }
-  } else if (effectiveVertical && usingPortalTable && listingRecord?.source_id) {
-    // ── Path B: Portal-originated claim — create claim on vertical + mark venue claimed ──
-    try {
-      const verticalClient = getVerticalClient(effectiveVertical)
-      const config = VERTICAL_CONFIG[effectiveVertical]
-      let venueTable = config?.table || 'venues'
-      let venueId = listingRecord.source_id
-
-      // Fine Grounds uses prefixed source_ids: "roaster_123" or "cafe_456"
-      if (effectiveVertical === 'fine_grounds') {
-        if (venueId.startsWith('roaster_')) {
-          venueTable = 'roasters'
-          venueId = venueId.replace('roaster_', '')
-        } else if (venueId.startsWith('cafe_')) {
-          venueTable = 'cafes'
-          venueId = venueId.replace('cafe_', '')
-        }
-      }
-
-      // Mark the venue as claimed on the vertical (using correct field per vertical)
-      const claimFieldConfig = getClaimFieldConfig(effectiveVertical)
-      if (claimFieldConfig && claimFieldConfig.claimable !== false) {
-        const payload = buildClaimPayload(effectiveVertical, null) // no user_id in portal-originated claims
-        if (payload) {
-          await verticalClient
-            .from(venueTable)
-            .update(payload)
-            .eq('id', venueId)
-        }
-      }
-
-      // Create a pre-approved claim record on the vertical
-      // (user_id is null — will be linked when vendor creates account)
-      try {
-        const claimConfig = getVerticalClaimsTable(effectiveVertical)
-        const claimInsertData = {
-          [claimConfig.entityKey]: venueId,
-          [claimConfig.nameKey]: claimRecord?.claimant_name,
-          [claimConfig.emailKey]: claimRecord?.claimant_email,
-          status: 'approved',
-          user_id: null,
-        }
-        // Add venue_name / selected_tier for verticals that support them
-        if (claimConfig.table === 'claims') {
-          claimInsertData.venue_name = listingRecord.name || claimRecord?.claimant_name
-          claimInsertData.selected_tier = claimRecord?.tier || 'free'
-        }
-        if (claimConfig.table === 'listing_claims') {
-          claimInsertData.listing_name = listingRecord.name || claimRecord?.claimant_name
-        }
-        await verticalClient
-          .from(claimConfig.table)
-          .insert(claimInsertData)
-        console.log(`[admin/claims] Created pre-approved claim on ${effectiveVertical} for venue ${venueId}`)
-      } catch (claimInsertErr) {
-        // Non-fatal — not all verticals have a claims table
-        console.warn(`[admin/claims] Could not create vertical claim (${effectiveVertical}):`, claimInsertErr.message)
-      }
-    } catch (err) {
-      console.error(`[admin/claims] Vertical sync error (${effectiveVertical}):`, err.message)
-    }
-  }
-
-  // ── 4. Promote user to vendor role ──
-  const promoteEmail = claimRecord?.claimant_email
-  if (promoteEmail || verticalUserId) {
-    try {
-      const promoteRes = await fetch(`${ATLAS_AUTH_URL}/api/auth/promote-role`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-secret': process.env.SHARED_API_SECRET || process.env.SHARED_AUTH_SECRET,
-        },
-        body: JSON.stringify({
-          userId: verticalUserId || undefined,
-          email: promoteEmail,
-          role: 'vendor',
-          vertical: effectiveVertical,
-        }),
-      })
-      if (!promoteRes.ok) {
-        const promoteBody = await promoteRes.text().catch(() => 'no body')
-        console.error('[admin/claims] Promote-role failed:', promoteRes.status, promoteBody)
-        // Write to failed_role_promotions for admin visibility
-        await sb.from('failed_role_promotions').insert({
-          email: promoteEmail || null,
-          user_id: verticalUserId || null,
-          target_role: 'vendor',
-          vertical: effectiveVertical || null,
-          error_message: `HTTP ${promoteRes.status}: ${promoteBody}`.slice(0, 500),
-          claim_id: claimId,
-        }).then(null, err => console.error('[admin/claims] failed_role_promotions insert error:', err.message))
-      }
-    } catch (promoteErr) {
-      console.error('[admin/claims] Promote-role error:', promoteErr.message)
-      // Write network/timeout failures to failed_role_promotions
-      await sb.from('failed_role_promotions').insert({
-        email: promoteEmail || null,
-        user_id: verticalUserId || null,
-        target_role: 'vendor',
-        vertical: effectiveVertical || null,
-        error_message: promoteErr.message?.slice(0, 500) || 'Unknown error',
-        claim_id: claimId,
-      }).then(null, err => console.error('[admin/claims] failed_role_promotions insert error:', err.message))
-    }
-  }
-
-  // ── 5. Send approval email with vertical-specific link ──
+  // ── 4. Send approval email — access is driven off the Supabase invite ──
+  // grantClaim provisions the auth user and emails a secure magic sign-in link
+  // (redirectTo → /account) whenever the operator is new (grant.provisioned).
+  // This message confirms the approval and points at that link / the portal
+  // /login — never a vertical /vendor/login, and it promises no auto-linking
+  // that no code performs (the claim is already linked server-side).
   try {
     const email = claimRecord?.claimant_email
     const claimantName = claimRecord?.claimant_name
     const venueName = listingRecord?.name || ''
     const verticalName = VERTICAL_NAMES[effectiveVertical] || effectiveVertical || 'Australian Atlas'
-    const vendorUrl = getVerticalVendorUrl(effectiveVertical)
     const tier = claimRecord?.tier || 'free'
 
     if (email && process.env.RESEND_API_KEY) {
@@ -298,13 +169,14 @@ async function handleApprove({ claimId, vertical, sourceClaimId, usingPortalTabl
       const resend = new Resend(process.env.RESEND_API_KEY)
 
       const tierNote = tier === 'standard'
-        ? `<p>You selected the <strong>Standard tier ($99/yr)</strong>. To activate your subscription, sign in to your vendor dashboard and complete payment through Stripe.</p>`
-        : `<p>Your listing is on the <strong>Free tier</strong>. You can upgrade to Standard ($99/yr) anytime from your vendor dashboard for unlimited photos, analytics, and more.</p>`
+        ? `<p>You're on the <strong>Standard tier ($99/yr)</strong>. You can manage your subscription from your dashboard.</p>`
+        : `<p>Your listing is on the <strong>Free tier</strong>. You can upgrade to Standard ($99/yr) anytime from your dashboard for unlimited photos, analytics, and more.</p>`
 
-      const vendorLink = vendorUrl
-        ? `<p><a href="${vendorUrl}" style="display:inline-block;padding:12px 28px;background:#5F8A7E;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Sign in to your dashboard</a></p>
-           <p style="color:#888;font-size:13px;">If you don't have an account yet, create one at <a href="${vendorUrl}">${vendorUrl}</a> using <strong>${email}</strong> — your approved claim will be linked automatically.</p>`
-        : ''
+      const accessBlock = grant.provisioned
+        ? `<p>We've just sent a separate email to <strong>${email}</strong> with a secure sign-in link. Click it to finish setting up access and open your operator dashboard.</p>
+           <p style="color:#888;font-size:13px;">You can also sign in any time at <a href="${SITE_URL}/login">${SITE_URL.replace(/^https?:\/\//, '')}/login</a>.</p>`
+        : `<p><a href="${SITE_URL}/login" style="display:inline-block;padding:12px 28px;background:#5F8A7E;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Sign in to your dashboard</a></p>
+           <p style="color:#888;font-size:13px;">Sign in to your Australian Atlas account (<strong>${email}</strong>) to manage your listing.</p>`
 
       await resend.emails.send({
         from: 'Australian Atlas <noreply@australianatlas.com.au>',
@@ -314,9 +186,9 @@ async function handleApprove({ claimId, vertical, sourceClaimId, usingPortalTabl
         html: `
           <h2>Claim approved</h2>
           <p>Hi ${claimantName || 'there'},</p>
-          <p>Great news! Your claim for <strong>${venueName}</strong> on <strong>${verticalName}</strong> has been approved.</p>
+          <p>Great news! Your claim for <strong>${venueName}</strong> on <strong>${verticalName}</strong> has been approved, and your operator dashboard is ready.</p>
           ${tierNote}
-          ${vendorLink}
+          ${accessBlock}
           <p>From your dashboard you can update your listing details, add photos, manage your subscription, and track page views.</p>
           <p style="color:#888;font-size:13px;margin-top:24px;">Thanks for being part of the Australian Atlas network.</p>
         `,
@@ -345,7 +217,7 @@ async function handleApprove({ claimId, vertical, sourceClaimId, usingPortalTabl
     },
   }).then(null, err => console.error('[admin/claims] Audit log error:', err))
 
-  // ── 6. Fire Operator Amplification Agent (non-blocking) ──
+  // ── 5. Fire Operator Amplification Agent (non-blocking) ──
   // Sends the operator a personalised share kit with social captions,
   // newsletter paragraph, and their listing URL.
   if (claimRecord?.claimant_email && claimRecord?.listing_id) {
