@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { verifySharedToken } from '@/lib/shared-auth'
 import { LISTING_REGION_SELECT } from '@/lib/regions'
+import { readGallery, isListingPaid } from '@/lib/listing-gallery'
 
 /**
  * GET /api/dashboard — Fetch dashboard data for a vendor's claimed listings.
@@ -102,8 +103,17 @@ export async function GET(request) {
         .select('id', { count: 'exact', head: true })
         .eq('listing_id', listing.id)
 
+      // Gallery (paid perk) + paid flag, so the editor can render/gate the
+      // photo manager. gallery_image_urls is a storage manifest, not a column.
+      const [gallery, paid] = await Promise.all([
+        readGallery(sb, listing.id),
+        isListingPaid(sb, listing.id),
+      ])
+
       return {
         ...listing,
+        gallery_image_urls: gallery,
+        paid,
         score: scoreData || null,
         stats: {
           search_appearances: searchCount || 0,
