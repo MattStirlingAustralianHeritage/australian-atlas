@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { embedQueryCached } from '@/lib/embeddings/queryCache'
 import { logSearchEvent } from '@/lib/search/log'
 import { isVerticalPublic } from '@/lib/verticalUrl'
+import { parseQueryLocation } from '@/lib/search/parseQuery'
 
 export const maxDuration = 60
 
@@ -49,8 +50,12 @@ export async function POST(request) {
 
     const sb = getSupabaseAdmin()
 
-    // Semantic arm: embed the vibe (cached). null on Voyage failure -> lexical-only.
-    const { lit: queryEmbedding, error: voyageError } = await embedQueryCached(sb, query)
+    // Extract a hard location constraint ("...in Adelaide" -> SA) so the vibe
+    // arms rank within-state instead of matching nationwide (the cross-state bug).
+    const { state: filterState, cleaned } = parseQueryLocation(query)
+
+    // Semantic arm: embed the (location-stripped) vibe. null on Voyage failure -> lexical-only.
+    const { lit: queryEmbedding, error: voyageError } = await embedQueryCached(sb, cleaned)
 
     // Optional Claude client (enrichment + reasons). No key -> skip both, search still works.
     let anthropic = null
@@ -62,7 +67,7 @@ export async function POST(request) {
     }
 
     // Optional enrichment: OR-expand the lexical query_text with vibe phrases.
-    let queryText = query
+    let queryText = cleaned
     if (anthropic) {
       try {
         const exp = await callClaude(anthropic, {
@@ -70,13 +75,13 @@ export async function POST(request) {
           max_tokens: 200,
           messages: [{
             role: 'user',
-            content: `Mood/vibe: "${query}". Return ONLY a JSON array of 4 short noun phrases (2-3 words each) describing the kind of independent Australian venue this evokes. Example: ["pottery studio","rustic retreat","quiet garden","wood fired"]`,
+            content: `Mood/vibe: "${cleaned}". Return ONLY a JSON array of 4 short noun phrases (2-3 words each) describing the kind of independent Australian venue this evokes. Example: ["pottery studio","rustic retreat","quiet garden","wood fired"]`,
           }],
         })
         const m = (exp?.content?.[0]?.text || '').match(/\[[\s\S]*\]/)
         if (m) {
           const phrases = JSON.parse(m[0]).filter((p) => typeof p === 'string' && p.trim()).slice(0, 5)
-          if (phrases.length) queryText = `${query} OR ${phrases.map((p) => `"${p.replace(/"/g, '')}"`).join(' OR ')}`
+          if (phrases.length) queryText = `${cleaned} OR ${phrases.map((p) => `"${p.replace(/"/g, '')}"`).join(' OR ')}`
         }
       } catch (e) {
         console.warn('[vibe-search] expansion skipped:', e.message)
@@ -87,6 +92,7 @@ export async function POST(request) {
     const { data, error } = await sb.rpc('search_listings_hybrid', {
       query_embedding: queryEmbedding,
       query_text: queryText,
+      filter_state: filterState,
       match_count: 12,
       similarity_floor: SIMILARITY_FLOOR,
       include_way: isVerticalPublic('way'),

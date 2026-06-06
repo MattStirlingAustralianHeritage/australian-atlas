@@ -6,6 +6,7 @@ import { getPublicVerticals, isVerticalPublic } from '@/lib/verticalUrl'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
 import { embedQueryCached } from '@/lib/embeddings/queryCache'
 import { logSearchEvent } from '@/lib/search/log'
+import { parseQueryLocation } from '@/lib/search/parseQuery'
 
 const SELECT_FIELDS = `id, vertical, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website, address, ${LISTING_REGION_SELECT}`
 
@@ -84,15 +85,21 @@ export async function GET(request) {
   try {
     // ── Text query: hybrid retrieval (ranks in Postgres) ──────────────────
     if (q) {
-      const { lit: queryEmbedding, error: voyageError } = await embedQueryCached(sb, q)
+      // Extract a location constraint from the free-text query ("...in Adelaide"
+      // -> SA). Explicit ?state/?region win; a parsed state only applies when no
+      // region is set. The location is stripped from the text the arms match on.
+      const { state: parsedState, cleaned } = parseQueryLocation(q)
+      const effectiveState = state || (filterRegion ? null : parsedState)
+
+      const { lit: queryEmbedding, error: voyageError } = await embedQueryCached(sb, cleaned)
 
       // Fetch enough ranked rows to satisfy the requested page, capped.
       const matchCount = Math.min(page * limit, 120)
       const { data, error } = await sb.rpc('search_listings_hybrid', {
         query_embedding: queryEmbedding,
-        query_text: q,
+        query_text: cleaned,
         filter_vertical: vertical,
-        filter_state: state,
+        filter_state: effectiveState,
         filter_region: filterRegion,
         match_count: matchCount,
         similarity_floor: similarityFloor,
@@ -125,7 +132,7 @@ export async function GET(request) {
       return NextResponse.json({
         listings, total, page, limit,
         totalPages: Math.ceil(total / limit),
-        detectedVertical: null, detectedState: null,
+        detectedVertical: null, detectedState: effectiveState || null,
       })
     }
 
