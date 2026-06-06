@@ -127,9 +127,11 @@ async function fetchVenues(intent) {
     const embedding = await generateQueryEmbedding(intent.search_query)
 
     if (embedding) {
-      const { data } = await sb.rpc('search_listings', {
+      // Canonical hybrid retrieval (lexical + semantic RRF). query_text feeds
+      // the lexical arm; default similarity_floor (0.48) gates the semantic arm.
+      const { data } = await sb.rpc('search_listings_hybrid', {
         query_embedding: `[${embedding.join(',')}]`,
-        match_threshold: 0.3,
+        query_text: intent.search_query,
         match_count: 30,
       })
       if (data && data.length) { venues.push(...data); vectorFired = true }

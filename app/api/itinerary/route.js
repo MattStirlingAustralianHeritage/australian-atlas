@@ -1027,13 +1027,14 @@ export async function GET(request) {
         return []
       }
       try {
-        const { data, error: rpcErr } = await sb.rpc('search_listings_geo', {
+        const { data, error: rpcErr } = await sb.rpc('search_listings_hybrid', {
           query_embedding: `[${embedding.join(',')}]`,
+          query_text: q,
           lat_min: effectiveGeoBounds.latMin,
           lat_max: effectiveGeoBounds.latMax,
           lng_min: effectiveGeoBounds.lngMin,
           lng_max: effectiveGeoBounds.lngMax,
-          match_threshold: 0.6,
+          require_trail_suitable: true,
           match_count: 30,
         })
         if (rpcErr) throw rpcErr

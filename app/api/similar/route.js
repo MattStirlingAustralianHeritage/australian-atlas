@@ -30,16 +30,21 @@ export async function GET(request) {
       return NextResponse.json({ results: [] })
     }
 
-    // Call the pgvector RPC to find similar listings
-    const { data: similar, error: rpcError } = await sb.rpc('match_similar_listings', {
+    // Canonical hybrid retrieval in "more like this" mode: the listing's own
+    // embedding seeds the semantic arm (no query_text -> lexical arm skipped),
+    // excluding its own vertical/suburb, quality-gated. floor 0 = nearest neighbours.
+    const { data: similar, error: rpcError } = await sb.rpc('search_listings_hybrid', {
       query_embedding: listing.embedding,
+      query_text: null,
+      match_count: 6,
+      similarity_floor: 0.0,
       exclude_vertical: listing.vertical,
       exclude_suburb: listing.suburb || '__none__',
-      match_count: 6,
+      min_quality: 60,
     })
 
     if (rpcError) {
-      console.error('match_similar_listings RPC error:', rpcError)
+      console.error('search_listings_hybrid (similar) RPC error:', rpcError)
       logSearchEvent(sb, { query_text: listingId, surface: 'similar', vector_arm_fired: false, fell_back: true, voyage_error: rpcError.message })
       // Fallback: return top-quality listings from other verticals
       return await fallbackSimilar(sb, listing)
