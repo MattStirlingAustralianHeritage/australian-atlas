@@ -7,6 +7,7 @@ import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalF
 import { embedQueryCached } from '@/lib/embeddings/queryCache'
 import { logSearchEvent } from '@/lib/search/log'
 import { parseQueryLocation } from '@/lib/search/parseQuery'
+import { resolveQueryRegion } from '@/lib/search/resolveQueryRegion'
 
 const SELECT_FIELDS = `id, vertical, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website, address, ${LISTING_REGION_SELECT}`
 
@@ -85,11 +86,35 @@ export async function GET(request) {
   try {
     // ── Text query: hybrid retrieval (ranks in Postgres) ──────────────────
     if (q) {
-      // Extract a location constraint from the free-text query ("...in Adelaide"
-      // -> SA). Explicit ?state/?region win; a parsed state only applies when no
-      // region is set. The location is stripped from the text the arms match on.
-      const { state: parsedState, cleaned } = parseQueryLocation(q)
-      const effectiveState = state || (filterRegion ? null : parsedState)
+      // Resolve the location constraint from the free-text query. Precedence:
+      //   1. explicit ?region= (resolvedRegion → filterRegion) — caller wins
+      //   2. a region NAMED in the query → enforce as a HARD region filter, so
+      //      "coffee in the Mornington Peninsula" is that region, not all of VIC
+      //   3. otherwise a state/city → state-level filter (parseQueryLocation)
+      // The matched location phrase is stripped from the text the arms rank on.
+      let effectiveRegion = filterRegion
+      let filterState = state || null      // passed to the RPC
+      let detectedState = state || null    // reported to the UI (state chip)
+      let detectedRegion = null
+      let cleaned
+
+      if (effectiveRegion) {
+        cleaned = parseQueryLocation(q).cleaned
+      } else {
+        const qr = await resolveQueryRegion(sb, q)
+        if (qr.region) {
+          effectiveRegion = qr.region.id
+          filterState = null               // the named region IS the constraint
+          detectedState = qr.region.state  // light up the region's state chip
+          detectedRegion = { slug: qr.region.slug, name: qr.region.name, state: qr.region.state }
+          cleaned = qr.cleaned
+        } else {
+          const parsed = parseQueryLocation(q)
+          filterState = state || parsed.state
+          detectedState = filterState
+          cleaned = parsed.cleaned
+        }
+      }
 
       const { lit: queryEmbedding, error: voyageError } = await embedQueryCached(sb, cleaned)
 
@@ -99,8 +124,8 @@ export async function GET(request) {
         query_embedding: queryEmbedding,
         query_text: cleaned,
         filter_vertical: vertical,
-        filter_state: effectiveState,
-        filter_region: filterRegion,
+        filter_state: filterState,
+        filter_region: effectiveRegion,
         match_count: matchCount,
         similarity_floor: similarityFloor,
         include_way: isVerticalPublic('way') || vertical === 'way',
@@ -132,7 +157,7 @@ export async function GET(request) {
       return NextResponse.json({
         listings, total, page, limit,
         totalPages: Math.ceil(total / limit),
-        detectedVertical: null, detectedState: effectiveState || null,
+        detectedVertical: null, detectedState: detectedState || null, detectedRegion,
       })
     }
 

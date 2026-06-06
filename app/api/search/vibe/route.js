@@ -4,6 +4,7 @@ import { embedQueryCached } from '@/lib/embeddings/queryCache'
 import { logSearchEvent } from '@/lib/search/log'
 import { isVerticalPublic } from '@/lib/verticalUrl'
 import { parseQueryLocation } from '@/lib/search/parseQuery'
+import { resolveQueryRegion } from '@/lib/search/resolveQueryRegion'
 
 export const maxDuration = 60
 
@@ -50,9 +51,23 @@ export async function POST(request) {
 
     const sb = getSupabaseAdmin()
 
-    // Extract a hard location constraint ("...in Adelaide" -> SA) so the vibe
-    // arms rank within-state instead of matching nationwide (the cross-state bug).
-    const { state: filterState, cleaned } = parseQueryLocation(query)
+    // Hard location constraint so the vibe arms rank within-location instead of
+    // nationwide (the cross-state bug). A region NAMED in the query ("...in the
+    // Mornington Peninsula") binds that region; otherwise fall back to its state.
+    let filterRegion = null
+    let filterState = null
+    let cleaned
+    {
+      const qr = await resolveQueryRegion(sb, query)
+      if (qr.region) {
+        filterRegion = qr.region.id
+        cleaned = qr.cleaned
+      } else {
+        const parsed = parseQueryLocation(query)
+        filterState = parsed.state
+        cleaned = parsed.cleaned
+      }
+    }
 
     // Semantic arm: embed the (location-stripped) vibe. null on Voyage failure -> lexical-only.
     const { lit: queryEmbedding, error: voyageError } = await embedQueryCached(sb, cleaned)
@@ -93,6 +108,7 @@ export async function POST(request) {
       query_embedding: queryEmbedding,
       query_text: queryText,
       filter_state: filterState,
+      filter_region: filterRegion,
       match_count: 12,
       similarity_floor: SIMILARITY_FLOOR,
       include_way: isVerticalPublic('way'),
