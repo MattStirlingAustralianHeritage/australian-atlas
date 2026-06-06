@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { logSearchEvent } from '@/lib/search/log'
 
 export const revalidate = 3600
 
@@ -39,6 +40,7 @@ export async function GET(request) {
 
     if (rpcError) {
       console.error('match_similar_listings RPC error:', rpcError)
+      logSearchEvent(sb, { query_text: listingId, surface: 'similar', vector_arm_fired: false, fell_back: true, voyage_error: rpcError.message })
       // Fallback: return top-quality listings from other verticals
       return await fallbackSimilar(sb, listing)
     }
@@ -53,6 +55,11 @@ export async function GET(request) {
       hero_image_url: s.hero_image_url,
       similarity: Math.round(s.similarity * 1000) / 1000,
     }))
+
+    logSearchEvent(sb, {
+      query_text: listingId, surface: 'similar', result_count: results.length,
+      vector_arm_fired: true, fell_back: false, zero_result: results.length === 0,
+    })
 
     return NextResponse.json({ results }, {
       headers: {

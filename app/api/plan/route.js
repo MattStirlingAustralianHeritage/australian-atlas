@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import Anthropic from '@anthropic-ai/sdk'
+import { embedQuery } from '@/lib/embeddings/voyage'
+import { logSearchEvent } from '@/lib/search/log'
 
 export const maxDuration = 60
 
@@ -57,15 +59,9 @@ async function callClaude(client, params) {
 async function generateQueryEmbedding(text) {
   if (!process.env.VOYAGE_API_KEY) return null
   try {
-    const { VoyageAIClient } = await import('voyageai')
-    const client = new VoyageAIClient({ apiKey: process.env.VOYAGE_API_KEY })
-    const result = await client.embed({
-      model: 'voyage-3',
-      input: [text],
-      inputType: 'query',
-    })
-    return result.data?.[0]?.embedding || null
-  } catch {
+    return await embedQuery(text)
+  } catch (e) {
+    console.warn('[plan] query embed failed:', e.message)
     return null
   }
 }
@@ -124,6 +120,7 @@ If this is a greeting or general question that doesn't need venue data, set need
 async function fetchVenues(intent) {
   const sb = getSupabaseAdmin()
   const venues = []
+  let vectorFired = false
 
   // Vector search if we have a search query
   if (intent.search_query && intent.needs_venues) {
@@ -131,11 +128,11 @@ async function fetchVenues(intent) {
 
     if (embedding) {
       const { data } = await sb.rpc('search_listings', {
-        query_embedding: embedding,
+        query_embedding: `[${embedding.join(',')}]`,
         match_threshold: 0.3,
         match_count: 30,
       })
-      if (data) venues.push(...data)
+      if (data && data.length) { venues.push(...data); vectorFired = true }
     }
   }
 
@@ -182,7 +179,13 @@ async function fetchVenues(intent) {
     if (data) venues.push(...data)
   }
 
-  return venues.slice(0, 50)
+  const result = venues.slice(0, 50)
+  logSearchEvent(sb, {
+    query_text: intent.search_query || null, surface: 'plan',
+    result_count: result.length, vector_arm_fired: vectorFired,
+    fell_back: !vectorFired, zero_result: result.length === 0,
+  })
+  return result
 }
 
 // Fetch relevant collections for context

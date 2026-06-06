@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { createHash } from 'crypto'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
+import { embedQuery } from '@/lib/embeddings/voyage'
+import { logSearchEvent } from '@/lib/search/log'
 
 // CRITICAL: Vercel defaults to 10s — extend to 60s. Must be top-level export.
 export const maxDuration = 60
@@ -193,14 +195,7 @@ async function callAnthropicWithRetry(client, params) {
 async function generateQueryEmbedding(text) {
   if (!process.env.VOYAGE_API_KEY) return null
   try {
-    const { VoyageAIClient } = await import('voyageai')
-    const client = new VoyageAIClient({ apiKey: process.env.VOYAGE_API_KEY })
-    const result = await client.embed({
-      model: 'voyage-3',
-      input: [text],
-      inputType: 'query',
-    })
-    return result.data?.[0]?.embedding || null
+    return await embedQuery(text)
   } catch (err) {
     console.warn('[itinerary] Failed to generate query embedding:', err.message)
     return null
@@ -1027,7 +1022,10 @@ export async function GET(request) {
     // Falls back gracefully if VOYAGE_API_KEY is missing or embeddings aren't populated.
     const semanticPromise = (async () => {
       const embedding = await generateQueryEmbedding(q)
-      if (!embedding) return []
+      if (!embedding) {
+        logSearchEvent(sb, { query_text: q, surface: 'itinerary', result_count: 0, vector_arm_fired: false, fell_back: true, zero_result: true })
+        return []
+      }
       try {
         const { data, error: rpcErr } = await sb.rpc('search_listings_geo', {
           query_embedding: `[${embedding.join(',')}]`,
@@ -1039,9 +1037,11 @@ export async function GET(request) {
           match_count: 30,
         })
         if (rpcErr) throw rpcErr
+        logSearchEvent(sb, { query_text: q, surface: 'itinerary', result_count: (data || []).length, vector_arm_fired: true, fell_back: false, zero_result: (data || []).length === 0 })
         return data || []
       } catch (err) {
         console.warn('[itinerary] Semantic search failed (non-fatal):', err.message)
+        logSearchEvent(sb, { query_text: q, surface: 'itinerary', result_count: 0, vector_arm_fired: false, fell_back: true, voyage_error: err.message, zero_result: true })
         return []
       }
     })()
