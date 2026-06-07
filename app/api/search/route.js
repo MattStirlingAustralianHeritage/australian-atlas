@@ -94,8 +94,10 @@ export async function GET(request) {
       // The matched location phrase is stripped from the text the arms rank on.
       let effectiveRegion = filterRegion
       let filterState = state || null      // passed to the RPC
+      let filterSuburb = null              // suburb-granular filter
       let detectedState = state || null    // reported to the UI (state chip)
       let detectedRegion = null
+      let detectedSuburb = null            // reported to the UI (suburb chip)
       let cleaned
 
       if (effectiveRegion) {
@@ -113,6 +115,12 @@ export async function GET(request) {
           filterState = state || parsed.state
           detectedState = filterState
           cleaned = parsed.cleaned
+          // Suburb-granular tier: a named suburb ("Brewery in Richmond") filters
+          // to that suburb, not just its state (falls back to state below if empty).
+          if (parsed.suburb && !state) {
+            filterSuburb = parsed.suburb
+            detectedSuburb = parsed.suburb
+          }
         }
       }
 
@@ -126,6 +134,7 @@ export async function GET(request) {
         filter_vertical: vertical,
         filter_state: filterState,
         filter_region: effectiveRegion,
+        filter_suburb: filterSuburb,
         match_count: matchCount,
         similarity_floor: similarityFloor,
         include_way: isVerticalPublic('way') || vertical === 'way',
@@ -141,7 +150,17 @@ export async function GET(request) {
         return NextResponse.json({ error: error.message }, { status: 500 })
       }
 
-      const all = data || []
+      let all = data || []
+      // A suburb filter that found nothing → retry state-only so the user isn't stranded.
+      if (filterSuburb && all.length === 0) {
+        const { data: stateData } = await sb.rpc('search_listings_hybrid', {
+          query_embedding: queryEmbedding, query_text: cleaned, filter_vertical: vertical,
+          filter_state: filterState, filter_region: effectiveRegion, filter_suburb: null,
+          match_count: matchCount, similarity_floor: similarityFloor,
+          include_way: isVerticalPublic('way') || vertical === 'way',
+        })
+        if (stateData && stateData.length) { all = stateData; detectedSuburb = null }
+      }
       const total = all.length
       const offset = (page - 1) * limit
       const listings = all.slice(offset, offset + limit).map(({ fused_score, ...rest }) => rest)
@@ -157,7 +176,7 @@ export async function GET(request) {
       return NextResponse.json({
         listings, total, page, limit,
         totalPages: Math.ceil(total / limit),
-        detectedVertical: null, detectedState: detectedState || null, detectedRegion,
+        detectedVertical: null, detectedState: detectedState || null, detectedRegion, detectedSuburb,
       })
     }
 

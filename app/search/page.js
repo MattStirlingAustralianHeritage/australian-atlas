@@ -2,9 +2,11 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import ListingCard from '@/components/ListingCard'
+import ListingCard, { TypographicCard, VERTICAL_TOKENS } from '@/components/ListingCard'
 import SearchAutocomplete from '@/components/SearchAutocomplete'
 import VibeSearch from './VibeSearch'
+import { getListingRegion } from '@/lib/regions'
+import { isApprovedImageSource } from '@/lib/image-utils'
 
 import { VERTICAL_STYLES } from '@/components/VerticalBadge'
 
@@ -209,6 +211,77 @@ function SkeletonCard() {
   )
 }
 
+function fmtCategory(cat) {
+  if (!cat) return null
+  return String(cat).replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+// Enlarged "top result" card — a taller visual header plus a detail panel with
+// category, location, the venue address, and a description excerpt.
+function FeaturedCard({ listing }) {
+  const region = getListingRegion(listing)
+  const tokens = VERTICAL_TOKENS[listing.vertical] || VERTICAL_TOKENS.portal
+  const hasImg = listing.hero_image_url && isApprovedImageSource(listing.hero_image_url)
+  const category = fmtCategory(listing.sub_type)
+  const locParts = [listing.suburb, region?.name, listing.state]
+    .filter(Boolean)
+    .filter((v, i, a) => a.findIndex((x) => x.toLowerCase() === v.toLowerCase()) === i)
+  const loc = locParts.join('  ·  ')
+  const desc = (listing.description || '').trim()
+  const excerpt = desc.length > 180 ? desc.slice(0, 180).replace(/\s+\S*$/, '') + '…' : desc
+
+  return (
+    <a
+      href={`/place/${listing.slug}`}
+      className="group block overflow-hidden"
+      style={{ borderRadius: 14, border: '0.5px solid var(--color-border)', background: '#fff' }}
+    >
+      <div style={{ position: 'relative' }}>
+        {hasImg ? (
+          <div style={{ aspectRatio: '4/3', overflow: 'hidden' }}>
+            <img src={listing.hero_image_url} alt={listing.name} loading="lazy"
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+          </div>
+        ) : (
+          <TypographicCard name={listing.name} vertical={listing.vertical} category={listing.sub_type}
+            region={region?.name} state={listing.state} aspectRatio="4/3" showVerticalTag={true} />
+        )}
+        <span style={{
+          position: 'absolute', top: 12, left: 12, zIndex: 3,
+          fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 600,
+          letterSpacing: '0.06em', textTransform: 'uppercase',
+          padding: '4px 10px', borderRadius: 100, color: '#fff', background: 'var(--color-accent)',
+        }}>Top result</span>
+      </div>
+
+      <div style={{ padding: '1.15rem 1.3rem 1.3rem' }}>
+        <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 23, lineHeight: 1.18, color: 'var(--color-ink)', margin: 0 }}>
+          {listing.name}
+        </h3>
+        {(category || loc) && (
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 11.5, letterSpacing: '0.05em', textTransform: 'uppercase', color: tokens.bg, margin: '7px 0 0', lineHeight: 1.4 }}>
+            {[category, loc].filter(Boolean).join('  ·  ')}
+          </p>
+        )}
+        {listing.address && (
+          <p style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 13, color: 'var(--color-muted)', margin: '9px 0 0', lineHeight: 1.45 }}>
+            <svg width="13" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ flexShrink: 0, marginTop: 2 }}>
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" fill="var(--color-accent)" />
+              <circle cx="12" cy="9" r="2.6" fill="#fff" />
+            </svg>
+            {listing.address}
+          </p>
+        )}
+        {excerpt && (
+          <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 13.5, color: 'var(--color-ink)', opacity: 0.82, margin: '11px 0 0', lineHeight: 1.55, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+            {excerpt}
+          </p>
+        )}
+      </div>
+    </a>
+  )
+}
+
 function SearchPageInner() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -219,6 +292,7 @@ function SearchPageInner() {
   const [state, setState] = useState(searchParams.get('state') || '')
   const [region, setRegion] = useState(searchParams.get('region') || '')
   const [autoState, setAutoState] = useState('')  // State detected from query text by API
+  const [autoSuburb, setAutoSuburb] = useState('')  // Suburb detected from query text by API
   const [results, setResults] = useState([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -261,6 +335,7 @@ function SearchPageInner() {
       } else {
         setAutoState('')
       }
+      setAutoSuburb(data.detectedSuburb || '')
       // Track detected vertical for contextual header
       setDetectedVertical(data.detectedVertical || null)
     } catch (e) {
@@ -303,7 +378,7 @@ function SearchPageInner() {
     const count = total.toLocaleString()
     const vertLabel = VERTICAL_LABEL_MAP[vertical]
     const stateLabel = state || autoState
-    const locationLabel = region || stateLabel
+    const locationLabel = region || autoSuburb || stateLabel
 
     if (query && vertical && locationLabel) {
       return `${count} ${vertLabel} results for \u201c${query}\u201d in ${locationLabel}`
@@ -583,8 +658,16 @@ function SearchPageInner() {
         </div>
       ) : (
         <>
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {results.map(listing => (
+          {/* Enlarged top-3 featured results (page 1 only) */}
+          {page === 1 && results.length >= 3 && (
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-5">
+              {results.slice(0, 3).map(listing => (
+                <FeaturedCard key={listing.id} listing={listing} />
+              ))}
+            </div>
+          )}
+          <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {(page === 1 && results.length >= 3 ? results.slice(3) : results).map(listing => (
               <ListingCard key={listing.id} listing={listing} />
             ))}
           </div>
