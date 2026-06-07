@@ -85,19 +85,19 @@ export default function LoginPage() {
         if (error) throw error
         window.location.href = getPostLoginRedirect()
       } else if (mode === 'signup') {
-        const origin = window.location.origin
         const next = returnUrl
           ? `/api/auth/shared?return_url=${encodeURIComponent(returnUrl)}&vertical=${encodeURIComponent(vertical)}`
           : '/account'
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: origin + '/auth/callback?next=' + encodeURIComponent(next),
-          },
+        // Atlas-branded confirmation email (sent server-side via Resend),
+        // not GoTrue's default "Supabase Auth" mail. See app/api/auth/signup.
+        const res = await fetch('/api/auth/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, next }),
         })
-        if (error) throw error
-        setMessage('Check your email for a confirmation link.')
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data.error || 'Could not create your account.')
+        setMessage('Check your email to confirm your account.')
       } else if (mode === 'reset') {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: window.location.origin + '/auth/callback?next=/account',

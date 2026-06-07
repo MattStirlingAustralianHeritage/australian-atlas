@@ -67,14 +67,21 @@ export default function AuthModal({ open, onClose, onAuthSuccess, returnTo }) {
         if (onAuthSuccess) await onAuthSuccess()
         onClose()
       } else if (mode === 'signup') {
-        const origin = window.location.origin
-        const next = callbackNext()
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: origin + '/auth/callback?next=' + encodeURIComponent(next) },
+        // Confirmation lands later in a fresh context, so resume-intent is moot —
+        // send to /account by default, preserving only same-origin relative paths.
+        let next = '/account'
+        try {
+          const u = new URL(callbackNext(), window.location.origin)
+          if (u.origin === window.location.origin) next = u.pathname + u.search
+        } catch { /* keep default */ }
+        // Atlas-branded confirmation email via Resend (see app/api/auth/signup).
+        const res = await fetch('/api/auth/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, next }),
         })
-        if (error) throw error
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data.error || 'Could not create your account.')
         setMessage('Check your email to confirm your account.')
       }
     } catch (err) {
