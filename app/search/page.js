@@ -7,6 +7,7 @@ import SearchAutocomplete from '@/components/SearchAutocomplete'
 import VibeSearch from './VibeSearch'
 import { getListingRegion } from '@/lib/regions'
 import { isApprovedImageSource } from '@/lib/image-utils'
+import { isStrongMatch } from '@/lib/search/relevanceFloor'
 
 import { VERTICAL_STYLES } from '@/components/VerticalBadge'
 
@@ -379,6 +380,10 @@ function SearchPageInner() {
     const vertLabel = VERTICAL_LABEL_MAP[vertical]
     const stateLabel = state || autoState
     const locationLabel = region || autoSuburb || stateLabel
+    // Nothing cleared the relevance floor — relabel honestly (never a confident "results")
+    if (query && results.length > 0 && !results.some(isStrongMatch)) {
+      return `${count} related ${locationLabel ? `listings in ${locationLabel}` : 'listings'} for “${query}”`
+    }
 
     if (query && vertical && locationLabel) {
       return `${count} ${vertLabel} results for \u201c${query}\u201d in ${locationLabel}`
@@ -406,6 +411,16 @@ function SearchPageInner() {
 
   // Contextual header detection
   const contextualHeader = query ? detectContextualHeader(query) : null
+
+  // ── Relevance-floor gating: only results clearing their vertical's calibrated
+  // floor earn the enlarged + badged "Top result" treatment (earned, not positional).
+  const anyStrong = results.some(isStrongMatch)
+  const featured = (page === 1 && results.length >= 3 && anyStrong)
+    ? results.filter(isStrongMatch).slice(0, 3)
+    : []
+  const featuredIds = new Set(featured.map(f => f.id))
+  const gridListings = featured.length > 0 ? results.filter(r => !featuredIds.has(r.id)) : results
+  const weakOnly = results.length > 0 && !anyStrong
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
@@ -658,16 +673,24 @@ function SearchPageInner() {
         </div>
       ) : (
         <>
-          {/* Enlarged top-3 featured results (page 1 only) */}
-          {page === 1 && results.length >= 3 && (
+          {/* Enlarged top-3 — only results that clear the calibrated relevance floor earn it */}
+          {featured.length > 0 && (
             <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-5">
-              {results.slice(0, 3).map(listing => (
+              {featured.map(listing => (
                 <FeaturedCard key={listing.id} listing={listing} />
               ))}
             </div>
           )}
+          {/* Nothing cleared the floor (e.g. a nonsense query): no confident top-3 */}
+          {page === 1 && weakOnly && (
+            <div className="mt-4" style={{ padding: '0.9rem 1.2rem', borderRadius: '0.75rem', border: '0.5px solid var(--color-border)', background: '#fff' }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px', color: 'var(--color-ink)', margin: 0 }}>
+                No strong matches for “{query}”. Closest related listings:
+              </p>
+            </div>
+          )}
           <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {(page === 1 && results.length >= 3 ? results.slice(3) : results).map(listing => (
+            {gridListings.map(listing => (
               <ListingCard key={listing.id} listing={listing} />
             ))}
           </div>
