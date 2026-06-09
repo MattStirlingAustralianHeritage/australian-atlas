@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { extractStateFromPlaceName } from '@/lib/geo/stateDerivation'
+import { anchoredGeocode } from '@/lib/geo/anchoredGeocode'
+import { resolveRegionForCoords } from '@/lib/geo/resolveRegionForCoords'
 
 // ─────────────────────────────────────────────────────────────────────
 // POST /api/admin/candidates/[id]/geocode
@@ -34,29 +36,6 @@ import { extractStateFromPlaceName } from '@/lib/geo/stateDerivation'
 // Returns suggested_region_id=null when the geocoded point falls
 // outside any polygonised region; the caller surfaces a manual-flag.
 // ─────────────────────────────────────────────────────────────────────
-
-async function geocodeAustralianAddress({ address, suburb, state }) {
-  // At least one of {address, suburb} must be present so Mapbox has
-  // something to geocode against. The reviewer flow allows blur of
-  // either field individually — suburb-only is a valid query
-  // ("Adelaide, SA, Australia" → centre of Adelaide).
-  if (!address && !suburb) return null
-  const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || process.env.MAPBOX_ACCESS_TOKEN
-  if (!token) return null
-  try {
-    const parts = [address, suburb, state, 'Australia'].filter(Boolean)
-    const query = parts.join(', ')
-    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?country=au&limit=1&access_token=${token}`
-    const res = await fetch(url)
-    if (!res.ok) return null
-    const data = await res.json()
-    const feature = data.features?.[0]
-    if (!feature) return null
-    return { lat: feature.center[1], lng: feature.center[0], place_name: feature.place_name || null }
-  } catch {
-    return null
-  }
-}
 
 export async function POST(request, { params }) {
   const { id } = await params
@@ -93,8 +72,12 @@ export async function POST(request, { params }) {
     await sb.from('listing_candidates').update(persistPatch).eq('id', id)
   }
 
-  // Geocode.
-  const geo = await geocodeAustralianAddress({ address, suburb, state })
+  // Geocode with a locality anchor: the postcode/suburb validates the precise
+  // result and supplies a town-level fallback for hard-to-address places
+  // (reserves, islands, national parks) whose street string Mapbox can't
+  // resolve — so the pin lands in the right town/region instead of a
+  // same-named street hundreds of km away. See lib/geo/anchoredGeocode.js.
+  const geo = await anchoredGeocode({ address, suburb, state })
 
   if (!geo) {
     return NextResponse.json({
@@ -102,6 +85,7 @@ export async function POST(request, { params }) {
       lng: null,
       place_name: null,
       geocode_failed: true,
+      precision: null,
       suggested_region_id: null,
       suggested_region_name: null,
     })
@@ -111,7 +95,7 @@ export async function POST(request, { params }) {
   // explicitly provide one) to the candidate row.
   const geoPatch = { lat: geo.lat, lng: geo.lng }
   if (!state) {
-    const derivedState = extractStateFromPlaceName(geo.place_name)
+    const derivedState = geo.derivedState || extractStateFromPlaceName(geo.placeName)
     if (derivedState) {
       geoPatch.state = derivedState
       console.log(`[geocode] Derived state ${derivedState} from place_name for candidate ${id}`)
@@ -122,19 +106,19 @@ export async function POST(request, { params }) {
     .update(geoPatch)
     .eq('id', id)
 
-  // Spatial-containment lookup. NULL when the point falls in any of the
-  // 13 unpolygonised draft regions or outside any region entirely.
-  const { data: matches } = await sb.rpc('find_containing_region', {
-    p_lat: geo.lat,
-    p_lng: geo.lng,
+  // Region suggestion: spatial containment first, then nearest region centre
+  // (state-filtered) so far-flung points outside every polygon — e.g. the far
+  // south coast — still pre-fill a sensible region rather than nothing.
+  const region = await resolveRegionForCoords(sb, geo.lat, geo.lng, {
+    state: geoPatch.state || state || null,
   })
-  const region = matches?.[0] || null
 
   return NextResponse.json({
     lat: geo.lat,
     lng: geo.lng,
-    place_name: geo.place_name,
+    place_name: geo.placeName,
     geocode_failed: false,
+    precision: geo.precision,
     suggested_region_id: region?.id || null,
     suggested_region_name: region?.name || null,
   })

@@ -5,6 +5,8 @@
 // ============================================================
 
 import { createClient } from '@supabase/supabase-js'
+import { anchoredGeocode } from '../lib/geo/anchoredGeocode.js'
+import { resolveRegionForCoords } from '../lib/geo/resolveRegionForCoords.js'
 
 const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || process.env.MAPBOX_ACCESS_TOKEN
@@ -27,41 +29,25 @@ function haversine(lat1, lng1, lat2, lng2) {
   return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
-// ── Geocode via Mapbox ──────────────────────────────────────
-async function geocode(address, state) {
-  const query = [address, state, 'Australia'].filter(Boolean).join(', ')
-  const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?country=au&limit=1&access_token=${MAPBOX_TOKEN}`
-  const res = await fetch(url)
-  if (!res.ok) return null
-  const data = await res.json()
-  const feat = data.features?.[0]
-  if (!feat) return null
+// ── Geocode via the shared anchored geocoder ─────────────────
+// Postcode/suburb-anchored so a low-relevance street string can't drag the pin
+// into a same-named street in another region. Returns the same shape the rest
+// of this script expects, plus `precision`.
+async function geocode(address, state, suburb) {
+  const r = await anchoredGeocode({ address, suburb, state }, { token: MAPBOX_TOKEN })
+  if (!r) return null
   return {
-    lat: feat.center[1],
-    lng: feat.center[0],
-    relevance: feat.relevance || 0,
-    place_name: feat.place_name || '',
+    lat: r.lat,
+    lng: r.lng,
+    relevance: r.relevance || 0,
+    place_name: r.placeName || '',
+    precision: r.precision,
   }
 }
 
-// ── Fetch all regions for nearest-region assignment ──────────
-async function loadRegions() {
-  const { data } = await sb
-    .from('regions')
-    .select('name, state, center_lat, center_lng')
-    .not('center_lat', 'is', null)
-    .not('center_lng', 'is', null)
-  return data || []
-}
-
-function nearestRegion(lat, lng, regions) {
-  let nearest = null, minDist = Infinity
-  for (const r of regions) {
-    const dist = haversine(lat, lng, r.center_lat, r.center_lng)
-    if (dist < minDist) { minDist = dist; nearest = r }
-  }
-  return minDist < 150 ? { name: nearest.name, dist: minDist } : null
-}
+// Region re-assignment now uses the shared resolveRegionForCoords helper
+// (polygon containment + nearest-centre fallback writing the FK), so this
+// script no longer needs to preload region centres itself.
 
 // ── Main ────────────────────────────────────────────────────
 async function main() {
@@ -70,16 +56,13 @@ async function main() {
   console.log(DRY_RUN ? '=== DRY RUN (no writes) ===' : '=== LIVE RUN ===')
   console.log(`Threshold: ${MIN_ERROR_M}m | Min relevance: ${MIN_RELEVANCE}\n`)
 
-  const regions = await loadRegions()
-  console.log(`Loaded ${regions.length} regions for re-assignment\n`)
-
   // Fetch all active listings with addresses and coordinates
   let allListings = []
   let offset = 0
   while (true) {
     const { data, error } = await sb
       .from('listings')
-      .select('id, name, slug, address, state, region, lat, lng, vertical')
+      .select('id, name, slug, address, state, suburb, region, lat, lng, vertical')
       .eq('status', 'active')
       .not('address', 'is', null)
       .not('lat', 'is', null)
@@ -126,7 +109,7 @@ async function main() {
     }
 
     try {
-      const geo = await geocode(l.address, l.state)
+      const geo = await geocode(l.address, l.state, l.suburb)
       if (!geo) { errors++; continue }
 
       // Skip low-confidence results
@@ -175,13 +158,22 @@ async function main() {
       // This listing needs fixing
       const update = { lat: geo.lat, lng: geo.lng, updated_at: new Date().toISOString() }
 
-      // Check if region should change too — only for corrections <50km
-      // (large moves risk assigning completely wrong regions)
-      const regionMatch = distKm < 50 ? nearestRegion(geo.lat, geo.lng, regions) : null
+      // Region re-assignment. The trigger recomputes region_computed_id from the
+      // new lat/lng; we only need to set the FK override when the point lands
+      // outside every polygon (nearest-centre fallback). The legacy `region`
+      // text column is display-dead — the detail page reads the FK — so we mirror
+      // it for the vertical push only. Limited to <50km corrections; bigger moves
+      // are flagged above, never silently re-regioned.
       let regionChanged = false
-      if (regionMatch && regionMatch.name !== l.region) {
-        update.region = regionMatch.name
-        regionChanged = true
+      if (distKm < 50) {
+        const region = await resolveRegionForCoords(sb, geo.lat, geo.lng, { state: l.state })
+        if (region) {
+          if (region.name !== l.region) {
+            update.region = region.name
+            regionChanged = true
+          }
+          if (region.source === 'nearest') update.region_override_id = region.id
+        }
       }
 
       const fixRecord = {
