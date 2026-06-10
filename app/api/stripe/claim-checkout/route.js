@@ -78,7 +78,7 @@ export async function POST(request) {
   } catch (error) {
     console.error('[claim-checkout] Error:', error)
     return NextResponse.json(
-      { error: error.message || 'Failed to create checkout session' },
+      { error: 'Payment could not be started. Please try again, or contact listings@australianatlas.com.au.' },
       { status: 500 }
     )
   }

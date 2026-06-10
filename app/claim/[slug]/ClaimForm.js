@@ -90,7 +90,6 @@ export default function ClaimForm({ listingId, listingName, slug, vertColor }) {
         // error and keep the operator on the form.
         console.error('Stripe checkout failed:', checkoutData.error)
         setError(
-          (checkoutData.error ? `${checkoutData.error} — ` : '') +
           'We couldn’t start payment for the Standard tier. Your claim has been saved as pending; ' +
           'choose the Free tier to finish now, or contact listings@australianatlas.com.au to complete the upgrade.'
         )
