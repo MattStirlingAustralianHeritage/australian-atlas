@@ -15,7 +15,7 @@ export async function GET() {
     const sb = getSupabaseAdmin()
     const { data, error } = await sb
       .from('events')
-      .select('id, name, slug, description, location, start_date, end_date, submitter_email, submitter_name, status, stripe_payment_intent_id, submitted_at, approved_at, created_at')
+      .select('id, name, slug, description, location_name, start_date, end_date, submitter_email, submitter_name, status, stripe_payment_intent_id, submitted_at, approved_at')
       .eq('status', 'pending')
       .order('submitted_at', { ascending: true })
 
