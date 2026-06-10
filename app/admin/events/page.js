@@ -149,7 +149,7 @@ export default function AdminEventsPage() {
                       ))}
                       {event.payment_status && (
                         <span className={`text-xs px-2.5 py-1 rounded-full ${
-                          event.payment_status === 'succeeded'
+                          event.payment_status === 'paid'
                             ? 'bg-green-100 text-green-800'
                             : 'bg-yellow-100 text-yellow-800'
                         }`}>
