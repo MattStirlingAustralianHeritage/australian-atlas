@@ -8,6 +8,33 @@ import {
   StaysOnlyRender,
 } from '@/components/PlanAStayTripRender'
 import RegionMapSelect from '@/components/RegionMapSelect'
+import AuthModal from '@/components/AuthModal'
+
+/* ─── Trip persistence helpers ───────────────────────────────────────────
+   Build the exact payload sent to /share and /save. Visitor accommodation
+   picks (lifted into OutputScreen) are folded into the trip's days so the
+   stored trip matches what was on screen.                                */
+function buildTripPayload(tripData, accommodationByDay) {
+  const payload = { answers: tripData._answers || {} }
+  if (tripData.stays_only) {
+    payload.stays_only = tripData.stays_only
+  } else {
+    const byDay = accommodationByDay || {}
+    payload.trip = {
+      ...tripData.trip,
+      days: (tripData.trip.days || []).map(d => ({
+        ...d,
+        accommodation: byDay[d.day_number] || null,
+      })),
+    }
+  }
+  return payload
+}
+
+// Stash key + query flag for resuming a save across a Google OAuth redirect
+// (the trip lives only in client state, so we carry it through sessionStorage).
+const RESUME_SAVE_KEY = 'pas:resumeSave'
+const RESUME_QUERY = 'save'
 
 /* ─── Region data ────────────────────────────────────────────────────────
    Regions with ≥5 active Rest listings, derived live from threshold
@@ -779,7 +806,7 @@ function LoadingScreen({ state, onComplete, onError }) {
 }
 
 /* ─── Output screen — real trip rendering ────────────────────────────── */
-function OutputScreen({ tripData, error, onReset }) {
+function OutputScreen({ tripData, error, onReset, resumePayload }) {
   const [shareState, setShareState] = useState('idle') // idle | sharing | shared | error
   const [shareUrl, setShareUrl] = useState(null)
   // Accommodation the visitor picks per day (day_number → stay), lifted here
@@ -886,6 +913,7 @@ function OutputScreen({ tripData, error, onReset }) {
           setShareState={setShareState}
           shareUrl={shareUrl}
           setShareUrl={setShareUrl}
+          resumePayload={resumePayload}
         />
       </div>
     )
@@ -905,6 +933,7 @@ function OutputScreen({ tripData, error, onReset }) {
         setShareState={setShareState}
         shareUrl={shareUrl}
         setShareUrl={setShareUrl}
+        resumePayload={resumePayload}
       />
     </div>
   )
@@ -912,30 +941,18 @@ function OutputScreen({ tripData, error, onReset }) {
 
 
 /* ─── Action buttons (Share / Save / Start over) ─────────────────────── */
-function ActionButtons({ tripData, accommodationByDay, onReset, shareState, setShareState, shareUrl, setShareUrl }) {
+function ActionButtons({ tripData, accommodationByDay, onReset, shareState, setShareState, shareUrl, setShareUrl, resumePayload }) {
+  const [saveState, setSaveState] = useState('idle') // idle | saving | saved | error
+  const [savedUrl, setSavedUrl] = useState(null)
+  const [authOpen, setAuthOpen] = useState(false)
+  const resumeFiredRef = useRef(false)
+
   async function handleShare() {
     if (shareState === 'sharing') return
 
     setShareState('sharing')
     try {
-      const payload = {
-        answers: tripData._answers || {},
-      }
-
-      if (tripData.stays_only) {
-        payload.stays_only = tripData.stays_only
-      } else {
-        // Fold the visitor's accommodation choices into the saved trip so
-        // the shared page shows the same stays they picked.
-        const byDay = accommodationByDay || {}
-        payload.trip = {
-          ...tripData.trip,
-          days: (tripData.trip.days || []).map(d => ({
-            ...d,
-            accommodation: byDay[d.day_number] || null,
-          })),
-        }
-      }
+      const payload = buildTripPayload(tripData, accommodationByDay)
 
       const res = await fetch('/api/plan-a-stay/share', {
         method: 'POST',
@@ -965,11 +982,74 @@ function ActionButtons({ tripData, accommodationByDay, onReset, shareState, setS
     }
   }
 
+  /* ── Save to account ──────────────────────────────────────────────
+     Attempt the save; a 401 means "not signed in" — stash the trip and
+     open the sign-in modal. Email/password resolves synchronously and we
+     retry inline; Google OAuth redirects and resumes via RESUME_QUERY.  */
+  const doSave = useCallback(async (explicitPayload) => {
+    if (saveState === 'saving' || saveState === 'saved') return
+    setSaveState('saving')
+    const payload = explicitPayload || buildTripPayload(tripData, accommodationByDay)
+    try {
+      const res = await fetch('/api/plan-a-stay/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (res.status === 401) {
+        // Not signed in — keep the trip for an OAuth round-trip, then prompt.
+        try { sessionStorage.setItem(RESUME_SAVE_KEY, JSON.stringify({ tripData, payload })) } catch {}
+        setSaveState('idle')
+        setAuthOpen(true)
+        return
+      }
+      if (!res.ok) throw new Error(`Save failed: ${res.status}`)
+      const result = await res.json()
+      setSavedUrl(`${window.location.origin}${result.url}`)
+      setSaveState('saved')
+    } catch (err) {
+      console.error('[plan-a-stay] Save error:', err)
+      setSaveState('error')
+      setTimeout(() => setSaveState('idle'), 3000)
+    }
+  }, [saveState, tripData, accommodationByDay])
+
+  // After a Google OAuth round-trip, the restored trip arrives as
+  // resumePayload — fire the save once.
+  useEffect(() => {
+    if (!resumePayload || resumeFiredRef.current) return
+    resumeFiredRef.current = true
+    doSave(resumePayload)
+  }, [resumePayload, doSave])
+
+  async function handleAuthSuccess() {
+    // Email/password sign-in resolved in the modal — retry the save now.
+    setAuthOpen(false)
+    try { sessionStorage.removeItem(RESUME_SAVE_KEY) } catch {}
+    await doSave()
+  }
+
+  // returnTo must be a PATH: /auth/callback redirects to `${origin}${next}`,
+  // so a full URL would double the origin.
+  const returnTo = typeof window !== 'undefined'
+    ? (() => {
+        const u = new URL(window.location.href)
+        u.searchParams.set(RESUME_QUERY, 'resume')
+        return u.pathname + u.search
+      })()
+    : undefined
+
   const shareLabel =
     shareState === 'sharing' ? 'Sharing…' :
     shareState === 'shared' ? 'Link copied' :
     shareState === 'error' ? 'Failed — try again' :
     'Share'
+
+  const saveLabel =
+    saveState === 'saving' ? 'Saving…' :
+    saveState === 'saved' ? 'Saved' :
+    saveState === 'error' ? 'Failed — try again' :
+    'Save to account'
 
   return (
     <div style={{
@@ -986,21 +1066,22 @@ function ActionButtons({ tripData, accommodationByDay, onReset, shareState, setS
       }}>
         <div style={{ display: 'flex', gap: 12 }}>
           <button
-            disabled
+            onClick={() => doSave()}
+            disabled={saveState === 'saving' || saveState === 'saved'}
             style={{
               fontFamily: 'var(--font-body)',
               fontWeight: 500,
               fontSize: 14,
-              color: 'var(--color-muted, #6B6760)',
+              color: saveState === 'saved' ? '#5a7c5a' : 'var(--color-ink, #1C1A17)',
               background: 'transparent',
-              border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
+              border: `1px solid ${saveState === 'saved' ? 'rgba(90,124,90,0.3)' : 'var(--color-border, rgba(28,26,23,0.12))'}`,
               borderRadius: 8,
               padding: '10px 24px',
-              cursor: 'not-allowed',
-              opacity: 0.5,
+              cursor: saveState === 'saving' ? 'wait' : saveState === 'saved' ? 'default' : 'pointer',
+              transition: 'border-color 0.2s ease, color 0.2s ease',
             }}
           >
-            Save to account — coming later
+            {saveLabel}
           </button>
           <button
             onClick={handleShare}
@@ -1055,7 +1136,32 @@ function ActionButtons({ tripData, accommodationByDay, onReset, shareState, setS
             {shareUrl}
           </p>
         )}
+
+        {/* Confirmation after saving to account */}
+        {saveState === 'saved' && (
+          <p style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: 12,
+            color: 'var(--color-muted, #6B6760)',
+            margin: '4px 0 0',
+          }}>
+            Saved to your account —{' '}
+            <a
+              href="/account/trails"
+              style={{ color: '#5a7c5a', textDecoration: 'underline' }}
+            >
+              view in My Trails
+            </a>
+          </p>
+        )}
       </div>
+
+      <AuthModal
+        open={authOpen}
+        onClose={() => setAuthOpen(false)}
+        onAuthSuccess={handleAuthSuccess}
+        returnTo={returnTo}
+      />
     </div>
   )
 }
@@ -1067,11 +1173,35 @@ export default function PlanAStayV2Client({ regions = [] }) {
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE)
   const [tripData, setTripData] = useState(null)
   const [tripError, setTripError] = useState(null)
+  // Carries a stashed trip back to the output screen after a Google OAuth
+  // round-trip so the save can resume (see ActionButtons.doSave).
+  const [resumePayload, setResumePayload] = useState(null)
   const autoAdvanceTimer = useRef(null)
 
   // Clean up any pending auto-advance on unmount
   useEffect(() => {
     return () => { if (autoAdvanceTimer.current) clearTimeout(autoAdvanceTimer.current) }
+  }, [])
+
+  /* ── Resume a save after returning from OAuth sign-in ─────────────── */
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get(RESUME_QUERY) !== 'resume') return
+
+    // Strip the flag so a refresh doesn't re-trigger the resume.
+    params.delete(RESUME_QUERY)
+    const qs = params.toString()
+    window.history.replaceState({}, '', window.location.pathname + (qs ? '?' + qs : '') + window.location.hash)
+
+    let stash = null
+    try { stash = JSON.parse(sessionStorage.getItem(RESUME_SAVE_KEY) || 'null') } catch {}
+    try { sessionStorage.removeItem(RESUME_SAVE_KEY) } catch {}
+    if (!stash?.tripData || !stash?.payload) return
+
+    setTripData(stash.tripData)
+    setResumePayload(stash.payload)
+    dispatch({ type: 'GO_TO_STEP', value: 'output' })
   }, [])
 
   /* ── Auto-advance helper for single-select questions ─────────────── */
@@ -1094,6 +1224,7 @@ export default function PlanAStayV2Client({ regions = [] }) {
     // Attach answers so the Share button can send them to the share endpoint
     setTripData({ ...assembled, _answers: answers })
     setTripError(null)
+    setResumePayload(null)   // a fresh trip is not a resume
     dispatch({ type: 'GO_TO_STEP', value: 'output' })
   }, [])
 
@@ -1105,6 +1236,7 @@ export default function PlanAStayV2Client({ regions = [] }) {
   function handleReset() {
     setTripData(null)
     setTripError(null)
+    setResumePayload(null)
     dispatch({ type: 'RESET' })
   }
 
@@ -1350,6 +1482,7 @@ export default function PlanAStayV2Client({ regions = [] }) {
             tripData={tripData}
             error={tripError}
             onReset={handleReset}
+            resumePayload={resumePayload}
           />
         )}
       </div>

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { generateShareSlug, fingerprintFor, tripTitle } from '@/lib/plan-a-stay/share-util'
 
 export const runtime = 'nodejs'
 
@@ -8,42 +9,9 @@ export const runtime = 'nodejs'
    ═══════════════════════════════════════════════════════════════════════
    Persists a finished trip on demand (when the user clicks Share).
    Idempotent: sharing the same trip twice returns the same slug.
-   The trip JSON is frozen — what was shown is what gets stored.        */
-
-
-/* ─── Slugify ─────────────────────────────────────────────────────────── */
-function slugify(text) {
-  return text
-    .toLowerCase()
-    .replace(/['']/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 60)
-}
-
-function generateShareSlug(title) {
-  const base = slugify(title)
-  const suffix = Math.random().toString(36).slice(2, 6)
-  return `${base}-${suffix}`
-}
-
-
-/* ─── Fingerprint for idempotency ─────────────────────────────────────
-   Two trips are "the same" if they have the same region, intent,
-   pacing, duration, and identical stop list. We hash the stop IDs
-   per day to avoid re-persisting the exact same result.               */
-function tripFingerprint(answers, trip) {
-  const stopIds = (trip.days || [])
-    .flatMap(d => (d.stops || []).map(s => s.listing_id))
-    .join(',')
-  return [
-    answers.region || '',
-    (answers.intent || []).sort().join('+'),
-    answers.pacing || '',
-    answers.duration || '',
-    stopIds,
-  ].join('|')
-}
+   The trip JSON is frozen — what was shown is what gets stored.
+   Slug + fingerprint helpers live in lib/plan-a-stay/share-util so the
+   Save (account) endpoint stays in lockstep.                           */
 
 
 export async function POST(request) {
@@ -70,9 +38,7 @@ export async function POST(request) {
 
     // ── Idempotency check ───────────────────────────────────────────
     // Build a fingerprint and check if we already persisted this exact trip.
-    const fingerprint = trip
-      ? tripFingerprint(answers, trip)
-      : `stays_only|${answers.region}|${(answers.intent || []).join('+')}`
+    const fingerprint = fingerprintFor(answers, trip, stays_only)
 
     const { data: existing } = await sb
       .from('plan_a_stay_trips')
@@ -90,7 +56,7 @@ export async function POST(request) {
     }
 
     // ── Generate slug ────────────────────────────────────────────────
-    const title = trip?.title || `${answers.region || 'Trip'} stays`
+    const title = tripTitle(answers, trip)
     const shareSlug = generateShareSlug(title)
 
     // ── Persist ──────────────────────────────────────────────────────

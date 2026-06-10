@@ -9,6 +9,7 @@ import TrailActions from './TrailActions'
 export default function MyTrailsPage() {
   const [user, setUser] = useState(null)
   const [trails, setTrails] = useState([])
+  const [savedStays, setSavedStays] = useState([])
   const [loading, setLoading] = useState(true)
   const router = useRouter()
   const supabase = getAuthSupabase()
@@ -22,15 +23,30 @@ export default function MyTrailsPage() {
       }
       setUser(user)
 
-      try {
-        const res = await fetch(`/api/trails?created_by=${user.id}&limit=100`)
-        if (res.ok) {
-          const data = await res.json()
-          setTrails(data.trails || [])
-        }
-      } catch (err) {
-        console.error('Failed to fetch trails:', err)
-      }
+      await Promise.all([
+        (async () => {
+          try {
+            const res = await fetch(`/api/trails?created_by=${user.id}&limit=100`)
+            if (res.ok) {
+              const data = await res.json()
+              setTrails(data.trails || [])
+            }
+          } catch (err) {
+            console.error('Failed to fetch trails:', err)
+          }
+        })(),
+        (async () => {
+          try {
+            const res = await fetch('/api/plan-a-stay/saved')
+            if (res.ok) {
+              const data = await res.json()
+              setSavedStays(data.trips || [])
+            }
+          } catch (err) {
+            console.error('Failed to fetch saved stays:', err)
+          }
+        })(),
+      ])
 
       setLoading(false)
     }
@@ -47,6 +63,23 @@ export default function MyTrailsPage() {
       }
     } catch (err) {
       console.error('Failed to reload trails:', err)
+    }
+  }
+
+  async function removeSavedStay(slug) {
+    // Optimistic: drop it from the list, restore on failure.
+    const prev = savedStays
+    setSavedStays(prev.filter(s => s.slug !== slug))
+    try {
+      const res = await fetch('/api/plan-a-stay/saved', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug }),
+      })
+      if (!res.ok) throw new Error('remove failed')
+    } catch (err) {
+      console.error('Failed to remove saved stay:', err)
+      setSavedStays(prev)
     }
   }
 
@@ -134,7 +167,7 @@ export default function MyTrailsPage() {
         </div>
 
         {/* Empty state */}
-        {trails.length === 0 && (
+        {trails.length === 0 && savedStays.length === 0 && (
           <div style={{
             textAlign: 'center',
             padding: '4rem 2rem',
@@ -195,7 +228,104 @@ export default function MyTrailsPage() {
             ))}
           </div>
         )}
+
+        {/* Saved stays (from Plan a Stay) */}
+        {savedStays.length > 0 && (
+          <div style={{ marginTop: trails.length > 0 ? '2.5rem' : 0 }}>
+            <h2 style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: '1.25rem',
+              fontWeight: 600,
+              color: 'var(--color-ink)',
+              margin: '0 0 0.25rem',
+            }}>
+              Saved stays
+            </h2>
+            <p style={{
+              fontFamily: 'var(--font-body)',
+              fontSize: '0.85rem',
+              color: 'var(--color-muted)',
+              margin: '0 0 1rem',
+            }}>
+              Trips you saved from <Link href="/plan-a-stay-v2" style={{ color: 'var(--color-sage, #5A7A6B)' }}>Plan a Stay</Link>.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {savedStays.map(stay => (
+                <SavedStayCard key={stay.slug} stay={stay} onRemove={removeSavedStay} />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
+    </div>
+  )
+}
+
+function SavedStayCard({ stay, onRemove }) {
+  const savedDate = stay.created_at
+    ? new Date(stay.created_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
+    : null
+
+  const meta = []
+  if (stay.day_count > 0) meta.push(`${stay.day_count} ${stay.day_count === 1 ? 'day' : 'days'}`)
+  if (stay.stop_count > 0) meta.push(`${stay.stop_count} ${stay.stop_count === 1 ? 'stop' : 'stops'}`)
+  if (stay.region) meta.push(stay.region)
+  if (savedDate) meta.push(savedDate)
+
+  return (
+    <div style={{
+      background: '#fff',
+      borderRadius: '12px',
+      border: '1px solid var(--color-border)',
+      padding: '1.25rem',
+      display: 'flex',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      gap: '0.75rem',
+    }}>
+      <div>
+        <Link
+          href={`/trip/${stay.slug}`}
+          style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: '1.1rem',
+            fontWeight: 600,
+            color: 'var(--color-ink)',
+            textDecoration: 'none',
+            lineHeight: 1.3,
+          }}
+        >
+          {stay.title}
+        </Link>
+        <div style={{
+          fontFamily: 'var(--font-body)',
+          fontSize: '0.8rem',
+          color: 'var(--color-muted)',
+          marginTop: '0.4rem',
+        }}>
+          {meta.join('  ·  ')}
+        </div>
+      </div>
+      <button
+        onClick={() => onRemove(stay.slug)}
+        aria-label={`Remove ${stay.title} from saved`}
+        style={{
+          flexShrink: 0,
+          background: 'transparent',
+          border: 'none',
+          color: 'var(--color-muted)',
+          cursor: 'pointer',
+          padding: '4px',
+          display: 'flex',
+          alignItems: 'center',
+        }}
+        onMouseOver={(e) => e.currentTarget.style.color = '#b91c1c'}
+        onMouseOut={(e) => e.currentTarget.style.color = 'var(--color-muted)'}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M18 6 6 18M6 6l12 12" />
+        </svg>
+      </button>
     </div>
   )
 }
