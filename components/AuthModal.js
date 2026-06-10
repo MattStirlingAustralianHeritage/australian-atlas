@@ -82,7 +82,15 @@ export default function AuthModal({ open, onClose, onAuthSuccess, returnTo }) {
         })
         const data = await res.json().catch(() => ({}))
         if (!res.ok) throw new Error(data.error || 'Could not create your account.')
-        setMessage('Check your email to confirm your account.')
+        if (data.requiresEmailConfirmation === false) {
+          // Email couldn't be sent, so the account was auto-confirmed — sign in now.
+          const { error: signErr } = await supabase.auth.signInWithPassword({ email, password })
+          if (signErr) throw signErr
+          if (onAuthSuccess) await onAuthSuccess()
+          onClose()
+        } else {
+          setMessage('Check your email to confirm your account.')
+        }
       }
     } catch (err) {
       setError(err.message)

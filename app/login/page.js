@@ -97,7 +97,14 @@ export default function LoginPage() {
         })
         const data = await res.json().catch(() => ({}))
         if (!res.ok) throw new Error(data.error || 'Could not create your account.')
-        setMessage('Check your email to confirm your account.')
+        if (data.requiresEmailConfirmation === false) {
+          // Email couldn't be sent, so the account was auto-confirmed — sign in now.
+          const { error: signErr } = await supabase.auth.signInWithPassword({ email, password })
+          if (signErr) throw signErr
+          window.location.href = getPostLoginRedirect()
+        } else {
+          setMessage('Check your email to confirm your account.')
+        }
       } else if (mode === 'reset') {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: window.location.origin + '/auth/callback?next=/account',

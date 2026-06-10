@@ -68,34 +68,53 @@ export async function POST(request) {
   }
 
   const tokenHash = data?.properties?.hashed_token
-  if (!tokenHash) {
-    console.error('[auth/signup] generateLink returned no hashed_token')
+  const userId = data?.user?.id
+  if (!tokenHash || !userId) {
+    console.error('[auth/signup] generateLink returned no hashed_token / user id')
     return NextResponse.json({ error: 'Could not create your account. Please try again.' }, { status: 500 })
   }
 
   const confirmationUrl =
     `${origin}/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=signup&next=${encodeURIComponent(next)}`
 
-  if (!process.env.RESEND_API_KEY) {
-    console.error('[auth/signup] RESEND_API_KEY not set — cannot send confirmation email')
-    return NextResponse.json({ error: 'Email is not configured. Please contact support.' }, { status: 500 })
+  // Try to send OUR branded confirmation email. If it can't be sent — most
+  // commonly because the Resend sending domain isn't verified yet (see
+  // docs/auth-email-setup.md) — we do NOT dead-end the signup. We fall back to
+  // confirming the account server-side so the person can sign in immediately
+  // (the client then signs them straight in). This is self-healing: the day the
+  // domain is verified the send succeeds and the proper click-to-confirm flow
+  // resumes automatically, with no code change.
+  let emailSent = false
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const { Resend } = await import('resend')
+      const resend = new Resend(process.env.RESEND_API_KEY)
+      const { from, replyTo, subject, html } = signupConfirmationEmail({ confirmationUrl })
+      const { error: sendErr } = await resend.emails.send({ from, replyTo, to: email, subject, html })
+      if (sendErr) throw new Error(sendErr.message || 'send failed')
+      emailSent = true
+    } catch (err) {
+      console.error('[auth/signup] confirmation email send failed — auto-confirming instead:', err.message)
+    }
+  } else {
+    console.error('[auth/signup] RESEND_API_KEY not set — auto-confirming instead')
   }
 
-  try {
-    const { Resend } = await import('resend')
-    const resend = new Resend(process.env.RESEND_API_KEY)
-    const { from, replyTo, subject, html } = signupConfirmationEmail({ confirmationUrl })
-    const { error: sendErr } = await resend.emails.send({ from, replyTo, to: email, subject, html })
-    if (sendErr) throw new Error(sendErr.message || 'send failed')
-  } catch (err) {
-    // The user row now exists (unconfirmed). A retry regenerates the link and
-    // re-sends, so we don't delete here — just surface a retryable error.
-    console.error('[auth/signup] confirmation email send failed:', err.message)
+  if (emailSent) {
+    // Proper flow: the user must click the emailed link to activate the account.
+    return NextResponse.json({ success: true, requiresEmailConfirmation: true }, { status: 200 })
+  }
+
+  // Fallback: confirm the just-created (still unconfirmed) user so signup never
+  // dead-ends on a mail outage. The client signs them in with the password they
+  // just chose (already proven to work end-to-end).
+  const { error: confirmErr } = await sb.auth.admin.updateUserById(userId, { email_confirm: true })
+  if (confirmErr) {
+    console.error('[auth/signup] auto-confirm failed:', confirmErr.message)
     return NextResponse.json(
-      { error: 'We could not send your confirmation email. Please try again shortly.' },
+      { error: 'We could not finish creating your account. Please try again shortly.' },
       { status: 502 }
     )
   }
-
-  return NextResponse.json({ success: true }, { status: 200 })
+  return NextResponse.json({ success: true, requiresEmailConfirmation: false }, { status: 200 })
 }
