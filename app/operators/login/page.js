@@ -45,13 +45,15 @@ export default function OperatorLoginPage() {
     setLoading(true)
 
     try {
-      const supabase = getAuthSupabase()
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/operators/login`,
+      // Atlas-branded reset email sent server-side via Resend (see app/api/auth/email-link).
+      const res = await fetch('/api/auth/email-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'recovery', email, next: '/operators/login' }),
       })
-
-      if (resetError) {
-        setError(resetError.message || 'Failed to send reset email')
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setError(data.error || 'Failed to send reset email')
       } else {
         setMessage('If an account exists with that email, you will receive a password reset link.')
       }

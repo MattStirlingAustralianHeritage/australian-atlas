@@ -54,17 +54,17 @@ export default function LoginPage() {
     setMessage('')
     setLoading(true)
     try {
-      const origin = window.location.origin
       const next = returnUrl
         ? `/api/auth/shared?return_url=${encodeURIComponent(returnUrl)}&vertical=${encodeURIComponent(vertical)}`
         : '/account'
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: origin + '/auth/callback?next=' + encodeURIComponent(next),
-        },
+      // Atlas-branded magic link sent server-side via Resend (see app/api/auth/email-link).
+      const res = await fetch('/api/auth/email-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'magiclink', email, next }),
       })
-      if (error) throw error
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Could not send your sign-in link.')
       setMessage('Check your email for a sign-in link.')
     } catch (err) {
       setError(err.message)
@@ -106,10 +106,14 @@ export default function LoginPage() {
           setMessage('Check your email to confirm your account.')
         }
       } else if (mode === 'reset') {
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: window.location.origin + '/auth/callback?next=/account',
+        // Atlas-branded reset email sent server-side via Resend (see app/api/auth/email-link).
+        const res = await fetch('/api/auth/email-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'recovery', email, next: '/account' }),
         })
-        if (error) throw error
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok) throw new Error(data.error || 'Could not send your reset email.')
         setMessage('Check your email for a password reset link.')
       }
     } catch (err) {
