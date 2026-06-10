@@ -42,10 +42,16 @@ so the callback's `exchangeCodeForSession` path can't complete them; the `token_
 **Design source of truth:** `lib/email/authEmails.js` mirrors `supabase/templates/confirmation.html`.
 If you edit the look, edit both (keep them in sync).
 
-**Verified (2026-06-05, dev):** route rejects invalid input (400s, no user/email);
-`generateLink → verifyOtp` proven end-to-end against prod Auth via a throwaway
-create→verify→delete probe (session returned, user cleaned up). NOT yet deployed to prod
-and no live Resend send tested (would create a real user + email).
+**Status — LIVE on prod (updated 2026-06-10):** the app-side signup route is deployed
+(`a8b6d6f`) and verification emails are sending — a real prod signup returns
+`{success:true,requiresEmailConfirmation:true}` and the branded Confirm-email message
+goes out via Resend. The route is also self-healing: if the Resend send ever fails it
+falls back to auto-confirming the account so signup never dead-ends. Reaching this state
+required (a) actually verifying `australianatlas.com.au` in Resend and (b) rotating
+`RESEND_API_KEY` to a key in the **same** Resend account as the verified domain — see the
+corrected note in §below. (Originally, 2026-06-05: mechanic proven in dev via a throwaway
+create→verify→delete probe, but it was NOT yet deployed and no live Resend send had been
+tested — that gap is now closed.)
 
 ---
 
@@ -60,8 +66,13 @@ the app-side signup route, signup still sends exactly one email — the app-side
 password recovery, email change) is generated and sent by Supabase's built-in mail
 service, so the sender shows as **"Supabase Auth"** with stock templates. Routing GoTrue
 through Resend re-brands all of them at once and lifts the built-in rate limit
-(~3–4/hr). The domain `australianatlas.com.au` is already verified in Resend (every
-app-side `Resend` send uses it), so no new domain verification is required.
+(~3–4/hr). The domain `australianatlas.com.au` is verified in Resend **as of 2026-06-10**
+(account `stirling.mattski`, region ap-northeast-1) — it was NOT before; an earlier
+version of this doc wrongly asserted it was "already verified", and that false assumption
+masked a full prod transactional-email outage (every `@australianatlas.com.au` send
+403'd). CRITICAL: the app's `RESEND_API_KEY` must belong to the **same** Resend account as
+the verified domain — a key from a different account 403s with "domain is not verified"
+even while the dashboard shows the domain green.
 
 **End state:** someone creates an account → receives a branded, editorial **verification
 link from Australian Atlas** (`confirmation.html`), not a "Supabase Auth" email. That
@@ -84,7 +95,8 @@ Enable **Custom SMTP** and enter:
 | Sender name | `Australian Atlas` |
 
 Notes:
-- The Resend account's `australianatlas.com.au` domain must remain verified (it is).
+- The Resend account's `australianatlas.com.au` domain must remain verified (verified
+  2026-06-10), AND `RESEND_API_KEY` must be a key from that same Resend account.
 - `noreply@australianatlas.com.au` is already the `from:` used by the app's transactional
   Resend sends (e.g. `app/api/admin/claims/route.js`), so it's a known-good sender.
 - Port 465 is implicit-TLS. If GoTrue reports TLS issues, 587 (STARTTLS) is the fallback;
