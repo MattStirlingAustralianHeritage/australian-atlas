@@ -162,7 +162,11 @@ async function handleApprove({ claimId, vertical, sourceClaimId, usingPortalTabl
     const claimantName = claimRecord?.claimant_name
     const venueName = listingRecord?.name || ''
     const verticalName = VERTICAL_NAMES[effectiveVertical] || effectiveVertical || 'Australian Atlas'
-    const tier = claimRecord?.tier || 'free'
+    // Admin approval ALWAYS grants the Free tier (grantClaim is called with
+    // tier:'free' above). Standard is granted only via the paid Stripe webhook.
+    // Reflect the GRANTED tier here — not the requested one — so an unpaid claimant
+    // who selected Standard is never wrongly told they're on the paid tier.
+    const tier = 'free'
 
     if (email && process.env.RESEND_API_KEY) {
       const { Resend } = await import('resend')
