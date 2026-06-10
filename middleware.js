@@ -1,8 +1,31 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import { jwtVerify } from 'jose'
+import { CRAWLER_RE, logCrawlerHit } from '@/lib/crawler-log'
 
-export async function middleware(request) {
+export async function middleware(request, event) {
+  // ── AI-crawler access logging — FIRST, before any auth/Supabase work ──
+  // Pure in-memory regex gate: a human / non-crawler UA misses here and falls
+  // straight through with zero added network or latency. Only a crawler match
+  // registers a fire-and-forget REST insert via event.waitUntil(), so it runs
+  // after the response is sent and can never block rendering or auth. The whole
+  // write is error-isolated inside logCrawlerHit() — a logging failure is silent.
+  const ua = request.headers.get('user-agent') || ''
+  if (event && CRAWLER_RE.test(ua)) {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || request.headers.get('x-real-ip')
+      || request.ip
+      || null
+    event.waitUntil(
+      logCrawlerHit({
+        userAgent: ua,
+        path: request.nextUrl.pathname,
+        host: request.headers.get('host'),
+        ip,
+      })
+    )
+  }
+
   const { pathname } = request.nextUrl
 
   // ── Admin routes: check FIRST, before Supabase touches cookies ──
