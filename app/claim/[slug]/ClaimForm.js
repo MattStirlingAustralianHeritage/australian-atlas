@@ -14,7 +14,7 @@ const TIERS = [
   {
     id: 'standard',
     name: 'Standard',
-    price: 99,
+    price: 295,
     description: 'Full listing management with all features.',
     features: ['Everything in Free', 'Photo gallery', 'Website & social links', 'Listing Insights', 'Producer Picks'],
     recommended: true,
@@ -344,7 +344,7 @@ export default function ClaimForm({ listingId, listingName, slug, vertColor }) {
         className="mt-8 w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
         style={{ background: vertColor, fontFamily: 'var(--font-body)', cursor: submitting ? 'wait' : 'pointer' }}
       >
-        {submitting ? 'Submitting...' : tier === 'standard' ? 'Submit claim ($99/yr)' : 'Submit claim (free)'}
+        {submitting ? 'Submitting...' : tier === 'standard' ? 'Submit claim ($295/yr)' : 'Submit claim (free)'}
       </button>
 
       <p className="mt-4 text-center" style={{ fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 300, color: 'var(--color-muted)' }}>

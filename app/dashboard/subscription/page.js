@@ -135,7 +135,7 @@ function SubscriptionCard({ vertical, data }) {
             alignSelf: 'flex-start',
           }}
         >
-          Upgrade to Standard — $99/yr
+          Upgrade to Standard — $295/yr
         </a>
       )}
     </div>

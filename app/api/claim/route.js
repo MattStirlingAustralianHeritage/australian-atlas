@@ -167,7 +167,7 @@ export async function POST(request) {
             <h2>We've received your claim</h2>
             <p>Hi ${name.trim()},</p>
             <p>Thanks for submitting a claim for <strong>${listingName}</strong>. Our team will review it and get back to you within 1-2 business days.</p>
-            <p>You selected the <strong>${tier === 'standard' ? 'Standard ($99/yr)' : 'Free'}</strong> tier.</p>
+            <p>You selected the <strong>${tier === 'standard' ? 'Standard ($295/yr)' : 'Free'}</strong> tier.</p>
             <p style="color:#888;font-size:13px;margin-top:24px;">If you didn't submit this claim, you can safely ignore this email.</p>
           `,
         }).catch(err => console.error('[claim] Confirmation email error:', err.message))

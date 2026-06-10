@@ -169,8 +169,8 @@ async function handleApprove({ claimId, vertical, sourceClaimId, usingPortalTabl
       const resend = new Resend(process.env.RESEND_API_KEY)
 
       const tierNote = tier === 'standard'
-        ? `<p>You're on the <strong>Standard tier ($99/yr)</strong>. You can manage your subscription from your dashboard.</p>`
-        : `<p>Your listing is on the <strong>Free tier</strong>. You can upgrade to Standard ($99/yr) anytime from your dashboard for unlimited photos, analytics, and more.</p>`
+        ? `<p>You're on the <strong>Standard tier ($295/yr)</strong>. You can manage your subscription from your dashboard.</p>`
+        : `<p>Your listing is on the <strong>Free tier</strong>. You can upgrade to Standard ($295/yr) anytime from your dashboard for unlimited photos, analytics, and more.</p>`
 
       const accessBlock = grant.provisioned
         ? `<p>We've just sent a separate email to <strong>${email}</strong> with a secure sign-in link. Click it to finish setting up access and open your operator dashboard.</p>

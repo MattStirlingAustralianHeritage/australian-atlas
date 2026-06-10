@@ -13,7 +13,7 @@ const FAQS = [
   },
   {
     q: "What's included in Standard?",
-    a: 'Standard ($99/year) unlocks unlimited photos, opening hours, booking links, events, awards, special offers, analytics, priority search placement, and featured placement in regional guides and discovery trails.',
+    a: 'Standard ($295/year) unlocks unlimited photos, opening hours, booking links, events, awards, special offers, analytics, priority search placement, and featured placement in regional guides and discovery trails.',
   },
   {
     q: 'How long does verification take?',
