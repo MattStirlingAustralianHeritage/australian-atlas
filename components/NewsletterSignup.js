@@ -16,12 +16,13 @@ export default function NewsletterSignup({ variant = 'inline' }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       })
+      const data = await res.json().catch(() => ({}))
       if (res.ok) {
-        setStatus('success')
+        // pending = double opt-in confirmation email sent; otherwise already confirmed.
+        setStatus(data.pending ? 'pending' : 'success')
         setEmail('')
       } else {
-        const data = await res.json().catch(() => ({}))
-        setStatus(data.error === 'already_subscribed' ? 'success' : 'error')
+        setStatus('error')
       }
     } catch {
       setStatus('error')
@@ -31,7 +32,7 @@ export default function NewsletterSignup({ variant = 'inline' }) {
   const isHomepage = variant === 'homepage'
   const isFooter = variant === 'footer'
 
-  if (status === 'success') {
+  if (status === 'success' || status === 'pending') {
     return (
       <div style={{
         padding: isFooter ? '0' : isHomepage ? '0.875rem 0' : '2rem 0',
@@ -41,7 +42,9 @@ export default function NewsletterSignup({ variant = 'inline' }) {
         color: isHomepage ? '#C4973B' : 'var(--color-sage)',
         fontWeight: 400,
       }}>
-        You&apos;re on the list. Welcome to the Atlas.
+        {status === 'pending'
+          ? 'Almost there — check your email to confirm your subscription.'
+          : 'You’re on the list. Welcome to the Atlas.'}
       </div>
     )
   }
