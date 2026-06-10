@@ -19,9 +19,9 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    const priceId = process.env.STRIPE_STANDARD_PRICE_ID
+    const priceId = process.env.STRIPE_LISTING_PRICE_ID
     if (!priceId) {
-      return NextResponse.json({ error: 'Standard pricing not configured' }, { status: 500 })
+      return NextResponse.json({ error: 'Listing price not configured (STRIPE_LISTING_PRICE_ID is not set)' }, { status: 500 })
     }
 
     // Look up listing vertical for metadata
