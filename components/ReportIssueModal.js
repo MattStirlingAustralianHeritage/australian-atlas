@@ -6,11 +6,15 @@ const REPORT_TYPES = [
   { key: 'permanently_closed', label: 'Permanently closed', desc: 'This business has closed for good.' },
   { key: 'temporarily_closed', label: 'Temporarily closed', desc: 'Closed for renovations, seasonal break, etc.' },
   { key: 'incorrect_info', label: 'Something is incorrect', desc: 'Wrong address, phone, hours, or other details.' },
+  { key: 'request_deletion', label: 'Request removal', desc: "You own this venue, or it shouldn't be listed at all." },
 ]
+
+const DETAIL_TYPES = ['incorrect_info', 'request_deletion']
 
 export default function ReportIssueModal({ listingId, listingName, onClose }) {
   const [selected, setSelected] = useState(null)
   const [details, setDetails] = useState('')
+  const [contactEmail, setContactEmail] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
 
@@ -25,6 +29,7 @@ export default function ReportIssueModal({ listingId, listingName, onClose }) {
           listing_id: listingId,
           report_type: selected,
           details: details.trim() || null,
+          contact_email: contactEmail.trim() || null,
         }),
       })
       setSubmitted(true)
@@ -117,17 +122,33 @@ export default function ReportIssueModal({ listingId, listingName, onClose }) {
           ))}
         </div>
 
-        {selected === 'incorrect_info' && (
+        {DETAIL_TYPES.includes(selected) && (
           <textarea
             value={details}
             onChange={e => setDetails(e.target.value)}
-            placeholder="What needs correcting?"
+            placeholder={selected === 'request_deletion'
+              ? 'Tell us why this should be removed (optional)'
+              : 'What needs correcting?'}
             rows={3}
             style={{
               width: '100%', fontFamily: 'var(--font-body)', fontSize: 13,
               border: '1px solid var(--color-border)', borderRadius: 8,
-              padding: '10px 12px', resize: 'vertical', marginBottom: 16,
+              padding: '10px 12px', resize: 'vertical', marginBottom: 12,
               outline: 'none',
+            }}
+          />
+        )}
+
+        {selected === 'request_deletion' && (
+          <input
+            type="email"
+            value={contactEmail}
+            onChange={e => setContactEmail(e.target.value)}
+            placeholder="Your email (optional, so we can follow up)"
+            style={{
+              width: '100%', fontFamily: 'var(--font-body)', fontSize: 13,
+              border: '1px solid var(--color-border)', borderRadius: 8,
+              padding: '10px 12px', marginBottom: 16, outline: 'none',
             }}
           />
         )}
