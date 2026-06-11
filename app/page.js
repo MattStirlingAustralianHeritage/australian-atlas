@@ -9,7 +9,7 @@ import { getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
 import { getListingRegion, LISTING_REGION_SELECT, resolveRegionParam } from '@/lib/regions'
 import { getPublicVerticals } from '@/lib/verticalUrl'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
-import { Coffee, Wine, UtensilsCrossed, BedDouble, Mountain, Hammer, Landmark, ShoppingBag, Clock } from 'lucide-react'
+import { Coffee, Wine, UtensilsCrossed, BedDouble, Mountain, Compass, Hammer, Landmark, ShoppingBag, Clock } from 'lucide-react'
 
 export const revalidate = 1800
 
@@ -62,19 +62,26 @@ const VERTICAL_LABELS = {
   corner: 'Corner', found: 'Found', table: 'Table', atlas: 'Journal',
 }
 
-// Plain-English decoder for the nine categories — the homepage's primary
+// Number words for the gate-aware category count in the grid heading/intro
+// (9 when Way is gated off, 10 when WAY_ATLAS_PUBLIC promotes it).
+const COUNT_WORDS = { 8: 'Eight', 9: 'Nine', 10: 'Ten', 11: 'Eleven', 12: 'Twelve' }
+
+// Plain-English decoder for the categories — the homepage's primary
 // comprehension fix. Each card pairs the brand name with an always-visible
 // descriptor + a grounded specifics line (drawn from the authoritative vertical
 // scope definitions in lib/verticalUrl.js taglines and the /about copy), an
 // identity icon, and a brand colour. Cards link to the on-site filtered search
-// so browsing a category keeps the user on australianatlas.com.au. Ordered as a
-// natural journey: coffee → drink → eat → stay → roam → make → see → shop → find.
+// so browsing a category keeps the user on australianatlas.com.au. The grid is
+// filtered through getPublicVerticals() at render time, so a card only appears
+// when its vertical is live (Way is gated until WAY_ATLAS_PUBLIC). Ordered as a
+// natural journey: coffee → drink → eat → stay → roam → guide → make → see → shop → find.
 const VERTICAL_GUIDE = [
   { key: 'fine_grounds', name: 'Fine Grounds', label: 'Specialty coffee',       desc: 'Roasters with their own roastery, and the cafés that take it seriously.', accent: '#8A7055', Icon: Coffee },
   { key: 'sba',          name: 'Small Batch',  label: 'Brewers & distillers',   desc: 'Independent breweries, wineries, distilleries, and cellar doors.',        accent: '#B07A22', Icon: Wine },
   { key: 'table',        name: 'Table',        label: 'Restaurants & food',     desc: 'Independent restaurants, bakeries, markets, and farm gates.',             accent: '#C4634F', Icon: UtensilsCrossed },
   { key: 'rest',         name: 'Rest',         label: 'Boutique stays',         desc: 'Cabins, guesthouses, farm stays, and eco-lodges worth the trip.',         accent: '#5A8A9A', Icon: BedDouble },
   { key: 'field',        name: 'Field',        label: 'Nature & walks',         desc: 'Nature reserves, national parks, swimming holes, and walking trails.',    accent: '#4A7C59', Icon: Mountain },
+  { key: 'way',          name: 'Way',          label: 'Tours & experiences',    desc: 'Guided walks, cultural tours, sailing charters, and adventure experiences.', accent: '#6B7A4A', Icon: Compass },
   { key: 'craft',        name: 'Craft',        label: 'Makers & studios',       desc: 'Ceramicists, woodworkers, textile artists, and studio potters.',          accent: '#C1603A', Icon: Hammer },
   { key: 'collection',   name: 'Culture',      label: 'Galleries & museums',    desc: 'Art museums, public galleries, and cultural collections.',                accent: '#7A6B8A', Icon: Landmark },
   { key: 'corner',       name: 'Corner',       label: 'Independent shops',      desc: 'Bookshops, record stores, homewares, and design studios.',                accent: '#5F8A7E', Icon: ShoppingBag },
@@ -480,19 +487,19 @@ export default async function Home() {
               fontSize: 'clamp(26px, 3.4vw, 40px)', color: 'var(--color-ink)',
               lineHeight: 1.15, marginBottom: '14px', textWrap: 'balance',
             }}>
-              Nine kinds of independent place
+              {COUNT_WORDS[verticalCount] || verticalCount} kinds of independent place
             </h2>
             <p style={{
               fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
               lineHeight: 1.65, color: 'var(--color-muted)',
               maxWidth: '540px', margin: '0 auto',
             }}>
-              Every place we list belongs to one of nine categories. Browse a category on its own, or search across all of them at once.
+              Every place we list belongs to one of {(COUNT_WORDS[verticalCount] || String(verticalCount)).toLowerCase()} categories. Browse a category on its own, or search across all of them at once.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {VERTICAL_GUIDE.map((v, vi) => {
+          <div className="vguide-grid">
+            {VERTICAL_GUIDE.filter(v => publicVerticals.includes(v.key)).map((v, vi) => {
               const Icon = v.Icon
               return (
                 <Link

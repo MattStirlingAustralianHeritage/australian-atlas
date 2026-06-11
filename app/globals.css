@@ -68,6 +68,23 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 8px 24px rgba(0,0,0,0.08);
 }
 
+/* Vertical-category guide grid. Centred flex-wrap (not a rigid grid) so an
+   incomplete final row — e.g. the 10th card when Way is live — centres rather
+   than stranding a left-aligned orphan. 1 / 2 / 3 columns across breakpoints. */
+.vguide-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+}
+.vguide-grid > * { flex: 1 1 100%; max-width: 100%; }
+@media (min-width: 640px) {
+  .vguide-grid > * { flex-basis: calc(50% - 8px); max-width: calc(50% - 8px); }
+}
+@media (min-width: 1024px) {
+  .vguide-grid > * { flex-basis: calc((100% - 32px) / 3); max-width: calc((100% - 32px) / 3); }
+}
+
 /* Vertical-category guide tiles (homepage "What you'll find"). Each card sets
    its own brand colour via the --vc custom property; on hover the border picks
    it up, the card lifts, and the arrow slides in. */
