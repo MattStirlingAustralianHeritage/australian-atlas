@@ -31,6 +31,7 @@ export default function ClaimForm({ listingId, listingName, slug, vertColor }) {
   const [honeypot, setHoneypot] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [paymentPending, setPaymentPending] = useState(false)
   const [error, setError] = useState(null)
 
   async function handleSubmit(e) {
@@ -85,14 +86,16 @@ export default function ClaimForm({ listingId, listingName, slug, vertColor }) {
           return
         }
 
-        // Payment could not be started. The claim IS saved (pending), but we must
-        // NEVER show a success screen for an unpaid Standard claim — surface the
-        // error and keep the operator on the form.
-        console.error('Stripe checkout failed:', checkoutData.error)
-        setError(
-          'We couldn’t start payment for the Standard tier. Your claim has been saved as pending; ' +
-          'choose the Free tier to finish now, or contact listings@australianatlas.com.au to complete the upgrade.'
-        )
+        // Instant card checkout couldn't start (e.g. Stripe temporarily
+        // misconfigured). The claim itself ALREADY succeeded server-side in
+        // step 1 — it's saved as pending and both the claimant and our team
+        // were emailed — so this is NOT a failed submission. Show an honest
+        // "received, payment to follow" confirmation (NOT a "you're on Standard
+        // now" success — the listing stays unclaimed until payment clears) so
+        // the operator isn't dead-ended. When the Stripe key is valid the
+        // redirect above fires and they pay inline.
+        console.error('Stripe instant checkout unavailable; claim captured for manual payment follow-up:', checkoutData.error)
+        setPaymentPending(true)
         return
       }
 
@@ -132,6 +135,43 @@ export default function ClaimForm({ listingId, listingName, slug, vertColor }) {
         <p style={{ fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 300, color: 'var(--color-muted)', lineHeight: 1.5 }}>
           We'll review your claim and get back to you at <strong style={{ fontWeight: 500 }}>{email}</strong>.
           This usually takes 1-2 business days.
+        </p>
+      </div>
+    )
+  }
+
+  if (paymentPending) {
+    return (
+      <div
+        className="text-center py-10 px-5 rounded-xl"
+        style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}
+      >
+        <div
+          className="inline-flex items-center justify-center w-12 h-12 rounded-full mb-4"
+          style={{ background: vertColor + '18' }}
+        >
+          <svg className="w-6 h-6" fill="none" stroke={vertColor} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+        <h3
+          className="mb-2"
+          style={{
+            fontFamily: 'var(--font-display)',
+            fontWeight: 400,
+            fontSize: '20px',
+            color: 'var(--color-ink)',
+          }}
+        >
+          Claim received
+        </h3>
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 300, color: 'var(--color-muted)', lineHeight: 1.5 }}>
+          Thanks — your claim for <strong style={{ fontWeight: 500 }}>{listingName}</strong> is in, and we've
+          emailed a confirmation to <strong style={{ fontWeight: 500 }}>{email}</strong>. To activate your
+          Standard ($295/yr) listing we'll follow up with a secure payment link. Questions? Email{' '}
+          <a href="mailto:listings@australianatlas.com.au" style={{ color: vertColor, fontWeight: 500 }}>
+            listings@australianatlas.com.au
+          </a>.
         </p>
       </div>
     )
