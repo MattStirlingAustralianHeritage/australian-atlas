@@ -1,15 +1,34 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 
+// Stripe secret keys are always sk_… (standard) or rk_… (restricted), live or test.
+// A present-but-malformed value (the wrong string pasted into the env) would otherwise
+// sail past a bare presence check and fail deep in the first Stripe call with an opaque
+// 401 — exactly how an "armed but invalid" key masquerades as configured. Validate the
+// shape up front so the failure is explicit and logged instead of silent.
+const STRIPE_SECRET_KEY_RE = /^(sk|rk)_(live|test)_/
+
 function getStripe() {
   const Stripe = require('stripe')
-  return new Stripe(process.env.STRIPE_SECRET_KEY)
+  return new Stripe((process.env.STRIPE_SECRET_KEY || '').trim())
 }
 
 export async function POST(request) {
   try {
-    if (!process.env.STRIPE_SECRET_KEY) {
+    const secretKey = (process.env.STRIPE_SECRET_KEY || '').trim()
+    if (!secretKey) {
       return NextResponse.json({ error: 'Stripe not configured' }, { status: 503 })
+    }
+    if (!STRIPE_SECRET_KEY_RE.test(secretKey)) {
+      console.error(
+        '[claim-checkout] STRIPE_SECRET_KEY is set but is not a valid Stripe secret key ' +
+        '(it must start with sk_live_/sk_test_/rk_live_/rk_test_). Fix the value in Vercel → ' +
+        'Project Settings → Environment Variables (Production), then redeploy.'
+      )
+      return NextResponse.json(
+        { error: 'Payment is temporarily unavailable. Please try the Free tier, or contact listings@australianatlas.com.au.' },
+        { status: 503 }
+      )
     }
 
     const stripe = getStripe()
@@ -19,7 +38,9 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    const priceId = process.env.STRIPE_STANDARD_PRICE_ID
+    // Accept either env-var name so the price lookup works regardless of which
+    // naming convention is set in Vercel (STRIPE_STANDARD_PRICE_ID is the deployed one).
+    const priceId = process.env.STRIPE_STANDARD_PRICE_ID || process.env.STRIPE_LISTING_PRICE_ID
     if (!priceId) {
       return NextResponse.json({ error: 'Standard pricing not configured' }, { status: 500 })
     }
