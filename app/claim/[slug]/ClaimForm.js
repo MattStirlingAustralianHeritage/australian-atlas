@@ -326,6 +326,26 @@ export default function ClaimForm({ listingId, listingName, slug, vertColor }) {
               </div>
             ))}
           </div>
+
+          {/* Link to the full paid-listing benefits page */}
+          <p style={{ textAlign: 'center', marginTop: '14px' }}>
+            <a
+              href="/for-venues"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontSize: '12px',
+                fontWeight: 500,
+                color: vertColor,
+                textDecoration: 'none',
+                borderBottom: `1px solid ${vertColor}40`,
+                paddingBottom: '1px',
+              }}
+            >
+              See everything a paid listing includes →
+            </a>
+          </p>
         </div>
       </div>
 
