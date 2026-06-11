@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { verifySharedToken } from '@/lib/shared-auth'
 import { LISTING_REGION_SELECT } from '@/lib/regions'
 import { readGallery, isListingPaid } from '@/lib/listing-gallery'
+import { readHighlightsMap } from '@/lib/operator-highlights/read'
 
 /**
  * GET /api/dashboard — Fetch dashboard data for the operator's OWNED listings.
@@ -18,7 +19,7 @@ import { readGallery, isListingPaid } from '@/lib/listing-gallery'
  */
 
 // Columns the dashboard renders per listing (+ resolved region fields).
-const LISTING_SELECT = `id, name, slug, vertical, region, state, lat, lng, website, phone, address, hero_image_url, is_claimed, is_featured, status, description, hours, created_at, updated_at, ${LISTING_REGION_SELECT}`
+const LISTING_SELECT = `id, name, slug, vertical, sub_type, sub_types, region, state, lat, lng, website, phone, address, hero_image_url, is_claimed, is_featured, status, description, hours, created_at, updated_at, ${LISTING_REGION_SELECT}`
 
 // True if `userId` holds an active ownership claim on `listingId`.
 async function ownsListing(sb, listingId, userId) {
@@ -116,6 +117,10 @@ export async function GET(request) {
       listings = data || []
     }
 
+    // Operator highlights (the "right now" + hiring layer) — one batched,
+    // migration-tolerant read for all listings, merged in below.
+    const highlightsMap = await readHighlightsMap(sb, listings.map(l => l.id))
+
     // Enrich each listing with scores and activity stats
     const enriched = await Promise.all(listings.map(async (listing) => {
       // Completeness score
@@ -148,6 +153,7 @@ export async function GET(request) {
       return {
         ...listing,
         gallery_image_urls: gallery,
+        operator_highlights: highlightsMap.get(listing.id) || null,
         paid,
         score: scoreData || null,
         stats: {

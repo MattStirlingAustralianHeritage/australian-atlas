@@ -11,6 +11,8 @@ import { isApprovedImageSource } from '@/lib/image-utils'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 import { listOutgoing, listIncoming } from '@/lib/picks/producerPicks'
 import { readGallery, filterPaidListingIds } from '@/lib/listing-gallery'
+import { readHighlights } from '@/lib/operator-highlights/read'
+import { getHighlightDef, hiringIsActive, fieldHasValue } from '@/lib/operator-highlights/config'
 import { listEventsForListing } from '@/lib/events'
 import {
   WAY_PRIMARY_TYPE_LABELS,
@@ -199,6 +201,11 @@ const getListing = cache(async function getListing(slug) {
       console.error('[place] Meta lookup failed for listing', data.id, `(${metaLookup.table}):`, metaErr.message)
     }
   }
+
+  // Operator highlights — the operator-authored "right now" + hiring layer.
+  // Read resiliently (own query, migration-tolerant) so it can never break the
+  // page if the column hasn't been added yet.
+  data._highlights = await readHighlights(sb, data.id)
 
   return data
 })
@@ -579,6 +586,18 @@ export default async function PlacePage({ params }) {
   const sbaSubtype = sbaMeta?.subtype ? String(sbaMeta.subtype).trim() : null
   const sbaHasDetail = !!(sbaMeta && (sbaFeatures.length || sbaSubtype))
 
+  // ── Operator highlights — the operator-authored "right now" + hiring layer.
+  // filledFields are the type-specific fields the operator has actually filled;
+  // hiring is the universal "now hiring" signal. Both render only when present.
+  const highlights = listing._highlights || null
+  const highlightSubType = listing.sub_type || (Array.isArray(listing.sub_types) && listing.sub_types[0]) || null
+  const highlightDef = getHighlightDef(listing.vertical, highlightSubType)
+  const storedHighlightFields = (highlights && highlights.fields) || {}
+  const filledHighlightFields = highlightDef.fields.filter(f => fieldHasValue(f, storedHighlightFields[f.key]))
+  const highlightTextFields = filledHighlightFields.filter(f => f.type !== 'url')
+  const highlightUrlFields = filledHighlightFields.filter(f => f.type === 'url')
+  const hiring = hiringIsActive(highlights) ? highlights.hiring : null
+
   return (
     <div className="min-h-screen" style={{ background: 'var(--color-bg)' }}>
 
@@ -826,6 +845,78 @@ export default async function PlacePage({ params }) {
             )}
           </div>
         </div>
+
+        {/* ── Highlights — operator-authored "right now". The operator's own
+            timely word (current beans, the stout on tap, the term enrolling),
+            distinct from the synced editorial meta sections lower down. Renders
+            only when the operator has filled at least one field. ── */}
+        {highlightTextFields.length + highlightUrlFields.length > 0 && (
+          <section className="mb-10">
+            <h2 className="mb-4" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)' }}>
+              {highlightDef.heading || 'From the operator'}
+            </h2>
+            <div className="p-5 rounded-lg flex flex-col gap-4" style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}>
+              {highlightTextFields.map(f => {
+                const value = storedHighlightFields[f.key]
+                if (f.type === 'list') {
+                  return <MetaPillGroup key={f.key} label={f.label} items={(value || []).filter(Boolean)} vertColor={vertColor} muted />
+                }
+                return (
+                  <div key={f.key}>
+                    <dt className="text-xs font-semibold tracking-wider uppercase mb-1" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)', letterSpacing: '0.08em', fontSize: '10px' }}>
+                      {f.label}
+                    </dt>
+                    <dd className="text-sm" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-ink)', margin: 0, lineHeight: 1.65 }}>
+                      {String(value).split('\n').filter(p => p.trim()).map((p, i) => (
+                        <p key={i} className={i > 0 ? 'mt-2' : ''} style={i > 0 ? undefined : { margin: 0 }}>{p}</p>
+                      ))}
+                    </dd>
+                  </div>
+                )
+              })}
+              {highlightUrlFields.length > 0 && (
+                <div className="flex flex-wrap gap-2" style={{ marginTop: highlightTextFields.length ? 2 : 0 }}>
+                  {highlightUrlFields.map(f => (
+                    <a
+                      key={f.key} href={storedHighlightFields[f.key]} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center text-xs font-bold uppercase px-3 py-1.5 rounded text-white"
+                      style={{ background: vertColor, letterSpacing: '0.04em', textDecoration: 'none' }}
+                    >
+                      {f.label} &rarr;
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* ── Now hiring — operator hiring signal. A slim accent banner; links
+            to the operator's jobs board / careers page when provided. ── */}
+        {hiring && (
+          <section className="mb-10">
+            <div className="rounded-lg flex items-start gap-3 p-4" style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)', borderLeft: `3px solid ${vertColor}` }}>
+              <span style={{ color: vertColor, flexShrink: 0, marginTop: '2px' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16" /></svg>
+              </span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 600, color: 'var(--color-ink)', margin: 0 }}>Now hiring</p>
+                {hiring.note && (
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--color-muted)', margin: '2px 0 0', lineHeight: 1.5 }}>{hiring.note}</p>
+                )}
+              </div>
+              {hiring.url && (
+                <a
+                  href={hiring.url} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center text-xs font-bold uppercase px-3 py-1.5 rounded text-white"
+                  style={{ background: vertColor, letterSpacing: '0.04em', textDecoration: 'none', flexShrink: 0, alignSelf: 'center' }}
+                >
+                  View open roles &rarr;
+                </a>
+              )}
+            </div>
+          </section>
+        )}
 
         {/* ── Photo gallery — paid perk, operator-uploaded. Renders only when
             the listing is paid and has photos (see galleryUrls above). ── */}

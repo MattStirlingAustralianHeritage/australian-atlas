@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { getDashboardToken } from '@/lib/dashboard-token'
 import { getListingRegion } from '@/lib/regions'
 import { getVerticalLabel, getVerticalBrandColour } from '@/lib/verticalUrl'
+import HighlightsEditor from './HighlightsEditor'
 import EventsSection from './EventsSection'
 import PicksSection from './PicksSection'
 
@@ -650,6 +651,16 @@ export default function EditListingPage() {
               </p>
             </div>
           </div>
+
+          {/* ── Highlights — operator-authored "right now" + hiring ── */}
+          <HighlightsEditor
+            listingId={id}
+            vertical={listing.vertical}
+            subType={listing.sub_type || (Array.isArray(listing.sub_types) && listing.sub_types[0]) || null}
+            token={token}
+            initialHighlights={listing.operator_highlights}
+            accent={vertColor}
+          />
 
           {/* ── Photo gallery (paid perk) ── */}
           <div style={{ marginTop: 36, paddingTop: 28, borderTop: '1px solid var(--color-border)' }}>

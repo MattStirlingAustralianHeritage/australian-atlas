@@ -4,6 +4,7 @@ import { verifySharedToken } from '@/lib/shared-auth'
 import { updateListing } from '@/lib/admin/updateListing'
 import { isApprovedImageSource } from '@/lib/image-utils'
 import { writeGallery, isListingPaid, MAX_GALLERY_PHOTOS } from '@/lib/listing-gallery'
+import { normalizeHighlights } from '@/lib/operator-highlights/normalize'
 
 /**
  * PATCH /api/dashboard/listing — operator self-service edit of a claimed listing.
@@ -89,7 +90,7 @@ export async function PATCH(request) {
   //    membership no longer grants edit rights. Admins bypass the check. ──
   const { data: owned, error: ownErr } = await sb
     .from('listings')
-    .select('id, vertical, is_claimed')
+    .select('id, vertical, sub_type, sub_types, is_claimed')
     .eq('id', listingId)
     .single()
 
@@ -167,6 +168,32 @@ export async function PATCH(request) {
     savedGallery = await writeGallery(sb, listingId, urls)
   }
 
+  // ── operator_highlights → master-only write (never synced; sync-safe by
+  //    omission, same contract as hours). Normalised + voice-checked server-side
+  //    against the field set for this listing's vertical/sub_type. ──
+  let savedHighlights
+  if ('operator_highlights' in body) {
+    const subType = owned.sub_type
+      || (Array.isArray(owned.sub_types) && owned.sub_types[0])
+      || null
+    const norm = normalizeHighlights(body.operator_highlights, owned.vertical, subType)
+    if (!norm.ok) {
+      return NextResponse.json({ error: norm.error }, { status: 400 })
+    }
+    const { error: hErr } = await sb
+      .from('listings')
+      .update({ operator_highlights: norm.value, updated_at: new Date().toISOString() })
+      .eq('id', listingId)
+    if (hErr) {
+      // Forward-compat: column absent until migration 157 is applied.
+      if (hErr.code === '42703') {
+        return NextResponse.json({ error: 'Highlights aren’t switched on yet — please try again shortly.' }, { status: 503 })
+      }
+      return NextResponse.json({ error: `Failed to save highlights: ${hErr.message}` }, { status: 400 })
+    }
+    savedHighlights = norm.value
+  }
+
   const { data: fresh } = await sb
     .from('listings')
     .select('id, name, slug, vertical, website, phone, hours, hero_image_url, description, is_claimed, status')
@@ -174,6 +201,7 @@ export async function PATCH(request) {
     .single()
 
   if (fresh && savedGallery !== undefined) fresh.gallery_image_urls = savedGallery
+  if (fresh && savedHighlights !== undefined) fresh.operator_highlights = savedHighlights
 
   return NextResponse.json({ success: true, listing: fresh, verticalSync })
 }
