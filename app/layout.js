@@ -28,12 +28,12 @@ const dmSans = DM_Sans({
 export const metadata = {
   title: "Australian Atlas — Discover Australia's best independent places",
   description:
-    "The complete guide to independent Australia. Nine atlases covering craft producers, boutique stays, makers, galleries, natural places, specialty coffee, independent shops and food producers — verified, curated, and mapped.",
+    "The curated guide to the best of independent Australia — specialty coffee, makers, distillers, galleries, boutique stays, and the natural places in between. Thousands of independent places, every one verified and mapped.",
   metadataBase: new URL("https://australianatlas.com.au"),
   openGraph: {
     title: "Australian Atlas — Discover Australia's best independent places",
     description:
-      "The complete guide to independent Australia. Nine atlases covering craft producers, boutique stays, makers, galleries, natural places, specialty coffee, independent shops and food producers — verified, curated, and mapped.",
+      "The curated guide to the best of independent Australia — specialty coffee, makers, distillers, galleries, boutique stays, and the natural places in between. Thousands of independent places, every one verified and mapped.",
     url: "https://australianatlas.com.au",
     siteName: "Australian Atlas",
     locale: "en_AU",
@@ -51,7 +51,7 @@ export const metadata = {
     card: "summary_large_image",
     title: "Australian Atlas — Discover Australia's best independent places",
     description:
-      "The complete guide to independent Australia. Nine atlases covering craft producers, boutique stays, makers, galleries, natural places, specialty coffee, independent shops and food producers.",
+      "The curated guide to the best of independent Australia — coffee, makers, distillers, galleries, boutique stays, and the natural places in between.",
     site: "@australianatlas",
     images: ["/og-image.png"],
   },

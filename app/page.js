@@ -9,14 +9,11 @@ import { getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
 import { getListingRegion, LISTING_REGION_SELECT, resolveRegionParam } from '@/lib/regions'
 import { getPublicVerticals } from '@/lib/verticalUrl'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
+import { Coffee, Wine, UtensilsCrossed, BedDouble, Mountain, Hammer, Landmark, ShoppingBag, Clock } from 'lucide-react'
 
 export const revalidate = 1800
 
 const GOLD = '#C4973B'
-
-// Number words for the hero headline ("Nine atlases" / "Ten atlases"), derived
-// from the count of public verticals so the headline tracks go-live state.
-const NUMBER_WORDS = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten']
 
 const VERTICAL_CARD_COLORS = {
   sba:          { bg: '#3D2B1F', text: '#FAF8F4' },
@@ -62,8 +59,27 @@ const REGION_GEO = {
 const VERTICAL_LABELS = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
   fine_grounds: 'Fine Grounds', rest: 'Rest', field: 'Field',
-  corner: 'Corner', found: 'Found', table: 'Table', atlas: 'Atlas',
+  corner: 'Corner', found: 'Found', table: 'Table', atlas: 'Journal',
 }
+
+// Plain-English decoder for the nine categories — the homepage's primary
+// comprehension fix. Each card pairs the brand name with an always-visible
+// descriptor + a grounded specifics line (drawn from the authoritative vertical
+// scope definitions in lib/verticalUrl.js taglines and the /about copy), an
+// identity icon, and a brand colour. Cards link to the on-site filtered search
+// so browsing a category keeps the user on australianatlas.com.au. Ordered as a
+// natural journey: coffee → drink → eat → stay → roam → make → see → shop → find.
+const VERTICAL_GUIDE = [
+  { key: 'fine_grounds', name: 'Fine Grounds', label: 'Specialty coffee',       desc: 'Roasters with their own roastery, and the cafés that take it seriously.', accent: '#8A7055', Icon: Coffee },
+  { key: 'sba',          name: 'Small Batch',  label: 'Brewers & distillers',   desc: 'Independent breweries, wineries, distilleries, and cellar doors.',        accent: '#B07A22', Icon: Wine },
+  { key: 'table',        name: 'Table',        label: 'Restaurants & food',     desc: 'Independent restaurants, bakeries, markets, and farm gates.',             accent: '#C4634F', Icon: UtensilsCrossed },
+  { key: 'rest',         name: 'Rest',         label: 'Boutique stays',         desc: 'Cabins, guesthouses, farm stays, and eco-lodges worth the trip.',         accent: '#5A8A9A', Icon: BedDouble },
+  { key: 'field',        name: 'Field',        label: 'Nature & walks',         desc: 'Nature reserves, national parks, swimming holes, and walking trails.',    accent: '#4A7C59', Icon: Mountain },
+  { key: 'craft',        name: 'Craft',        label: 'Makers & studios',       desc: 'Ceramicists, woodworkers, textile artists, and studio potters.',          accent: '#C1603A', Icon: Hammer },
+  { key: 'collection',   name: 'Culture',      label: 'Galleries & museums',    desc: 'Art museums, public galleries, and cultural collections.',                accent: '#7A6B8A', Icon: Landmark },
+  { key: 'corner',       name: 'Corner',       label: 'Independent shops',      desc: 'Bookshops, record stores, homewares, and design studios.',                accent: '#5F8A7E', Icon: ShoppingBag },
+  { key: 'found',        name: 'Found',        label: 'Vintage & secondhand',   desc: 'Antique dealers, op shops, salvage yards, and curated secondhand.',       accent: '#D4956A', Icon: Clock },
+]
 
 function getWeeklySeed() {
   const now = new Date()
@@ -347,17 +363,16 @@ export default async function Home() {
         <h1 style={{
           fontFamily: 'var(--font-display)', fontWeight: 400, letterSpacing: '-0.01em',
           fontSize: 'clamp(2.5rem, 6vw, 5rem)', lineHeight: 1.1,
-          color: 'var(--color-ink)', maxWidth: '820px', textWrap: 'balance',
+          color: 'var(--color-ink)', maxWidth: '880px', textWrap: 'balance',
         }}>
-          {NUMBER_WORDS[verticalCount] || verticalCount} atlases. One guide to{' '}
-          <em style={{ fontStyle: 'italic' }}>independent</em> Australia.
+          Discover the <em style={{ fontStyle: 'italic' }}>independent</em> Australia worth the drive.
         </h1>
 
         <p className="mt-6" style={{
           fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '17px',
-          lineHeight: 1.65, color: 'var(--color-muted)', maxWidth: '580px',
+          lineHeight: 1.65, color: 'var(--color-muted)', maxWidth: '600px',
         }}>
-          A curated guide to the makers, producers, restaurants, galleries, shops, stays, and natural places worth knowing about.
+          The curated guide to the best of independent Australia — coffee roasters, makers, distillers, galleries, boutique stays, and wild places. Every one verified, mapped, and independently run.
         </p>
 
         {stats.listings > 0 && (
@@ -366,22 +381,54 @@ export default async function Home() {
           }}>
             <span>
               <span style={{ color: GOLD, fontWeight: 500 }}>{stats.listings.toLocaleString()}</span>
-              <span style={{ color: 'var(--color-muted)' }}> verified listings</span>
+              <span style={{ color: 'var(--color-muted)' }}> verified places</span>
             </span>
             <span style={{ color: GOLD, fontSize: '5px' }}>●</span>
             <span>
               <span style={{ color: GOLD, fontWeight: 500 }}>{verticalCount}</span>
-              <span style={{ color: 'var(--color-muted)' }}> atlases</span>
+              <span style={{ color: 'var(--color-muted)' }}> categories</span>
             </span>
             <span style={{ color: GOLD, fontSize: '5px' }}>●</span>
             <span>
-              <span style={{ color: GOLD, fontWeight: 500 }}>{stats.regions || '46'}</span>
+              <span style={{ color: GOLD, fontWeight: 500 }}>{stats.regions || '71'}</span>
               <span style={{ color: 'var(--color-muted)' }}> regions</span>
             </span>
           </div>
         )}
 
         <HomeSearchBar />
+
+        {/* Scope-revealing example searches — surface what's searchable + the
+            categories, high above the fold (best-practice: example-rich search
+            affordance). Each links to the on-site filtered search. */}
+        <div className="mt-4 flex items-center justify-center gap-x-2 gap-y-2 flex-wrap" style={{ maxWidth: '600px' }}>
+          <span style={{
+            fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '12px',
+            color: 'var(--color-muted)', letterSpacing: '0.02em',
+          }}>
+            Try
+          </span>
+          {[
+            { label: 'Coffee roasters', href: '/search?vertical=fine_grounds' },
+            { label: 'Cellar doors', href: '/search?vertical=sba' },
+            { label: 'Farm stays', href: '/search?vertical=rest' },
+            { label: 'Galleries', href: '/search?vertical=collection' },
+          ].map((chip) => (
+            <Link
+              key={chip.href}
+              href={chip.href}
+              className="hover:border-[var(--color-ink)] transition-colors"
+              style={{
+                fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '12.5px',
+                color: 'var(--color-ink)', background: 'rgba(255,255,255,0.6)',
+                border: '1px solid var(--color-border)', borderRadius: '999px',
+                padding: '5px 13px', minHeight: 'unset', whiteSpace: 'nowrap',
+              }}
+            >
+              {chip.label}
+            </Link>
+          ))}
+        </div>
 
         <div className="mt-6 flex items-center justify-center gap-4 flex-wrap">
           <Link
@@ -409,6 +456,112 @@ export default async function Home() {
 
       {/* ── 2. Map Strip ────────────────────────────────── */}
       <HomeMapSection listingCount={stats.listings} />
+
+      {/* ── 2.5 What you'll find — the nine categories ───── */}
+      {/* Decodes the map's colour-coded pins and gives every category a real,
+          on-site entry point. Dual-label tiles (brand name + plain-English
+          descriptor, always visible) are the homepage's core comprehension fix. */}
+      <ScrollReveal as="section" style={{
+        paddingBlock: '84px',
+        background: 'linear-gradient(180deg, #F4EFE7 0%, #F8F6F1 100%)',
+        borderTop: '1px solid rgba(28,26,23,0.06)',
+      }}>
+        <div className="max-w-6xl mx-auto px-6 sm:px-12">
+          <div className="reveal text-center" style={{ marginBottom: '46px' }}>
+            <p style={{
+              fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
+              letterSpacing: '0.22em', textTransform: 'uppercase',
+              color: GOLD, marginBottom: '16px',
+            }}>
+              What you&apos;ll find
+            </p>
+            <h2 style={{
+              fontFamily: 'var(--font-display)', fontWeight: 400,
+              fontSize: 'clamp(26px, 3.4vw, 40px)', color: 'var(--color-ink)',
+              lineHeight: 1.15, marginBottom: '14px', textWrap: 'balance',
+            }}>
+              Nine kinds of independent place
+            </h2>
+            <p style={{
+              fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
+              lineHeight: 1.65, color: 'var(--color-muted)',
+              maxWidth: '540px', margin: '0 auto',
+            }}>
+              Every place we list belongs to one of nine categories. Browse a category on its own, or search across all of them at once.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {VERTICAL_GUIDE.map((v, vi) => {
+              const Icon = v.Icon
+              return (
+                <Link
+                  key={v.key}
+                  href={`/search?vertical=${v.key}`}
+                  className="reveal vguide-card group block"
+                  data-reveal-index={(vi % 3) + 1}
+                  style={{
+                    '--vc': v.accent,
+                    background: '#FFFFFF',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: '14px',
+                    padding: '22px 22px 20px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    minHeight: '150px',
+                  }}
+                >
+                  <div className="flex items-center justify-between" style={{ marginBottom: '14px' }}>
+                    <div className="flex items-center" style={{ gap: '11px' }}>
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        width: '36px', height: '36px', borderRadius: '10px',
+                        background: `${v.accent}14`,
+                      }}>
+                        <Icon size={18} strokeWidth={1.6} style={{ color: v.accent }} />
+                      </span>
+                      <span style={{
+                        fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
+                        letterSpacing: '0.1em', textTransform: 'uppercase',
+                        color: 'var(--color-ink)',
+                      }}>
+                        {v.label}
+                      </span>
+                    </div>
+                    <span className="vguide-arrow" aria-hidden="true" style={{
+                      color: v.accent, fontSize: '16px', fontWeight: 500, lineHeight: 1,
+                    }}>
+                      &rarr;
+                    </span>
+                  </div>
+                  <h3 style={{
+                    fontFamily: 'var(--font-display)', fontWeight: 400,
+                    fontSize: '21px', lineHeight: 1.2, color: 'var(--color-ink)',
+                    marginBottom: '7px',
+                  }}>
+                    {v.name}
+                  </h3>
+                  <p style={{
+                    fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '13.5px',
+                    lineHeight: 1.55, color: 'var(--color-muted)', margin: 0,
+                  }}>
+                    {v.desc}
+                  </p>
+                </Link>
+              )
+            })}
+          </div>
+
+          <div className="reveal text-center" style={{ marginTop: '34px' }}>
+            <Link href="/explore" className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity" style={{
+              fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
+              color: GOLD, padding: '10px 4px', minHeight: 44,
+            }}>
+              See everything on one page &rarr;
+            </Link>
+          </div>
+        </div>
+      </ScrollReveal>
 
       {/* ── 3. Worth Finding This Week ──────────────────── */}
       {featured.length > 0 && (
@@ -524,7 +677,7 @@ export default async function Home() {
                         letterSpacing: '0.15em', textTransform: 'uppercase',
                         color: GOLD, marginBottom: '6px',
                       }}>
-                        {VERTICAL_LABELS[article.vertical] || 'Atlas'}
+                        {VERTICAL_LABELS[article.vertical] || 'Journal'}
                         {article.category && ` · ${article.category}`}
                       </p>
                       <h2 style={{
@@ -581,7 +734,7 @@ export default async function Home() {
                     letterSpacing: '0.15em', textTransform: 'uppercase',
                     color: GOLD, marginBottom: '6px',
                   }}>
-                    {VERTICAL_LABELS[featuredArticle.vertical] || 'Atlas'}
+                    {VERTICAL_LABELS[featuredArticle.vertical] || 'Journal'}
                     {featuredArticle.category && ` · ${featuredArticle.category}`}
                   </p>
                   <h2 style={{
@@ -661,7 +814,7 @@ export default async function Home() {
                         fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13,
                         color: 'var(--color-muted)', marginTop: 4,
                       }}>
-                        {cluster.total} listings across {cluster.verticalCount} atlases
+                        {cluster.total} places across {cluster.verticalCount} categories
                       </p>
                     </div>
 

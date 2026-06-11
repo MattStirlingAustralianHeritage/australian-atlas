@@ -44,7 +44,7 @@ export default function HomeSearchBar() {
           value={query}
           onChange={setQuery}
           onSelect={handleAutocompleteSelect}
-          placeholder="Where are you going, or what are you looking for?"
+          placeholder="Find a coffee roaster, a gallery, a farm stay…"
         />
         <button
           type="submit"
