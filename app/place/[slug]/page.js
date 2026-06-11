@@ -19,6 +19,7 @@ import {
   WAY_PRESENCE_TYPE_LABELS,
 } from '@/lib/wayLabels'
 import ListingCard, { TypographicCard } from '@/components/ListingCard'
+import MoreInRow from '@/components/MoreInRow'
 import EmbeddedNearbyMap from '@/components/EmbeddedNearbyMap'
 import InlineListingEditor from '@/components/InlineListingEditor'
 import StartTrailButton from '@/components/StartTrailButton'
@@ -275,19 +276,46 @@ function radiusBounds(lat, lng, radiusKm) {
 }
 
 /**
- * Collapse a list to at most one row per vertical — first occurrence wins,
- * input order preserved — returning up to `limit` rows. Keeps the "More in
- * [region]" row diverse across the network; without it a dense coffee strip
- * could fill every card with the same vertical (e.g. three Fine Grounds cafes).
+ * Build the "More in [region]" card list from a candidate pool, treating input
+ * order as priority (the caller sorts by curation, then distance):
+ *   1. Drop the venue being viewed and its cross-vertical siblings. A venue
+ *      cross-listed across verticals shares its slug (see getCrossListedSiblings),
+ *      so excluding `excludeSlug` removes the place you're already looking at.
+ *   2. Collapse duplicate physical places to a single card. Same slug = same
+ *      place, so a gallery listed on both Craft and Culture (two verticals, which
+ *      a one-per-vertical pass would let through as two cards) now shows once.
+ *   3. Interleave by vertical so the row still leads with one card per network —
+ *      the diverse, curated head it always had — then keeps going into a
+ *      browsable carousel without stacking three of the same vertical in a row.
+ * Within-vertical order is preserved (best/nearest first). Returns up to `limit`.
  */
-function onePerVertical(rows, limit) {
-  const seen = new Set()
-  const out = []
+function pickRegionCards(rows, limit, excludeSlug = null) {
+  const seenSlug = new Set()
+  const byVertical = new Map()
   for (const r of rows) {
-    if (r.vertical && seen.has(r.vertical)) continue
-    if (r.vertical) seen.add(r.vertical)
-    out.push(r)
-    if (out.length >= limit) break
+    if (excludeSlug && r.slug === excludeSlug) continue
+    if (r.slug) {
+      if (seenSlug.has(r.slug)) continue
+      seenSlug.add(r.slug)
+    }
+    const vertical = r.vertical || '__none__'
+    if (!byVertical.has(vertical)) byVertical.set(vertical, [])
+    byVertical.get(vertical).push(r)
+  }
+  // Round-robin across verticals: round 1 yields one card per network (the
+  // diverse head), later rounds add more from each so the carousel can scroll.
+  const queues = [...byVertical.values()]
+  const out = []
+  let progressed = true
+  while (progressed && out.length < limit) {
+    progressed = false
+    for (const queue of queues) {
+      const next = queue.shift()
+      if (!next) continue
+      out.push(next)
+      progressed = true
+      if (out.length >= limit) break
+    }
   }
   return out
 }
@@ -341,14 +369,14 @@ async function getRegionListings(listing, excludeIds = [], limit = 4) {
       within.sort((a, b) =>
         (Number(b.row.editors_pick) - Number(a.row.editors_pick)) || (a.dist - b.dist)
       )
-      return onePerVertical(within.map(d => d.row), limit)
+      return pickRegionCards(within.map(d => d.row), limit, listing.slug)
     }
   }
 
-  // One per vertical: a region pool ordered only by editors_pick can stack the
-  // same vertical (e.g. three Fine Grounds cafes). De-dup before slicing so we
-  // reach past same-vertical repeats to the next distinct network.
-  const primaryPicked = onePerVertical(primaryRows, limit)
+  // De-dup + interleave the region pool: collapse repeat physical places and
+  // stop the same vertical stacking (e.g. three Fine Grounds cafes), reaching
+  // past repeats to the next distinct network.
+  const primaryPicked = pickRegionCards(primaryRows, limit, listing.slug)
   if (primaryPicked.length >= limit || primaryRows.length >= MIN_PRIMARY || !region.state) {
     return primaryPicked
   }
@@ -371,7 +399,7 @@ async function getRegionListings(listing, excludeIds = [], limit = 4) {
     return !eff || eff.id !== region.id
   })
 
-  return onePerVertical([...primaryPicked, ...stateRows], limit)
+  return pickRegionCards([...primaryRows, ...stateRows], limit, listing.slug)
 }
 
 /**
@@ -476,9 +504,10 @@ export default async function PlacePage({ params }) {
   const { listings: mapNearby, radiusKm: mapRadiusKm } = await getMapNearbyListings(listing)
   const mapNearbyIds = mapNearby.map(n => n.id)
 
-  // The single surviving related row: "More in [region]". Excludes anything
-  // already on the map so we don't show the same card twice on one page.
-  const regionListings = await getRegionListings(listing, mapNearbyIds, 4)
+  // The single surviving related row: "More in [region]", an arrow-navigable
+  // carousel. Excludes anything already on the map so we don't show the same
+  // card twice on one page; fetch a deeper pool so there's more to scroll to.
+  const regionListings = await getRegionListings(listing, mapNearbyIds, 16)
 
   // Cross-listed siblings: same slug, different vertical (e.g. a winery+restaurant
   // on both Small Batch and Table). Used by the "Also listed on" meta section.
@@ -1080,30 +1109,24 @@ export default async function PlacePage({ params }) {
         )}
 
         {/* ── More in [region] — the only surviving related row ────────
-            3 cards on small screens, 4 on wide desktop. The "More in" pool
-            broadens to same-state-different-region when the primary region
-            is thin (see getRegionListings). Label stays the primary region.
-            Below this, the page ends — no further carousels by design. */}
+            An arrow-navigable carousel: 1 card on phones (peeking the next),
+            up to 4 on wide desktop, the rest reachable via the prev/next
+            arrows or a swipe. The pool broadens to same-state-different-region
+            when the primary region is thin (see getRegionListings), and is
+            de-duped so one physical place never appears twice. Label stays the
+            primary region. Below this, the page ends — no further carousels. */}
         {cleanRegion && regionListings.length > 0 && (
-          <section className="mt-12">
-            <h2 className="mb-5" style={{
-              fontFamily: 'var(--font-display)', fontWeight: 400,
-              fontSize: '22px', color: 'var(--color-ink)',
-            }}>
-              More in {cleanRegion}
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {regionListings.slice(0, 4).map(r => (
-                <ListingCard
-                  key={r.id}
-                  listing={r}
-                  distanceKm={hasCoords && r.lat != null && r.lng != null
-                    ? haversineKm(listing.lat, listing.lng, r.lat, r.lng)
-                    : null}
-                />
-              ))}
-            </div>
-          </section>
+          <MoreInRow region={cleanRegion}>
+            {regionListings.map(r => (
+              <ListingCard
+                key={r.id}
+                listing={r}
+                distanceKm={hasCoords && r.lat != null && r.lng != null
+                  ? haversineKm(listing.lat, listing.lng, r.lat, r.lng)
+                  : null}
+              />
+            ))}
+          </MoreInRow>
         )}
 
         {/* ── Claim CTA (if unclaimed) — moved to the bottom of the page
