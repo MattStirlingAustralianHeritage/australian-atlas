@@ -3,6 +3,7 @@
 import { useAuth } from '../layout'
 import { useState, useEffect } from 'react'
 import { getVerticalFeatures, getStandardFeatures } from '@/lib/vertical-features'
+import { getDashboardToken } from '@/lib/dashboard-token'
 
 const VERTICAL_COLORS = {
   sba: '#C49A3C',
@@ -25,6 +26,43 @@ function SubscriptionCard({ vertical, data }) {
   const tier = data.tier || 'free'
   const status = data.venue?.subscription_status || 'active'
   const features = tier === 'standard' ? getStandardFeatures(vertical) : FREE_FEATURES
+  const listingId = data.masterListing?.id || null
+
+  const [upgrading, setUpgrading] = useState(false)
+  const [upgradeError, setUpgradeError] = useState(null)
+
+  async function handleUpgrade() {
+    if (!listingId) {
+      setUpgradeError('We couldn’t find this listing. Please refresh and try again.')
+      return
+    }
+    setUpgrading(true)
+    setUpgradeError(null)
+    try {
+      const token = await getDashboardToken()
+      if (!token) {
+        setUpgradeError('Please sign in again to upgrade.')
+        setUpgrading(false)
+        return
+      }
+      const res = await fetch('/api/stripe/upgrade-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ listing_id: listingId }),
+      })
+      let d = {}
+      try { d = await res.json() } catch { /* non-JSON error body */ }
+      if (res.ok && d.url) {
+        window.location.href = d.url
+        return
+      }
+      setUpgradeError(d.error || 'We couldn’t start payment. Please try again, or email listings@australianatlas.com.au.')
+    } catch {
+      setUpgradeError('We couldn’t start payment. Please check your connection and try again.')
+    } finally {
+      setUpgrading(false)
+    }
+  }
 
   return (
     <div style={{
@@ -118,25 +156,34 @@ function SubscriptionCard({ vertical, data }) {
       </div>
 
       {tier === 'free' && (
-        <a
-          href="mailto:hello@australianatlas.com.au?subject=Upgrade to Standard"
-          style={{
-            display: 'inline-block',
-            padding: '0.6rem 1rem',
-            borderRadius: '8px',
-            border: 'none',
-            background: color,
-            fontFamily: 'var(--font-sans)',
-            fontSize: '0.825rem',
-            fontWeight: 500,
-            color: '#fff',
-            textDecoration: 'none',
-            transition: 'opacity 0.15s',
-            alignSelf: 'flex-start',
-          }}
-        >
-          Upgrade to Standard — $295/yr
-        </a>
+        <div style={{ alignSelf: 'flex-start' }}>
+          <button
+            type="button"
+            onClick={handleUpgrade}
+            disabled={upgrading}
+            style={{
+              display: 'inline-block',
+              padding: '0.6rem 1rem',
+              borderRadius: '8px',
+              border: 'none',
+              background: color,
+              fontFamily: 'var(--font-sans)',
+              fontSize: '0.825rem',
+              fontWeight: 500,
+              color: '#fff',
+              cursor: upgrading ? 'wait' : 'pointer',
+              opacity: upgrading ? 0.7 : 1,
+              transition: 'opacity 0.15s',
+            }}
+          >
+            {upgrading ? 'Starting checkout…' : 'Upgrade to Standard — $295/yr'}
+          </button>
+          {upgradeError && (
+            <p style={{ fontFamily: 'var(--font-sans)', fontSize: '0.75rem', color: '#b91c1c', margin: '0.5rem 0 0', maxWidth: 320, lineHeight: 1.4 }}>
+              {upgradeError}
+            </p>
+          )}
+        </div>
       )}
     </div>
   )

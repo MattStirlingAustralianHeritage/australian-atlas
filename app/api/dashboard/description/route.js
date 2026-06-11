@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAuthServerClient } from '@/lib/supabase/auth-clients'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { generateDescription } from '@/lib/operator-intake/generate.mjs'
+import { isListingPaid } from '@/lib/listing-gallery'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Operator-fed description intake.
@@ -40,6 +41,15 @@ async function getMyListingIds(admin, userId) {
     .eq('claimed_by', userId)
     .eq('status', 'active')
   return [...new Set((data || []).map(c => c.listing_id).filter(Boolean))]
+}
+
+// Managing a listing's content (structured facts → AI generation) is a
+// Standard-plan feature, mirroring the listing editor's paid gate. A free-tier
+// claim keeps the listing live but must complete payment to edit. Admins bypass.
+async function editingLocked(admin, listingId, userId) {
+  const { data: prof } = await admin.from('profiles').select('role').eq('id', userId).maybeSingle()
+  if (prof?.role === 'admin') return false
+  return !(await isListingPaid(admin, listingId))
 }
 
 // Coerce the raw form payload to the exact column shapes operator_facts expects.
@@ -138,6 +148,9 @@ export async function PUT(request) {
   if (!myIds.includes(listingId)) {
     return NextResponse.json({ error: 'You can only edit facts for a listing you own' }, { status: 403 })
   }
+  if (await editingLocked(admin, listingId, user.id)) {
+    return NextResponse.json({ error: 'Editing your listing is a Standard-plan feature. Complete your payment to unlock editing.', code: 'payment_required' }, { status: 402 })
+  }
 
   const facts = normaliseFactsInput(body)
   const { data, error } = await admin
@@ -173,7 +186,12 @@ export async function POST(request) {
     return NextResponse.json({ error: 'You do not own that listing' }, { status: 403 })
   }
 
-  if (action === 'generate') return handleGenerate(admin, listingId)
+  if (action === 'generate') {
+    if (await editingLocked(admin, listingId, user.id)) {
+      return NextResponse.json({ error: 'Generating a description is a Standard-plan feature. Complete your payment to unlock editing.', code: 'payment_required' }, { status: 402 })
+    }
+    return handleGenerate(admin, listingId)
+  }
   if (action === 'flag_error' || action === 'request_changes') {
     return handleOperatorFlag(admin, listingId, action, body)
   }

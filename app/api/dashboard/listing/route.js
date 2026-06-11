@@ -113,6 +113,24 @@ export async function PATCH(request) {
     }
   }
 
+  // ── Paid gate: managing a listing's content is a Standard-plan feature. A
+  //    free-tier claim verifies ownership and keeps the listing live in search
+  //    and trails, but editing it (website, phone, hours, photos, highlights)
+  //    requires an active *standard* claim — the same signal the gallery and
+  //    Producer's Picks use. Admins bypass. This is the server-side backstop
+  //    behind the dashboard's "complete payment to edit" challenge: without it a
+  //    free operator could PATCH this route directly and bypass the paywall. ──
+  if (user.role !== 'admin' && !(await isListingPaid(sb, listingId))) {
+    return NextResponse.json(
+      {
+        error: 'Editing your listing is a Standard-plan feature. Complete your payment to unlock editing.',
+        code: 'payment_required',
+        upgrade: true,
+      },
+      { status: 402 }
+    )
+  }
+
   // ── Base fields → canonical updateListing (master write + vertical sync-back) ──
   const baseUpdates = {}
   if ('website' in body) baseUpdates.website = body.website

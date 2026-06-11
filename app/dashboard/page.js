@@ -196,11 +196,15 @@ function CompletenessChecklist({ listing }) {
   )
 }
 
-function ListingCard({ listing, liveStats }) {
+function ListingCard({ listing, liveStats, isAdmin }) {
   const score = listing.score
   const stats = listing.stats
   const live = liveStats || null
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''
+
+  // Editing is a Standard-plan feature. A free-tier claim keeps the listing live
+  // but locks the editor behind a payment challenge (admins bypass).
+  const locked = !listing.paid && !isAdmin
 
   const staticMapUrl = listing.lat && listing.lng && mapboxToken
     ? `https://api.mapbox.com/styles/v1/mattstirlingaustralianheritage/cmn32b0iz003401swccb7d21k/static/pin-s+5f8a7e(${listing.lng},${listing.lat})/${listing.lng},${listing.lat},12,0/320x180@2x?access_token=${mapboxToken}`
@@ -426,8 +430,35 @@ function ListingCard({ listing, liveStats }) {
           </div>
         </div>
 
-        {/* Completeness checklist */}
-        <CompletenessChecklist listing={listing} />
+        {/* Completeness checklist — or, when editing is locked, a payment prompt */}
+        {locked ? (
+          <Link href={getEditUrl(listing.id)} style={{ textDecoration: 'none', display: 'block' }}>
+            <div style={{
+              marginBottom: 16,
+              padding: '12px 14px',
+              borderRadius: 8,
+              background: '#FFFDF7',
+              border: '1px solid #F0EBDF',
+              display: 'flex',
+              gap: 10,
+              alignItems: 'flex-start',
+            }}>
+              <span style={{ color: 'var(--color-sage, #5f8a7e)', flexShrink: 0, marginTop: 1, display: 'inline-flex' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
+              </span>
+              <div>
+                <p style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 13, fontWeight: 600, color: 'var(--color-ink, #2D2A26)', margin: 0 }}>
+                  Editing locked
+                </p>
+                <p style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 12, color: 'var(--color-muted, #888)', margin: '3px 0 0', lineHeight: 1.45 }}>
+                  Your listing is claimed and live. Complete your $295/yr payment to manage its details, photos and hours.
+                </p>
+              </div>
+            </div>
+          </Link>
+        ) : (
+          <CompletenessChecklist listing={listing} />
+        )}
 
         {/* Quick links */}
         <div style={{ display: 'flex', gap: 8 }}>
@@ -447,7 +478,7 @@ function ListingCard({ listing, liveStats }) {
               textDecoration: 'none',
             }}
           >
-            Edit listing
+            {locked ? 'Unlock editing — $295/yr' : 'Edit listing'}
           </Link>
           <a
             href={getPublicUrl(listing.vertical, listing.slug)}
@@ -700,7 +731,7 @@ export default function DashboardPage() {
         <section style={{ padding: '0 1.5rem 2rem', maxWidth: 720, margin: '0 auto' }}>
           <div style={{ display: 'grid', gap: '1rem' }}>
             {listings.map(listing => (
-              <ListingCard key={listing.id} listing={listing} liveStats={liveStats[listing.id]} />
+              <ListingCard key={listing.id} listing={listing} liveStats={liveStats[listing.id]} isAdmin={user?.role === 'admin'} />
             ))}
           </div>
         </section>

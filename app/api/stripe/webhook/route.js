@@ -67,6 +67,16 @@ export async function POST(request) {
             listingName: session.metadata?.listing_name,
             listingSlug: session.metadata?.listing_slug,
           })
+        } else if (type === 'atlas_upgrade_checkout') {
+          await handleUpgradeCheckout(sb, {
+            listingId: session.metadata?.listing_id,
+            subscriptionId: session.subscription,
+            customerId: session.customer,
+            customerEmail: session.metadata?.contact_email,
+            customerName: session.metadata?.contact_name,
+            vertical: session.metadata?.vertical,
+            listingName: session.metadata?.listing_name,
+          })
         } else if (type === 'council_checkout') {
           await handleCouncilCheckoutSuccess(sb, {
             councilId: session.metadata?.council_id,
@@ -491,6 +501,82 @@ async function handlePaidClaimAutoApprove(sb, {
       tier: 'standard',
     },
   }).then(null, err => console.error('[stripe-webhook] Audit log error:', err))
+}
+
+// ─── Upgrade checkout (free → standard) ──────────────────────────────────────
+//
+// Fired when an operator who already owns a listing on the FREE tier completes
+// the "unlock editing" payment from their dashboard. Unlike the claim checkout,
+// there is no pending claims_review to approve — an active (free) listing_claims
+// row already exists. grantClaim with tier 'standard' upgrades that row in place
+// (attaching the Stripe ids) and is idempotent, so a duplicate webhook is safe.
+async function handleUpgradeCheckout(sb, {
+  listingId, subscriptionId, customerId, customerEmail, customerName, vertical, listingName,
+}) {
+  if (!listingId || !customerEmail) {
+    console.error('[stripe-webhook] Upgrade checkout missing listing_id or contact_email', { listingId })
+    return
+  }
+
+  // Resolve the vertical if the session metadata didn't carry it (grantClaim needs it).
+  let effectiveVertical = vertical
+  let resolvedName = listingName
+  if (!effectiveVertical || !resolvedName) {
+    const { data: listing } = await sb
+      .from('listings')
+      .select('vertical, name')
+      .eq('id', listingId)
+      .maybeSingle()
+    effectiveVertical = effectiveVertical || listing?.vertical
+    resolvedName = resolvedName || listing?.name
+  }
+
+  // Upgrade the existing active claim in place (free → standard). grantClaim
+  // resolves the owner by email, finds the active row, and attaches the Stripe
+  // ids — it does not create a second claim.
+  const grant = await grantClaim({
+    listing_id: listingId,
+    vertical: effectiveVertical,
+    claimant_email: customerEmail,
+    tier: 'standard',
+    stripe_subscription_id: subscriptionId,
+    stripe_customer_id: customerId,
+  })
+
+  if (grant.ok) {
+    console.log(`[stripe-webhook] Upgraded listing ${listingId} to standard (subscription ${subscriptionId})`)
+  } else {
+    console.error(`[stripe-webhook] Upgrade grant failed for listing ${listingId}:`, grant.error)
+  }
+
+  // ── Confirmation email: editing is now unlocked ──
+  try {
+    if (customerEmail && process.env.RESEND_API_KEY) {
+      const { Resend } = await import('resend')
+      const resend = new Resend(process.env.RESEND_API_KEY)
+      const verticalName = VERTICAL_NAMES[effectiveVertical] || effectiveVertical || 'Australian Atlas'
+      const displayName = resolvedName || 'your listing'
+      const editUrl = `${SITE_URL}/dashboard/listings/${listingId}/edit`
+
+      await resend.emails.send({
+        from: 'Australian Atlas <noreply@australianatlas.com.au>',
+        replyTo: 'listings@australianatlas.com.au',
+        to: customerEmail,
+        subject: `${displayName} is now on the Standard plan`,
+        html: `
+          <h2>Editing unlocked</h2>
+          <p>Hi ${customerName || 'there'},</p>
+          <p>Your payment is confirmed and <strong>${displayName}</strong> on <strong>${verticalName}</strong> is now on the <strong>Standard plan</strong>.</p>
+          <p>You can now manage every detail of your listing — website and contact details, opening hours, your photo gallery, highlights and more.</p>
+          <p><a href="${editUrl}" style="display:inline-block;padding:12px 28px;background:#5F8A7E;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Edit your listing</a></p>
+          <p>Your subscription is active and will renew in 12 months.</p>
+          <p style="color:#888;font-size:13px;margin-top:24px;">Thanks for being part of the Australian Atlas network.</p>
+        `,
+      }).catch(err => console.error('[stripe-webhook] Upgrade email error:', err.message))
+    }
+  } catch {
+    // Non-fatal
+  }
 }
 
 // ─── Council checkout success ────────────────────────────────────────────────

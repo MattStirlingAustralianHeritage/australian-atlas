@@ -132,6 +132,8 @@ const ICONS = {
   camera: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" /><circle cx="12" cy="13" r="4" /></svg>,
   external: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>,
   trash: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" /><path d="M10 11v6M14 11v6" /></svg>,
+  lock: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>,
+  check: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>,
 }
 
 // ── Shared styles for inline-edit primitives ─────────────────
@@ -271,10 +273,17 @@ export default function EditListingPage() {
   const { id } = useParams()
 
   const [token, setToken] = useState(null)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [listing, setListing] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [mounted, setMounted] = useState(false)
+
+  // Paid-tier gate: editing is unlocked by an active standard claim (listing.paid)
+  // or for admins. Unpaid operators get a "complete payment" challenge instead.
+  const [upgrading, setUpgrading] = useState(false)
+  const [upgradeError, setUpgradeError] = useState(null)
+  const [justUpgraded, setJustUpgraded] = useState(false)
 
   const [website, setWebsite] = useState('')
   const [phone, setPhone] = useState('')
@@ -299,12 +308,22 @@ export default function EditListingPage() {
 
   useEffect(() => { setMounted(true) }, [])
 
+  // Returning from a successful upgrade checkout (?upgraded=1). The webhook may
+  // take a moment to flip the claim to standard, so we flag it and let the
+  // finalising poll below re-fetch until listing.paid turns true.
+  useEffect(() => {
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('upgraded') === '1') {
+      setJustUpgraded(true)
+    }
+  }, [])
+
   useEffect(() => {
     let active = true
     getDashboardToken().then(t => {
       if (!active) return
       if (!t) { setToken(null); setLoading(false); return }
       setToken(t)
+      try { setIsAdmin(JSON.parse(atob(t.split('.')[1]))?.role === 'admin') } catch { /* ignore */ }
       fetch(`/api/dashboard?listing_id=${id}`, { headers: { Authorization: `Bearer ${t}` } })
         .then(r => r.json())
         .then(data => {
@@ -334,6 +353,49 @@ export default function EditListingPage() {
     })
     return () => { active = false }
   }, [id, setBaseline])
+
+  // Finalising poll: after an upgrade, re-fetch the listing until the webhook has
+  // flipped the claim to standard (listing.paid === true), then the editor unlocks.
+  useEffect(() => {
+    const paid = !!listing?.paid
+    if (!justUpgraded || !token || paid || isAdmin) return
+    let tries = 0
+    const iv = setInterval(() => {
+      tries += 1
+      fetch(`/api/dashboard?listing_id=${id}`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.json())
+        .then(data => {
+          const l = (data.listings || [])[0]
+          if (l) setListing(prev => ({ ...prev, ...l }))
+        })
+        .catch(() => { /* keep trying */ })
+      if (tries >= 8) clearInterval(iv)
+    }, 3000)
+    return () => clearInterval(iv)
+  }, [justUpgraded, token, isAdmin, id, listing?.paid])
+
+  async function handleUpgrade() {
+    setUpgrading(true)
+    setUpgradeError(null)
+    try {
+      const res = await fetch('/api/stripe/upgrade-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ listing_id: id }),
+      })
+      let data = {}
+      try { data = await res.json() } catch { /* non-JSON error body */ }
+      if (res.ok && data.url) {
+        window.location.href = data.url
+        return
+      }
+      setUpgradeError(data.error || 'We couldn’t start payment. Please try again, or email listings@australianatlas.com.au.')
+    } catch {
+      setUpgradeError('We couldn’t start payment. Please check your connection and try again.')
+    } finally {
+      setUpgrading(false)
+    }
+  }
 
   const setDay = useCallback((day, patch) => {
     setDays(prev => ({ ...prev, [day]: { ...prev[day], ...patch } }))
@@ -494,6 +556,103 @@ export default function EditListingPage() {
   const websiteUrl = website?.trim() ? (website.startsWith('http') ? website : `https://${website}`) : null
 
   const isPaid = !!listing.paid
+  const canEdit = isPaid || isAdmin
+
+  // ── Paid-tier gate ──────────────────────────────────────────
+  // A free-tier claim verifies ownership and keeps the listing live, but managing
+  // it is a Standard-plan feature. Unpaid operators get a payment challenge here
+  // instead of the editor; the PATCH route enforces the same gate server-side.
+  if (!canEdit) {
+    const standardPerks = [
+      'Edit your website, phone & opening hours',
+      'Add a cover photo and a photo gallery',
+      'Publish operator highlights & what’s on',
+      'Listing Insights — views, searches & trails',
+      'Producer’s Picks',
+    ]
+    return (
+      <>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, maxWidth: 900, margin: '0 auto 16px', flexWrap: 'wrap' }}>
+          <Link href="/dashboard/listings" style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', textDecoration: 'none' }}>← Back to my listings</Link>
+          {listing.slug && (
+            <a href={`/place/${listing.slug}`} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500, color: 'var(--color-muted)', textDecoration: 'none' }}>
+              View public page {ICONS.external}
+            </a>
+          )}
+        </div>
+
+        <div style={{ maxWidth: 900, margin: '0 auto', background: '#fff', border: '1px solid var(--color-border)', borderRadius: 16, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 10px 34px rgba(0,0,0,0.06)' }}>
+          {/* Listing header band (read-only) */}
+          <div style={{ position: 'relative', padding: 'clamp(24px, 4vw, 40px)', background: listing.hero_image_url ? '#1C1A17' : 'linear-gradient(135deg, #2b2823, #3c352c)', overflow: 'hidden' }}>
+            {listing.hero_image_url && (
+              <>
+                <img src={listing.hero_image_url} alt={listing.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.45 }} />
+                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(28,26,23,0.86), rgba(28,26,23,0.5))' }} />
+              </>
+            )}
+            <div style={{ position: 'relative' }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 500, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)', margin: '0 0 10px' }}>
+                {getVerticalLabel(listing.vertical)} &middot; {categoryLabel}
+              </p>
+              <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 'clamp(1.6rem, 3.5vw, 2.4rem)', lineHeight: 1.12, color: '#fff', margin: 0 }}>{listing.name}</h1>
+              {location && <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 300, color: 'rgba(255,255,255,0.72)', margin: '8px 0 0' }}>{location}</p>}
+            </div>
+          </div>
+
+          {/* Challenge body */}
+          <div style={{ padding: 'clamp(24px, 4vw, 40px)' }}>
+            {justUpgraded && !isPaid ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 14, padding: '20px 0' }}>
+                <div style={{ width: 38, height: 38, borderRadius: '50%', border: '3px solid var(--color-border)', borderTopColor: 'var(--color-sage)', animation: 'aa-spin 0.8s linear infinite' }} />
+                <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)', margin: 0 }}>Payment received — finalising your upgrade</h2>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--color-muted)', margin: 0, maxWidth: 440, lineHeight: 1.55 }}>
+                  This usually takes a few seconds — your editor will unlock automatically. If it doesn’t, refresh this page in a moment.
+                </p>
+                <style>{`@keyframes aa-spin { to { transform: rotate(360deg) } }`}</style>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-5" style={{ gap: 28 }}>
+                <div className="lg:col-span-3">
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 12px', borderRadius: 100, background: 'var(--color-cream)', border: '1px solid var(--color-border)', fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--color-muted)' }}>
+                    <span style={{ display: 'inline-flex' }}>{ICONS.lock}</span> Editing locked
+                  </span>
+                  <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 'clamp(1.4rem, 3vw, 1.9rem)', color: 'var(--color-ink)', margin: '14px 0 10px', lineHeight: 1.2 }}>
+                    Unlock editing for {listing.name}
+                  </h2>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 15, color: 'var(--color-muted)', margin: 0, lineHeight: 1.6, maxWidth: 460 }}>
+                    Your claim is verified and your listing is live across the Atlas network. To manage its details, activate your <strong style={{ color: 'var(--color-ink)' }}>Standard</strong> subscription — <strong style={{ color: 'var(--color-ink)' }}>$295/year</strong>.
+                  </p>
+                  {upgradeError && (
+                    <div style={{ marginTop: 16, padding: '10px 14px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', fontFamily: 'var(--font-body)', fontSize: 13 }}>{upgradeError}</div>
+                  )}
+                  <div style={{ marginTop: 22, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
+                    <button type="button" onClick={handleUpgrade} disabled={upgrading} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'var(--color-ink)', color: '#fff', border: 'none', borderRadius: 100, padding: '13px 26px', fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600, cursor: upgrading ? 'wait' : 'pointer', opacity: upgrading ? 0.7 : 1 }}>
+                      {upgrading ? 'Starting secure checkout…' : 'Complete payment — $295/yr'}
+                    </button>
+                    <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-muted)' }}>Secure payment via Stripe &middot; cancel anytime</span>
+                  </div>
+                </div>
+                <div className="lg:col-span-2">
+                  <div style={{ borderRadius: 12, border: '1px solid var(--color-border)', background: 'var(--color-card-bg)', padding: 20 }}>
+                    <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-muted)', margin: '0 0 12px' }}>What you unlock</p>
+                    <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {standardPerks.map(perk => (
+                        <li key={perk} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', fontFamily: 'var(--font-body)', fontSize: 13.5, color: 'var(--color-ink)', lineHeight: 1.4 }}>
+                          <span style={{ color: 'var(--color-sage)', flexShrink: 0, marginTop: 1 }}>{ICONS.check}</span>
+                          {perk}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </>
+    )
+  }
+
   const dirty =
     website !== baselineRef.current.website ||
     phone !== baselineRef.current.phone ||
