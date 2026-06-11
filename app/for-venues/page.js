@@ -25,7 +25,7 @@ const TIERS = [
   },
   {
     name: 'Standard',
-    price: '99',
+    price: '295',
     period: 'per year',
     description: 'Everything you need to stand out and convert visitors.',
     features: ['Everything in Free', 'Unlimited photos', 'Opening hours & contact details', 'Venue features & events', 'Awards & accolades', 'Booking & social links', 'Special offers & promotions', 'Enlarged map pin', 'Priority placement in search', 'Analytics dashboard', 'Featured in regional guides & discovery trails'],
