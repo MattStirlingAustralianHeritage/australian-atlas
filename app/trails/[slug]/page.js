@@ -15,11 +15,14 @@ const VERTICAL_COLORS = VERTICAL_ACCENTS
 
 const getTrail = cache(async function getTrail(slug) {
   const sb = getSupabaseAdmin()
+  // Editorial trails go live via the published flag; user-built trails go
+  // live by being saved as visibility=public. (Link-only user trails are
+  // served by the /t/[shortcode] capability URL, private ones nowhere.)
   const { data } = await sb
     .from('trails')
-    .select('id, title, description, short_code, slug, type, visibility, hero_intro, hero_image_url, region, duration_hours, curator_name, curator_note, vertical_focus, best_season, published, transport_mode, neighbourhood_label, getting_there_origin')
+    .select('id, title, description, short_code, slug, type, visibility, hero_intro, hero_image_url, region, duration_hours, curator_name, curator_note, vertical_focus, best_season, published, transport_mode, neighbourhood_label, getting_there_origin, total_distance_km, total_duration_minutes')
     .eq('slug', slug)
-    .eq('published', true)
+    .or('and(type.eq.editorial,published.eq.true),and(type.eq.user,visibility.eq.public)')
     .single()
   return data
 })
@@ -82,6 +85,12 @@ export default async function TrailPage({ params }) {
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 13, color: 'rgba(255,255,255,0.45)', fontFamily: 'var(--font-body)', flexWrap: 'wrap' }}>
             <span>{validStops.length} stops</span>
+            {trail.total_distance_km > 0 && (
+              <><span>·</span><span>{Math.round(trail.total_distance_km)} km</span></>
+            )}
+            {trail.total_duration_minutes > 0 && (
+              <><span>·</span><span>{trail.total_duration_minutes >= 60 ? `${Math.floor(trail.total_duration_minutes / 60)} h ${trail.total_duration_minutes % 60 ? `${trail.total_duration_minutes % 60} min` : ''}`.trim() : `${trail.total_duration_minutes} min`} {trail.transport_mode === 'drive' ? 'driving' : 'travel'}</span></>
+            )}
             {trail.transport_mode === 'transit' && (
               <><span>·</span><span style={{ color: 'var(--color-sage)' }}>Car-free trail</span></>
             )}
@@ -153,6 +162,20 @@ export default async function TrailPage({ params }) {
                       toLat={validStops[index + 1].venue_lat}
                       toLng={validStops[index + 1].venue_lng}
                     />
+                  </div>
+                )}
+                {/* Drive-leg chip — uses the metrics persisted at save time */}
+                {(!trail.transport_mode || trail.transport_mode === 'drive') && index < validStops.length - 1 && validStops[index + 1].duration_from_previous_minutes != null && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 0 2px 19px' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-muted)" strokeWidth="1.6" style={{ flexShrink: 0, opacity: 0.7 }}>
+                      <path d="M5 17h14M7 17l1.5-4.5h7L17 17M9 12.5V9a3 3 0 0 1 6 0v3.5" />
+                    </svg>
+                    <span style={{ fontSize: 12, color: 'var(--color-muted)', fontFamily: 'var(--font-body)' }}>
+                      {validStops[index + 1].duration_from_previous_minutes >= 60
+                        ? `${Math.floor(validStops[index + 1].duration_from_previous_minutes / 60)} h ${validStops[index + 1].duration_from_previous_minutes % 60 || ''}${validStops[index + 1].duration_from_previous_minutes % 60 ? ' min' : ''}`.trim()
+                        : `${validStops[index + 1].duration_from_previous_minutes} min`} drive
+                      {validStops[index + 1].distance_from_previous_km != null && ` · ${Math.round(validStops[index + 1].distance_from_previous_km)} km`}
+                    </span>
                   </div>
                 )}
               </div>

@@ -362,7 +362,11 @@ function TrailCard({ trail, onDelete }) {
     year: 'numeric',
   })
 
-  const viewHref = trail.slug ? `/trails/${trail.slug}` : `/t/${trail.short_code}`
+  const viewHref = trail.visibility === 'public' && trail.slug
+    ? `/trails/${trail.slug}`
+    : trail.visibility !== 'private' && trail.short_code
+      ? `/t/${trail.short_code}`
+      : `/trails/builder?id=${trail.id}`
 
   return (
     <div style={{

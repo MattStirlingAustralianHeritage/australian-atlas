@@ -9,6 +9,12 @@ const VISIBILITY_OPTIONS = [
   { value: 'public', label: 'Public' },
 ]
 
+function currentVisibilityHref(visibility, slug, shortCode, trailId) {
+  if (visibility === 'public' && slug) return `/trails/${slug}`
+  if (visibility !== 'private' && shortCode) return `/t/${shortCode}`
+  return `/trails/builder?id=${trailId}`
+}
+
 export default function TrailActions({ trailId, shortCode, slug, visibility, onDelete }) {
   const [copied, setCopied] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -17,7 +23,9 @@ export default function TrailActions({ trailId, shortCode, slug, visibility, onD
   const [updatingVisibility, setUpdatingVisibility] = useState(false)
 
   const shareUrl = `https://australianatlas.com.au/t/${shortCode}`
-  const viewHref = slug ? `/trails/${slug}` : `/t/${shortCode}`
+  // Public trails have a canonical slug page; link-only trails are served by
+  // the capability URL; private trails are only viewable inside the builder.
+  const viewHref = currentVisibilityHref(visibility, slug, shortCode, trailId)
 
   async function handleCopy() {
     try {
@@ -104,6 +112,14 @@ export default function TrailActions({ trailId, shortCode, slug, visibility, onD
           <circle cx="12" cy="12" r="3" />
         </svg>
         View
+      </Link>
+
+      {/* Edit in builder */}
+      <Link href={`/trails/builder?id=${trailId}`} style={buttonBase}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+        </svg>
+        Edit
       </Link>
 
       {/* Share / Copy link */}

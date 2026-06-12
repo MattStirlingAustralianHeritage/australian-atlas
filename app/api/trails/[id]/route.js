@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAuthServerClient } from '@/lib/supabase/auth-clients'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { recomputeTotals } from '@/lib/trails/totals'
 
 /**
  * GET /api/trails/[id]
@@ -34,7 +35,7 @@ export async function GET(request, { params }) {
     // Fetch stops ordered by order_index
     const { data: stops, error: stopsError } = await sb
       .from('trail_stops')
-      .select('id, trail_id, listing_id, vertical, venue_name, venue_lat, venue_lng, venue_image_url, position, editorial_copy, included_in_route')
+      .select('id, trail_id, listing_id, vertical, venue_name, venue_lat, venue_lng, venue_image_url, position, editorial_copy, distance_from_previous_km, duration_from_previous_minutes')
       .eq('trail_id', trail.id)
       .order('position', { ascending: true })
 
@@ -42,7 +43,25 @@ export async function GET(request, { params }) {
       console.error('[trails/id] Stops fetch error:', stopsError.message)
     }
 
-    return NextResponse.json({ trail: { ...trail, stops: stops || [] } })
+    // Enrich with the live listing slug/region so the builder (edit mode,
+    // templates) can link stops and show locations without extra round-trips.
+    let enriched = stops || []
+    const listingIds = enriched.map(s => s.listing_id).filter(Boolean)
+    if (listingIds.length) {
+      const { data: listingRows } = await sb
+        .from('listings')
+        .select('id, slug, region, state')
+        .in('id', listingIds)
+      const bySlug = Object.fromEntries((listingRows || []).map(l => [l.id, l]))
+      enriched = enriched.map(s => ({
+        ...s,
+        listing_slug: bySlug[s.listing_id]?.slug || null,
+        listing_region: bySlug[s.listing_id]?.region || null,
+        listing_state: bySlug[s.listing_id]?.state || null,
+      }))
+    }
+
+    return NextResponse.json({ trail: { ...trail, stops: enriched } })
   } catch (err) {
     console.error('[trails/id] Fatal error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -174,7 +193,9 @@ export async function PUT(request, { params }) {
           venue_image_url: stop.venue_image_url || null,
           position: stop.position ?? stop.order_index ?? i,
           editorial_copy: stop.editorial_copy ?? stop.notes ?? null,
-          included_in_route: stop.included_in_route !== false,
+          // included_in_route: column absent from the production schema
+          distance_from_previous_km: Number.isFinite(stop.distance_from_previous_km) ? stop.distance_from_previous_km : null,
+          duration_from_previous_minutes: Number.isFinite(stop.duration_from_previous_minutes) ? Math.round(stop.duration_from_previous_minutes) : null,
         }))
 
         const { error: insertError } = await sb
@@ -185,12 +206,15 @@ export async function PUT(request, { params }) {
           console.error('[trails/id] Stops insert error:', insertError.message)
         }
       }
+
+      // Keep the trail's denormalised totals in step with the new stop set.
+      try { await recomputeTotals(sb, id) } catch (e) { console.error('[trails/id] totals:', e.message) }
     }
 
     // Fetch updated stops
     const { data: updatedStops } = await sb
       .from('trail_stops')
-      .select('id, trail_id, listing_id, vertical, venue_name, venue_lat, venue_lng, venue_image_url, position, editorial_copy, included_in_route')
+      .select('id, trail_id, listing_id, vertical, venue_name, venue_lat, venue_lng, venue_image_url, position, editorial_copy, distance_from_previous_km, duration_from_previous_minutes')
       .eq('trail_id', id)
       .order('position', { ascending: true })
 

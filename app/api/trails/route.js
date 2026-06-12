@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAuthServerClient } from '@/lib/supabase/auth-clients'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { recomputeTotals } from '@/lib/trails/totals'
 
 /**
  * GET /api/trails?type=editorial&visibility=public&created_by=...&limit=20&offset=0
@@ -131,7 +132,10 @@ export async function POST(request) {
         vertical_focus: vertical_focus || null,
         stop_count: stops?.length || 0,
         created_by: user?.id || null,
-        saved_via: saved_via || null,
+        // NOTE: `saved_via` is read from the body for the anonymous-share
+        // auth check above but deliberately NOT inserted — the column never
+        // made it to the production schema, and including it 42703s the
+        // whole insert (which silently broke trail saving network-wide).
         transport_mode: transport_mode || 'drive',
         neighbourhood_label: neighbourhood_label || null,
       })
@@ -155,7 +159,10 @@ export async function POST(request) {
         venue_image_url: stop.venue_image_url || null,
         position: stop.position ?? stop.order_index ?? i,
         editorial_copy: stop.editorial_copy ?? stop.notes ?? null,
-        included_in_route: stop.included_in_route !== false,
+        // included_in_route is accepted in the body for forward-compat but
+        // not persisted — the column doesn't exist in the production schema.
+        distance_from_previous_km: Number.isFinite(stop.distance_from_previous_km) ? stop.distance_from_previous_km : null,
+        duration_from_previous_minutes: Number.isFinite(stop.duration_from_previous_minutes) ? Math.round(stop.duration_from_previous_minutes) : null,
       }))
 
       const { error: stopsError } = await sb
@@ -170,6 +177,10 @@ export async function POST(request) {
           warning: 'Trail created but some stops failed to save',
         }, { status: 201 })
       }
+
+      // Denormalise total km / minutes / vertical mix onto the trail row so
+      // lists and detail pages don't have to walk the stops.
+      try { await recomputeTotals(sb, trail.id) } catch (e) { console.error('[trails] totals:', e.message) }
     }
 
     return NextResponse.json({ trail }, { status: 201 })

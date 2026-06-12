@@ -43,7 +43,7 @@ export async function GET() {
     // coordinates must never reach a public pin payload.
     const allListings = await fetchAllPages(
       sb, 'listings',
-      `id, vertical, ${hasVerticals ? 'verticals, ' : ''}name, slug, description, region, state, lat, lng, is_featured, sub_type`,
+      `id, vertical, ${hasVerticals ? 'verticals, ' : ''}name, slug, description, region, state, lat, lng, is_featured, sub_type, trail_suitable`,
       [
         q => q.eq('status', 'active'),
         q => q.in('vertical', publicVerticals),
