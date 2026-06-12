@@ -37,6 +37,7 @@ const VERTICAL_FIELDS = {
       { value: 'jewellery_metalwork', label: 'Jewellery & Metalwork' }, { value: 'textile_fibre', label: 'Textile & Fibre' },
       { value: 'wood_furniture', label: 'Wood & Furniture' }, { value: 'glass', label: 'Glass' },
       { value: 'printmaking', label: 'Printmaking' },
+      { value: 'leathermaker', label: 'Leatherwork' }, { value: 'shoemaker', label: 'Shoemaking' },
     ]},
     { key: 'commission_available', label: 'Commission Available', type: 'toggle' },
     { key: 'is_open_to_public', label: 'Studio Visits', type: 'toggle' },

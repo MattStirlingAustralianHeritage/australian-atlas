@@ -27,6 +27,7 @@ const SUB_TYPE_LABELS = {
     ceramics_clay: 'Ceramics & Clay', visual_art: 'Visual Art',
     jewellery_metalwork: 'Jewellery & Metalwork', textile_fibre: 'Textile & Fibre',
     wood_furniture: 'Wood & Furniture', glass: 'Glass', printmaking: 'Printmaking',
+    leathermaker: 'Leatherwork', shoemaker: 'Shoemaking',
   },
   fine_grounds: {
     roaster: 'Roaster', cafe: 'Cafe',

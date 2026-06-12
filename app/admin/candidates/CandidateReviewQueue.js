@@ -63,6 +63,8 @@ const SUBCATEGORY_OPTIONS = {
     { value: 'wood_furniture', label: 'Wood & Furniture' },
     { value: 'glass', label: 'Glass' },
     { value: 'printmaking', label: 'Printmaking' },
+    { value: 'leathermaker', label: 'Leatherwork' },
+    { value: 'shoemaker', label: 'Shoemaking' },
   ],
   fine_grounds: [
     { value: 'roaster', label: 'Roaster' },

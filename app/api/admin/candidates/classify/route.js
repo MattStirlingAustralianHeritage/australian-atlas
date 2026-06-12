@@ -33,7 +33,7 @@ export const maxDuration = 60
 const VERTICAL_TAXONOMY = {
   sba: 'Small Batch — an artisan food or drink PRODUCER you can visit: brewery, winery, distillery, cidery, meadery, cellar door.',
   collection: 'Culture — a museum, gallery, or cultural collection open to visitors.',
-  craft: 'Craft — a maker or artisan studio (ceramics, textiles, woodwork, jewellery, glass, leather) where work is made or sold.',
+  craft: 'Craft — a maker or artisan studio (ceramics, textiles, woodwork, jewellery, glass, leatherwork, shoemaking) where work is made or sold.',
   fine_grounds: 'Fine Grounds — a specialty coffee roaster or a coffee-led café (coffee is the focus, not a full food menu).',
   rest: 'Rest — boutique or independent accommodation (a place to stay).',
   field: 'Field — an outdoor or natural destination: national park, trail, lookout, beach, garden, reserve.',
