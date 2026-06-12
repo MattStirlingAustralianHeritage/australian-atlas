@@ -76,7 +76,7 @@ const REGION_CENTERS = {
 const DEFAULT_CENTER = { lat: -28.5, lng: 134.5, zoom: 4.2 }
 
 const LOADING_LINES = [
-  'Searching across nine atlases\u2026',
+  'Searching across ten atlases\u2026',
   'Finding independent venues\u2026',
   'Plotting your route\u2026',
   'Checking the back roads\u2026',

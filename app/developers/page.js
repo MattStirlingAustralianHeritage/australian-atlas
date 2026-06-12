@@ -2,7 +2,7 @@ import Link from 'next/link'
 
 export const metadata = {
   title: 'API for Developers — Australian Atlas',
-  description: 'Access verified independent listing data across nine curated directories via the Australian Atlas API.',
+  description: 'Access verified independent listing data across ten curated directories via the Australian Atlas API.',
 }
 
 const ENDPOINTS = [

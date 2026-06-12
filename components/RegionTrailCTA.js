@@ -38,7 +38,7 @@ export default function RegionTrailCTA({ regionName }) {
         margin: '0 auto 1.5rem',
         lineHeight: 1.6,
       }}>
-        Build a day-by-day itinerary from verified venues across all nine atlases.
+        Build a day-by-day itinerary from verified venues across all ten atlases.
       </p>
       <button
         onClick={() => router.push(`/itinerary?q=${encodeURIComponent(`Explore ${regionName}`)}`)}

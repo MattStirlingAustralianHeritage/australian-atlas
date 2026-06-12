@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { searchEvents } from '@/lib/events'
 import { createHash } from 'crypto'
 import { LISTING_REGION_SELECT, resolveRegionParam } from '@/lib/regions'
 import { getPublicVerticals, isVerticalPublic } from '@/lib/verticalUrl'
@@ -124,6 +125,13 @@ export async function GET(request) {
         }
       }
 
+      // Events lane — runs concurrently with the embedding + hybrid retrieval.
+      // Raw q (not `cleaned`): the events FTS vector includes suburb/state, so
+      // location words help rather than hurt. Failure never breaks search.
+      const eventsPromise = searchEvents(sb, {
+        query: q, state: filterState, vertical, limit: 4,
+      }).catch(() => [])
+
       const { lit: queryEmbedding, error: voyageError } = await embedQueryCached(sb, cleaned)
 
       // Fetch enough ranked rows to satisfy the requested page, capped.
@@ -177,10 +185,17 @@ export async function GET(request) {
         listings, total, page, limit,
         totalPages: Math.ceil(total / limit),
         detectedVertical: null, detectedState: detectedState || null, detectedRegion, detectedSuburb,
+        events: await eventsPromise,
       })
     }
 
     // ── No text query: filtered browse ────────────────────────────────────
+    // Events lane for browse: soonest upcoming events under the same filters
+    // ("what's on" when no query is typed). Failure never breaks search.
+    const eventsPromise = searchEvents(sb, {
+      query: null, state: state || null, vertical, limit: 4,
+    }).catch(() => [])
+
     let baseQuery = sb
       .from('listings_with_region')
       .select(SELECT_FIELDS, { count: 'exact' })
@@ -210,6 +225,7 @@ export async function GET(request) {
     return NextResponse.json({
       listings: data || [], total: count || 0, page, limit,
       totalPages: Math.ceil((count || 0) / limit),
+      events: await eventsPromise,
     })
   } catch (err) {
     console.error('[search] Fatal error:', err)

@@ -209,6 +209,79 @@ function fmtCategory(cat) {
   return String(cat).replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
+const EVENT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+// Compact event card for the search "What's on" lane. Date block + title +
+// venue line; links to the event's public page.
+function SearchEventCard({ event }) {
+  const start = new Date(`${event.start_date}T00:00:00`)
+  const day = start.getDate()
+  const month = EVENT_MONTHS[start.getMonth()]
+  const place = [event.location_name, event.suburb || event.state].filter(Boolean).join(' · ')
+  return (
+    <a
+      href={`/events/${event.slug}`}
+      className="listing-card"
+      style={{
+        display: 'flex', alignItems: 'center', gap: 14,
+        minWidth: 280, maxWidth: 340, flexShrink: 0,
+        padding: '12px 16px 12px 12px',
+        background: 'var(--color-card-bg)',
+        border: '1px solid var(--color-border)',
+        borderRadius: 'var(--radius-card)',
+        textDecoration: 'none',
+      }}
+    >
+      <div style={{
+        width: 52, height: 56, borderRadius: 'var(--radius-sm)', flexShrink: 0,
+        background: 'var(--color-cream)', border: '1px solid var(--color-border)',
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <span style={{ fontFamily: 'var(--font-display)', fontSize: 20, lineHeight: 1.1, color: 'var(--color-ink)' }}>{day}</span>
+        <span style={{ fontFamily: 'var(--font-body)', fontSize: 9.5, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-gold)' }}>{month}</span>
+      </div>
+      <div style={{ minWidth: 0 }}>
+        <p style={{
+          fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 16, lineHeight: 1.25,
+          color: 'var(--color-ink)', margin: 0,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          {event.title}
+        </p>
+        {place && (
+          <p style={{
+            fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 12, color: 'var(--color-muted)',
+            margin: '3px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {place}
+          </p>
+        )}
+        <p style={{ margin: '5px 0 0', display: 'flex', gap: 6, alignItems: 'center' }}>
+          {event.category && (
+            <span style={{
+              fontFamily: 'var(--font-body)', fontSize: 10.5, fontWeight: 500,
+              padding: '1px 8px', borderRadius: 'var(--radius-pill)',
+              background: 'var(--color-cream)', border: '1px solid var(--color-border)',
+              color: 'var(--color-muted)', textTransform: 'capitalize',
+            }}>
+              {event.category}
+            </span>
+          )}
+          {event.is_free && (
+            <span style={{
+              fontFamily: 'var(--font-body)', fontSize: 10.5, fontWeight: 600,
+              padding: '1px 8px', borderRadius: 'var(--radius-pill)',
+              background: 'rgba(122,143,107,0.14)', color: '#3a7d44',
+            }}>
+              Free
+            </span>
+          )}
+        </p>
+      </div>
+    </a>
+  )
+}
+
 // Enlarged "top result" card — a taller visual header plus a detail panel with
 // category, location, the venue address, and a description excerpt.
 function FeaturedCard({ listing }) {
@@ -287,6 +360,7 @@ function SearchPageInner() {
   const [autoState, setAutoState] = useState('')  // State detected from query text by API
   const [autoSuburb, setAutoSuburb] = useState('')  // Suburb detected from query text by API
   const [results, setResults] = useState([])
+  const [events, setEvents] = useState([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
@@ -319,6 +393,7 @@ function SearchPageInner() {
       const res = await fetch(`/api/search?${params}`)
       const data = await res.json()
       setResults(data.listings || [])
+      setEvents(data.events || [])
       setTotal(data.total || 0)
       setPage(data.page || 1)
       setTotalPages(data.totalPages || 0)
@@ -398,7 +473,7 @@ function SearchPageInner() {
     if (locationLabel) {
       return `${count} listings in ${locationLabel}`
     }
-    return `${count} listings across nine atlases`
+    return `${count} listings across ten atlases`
   }
 
   // Contextual header detection
@@ -419,7 +494,7 @@ function SearchPageInner() {
       {/* Search header */}
       <div className="max-w-2xl">
         <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 400 }} className="text-3xl sm:text-4xl text-[var(--color-ink)]">Search</h1>
-        <p className="mt-1" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px', color: 'var(--color-muted)' }}>Find places across all nine atlases</p>
+        <p className="mt-1" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px', color: 'var(--color-muted)' }}>Find places across all ten atlases</p>
       </div>
 
       {/* Mode toggle: Search / Vibe */}
@@ -633,6 +708,31 @@ function SearchPageInner() {
         </p>
       </div>
 
+      {/* Upcoming events matching the search — a separate lane so time-bound
+          events never dilute the venue ranking. */}
+      {!loading && events.length > 0 && (
+        <div className="mt-5">
+          <div className="flex items-baseline justify-between" style={{ marginBottom: '10px' }}>
+            <p style={{
+              fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
+              letterSpacing: '0.18em', textTransform: 'uppercase',
+              color: 'var(--color-gold)', margin: 0,
+            }}>
+              What&apos;s on
+            </p>
+            <a href="/events" style={{
+              fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 500,
+              color: 'var(--color-muted)', textDecoration: 'none',
+            }}>
+              All events &rarr;
+            </a>
+          </div>
+          <div className="scroll-row" style={{ paddingBottom: 4 }}>
+            {events.map(ev => <SearchEventCard key={ev.id} event={ev} />)}
+          </div>
+        </div>
+      )}
+
       {/* Results grid */}
       {initialLoad ? (
         /* Skeleton loading state */
@@ -740,7 +840,7 @@ export default function SearchPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
         <div className="max-w-2xl">
           <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 400 }} className="text-3xl sm:text-4xl text-[var(--color-ink)]">Search</h1>
-          <p className="mt-1" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px', color: 'var(--color-muted)' }}>Find places across all nine atlases</p>
+          <p className="mt-1" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px', color: 'var(--color-muted)' }}>Find places across all ten atlases</p>
         </div>
         <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {Array.from({ length: 12 }).map((_, i) => (

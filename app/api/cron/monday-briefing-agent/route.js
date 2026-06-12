@@ -465,7 +465,7 @@ function buildEmailHtml({ briefingHtml, signals, errors, totalActive, dateLabel 
   sections.push(`
       <hr style="border: none; border-top: 1px solid #e5e0d5; margin: 28px 0 16px;">
       <p style="color: #6b7280; font-size: 13px; margin: 0;">
-        Total listings: <strong>${totalActive.toLocaleString()}</strong> across nine atlases. Have a good week.
+        Total listings: <strong>${totalActive.toLocaleString()}</strong> across ten atlases. Have a good week.
       </p>
       <p style="color: #c4bfb4; font-size: 11px; margin: 8px 0 0;">
         Sent by the Monday Briefing Agent &middot; Australian Atlas

@@ -70,7 +70,7 @@ export default async function PricingPage() {
           fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 16,
           color: 'var(--color-muted)', lineHeight: 1.65, maxWidth: 600, marginTop: 16,
         }}>
-          Australian Atlas does. {stats.listings > 0 ? stats.listings.toLocaleString() : '6,800'}+ verified independent listings, across nine curated directories, covering {stats.regions || 46} regions. Every listing verified. No chains. No aggregator padding.
+          Australian Atlas does. {stats.listings > 0 ? stats.listings.toLocaleString() : '6,800'}+ verified independent listings, across ten curated directories, covering {stats.regions || 46} regions. Every listing verified. No chains. No aggregator padding.
         </p>
       </section>
 
@@ -128,7 +128,7 @@ export default async function PricingPage() {
           {[
             {
               title: 'Regional data access',
-              desc: 'Every verified independent listing in your region, across all nine atlases. Filterable, exportable, always current. See what visitors are actually searching for in your area.',
+              desc: 'Every verified independent listing in your region, across all ten atlases. Filterable, exportable, always current. See what visitors are actually searching for in your area.',
             },
             {
               title: 'Content co-creation',
@@ -143,7 +143,7 @@ export default async function PricingPage() {
               desc: 'Understand what visitors are actually looking for in your region — search queries, trail generation prompts, and zero-result searches that reveal unmet demand.',
             },
             {
-              title: 'Network reach across nine atlases',
+              title: 'Network reach across ten atlases',
               desc: 'Your region appears on nine separate, SEO-optimised vertical sites plus the master portal. Cross-vertical trail generation drives multi-day visitation by combining venues across categories.',
             },
             {
@@ -168,7 +168,7 @@ export default async function PricingPage() {
         </div>
       </section>
 
-      {/* The nine atlases */}
+      {/* The atlases */}
       <section style={{ padding: '3rem 1.5rem', maxWidth: '900px', margin: '0 auto' }}>
         <p style={{
           fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 10,

@@ -364,7 +364,7 @@ function ItineraryPageInner() {
           fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 13,
           color: 'var(--color-muted)',
         }}>
-          Finding verified venues across nine atlases
+          Finding verified venues across ten atlases
         </p>
         <style>{`@keyframes trailSpin { to { transform: rotate(360deg) } }`}</style>
       </div>
@@ -533,7 +533,7 @@ function TrailPromptInput() {
         fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 15,
         color: 'var(--color-muted)', marginBottom: 32, lineHeight: 1.6,
       }}>
-        Build a personalised itinerary from verified venues across nine atlases.
+        Build a personalised itinerary from verified venues across ten atlases.
       </p>
 
       <form onSubmit={handleSubmit} style={{
