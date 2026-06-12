@@ -85,7 +85,7 @@ export default function Footer() {
                 color: 'rgba(250,248,244,0.5)',
               }}
             >
-              The complete guide to independent Australia. Thousands of places, one map.
+              The complete guide to independent Australia. Ten atlases, one map.
             </p>
           </div>
 

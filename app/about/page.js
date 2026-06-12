@@ -1,7 +1,7 @@
 import Link from 'next/link'
-import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import ScrollReveal from '@/components/ScrollReveal'
 import { VERTICAL_CARD_BG as CARD_BG } from '@/lib/verticalUrl'
+import { getNetworkStats } from '@/lib/networkStats'
 
 export const revalidate = 86400
 
@@ -69,23 +69,11 @@ const VERTICAL_CARD_BG = {
   'Small Batch': CARD_BG.sba, 'Craft': CARD_BG.craft, 'Culture': CARD_BG.collection,
   'Fine Grounds': CARD_BG.fine_grounds, 'Rest': CARD_BG.rest, 'Field': CARD_BG.field,
   'Corner': CARD_BG.corner, 'Found': CARD_BG.found, 'Table': CARD_BG.table,
-}
-
-async function getStats() {
-  try {
-    const sb = getSupabaseAdmin()
-    const [{ count: listings }, { count: regions }] = await Promise.all([
-      sb.from('listings').select('*', { count: 'exact', head: true }).eq('status', 'active'),
-      sb.from('regions').select('*', { count: 'exact', head: true }),
-    ])
-    return { listings: listings || 0, regions: regions || 0 }
-  } catch {
-    return { listings: 6881, regions: 46 }
-  }
+  'Way': CARD_BG.way,
 }
 
 export default async function AboutPage() {
-  const stats = await getStats()
+  const stats = await getNetworkStats()
 
   return (
     <div style={{ background: 'var(--color-bg)', minHeight: '100vh' }}>
@@ -236,7 +224,7 @@ export default async function AboutPage() {
               fontWeight: 400, color: 'var(--color-ink)', marginBottom: 12,
               lineHeight: 1.15,
             }}>
-              Nine atlases, one Australia
+              Ten atlases, one Australia
             </h2>
             <p style={{
               fontFamily: 'var(--font-body)', fontSize: 16, fontWeight: 300,

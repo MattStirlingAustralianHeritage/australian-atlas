@@ -1,9 +1,21 @@
 import Link from 'next/link'
 import FaqAccordion from './FaqAccordion'
 
+const FOR_VENUES_DESCRIPTION = 'Your venue is already on the map. Claim your listing on Australian Atlas to manage your details, add photos, and connect with visitors.'
+
 export const metadata = {
   title: 'For Venues — Australian Atlas',
-  description: 'Your venue is already on the map. Claim your listing on Australian Atlas to manage your details, add photos, and connect with visitors.',
+  description: FOR_VENUES_DESCRIPTION,
+  openGraph: {
+    title: 'For Venues — Australian Atlas',
+    description: FOR_VENUES_DESCRIPTION,
+    url: 'https://australianatlas.com.au/for-venues',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'For Venues — Australian Atlas',
+    description: FOR_VENUES_DESCRIPTION,
+  },
 }
 
 const VERTICAL_LABELS = {
@@ -25,7 +37,7 @@ const TIERS = [
   },
   {
     name: 'Standard',
-    price: '295',
+    price: '495',
     period: 'per year',
     description: 'Everything you need to stand out and convert visitors.',
     features: ['Everything in Free', 'Unlimited photos', 'Opening hours & contact details', 'Venue features & events', 'Awards & accolades', 'Booking & social links', 'Special offers & promotions', 'Enlarged map pin', 'Priority placement in search', 'Analytics dashboard', 'Featured in regional guides & discovery trails'],
@@ -48,7 +60,6 @@ const ALL_FEATURES = [
   { label: 'Booking & social links', free: false, standard: true },
   { label: 'Special offers & promotions', free: false, standard: true },
   { label: 'Enlarged map pin', free: false, standard: true },
-  { label: 'Featured on homepage', free: false, standard: true },
   { label: 'Priority placement in search', free: false, standard: true },
   { label: 'Analytics dashboard', free: false, standard: true },
   { label: 'Featured in regional guides & discovery trails', free: false, standard: true },
@@ -134,7 +145,7 @@ export default function ForVenuesPage({ searchParams }) {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr repeat(2, 140px)', borderBottom: '2px solid var(--color-border)', background: 'var(--color-cream)' }}>
               <div style={{ padding: '12px 24px', fontSize: 13, color: 'var(--color-muted)', fontFamily: 'var(--font-body)' }}>per year</div>
-              {['Free', '$295'].map(p => (
+              {['Free', '$495'].map(p => (
                 <div key={p} style={{ padding: '12px 8px', textAlign: 'center', fontFamily: 'var(--font-display)', fontSize: 20, color: 'var(--color-ink)', fontWeight: 400 }}>{p}</div>
               ))}
             </div>
@@ -156,7 +167,7 @@ export default function ForVenuesPage({ searchParams }) {
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(22px, 3vw, 34px)', fontWeight: 400, color: 'var(--color-ink)', textAlign: 'center', marginBottom: 52 }}>Claim your listing in minutes</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 24 }}>
             {[
-              { n: '01', title: 'Find your venue', desc: 'Search for your venue across all nine Atlas Network directories.' },
+              { n: '01', title: 'Find your venue', desc: 'Search for your venue across all ten Atlas Network directories.' },
               { n: '02', title: 'Submit your claim', desc: 'Tell us your name, email, and your role at the venue. We verify and hand you control.' },
               { n: '03', title: 'Manage your listing', desc: 'Update your details, add photos, and optionally upgrade for more visibility.' },
             ].map(step => (

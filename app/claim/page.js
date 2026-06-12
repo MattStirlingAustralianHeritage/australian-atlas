@@ -1,46 +1,41 @@
 import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import ClaimSearch from './ClaimSearch'
-import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
-import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
+import { excludeTestListings } from '@/lib/listings/publicFilter'
+
+const CLAIM_DESCRIPTION = 'Find your venue across all ten Atlas Network directories and claim your free listing on Australian Atlas.'
 
 export const metadata = {
   title: 'Claim Your Listing — Australian Atlas',
-  description: 'Find your venue and claim your free listing on Australian Atlas.',
+  description: CLAIM_DESCRIPTION,
+  openGraph: {
+    title: 'Claim Your Listing — Australian Atlas',
+    description: CLAIM_DESCRIPTION,
+    url: 'https://australianatlas.com.au/claim',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Claim Your Listing — Australian Atlas',
+    description: CLAIM_DESCRIPTION,
+  },
 }
 
 export const revalidate = 3600
 
-const VERTICAL_LABELS = {
-  sba: 'Small Batch Atlas', collection: 'Culture Atlas', craft: 'Craft Atlas',
-  fine_grounds: 'Fine Grounds Atlas', rest: 'Rest Atlas', field: 'Field Atlas',
-  corner: 'Corner Atlas', found: 'Found Atlas', table: 'Table Atlas',
-}
-
-const VERTICAL_COLORS = VERTICAL_ACCENTS
-
 export default async function ClaimPage() {
   const sb = getSupabaseAdmin()
 
-  // Fetch all active listings for client-side search (exclude Field — not claimable)
-  const { data: listings } = await sb
-    .from('listings')
-    .select(`id, name, slug, vertical, region, state, is_claimed, ${LISTING_REGION_SELECT}`)
-    .eq('status', 'active')
-    .neq('vertical', 'field')
-    .order('name')
-
-  const serialized = (listings || []).map(l => ({
-    id: l.id,
-    name: l.name,
-    slug: l.slug,
-    vertical: l.vertical,
-    verticalLabel: VERTICAL_LABELS[l.vertical] || l.vertical,
-    verticalColor: VERTICAL_COLORS[l.vertical] || '#5F8A7E',
-    region: getListingRegion(l)?.name ?? null,
-    state: l.state,
-    isClaimed: l.is_claimed || false,
-  }))
+  // The search itself runs server-side per keystroke (/api/claim/search) so
+  // every claimable listing is reachable — a bulk fetch here would silently
+  // truncate at PostgREST's 1000-row cap. Only the live total is needed.
+  const { count } = await excludeTestListings(
+    sb
+      .from('listings')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'active')
+      .neq('vertical', 'field')
+  )
+  const totalCount = count || 0
 
   return (
     <div style={{ background: 'var(--color-bg)', minHeight: '100vh' }}>
@@ -51,14 +46,14 @@ export default async function ClaimPage() {
             Find your venue
           </h1>
           <p style={{ fontSize: 16, color: 'var(--color-muted)', lineHeight: 1.7, fontFamily: 'var(--font-body)', marginBottom: 0 }}>
-            Search across all nine Atlas Network directories. Once you find your venue, claim it for free.
+            Search across all ten Atlas Network directories. Once you find your venue, claim it for free.
           </p>
         </div>
       </section>
 
       <section style={{ padding: '40px 24px 80px' }}>
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
-          <ClaimSearch listings={serialized} />
+          <ClaimSearch totalCount={totalCount} />
         </div>
       </section>
 

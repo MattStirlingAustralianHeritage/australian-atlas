@@ -5,6 +5,7 @@ import { createHash } from 'crypto'
 import { LISTING_REGION_SELECT, resolveRegionParam } from '@/lib/regions'
 import { getPublicVerticals, isVerticalPublic } from '@/lib/verticalUrl'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
+import { excludeTestListings, isPublicListing } from '@/lib/listings/publicFilter'
 import { embedQueryCached } from '@/lib/embeddings/queryCache'
 import { logSearchEvent } from '@/lib/search/log'
 import { parseQueryLocation } from '@/lib/search/parseQuery'
@@ -169,6 +170,8 @@ export async function GET(request) {
         })
         if (stateData && stateData.length) { all = stateData; detectedSuburb = null }
       }
+      // Admin/QA fixture rows never surface publicly (RPC results, so row-level).
+      all = all.filter(isPublicListing)
       const total = all.length
       const offset = (page - 1) * limit
       const listings = all.slice(offset, offset + limit).map(({ fused_score, ...rest }) => rest)
@@ -196,11 +199,13 @@ export async function GET(request) {
       query: null, state: state || null, vertical, limit: 4,
     }).catch(() => [])
 
-    let baseQuery = sb
-      .from('listings_with_region')
-      .select(SELECT_FIELDS, { count: 'exact' })
-      .eq('status', 'active')
-      .in('vertical', publicVerticals)
+    let baseQuery = excludeTestListings(
+      sb
+        .from('listings_with_region')
+        .select(SELECT_FIELDS, { count: 'exact' })
+        .eq('status', 'active')
+        .in('vertical', publicVerticals)
+    )
 
     if (vertical) baseQuery = filterByVertical(baseQuery, vertical, await relationHasVerticals(sb, 'listings_with_region'))
     if (state) baseQuery = baseQuery.eq('state', state)

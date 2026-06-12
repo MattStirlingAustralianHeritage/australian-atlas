@@ -1,11 +1,24 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
+import { getNetworkStats } from '@/lib/networkStats'
 
 export const revalidate = 86400
 
+const PRESS_DESCRIPTION = 'Live network stats, vertical overviews, and media contact information for the Australian Atlas network — ten curated directories mapping independent Australia.'
+
 export const metadata = {
   title: 'Press Kit — Australian Atlas',
-  description: 'Live network stats, vertical overviews, and media contact information for the Australian Atlas network — ten curated directories mapping independent Australia.',
+  description: PRESS_DESCRIPTION,
+  openGraph: {
+    title: 'Press Kit — Australian Atlas',
+    description: PRESS_DESCRIPTION,
+    url: 'https://australianatlas.com.au/press',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Press Kit — Australian Atlas',
+    description: PRESS_DESCRIPTION,
+  },
 }
 
 const verticals = [
@@ -22,18 +35,9 @@ const verticals = [
 ]
 
 async function getPressStats() {
+  const { listings: totalListings, regions: regionCount } = await getNetworkStats()
   try {
     const sb = getSupabaseAdmin()
-
-    const [
-      { count: totalListings },
-      { count: regionCount },
-      { count: claimedCount },
-    ] = await Promise.all([
-      sb.from('listings').select('*', { count: 'exact', head: true }).eq('status', 'active'),
-      sb.from('regions').select('*', { count: 'exact', head: true }),
-      sb.from('listings').select('*', { count: 'exact', head: true }).eq('status', 'active').eq('is_claimed', true),
-    ])
 
     // Per-vertical counts
     const verticalCounts = {}
@@ -44,14 +48,9 @@ async function getPressStats() {
       verticalCounts[v.key] = c || 0
     }
 
-    return {
-      totalListings: totalListings || 0,
-      regionCount: regionCount || 0,
-      claimedCount: claimedCount || 0,
-      verticalCounts,
-    }
+    return { totalListings, regionCount, verticalCounts }
   } catch {
-    return { totalListings: 0, regionCount: 0, claimedCount: 0, verticalCounts: {} }
+    return { totalListings, regionCount, verticalCounts: {} }
   }
 }
 
@@ -156,9 +155,8 @@ export default async function PressPage() {
             { term: 'Regions', value: `${stats.regionCount} mapped regions` },
             {
               term: 'Verticals',
-              value: `9 — ${verticals.map(v => v.name).join(', ')}`,
+              value: `${verticals.length} — ${verticals.map(v => v.name).join(', ')}`,
             },
-            { term: 'Claimed listings', value: `${stats.claimedCount.toLocaleString()} operator-managed` },
             { term: 'Editorial standard', value: 'Independently verified, no paid placement in editorial content' },
             { term: 'Trail generation', value: 'AI-powered itinerary builder across all ten verticals' },
           ].map((item, i, arr) => (
@@ -243,42 +241,11 @@ export default async function PressPage() {
         </div>
       </section>
 
-      {/* Founding Story — placeholder */}
-      <section style={{ maxWidth: 720, margin: '0 auto', padding: '3.5rem 1.5rem' }}>
-        <p style={{
-          fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600,
-          letterSpacing: '0.15em', textTransform: 'uppercase',
-          color: 'var(--color-sage)', marginBottom: 12,
-        }}>
-          Founding Story
-        </p>
-        <div style={{
-          padding: '28px 24px', borderRadius: 12,
-          border: '2px dashed var(--color-sage)',
-          background: 'var(--color-cream)',
-        }}>
-          <p style={{
-            fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500,
-            color: 'var(--color-sage)', margin: '0 0 8px',
-          }}>
-            Content needed
-          </p>
-          <p style={{
-            fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 300,
-            color: 'var(--color-muted)', lineHeight: 1.65, margin: 0,
-          }}>
-            Founding story copy to be added manually. This section should be one honest
-            paragraph about why this exists and what it&apos;s trying to do.
-          </p>
-        </div>
-      </section>
-
       {/* Media Contact */}
       <section style={{
         background: 'white', borderTop: '1px solid var(--color-border)',
-        borderBottom: '1px solid var(--color-border)',
       }}>
-        <div style={{ maxWidth: 720, margin: '0 auto', padding: '3.5rem 1.5rem' }}>
+        <div style={{ maxWidth: 720, margin: '0 auto', padding: '3.5rem 1.5rem 5rem' }}>
           <p style={{
             fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600,
             letterSpacing: '0.15em', textTransform: 'uppercase',
@@ -311,28 +278,6 @@ export default async function PressPage() {
         </div>
       </section>
 
-      {/* Assets — placeholder */}
-      <section style={{ maxWidth: 720, margin: '0 auto', padding: '3.5rem 1.5rem 5rem' }}>
-        <p style={{
-          fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600,
-          letterSpacing: '0.15em', textTransform: 'uppercase',
-          color: 'var(--color-sage)', marginBottom: 12,
-        }}>
-          Assets
-        </p>
-        <div style={{
-          padding: '24px', borderRadius: 12,
-          border: '1px solid var(--color-border)',
-          background: 'var(--color-bg)',
-        }}>
-          <p style={{
-            fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 300,
-            color: 'var(--color-muted)', lineHeight: 1.6, margin: 0,
-          }}>
-            Logo files, screenshots, and visual assets will be available for download here shortly.
-          </p>
-        </div>
-      </section>
     </div>
   )
 }

@@ -1,0 +1,41 @@
+== Pre-outreach migration 160 run log (2026-06-12) ==
+
+[before snapshot]
+before.json written: 246 website rows, 2 aurum rows, 0 queue rows
+
+[migration]
+Running migration: supabase/migrations/160_pre_outreach_data_fixes.sql
+Migration complete.
+
+[after snapshot + verification]
+after.json + website-changes.csv written
+website rows changed: 246/246; rows still carrying tracking params: 0
+aurum after: [
+ {
+  "slug": "aurum-modern-honey-mead",
+  "status": "active"
+ },
+ {
+  "slug": "aurum-premium-modern-honey-wines",
+  "status": "hidden"
+ }
+]
+queue after: [
+ {
+  "listing_id": "b828c293-f272-4ffc-8ac8-78ea5a190e33",
+  "flag_source": "manual",
+  "flag_reason": "Pre-outreach audit 2026-06-12: duplicate of aurum-modern-honey-mead (same operator + website aurummead.com). Soft-archived: status set to hidden.",
+  "gate_flagged": "character",
+  "status": "hidden",
+  "reviewed_by": "pre-outreach-audit"
+ },
+ {
+  "listing_id": "1c65f6c2-65d8-462c-ad61-91e1342ff913",
+  "flag_source": "manual",
+  "flag_reason": "Pre-outreach audit 2026-06-12: editorial review — duplicate-pair survivor (AURUM PREMIUM variant archived). Verify name, description and website before outreach.",
+  "gate_flagged": "character",
+  "status": "pending",
+  "reviewed_by": null
+ }
+]
+byron still has targets: false

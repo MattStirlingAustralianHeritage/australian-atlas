@@ -327,7 +327,7 @@ export default async function ForCouncilsPage() {
                 color: 'var(--color-muted)', lineHeight: 1.6, margin: 0,
               }}>
                 Australian Atlas provides this infrastructure: verified entities, structured
-                metadata, canonical URLs, and cross-linked editorial content across nine
+                metadata, canonical URLs, and cross-linked editorial content across ten
                 specialist verticals. Your region&apos;s independent businesses become
                 discoverable in both traditional and generative search.
               </p>

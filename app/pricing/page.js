@@ -144,7 +144,7 @@ export default async function PricingPage() {
             },
             {
               title: 'Network reach across ten atlases',
-              desc: 'Your region appears on nine separate, SEO-optimised vertical sites plus the master portal. Cross-vertical trail generation drives multi-day visitation by combining venues across categories.',
+              desc: 'Your region appears on ten separate, SEO-optimised vertical sites plus the master portal. Cross-vertical trail generation drives multi-day visitation by combining venues across categories.',
             },
             {
               title: 'Listing quality management',
@@ -181,7 +181,7 @@ export default async function PricingPage() {
           fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '1.75rem',
           color: 'var(--color-ink)', lineHeight: 1.2, marginBottom: 24,
         }}>
-          Nine curated directories, one verified data layer
+          Ten curated directories, one verified data layer
         </h2>
         <div style={{
           display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',

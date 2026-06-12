@@ -36,9 +36,13 @@ export async function generateMetadata({ params }) {
   const listing = await getListing(slug)
   if (!listing) return { title: 'Listing not found' }
 
+  const title = `Claim ${listing.name} | Australian Atlas`
+  const description = `Claim your listing for ${listing.name} on Australian Atlas. Update your details, add images, and connect with visitors.`
   return {
-    title: `Claim ${listing.name} | Australian Atlas`,
-    description: `Claim your listing for ${listing.name} on Australian Atlas. Update your details, add images, and connect with visitors.`,
+    title,
+    description,
+    openGraph: { title, description, url: `https://australianatlas.com.au/claim/${listing.slug}` },
+    twitter: { card: 'summary', title, description },
   }
 }
 

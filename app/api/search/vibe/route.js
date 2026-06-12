@@ -5,6 +5,7 @@ import { logSearchEvent } from '@/lib/search/log'
 import { isVerticalPublic } from '@/lib/verticalUrl'
 import { parseQueryLocation } from '@/lib/search/parseQuery'
 import { resolveQueryRegion } from '@/lib/search/resolveQueryRegion'
+import { isPublicListing } from '@/lib/listings/publicFilter'
 
 export const maxDuration = 60
 
@@ -120,7 +121,7 @@ export async function POST(request) {
       return NextResponse.json({ results: [], query })
     }
 
-    let results = (data || []).map((r) => ({
+    let results = (data || []).filter(isPublicListing).map((r) => ({
       id: r.id, name: r.name, slug: r.slug, vertical: r.vertical,
       region: r.region, state: r.state, hero_image_url: r.hero_image_url,
       similarity: r.similarity, _description: r.description || '',

@@ -55,9 +55,11 @@ export default async function sitemap() {
 
   // ── Dynamic pages (fetched in parallel) ────────────────────
   const [listings, regions, trails, events, articles, seoPages] = await Promise.all([
-    // Listings — paginated (may exceed 1000)
+    // Listings — paginated (may exceed 1000). Admin/QA fixture slugs
+    // (see lib/listings/publicFilter) never enter the sitemap.
     fetchAllPaginated(supabase, 'listings', 'slug, updated_at', [
       ['eq', 'status', 'active'],
+      ['not', 'slug', 'ilike', 'admin%'],
     ]),
     // Regions
     supabase

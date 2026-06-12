@@ -9,6 +9,7 @@ import { listingJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
 import { checkAdmin } from '@/lib/admin-auth'
 import { isApprovedImageSource } from '@/lib/image-utils'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
+import { stripTrackingParams } from '@/lib/urlHygiene'
 import { listOutgoing, listIncoming } from '@/lib/picks/producerPicks'
 import { readGallery, filterPaidListingIds } from '@/lib/listing-gallery'
 import { readHighlights } from '@/lib/operator-highlights/read'
@@ -150,6 +151,11 @@ const getListing = cache(async function getListing(slug) {
   }
 
   if (!data) return null
+
+  // Render-time hygiene: never emit ad/analytics tracking params on the
+  // operator's website link (or in JSON-LD), even if a future sync
+  // reintroduces them upstream of the stored value.
+  if (data.website) data.website = stripTrackingParams(data.website)
 
   // Fetch vertical-specific subcategory from meta table.
   // This is the source of truth — sub_type on listings may be stale.

@@ -22,6 +22,7 @@ const CLUSTER_REGION_SLUGS = {
   'Mornington Peninsula': 'mornington-peninsula',
   'Hobart & Southern Tasmania': 'hobart',
   'Byron Hinterland': 'byron-hinterland',
+  'Byron Bay': 'byron-bay',
   'Adelaide': null,
   'Melbourne': null,
 }
@@ -42,6 +43,7 @@ const REGION_GEO = {
   'Mornington Peninsula':  { lat: -38.37, lng: 145.03, r: 0.30 },
   'Yarra Valley':          { lat: -37.73, lng: 145.51, r: 0.35 },
   'Byron Hinterland':      { lat: -28.64, lng: 153.50, r: 0.35 },
+  'Byron Bay':             { lat: -28.65, lng: 153.61, r: 0.35 },
   'Blue Mountains':        { lat: -33.72, lng: 150.31, r: 0.35 },
   'Adelaide Hills':        { lat: -35.02, lng: 138.72, r: 0.35 },
 }
@@ -49,7 +51,8 @@ const REGION_GEO = {
 const VERTICAL_LABELS = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
   fine_grounds: 'Fine Grounds', rest: 'Rest', field: 'Field',
-  corner: 'Corner', found: 'Found', table: 'Table', atlas: 'Journal',
+  corner: 'Corner', found: 'Found', table: 'Table', way: 'Way',
+  atlas: 'Journal',
 }
 
 // Number words for the gate-aware category count in the grid heading/intro

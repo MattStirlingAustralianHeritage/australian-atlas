@@ -35,7 +35,7 @@ const ENDPOINTS = [
 const USE_CASES = [
   { title: 'Tourism app developers', desc: 'Integrate verified independent venue data into your travel or discovery app.' },
   { title: 'Regional council GIS', desc: 'Pull independent business data for spatial analysis and regional planning.' },
-  { title: 'Travel writers', desc: 'Build custom itineraries from verified listing data across nine categories.' },
+  { title: 'Travel writers', desc: 'Build custom itineraries from verified listing data across ten categories.' },
   { title: 'Researchers', desc: 'Study independent business distribution, regional economic patterns, and cultural geography across Australia.' },
 ]
 
@@ -61,7 +61,7 @@ export default function DevelopersPage() {
           fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 16,
           color: 'var(--color-muted)', lineHeight: 1.65, maxWidth: 560,
         }}>
-          Read-only access to verified, curated data on independent businesses across Australia. Nine verticals, 46+ regions, updated continuously.
+          Read-only access to verified, curated data on independent businesses across Australia. Ten verticals, 80+ regions, updated continuously.
         </p>
       </section>
 

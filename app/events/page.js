@@ -33,9 +33,21 @@ function formatDateRange(startDate, endDate) {
   return `${dayStart} ${monthStart} ${yearStart} – ${dayEnd} ${monthEnd} ${yearEnd}`
 }
 
+const EVENTS_DESCRIPTION = 'Upcoming festivals, markets, dinners, tours, exhibitions and workshops across the Australian Atlas network.'
+
 export const metadata = {
   title: 'Events — Australian Atlas',
-  description: 'Upcoming events across the Australian Atlas network.',
+  description: EVENTS_DESCRIPTION,
+  openGraph: {
+    title: 'Events — Australian Atlas',
+    description: EVENTS_DESCRIPTION,
+    url: 'https://australianatlas.com.au/events',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Events — Australian Atlas',
+    description: EVENTS_DESCRIPTION,
+  },
 }
 
 export default async function EventsPage({ searchParams }) {

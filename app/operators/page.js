@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { getNetworkStats } from '@/lib/networkStats'
 
 export const revalidate = 86400
 
@@ -11,24 +11,6 @@ export const metadata = {
     description: 'Claim your free listing on Australian Atlas — the independent guide to independent Australia. Keep your details accurate, reach travellers looking for places like yours, and connect with other operators across the network.',
     url: 'https://australianatlas.com.au/operators',
   },
-}
-
-async function getStats() {
-  try {
-    const sb = getSupabaseAdmin()
-    const [{ count: totalListings }, { count: claimedListings }, { count: regions }] = await Promise.all([
-      sb.from('listings').select('*', { count: 'exact', head: true }).eq('status', 'active'),
-      sb.from('listings').select('*', { count: 'exact', head: true }).eq('status', 'active').eq('claimed', true),
-      sb.from('regions').select('*', { count: 'exact', head: true }),
-    ])
-    return {
-      totalListings: totalListings || 0,
-      claimedListings: claimedListings || 0,
-      regions: regions || 0,
-    }
-  } catch {
-    return { totalListings: 6881, claimedListings: 0, regions: 46 }
-  }
 }
 
 const BENEFITS = [
@@ -77,7 +59,10 @@ const FEATURES = [
 ]
 
 export default async function OperatorsPage() {
-  const stats = await getStats()
+  // Shared live counts (lib/networkStats). The old local query counted a
+  // non-existent `claimed` column, so the claimed stat silently read 0.
+  const { listings: totalListings, claimed: claimedListings, regions, atlasCount } = await getNetworkStats()
+  const stats = { totalListings, claimedListings, regions, atlasCount }
 
   return (
     <div style={{ background: 'var(--color-bg)', minHeight: '100vh' }}>
@@ -441,7 +426,7 @@ export default async function OperatorsPage() {
                 color: 'var(--color-ink)',
                 margin: '0 0 4px',
               }}>
-                9
+                {stats.atlasCount}
               </p>
               <p style={{
                 fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 300,

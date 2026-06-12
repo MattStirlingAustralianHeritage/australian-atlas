@@ -9,6 +9,7 @@ import { RelatedCollections, RelatedArticles } from '@/components/RelatedContent
 import { LISTING_REGION_SELECT } from '@/lib/regions'
 import { getPublicVerticals, VERTICAL_ACCENTS, VERTICAL_CARD_BG } from '@/lib/verticalUrl'
 import { relationHasVerticals, listingVerticals } from '@/lib/listings/verticalFilter'
+import { excludeTestListings } from '@/lib/listings/publicFilter'
 
 export const revalidate = 21600
 
@@ -102,11 +103,13 @@ async function getRegionListings(region, venueVerticals) {
   // here because it's surfaced via way_meta (based/runs) in its own section.
   // Cross-vertical (142): match by ANY vertical so a venue whose secondary is a
   // venue vertical still appears; the group-side fan-out places it under each.
-  let q = sb
-    .from('listings_with_region')
-    .select(select)
-    .eq('status', 'active')
-    .eq('region_id', region.id)
+  let q = excludeTestListings(
+    sb
+      .from('listings_with_region')
+      .select(select)
+      .eq('status', 'active')
+      .eq('region_id', region.id)
+  )
   q = hasVerticals ? q.overlaps('verticals', venueVerticals) : q.in('vertical', venueVerticals)
   const { data } = await q
     .order('editors_pick', { ascending: false })
@@ -141,12 +144,14 @@ async function getWayInRegion(region, publicVerticals) {
   if (ids.length === 0) return { based: [], runs: [] }
 
   const select = 'id, vertical, source_id, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website'
-  const { data: rows } = await sb
-    .from('listings')
-    .select(select)
-    .eq('status', 'active')
-    .eq('vertical', 'way')
-    .in('id', ids)
+  const { data: rows } = await excludeTestListings(
+    sb
+      .from('listings')
+      .select(select)
+      .eq('status', 'active')
+      .eq('vertical', 'way')
+      .in('id', ids)
+  )
     .order('editors_pick', { ascending: false })
     .order('is_featured', { ascending: false })
     .order('name')

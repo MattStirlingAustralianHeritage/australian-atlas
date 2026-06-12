@@ -1,22 +1,46 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 
-export default function ClaimSearch({ listings }) {
+export default function ClaimSearch({ totalCount = 0 }) {
   const [query, setQuery] = useState('')
+  const [results, setResults] = useState([])
+  const [loading, setLoading] = useState(false)
+  const abortRef = useRef(null)
 
-  const results = useMemo(() => {
-    if (!query || query.length < 2) return []
-    const q = query.toLowerCase()
-    return listings
-      .filter(l =>
-        l.name.toLowerCase().includes(q) ||
-        (l.region && l.region.toLowerCase().includes(q)) ||
-        (l.state && l.state.toLowerCase().includes(q))
-      )
-      .slice(0, 20)
-  }, [query, listings])
+  // Server-side search across the FULL listings table (see
+  // /api/claim/search) — debounced per keystroke. The previous client-side
+  // filter only ever saw the first 1000 rows.
+  useEffect(() => {
+    if (query.trim().length < 2) {
+      setResults([])
+      setLoading(false)
+      return
+    }
+    setLoading(true)
+    const timer = setTimeout(async () => {
+      abortRef.current?.abort()
+      const controller = new AbortController()
+      abortRef.current = controller
+      try {
+        const res = await fetch(`/api/claim/search?q=${encodeURIComponent(query.trim())}`, {
+          signal: controller.signal,
+        })
+        const json = await res.json()
+        if (!controller.signal.aborted) {
+          setResults(Array.isArray(json.results) ? json.results : [])
+          setLoading(false)
+        }
+      } catch (err) {
+        if (err?.name !== 'AbortError') {
+          setResults([])
+          setLoading(false)
+        }
+      }
+    }, 250)
+    return () => clearTimeout(timer)
+  }, [query])
 
   const inputStyle = {
     width: '100%',
@@ -52,11 +76,13 @@ export default function ClaimSearch({ listings }) {
       </div>
 
       {/* Results count */}
-      {query.length >= 2 && (
+      {query.trim().length >= 2 && (
         <p style={{ fontSize: 13, color: 'var(--color-muted)', fontFamily: 'var(--font-body)', marginBottom: 16 }}>
-          {results.length === 0
-            ? 'No venues found. Try a different search term.'
-            : `${results.length} venue${results.length === 1 ? '' : 's'} found`}
+          {loading
+            ? 'Searching…'
+            : results.length === 0
+              ? 'No venues found. Try a different search term.'
+              : `${results.length} venue${results.length === 1 ? '' : 's'} found`}
         </p>
       )}
 
@@ -148,10 +174,10 @@ export default function ClaimSearch({ listings }) {
       </div>
 
       {/* Prompt when empty */}
-      {query.length < 2 && (
+      {query.trim().length < 2 && (
         <div style={{ textAlign: 'center', padding: '40px 0' }}>
           <p style={{ fontSize: 14, color: 'var(--color-muted)', fontFamily: 'var(--font-body)' }}>
-            Start typing to search across {listings.length.toLocaleString()} venues
+            Start typing to search across {totalCount > 0 ? totalCount.toLocaleString() : 'thousands of'} venues
           </p>
         </div>
       )}

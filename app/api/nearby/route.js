@@ -2,6 +2,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { NextResponse } from 'next/server'
 import { LISTING_REGION_SELECT } from '@/lib/regions'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
+import { excludeTestListings } from '@/lib/listings/publicFilter'
 
 // Haversine distance in km
 function haversineKm(lat1, lng1, lat2, lng2) {
@@ -131,15 +132,17 @@ export async function GET(request) {
   const latDelta = maxRadius / 111
   const lngDelta = maxRadius / (111 * Math.cos(lat * Math.PI / 180))
 
-  let query = sb
-    .from('listings')
-    .select(`id, name, slug, description, region, state, lat, lng, hero_image_url, vertical, sub_type, is_featured, is_claimed, ${LISTING_REGION_SELECT}`)
-    .eq('status', 'active')
-    .gte('lat', lat - latDelta)
-    .lte('lat', lat + latDelta)
-    .gte('lng', lng - lngDelta)
-    .lte('lng', lng + lngDelta)
-    .limit(200)
+  let query = excludeTestListings(
+    sb
+      .from('listings')
+      .select(`id, name, slug, description, region, state, lat, lng, hero_image_url, vertical, sub_type, is_featured, is_claimed, ${LISTING_REGION_SELECT}`)
+      .eq('status', 'active')
+      .gte('lat', lat - latDelta)
+      .lte('lat', lat + latDelta)
+      .gte('lng', lng - lngDelta)
+      .lte('lng', lng + lngDelta)
+      .limit(200)
+  )
 
   if (vertical) {
     query = filterByVertical(query, vertical, await relationHasVerticals(sb, 'listings'))
