@@ -198,9 +198,13 @@ export async function PATCH(request) {
     if (!norm.ok) {
       return NextResponse.json({ error: norm.error }, { status: 400 })
     }
+    // needs_embedding: highlights are part of the search document (lexical via
+    // operator_highlights_search_text, semantic via buildListingText), so an
+    // edit re-embeds on the next cron. Explicit here so the loop closes even
+    // before the migration-159 drift trigger covers non-dashboard writes.
     const { error: hErr } = await sb
       .from('listings')
-      .update({ operator_highlights: norm.value, updated_at: new Date().toISOString() })
+      .update({ operator_highlights: norm.value, needs_embedding: true, updated_at: new Date().toISOString() })
       .eq('id', listingId)
     if (hErr) {
       // Forward-compat: column absent until migration 157 is applied.
