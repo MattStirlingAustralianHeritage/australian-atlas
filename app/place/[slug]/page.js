@@ -31,6 +31,7 @@ import OpeningHours from '@/components/OpeningHours'
 import PlaceMemories from '@/components/PlaceMemories'
 import ProducerPicks from '@/components/ProducerPicks'
 import VerificationBadge from '@/components/VerificationBadge'
+import GalleryLightbox from '@/components/GalleryLightbox'
 
 export const revalidate = 3600
 
@@ -925,22 +926,7 @@ export default async function PlacePage({ params }) {
             <h2 className="mb-4" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)' }}>
               Gallery
             </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {galleryUrls.map((url, i) => (
-                <div
-                  key={url}
-                  className="overflow-hidden rounded-lg"
-                  style={{ aspectRatio: '4 / 3', border: '1px solid var(--color-border)', background: 'var(--color-cream)' }}
-                >
-                  <img
-                    src={url}
-                    alt={`${listing.name} — photo ${i + 1}`}
-                    loading="lazy"
-                    className="w-full h-full object-cover transition-transform duration-300 hover:scale-[1.03]"
-                  />
-                </div>
-              ))}
-            </div>
+            <GalleryLightbox images={galleryUrls} name={listing.name} />
           </section>
         )}
 
