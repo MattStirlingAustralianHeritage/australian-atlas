@@ -45,7 +45,7 @@ async function authorize(request, listingId) {
   const sb = getSupabaseAdmin()
   const { data: listing, error } = await sb
     .from('listings')
-    .select('id, vertical, is_claimed, slug, name, state, region')
+    .select('id, vertical, is_claimed, slug, name, state, suburb, region_id, hero_image_url')
     .eq('id', listingId)
     .single()
   if (error || !listing) return { fail: NextResponse.json({ error: 'Listing not found' }, { status: 404 }) }
@@ -117,8 +117,16 @@ export async function POST(request) {
     isFree: body.is_free,
     heroImageUrl: body.hero_image_url,
     published: body.published,
+    // Hosting-listing context — fills the canonical table's NOT NULL venue
+    // columns; the session identity fills submitter_* (never public).
     state: auth.listing.state,
-    region: auth.listing.region,
+    vertical: auth.listing.vertical,
+    regionId: auth.listing.region_id,
+    listingName: auth.listing.name,
+    listingHero: auth.listing.hero_image_url,
+    listingSuburb: auth.listing.suburb,
+    submitterName: auth.user.name,
+    submitterEmail: auth.user.email,
   })
   if (!result.ok) {
     return NextResponse.json({ error: result.error, code: result.code }, { status: result.code === 'duplicate' ? 409 : 400 })
