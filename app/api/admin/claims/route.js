@@ -28,7 +28,7 @@ export async function GET() {
   }
 }
 
-// POST — approve or reject a claim
+// POST — approve, reject, or set the granted tier of a claim
 export async function POST(request) {
   const cookieStore = await cookies()
   if (!(await checkAdmin(cookieStore))) {
@@ -43,9 +43,10 @@ export async function POST(request) {
       usingPortalTable,
       action,
       admin_notes,
+      tier,
     } = await request.json()
 
-    if (!claimId || !['approve', 'reject'].includes(action)) {
+    if (!claimId || !['approve', 'reject', 'set_tier'].includes(action)) {
       return NextResponse.json({ error: 'Invalid request — need claimId and action' }, { status: 400 })
     }
 
@@ -55,6 +56,10 @@ export async function POST(request) {
 
     if (action === 'reject') {
       return await handleReject({ claimId, vertical, sourceClaimId, usingPortalTable, admin_notes })
+    }
+
+    if (action === 'set_tier') {
+      return await handleSetTier({ claimId, tier })
     }
   } catch (err) {
     console.error('[admin/claims] POST error:', err.message)
@@ -338,4 +343,85 @@ async function handleReject({ claimId, vertical, sourceClaimId, usingPortalTable
   }).then(null, err => console.error('[admin/claims] Audit log error:', err))
 
   return NextResponse.json({ success: true, action: 'rejected' })
+}
+
+// ─── Set tier (admin upgrade / downgrade) ─────────────────
+
+// Flips the GRANTED tier on the active listing_claims row — the single field
+// every paid gate reads (isListingPaid: status='active' AND tier='standard').
+// Upgrading here is a deliberate admin side door for payments taken outside
+// Stripe (invoice, phone) or comps: it sets tier='standard' with no Stripe
+// subscription, which grantClaim itself refuses to do. Such rows have no
+// billing portal (no stripe_customer_id) and won't renew or expire on their
+// own; downgrading them back to free is the admin's job, here.
+async function handleSetTier({ claimId, tier }) {
+  const sb = getSupabaseAdmin()
+
+  if (!['free', 'standard'].includes(tier)) {
+    return NextResponse.json({ error: 'Invalid tier — must be free or standard' }, { status: 400 })
+  }
+
+  // Resolve the listing from the moderation record
+  const { data: claimRecord } = await sb
+    .from('claims_review')
+    .select('id, listing_id, vertical, claimant_email')
+    .eq('id', claimId)
+    .maybeSingle()
+
+  if (!claimRecord?.listing_id) {
+    return NextResponse.json({ error: 'Claim not found in claims_review' }, { status: 404 })
+  }
+
+  // The tier lives on the granted ownership row, so the claim must be approved first
+  const { data: active } = await sb
+    .from('listing_claims')
+    .select('id, tier, claimant_email, stripe_subscription_id')
+    .eq('listing_id', claimRecord.listing_id)
+    .eq('status', 'active')
+    .maybeSingle()
+
+  if (!active) {
+    return NextResponse.json(
+      { error: 'No active granted claim for this listing — approve the claim first' },
+      { status: 409 }
+    )
+  }
+
+  if (active.tier === tier) {
+    return NextResponse.json({ success: true, action: 'set_tier', tier, unchanged: true })
+  }
+
+  // Never silently downgrade a live Stripe subscription — cancel it in Stripe
+  // instead (the webhook then deactivates the claim and clears is_claimed).
+  if (tier === 'free' && active.stripe_subscription_id) {
+    return NextResponse.json(
+      { error: 'This claim is billed through Stripe — cancel the subscription in Stripe instead of downgrading here' },
+      { status: 409 }
+    )
+  }
+
+  const { error: updateError } = await sb
+    .from('listing_claims')
+    .update({ tier, updated_at: new Date().toISOString() })
+    .eq('id', active.id)
+
+  if (updateError) {
+    console.error('[admin/claims] set_tier update error:', updateError)
+    return NextResponse.json({ error: 'Failed to update tier' }, { status: 500 })
+  }
+
+  await sb.from('claim_audit_log').insert({
+    claim_id: claimId,
+    action: tier === 'standard' ? 'tier_upgraded' : 'tier_downgraded',
+    actor: 'admin',
+    details: {
+      listing_id: claimRecord.listing_id,
+      claimant_email: active.claimant_email,
+      from_tier: active.tier,
+      to_tier: tier,
+      comped: tier === 'standard' && !active.stripe_subscription_id,
+    },
+  }).then(null, err => console.error('[admin/claims] Audit log error:', err))
+
+  return NextResponse.json({ success: true, action: 'set_tier', tier })
 }

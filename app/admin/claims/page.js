@@ -1,5 +1,6 @@
 import { getSupabaseAdmin, getVerticalClient, VERTICAL_CONFIG, getVerticalClaimsTable } from '@/lib/supabase/clients'
 import ClaimsActions from './ClaimsActions'
+import ClaimTierActions from './ClaimTierActions'
 
 export const metadata = { title: 'Claims Review — Admin' }
 export const dynamic = 'force-dynamic'
@@ -38,6 +39,23 @@ export default async function ClaimsPage() {
     if (verticalClaims.length > 0) {
       claims = verticalClaims
       usingPortalTable = false
+    }
+  }
+
+  // Attach the GRANTED ownership state. claims_review.tier is only what was
+  // requested at intake — the commercial truth (what the paid gates read) is
+  // the active listing_claims row. Drives the tier badge and the admin
+  // upgrade/downgrade controls on approved rows.
+  if (usingPortalTable && claims.length > 0) {
+    const listingIds = [...new Set(claims.map(c => c.listing_id).filter(Boolean))]
+    if (listingIds.length > 0) {
+      const { data: grantedRows } = await sb
+        .from('listing_claims')
+        .select('listing_id, tier, stripe_subscription_id')
+        .in('listing_id', listingIds)
+        .eq('status', 'active')
+      const grantedByListing = new Map((grantedRows || []).map(r => [r.listing_id, r]))
+      claims = claims.map(c => ({ ...c, granted: grantedByListing.get(c.listing_id) || null }))
     }
   }
 
@@ -194,8 +212,15 @@ function ClaimCard({ claim, showActions, usingPortalTable }) {
   const email = claim.claimant_email || claim.contact_email || ''
   const name = claim.claimant_name || claim.contact_name || ''
   const venueName = claim.venue_name || claim.listing_name || ''
-  const tier = claim.tier || claim.selected_tier || 'free'
   const createdAt = claim.created_at ? new Date(claim.created_at).toLocaleDateString() : ''
+
+  // Granted tier (active listing_claims row) beats the requested intake tier
+  const granted = claim.granted || null
+  const requestedTier = claim.tier || claim.selected_tier || 'free'
+  const isPaidTier = granted?.tier === 'standard'
+  const tierLabel = isPaidTier
+    ? (granted.stripe_subscription_id ? 'standard · paid' : 'standard · comped')
+    : (granted ? granted.tier : requestedTier)
 
   return (
     <div style={{
@@ -278,10 +303,10 @@ function ClaimCard({ claim, showActions, usingPortalTable }) {
           fontSize: 10,
           letterSpacing: '0.06em',
           textTransform: 'uppercase',
-          color: 'var(--color-muted)',
-          opacity: 0.6,
+          color: isPaidTier ? '#4a7c59' : 'var(--color-muted)',
+          opacity: isPaidTier ? 1 : 0.6,
         }}>
-          {tier}
+          {tierLabel}
         </span>
       </div>
 
@@ -306,6 +331,15 @@ function ClaimCard({ claim, showActions, usingPortalTable }) {
           vertical={claim.vertical}
           sourceClaimId={claim.source_claim_id || claim.id}
           usingPortalTable={usingPortalTable}
+        />
+      )}
+
+      {!showActions && claim.status === 'approved' && granted && (
+        <ClaimTierActions
+          claimId={claim.id}
+          venueName={venueName}
+          tier={granted.tier}
+          hasStripeSubscription={!!granted.stripe_subscription_id}
         />
       )}
     </div>
