@@ -43,8 +43,10 @@ async function authorize(request, listingId) {
   if (!listingId) return { fail: NextResponse.json({ error: 'Missing listing_id' }, { status: 400 }) }
 
   const sb = getSupabaseAdmin()
+  // listings_with_region: base columns + override-wins region_id (the base
+  // table has region_override_id/region_computed_id, not region_id itself).
   const { data: listing, error } = await sb
-    .from('listings')
+    .from('listings_with_region')
     .select('id, vertical, is_claimed, slug, name, state, suburb, region_id, hero_image_url')
     .eq('id', listingId)
     .single()
