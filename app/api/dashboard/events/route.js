@@ -4,7 +4,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { verifySharedToken } from '@/lib/shared-auth'
 import { isApprovedImageSource } from '@/lib/image-utils'
 import { isListingPaid } from '@/lib/listing-gallery'
-import { listEventsForListing, createEvent, updateEvent, deleteEvent } from '@/lib/events'
+import { listEventsForListing, createEvent, updateEvent, deleteEvent, MAX_EVENTS_PER_LISTING } from '@/lib/events'
 
 /**
  * /api/dashboard/events — operator self-service events for a claimed listing.
@@ -27,7 +27,7 @@ import { listEventsForListing, createEvent, updateEvent, deleteEvent } from '@/l
  *   DELETE ?id=&listing_id=         → delete
  */
 
-const EDITABLE_KEYS = ['title', 'description', 'category', 'start_date', 'end_date', 'ticket_url', 'is_free', 'hero_image_url', 'published']
+const EDITABLE_KEYS = ['title', 'description', 'category', 'start_date', 'end_date', 'ticket_url', 'is_free', 'hero_image_url', 'published', 'address']
 
 // Verify the token + ownership of the listing. Returns { fail } (a response) on
 // any failure, or { sb, user, listing } on success.
@@ -47,7 +47,7 @@ async function authorize(request, listingId) {
   // table has region_override_id/region_computed_id, not region_id itself).
   const { data: listing, error } = await sb
     .from('listings_with_region')
-    .select('id, vertical, is_claimed, slug, name, state, suburb, region_id, hero_image_url')
+    .select('id, vertical, is_claimed, slug, name, state, suburb, address, region_id, hero_image_url')
     .eq('id', listingId)
     .single()
   if (error || !listing) return { fail: NextResponse.json({ error: 'Listing not found' }, { status: 404 }) }
@@ -91,7 +91,7 @@ export async function GET(request) {
     listEventsForListing(auth.sb, listingId, { includeUnpublished: true }),
     isPaid(auth.sb, auth.user, listingId),
   ])
-  return NextResponse.json({ events, paid })
+  return NextResponse.json({ events, paid, maxEvents: MAX_EVENTS_PER_LISTING })
 }
 
 export async function POST(request) {
@@ -119,6 +119,7 @@ export async function POST(request) {
     isFree: body.is_free,
     heroImageUrl: body.hero_image_url,
     published: body.published,
+    address: body.address,
     // Hosting-listing context — fills the canonical table's NOT NULL venue
     // columns; the session identity fills submitter_* (never public).
     state: auth.listing.state,
@@ -127,6 +128,7 @@ export async function POST(request) {
     listingName: auth.listing.name,
     listingHero: auth.listing.hero_image_url,
     listingSuburb: auth.listing.suburb,
+    listingAddress: auth.listing.address,
     submitterName: auth.user.name,
     submitterEmail: auth.user.email,
   })

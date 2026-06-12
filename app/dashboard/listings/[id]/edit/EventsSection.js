@@ -19,7 +19,7 @@ const ICONS = {
   plus: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>,
 }
 
-const emptyForm = { id: null, title: '', category: '', start_date: '', end_date: '', hero_image_url: '', ticket_url: '', is_free: true, description: '', published: false }
+const emptyForm = { id: null, title: '', category: '', start_date: '', end_date: '', hero_image_url: '', ticket_url: '', is_free: true, description: '', address: '', published: false }
 
 function toDateInput(iso) {
   if (!iso) return ''
@@ -39,6 +39,7 @@ function fmtRange(startIso, endIso) {
 }
 
 export default function EventsSection({ listingId, token, isPaid, listingSlug }) {
+  const [maxEvents, setMaxEvents] = useState(3)
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
@@ -53,7 +54,7 @@ export default function EventsSection({ listingId, token, isPaid, listingSlug })
     let active = true
     fetch(`/api/dashboard/events?listing_id=${listingId}`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
-      .then(data => { if (active) { if (data.error) setLoadError(data.error); else setEvents(data.events || []) ; setLoading(false) } })
+      .then(data => { if (active) { if (data.error) setLoadError(data.error); else { setEvents(data.events || []); if (data.maxEvents) setMaxEvents(data.maxEvents) } ; setLoading(false) } })
       .catch(() => { if (active) { setLoadError('Failed to load events'); setLoading(false) } })
     return () => { active = false }
   }, [listingId, token, isPaid])
@@ -93,6 +94,7 @@ export default function EventsSection({ listingId, token, isPaid, listingSlug })
       ticket_url: form.ticket_url.trim() || null,
       is_free: !!form.is_free,
       description: form.description.trim() || null,
+      address: form.address.trim() || null,
       published: !!form.published,
     }
     if (isEdit) payload.id = form.id
@@ -165,7 +167,7 @@ export default function EventsSection({ listingId, token, isPaid, listingSlug })
   }
 
   return (
-    <Section count={events.length}>
+    <Section count={events.length} max={maxEvents}>
       <ConfirmDialog
         open={!!pendingDelete}
         title="Delete this event?"
@@ -210,16 +212,21 @@ export default function EventsSection({ listingId, token, isPaid, listingSlug })
                 <button type="button" onClick={() => togglePublish(ev)} disabled={busyId === ev.id} style={ghostBtn} title={ev.published ? 'Unpublish' : 'Publish'}>
                   {ev.published ? 'Unpublish' : 'Publish'}
                 </button>
-                <button type="button" onClick={() => setForm({ id: ev.id, title: ev.title || '', category: ev.category || '', start_date: toDateInput(ev.start_date), end_date: toDateInput(ev.end_date), hero_image_url: ev.hero_image_url || '', ticket_url: ev.ticket_url || '', is_free: ev.is_free !== false, description: ev.description || '', published: !!ev.published })} style={ghostBtn}>Edit</button>
+                <button type="button" onClick={() => setForm({ id: ev.id, title: ev.title || '', category: ev.category || '', start_date: toDateInput(ev.start_date), end_date: toDateInput(ev.end_date), hero_image_url: ev.hero_image_url || '', ticket_url: ev.ticket_url || '', is_free: ev.is_free !== false, description: ev.description || '', address: ev.address || '', published: !!ev.published })} style={ghostBtn}>Edit</button>
                 <button type="button" onClick={() => remove(ev)} disabled={busyId === ev.id} aria-label="Delete event" style={iconBtn}>{ICONS.trash}</button>
               </div>
             </div>
           ))}
 
-          {!form && (
+          {!form && events.length < maxEvents && (
             <button type="button" onClick={() => setForm({ ...emptyForm })} style={addBtn} className="aa-evt-add">
               <span style={{ display: 'inline-flex' }}>{ICONS.plus}</span> Add an event
             </button>
+          )}
+          {!form && events.length >= maxEvents && (
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: 0, lineHeight: 1.5 }}>
+              This listing has reached its {maxEvents}-event limit — delete an old event to add a new one.
+            </p>
           )}
         </div>
       )}
@@ -255,6 +262,10 @@ export default function EventsSection({ listingId, token, isPaid, listingSlug })
 
             <Field label="Booking or info link" hint="Optional">
               <input type="url" value={form.ticket_url} onChange={e => patchForm({ ticket_url: e.target.value })} placeholder="https://…" style={input} />
+            </Field>
+
+            <Field label="Address" hint="Optional — leave blank if the event is at your venue">
+              <input type="text" value={form.address} onChange={e => patchForm({ address: e.target.value })} placeholder="e.g. 12 Example St, Sandringham VIC" maxLength={300} style={input} />
             </Field>
 
             <Field label="Description" hint="Optional — what to expect">
@@ -298,14 +309,16 @@ export default function EventsSection({ listingId, token, isPaid, listingSlug })
 }
 
 // ── Layout shell (matches the gallery section header) ──
-function Section({ children, count }) {
+function Section({ children, count, max }) {
   return (
     <div style={{ marginTop: 36, paddingTop: 28, borderTop: '1px solid var(--color-border)' }}>
       <style>{`.aa-evt-add:hover { border-color: var(--color-sage) !important; color: var(--color-sage) !important; background: rgba(122,143,107,0.06) !important; }`}</style>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 4, flexWrap: 'wrap' }}>
         <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)', margin: 0 }}>Events</h2>
         {typeof count === 'number' && count > 0 && (
-          <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-muted)' }}>{count} event{count === 1 ? '' : 's'}</span>
+          <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-muted)' }}>
+            {max ? `${count} / ${max} events` : `${count} event${count === 1 ? '' : 's'}`}
+          </span>
         )}
       </div>
       {children}
