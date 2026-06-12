@@ -168,7 +168,7 @@ export default function ClaimForm({ listingId, listingName, slug, vertColor }) {
         <p style={{ fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 300, color: 'var(--color-muted)', lineHeight: 1.5 }}>
           Thanks — your claim for <strong style={{ fontWeight: 500 }}>{listingName}</strong> is in, and we've
           emailed a confirmation to <strong style={{ fontWeight: 500 }}>{email}</strong>. To activate your
-          Standard ($495/yr) listing we'll follow up with a secure payment link. Questions? Email{' '}
+          Standard ($295/yr) listing we'll follow up with a secure payment link. Questions? Email{' '}
           <a href="mailto:listings@australianatlas.com.au" style={{ color: vertColor, fontWeight: 500 }}>
             listings@australianatlas.com.au
           </a>.
@@ -403,7 +403,7 @@ export default function ClaimForm({ listingId, listingName, slug, vertColor }) {
         className="mt-8 w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
         style={{ background: vertColor, fontFamily: 'var(--font-body)', cursor: submitting ? 'wait' : 'pointer' }}
       >
-        {submitting ? 'Submitting...' : tier === 'standard' ? 'Submit claim ($495/yr)' : 'Submit claim (free)'}
+        {submitting ? 'Submitting...' : tier === 'standard' ? 'Submit claim ($295/yr)' : 'Submit claim (free)'}
       </button>
 
       <p className="mt-4 text-center" style={{ fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 300, color: 'var(--color-muted)' }}>

@@ -37,7 +37,7 @@ const TIERS = [
   },
   {
     name: 'Standard',
-    price: '495',
+    price: '295',
     period: 'per year',
     description: 'Everything you need to stand out and convert visitors.',
     features: ['Everything in Free', 'Unlimited photos', 'Opening hours & contact details', 'Venue features & events', 'Awards & accolades', 'Booking & social links', 'Special offers & promotions', 'Enlarged map pin', 'Priority placement in search', 'Analytics dashboard', 'Featured in regional guides & discovery trails'],
@@ -145,7 +145,7 @@ export default function ForVenuesPage({ searchParams }) {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr repeat(2, 140px)', borderBottom: '2px solid var(--color-border)', background: 'var(--color-cream)' }}>
               <div style={{ padding: '12px 24px', fontSize: 13, color: 'var(--color-muted)', fontFamily: 'var(--font-body)' }}>per year</div>
-              {['Free', '$495'].map(p => (
+              {['Free', '$295'].map(p => (
                 <div key={p} style={{ padding: '12px 8px', textAlign: 'center', fontFamily: 'var(--font-display)', fontSize: 20, color: 'var(--color-ink)', fontWeight: 400 }}>{p}</div>
               ))}
             </div>
