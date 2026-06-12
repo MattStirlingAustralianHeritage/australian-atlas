@@ -76,6 +76,41 @@ const STATE_BOUNDS = {
   'ACT':  [148.76, -35.92, 149.40, -35.12],
 }
 
+// Mainland + Tasmania. The initial camera and the "All States" reset both
+// fit these bounds so the country fills the viewport on any screen size or
+// aspect ratio — a fixed centre/zoom either strands Australia in a sea of
+// empty ocean on large monitors or crops the coasts on small ones.
+const AUSTRALIA_BOUNDS = [[112.7, -43.9], [153.9, -10.4]]
+
+// Zoom-out floor — keeps the map from shrinking to a speck. Deliberately NOT
+// a maxBounds cage: on portrait phones, fitting Australia's width means the
+// viewport spans far more latitude than any sane cage allows, and Mapbox
+// resolves that conflict by force-zooming in and cropping the coasts.
+const MIN_ZOOM = 2
+
+function australiaFitPadding(isEmbedded) {
+  if (typeof window === 'undefined' || isEmbedded) return 40
+  const mobile = window.matchMedia('(max-width: 768px)').matches
+  // Desktop top padding clears the overlaid toolbar; mobile clears the tab toggle.
+  return mobile
+    ? { top: 84, bottom: 48, left: 28, right: 28 }
+    : { top: 132, bottom: 64, left: 80, right: 80 }
+}
+
+// Reverse of the slug map in app/map/page.js — used to keep the URL in sync
+// with the active filters so map views are shareable / refresh-safe.
+const SLUG_BY_KEY = {
+  sba: 'small-batch', collection: 'collections', craft: 'craft',
+  fine_grounds: 'fine-grounds', rest: 'rest', field: 'field',
+  corner: 'corner', found: 'found', table: 'table', way: 'way',
+}
+
+// Listing names/descriptions are DB content rendered into popup HTML strings.
+const esc = (s) => String(s ?? '')
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+
+const placesLabel = (n) => `${n.toLocaleString()} ${n === 1 ? 'place' : 'places'}`
+
 /**
  * MapClient
  *
@@ -110,6 +145,7 @@ export default function MapClient({
   const mapContainer = useRef(null)
   const map = useRef(null)
   const popup = useRef(null)
+  const hoverTip = useRef(null)
 
   const [allListings, setAllListings] = useState([])
   // Multi-select vertical filter — empty Set = "all"
@@ -133,6 +169,11 @@ export default function MapClient({
   const [placeResults, setPlaceResults] = useState([])
   const [showPlaceDropdown, setShowPlaceDropdown] = useState(false)
   const placeSearchRef = useRef(null)
+
+  // Name search dropdown state — typing filters the pins live (as before),
+  // and a results list lets the user jump straight to a venue.
+  const [showNameDropdown, setShowNameDropdown] = useState(false)
+  const nameSearchRef = useRef(null)
 
   const listingsRef = useRef([])
   useEffect(() => { listingsRef.current = allListings }, [allListings])
@@ -172,10 +213,25 @@ export default function MapClient({
   useEffect(() => {
     function handleClickOutside(e) {
       if (placeSearchRef.current && !placeSearchRef.current.contains(e.target)) setShowPlaceDropdown(false)
+      if (nameSearchRef.current && !nameSearchRef.current.contains(e.target)) setShowNameDropdown(false)
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  // Jump to a venue picked from the name-search results: fly the camera in
+  // and open its full popup. The pin itself is guaranteed visible because the
+  // same search string is also the live pin filter.
+  function flyToListing(l) {
+    if (!map.current || l?.lat == null || l?.lng == null) return
+    const coords = [parseFloat(l.lng), parseFloat(l.lat)]
+    setShowNameDropdown(false)
+    setMobileSheetOpen(false)
+    map.current.flyTo({ center: coords, zoom: Math.max(map.current.getZoom(), 12.5), duration: 1400 })
+    if (popup.current) {
+      popup.current.setLngLat(coords).setHTML(buildPopupHTML(listingToProps(l))).addTo(map.current)
+    }
+  }
 
   function getZoomForPlaceType(placeType) {
     const zooms = { country: 4, region: 6, postcode: 9, district: 9, place: 11, locality: 13, neighborhood: 13, address: 15 }
@@ -241,24 +297,51 @@ export default function MapClient({
     if (!allListings.length || !mapContainer.current) return
     if (map.current) { try { map.current.remove() } catch (e) {} map.current = null }
 
+    // Cancellation guard for the async import + 'load' callback below. If the
+    // effect re-runs (or unmounts) while the import is still in flight, the
+    // stale closure must not build a second map — and because the handlers
+    // capture the instance `m` (never the live `map.current` ref), a late
+    // 'load' can't double-add sources to whichever map is current.
+    let cancelled = false
     import('mapbox-gl').then(mapboxgl => {
+      if (cancelled || !mapContainer.current) return
       mapboxgl.default.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
 
-      map.current = new mapboxgl.default.Map({
+      const m = new mapboxgl.default.Map({
         container: mapContainer.current,
         style: 'mapbox://styles/mattstirlingaustralianheritage/cmn32b0iz003401swccb7d21k',
-        center: initialCenter || [134, -27],
-        zoom: initialZoom != null ? initialZoom : 3.8,
+        // Default camera fits the whole country to the actual viewport.
+        // An explicit centre/zoom (from a "View on full map →" link) wins.
+        ...(initialCenter
+          ? { center: initialCenter, zoom: initialZoom != null ? initialZoom : 3.8 }
+          : { bounds: AUSTRALIA_BOUNDS, fitBoundsOptions: { padding: australiaFitPadding(isEmbedded) } }),
+        // Flat utility map: no globe-with-stars at low zoom, no accidental
+        // rotation/pitch. The globe treatment stays on the homepage section.
+        projection: 'mercator',
+        minZoom: MIN_ZOOM,
+        dragRotate: false,
+        pitchWithRotate: false,
+        touchPitch: false,
         attributionControl: false,
         // Embedded maps drop the scroll-zoom hijack; mobile users still get
         // pinch + double-tap, desktop users use the +/- nav control.
         scrollZoom: !isEmbedded,
       })
+      map.current = m
 
-      map.current.addControl(new mapboxgl.default.NavigationControl({ showCompass: false }), 'bottom-right')
+      m.addControl(new mapboxgl.default.AttributionControl({ compact: true }), 'bottom-left')
+      m.addControl(new mapboxgl.default.NavigationControl({ showCompass: false }), 'bottom-right')
+      if (!isEmbedded) {
+        // Desktop gets a locate button too (mobile keeps its bigger FAB —
+        // the control is hidden there via CSS below).
+        m.addControl(new mapboxgl.default.GeolocateControl({
+          positionOptions: { enableHighAccuracy: true },
+          showUserHeading: false,
+        }), 'bottom-right')
+      }
 
       if (initialBounds) {
-        map.current.fitBounds(initialBounds, { padding: 60, animate: false })
+        m.fitBounds(initialBounds, { padding: 60, animate: false })
       }
 
       popup.current = new mapboxgl.default.Popup({
@@ -268,10 +351,23 @@ export default function MapClient({
         offset: 12,
       })
 
-      map.current.on('load', () => {
+      // Lightweight name tooltip for desktop hover — saves a click per pin
+      // when scanning an area. pointer-events: none (see CSS) so it can
+      // never trap the cursor and flicker.
+      hoverTip.current = new mapboxgl.default.Popup({
+        closeButton: false,
+        closeOnClick: false,
+        maxWidth: '240px',
+        offset: 12,
+        className: 'map-hover-tip',
+      })
+      const hoverEnabled = typeof window !== 'undefined' && window.matchMedia('(hover: hover)').matches
+
+      m.on('load', () => {
+        if (cancelled) return
         const filtered = getFiltered(allListings, selectedVerticals, subTypeFilter, stateFilter, search)
 
-        map.current.addSource('listings-clustered', {
+        m.addSource('listings-clustered', {
           type: 'geojson',
           cluster: true,
           clusterMaxZoom: 10,
@@ -281,7 +377,7 @@ export default function MapClient({
         })
 
         // Clusters
-        map.current.addLayer({
+        m.addLayer({
           id: 'clusters', type: 'circle', source: 'listings-clustered',
           filter: ['has', 'point_count'],
           paint: {
@@ -290,41 +386,51 @@ export default function MapClient({
             'circle-stroke-width': 2, 'circle-stroke-color': '#ffffff', 'circle-opacity': 0.9,
           },
         })
-        map.current.addLayer({
+        m.addLayer({
           id: 'cluster-count', type: 'symbol', source: 'listings-clustered',
           filter: ['has', 'point_count'],
           layout: { 'text-field': '{point_count_abbreviated}', 'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'], 'text-size': 13 },
           paint: { 'text-color': '#ffffff' },
         })
 
-        // Standard pins
-        map.current.addLayer({
+        // Standard pins — radius scales with zoom so dots stay visible at the
+        // national view and grow into comfortable tap targets up close.
+        m.addLayer({
           id: 'pins-basic', type: 'circle', source: 'listings-clustered',
           filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'featured'], true]],
-          paint: { 'circle-radius': 6, 'circle-color': ['get', 'color'], 'circle-stroke-width': 2, 'circle-stroke-color': '#ffffff', 'circle-opacity': 1 },
+          paint: {
+            'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 4.5, 6, 6, 10, 7, 14, 9],
+            'circle-color': ['get', 'color'], 'circle-stroke-width': 2, 'circle-stroke-color': '#ffffff', 'circle-opacity': 1,
+          },
         })
 
         // Featured pins — larger with glow
-        map.current.addLayer({
+        m.addLayer({
           id: 'pins-featured-glow', type: 'circle', source: 'listings-clustered',
           filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'featured'], true]],
-          paint: { 'circle-radius': 14, 'circle-color': 'transparent', 'circle-stroke-width': 1.5, 'circle-stroke-color': PREMIUM_COLOR, 'circle-stroke-opacity': 0.5, 'circle-opacity': 0 },
+          paint: {
+            'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 11, 6, 14, 10, 15, 14, 17],
+            'circle-color': 'transparent', 'circle-stroke-width': 1.5, 'circle-stroke-color': PREMIUM_COLOR, 'circle-stroke-opacity': 0.5, 'circle-opacity': 0,
+          },
         })
-        map.current.addLayer({
+        m.addLayer({
           id: 'pins-featured', type: 'circle', source: 'listings-clustered',
           filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'featured'], true]],
-          paint: { 'circle-radius': 9, 'circle-color': PREMIUM_COLOR, 'circle-stroke-width': 2.5, 'circle-stroke-color': '#ffffff', 'circle-opacity': 1 },
+          paint: {
+            'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 7, 6, 9, 10, 10, 14, 12],
+            'circle-color': PREMIUM_COLOR, 'circle-stroke-width': 2.5, 'circle-stroke-color': '#ffffff', 'circle-opacity': 1,
+          },
         })
 
         // Highlight pin — only used in embedded mode to mark the current
         // listing on the page. Larger ring + dot, on top of standard pins.
         if (highlightListingId) {
-          map.current.addLayer({
+          m.addLayer({
             id: 'pin-highlight-ring', type: 'circle', source: 'listings-clustered',
             filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'id'], highlightListingId]],
             paint: { 'circle-radius': 16, 'circle-color': 'transparent', 'circle-stroke-width': 2, 'circle-stroke-color': ['get', 'color'], 'circle-stroke-opacity': 0.45 },
           })
-          map.current.addLayer({
+          m.addLayer({
             id: 'pin-highlight', type: 'circle', source: 'listings-clustered',
             filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'id'], highlightListingId]],
             paint: { 'circle-radius': 10, 'circle-color': ['get', 'color'], 'circle-stroke-width': 3, 'circle-stroke-color': '#ffffff' },
@@ -335,83 +441,99 @@ export default function MapClient({
         const pinLayers = ['pins-basic', 'pins-featured-glow', 'pins-featured']
         if (highlightListingId) pinLayers.push('pin-highlight-ring', 'pin-highlight')
         pinLayers.forEach(layer => {
-          map.current.on('mouseenter', layer, () => { map.current.getCanvas().style.cursor = 'pointer' })
-          map.current.on('mouseleave', layer, () => { map.current.getCanvas().style.cursor = '' })
-          map.current.on('click', layer, (e) => {
+          m.on('mouseenter', layer, (e) => {
+            m.getCanvas().style.cursor = 'pointer'
+            if (!hoverEnabled || !e.features?.length) return
+            const p = e.features[0].properties
+            const sub = p.subTypeLabel && p.subTypeLabel !== 'null' ? p.subTypeLabel : p.verticalLabel
+            hoverTip.current.setLngLat(e.features[0].geometry.coordinates.slice()).setHTML(
+              `<div style="font-family:system-ui,-apple-system,sans-serif;padding:1px 2px;">
+                <div style="font-family:Georgia,serif;font-size:13px;color:#1a1614;line-height:1.25;">${esc(p.name)}</div>
+                <div style="font-size:10px;color:#9a8878;margin-top:2px;">${esc(sub)}${p.location && p.location !== 'null' ? ` · ${esc(p.location)}` : ''}</div>
+              </div>`
+            ).addTo(m)
+          })
+          m.on('mouseleave', layer, () => {
+            m.getCanvas().style.cursor = ''
+            hoverTip.current?.remove()
+          })
+          m.on('click', layer, (e) => {
             const props = e.features[0].properties
             const coords = e.features[0].geometry.coordinates.slice()
-            const desc = props.description && props.description !== 'null'
-              ? (props.description.length > 120 ? props.description.slice(0, 120).trimEnd() + '…' : props.description)
-              : ''
-            const featuredBadge = props.featured === true || props.featured === 'true'
-              ? `<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(200,148,58,0.12);border:1px solid rgba(200,148,58,0.3);padding:2px 7px;border-radius:2px;font-size:9px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:${PREMIUM_COLOR};">★ Featured</span>`
-              : ''
-            const subLabel = props.subTypeLabel && props.subTypeLabel !== 'null'
-              ? `<span style="display:inline-flex;align-items:center;gap:5px;background:rgba(95,138,126,0.08);border:1px solid rgba(95,138,126,0.2);padding:3px 9px;border-radius:2px;"><span style="font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#6b6560;">${props.subTypeLabel}</span></span>`
-              : ''
-
+            hoverTip.current?.remove()
             // The pin for the current listing (when highlightListingId is
             // set) shows a "You are here" badge instead of a self-linking
             // "View listing →" button — clicking the page you're already on
             // would be a dead end.
             const isCurrent = highlightListingId && props.id === highlightListingId
-            const ctaHtml = isCurrent
-              ? `<div style="display:block;margin-top:10px;padding:7px 0;text-align:center;background:rgba(95,138,126,0.10);color:${PRIMARY};font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;border-radius:2px;border:1px dashed rgba(95,138,126,0.35);">You are here</div>`
-              : `<a href="${props.url}" style="display:block;margin-top:10px;padding:7px 0;text-align:center;background:${PRIMARY};color:#fff;text-decoration:none;font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;border-radius:2px;">View listing →</a>`
-
-            popup.current.setLngLat(coords).setHTML(
-              `<div style="font-family:system-ui,-apple-system,sans-serif;padding:4px 2px;max-width:260px;">
-                <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
-                  <span style="display:inline-flex;align-items:center;gap:5px;background:${props.color}18;border:1px solid ${props.color}33;padding:3px 9px;border-radius:2px;">
-                    <span style="width:5px;height:5px;border-radius:50%;background:${props.color};display:inline-block;"></span>
-                    <span style="font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:${props.color};">${props.verticalLabel}</span>
-                  </span>${subLabel}${featuredBadge}
-                </div>
-                <div style="font-family:Georgia,serif;font-size:17px;font-weight:400;color:#1a1614;margin-bottom:3px;letter-spacing:-0.01em;line-height:1.2;">${props.name}</div>
-                <div style="font-size:11px;color:#9a8878;margin-bottom:${desc ? 8 : 10}px;">${props.location}</div>
-                ${desc ? `<div style="font-size:12px;color:#5a4e45;line-height:1.5;margin-bottom:10px;">${desc}</div>` : ''}
-                ${ctaHtml}
-              </div>`
-            ).addTo(map.current)
+            popup.current.setLngLat(coords).setHTML(buildPopupHTML(props, { isCurrent })).addTo(m)
           })
         })
 
         // Dismiss popup on empty click
-        map.current.on('click', (e) => {
-          const features = map.current.queryRenderedFeatures(e.point, { layers: pinLayers })
+        m.on('click', (e) => {
+          const features = m.queryRenderedFeatures(e.point, { layers: pinLayers })
           if (!features.length && popup.current) popup.current.remove()
         })
 
         // Cluster click → zoom in
-        map.current.on('click', 'clusters', (e) => {
-          const features = map.current.queryRenderedFeatures(e.point, { layers: ['clusters'] })
+        m.on('click', 'clusters', (e) => {
+          const features = m.queryRenderedFeatures(e.point, { layers: ['clusters'] })
           const clusterId = features[0].properties.cluster_id
-          map.current.getSource('listings-clustered').getClusterExpansionZoom(clusterId, (err, zoom) => {
+          m.getSource('listings-clustered').getClusterExpansionZoom(clusterId, (err, zoom) => {
             if (err) return
-            map.current.easeTo({ center: features[0].geometry.coordinates, zoom: zoom + 1 })
+            m.easeTo({ center: features[0].geometry.coordinates, zoom: zoom + 1 })
           })
         })
-        map.current.on('mouseenter', 'clusters', () => { map.current.getCanvas().style.cursor = 'pointer' })
-        map.current.on('mouseleave', 'clusters', () => { map.current.getCanvas().style.cursor = '' })
+        m.on('mouseenter', 'clusters', () => { m.getCanvas().style.cursor = 'pointer' })
+        m.on('mouseleave', 'clusters', () => { m.getCanvas().style.cursor = '' })
 
         setMapReady(true)
       })
     })
 
     return () => {
+      cancelled = true
       if (popup.current) popup.current.remove()
+      if (hoverTip.current) hoverTip.current.remove()
       if (map.current) { try { map.current.remove() } catch (e) {} map.current = null }
     }
   }, [allListings])
 
   // Update map source when filters change
+  const prevFilterKey = useRef(null)
   useEffect(() => {
     if (!mapReady || !map.current) return
     const filtered = getFiltered(allListings, selectedVerticals, subTypeFilter, stateFilter, search)
     setCount(filtered.length)
     const source = map.current.getSource('listings-clustered')
     if (source) source.setData(buildGeoJSON(filtered))
+    // Close an open popup when the filters actually change — its pin may have
+    // just been filtered away, leaving an orphaned card floating on the map.
+    const key = [...selectedVerticals].sort().join(',') + '|' + subTypeFilter + '|' + stateFilter
+    if (prevFilterKey.current !== null && prevFilterKey.current !== key) popup.current?.remove()
+    prevFilterKey.current = key
   }, [allListings, selectedVerticals, subTypeFilter, stateFilter, search, mapReady])
+
+  // Keep vertical/state in the URL so a filtered view survives refresh and
+  // can be shared. Only a single-vertical selection maps onto the ?vertical=
+  // param (the server only parses one); multi-select just drops it.
+  useEffect(() => {
+    if (isEmbedded || typeof window === 'undefined') return
+    const url = new URL(window.location.href)
+    const single = selectedVerticals.size === 1 ? [...selectedVerticals][0] : null
+    if (single && SLUG_BY_KEY[single]) url.searchParams.set('vertical', SLUG_BY_KEY[single])
+    else url.searchParams.delete('vertical')
+    if (stateFilter && stateFilter !== 'All States') url.searchParams.set('state', stateFilter)
+    else url.searchParams.delete('state')
+    window.history.replaceState(null, '', url.pathname + (url.searchParams.toString() ? `?${url.searchParams.toString()}` : ''))
+  }, [selectedVerticals, stateFilter, isEmbedded])
+
+  // Mapbox canvases don't track size while display:none — recalc when the
+  // user switches back from the Build-a-trail tab.
+  useEffect(() => {
+    if (activeTab === 'map' && map.current) map.current.resize()
+  }, [activeTab])
 
   // Zoom to state — only relevant when the state filter is in play.
   // Skipped on the initial render when initialCenter was supplied, so a
@@ -426,7 +548,7 @@ export default function MapClient({
     }
     hasUserChangedState.current = true
     if (stateFilter === 'All States') {
-      map.current.flyTo({ center: [134, -27], zoom: 3.8, duration: 800 })
+      map.current.fitBounds(AUSTRALIA_BOUNDS, { padding: australiaFitPadding(isEmbedded), duration: 800 })
     } else {
       const bounds = STATE_BOUNDS[stateFilter]
       if (bounds) map.current.fitBounds([[bounds[0], bounds[1]], [bounds[2], bounds[3]]], { padding: 40, duration: 800 })
@@ -435,6 +557,27 @@ export default function MapClient({
 
   const isAllVerticals = selectedVerticals.size === 0
   const activeFilterCount = (!isAllVerticals ? 1 : 0) + (subTypeFilter !== 'all' ? 1 : 0) + (stateFilter !== 'All States' ? 1 : 0) + (search ? 1 : 0)
+
+  function clearAllFilters() {
+    setSelectedVerticals(new Set())
+    setSubTypeFilter('all')
+    setStateFilter('All States')
+    setSearch('')
+  }
+
+  // Top name-search matches for the jump-to-venue dropdown. Prefix matches
+  // rank above substring matches; capped at 8 rows.
+  const nameMatches = (() => {
+    const q = search.trim().toLowerCase()
+    if (q.length < 2) return []
+    const starts = [], contains = []
+    for (const l of allListings) {
+      const n = l.name ? l.name.toLowerCase() : ''
+      if (n.startsWith(q)) { starts.push(l); if (starts.length >= 8) break }
+      else if (n.includes(q) && contains.length < 8) contains.push(l)
+    }
+    return [...starts, ...contains].slice(0, 8)
+  })()
 
   // Sub-type pills only shown when exactly one vertical is selected
   const currentSubTypes = singleSelectedVertical ? SUB_TYPE_LABELS[singleSelectedVertical] || {} : {}
@@ -491,16 +634,37 @@ export default function MapClient({
         <div className="map-desktop-toolbar" style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
           {/* Row 1: vertical + state filters */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '42px 20px 8px', borderBottom: hasSubTypes ? 'none' : '1px solid var(--color-border)', background: 'rgba(250,248,245,0.97)', backdropFilter: 'blur(8px)', flexWrap: 'wrap' }}>
-            <input
-              value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Search by name…"
-              style={{ padding: '6px 12px', background: '#fff', border: '1px solid var(--color-border)', color: 'var(--color-ink)', fontSize: 12, outline: 'none', borderRadius: 2, width: 170, fontFamily: 'var(--font-sans)' }}
-            />
+            <div ref={nameSearchRef} style={{ position: 'relative' }}>
+              <input
+                value={search}
+                onChange={e => { setSearch(e.target.value); setShowNameDropdown(!!e.target.value) }}
+                onFocus={() => { if (nameMatches.length) setShowNameDropdown(true) }}
+                onKeyDown={e => { if (e.key === 'Enter' && nameMatches.length) flyToListing(nameMatches[0]); if (e.key === 'Escape') setShowNameDropdown(false) }}
+                placeholder="Search by name…"
+                aria-label="Search venues by name"
+                style={{ padding: '6px 12px', background: '#fff', border: '1px solid var(--color-border)', color: 'var(--color-ink)', fontSize: 12, outline: 'none', borderRadius: 2, width: 170, fontFamily: 'var(--font-sans)' }}
+              />
+              {showNameDropdown && nameMatches.length > 0 && (
+                <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: 2, width: 280, background: '#fff', border: '1px solid var(--color-border)', borderRadius: 4, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', zIndex: 1000, maxHeight: 300, overflowY: 'auto' }}>
+                  {nameMatches.map(l => (
+                    <button key={l.id} onClick={() => flyToListing(l)} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', background: 'none', border: 'none', borderBottom: '1px solid var(--color-border)', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-sans)' }}>
+                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: verticalColor(l.vertical), flexShrink: 0 }} />
+                      <span style={{ minWidth: 0 }}>
+                        <span style={{ display: 'block', fontSize: 12, color: 'var(--color-ink)', fontWeight: 500, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.name}</span>
+                        <span style={{ display: 'block', fontSize: 10, color: 'var(--color-muted)', marginTop: 1 }}>{[getVerticalBadge(l.vertical), l.region, l.state].filter(Boolean).join(' · ')}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             {/* Geocoding place search */}
             <div ref={placeSearchRef} style={{ position: 'relative', minWidth: 150, maxWidth: 200 }}>
               <input type="text" placeholder="Search a location..." value={placeQuery}
                 onChange={e => { setPlaceQuery(e.target.value); if (!e.target.value) setShowPlaceDropdown(false) }}
                 onFocus={() => { if (placeResults.length) setShowPlaceDropdown(true) }}
+                onKeyDown={e => { if (e.key === 'Enter' && placeResults.length) handlePlaceSelect(placeResults[0]); if (e.key === 'Escape') setShowPlaceDropdown(false) }}
+                aria-label="Search a location"
                 style={{ padding: '6px 12px', background: '#fff', border: '1px solid var(--color-border)', color: 'var(--color-ink)', fontSize: 12, outline: 'none', borderRadius: 2, width: '100%', fontFamily: 'var(--font-sans)' }} />
               {showPlaceDropdown && placeResults.length > 0 && (
                 <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 2, background: '#fff', border: '1px solid var(--color-border)', borderRadius: 4, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', zIndex: 1000, maxHeight: 260, overflowY: 'auto' }}>
@@ -517,7 +681,7 @@ export default function MapClient({
             {verticalFilters.map(v => {
               const active = v.key === 'all' ? isAllVerticals : selectedVerticals.has(v.key)
               return (
-                <button key={v.key} onClick={() => toggleVertical(v.key)} style={{
+                <button key={v.key} onClick={() => toggleVertical(v.key)} aria-pressed={active} style={{
                   padding: '5px 12px', borderRadius: 2, border: 'none', cursor: 'pointer',
                   fontSize: 11, fontWeight: active ? 600 : 500, fontFamily: 'var(--font-sans)',
                   background: active ? verticalColor(v.key) : 'rgba(95,138,126,0.1)',
@@ -527,15 +691,20 @@ export default function MapClient({
             })}
             <div style={{ width: 1, height: 18, background: 'var(--color-border)' }} />
             {STATES.map(s => (
-              <button key={s} onClick={() => setStateFilter(s)} style={{
+              <button key={s} onClick={() => setStateFilter(s)} aria-pressed={stateFilter === s} style={{
                 padding: '5px 9px', borderRadius: 2, border: 'none', cursor: 'pointer',
                 fontSize: 11, fontWeight: 500, fontFamily: 'var(--font-sans)',
                 background: stateFilter === s ? 'rgba(95,138,126,0.15)' : 'transparent',
                 color: stateFilter === s ? 'var(--color-ink)' : 'var(--color-muted)', transition: 'all 0.15s',
               }}>{s}</button>
             ))}
-            <div style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--color-muted)' }}>
-              {loading ? 'Loading…' : `${count.toLocaleString()} listings`}
+            <div role="status" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, color: 'var(--color-muted)' }}>
+              <span>{loading ? 'Loading…' : placesLabel(count)}</span>
+              {activeFilterCount > 0 && (
+                <button onClick={clearAllFilters} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 11, fontWeight: 600, color: PRIMARY, fontFamily: 'var(--font-sans)' }}>
+                  Clear filters
+                </button>
+              )}
             </div>
           </div>
 
@@ -563,6 +732,42 @@ export default function MapClient({
         )}
         {/* Map canvas */}
         <div ref={mapContainer} style={{ position: 'absolute', inset: 0 }} />
+
+        {/* Loading overlay — the canvas stays blank until pins arrive, so say so */}
+        {!isEmbedded && loading && (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 6, pointerEvents: 'none' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(250,248,245,0.97)', border: '1px solid var(--color-border)', borderRadius: 6, padding: '12px 18px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
+              <span className="map-spinner" />
+              <span style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--color-muted)', letterSpacing: '0.04em' }}>Loading the atlas…</span>
+            </div>
+          </div>
+        )}
+
+        {/* Empty state — every pin filtered away */}
+        {!isEmbedded && !loading && mapReady && count === 0 && (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 6, pointerEvents: 'none' }}>
+            <div style={{ pointerEvents: 'auto', textAlign: 'center', background: 'rgba(250,248,245,0.97)', border: '1px solid var(--color-border)', borderRadius: 6, padding: '20px 26px', boxShadow: '0 4px 20px rgba(0,0,0,0.10)', maxWidth: 300 }}>
+              <div style={{ fontFamily: 'Georgia, serif', fontSize: 16, color: 'var(--color-ink)', marginBottom: 6 }}>No places match these filters</div>
+              <div style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--color-muted)', lineHeight: 1.5, marginBottom: 14 }}>Try a different spelling, or widen the category and state filters.</div>
+              <button onClick={clearAllFilters} style={{ padding: '8px 18px', background: PRIMARY, color: '#fff', border: 'none', borderRadius: 2, cursor: 'pointer', fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)' }}>
+                Clear all filters
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Mobile count chip — the toolbar (and its count) is desktop-only */}
+        {!isEmbedded && !mobileSheetOpen && (
+          <div className="map-mobile-only" role="status" style={{
+            position: 'absolute', top: 58, left: '50%', transform: 'translateX(-50%)', zIndex: 9,
+            background: 'rgba(250,248,245,0.95)', border: '1px solid var(--color-border)', borderRadius: 12,
+            padding: '4px 12px', pointerEvents: 'none', alignItems: 'center',
+            fontFamily: 'var(--font-sans)', fontSize: 10, fontWeight: 600, letterSpacing: '0.04em', color: 'var(--color-muted)',
+            boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
+          }}>
+            {loading ? 'Loading…' : placesLabel(count)}
+          </div>
+        )}
 
         {/* Desktop legend — fullscreen mode only */}
         {!isEmbedded && (
@@ -650,6 +855,7 @@ export default function MapClient({
         {mobileLegendOpen && (
           <div className="map-mobile-only" style={{
             position: 'absolute', bottom: 280, right: 16, zIndex: 10,
+            flexDirection: 'column',
             background: 'rgba(250,248,245,0.97)', border: '1px solid var(--color-border)',
             borderRadius: 6, padding: '12px 14px', boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
           }}>
@@ -669,6 +875,9 @@ export default function MapClient({
         {mobileSheetOpen && (
           <div className="map-mobile-only" style={{
             position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 20,
+            // .map-mobile-only forces display:flex — without an explicit
+            // column direction the sheet's sections lay out side by side.
+            flexDirection: 'column',
             background: 'rgba(250,248,245,0.99)', borderTop: '1px solid var(--color-border)',
             borderRadius: '16px 16px 0 0', boxShadow: '0 -4px 24px rgba(0,0,0,0.12)',
             padding: '8px 0 32px', maxHeight: '70vh', overflowY: 'auto',
@@ -679,7 +888,21 @@ export default function MapClient({
             <div style={{ padding: '0 20px 16px', borderBottom: '1px solid var(--color-border)' }}>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', marginBottom: 8, fontFamily: 'var(--font-sans)' }}>Search by name</div>
               <input value={search} onChange={e => setSearch(e.target.value)} placeholder="e.g. venue name…"
+                aria-label="Search venues by name"
                 style={{ width: '100%', padding: '9px 12px', background: '#fff', border: '1px solid var(--color-border)', color: 'var(--color-ink)', fontSize: 13, outline: 'none', borderRadius: 4, fontFamily: 'var(--font-sans)', boxSizing: 'border-box' }} />
+              {nameMatches.length > 0 && (
+                <div style={{ marginTop: 8, border: '1px solid var(--color-border)', borderRadius: 4, overflow: 'hidden' }}>
+                  {nameMatches.slice(0, 5).map(l => (
+                    <button key={l.id} onClick={() => flyToListing(l)} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 12px', minHeight: 44, background: '#fff', border: 'none', borderBottom: '1px solid var(--color-border)', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-sans)' }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: verticalColor(l.vertical), flexShrink: 0 }} />
+                      <span style={{ minWidth: 0 }}>
+                        <span style={{ display: 'block', fontSize: 13, color: 'var(--color-ink)', fontWeight: 500, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.name}</span>
+                        <span style={{ display: 'block', fontSize: 10, color: 'var(--color-muted)', marginTop: 1 }}>{[getVerticalBadge(l.vertical), l.region, l.state].filter(Boolean).join(' · ')}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Vertical filters */}
@@ -744,11 +967,11 @@ export default function MapClient({
 
             {/* Count + clear */}
             <div style={{ padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--color-muted)' }}>
-                {loading ? 'Loading…' : `${count.toLocaleString()} listings`}
+              <span role="status" style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--color-muted)' }}>
+                {loading ? 'Loading…' : placesLabel(count)}
               </span>
               {activeFilterCount > 0 && (
-                <button onClick={() => { setSelectedVerticals(new Set()); setSubTypeFilter('all'); setStateFilter('All States'); setSearch('') }}
+                <button onClick={clearAllFilters}
                   style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: PRIMARY, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
                   Clear all filters
                 </button>
@@ -764,10 +987,16 @@ export default function MapClient({
         .mapboxgl-popup-content { border-radius: 4px !important; padding: 14px 16px !important; box-shadow: 0 4px 20px rgba(0,0,0,0.12) !important; border: 1px solid rgba(95,138,126,0.15) !important; background: #faf8f5 !important; }
         .mapboxgl-popup-tip { display: none !important; }
         .mapboxgl-popup-close-button { font-size: 18px !important; padding: 4px 8px !important; color: #9a8878 !important; }
+        .map-hover-tip { pointer-events: none !important; }
+        .map-hover-tip .mapboxgl-popup-content { padding: 8px 11px !important; box-shadow: 0 2px 10px rgba(0,0,0,0.10) !important; }
+        .map-spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(95,138,126,0.25); border-top-color: #5f8a7e; animation: map-spin 0.8s linear infinite; display: inline-block; flex-shrink: 0; }
+        @keyframes map-spin { to { transform: rotate(360deg); } }
         .map-mobile-only { display: none !important; }
         @media (max-width: 768px) {
           .map-desktop-toolbar { display: none !important; }
           .map-mobile-only { display: flex !important; }
+          /* Mobile keeps the larger locate FAB; hide the duplicate Mapbox control */
+          .mapboxgl-ctrl-group:has(.mapboxgl-ctrl-geolocate) { display: none !important; }
         }
       `}</style>
     </div>
@@ -786,30 +1015,69 @@ function getFiltered(listings, selectedVerticals, subTypeFilter, stateFilter, se
   })
 }
 
+// Shared between the GeoJSON pin source and the search-result fly-to popup,
+// so a popup opened either way renders identically.
+function listingToProps(l) {
+  const subTypes = SUB_TYPE_LABELS[l.vertical] || {}
+  return {
+    id: l.id,
+    name: l.name,
+    slug: l.slug,
+    vertical: l.vertical,
+    verticalLabel: getVerticalBadge(l.vertical),
+    verticalSite: getVerticalLabel(l.vertical),
+    subTypeLabel: subTypes[l.sub_type] || null,
+    color: verticalColor(l.vertical),
+    featured: l.is_featured || false,
+    location: [l.region, l.state].filter(Boolean).join(', '),
+    description: l.description || '',
+    url: `/place/${l.slug}`,
+  }
+}
+
+// `props` is either listingToProps() output or mapbox feature.properties —
+// the latter stringifies values, hence the 'null'/'true' string checks.
+function buildPopupHTML(props, { isCurrent = false } = {}) {
+  const desc = props.description && props.description !== 'null'
+    ? (props.description.length > 120 ? props.description.slice(0, 120).trimEnd() + '…' : props.description)
+    : ''
+  const featuredBadge = props.featured === true || props.featured === 'true'
+    ? `<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(200,148,58,0.12);border:1px solid rgba(200,148,58,0.3);padding:2px 7px;border-radius:2px;font-size:9px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:${PREMIUM_COLOR};">★ Featured</span>`
+    : ''
+  const subLabel = props.subTypeLabel && props.subTypeLabel !== 'null'
+    ? `<span style="display:inline-flex;align-items:center;gap:5px;background:rgba(95,138,126,0.08);border:1px solid rgba(95,138,126,0.2);padding:3px 9px;border-radius:2px;"><span style="font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#6b6560;">${esc(props.subTypeLabel)}</span></span>`
+    : ''
+
+  // The pin for the current listing (embedded mode) shows a "You are here"
+  // badge instead of a self-linking "View listing →" button — clicking the
+  // page you're already on would be a dead end.
+  const ctaHtml = isCurrent
+    ? `<div style="display:block;margin-top:10px;padding:7px 0;text-align:center;background:rgba(95,138,126,0.10);color:${PRIMARY};font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;border-radius:2px;border:1px dashed rgba(95,138,126,0.35);">You are here</div>`
+    : `<a href="${esc(props.url)}" style="display:block;margin-top:10px;padding:7px 0;text-align:center;background:${PRIMARY};color:#fff;text-decoration:none;font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;border-radius:2px;">View listing →</a>`
+
+  return (
+    `<div style="font-family:system-ui,-apple-system,sans-serif;padding:4px 2px;max-width:260px;">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
+        <span style="display:inline-flex;align-items:center;gap:5px;background:${props.color}18;border:1px solid ${props.color}33;padding:3px 9px;border-radius:2px;">
+          <span style="width:5px;height:5px;border-radius:50%;background:${props.color};display:inline-block;"></span>
+          <span style="font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:${props.color};">${esc(props.verticalLabel)}</span>
+        </span>${subLabel}${featuredBadge}
+      </div>
+      <div style="font-family:Georgia,serif;font-size:17px;font-weight:400;color:#1a1614;margin-bottom:3px;letter-spacing:-0.01em;line-height:1.2;">${esc(props.name)}</div>
+      <div style="font-size:11px;color:#9a8878;margin-bottom:${desc ? 8 : 10}px;">${esc(props.location)}</div>
+      ${desc ? `<div style="font-size:12px;color:#5a4e45;line-height:1.5;margin-bottom:10px;">${esc(desc)}</div>` : ''}
+      ${ctaHtml}
+    </div>`
+  )
+}
+
 function buildGeoJSON(listings) {
   return {
     type: 'FeatureCollection',
-    features: listings.filter(l => l.lat && l.lng && !l.address_on_request).map(l => {
-      const color = verticalColor(l.vertical)
-      const subTypes = SUB_TYPE_LABELS[l.vertical] || {}
-      return {
-        type: 'Feature',
-        geometry: { type: 'Point', coordinates: [parseFloat(l.lng), parseFloat(l.lat)] },
-        properties: {
-          id: l.id,
-          name: l.name,
-          slug: l.slug,
-          vertical: l.vertical,
-          verticalLabel: getVerticalBadge(l.vertical),
-          verticalSite: getVerticalLabel(l.vertical),
-          subTypeLabel: subTypes[l.sub_type] || null,
-          color,
-          featured: l.is_featured || false,
-          location: [l.region, l.state].filter(Boolean).join(', '),
-          description: l.description || '',
-          url: `/place/${l.slug}`,
-        },
-      }
-    }),
+    features: listings.filter(l => l.lat && l.lng && !l.address_on_request).map(l => ({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [parseFloat(l.lng), parseFloat(l.lat)] },
+      properties: listingToProps(l),
+    })),
   }
 }

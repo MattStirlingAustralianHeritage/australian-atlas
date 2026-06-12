@@ -37,15 +37,32 @@ export async function GET() {
     // omitted until the column exists; the client falls back to the scalar.
     const hasVerticals = await relationHasVerticals(sb, 'listings')
 
-    // Single query — sub_type is already on the listings table from sync
+    // Single query — sub_type is already on the listings table from sync.
+    // Address-on-request venues are excluded here, matching every other
+    // location surface (trails search, on-this-road, plan) — their exact
+    // coordinates must never reach a public pin payload.
     const allListings = await fetchAllPages(
       sb, 'listings',
       `id, vertical, ${hasVerticals ? 'verticals, ' : ''}name, slug, description, region, state, lat, lng, is_featured, sub_type`,
-      [q => q.eq('status', 'active'), q => q.in('vertical', publicVerticals), q => q.not('lat', 'is', null), q => q.not('lng', 'is', null)]
+      [
+        q => q.eq('status', 'active'),
+        q => q.in('vertical', publicVerticals),
+        q => q.not('lat', 'is', null),
+        q => q.not('lng', 'is', null),
+        q => q.or('address_on_request.eq.false,address_on_request.is.null'),
+      ]
     )
 
+    // The map popup renders at most 120 chars of description; shipping full
+    // editorial bodies for ~9k listings roughly doubles the payload for
+    // nothing. Trim at the source.
+    const slim = allListings.map(l => ({
+      ...l,
+      description: l.description ? String(l.description).slice(0, 160) : null,
+    }))
+
     return NextResponse.json(
-      { listings: allListings, total: allListings.length },
+      { listings: slim, total: slim.length },
       // The pin payload is the heaviest fetch on / and /map and only changes
       // on sync. Let the CDN absorb repeat loads; SWR keeps it fresh enough.
       { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=3600' } }
