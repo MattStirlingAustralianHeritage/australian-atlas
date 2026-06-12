@@ -11,11 +11,7 @@ const VERTICAL_LABELS = {
   craft: 'Craft', rest: 'Rest', field: 'Field', corner: 'Corner', found: 'Found', table: 'Table',
 }
 
-const VERTICAL_CARD_BG = {
-  sba: '#3D2B1F', collection: '#2D3436', craft: '#4A3728',
-  fine_grounds: '#2C1810', rest: '#1B2631', field: '#1E3A2F',
-  corner: '#3B2F2F', found: '#2F2B26', table: '#3A2E1F',
-}
+import { VERTICAL_CARD_BG } from '@/lib/verticalUrl'
 
 export const metadata = {
   title: 'Collections | Australian Atlas',

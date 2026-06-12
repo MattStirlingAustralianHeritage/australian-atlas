@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useLocation } from './LocationProvider'
 
-const GOLD = '#C4973B'
+const GOLD = 'var(--color-gold)'
 
 /**
  * LocationBar — compact location indicator for the nav bar.

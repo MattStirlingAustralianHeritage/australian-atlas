@@ -1,4 +1,4 @@
-import { getVerticalUrl } from '@/lib/verticalUrl'
+import { getVerticalUrl, VERTICAL_CARD_TOKENS } from '@/lib/verticalUrl'
 import VerticalBadge from '@/components/VerticalBadge'
 import { isApprovedImageSource } from '@/lib/image-utils'
 import { getListingRegion } from '@/lib/regions'
@@ -8,19 +8,7 @@ import { getListingRegion } from '@/lib/regions'
 // Used across the entire Australian Atlas Network.
 // ============================================================
 
-export const VERTICAL_TOKENS = {
-  sba:          { bg: '#3D2B1F', text: '#FAF8F4', label: 'Small Batch Atlas' },
-  collection:   { bg: '#2D3436', text: '#FAF8F4', label: 'Culture Atlas' },
-  craft:        { bg: '#4A3728', text: '#FAF8F4', label: 'Craft Atlas' },
-  fine_grounds: { bg: '#2C1810', text: '#FAF8F4', label: 'Fine Grounds Atlas' },
-  rest:         { bg: '#1B2631', text: '#FAF8F4', label: 'Rest Atlas' },
-  field:        { bg: '#1E3A2F', text: '#FAF8F4', label: 'Field Atlas' },
-  corner:       { bg: '#3B2F2F', text: '#FAF8F4', label: 'Corner Atlas' },
-  found:        { bg: '#2F2B26', text: '#FAF8F4', label: 'Found Atlas' },
-  table:        { bg: '#3A2E1F', text: '#FAF8F4', label: 'Table Atlas' },
-  way:          { bg: '#2D331C', text: '#FAF8F4', label: 'Way Atlas' },
-  portal:       { bg: '#0f0e0c', text: '#FAF8F4', label: 'Australian Atlas' },
-}
+export const VERTICAL_TOKENS = VERTICAL_CARD_TOKENS
 
 const CATEGORY_LABELS = {
   winery: 'Winery', distillery: 'Distillery', brewery: 'Brewery',
@@ -127,7 +115,7 @@ export function TypographicCard({
     : {
         position: 'relative',
         aspectRatio,
-        borderRadius: '10px',
+        borderRadius: 'var(--radius-card)',
         overflow: 'hidden',
         background: tokens.bg,
         color: tokens.text,
@@ -340,7 +328,7 @@ export default function ListingCard({ listing, meta, linkToVertical = false, dis
       href={url}
       {...(linkToVertical ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
       className="group listing-card block overflow-hidden"
-      style={{ borderRadius: '10px', border: '0.5px solid var(--color-border)', position: 'relative' }}
+      style={{ borderRadius: 'var(--radius-card)', border: '0.5px solid var(--color-border)', position: 'relative' }}
     >
       <div style={{ position: 'relative' }}>
         {hasRealImage ? (
@@ -349,6 +337,7 @@ export default function ListingCard({ listing, meta, linkToVertical = false, dis
               src={listing.hero_image_url}
               alt={listing.name}
               loading="lazy"
+              decoding="async"
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             />
             {/* Gradient overlay */}

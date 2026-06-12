@@ -14,7 +14,7 @@ function generateEmailTemplate(listing) {
     subject: `${listing.name} on Australian Atlas`,
     body: `Hi,
 
-We've been building Australian Atlas — a curated guide to independent Australian places across nine verticals. We've listed ${listing.name} as part of our guide to independent ${regionName || 'Australia'}.
+We've been building Australian Atlas — a curated guide to independent Australian places across ten verticals. We've listed ${listing.name} as part of our guide to independent ${regionName || 'Australia'}.
 
 ${descSnippet ? `Here's what we wrote: "${descSnippet}"` : ''}
 

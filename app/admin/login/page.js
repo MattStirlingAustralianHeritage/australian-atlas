@@ -36,49 +36,45 @@ export default function AdminLoginPage() {
     }
   }
 
+  // Dark ink ground matching the console sidebar — the admin entrance reads
+  // as the console, not as a public page.
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-cream)', padding: '2rem' }}>
+    <div style={{ minHeight: 'calc(100vh - 52px)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#161412', padding: '2rem' }}>
       <div style={{ width: '100%', maxWidth: '380px' }}>
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '1.75rem', fontWeight: 600, color: 'var(--color-ink)', marginBottom: '0.25rem' }}>
-            Admin Access
+        <div style={{ textAlign: 'center', marginBottom: '1.75rem' }}>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '1.6rem', fontWeight: 400, color: '#FAF8F4', margin: 0 }}>
+            Australian Atlas
           </h1>
-          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '0.9rem', color: 'var(--color-muted)' }}>
-            Enter the admin password to continue
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 500, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--color-gold)', margin: '0.4rem 0 0' }}>
+            Console
           </p>
         </div>
 
-        <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid var(--color-border)', padding: '2rem', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+        <div style={{ background: 'var(--color-card-bg)', borderRadius: 'var(--radius-lg)', border: '1px solid rgba(250,248,244,0.12)', padding: '2rem', boxShadow: 'var(--shadow-lg)' }}>
           <form onSubmit={handleSubmit}>
             <div style={{ marginBottom: '1.25rem' }}>
-              <label style={{ display: 'block', fontFamily: 'var(--font-sans)', fontSize: '0.85rem', color: 'var(--color-muted)', marginBottom: '0.375rem' }}>
-                Password
+              <label htmlFor="admin-password" style={{ display: 'block', fontFamily: 'var(--font-body)', fontSize: '0.85rem', color: 'var(--color-muted)', marginBottom: '0.375rem' }}>
+                Admin password
               </label>
               <input
+                id="admin-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoFocus
+                autoComplete="current-password"
                 style={{
                   width: '100%',
                   padding: '0.7rem 0.875rem',
-                  borderRadius: '8px',
-                  border: '1px solid var(--color-border)',
-                  fontFamily: 'var(--font-sans)',
                   fontSize: '0.95rem',
-                  color: 'var(--color-ink)',
-                  background: '#fff',
-                  outline: 'none',
                   boxSizing: 'border-box',
                 }}
-                onFocus={(e) => e.target.style.borderColor = 'var(--color-sage)'}
-                onBlur={(e) => e.target.style.borderColor = 'var(--color-border)'}
               />
             </div>
 
             {error && (
-              <div style={{ padding: '0.625rem 0.875rem', borderRadius: '8px', background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', fontFamily: 'var(--font-sans)', fontSize: '0.85rem', marginBottom: '1rem' }}>
+              <div role="alert" style={{ padding: '0.625rem 0.875rem', borderRadius: 'var(--radius-sm)', background: '#FBEFEC', border: '1px solid #F0D4CD', color: '#A33A2A', fontFamily: 'var(--font-body)', fontSize: '0.85rem', marginBottom: '1rem' }}>
                 {error}
               </div>
             )}
@@ -86,27 +82,19 @@ export default function AdminLoginPage() {
             <button
               type="submit"
               disabled={loading}
-              style={{
-                width: '100%',
-                padding: '0.75rem 1rem',
-                borderRadius: '8px',
-                border: 'none',
-                background: 'var(--color-sage)',
-                color: '#fff',
-                fontFamily: 'var(--font-sans)',
-                fontSize: '0.95rem',
-                fontWeight: 500,
-                cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.7 : 1,
-                transition: 'background 0.15s',
-              }}
-              onMouseOver={(e) => { if (!loading) e.currentTarget.style.background = 'var(--color-sage-dark)' }}
-              onMouseOut={(e) => e.currentTarget.style.background = 'var(--color-sage)'}
+              className="btn btn-primary"
+              style={{ width: '100%' }}
             >
-              {loading ? 'Verifying...' : 'Sign in'}
+              {loading ? 'Verifying…' : 'Enter console'}
             </button>
           </form>
         </div>
+
+        <p style={{ textAlign: 'center', marginTop: '1.25rem' }}>
+          <a href="/" style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'rgba(250,248,244,0.45)', textDecoration: 'none' }}>
+            ← Back to australianatlas.com.au
+          </a>
+        </p>
       </div>
     </div>
   )

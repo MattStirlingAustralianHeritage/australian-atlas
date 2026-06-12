@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import Link from 'next/link'
+import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 
 const STAGE_META = {
   discover: { label: 'Discover', color: '#6B7280', desc: 'New prospects from Google Places, user suggestions, and coverage gaps' },
@@ -16,10 +17,7 @@ const VERTICAL_LABELS = {
   rest: 'Rest', field: 'Field', corner: 'Corner', found: 'Found', table: 'Table',
 }
 
-const VERTICAL_COLORS = {
-  sba: '#C49A3C', collection: '#7A6B8A', craft: '#8B6F4E', fine_grounds: '#8A7055',
-  rest: '#5B7B6F', field: '#5A7247', corner: '#6B7280', found: '#9B6B4A', table: '#A0522D',
-}
+const VERTICAL_COLORS = VERTICAL_ACCENTS
 
 const SOURCE_LABELS = {
   web_search: 'Web', council_suggested: 'Council', user_suggested: 'User',

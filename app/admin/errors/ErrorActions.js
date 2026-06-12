@@ -1,14 +1,18 @@
 'use client'
 
 import { useState } from 'react'
+import ConfirmDialog from '@/components/ConfirmDialog'
 
 export default function ErrorActions() {
   const [clearing, setClearing] = useState(false)
   const [result, setResult] = useState(null)
+  const [pendingClear, setPendingClear] = useState(false)
 
-  async function handleClearOld() {
-    if (!confirm('Delete all client errors older than 30 days?')) return
+  function handleClearOld() {
+    setPendingClear(true)
+  }
 
+  async function confirmClearOld() {
     setClearing(true)
     setResult(null)
     try {
@@ -27,11 +31,22 @@ export default function ErrorActions() {
       setResult(`Error: ${err.message}`)
     } finally {
       setClearing(false)
+      setPendingClear(false)
     }
   }
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <ConfirmDialog
+        open={pendingClear}
+        title="Clear old errors?"
+        message="All client errors older than 30 days will be deleted."
+        confirmLabel="Delete"
+        danger
+        busy={clearing}
+        onConfirm={confirmClearOld}
+        onCancel={() => setPendingClear(false)}
+      />
       {result && (
         <span style={{
           fontFamily: 'var(--font-body)', fontSize: 12,

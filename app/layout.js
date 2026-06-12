@@ -90,9 +90,18 @@ export default async function RootLayout({ children }) {
     }
   } catch {}
 
+  // Browsers honour preconnect hints from <body>; Mapbox tiles/statics and the
+  // Supabase REST + image host are on every page's critical path.
+  const supabaseOrigin = (() => {
+    try { return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin } catch { return null }
+  })()
+
   return (
     <html lang="en" className={`${playfair.variable} ${dmSans.variable}`}>
       <body className="min-h-screen flex flex-col">
+        <link rel="preconnect" href="https://api.mapbox.com" crossOrigin="anonymous" />
+        {supabaseOrigin && <link rel="preconnect" href={supabaseOrigin} crossOrigin="anonymous" />}
+        <a href="#main-content" className="skip-link">Skip to content</a>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd()) }}
@@ -106,7 +115,7 @@ export default async function RootLayout({ children }) {
         ` }} />
         <LocationWrapper savedLocation={savedLocation}>
           <Nav />
-          <main className="flex-1">{children}</main>
+          <main id="main-content" className="flex-1">{children}</main>
           <Footer />
         </LocationWrapper>
         <AtlasAnalytics />

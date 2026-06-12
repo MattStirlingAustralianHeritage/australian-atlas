@@ -4,18 +4,9 @@ import { useAuth } from '../layout'
 import { useState, useEffect } from 'react'
 import { getVerticalFeatures, getStandardFeatures } from '@/lib/vertical-features'
 import { getDashboardToken } from '@/lib/dashboard-token'
+import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 
-const VERTICAL_COLORS = {
-  sba: '#C49A3C',
-  collection: '#7A6B8A',
-  craft: '#C1603A',
-  fine_grounds: '#8A7055',
-  rest: '#5A8A9A',
-  field: '#4A7C59',
-  corner: '#5F8A7E',
-  found: '#D4956A',
-  table: '#C4634F',
-}
+const VERTICAL_COLORS = VERTICAL_ACCENTS
 
 const FREE_FEATURES = ['Basic listing', 'Map pin', 'Appear in search & trails']
 
@@ -193,6 +184,30 @@ export default function DashboardSubscription() {
   const { user } = useAuth()
   const [network, setNetwork] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [portalLoading, setPortalLoading] = useState(false)
+  const [portalMessage, setPortalMessage] = useState(null)
+
+  async function openBillingPortal() {
+    setPortalLoading(true)
+    setPortalMessage(null)
+    try {
+      const res = await fetch('/api/dashboard/billing-portal', { method: 'POST' })
+      const d = await res.json().catch(() => ({}))
+      if (res.ok && d.url) {
+        window.location.href = d.url
+        return
+      }
+      if (res.status === 404) {
+        setPortalMessage('The billing portal becomes available once you have a paid Standard listing. Free listings have nothing to bill.')
+      } else {
+        setPortalMessage('We couldn’t open the billing portal. Please try again, or email listings@australianatlas.com.au.')
+      }
+    } catch {
+      setPortalMessage('We couldn’t open the billing portal. Please check your connection and try again.')
+    } finally {
+      setPortalLoading(false)
+    }
+  }
 
   useEffect(() => {
     fetch('/api/dashboard/network')
@@ -276,33 +291,39 @@ export default function DashboardSubscription() {
             <SubscriptionCard key={v} vertical={v} data={data} />
           ))}
 
-          {/* Manage Billing button */}
+          {/* Manage Billing — opens the Stripe customer portal */}
           <div style={{ marginTop: '1rem' }}>
             <button
-              onClick={() => alert('Billing portal coming soon. Contact hello@australianatlas.com.au for billing enquiries.')}
-              style={{
-                padding: '0.7rem 1.5rem',
-                borderRadius: '8px',
-                border: '1px solid var(--color-border)',
-                background: '#fff',
-                fontFamily: 'var(--font-sans)',
-                fontSize: '0.9rem',
-                fontWeight: 500,
-                color: 'var(--color-ink)',
-                cursor: 'pointer',
-                transition: 'all 0.15s',
-              }}
-              onMouseOver={(e) => {
-                e.currentTarget.style.background = 'var(--color-ink)'
-                e.currentTarget.style.color = '#fff'
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.background = '#fff'
-                e.currentTarget.style.color = 'var(--color-ink)'
-              }}
+              type="button"
+              className="btn btn-secondary"
+              onClick={openBillingPortal}
+              disabled={portalLoading}
             >
-              Manage Billing
+              {portalLoading ? 'Opening billing portal…' : 'Manage billing'}
             </button>
+            {portalMessage && (
+              <p style={{
+                fontFamily: 'var(--font-sans)',
+                fontSize: '0.8rem',
+                color: 'var(--color-muted)',
+                margin: '0.6rem 0 0',
+                maxWidth: 420,
+                lineHeight: 1.5,
+              }}>
+                {portalMessage}
+              </p>
+            )}
+            <p style={{
+              fontFamily: 'var(--font-sans)',
+              fontSize: '0.75rem',
+              color: 'var(--color-muted)',
+              margin: '0.6rem 0 0',
+              maxWidth: 420,
+              lineHeight: 1.5,
+            }}>
+              Standard renews annually at A$295/yr. Update your payment method, download
+              invoices, or cancel any time in the billing portal.
+            </p>
           </div>
         </div>
       )}

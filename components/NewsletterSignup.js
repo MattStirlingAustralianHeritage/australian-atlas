@@ -39,7 +39,7 @@ export default function NewsletterSignup({ variant = 'inline' }) {
         fontFamily: 'var(--font-body)',
         fontSize: '15px',
         textAlign: isHomepage ? 'center' : undefined,
-        color: isHomepage ? '#C4973B' : 'var(--color-sage)',
+        color: isHomepage ? 'var(--color-gold)' : 'var(--color-sage)',
         fontWeight: 400,
       }}>
         {status === 'pending'
@@ -97,7 +97,7 @@ export default function NewsletterSignup({ variant = 'inline' }) {
             padding: isHomepage ? '0.875rem 1.625rem' : '0.625rem 1.25rem',
             borderRadius: isHomepage ? '10px' : '8px',
             border: 'none',
-            background: (isHomepage || isFooter) ? '#C4973B' : 'var(--color-ink)',
+            background: (isHomepage || isFooter) ? 'var(--color-gold)' : 'var(--color-ink)',
             color: '#fff',
             fontFamily: 'var(--font-body)',
             fontSize: '14px',

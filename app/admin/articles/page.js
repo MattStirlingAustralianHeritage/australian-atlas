@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import WYSIWYGEditor from '@/components/admin/WYSIWYGEditor'
+import ConfirmDialog from '@/components/ConfirmDialog'
+import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 
 const VERTICAL_OPTIONS = [
   { value: 'atlas', label: 'Atlas (Network)' },
@@ -16,11 +18,7 @@ const VERTICAL_OPTIONS = [
   { value: 'table', label: 'Table' },
 ]
 
-const VERTICAL_COLORS = {
-  atlas: '#2D2A26', sba: '#C49A3C', collection: '#7A6B8A', craft: '#C1603A',
-  fine_grounds: '#8A7055', rest: '#5A8A9A', field: '#4A7C59', corner: '#5F8A7E',
-  found: '#D4956A', table: '#C4634F',
-}
+const VERTICAL_COLORS = { ...VERTICAL_ACCENTS, atlas: '#2D2A26' }
 
 function slugify(str) {
   return str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
@@ -153,9 +151,15 @@ export default function ArticlesPage() {
     }
   }
 
-  async function handleDelete() {
+  const [pendingDelete, setPendingDelete] = useState(false)
+
+  function handleDelete() {
     if (editing === 'new' || !editing?.id) return
-    if (!confirm('Delete this article? This cannot be undone.')) return
+    setPendingDelete(true)
+  }
+
+  async function confirmDelete() {
+    if (editing === 'new' || !editing?.id) return
     setSaving(true)
     try {
       await fetch('/api/admin/articles', {
@@ -169,6 +173,7 @@ export default function ArticlesPage() {
       setError(err.message)
     } finally {
       setSaving(false)
+      setPendingDelete(false)
     }
   }
 
@@ -303,6 +308,16 @@ export default function ArticlesPage() {
   // ─── Editor view ───────────────────────────────────────────
   return (
     <div style={{ padding: '2rem', maxWidth: 860, margin: '0 auto' }}>
+      <ConfirmDialog
+        open={pendingDelete}
+        title="Delete this article?"
+        message="This cannot be undone."
+        confirmLabel="Delete"
+        danger
+        busy={saving}
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(false)}
+      />
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <button onClick={() => setEditing(null)} style={{

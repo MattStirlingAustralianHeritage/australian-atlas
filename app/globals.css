@@ -8,6 +8,7 @@
   --color-sage-dark: #4a7166;
   --color-muted: #6B6760;
   --color-accent: #C4603A;
+  --color-gold: #C4973B;
   --color-border: rgba(28,26,23,0.12);
   --color-card-bg: #ffffff;
   --font-display: 'Playfair Display', Georgia, serif;
@@ -15,6 +16,20 @@
   /* Keep legacy aliases so nothing breaks */
   --font-serif: 'Playfair Display', Georgia, serif;
   --font-sans: 'DM Sans', system-ui, sans-serif;
+}
+
+/* Design tokens beyond colour — radii, elevation, focus. One scale, used
+   everywhere new code is written; legacy inline values migrate as touched. */
+:root {
+  --radius-sm: 8px;
+  --radius-card: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+  --shadow-xs: 0 1px 3px rgba(28, 26, 23, 0.05);
+  --shadow-sm: 0 2px 8px rgba(28, 26, 23, 0.06);
+  --shadow-md: 0 8px 24px rgba(28, 26, 23, 0.08);
+  --shadow-lg: 0 16px 40px rgba(28, 26, 23, 0.12);
+  --focus-ring: 0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-sage);
 }
 
 /* Base */
@@ -25,6 +40,7 @@ body {
   background: var(--color-bg);
   color: var(--color-ink);
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   /* `clip` clips visually like `hidden` but doesn't create a scroll container,
      so descendants can still use position: sticky. The `hidden` line is a
      fallback for browsers that don't support `clip` (pre-Safari 16). */
@@ -35,6 +51,119 @@ body {
 h1, h2, h3, h4, h5, h6 {
   line-height: 1.3;
 }
+
+::selection {
+  background: rgba(196, 151, 59, 0.25);
+  color: var(--color-ink);
+}
+
+/* Keyboard focus — visible ring on every interactive element, mouse clicks
+   stay clean. :where() keeps specificity at zero so nothing else has to fight;
+   the ring (box-shadow) follows each element's own border-radius. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Skip link — first tab stop, invisible until focused. */
+.skip-link {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 200;
+  padding: 10px 18px;
+  background: var(--color-ink);
+  color: var(--color-cream);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--radius-pill);
+  text-decoration: none;
+  transform: translateY(-200%);
+  transition: transform 0.15s ease;
+}
+.skip-link:focus-visible {
+  transform: translateY(0);
+  box-shadow: var(--shadow-md);
+}
+
+/* Form baseline — zero-specificity defaults so unstyled inputs look branded
+   while every existing inline/utility style still wins. */
+:where(input[type="text"], input[type="email"], input[type="password"], input[type="search"],
+       input[type="url"], input[type="tel"], input[type="number"], input[type="date"],
+       input[type="time"], textarea, select) {
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--color-ink);
+  background: var(--color-card-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.8rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+:where(input, textarea, select):focus-visible {
+  border-color: var(--color-sage);
+}
+:where(input, textarea)::placeholder {
+  color: var(--color-muted);
+  opacity: 0.7;
+}
+
+/* Nav dropdowns — shared entrance + item treatment for the More menu and
+   the account menu. */
+.nav-dropdown {
+  animation: dropdown-in 0.14s ease both;
+  transform-origin: top right;
+}
+@keyframes dropdown-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.nav-dropdown-item {
+  display: block;
+  padding: 0.5rem 1rem;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--color-ink);
+  text-decoration: none;
+  transition: background 0.1s ease;
+}
+.nav-dropdown-item:hover { background: var(--color-cream); }
+
+/* Button system — shared classes for new and migrated surfaces. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  padding: 12px 22px;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease,
+              box-shadow 0.15s ease, transform 0.15s ease;
+}
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+.btn-primary { background: var(--color-ink); color: var(--color-cream); }
+.btn-primary:hover { background: #2C2824; }
+.btn-secondary { background: transparent; color: var(--color-ink); border-color: var(--color-border); }
+.btn-secondary:hover { border-color: var(--color-ink); }
+.btn-gold { background: var(--color-gold); color: #1C1A17; }
+.btn-gold:hover { background: #B0862F; }
+.btn-sage { background: var(--color-sage); color: #fff; }
+.btn-sage:hover { background: var(--color-sage-dark); }
+.btn-danger { background: #fff; color: #A33A2A; border-color: rgba(163, 58, 42, 0.35); }
+.btn-danger:hover { background: #FBF1EF; border-color: #A33A2A; }
+.btn-sm { font-size: 13px; padding: 8px 16px; }
 
 /* Editorial prose */
 .prose-editorial {
@@ -199,3 +328,21 @@ nav a, .inline-link { min-height: unset; }
 @media (min-width: 640px)  { .atlas-nearby-map { height: 400px; } }
 @media (min-width: 1024px) { .atlas-nearby-map { height: 480px; } }
 @media (min-width: 1280px) { .atlas-nearby-map { height: 540px; } }
+
+/* Reduced motion — collapse every animation/transition to a frame. Hover
+   transforms still apply (as a cut, not a glide); card lifts are disabled
+   outright since they're pure decoration. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .listing-card:hover,
+  .vguide-card:hover,
+  .example-trail-card:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}

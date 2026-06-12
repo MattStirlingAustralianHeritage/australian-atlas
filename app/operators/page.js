@@ -37,7 +37,7 @@ const BENEFITS = [
     body: 'Hours, phone number, website, description — you control what travellers see. No more outdated information or AI-generated guesswork.',
   },
   {
-    title: 'Appear across nine atlases',
+    title: 'Appear across ten atlases',
     body: 'Your listing reaches travellers specifically searching for independent places — across Small Batch, Craft, Fine Grounds, Rest, Table, and more.',
   },
   {

@@ -1,6 +1,7 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 import EnrichmentActions, { BulkApproveButton, SourceTextToggle } from './EnrichmentActions'
+import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 
 export const metadata = { title: 'Enrichment Review — Admin' }
 export const dynamic = 'force-dynamic'
@@ -11,11 +12,7 @@ const VERT_NAMES = {
   corner: 'Corner', found: 'Found', table: 'Table',
 }
 
-const VERT_COLORS = {
-  sba: '#C49A3C', collection: '#7A6B8A', craft: '#C1603A',
-  fine_grounds: '#8A7055', rest: '#5A8A9A', field: '#4A7C59',
-  corner: '#5F8A7E', found: '#D4956A', table: '#C4634F',
-}
+const VERT_COLORS = VERTICAL_ACCENTS
 
 const RISK_TABS = [
   { key: 'all', label: 'All' },

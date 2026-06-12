@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useMemo } from 'react'
+import ConfirmDialog from '@/components/ConfirmDialog'
 
 // ── Palette (matches the admin dashboard) ───────────────────────────────────
 const INK = '#2D2A26'
@@ -101,12 +102,20 @@ export default function GateReviewClient({ initialRows, tableMissing, loadError,
     }
   }, [])
 
+  // Bulk hide/delete go through a branded confirm dialog first.
+  const [pendingBulk, setPendingBulk] = useState(null) // { action: 'hide' | 'delete', ids }
+
   const bulk = (action) => {
     const ids = [...selected]
     if (!ids.length) return
-    if (action === 'hide' && !confirm(`Hide ${ids.length} listing${ids.length === 1 ? '' : 's'}? They will be removed from every public surface and the map (reversible).`)) return
-    if (action === 'delete' && !confirm(`Soft-delete ${ids.length} listing${ids.length === 1 ? '' : 's'}? They move to Trash, removed from public + the default admin views. Reversible via Restore.`)) return
+    if (action === 'hide' || action === 'delete') { setPendingBulk({ action, ids }); return }
     runAction(ids, action)
+  }
+
+  const confirmBulk = async () => {
+    if (!pendingBulk) return
+    await runAction(pendingBulk.ids, pendingBulk.action)
+    setPendingBulk(null)
   }
 
   // ── Scanner ──────────────────────────────────────────────────────────────────
@@ -144,8 +153,22 @@ export default function GateReviewClient({ initialRows, tableMissing, loadError,
 
   const isTrash = view === 'trash'
 
+  const pendingCountLabel = pendingBulk ? `${pendingBulk.ids.length} listing${pendingBulk.ids.length === 1 ? '' : 's'}` : ''
+
   return (
     <div style={{ minHeight: '100vh', background: CREAM, paddingBottom: '4rem' }}>
+      <ConfirmDialog
+        open={!!pendingBulk}
+        title={pendingBulk?.action === 'hide' ? `Hide ${pendingCountLabel}?` : `Soft-delete ${pendingCountLabel}?`}
+        message={pendingBulk?.action === 'hide'
+          ? 'They will be removed from every public surface and the map (reversible).'
+          : 'They move to Trash, removed from public + the default admin views. Reversible via Restore.'}
+        confirmLabel={pendingBulk?.action === 'hide' ? 'Hide' : 'Delete'}
+        danger
+        busy={busy}
+        onConfirm={confirmBulk}
+        onCancel={() => setPendingBulk(null)}
+      />
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: '2rem 1.5rem 0' }}>
 
         {/* Header */}

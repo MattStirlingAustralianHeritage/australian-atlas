@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 
 const STATUS_COLORS = {
   pitch: { bg: '#E8E3DA', text: '#4A4338' },
@@ -12,10 +13,7 @@ const STATUS_COLORS = {
   archived: { bg: '#E8E5E0', text: '#5A5550' },
 }
 
-const VERTICAL_BG = {
-  sba: '#C49A3C', collection: '#7A6B8A', craft: '#C1603A', fine_grounds: '#8A7055',
-  rest: '#5A8A9A', field: '#4A7C59', corner: '#5F8A7E', found: '#D4956A', table: '#C4634F',
-}
+const VERTICAL_BG = VERTICAL_ACCENTS
 
 function fmtDate(iso) { if (!iso) return ''; const d = new Date(iso); return d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }) }
 function fmtKm(n) { return n == null ? '—' : `${Math.round(n)} km` }

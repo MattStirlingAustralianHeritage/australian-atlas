@@ -28,13 +28,6 @@ const PAGE_TITLES = {
 
 export default function AdminNavBar() {
   const pathname = usePathname()
-
-  // Don't show on /admin dashboard or /admin/login
-  if (pathname === '/admin' || pathname === '/admin/login') return null
-
-  const segment = pathname.replace('/admin/', '').split('/')[0]
-  const title = PAGE_TITLES[segment] || segment.charAt(0).toUpperCase() + segment.slice(1)
-
   const [stats, setStats] = useState(null)
   const [session, setSession] = useState(null)
 
@@ -56,6 +49,13 @@ export default function AdminNavBar() {
     return () => window.removeEventListener('admin-stats-update', handler)
   }, [])
 
+  // Don't show on /admin dashboard or /admin/login. (After the hooks — the
+  // early-return path must not change the hook count between renders.)
+  if (pathname === '/admin' || pathname === '/admin/login') return null
+
+  const segment = pathname.replace('/admin/', '').split('/')[0]
+  const title = PAGE_TITLES[segment] || segment.charAt(0).toUpperCase() + segment.slice(1)
+
   return (
     <div style={{
       display: 'flex',
@@ -67,8 +67,8 @@ export default function AdminNavBar() {
       fontFamily: 'var(--font-body, system-ui)',
       fontSize: 12,
       position: 'sticky',
-      top: 0,
-      zIndex: 90,
+      top: '52px',
+      zIndex: 40,
     }}>
       <Link href="/admin" style={{
         color: 'var(--color-muted, #888)',

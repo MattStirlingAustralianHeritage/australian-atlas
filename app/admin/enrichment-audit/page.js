@@ -1,14 +1,11 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
+import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Enrichment Audit — Admin' }
 
-const VERT_COLORS = {
-  sba: '#C49A3C', collection: '#7A6B8A', craft: '#C1603A',
-  fine_grounds: '#8A7055', rest: '#5A8A9A', field: '#4A7C59',
-  corner: '#5F8A7E', found: '#D4956A', table: '#C4634F',
-}
+const VERT_COLORS = VERTICAL_ACCENTS
 
 const VERT_NAMES = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft',

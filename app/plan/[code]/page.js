@@ -1,13 +1,11 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 
 const SITE_URL = 'https://australianatlas.com.au'
 
-const VERTICAL_COLORS = {
-  sba: '#C49A3C', collection: '#7A6B8A', craft: '#8B6F4E', fine_grounds: '#8A7055',
-  rest: '#5B7B6F', field: '#5A7247', corner: '#6B7280', found: '#9B6B4A', table: '#A0522D',
-}
+const VERTICAL_COLORS = VERTICAL_ACCENTS
 
 export async function generateMetadata({ params }) {
   const { code } = await params

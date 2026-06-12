@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import ConfirmDialog from '@/components/ConfirmDialog'
 
 const BUTTON_BASE = {
   fontFamily: 'var(--font-body)',
@@ -139,10 +140,13 @@ export function BulkApproveAllButton({ ids }) {
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState(null)
+  const [pendingBulk, setPendingBulk] = useState(false)
 
-  async function handleBulk() {
-    if (!confirm(`Approve all ${ids.length} content packages?`)) return
+  function handleBulk() {
+    setPendingBulk(true)
+  }
 
+  async function confirmBulk() {
     setLoading(true)
     setError(null)
     setProgress(0)
@@ -166,12 +170,21 @@ export function BulkApproveAllButton({ ids }) {
     }
 
     setLoading(false)
+    setPendingBulk(false)
     if (failed > 0) setError(`${failed} of ${ids.length} failed`)
     router.refresh()
   }
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <ConfirmDialog
+        open={pendingBulk}
+        title={`Approve all ${ids.length} content packages?`}
+        confirmLabel="Approve all"
+        busy={loading}
+        onConfirm={confirmBulk}
+        onCancel={() => setPendingBulk(false)}
+      />
       <button
         onClick={handleBulk}
         disabled={loading}

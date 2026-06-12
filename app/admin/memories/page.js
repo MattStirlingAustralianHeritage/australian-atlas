@@ -1,20 +1,11 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import MemoryActions from './MemoryActions'
+import { VERTICAL_MUTED } from '@/lib/verticalUrl'
 
 export const metadata = { title: 'Memories — Admin' }
 export const dynamic = 'force-dynamic'
 
-const VERTICAL_COLORS = {
-  sba: '#6b3a2a',
-  collection: '#5a6b7c',
-  craft: '#7c6b5a',
-  fine_grounds: '#5F8A7E',
-  rest: '#8a5a6b',
-  field: '#5a7c5a',
-  corner: '#7c5a7c',
-  found: '#5a7c6b',
-  table: '#7c6b5a',
-}
+const VERTICAL_COLORS = VERTICAL_MUTED
 
 const VERTICAL_NAMES = {
   sba: 'Small Batch',

@@ -1,11 +1,12 @@
 import { getSupabaseAdmin, getVerticalClient } from '@/lib/supabase/clients'
 import JournalFeed from './JournalFeed'
+import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 
 export const revalidate = 3600 // ISR: refresh every hour
 
 export const metadata = {
   title: 'From the Network | Australian Atlas',
-  description: 'Stories, guides, and dispatches from across the Atlas — independent Australia told through nine lenses.',
+  description: 'Stories, guides, and dispatches from across the Atlas — independent Australia told through ten lenses.',
 }
 
 const VERTICAL_JOURNAL_URLS = {
@@ -26,11 +27,7 @@ const VERTICAL_LABELS = {
   corner: 'Corner', found: 'Found', table: 'Table', atlas: 'Atlas',
 }
 
-const VERTICAL_COLORS = {
-  sba: '#C49A3C', collection: '#7A6B8A', craft: '#C1603A', fine_grounds: '#8A7055',
-  rest: '#5A8A9A', field: '#4A7C59', corner: '#5F8A7E', found: '#D4956A', table: '#C4634F',
-  atlas: '#2D2A26',
-}
+const VERTICAL_COLORS = { ...VERTICAL_ACCENTS, atlas: '#2D2A26' }
 
 // ── Pull from master DB (CMS-synced articles) ──────────────
 

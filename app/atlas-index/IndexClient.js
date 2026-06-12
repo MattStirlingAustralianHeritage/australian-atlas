@@ -1,5 +1,6 @@
 'use client'
 
+import { VERTICAL_MUTED } from '@/lib/verticalUrl'
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 
@@ -7,16 +8,16 @@ import Link from 'next/link'
 
 const VERTICALS = [
   { key: '', label: 'All' },
-  { key: 'sba', label: 'Small Batch', color: '#6b3a2a' },
-  { key: 'collection', label: 'Culture Atlas', color: '#5a6b7c' },
-  { key: 'craft', label: 'Maker Studios', color: '#7c6b5a' },
-  { key: 'fine_grounds', label: 'Fine Grounds', color: '#5F8A7E' },
-  { key: 'rest', label: 'Boutique Stays', color: '#8a5a6b' },
-  { key: 'field', label: 'Field Atlas', color: '#5a7c5a' },
-  { key: 'corner', label: 'Corner Atlas', color: '#7c5a7c' },
-  { key: 'found', label: 'Found Atlas', color: '#5a7c6b' },
-  { key: 'table', label: 'Table Atlas', color: '#7c6b5a' },
-  { key: 'way', label: 'Way Atlas', color: '#6B7A4A' },
+  { key: 'sba', label: 'Small Batch', color: VERTICAL_MUTED.sba },
+  { key: 'collection', label: 'Culture Atlas', color: VERTICAL_MUTED.collection },
+  { key: 'craft', label: 'Maker Studios', color: VERTICAL_MUTED.craft },
+  { key: 'fine_grounds', label: 'Fine Grounds', color: VERTICAL_MUTED.fine_grounds },
+  { key: 'rest', label: 'Boutique Stays', color: VERTICAL_MUTED.rest },
+  { key: 'field', label: 'Field Atlas', color: VERTICAL_MUTED.field },
+  { key: 'corner', label: 'Corner Atlas', color: VERTICAL_MUTED.corner },
+  { key: 'found', label: 'Found Atlas', color: VERTICAL_MUTED.found },
+  { key: 'table', label: 'Table Atlas', color: VERTICAL_MUTED.table },
+  { key: 'way', label: 'Way Atlas', color: VERTICAL_MUTED.way },
 ]
 
 const VERTICAL_COLOR_MAP = Object.fromEntries(

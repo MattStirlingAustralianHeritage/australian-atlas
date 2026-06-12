@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import ConfirmDialog from '@/components/ConfirmDialog'
 
 /**
  * Events manager for the listing editor (paid perk).
@@ -109,8 +110,15 @@ export default function EventsSection({ listingId, token, isPaid, listingSlug })
     finally { setSaving(false) }
   }
 
-  async function remove(ev) {
-    if (typeof window !== 'undefined' && !window.confirm(`Delete “${ev.title}”? This can't be undone.`)) return
+  const [pendingDelete, setPendingDelete] = useState(null)
+
+  function remove(ev) {
+    setPendingDelete(ev)
+  }
+
+  async function confirmRemove() {
+    const ev = pendingDelete
+    if (!ev) return
     setBusyId(ev.id)
     try {
       const res = await fetch(`/api/dashboard/events?id=${encodeURIComponent(ev.id)}&listing_id=${encodeURIComponent(listingId)}`, {
@@ -118,7 +126,10 @@ export default function EventsSection({ listingId, token, isPaid, listingSlug })
       })
       if (res.ok) setEvents(prev => prev.filter(e => e.id !== ev.id))
     } catch { /* ignore */ }
-    finally { setBusyId(null) }
+    finally {
+      setBusyId(null)
+      setPendingDelete(null)
+    }
   }
 
   async function togglePublish(ev) {
@@ -155,6 +166,16 @@ export default function EventsSection({ listingId, token, isPaid, listingSlug })
 
   return (
     <Section count={events.length}>
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="Delete this event?"
+        message={pendingDelete ? `“${pendingDelete.title}” will be removed from your listing and the Atlas events calendar. This can't be undone.` : ''}
+        confirmLabel="Delete event"
+        danger
+        busy={!!pendingDelete && busyId === pendingDelete.id}
+        onConfirm={confirmRemove}
+        onCancel={() => setPendingDelete(null)}
+      />
       <p style={helpText}>
         Add tastings, markets, dinners or pop-ups. Published events appear on your public listing and the Atlas <a href="/events" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-sage)', textDecoration: 'none' }}>events page</a>; drafts stay private until you publish them.
       </p>

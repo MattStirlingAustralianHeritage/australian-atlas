@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { getVerticalLabel, getVerticalBrandColour } from '@/lib/verticalUrl'
+import ConfirmDialog from '@/components/ConfirmDialog'
 
 /**
  * Producer Picks manager for the listing editor (paid perk).
@@ -105,14 +106,24 @@ export default function PicksSection({ listingId, token, isPaid, listing }) {
     finally { setAdding(false) }
   }
 
-  async function removePick(p) {
-    if (typeof window !== 'undefined' && !window.confirm(`Remove your pick of ${p.pickedName}?`)) return
+  const [pendingRemove, setPendingRemove] = useState(null)
+
+  function removePick(p) {
+    setPendingRemove(p)
+  }
+
+  async function confirmRemovePick() {
+    const p = pendingRemove
+    if (!p) return
     setBusyId(p.id)
     try {
       const res = await fetch(`/api/dashboard/picks?id=${encodeURIComponent(p.id)}`, { method: 'DELETE' })
       if (res.ok) setPicks(prev => prev.filter(x => x.id !== p.id))
     } catch { /* ignore */ }
-    finally { setBusyId(null) }
+    finally {
+      setBusyId(null)
+      setPendingRemove(null)
+    }
   }
 
   const picksLabel = listing?.vertical === 'fine_grounds' ? "Roaster's picks" : 'Producer picks'
@@ -137,6 +148,16 @@ export default function PicksSection({ listingId, token, isPaid, listing }) {
 
   return (
     <Section title={picksLabel} count={picks.length} max={maxPicks}>
+      <ConfirmDialog
+        open={!!pendingRemove}
+        title="Remove this pick?"
+        message={pendingRemove ? `“${pendingRemove.pickedName}” will no longer appear on your public listing.` : ''}
+        confirmLabel="Remove pick"
+        danger
+        busy={!!pendingRemove && busyId === pendingRemove.id}
+        onConfirm={confirmRemovePick}
+        onCancel={() => setPendingRemove(null)}
+      />
       <style>{`
         .aa-pick-result:hover { background: var(--color-cream) !important; }
         .aa-pick-card { transition: box-shadow 0.12s ease; }

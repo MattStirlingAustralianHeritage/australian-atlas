@@ -1,18 +1,14 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
-import { getVerticalLabel } from '@/lib/verticalUrl'
+import { getVerticalLabel, VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 import VerticalBadge from '@/components/VerticalBadge'
 import ClaimForm from './ClaimForm'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 
 export const revalidate = 3600
 
-const VERTICAL_COLORS = {
-  sba: '#C49A3C', collection: '#7A6B8A', craft: '#C1603A',
-  fine_grounds: '#8A7055', rest: '#5A8A9A', field: '#4A7C59',
-  corner: '#5F8A7E', found: '#D4956A', table: '#C4634F',
-}
+const VERTICAL_COLORS = VERTICAL_ACCENTS
 
 // ── Data fetching ─────────────────────────────────────────────
 

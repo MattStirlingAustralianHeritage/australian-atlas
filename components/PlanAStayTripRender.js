@@ -85,7 +85,7 @@ export function StopCard({ stop, index, prevStop }) {
           fontWeight: 700,
           letterSpacing: '0.14em',
           textTransform: 'uppercase',
-          color: '#C4973B',
+          color: 'var(--color-gold)',
         }}>
           {mealLabel}
         </div>
@@ -117,7 +117,7 @@ export function StopCard({ stop, index, prevStop }) {
           fontWeight: 600,
           letterSpacing: '0.06em',
           textTransform: 'uppercase',
-          color: '#C4973B',
+          color: 'var(--color-gold)',
         }}>
           {VERTICAL_LABELS[stop.vertical] || stop.vertical}
         </span>

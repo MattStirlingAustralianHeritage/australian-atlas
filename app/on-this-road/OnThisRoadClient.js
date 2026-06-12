@@ -11,17 +11,14 @@ import {
   Upload, MapPin, RefreshCw, Route, Store, Tag, Beer,
   Star, Camera, ChevronRight, Bike, Car, Download,
 } from 'lucide-react'
+import { VERTICAL_MUTED } from '@/lib/verticalUrl'
 import './on-this-road.css'
 
 const RouteMap = dynamic(() => import('./RouteMap'), { ssr: false })
 
 // ── Constants ───────────────────────────────────────────────────────
 
-const VERTICAL_COLORS = {
-  sba: '#6b3a2a', collection: '#5a6b7c', craft: '#7c6b5a',
-  fine_grounds: '#5F8A7E', rest: '#8a5a6b', field: '#5a7c5a',
-  corner: '#7c5a7c', found: '#5a7c6b', table: '#7c6b5a',
-}
+const VERTICAL_COLORS = VERTICAL_MUTED
 const VERTICAL_NAMES = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
   fine_grounds: 'Fine Grounds', rest: 'Rest', field: 'Field',

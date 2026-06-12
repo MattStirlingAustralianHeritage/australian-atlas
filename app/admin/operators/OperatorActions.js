@@ -1,11 +1,29 @@
 'use client'
 
 import { useState } from 'react'
+import ConfirmDialog from '@/components/ConfirmDialog'
+
+// Dialog copy per PATCH action. Suspend-like actions are destructive (danger).
+function describeOperatorAction(action, payload) {
+  if (action === 'set_approved') {
+    return payload?.approved
+      ? { title: 'Approve this operator?', confirmLabel: 'Approve', danger: false }
+      : { title: 'Suspend this operator?', confirmLabel: 'Suspend', danger: true }
+  }
+  const label = String(action).replace(/_/g, ' ')
+  return {
+    title: `${label.charAt(0).toUpperCase()}${label.slice(1)} this operator?`,
+    confirmLabel: 'Confirm',
+    danger: /suspend|reject|delete|remove|decline/.test(label),
+  }
+}
 
 export default function OperatorActions({ operators }) {
   const [showCreate, setShowCreate] = useState(false)
   const [creating, setCreating] = useState(false)
   const [message, setMessage] = useState(null)
+  const [pendingAction, setPendingAction] = useState(null) // { operatorId, action, payload }
+  const [actionBusy, setActionBusy] = useState(false)
 
   const [form, setForm] = useState({
     business_name: '',
@@ -44,8 +62,14 @@ export default function OperatorActions({ operators }) {
     }
   }
 
-  async function handleAction(operatorId, action, payload = {}) {
-    if (!confirm(`Are you sure you want to ${action} this operator?`)) return
+  function handleAction(operatorId, action, payload = {}) {
+    setPendingAction({ operatorId, action, payload })
+  }
+
+  async function confirmAction() {
+    if (!pendingAction) return
+    const { operatorId, action, payload } = pendingAction
+    setActionBusy(true)
 
     try {
       const res = await fetch('/api/admin/operators', {
@@ -58,6 +82,8 @@ export default function OperatorActions({ operators }) {
       window.location.reload()
     } catch (err) {
       alert(err.message)
+      setActionBusy(false)
+      setPendingAction(null)
     }
   }
 
@@ -67,8 +93,19 @@ export default function OperatorActions({ operators }) {
     boxSizing: 'border-box',
   }
 
+  const pendingCopy = pendingAction ? describeOperatorAction(pendingAction.action, pendingAction.payload) : null
+
   return (
     <div>
+      <ConfirmDialog
+        open={!!pendingAction}
+        title={pendingCopy?.title}
+        confirmLabel={pendingCopy?.confirmLabel}
+        danger={!!pendingCopy?.danger}
+        busy={actionBusy}
+        onConfirm={confirmAction}
+        onCancel={() => setPendingAction(null)}
+      />
       {message && (
         <div style={{
           padding: 12, borderRadius: 4, marginBottom: 16, fontSize: 13,

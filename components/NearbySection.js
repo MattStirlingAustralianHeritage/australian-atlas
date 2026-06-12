@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useLocation } from './LocationProvider'
 import { getListingRegion } from '@/lib/regions'
 
-const GOLD = '#C4973B'
+const GOLD = 'var(--color-gold)'
 
 const VERTICAL_LABELS = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
@@ -13,17 +13,9 @@ const VERTICAL_LABELS = {
   corner: 'Corner', found: 'Found', table: 'Table',
 }
 
-const VERTICAL_CARD_COLORS = {
-  sba:          '#3D2B1F',
-  collection:   '#2D3436',
-  craft:        '#4A3728',
-  fine_grounds: '#2C1810',
-  rest:         '#1B2631',
-  field:        '#1E3A2F',
-  corner:       '#3B2F2F',
-  found:        '#2F2B26',
-  table:        '#3A2E1F',
-}
+import { VERTICAL_CARD_BG } from '@/lib/verticalUrl'
+
+const VERTICAL_CARD_COLORS = VERTICAL_CARD_BG
 
 function distanceLabel(km) {
   if (km < 1) return 'Under 1 km'

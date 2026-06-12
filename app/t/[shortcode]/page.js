@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
-import { getVerticalUrl, getVerticalBadge } from '@/lib/verticalUrl'
+import { getVerticalUrl, getVerticalBadge, VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 import TrailMap from '../../trails/[slug]/TrailMap'
 import ShareButton from '../../trails/[slug]/ShareButton'
 import TrailLegCard from '@/components/TrailLegCard'
@@ -9,10 +9,7 @@ import GettingThereCard from '@/components/GettingThereCard'
 
 export const dynamic = 'force-dynamic'
 
-const VERTICAL_COLORS = {
-  sba: '#C49A3C', collection: '#7A6B8A', craft: '#C1603A', fine_grounds: '#8A7055',
-  rest: '#5A8A9A', field: '#4A7C59', corner: '#5F8A7E', found: '#D4956A', table: '#C4634F',
-}
+const VERTICAL_COLORS = VERTICAL_ACCENTS
 
 export async function generateMetadata({ params }) {
   const { shortcode } = await params

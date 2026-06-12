@@ -7,7 +7,7 @@ import RegionMapHero from '@/components/RegionMapHero'
 import RegionTrailCTA from '@/components/RegionTrailCTA'
 import { RelatedCollections, RelatedArticles } from '@/components/RelatedContent'
 import { LISTING_REGION_SELECT } from '@/lib/regions'
-import { getPublicVerticals } from '@/lib/verticalUrl'
+import { getPublicVerticals, VERTICAL_ACCENTS, VERTICAL_CARD_BG } from '@/lib/verticalUrl'
 import { relationHasVerticals, listingVerticals } from '@/lib/listings/verticalFilter'
 
 export const revalidate = 21600
@@ -41,24 +41,7 @@ const VERTICAL_LABELS = {
   way: 'Way',
 }
 
-const VERTICAL_COLORS = {
-  sba: '#C49A3C',
-  fine_grounds: '#8A7055',
-  collection: '#7A6B8A',
-  craft: '#C1603A',
-  rest: '#5A8A9A',
-  field: '#4A7C59',
-  corner: '#5F8A7E',
-  found: '#D4956A',
-  table: '#C4634F',
-  way: '#6B7A4A',
-}
-
-const VERTICAL_CARD_BG = {
-  sba: '#3D2B1F', collection: '#2D3436', craft: '#4A3728',
-  fine_grounds: '#2C1810', rest: '#1B2631', field: '#1E3A2F',
-  corner: '#3B2F2F', found: '#2F2B26', table: '#3A2E1F', way: '#2B3320',
-}
+const VERTICAL_COLORS = VERTICAL_ACCENTS
 
 const VERTICAL_DESCRIPTIONS = {
   sba: 'Distilleries, wineries, and artisan producers',

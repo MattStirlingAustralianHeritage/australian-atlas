@@ -1,12 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import ConfirmDialog from '@/components/ConfirmDialog'
+import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 
-const VERTICAL_COLORS = {
-  sba: '#C49A3C', collection: '#7A6B8A', craft: '#C1603A',
-  fine_grounds: '#8A7055', rest: '#5A8A9A', field: '#4A7C59',
-  corner: '#5F8A7E', found: '#D4956A', table: '#C4634F',
-}
+const VERTICAL_COLORS = VERTICAL_ACCENTS
 const VERTICAL_LABELS = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
   fine_grounds: 'Fine Grounds', rest: 'Rest', field: 'Field',
@@ -40,6 +38,7 @@ export default function AdminEventsPage() {
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(null)
+  const [pendingDecline, setPendingDecline] = useState(null) // event awaiting decline confirmation
 
   useEffect(() => {
     fetchEvents()
@@ -82,6 +81,15 @@ export default function AdminEventsPage() {
     }
   }
 
+  async function confirmDecline() {
+    if (!pendingDecline) return
+    try {
+      await handleAction(pendingDecline.id, 'decline')
+    } finally {
+      setPendingDecline(null)
+    }
+  }
+
   if (loading) {
     return (
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12">
@@ -93,6 +101,16 @@ export default function AdminEventsPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12">
+      <ConfirmDialog
+        open={!!pendingDecline}
+        title="Decline this event?"
+        message={pendingDecline ? `"${pendingDecline.name}" will be declined. A refund will be issued if payment was made.` : ''}
+        confirmLabel="Decline & refund"
+        danger
+        busy={!!pendingDecline && actionLoading === pendingDecline.id}
+        onConfirm={confirmDecline}
+        onCancel={() => setPendingDecline(null)}
+      />
       <h1 className="font-[family-name:var(--font-serif)] text-2xl font-bold">Event Review Queue</h1>
       <p className="mt-1 text-sm text-[var(--color-muted)]">
         {events.length} pending event{events.length !== 1 ? 's' : ''}
@@ -228,11 +246,7 @@ export default function AdminEventsPage() {
                         {isProcessing ? 'Processing...' : 'Approve'}
                       </button>
                       <button
-                        onClick={() => {
-                          if (confirm('Decline this event? A refund will be issued if payment was made.')) {
-                            handleAction(event.id, 'decline')
-                          }
-                        }}
+                        onClick={() => setPendingDecline(event)}
                         disabled={isProcessing}
                         className="px-4 py-2 rounded-lg border border-red-500 text-red-600 text-sm font-medium hover:bg-red-50 transition-colors disabled:opacity-50"
                       >

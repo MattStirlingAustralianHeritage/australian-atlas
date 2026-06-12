@@ -1,15 +1,16 @@
 import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import ScrollReveal from '@/components/ScrollReveal'
+import { VERTICAL_CARD_BG as CARD_BG } from '@/lib/verticalUrl'
 
 export const revalidate = 86400
 
 export const metadata = {
   title: 'About | Australian Atlas',
-  description: 'Australian Atlas is an independently operated guide to independent Australia — nine curated atlases mapping makers, producers, cultural spaces, and natural places across the country.',
+  description: 'Australian Atlas is an independently operated guide to independent Australia — ten curated atlases mapping makers, producers, cultural spaces, and natural places across the country.',
   openGraph: {
     title: 'About | Australian Atlas',
-    description: 'Australian Atlas is an independently operated guide to independent Australia — nine curated atlases mapping makers, producers, cultural spaces, and natural places across the country.',
+    description: 'Australian Atlas is an independently operated guide to independent Australia — ten curated atlases mapping makers, producers, cultural spaces, and natural places across the country.',
     url: 'https://australianatlas.com.au/about',
   },
 }
@@ -20,7 +21,7 @@ const aboutJsonLd = {
   name: 'Australian Atlas',
   url: 'https://australianatlas.com.au',
   logo: 'https://australianatlas.com.au/favicon-512.png',
-  description: 'An independently operated guide to independent Australia. Nine curated atlases mapping makers, producers, cultural spaces, and natural places across the country.',
+  description: 'An independently operated guide to independent Australia. Ten curated atlases mapping makers, producers, cultural spaces, and natural places across the country.',
   foundingLocation: {
     '@type': 'Country',
     name: 'Australia',
@@ -42,6 +43,7 @@ const ATLASES = [
   { name: 'Corner', desc: 'Independent shops. Bookshops, record stores, design studios, and retailers who stock with intent.', url: 'https://corneratlas.com.au' },
   { name: 'Found', desc: 'Vintage and secondhand. Op shops, antique dealers, salvage yards, and the thrill of the find.', url: 'https://foundatlas.com.au' },
   { name: 'Table', desc: 'Food producers. Farm gates, bakeries, providores, and the people growing and making what you eat.', url: 'https://tableatlas.com.au' },
+  { name: 'Way', desc: 'Experiences. Guided walks, cultural tours, sailing charters, and the people who know the country.', url: 'https://wayatlas.com.au' },
 ]
 
 const BELIEFS = [
@@ -64,9 +66,9 @@ const BELIEFS = [
 ]
 
 const VERTICAL_CARD_BG = {
-  'Small Batch': '#3D2B1F', 'Craft': '#4A3728', 'Culture': '#2D3436',
-  'Fine Grounds': '#2C1810', 'Rest': '#1B2631', 'Field': '#1E3A2F',
-  'Corner': '#3B2F2F', 'Found': '#2F2B26', 'Table': '#3A2E1F',
+  'Small Batch': CARD_BG.sba, 'Craft': CARD_BG.craft, 'Culture': CARD_BG.collection,
+  'Fine Grounds': CARD_BG.fine_grounds, 'Rest': CARD_BG.rest, 'Field': CARD_BG.field,
+  'Corner': CARD_BG.corner, 'Found': CARD_BG.found, 'Table': CARD_BG.table,
 }
 
 async function getStats() {
@@ -159,7 +161,7 @@ export default async function AboutPage() {
             fontFamily: 'var(--font-body)', fontSize: 16, fontWeight: 300,
             color: 'var(--color-muted)', lineHeight: 1.75, margin: 0,
           }}>
-            Australian Atlas exists to map that layer. Nine curated atlases cover every dimension
+            Australian Atlas exists to map that layer. Ten curated atlases cover every dimension
             of independent culture across {stats.regions} regions
             {stats.listings > 0 ? ` and ${stats.listings.toLocaleString()} verified listings` : ''}.
             Each place is checked, categorised, and maintained &mdash; a reference work,
@@ -214,7 +216,7 @@ export default async function AboutPage() {
         </ScrollReveal>
       ))}
 
-      {/* ── Nine Atlases ── */}
+      {/* ── The Atlases ── */}
       <ScrollReveal as="section" className="section-gap" style={{ borderTop: '1px solid var(--color-border)' }}>
         <div style={{
           maxWidth: 800,

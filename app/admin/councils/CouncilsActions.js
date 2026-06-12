@@ -1,11 +1,35 @@
 'use client'
 
 import { useState } from 'react'
+import ConfirmDialog from '@/components/ConfirmDialog'
+
+// Dialog copy per PATCH action. Suspend/remove-like actions are destructive (danger).
+function describeCouncilAction(action, payload) {
+  if (action === 'set_approved') {
+    return payload?.approved
+      ? { title: 'Approve login for this council?', confirmLabel: 'Approve', danger: false }
+      : { title: 'Suspend login for this council?', confirmLabel: 'Suspend', danger: true }
+  }
+  if (action === 'assign_region') {
+    return { title: 'Assign this region to the council?', confirmLabel: 'Assign', danger: false }
+  }
+  if (action === 'remove_region') {
+    return { title: 'Remove this region from the council?', confirmLabel: 'Remove', danger: true }
+  }
+  const label = String(action).replace(/_/g, ' ')
+  return {
+    title: `${label.charAt(0).toUpperCase()}${label.slice(1)} this council?`,
+    confirmLabel: 'Confirm',
+    danger: /suspend|reject|delete|remove|decline/.test(label),
+  }
+}
 
 export default function CouncilsActions({ councils, regions }) {
   const [showCreate, setShowCreate] = useState(false)
   const [creating, setCreating] = useState(false)
   const [message, setMessage] = useState(null)
+  const [pendingAction, setPendingAction] = useState(null) // { councilId, action, payload }
+  const [actionBusy, setActionBusy] = useState(false)
 
   const [form, setForm] = useState({
     name: '', slug: '', contact_name: '', contact_email: '',
@@ -37,8 +61,14 @@ export default function CouncilsActions({ councils, regions }) {
     }
   }
 
-  async function handleAction(councilId, action, payload = {}) {
-    if (!confirm(`Are you sure you want to ${action} this council?`)) return
+  function handleAction(councilId, action, payload = {}) {
+    setPendingAction({ councilId, action, payload })
+  }
+
+  async function confirmAction() {
+    if (!pendingAction) return
+    const { councilId, action, payload } = pendingAction
+    setActionBusy(true)
 
     try {
       const res = await fetch('/api/admin/councils', {
@@ -51,6 +81,8 @@ export default function CouncilsActions({ councils, regions }) {
       window.location.reload()
     } catch (err) {
       alert(err.message)
+      setActionBusy(false)
+      setPendingAction(null)
     }
   }
 
@@ -59,8 +91,19 @@ export default function CouncilsActions({ councils, regions }) {
     fontSize: 14, fontFamily: 'var(--font-sans)', width: '100%',
   }
 
+  const pendingCopy = pendingAction ? describeCouncilAction(pendingAction.action, pendingAction.payload) : null
+
   return (
     <div>
+      <ConfirmDialog
+        open={!!pendingAction}
+        title={pendingCopy?.title}
+        confirmLabel={pendingCopy?.confirmLabel}
+        danger={!!pendingCopy?.danger}
+        busy={actionBusy}
+        onConfirm={confirmAction}
+        onCancel={() => setPendingAction(null)}
+      />
       {message && (
         <div style={{
           padding: 12, borderRadius: 4, marginBottom: 16, fontSize: 13,

@@ -7,6 +7,7 @@ import dynamic from 'next/dynamic'
 import { VERTICAL_STYLES } from '@/components/VerticalBadge'
 import TrailQuestionFlow from '@/components/TrailQuestionFlow'
 import { useRouteEditor } from '@/hooks/useRouteEditor'
+import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 
 const TrailMap = dynamic(() => import('./TrailMap'), { ssr: false })
 
@@ -18,10 +19,7 @@ const VERTICAL_LABELS = {
 }
 
 // Brand colours per vertical — used for card borders and map markers
-const VERTICAL_COLORS = {
-  sba: '#C49A3C', collection: '#7A6B8A', craft: '#C1603A', fine_grounds: '#8A7055',
-  rest: '#5A8A9A', field: '#4A7C59', corner: '#5F8A7E', found: '#D4956A', table: '#C4634F',
-}
+const VERTICAL_COLORS = VERTICAL_ACCENTS
 
 const FLOW_LABELS = {
   accommodation: { need: 'Accommodation included', sorted: 'Own accommodation', daytrip: 'Day trip' },

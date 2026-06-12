@@ -19,7 +19,7 @@ export const metadata = {
   },
 }
 
-const GOLD = '#C4973B'
+const GOLD = 'var(--color-gold)'
 const PER_REGION = 4
 
 async function getStaysByRegion() {

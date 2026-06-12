@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import ClaimSearch from './ClaimSearch'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
+import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 
 export const metadata = {
   title: 'Claim Your Listing — Australian Atlas',
@@ -16,11 +17,7 @@ const VERTICAL_LABELS = {
   corner: 'Corner Atlas', found: 'Found Atlas', table: 'Table Atlas',
 }
 
-const VERTICAL_COLORS = {
-  sba: '#C49A3C', collection: '#7A6B8A', craft: '#C1603A',
-  fine_grounds: '#8A7055', rest: '#5A8A9A', field: '#4A7C59',
-  corner: '#5F8A7E', found: '#D4956A', table: '#C4634F',
-}
+const VERTICAL_COLORS = VERTICAL_ACCENTS
 
 export default async function ClaimPage() {
   const sb = getSupabaseAdmin()

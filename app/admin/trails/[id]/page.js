@@ -4,11 +4,10 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import TrailStopsMap from '@/components/TrailStopsMap'
+import ConfirmDialog from '@/components/ConfirmDialog'
+import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 
-const VERTICAL_BG = {
-  sba: '#C49A3C', collection: '#7A6B8A', craft: '#C1603A', fine_grounds: '#8A7055',
-  rest: '#5A8A9A', field: '#4A7C59', corner: '#5F8A7E', found: '#D4956A', table: '#C4634F',
-}
+const VERTICAL_BG = VERTICAL_ACCENTS
 
 const STATUS_COLORS = {
   pitch: { bg: '#E8E3DA', text: '#4A4338' },
@@ -25,6 +24,13 @@ const TRANSITION_BUTTONS = {
   archived: [{ action: 'resurrect', label: 'Resurrect to draft' }],
 }
 
+// Copy for the confirm dialog, keyed by pending-confirm kind.
+const CONFIRM_COPY = {
+  remove_stop: { title: 'Remove this stop?', confirmLabel: 'Remove', danger: true },
+  approve_publish: { title: 'Approve and publish this trail?', confirmLabel: 'Approve and publish', danger: false },
+  unpublish: { title: 'Archive this trail?', confirmLabel: 'Archive', danger: true },
+}
+
 export default function TrailDraftEditor() {
   const { id } = useParams()
   const router = useRouter()
@@ -34,6 +40,8 @@ export default function TrailDraftEditor() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const [transitionNotes, setTransitionNotes] = useState('')
+  // { kind: 'remove_stop', stopId } | { kind: 'approve_publish' } | { kind: 'unpublish' }
+  const [pendingConfirm, setPendingConfirm] = useState(null)
 
   // Field-level dirty tracking for the trail metadata
   const [meta, setMeta] = useState({})
@@ -98,8 +106,11 @@ export default function TrailDraftEditor() {
     } catch (e) { setError(e.message) } finally { setSaving(false) }
   }
 
-  async function deleteStop(stopId) {
-    if (!confirm('Remove this stop?')) return
+  function deleteStop(stopId) {
+    setPendingConfirm({ kind: 'remove_stop', stopId })
+  }
+
+  async function deleteStopNow(stopId) {
     setSaving(true); setError(null)
     try {
       const res = await fetch(`/api/admin/trails/${id}/stops/${stopId}`, { method: 'DELETE' })
@@ -108,9 +119,15 @@ export default function TrailDraftEditor() {
     } catch (e) { setError(e.message) } finally { setSaving(false) }
   }
 
-  async function transition(action) {
-    if (action === 'approve_publish' && !confirm('Approve and publish this trail?')) return
-    if (action === 'unpublish' && !confirm('Archive this trail?')) return
+  function transition(action) {
+    if (action === 'approve_publish' || action === 'unpublish') {
+      setPendingConfirm({ kind: action })
+      return
+    }
+    runTransition(action)
+  }
+
+  async function runTransition(action) {
     setSaving(true); setError(null)
     try {
       const res = await fetch(`/api/admin/trails/${id}/transitions`, {
@@ -124,8 +141,29 @@ export default function TrailDraftEditor() {
     } catch (e) { setError(e.message) } finally { setSaving(false) }
   }
 
+  async function handleConfirm() {
+    if (!pendingConfirm) return
+    try {
+      if (pendingConfirm.kind === 'remove_stop') await deleteStopNow(pendingConfirm.stopId)
+      else await runTransition(pendingConfirm.kind)
+    } finally {
+      setPendingConfirm(null)
+    }
+  }
+
+  const confirmCopy = pendingConfirm ? CONFIRM_COPY[pendingConfirm.kind] : null
+
   return (
     <div style={{ padding: '1.5rem', maxWidth: 1400, margin: '0 auto', paddingBottom: 120 }}>
+      <ConfirmDialog
+        open={!!pendingConfirm}
+        title={confirmCopy?.title}
+        confirmLabel={confirmCopy?.confirmLabel}
+        danger={!!confirmCopy?.danger}
+        busy={saving}
+        onConfirm={handleConfirm}
+        onCancel={() => setPendingConfirm(null)}
+      />
       <header style={{ marginBottom: 16, display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16 }}>
         <div>
           <Link href="/admin/trails" style={{ fontSize: 12, color: 'var(--color-muted)', textDecoration: 'none', fontFamily: 'var(--font-body)' }}>← All trails</Link>

@@ -1,21 +1,12 @@
 'use client'
-import 'mapbox-gl/dist/mapbox-gl.css'
 
 import { useRef, useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
+import { VERTICAL_ACCENTS, getVerticalBadge, getPublicVerticals } from '@/lib/verticalUrl'
 
-const VERTICAL_COLORS = {
-  sba: '#C49A3C', collection: '#7A6B8A', craft: '#C1603A', fine_grounds: '#8A7055',
-  rest: '#5A8A9A', field: '#4A7C59', corner: '#5F8A7E', found: '#D4956A', table: '#C4634F',
-}
+const VERTICAL_COLORS = VERTICAL_ACCENTS
 
-const VERTICAL_LABELS = {
-  sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
-  fine_grounds: 'Fine Grounds', rest: 'Rest', field: 'Field',
-  corner: 'Corner', found: 'Found', table: 'Table',
-}
-
-const ALL_VERTICALS = ['sba', 'collection', 'craft', 'fine_grounds', 'rest', 'field', 'corner', 'found', 'table']
+const ALL_VERTICALS = getPublicVerticals()
 
 export default function HomeMapSection({ listingCount }) {
   const containerRef = useRef(null)
@@ -45,7 +36,12 @@ export default function HomeMapSection({ listingCount }) {
   async function initMap() {
     if (mapRef.current || !containerRef.current) return
 
-    const mapboxgl = (await import('mapbox-gl')).default
+    // Both the lib and its stylesheet stay out of the homepage bundle until
+    // the section actually scrolls into view.
+    const [{ default: mapboxgl }] = await Promise.all([
+      import('mapbox-gl'),
+      import('mapbox-gl/dist/mapbox-gl.css'),
+    ])
     mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
 
     const map = new mapboxgl.Map({
@@ -177,7 +173,7 @@ export default function HomeMapSection({ listingCount }) {
                   className="w-2 h-2 rounded-full"
                   style={{ backgroundColor: active ? color : 'rgba(255,255,255,0.3)' }}
                 />
-                {VERTICAL_LABELS[v]}
+                {getVerticalBadge(v)}
               </button>
             )
           })}

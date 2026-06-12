@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { getListingRegion } from '@/lib/regions'
+import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 
 const VERTICAL_LABELS = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
@@ -10,11 +11,7 @@ const VERTICAL_LABELS = {
   corner: 'Corner', found: 'Found', table: 'Table',
 }
 
-const VERTICAL_COLORS = {
-  sba: '#C49A3C', fine_grounds: '#8A7055', collection: '#7A6B8A',
-  craft: '#C1603A', rest: '#5A8A9A', field: '#4A7C59',
-  corner: '#5F8A7E', found: '#D4956A', table: '#C4634F',
-}
+const VERTICAL_COLORS = VERTICAL_ACCENTS
 
 const VERTICAL_ORDER = ['sba', 'fine_grounds', 'collection', 'craft', 'rest', 'field', 'corner', 'found', 'table']
 

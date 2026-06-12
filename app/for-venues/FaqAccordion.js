@@ -25,7 +25,7 @@ const FAQS = [
   },
   {
     q: 'Which Atlas directory is my venue on?',
-    a: 'The Australian Atlas Network has nine specialist directories covering craft beverages, culture, accommodation, food producers, independent retail, and more. Your venue is listed on the directory that best matches your category.',
+    a: 'The Australian Atlas Network has ten specialist directories covering craft beverages, culture, accommodation, food producers, independent retail, and more. Your venue is listed on the directory that best matches your category.',
   },
   {
     q: 'Can I cancel my Standard subscription?',

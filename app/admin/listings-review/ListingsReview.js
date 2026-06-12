@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import WYSIWYGEditor from '@/components/admin/WYSIWYGEditor'
-import { getVerticalUrl } from '@/lib/verticalUrl'
+import { getVerticalUrl, VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 import { getListingRegion } from '@/lib/regions'
 
 const VERTICAL_NAMES = {
@@ -11,10 +11,7 @@ const VERTICAL_NAMES = {
   corner: 'Corner', found: 'Found', table: 'Table',
 }
 
-const VERTICAL_COLORS = {
-  sba: '#C49A3C', collection: '#7A6B8A', craft: '#C1603A', fine_grounds: '#8A7055',
-  rest: '#5A8A9A', field: '#4A7C59', corner: '#5F8A7E', found: '#D4956A', table: '#C4634F',
-}
+const VERTICAL_COLORS = VERTICAL_ACCENTS
 
 const MILESTONES = [100, 500, 1000, 2500, 5000]
 

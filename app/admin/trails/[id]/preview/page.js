@@ -2,13 +2,11 @@ import { cookies } from 'next/headers'
 import { notFound } from 'next/navigation'
 import { checkAdmin } from '@/lib/admin-auth'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 
 export const dynamic = 'force-dynamic'
 
-const VERTICAL_BG = {
-  sba: '#C49A3C', collection: '#7A6B8A', craft: '#C1603A', fine_grounds: '#8A7055',
-  rest: '#5A8A9A', field: '#4A7C59', corner: '#5F8A7E', found: '#D4956A', table: '#C4634F',
-}
+const VERTICAL_BG = VERTICAL_ACCENTS
 
 export default async function TrailPreview({ params }) {
   const admin = await checkAdmin(await cookies())

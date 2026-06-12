@@ -4,29 +4,10 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { getListingRegion } from '@/lib/regions'
 import { getDashboardToken } from '@/lib/dashboard-token'
-
-const VERTICAL_LABELS = {
-  sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
-  fine_grounds: 'Fine Grounds', rest: 'Rest', field: 'Field',
-  corner: 'Corner', found: 'Found', table: 'Table',
-}
-
-const VERTICAL_URLS = {
-  sba:          { base: 'https://smallbatchatlas.com.au',    path: '/venue' },
-  collection:   { base: 'https://collectionatlas.com.au',    path: '/venue' },
-  craft:        { base: 'https://craftatlas.com.au',         path: '/venue' },
-  fine_grounds: { base: 'https://finegroundsatlas.com.au',   path: '/roasters' },
-  rest:         { base: 'https://restatlas.com.au',          path: '/stay' },
-  field:        { base: 'https://fieldatlas.com.au',         path: '/places' },
-  corner:       { base: 'https://corneratlas.com.au',        path: '/shops' },
-  found:        { base: 'https://foundatlas.com.au',         path: '/shops' },
-  table:        { base: 'https://tableatlas.com.au',         path: '/listings' },
-}
+import { getVerticalUrl, getVerticalBadge } from '@/lib/verticalUrl'
 
 function getPublicUrl(vertical, slug) {
-  const config = VERTICAL_URLS[vertical]
-  if (!config) return '#'
-  return `${config.base}${config.path}/${slug}`
+  return getVerticalUrl(vertical, slug)
 }
 
 function getEditUrl(listingId) {
@@ -43,9 +24,9 @@ function decodeJWT(token) {
 }
 
 function ScoreBar({ score }) {
-  let color = '#c0392b'
+  let color = '#A33A2A'
   if (score >= 70) color = 'var(--color-sage, #5f8a7e)'
-  else if (score >= 40) color = '#d4a03c'
+  else if (score >= 40) color = 'var(--color-gold, #C4973B)'
 
   return (
     <div style={{
@@ -131,7 +112,7 @@ function CompletenessChecklist({ listing }) {
           fontFamily: 'var(--font-body, system-ui)',
           fontSize: 11,
           fontWeight: 500,
-          color: completeCount >= 4 ? 'var(--color-sage, #5f8a7e)' : '#d4a03c',
+          color: completeCount >= 4 ? 'var(--color-sage, #5f8a7e)' : 'var(--color-gold, #C4973B)',
         }}>
           {completeCount}/{checks.length}
         </span>
@@ -255,7 +236,7 @@ function ListingCard({ listing, liveStats, isAdmin }) {
             whiteSpace: 'nowrap',
             flexShrink: 0,
           }}>
-            {VERTICAL_LABELS[listing.vertical] || listing.vertical}
+            {getVerticalBadge(listing.vertical)}
           </span>
         </div>
 
@@ -287,7 +268,7 @@ function ListingCard({ listing, liveStats, isAdmin }) {
                 fontFamily: 'var(--font-body, system-ui)',
                 fontSize: 13,
                 fontWeight: 600,
-                color: score.score >= 70 ? 'var(--color-sage, #5f8a7e)' : score.score >= 40 ? '#d4a03c' : '#c0392b',
+                color: score.score >= 70 ? 'var(--color-sage, #5f8a7e)' : score.score >= 40 ? 'var(--color-gold, #C4973B)' : '#A33A2A',
               }}>
                 {score.score}%
               </span>

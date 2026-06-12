@@ -299,6 +299,9 @@ export default function EditListingPage() {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
   const [justSaved, setJustSaved] = useState(false)
+  const [lastSavedAt, setLastSavedAt] = useState(null)
+  const [pollTimedOut, setPollTimedOut] = useState(false)
+  const [pollNonce, setPollNonce] = useState(0)
 
   const baselineRef = useRef({ website: '', phone: '', heroImageUrl: '', hoursKey: 'null', galleryKey: '[]' })
 
@@ -356,6 +359,8 @@ export default function EditListingPage() {
 
   // Finalising poll: after an upgrade, re-fetch the listing until the webhook has
   // flipped the claim to standard (listing.paid === true), then the editor unlocks.
+  // When the poll exhausts without the webhook landing, surface that instead of
+  // spinning forever — "Check again" bumps pollNonce to start a fresh round.
   useEffect(() => {
     const paid = !!listing?.paid
     if (!justUpgraded || !token || paid || isAdmin) return
@@ -369,10 +374,13 @@ export default function EditListingPage() {
           if (l) setListing(prev => ({ ...prev, ...l }))
         })
         .catch(() => { /* keep trying */ })
-      if (tries >= 8) clearInterval(iv)
+      if (tries >= 8) {
+        clearInterval(iv)
+        setPollTimedOut(true)
+      }
     }, 3000)
     return () => clearInterval(iv)
-  }, [justUpgraded, token, isAdmin, id, listing?.paid])
+  }, [justUpgraded, token, isAdmin, id, listing?.paid, pollNonce])
 
   async function handleUpgrade() {
     setUpgrading(true)
@@ -516,6 +524,7 @@ export default function EditListingPage() {
         }
         setHoursEditing(false)
         setJustSaved(true)
+        setLastSavedAt(new Date())
         setTimeout(() => setJustSaved(false), 2500)
       }
     } catch {
@@ -602,14 +611,36 @@ export default function EditListingPage() {
           {/* Challenge body */}
           <div style={{ padding: 'clamp(24px, 4vw, 40px)' }}>
             {justUpgraded && !isPaid ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 14, padding: '20px 0' }}>
-                <div style={{ width: 38, height: 38, borderRadius: '50%', border: '3px solid var(--color-border)', borderTopColor: 'var(--color-sage)', animation: 'aa-spin 0.8s linear infinite' }} />
-                <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)', margin: 0 }}>Payment received — finalising your upgrade</h2>
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--color-muted)', margin: 0, maxWidth: 440, lineHeight: 1.55 }}>
-                  This usually takes a few seconds — your editor will unlock automatically. If it doesn’t, refresh this page in a moment.
-                </p>
-                <style>{`@keyframes aa-spin { to { transform: rotate(360deg) } }`}</style>
-              </div>
+              pollTimedOut ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 14, padding: '20px 0' }}>
+                  <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)', margin: 0 }}>Payment confirmed — still finalising</h2>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--color-muted)', margin: 0, maxWidth: 460, lineHeight: 1.55 }}>
+                    Stripe has your payment, but our system is taking longer than usual to unlock the
+                    editor. This resolves itself within a few minutes — you won’t be charged twice.
+                  </p>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={() => { setPollTimedOut(false); setPollNonce(n => n + 1) }}
+                    >
+                      Check again
+                    </button>
+                    <a className="btn btn-secondary btn-sm" href="mailto:listings@australianatlas.com.au?subject=Upgrade%20not%20unlocking">
+                      Email support
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 14, padding: '20px 0' }}>
+                  <div style={{ width: 38, height: 38, borderRadius: '50%', border: '3px solid var(--color-border)', borderTopColor: 'var(--color-sage)', animation: 'aa-spin 0.8s linear infinite' }} />
+                  <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)', margin: 0 }}>Payment received — finalising your upgrade</h2>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--color-muted)', margin: 0, maxWidth: 440, lineHeight: 1.55 }}>
+                    This usually takes a few seconds — your editor will unlock automatically. If it doesn’t, refresh this page in a moment.
+                  </p>
+                  <style>{`@keyframes aa-spin { to { transform: rotate(360deg) } }`}</style>
+                </div>
+              )
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-5" style={{ gap: 28 }}>
                 <div className="lg:col-span-3">
@@ -680,9 +711,16 @@ export default function EditListingPage() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, maxWidth: 900, margin: '0 auto 16px', flexWrap: 'wrap' }}>
         <Link href="/dashboard/listings" style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', textDecoration: 'none' }}>← Back to my listings</Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--color-sage)' }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--color-sage)' }} />
-            Editing
+          {/* Live document status: unsaved → saving → saved-at-time. */}
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: dirty ? 'var(--color-gold)' : 'var(--color-sage)' }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: dirty ? 'var(--color-gold)' : 'var(--color-sage)' }} />
+            {saving
+              ? 'Saving…'
+              : dirty
+                ? 'Unsaved changes'
+                : lastSavedAt
+                  ? `Saved ${lastSavedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+                  : 'Editing'}
           </span>
           {listing.slug && (
             <a href={`/place/${listing.slug}`} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500, color: 'var(--color-muted)', textDecoration: 'none' }}>

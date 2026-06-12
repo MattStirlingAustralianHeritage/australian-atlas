@@ -5,14 +5,11 @@ import React, { Suspense, useState, useEffect, useRef, useCallback } from 'react
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { getAuthSupabase } from '@/lib/supabase/auth-clients'
-import { getVerticalUrl, getVerticalBadge } from '@/lib/verticalUrl'
+import { getVerticalUrl, getVerticalBadge, VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 import TrailLegCard from '@/components/TrailLegCard'
 import GettingThereCard from '@/components/GettingThereCard'
 
-const VERTICAL_COLORS = {
-  sba: '#C49A3C', collection: '#7A6B8A', craft: '#C1603A', fine_grounds: '#8A7055',
-  rest: '#5A8A9A', field: '#4A7C59', corner: '#5F8A7E', found: '#D4956A', table: '#C4634F',
-}
+const VERTICAL_COLORS = VERTICAL_ACCENTS
 
 const VERTICAL_FILTERS = [
   { key: 'all', label: 'All' },

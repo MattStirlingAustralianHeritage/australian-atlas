@@ -16,31 +16,72 @@ const verticals = [
   { name: 'Table Atlas', url: 'https://tableatlas.com.au' },
 ]
 
+const exploreLinks = [
+  { href: '/explore', label: 'Browse by vertical' },
+  { href: '/regions', label: 'Browse by region' },
+  { href: '/map', label: 'Map' },
+  { href: '/search', label: 'Search all listings' },
+  { href: '/trails', label: 'Trails' },
+  { href: '/journal', label: 'Journal' },
+  { href: '/events', label: 'Events' },
+  { href: '/plan', label: 'Plan a trip' },
+]
+
+const partnerLinks = [
+  { href: '/for-venues', label: 'List your venue' },
+  { href: '/for-councils', label: 'For Councils' },
+  { href: '/operators', label: 'For Operators' },
+  { href: '/suggest', label: 'Suggest a place' },
+  { href: '/press', label: 'Press' },
+  { href: '/about', label: 'About' },
+]
+
+const headingStyle = {
+  fontFamily: 'var(--font-body)',
+  fontWeight: 500,
+  fontSize: '11px',
+  letterSpacing: '0.12em',
+  color: 'rgba(250,248,244,0.4)',
+}
+
+const linkStyle = {
+  fontFamily: 'var(--font-body)',
+  fontWeight: 300,
+  fontSize: '13px',
+  color: 'rgba(250,248,244,0.55)',
+}
+
 export default function Footer() {
   const networkVerticals = isVerticalPublic('way') ? [...verticals, WAY_NETWORK_LINK] : verticals
   return (
     <footer style={{ background: '#1A1A1A', borderTop: '1px solid rgba(250,248,244,0.08)' }}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-14 pb-10">
+        <div className="grid grid-cols-2 gap-x-8 gap-y-10 md:grid-cols-4">
           {/* Brand */}
-          <div>
+          <div className="col-span-2 md:col-span-1">
             <h3
               className="mb-2"
               style={{
                 fontFamily: 'var(--font-display)',
                 fontWeight: 400,
-                fontSize: '18px',
+                fontSize: '19px',
+                letterSpacing: '-0.01em',
                 color: '#FAF8F4',
               }}
             >
               Australian Atlas
             </h3>
+            <div
+              aria-hidden="true"
+              style={{ width: '28px', height: '2px', background: 'var(--color-gold)', marginBottom: '14px' }}
+            />
             <p
               className="leading-relaxed"
               style={{
                 fontFamily: 'var(--font-body)',
                 fontWeight: 300,
                 fontSize: '13px',
+                maxWidth: '230px',
                 color: 'rgba(250,248,244,0.5)',
               }}
             >
@@ -49,19 +90,8 @@ export default function Footer() {
           </div>
 
           {/* The Network */}
-          <div>
-            <h4
-              className="mb-3 uppercase"
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 500,
-                fontSize: '11px',
-                letterSpacing: '0.1em',
-                color: 'rgba(250,248,244,0.4)',
-              }}
-            >
-              The Network
-            </h4>
+          <nav aria-label="The Atlas network">
+            <h4 className="mb-3 uppercase" style={headingStyle}>The Network</h4>
             <ul className="space-y-1.5">
               {networkVerticals.map(v => (
                 <li key={v.url}>
@@ -70,83 +100,58 @@ export default function Footer() {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="hover:text-[#FAF8F4] transition-colors"
-                    style={{
-                      fontFamily: 'var(--font-body)',
-                      fontWeight: 300,
-                      fontSize: '13px',
-                      color: 'rgba(250,248,244,0.55)',
-                    }}
+                    style={linkStyle}
                   >
                     {v.name}
                   </a>
                 </li>
               ))}
             </ul>
-          </div>
+          </nav>
 
-          {/* Links */}
-          <div>
-            <h4
-              className="mb-3 uppercase"
-              style={{
-                fontFamily: 'var(--font-body)',
-                fontWeight: 500,
-                fontSize: '11px',
-                letterSpacing: '0.1em',
-                color: 'rgba(250,248,244,0.4)',
-              }}
-            >
-              Explore
-            </h4>
+          {/* Explore */}
+          <nav aria-label="Explore">
+            <h4 className="mb-3 uppercase" style={headingStyle}>Explore</h4>
             <ul className="space-y-1.5">
-              {[
-                { href: '/explore', label: 'Browse by vertical' },
-                { href: '/map', label: 'Map' },
-                { href: '/regions', label: 'Browse by region' },
-                { href: '/search', label: 'Search all listings' },
-                { href: '/events', label: 'Events' },
-                { href: '/plan', label: 'Plan a trip' },
-                { href: '/for-councils', label: 'For Councils' },
-                { href: '/operators', label: 'For Operators' },
-                { href: '/about', label: 'About' },
-                { href: '/suggest', label: 'Suggest a Place' },
-              ].map(link => (
+              {exploreLinks.map(link => (
                 <li key={link.href}>
                   <Link
                     href={link.href}
                     className="hover:text-[#FAF8F4] transition-colors"
-                    style={{
-                      fontFamily: 'var(--font-body)',
-                      fontWeight: 300,
-                      fontSize: '13px',
-                      color: 'rgba(250,248,244,0.55)',
-                    }}
+                    style={linkStyle}
                   >
                     {link.label}
                   </Link>
                 </li>
               ))}
             </ul>
-          </div>
+          </nav>
+
+          {/* Partners */}
+          <nav aria-label="Partners and contact">
+            <h4 className="mb-3 uppercase" style={headingStyle}>Work with us</h4>
+            <ul className="space-y-1.5">
+              {partnerLinks.map(link => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    className="hover:text-[#FAF8F4] transition-colors"
+                    style={linkStyle}
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
         </div>
 
         {/* Newsletter */}
         <div
-          className="mt-10 pt-6"
+          className="mt-12 pt-6"
           style={{ borderTop: '1px solid rgba(250,248,244,0.08)' }}
         >
-          <h4
-            className="mb-1 uppercase"
-            style={{
-              fontFamily: 'var(--font-body)',
-              fontWeight: 500,
-              fontSize: '11px',
-              letterSpacing: '0.1em',
-              color: 'rgba(250,248,244,0.4)',
-            }}
-          >
-            Stay in the loop
-          </h4>
+          <h4 className="mb-1 uppercase" style={headingStyle}>Stay in the loop</h4>
           <NewsletterSignup variant="footer" />
         </div>
 
@@ -161,7 +166,7 @@ export default function Footer() {
               target="_blank"
               rel="noopener noreferrer"
               className="underline underline-offset-2 hover:text-[#FAF8F4]"
-              style={{ color: '#C4973B' }}
+              style={{ color: 'var(--color-gold)' }}
             >
               Australian Heritage
             </a>

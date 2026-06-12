@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import ConfirmDialog from '@/components/ConfirmDialog'
 
 const BUTTON_BASE = {
   fontFamily: 'var(--font-body)',
@@ -153,10 +154,13 @@ export function BulkPublishButton({ pageIds }) {
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState(null)
+  const [pendingBulk, setPendingBulk] = useState(false)
 
-  async function handleBulkPublish() {
-    if (!confirm(`Publish all ${pageIds.length} draft pages?`)) return
+  function handleBulkPublish() {
+    setPendingBulk(true)
+  }
 
+  async function confirmBulkPublish() {
     setLoading(true)
     setError(null)
     setProgress(0)
@@ -180,6 +184,7 @@ export function BulkPublishButton({ pageIds }) {
     }
 
     setLoading(false)
+    setPendingBulk(false)
     if (failed > 0) setError(`${failed} of ${pageIds.length} failed`)
     router.refresh()
   }
@@ -188,6 +193,14 @@ export function BulkPublishButton({ pageIds }) {
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <ConfirmDialog
+        open={pendingBulk}
+        title={`Publish all ${pageIds.length} draft pages?`}
+        confirmLabel="Publish all"
+        busy={loading}
+        onConfirm={confirmBulkPublish}
+        onCancel={() => setPendingBulk(false)}
+      />
       <button
         onClick={handleBulkPublish}
         disabled={loading}

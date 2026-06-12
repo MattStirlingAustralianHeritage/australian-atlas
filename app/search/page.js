@@ -8,6 +8,7 @@ import VibeSearch from './VibeSearch'
 import { getListingRegion } from '@/lib/regions'
 import { isApprovedImageSource } from '@/lib/image-utils'
 import { isStrongMatch } from '@/lib/search/relevanceFloor'
+import { VERTICAL_MUTED, isVerticalPublic } from '@/lib/verticalUrl'
 
 import { VERTICAL_STYLES } from '@/components/VerticalBadge'
 
@@ -63,7 +64,8 @@ const VERTICALS = [
   { key: 'corner', label: 'Corner', atlas: 'Shop' },
   { key: 'found', label: 'Found', atlas: 'Vintage' },
   { key: 'table', label: 'Table', atlas: 'Food' },
-]
+  { key: 'way', label: 'Way', atlas: 'Experiences' },
+].filter(v => !v.key || isVerticalPublic(v.key))
 
 const VERTICAL_LABEL_MAP = Object.fromEntries(VERTICALS.filter(v => v.key).map(v => [v.key, v.label]))
 
@@ -95,17 +97,7 @@ const CONTEXTUAL_VERTICAL_NAMES = {
   table: 'Table Atlas',
 }
 
-const CONTEXTUAL_VERTICAL_COLORS = {
-  sba: '#6b3a2a',
-  collection: '#5a6b7c',
-  craft: '#7c6b5a',
-  fine_grounds: '#5F8A7E',
-  rest: '#8a5a6b',
-  field: '#5a7c5a',
-  corner: '#7c5a7c',
-  found: '#5a7c6b',
-  table: '#7c6b5a',
-}
+const CONTEXTUAL_VERTICAL_COLORS = VERTICAL_MUTED
 
 const CONTEXTUAL_CATEGORY_LABELS = {
   sba: 'producers',

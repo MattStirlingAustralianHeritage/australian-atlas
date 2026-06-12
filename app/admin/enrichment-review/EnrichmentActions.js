@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import ConfirmDialog from '@/components/ConfirmDialog'
 
 const BUTTON_BASE = {
   fontFamily: 'var(--font-body)',
@@ -222,12 +223,13 @@ export function BulkApproveButton({ listingIds }) {
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState(null)
+  const [pendingBulk, setPendingBulk] = useState(false)
 
-  async function handleBulkApprove() {
-    if (!confirm(`Approve all ${listingIds.length} descriptions? This will copy each AI description to the listing description.`)) {
-      return
-    }
+  function handleBulkApprove() {
+    setPendingBulk(true)
+  }
 
+  async function confirmBulkApprove() {
     setLoading(true)
     setError(null)
     setProgress(0)
@@ -253,6 +255,7 @@ export function BulkApproveButton({ listingIds }) {
     }
 
     setLoading(false)
+    setPendingBulk(false)
 
     if (failed > 0) {
       setError(`${failed} of ${listingIds.length} failed`)
@@ -265,6 +268,15 @@ export function BulkApproveButton({ listingIds }) {
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <ConfirmDialog
+        open={pendingBulk}
+        title={`Approve all ${listingIds.length} descriptions?`}
+        message="This will copy each AI description to the listing description."
+        confirmLabel="Approve all"
+        busy={loading}
+        onConfirm={confirmBulkApprove}
+        onCancel={() => setPendingBulk(false)}
+      />
       <button
         onClick={handleBulkApprove}
         disabled={loading}

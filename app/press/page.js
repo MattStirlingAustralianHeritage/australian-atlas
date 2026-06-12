@@ -5,7 +5,7 @@ export const revalidate = 86400
 
 export const metadata = {
   title: 'Press Kit — Australian Atlas',
-  description: 'Live network stats, vertical overviews, and media contact information for the Australian Atlas network — nine curated directories mapping independent Australia.',
+  description: 'Live network stats, vertical overviews, and media contact information for the Australian Atlas network — ten curated directories mapping independent Australia.',
 }
 
 const verticals = [
@@ -18,6 +18,7 @@ const verticals = [
   { key: 'corner', name: 'Corner Atlas', desc: 'Bookshops, record stores, homewares and indie retail' },
   { key: 'found', name: 'Found Atlas', desc: 'Vintage stores, op shops, antique dealers and markets' },
   { key: 'table', name: 'Table Atlas', desc: 'Farm gates, bakeries, food producers and providores' },
+  { key: 'way', name: 'Way Atlas', desc: 'Guided walks, cultural tours, sailing charters and expeditions' },
 ]
 
 async function getPressStats() {
@@ -115,7 +116,7 @@ export default async function PressPage() {
               fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 300,
               color: 'var(--color-muted)', lineHeight: 1.7, margin: 0,
             }}>
-              Australian Atlas is a network of nine curated directories mapping independent
+              Australian Atlas is a network of ten curated directories mapping independent
               Australia &mdash; the breweries, galleries, bookshops, vintage stores, farm gates,
               boutique stays, specialty roasters, makers, and natural places that make regions
               worth visiting.
@@ -159,7 +160,7 @@ export default async function PressPage() {
             },
             { term: 'Claimed listings', value: `${stats.claimedCount.toLocaleString()} operator-managed` },
             { term: 'Editorial standard', value: 'Independently verified, no paid placement in editorial content' },
-            { term: 'Trail generation', value: 'AI-powered itinerary builder across all nine verticals' },
+            { term: 'Trail generation', value: 'AI-powered itinerary builder across all ten verticals' },
           ].map((item, i, arr) => (
             <div key={item.term} style={{
               display: 'flex', gap: 16, padding: '16px 0',
@@ -183,7 +184,7 @@ export default async function PressPage() {
         </dl>
       </section>
 
-      {/* The Nine Atlases */}
+      {/* The Atlases */}
       <section style={{
         background: 'white', borderTop: '1px solid var(--color-border)',
         borderBottom: '1px solid var(--color-border)',
@@ -202,7 +203,7 @@ export default async function PressPage() {
               fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 400,
               color: 'var(--color-ink)', lineHeight: 1.25,
             }}>
-              The nine atlases
+              The ten atlases
             </h2>
           </div>
 

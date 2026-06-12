@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
-import { getVerticalBadge } from '@/lib/verticalUrl'
+import { getVerticalBadge, VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 import TrailPromptInput from '@/components/TrailPromptInput'
 
 export const revalidate = 3600
@@ -10,10 +10,7 @@ export const metadata = {
   description: 'Curated trails connecting the best independent places across Australia — crossing wineries, galleries, makers, stays, and more.',
 }
 
-const VERTICAL_COLORS = {
-  sba: '#C49A3C', collection: '#7A6B8A', craft: '#C1603A', fine_grounds: '#8A7055',
-  rest: '#5A8A9A', field: '#4A7C59', corner: '#5F8A7E', found: '#D4956A', table: '#C4634F',
-}
+const VERTICAL_COLORS = VERTICAL_ACCENTS
 
 const EXAMPLE_TRAILS = [
   { query: 'Weekend wine trail through the Barossa', region: 'Barossa Valley, SA', days: '2 days', stops: '8 stops', verticals: ['Small Batch', 'Table', 'Rest'] },
@@ -55,7 +52,7 @@ export default async function TrailsPage() {
             Plan a trip in plain English
           </h1>
           <p style={{ color: 'var(--color-muted)', fontSize: 15, lineHeight: 1.6, maxWidth: 520, margin: '0 auto', fontFamily: 'var(--font-body)' }}>
-            Describe the trip you want — a region, a theme, a duration — and we&apos;ll build a day-by-day itinerary from real, verified venues across all nine atlases. Or build your own trail from scratch.
+            Describe the trip you want — a region, a theme, a duration — and we&apos;ll build a day-by-day itinerary from real, verified venues across the Atlas network. Or build your own trail from scratch.
           </p>
 
           <TrailPromptInput />
@@ -173,7 +170,7 @@ export default async function TrailsPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 32, maxWidth: 800, margin: '0 auto' }}>
             {[
               { step: '01', title: 'Describe your trip', desc: 'Tell us where, when, and what you love — wineries, makers, nature, coffee, or all of the above.' },
-              { step: '02', title: 'We build the itinerary', desc: 'Our engine pulls from thousands of verified listings across nine atlases to create a day-by-day plan.' },
+              { step: '02', title: 'We build the itinerary', desc: 'Our engine pulls from thousands of verified listings across the Atlas network to create a day-by-day plan.' },
               { step: '03', title: 'Explore and customise', desc: 'Add stops, swap venues, save to your account, and share with friends.' },
             ].map(item => (
               <div key={item.step} style={{ textAlign: 'center' }}>

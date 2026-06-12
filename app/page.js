@@ -7,25 +7,15 @@ import ScrollReveal from '@/components/ScrollReveal'
 import NearbySection from '@/components/NearbySection'
 import { getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
 import { getListingRegion, LISTING_REGION_SELECT, resolveRegionParam } from '@/lib/regions'
-import { getPublicVerticals } from '@/lib/verticalUrl'
+import { getPublicVerticals, VERTICAL_CARD_TOKENS } from '@/lib/verticalUrl'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
 import { Coffee, Wine, UtensilsCrossed, BedDouble, Mountain, Compass, Hammer, Landmark, ShoppingBag, Clock } from 'lucide-react'
 
 export const revalidate = 1800
 
-const GOLD = '#C4973B'
+const GOLD = 'var(--color-gold)'
 
-const VERTICAL_CARD_COLORS = {
-  sba:          { bg: '#3D2B1F', text: '#FAF8F4' },
-  collection:   { bg: '#2D3436', text: '#FAF8F4' },
-  craft:        { bg: '#4A3728', text: '#FAF8F4' },
-  fine_grounds: { bg: '#2C1810', text: '#FAF8F4' },
-  rest:         { bg: '#1B2631', text: '#FAF8F4' },
-  field:        { bg: '#1E3A2F', text: '#FAF8F4' },
-  corner:       { bg: '#3B2F2F', text: '#FAF8F4' },
-  found:        { bg: '#2F2B26', text: '#FAF8F4' },
-  table:        { bg: '#3A2E1F', text: '#FAF8F4' },
-}
+const VERTICAL_CARD_COLORS = VERTICAL_CARD_TOKENS
 
 const CLUSTER_REGION_SLUGS = {
   'Barossa Valley': 'barossa-valley',
@@ -135,24 +125,15 @@ function formatEventDateShort(startDate, endDate) {
 async function getStats(publicVerticals) {
   try {
     const sb = getSupabaseAdmin()
-    const [{ count }, { count: regionCount }] = await Promise.all([
+    // Everything that doesn't depend on hasVerticals runs in one parallel
+    // wave (the region counts used to wait behind two serial round-trips);
+    // only the per-vertical counts need the schema probe first.
+    const regionEntries = Object.entries(REGION_GEO)
+    const [{ count }, { count: regionCount }, hasVerticals, ...regionCountResults] = await Promise.all([
       sb.from('listings').select('*', { count: 'exact', head: true }).eq('status', 'active').in('vertical', publicVerticals).not('name', 'ilike', '\\_%'),
       sb.from('regions').select('*', { count: 'exact', head: true }),
-    ])
-    const hasVerticals = await relationHasVerticals(sb, 'listings')
-    const verticalCountResults = await Promise.all(
-      publicVerticals.map(key =>
-        filterByVertical(
-          sb.from('listings').select('*', { count: 'exact', head: true }).eq('status', 'active').not('name', 'ilike', '\\_%'),
-          key, hasVerticals
-        ).then(({ count: c }) => [key, c || 0])
-      )
-    )
-    const verticalCounts = Object.fromEntries(verticalCountResults)
-
-    const regionEntries = Object.entries(REGION_GEO)
-    const regionCountResults = await Promise.all(
-      regionEntries.map(([name, geo]) =>
+      relationHasVerticals(sb, 'listings'),
+      ...regionEntries.map(([name, geo]) =>
         sb
           .from('listings')
           .select('*', { count: 'exact', head: true })
@@ -162,9 +143,19 @@ async function getStats(publicVerticals) {
           .gte('lng', geo.lng - geo.r)
           .lte('lng', geo.lng + geo.r)
           .then(({ count: rc }) => [name, rc || 0])
+      ),
+    ])
+    const regionCounts = Object.fromEntries(regionCountResults)
+
+    const verticalCountResults = await Promise.all(
+      publicVerticals.map(key =>
+        filterByVertical(
+          sb.from('listings').select('*', { count: 'exact', head: true }).eq('status', 'active').not('name', 'ilike', '\\_%'),
+          key, hasVerticals
+        ).then(({ count: c }) => [key, c || 0])
       )
     )
-    const regionCounts = Object.fromEntries(regionCountResults)
+    const verticalCounts = Object.fromEntries(verticalCountResults)
 
     return { listings: count || 0, regions: regionCount || 0, verticalCounts, regionCounts }
   } catch {
@@ -464,7 +455,7 @@ export default async function Home() {
       {/* ── 2. Map Strip ────────────────────────────────── */}
       <HomeMapSection listingCount={stats.listings} />
 
-      {/* ── 2.5 What you'll find — the nine categories ───── */}
+      {/* ── 2.5 What you'll find — the categories ───── */}
       {/* Decodes the map's colour-coded pins and gives every category a real,
           on-site entry point. Dual-label tiles (brand name + plain-English
           descriptor, always visible) are the homepage's core comprehension fix. */}
@@ -554,6 +545,15 @@ export default async function Home() {
                   }}>
                     {v.desc}
                   </p>
+                  {stats.verticalCounts[v.key] > 0 && (
+                    <p style={{
+                      fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '11.5px',
+                      letterSpacing: '0.04em', color: v.accent,
+                      margin: 0, marginTop: 'auto', paddingTop: '12px',
+                    }}>
+                      {stats.verticalCounts[v.key].toLocaleString()} places
+                    </p>
+                  )}
                 </Link>
               )
             })}

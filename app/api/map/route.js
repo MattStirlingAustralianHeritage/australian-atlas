@@ -44,7 +44,12 @@ export async function GET() {
       [q => q.eq('status', 'active'), q => q.in('vertical', publicVerticals), q => q.not('lat', 'is', null), q => q.not('lng', 'is', null)]
     )
 
-    return NextResponse.json({ listings: allListings, total: allListings.length })
+    return NextResponse.json(
+      { listings: allListings, total: allListings.length },
+      // The pin payload is the heaviest fetch on / and /map and only changes
+      // on sync. Let the CDN absorb repeat loads; SWR keeps it fresh enough.
+      { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=3600' } }
+    )
   } catch (err) {
     console.error('[map] Fatal error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

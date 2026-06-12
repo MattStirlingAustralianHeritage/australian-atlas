@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { getListingRegion } from '@/lib/regions'
+import ConfirmDialog from '@/components/ConfirmDialog'
 
 // ─── Constants ───────────────────────────────────────────
 
@@ -372,7 +373,10 @@ export default function DuplicatesTable({ initialPairs, initialCounts }) {
     })
   }, [])
 
-  const handleMerge = useCallback(async (pair) => {
+  // Merge goes through a branded confirm dialog first.
+  const [pendingMerge, setPendingMerge] = useState(null) // { pair, keepId, removeId, keepName, removeName }
+
+  const handleMerge = useCallback((pair) => {
     const keepId = mergeSelections[pair.id]
     if (!keepId) {
       setPairErrors(prev => ({ ...prev, [pair.id]: 'Click on the listing you want to keep first, then press Merge.' }))
@@ -382,9 +386,12 @@ export default function DuplicatesTable({ initialPairs, initialCounts }) {
     const keepName = keepId === pair.listing_a_id ? pair.listing_a?.name : pair.listing_b?.name
     const removeName = removeId === pair.listing_a_id ? pair.listing_a?.name : pair.listing_b?.name
 
-    if (!confirm(`Merge duplicates?\n\nKEEP: "${keepName}"\nREMOVE: "${removeName}"\n\nThe removed listing will be marked as a duplicate.`)) {
-      return
-    }
+    setPendingMerge({ pair, keepId, removeId, keepName, removeName })
+  }, [mergeSelections])
+
+  const confirmMerge = useCallback(async () => {
+    if (!pendingMerge) return
+    const { pair, keepId, removeId } = pendingMerge
 
     clearError(pair.id)
     setLoadingAction(prev => ({ ...prev, [pair.id]: 'merge' }))
@@ -404,8 +411,9 @@ export default function DuplicatesTable({ initialPairs, initialCounts }) {
       setPairErrors(prev => ({ ...prev, [pair.id]: 'Merge failed: ' + err.message }))
     } finally {
       setLoadingAction(prev => ({ ...prev, [pair.id]: null }))
+      setPendingMerge(null)
     }
-  }, [mergeSelections, router, clearError])
+  }, [pendingMerge, router, clearError])
 
   const handleDismiss = useCallback(async (pair) => {
     clearError(pair.id)
@@ -442,6 +450,25 @@ export default function DuplicatesTable({ initialPairs, initialCounts }) {
     <div>
       {/* Spinner keyframes */}
       <style>{`@keyframes dup-spin { to { transform: rotate(360deg) } }`}</style>
+
+      <ConfirmDialog
+        open={!!pendingMerge}
+        title="Merge these duplicates?"
+        message={pendingMerge ? (
+          <>
+            KEEP: &ldquo;{pendingMerge.keepName}&rdquo;
+            <br />
+            REMOVE: &ldquo;{pendingMerge.removeName}&rdquo;
+            <br />
+            The removed listing will be marked as a duplicate.
+          </>
+        ) : ''}
+        confirmLabel="Merge"
+        danger
+        busy={!!pendingMerge && loadingAction[pendingMerge.pair.id] === 'merge'}
+        onConfirm={confirmMerge}
+        onCancel={() => setPendingMerge(null)}
+      />
 
       {/* Summary Cards — live-updating */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>

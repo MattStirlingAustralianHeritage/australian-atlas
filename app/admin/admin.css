@@ -1,0 +1,176 @@
+/* ── Admin console theme ─────────────────────────────────────
+   Scoped styles for /admin. The console gets its own identity:
+   dark ink sidebar, cream work surface, denser type. Shared
+   classes (.admin-table, .admin-badge-*) are adopted page by
+   page — pages not yet migrated simply ignore them. */
+
+.admin-shell {
+  display: flex;
+  align-items: stretch;
+  min-height: calc(100vh - 52px); /* below the public sticky nav */
+}
+
+.admin-main {
+  flex: 1;
+  min-width: 0; /* let wide tables scroll instead of bursting the flex row */
+}
+
+/* ── Sidebar ── */
+.admin-sidebar {
+  width: 216px;
+  flex-shrink: 0;
+  background: #161412;
+  color: rgba(250, 248, 244, 0.78);
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 52px;
+  align-self: flex-start;
+  height: calc(100vh - 52px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(250,248,244,0.18) transparent;
+}
+
+.admin-sidebar-brand {
+  display: block;
+  padding: 18px 18px 14px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  color: #faf8f4;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(250, 248, 244, 0.08);
+}
+.admin-sidebar-brand span {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-gold);
+}
+
+.admin-nav-section {
+  padding: 14px 10px 4px;
+}
+.admin-nav-section h5 {
+  margin: 0 0 4px;
+  padding: 0 8px;
+  font-family: var(--font-body);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(250, 248, 244, 0.34);
+}
+
+.admin-nav-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  font-weight: 400;
+  color: rgba(250, 248, 244, 0.72);
+  text-decoration: none;
+  transition: background 0.1s ease, color 0.1s ease;
+}
+.admin-nav-link:hover {
+  background: rgba(250, 248, 244, 0.07);
+  color: #faf8f4;
+}
+.admin-nav-link[aria-current="page"] {
+  background: rgba(196, 151, 59, 0.16);
+  color: #f0d9a8;
+  font-weight: 500;
+}
+
+.admin-sidebar-foot {
+  margin-top: auto;
+  padding: 12px 10px 16px;
+  border-top: 1px solid rgba(250, 248, 244, 0.08);
+}
+
+/* Mobile: sidebar becomes a toggleable drawer */
+.admin-sidebar-toggle { display: none; }
+@media (max-width: 899px) {
+  .admin-sidebar {
+    display: none;
+    position: fixed;
+    top: 52px;
+    left: 0;
+    bottom: 0;
+    z-index: 120;
+    height: auto;
+    box-shadow: var(--shadow-lg);
+  }
+  .admin-sidebar.open { display: flex; }
+  .admin-sidebar-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin: 10px 16px 0;
+    padding: 7px 13px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--color-border);
+    background: var(--color-card-bg);
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--color-ink);
+    cursor: pointer;
+  }
+}
+
+/* ── Shared admin primitives (opt-in, adopted page by page) ── */
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--color-card-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  font-family: var(--font-body);
+  font-size: 13px;
+}
+.admin-table th {
+  text-align: left;
+  padding: 9px 12px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  background: var(--color-cream);
+  border-bottom: 1px solid var(--color-border);
+}
+.admin-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-ink);
+  vertical-align: top;
+}
+.admin-table tr:last-child td { border-bottom: none; }
+.admin-table tbody tr:hover { background: rgba(28, 26, 23, 0.025); }
+
+.admin-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+}
+.admin-badge-ok    { background: #EAF2EC; color: #2F6A45; border-color: #CCE0D2; }
+.admin-badge-warn  { background: #FBF3E0; color: #8A6420; border-color: #EDDDB7; }
+.admin-badge-error { background: #FBEFEC; color: #A33A2A; border-color: #F0D4CD; }
+.admin-badge-muted { background: var(--color-cream); color: var(--color-muted); border-color: var(--color-border); }

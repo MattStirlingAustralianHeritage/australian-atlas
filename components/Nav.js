@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { getAuthSupabase } from '@/lib/supabase/auth-clients'
 import LocationBar from './LocationBar'
 
@@ -67,6 +68,22 @@ export default function Nav() {
     return () => document.removeEventListener('mousedown', handleMoreClick)
   }, [moreOpen])
 
+  // Escape dismisses any open menu
+  useEffect(() => {
+    function handleKey(e) {
+      if (e.key === 'Escape') {
+        setMenuOpen(false)
+        setMoreOpen(false)
+        setMobileMenuOpen(false)
+      }
+    }
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [])
+
+  const pathname = usePathname()
+  const isActive = (href) => pathname === href || (href !== '/' && pathname?.startsWith(href + '/'))
+
   const primaryLinks = [
     { href: '/explore', label: 'Explore' },
     { href: '/map', label: 'Map' },
@@ -112,8 +129,13 @@ export default function Nav() {
 
   return (
     <nav
-      className="sticky top-0 z-50 bg-[var(--color-bg)]"
-      style={{ borderBottom: '0.5px solid var(--color-border)' }}
+      className="sticky top-0 z-50"
+      style={{
+        borderBottom: '0.5px solid var(--color-border)',
+        background: 'rgba(248, 246, 241, 0.88)',
+        backdropFilter: 'saturate(180%) blur(12px)',
+        WebkitBackdropFilter: 'saturate(180%) blur(12px)',
+      }}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between" style={{ height: '52px' }}>
         <Link
@@ -134,7 +156,18 @@ export default function Nav() {
               key={link.href}
               href={link.href}
               className="hover:text-[var(--color-ink)] transition-colors hidden sm:inline"
-              style={linkStyle}
+              aria-current={isActive(link.href) ? 'page' : undefined}
+              style={{
+                ...linkStyle,
+                ...(isActive(link.href) && {
+                  color: 'var(--color-ink)',
+                  fontWeight: 500,
+                  textDecoration: 'underline',
+                  textDecorationColor: 'var(--color-gold)',
+                  textDecorationThickness: '2px',
+                  textUnderlineOffset: '6px',
+                }),
+              }}
             >
               {link.label}
             </Link>
@@ -145,6 +178,8 @@ export default function Nav() {
             <button
               onClick={() => setMoreOpen(!moreOpen)}
               className="hover:text-[var(--color-ink)] transition-colors"
+              aria-expanded={moreOpen}
+              aria-haspopup="menu"
               style={{
                 ...linkStyle,
                 background: 'none',
@@ -162,16 +197,16 @@ export default function Nav() {
               </svg>
             </button>
             {moreOpen && (
-              <div style={{
+              <div className="nav-dropdown" role="menu" style={{
                 position: 'absolute',
                 top: '100%',
                 right: 0,
                 marginTop: '0.625rem',
                 width: '180px',
-                background: '#fff',
-                borderRadius: '10px',
+                background: 'var(--color-card-bg)',
+                borderRadius: 'var(--radius-card)',
                 border: '1px solid var(--color-border)',
-                boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+                boxShadow: 'var(--shadow-md)',
                 overflow: 'hidden',
                 zIndex: 100,
                 padding: '0.375rem 0',
@@ -181,18 +216,8 @@ export default function Nav() {
                     key={link.href}
                     href={link.href}
                     onClick={() => setMoreOpen(false)}
-                    style={{
-                      display: 'block',
-                      padding: '0.5rem 1rem',
-                      fontFamily: 'var(--font-body)',
-                      fontSize: '13px',
-                      fontWeight: 400,
-                      color: 'var(--color-ink)',
-                      textDecoration: 'none',
-                      transition: 'background 0.1s',
-                    }}
-                    onMouseOver={(e) => e.currentTarget.style.background = 'var(--color-cream)'}
-                    onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                    className="nav-dropdown-item"
+                    role="menuitem"
                   >
                     {link.label}
                   </Link>
@@ -266,6 +291,9 @@ export default function Nav() {
             <div ref={menuRef} style={{ position: 'relative' }}>
               <button
                 onClick={() => setMenuOpen(!menuOpen)}
+                aria-expanded={menuOpen}
+                aria-haspopup="menu"
+                aria-label="Account menu"
                 style={{
                   width: '32px',
                   height: '32px',
@@ -291,16 +319,16 @@ export default function Nav() {
               </button>
 
               {menuOpen && (
-                <div style={{
+                <div className="nav-dropdown" style={{
                   position: 'absolute',
                   top: '100%',
                   right: 0,
                   marginTop: '0.5rem',
                   width: '200px',
-                  background: '#fff',
-                  borderRadius: '10px',
+                  background: 'var(--color-card-bg)',
+                  borderRadius: 'var(--radius-card)',
                   border: '1px solid var(--color-border)',
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+                  boxShadow: 'var(--shadow-md)',
                   overflow: 'hidden',
                   zIndex: 100,
                 }}>
@@ -459,18 +487,8 @@ function DropdownLink({ href, label, onClick, accent }) {
     <Link
       href={href}
       onClick={onClick}
-      style={{
-        display: 'block',
-        padding: '0.5rem 1rem',
-        fontFamily: 'var(--font-body)',
-        fontSize: '0.825rem',
-        color: accent ? 'var(--color-sage)' : 'var(--color-ink)',
-        fontWeight: accent ? 600 : 400,
-        textDecoration: 'none',
-        transition: 'background 0.1s',
-      }}
-      onMouseOver={(e) => e.currentTarget.style.background = 'var(--color-cream)'}
-      onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+      className="nav-dropdown-item"
+      style={accent ? { color: 'var(--color-sage)', fontWeight: 600 } : undefined}
     >
       {label}
     </Link>

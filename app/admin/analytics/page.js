@@ -2,16 +2,11 @@
 import 'mapbox-gl/dist/mapbox-gl.css'
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { VERTICAL_ACCENTS, getVerticalBadge } from '@/lib/verticalUrl'
+
 const VERTICALS = [
-  { key: 'sba', label: 'Small Batch', color: '#C49A3C' },
-  { key: 'collection', label: 'Culture', color: '#8B6F47' },
-  { key: 'craft', label: 'Craft', color: '#6B7F5E' },
-  { key: 'fine_grounds', label: 'Fine Grounds', color: '#7A5C3E' },
-  { key: 'rest', label: 'Rest', color: '#5B7B8A' },
-  { key: 'field', label: 'Field', color: '#4A7C59' },
-  { key: 'corner', label: 'Corner', color: '#8B6E5A' },
-  { key: 'found', label: 'Found', color: '#9B7653' },
-  { key: 'table', label: 'Table', color: '#6E5A4E' },
+  ...['sba', 'collection', 'craft', 'fine_grounds', 'rest', 'field', 'corner', 'found', 'table']
+    .map(key => ({ key, label: getVerticalBadge(key), color: VERTICAL_ACCENTS[key] })),
   { key: 'portal', label: 'Portal', color: '#2D3436' },
 ]
 

@@ -2,7 +2,7 @@ import NearMeClient from './NearMeClient'
 
 export const metadata = {
   title: 'Near Me — Australian Atlas',
-  description: 'Discover independent places near your current location across all nine atlases.',
+  description: 'Discover independent places near your current location across the Atlas network.',
 }
 
 export default function NearMePage() {

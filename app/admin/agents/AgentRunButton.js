@@ -2,15 +2,19 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import ConfirmDialog from '@/components/ConfirmDialog'
 
 export default function AgentRunButton({ endpoint, name }) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
+  const [pendingRun, setPendingRun] = useState(false)
 
-  async function handleRun() {
-    if (!confirm(`Run ${name} now? This will execute immediately.`)) return
+  function handleRun() {
+    setPendingRun(true)
+  }
 
+  async function confirmRun() {
     setLoading(true)
     setResult(null)
 
@@ -34,11 +38,21 @@ export default function AgentRunButton({ endpoint, name }) {
       setResult({ ok: false, message: 'Network error' })
     } finally {
       setLoading(false)
+      setPendingRun(false)
     }
   }
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <ConfirmDialog
+        open={pendingRun}
+        title={`Run ${name} now?`}
+        message="This will execute immediately."
+        confirmLabel="Run now"
+        busy={loading}
+        onConfirm={confirmRun}
+        onCancel={() => setPendingRun(false)}
+      />
       <button
         onClick={handleRun}
         disabled={loading}

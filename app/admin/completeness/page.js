@@ -1,17 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-const VERTICALS = [
-  { key: 'sba', label: 'Small Batch', color: '#C49A3C' },
-  { key: 'collection', label: 'Culture', color: '#7A6B8A' },
-  { key: 'craft', label: 'Craft', color: '#C1603A' },
-  { key: 'fine_grounds', label: 'Fine Grounds', color: '#8A7055' },
-  { key: 'rest', label: 'Rest', color: '#5A8A9A' },
-  { key: 'field', label: 'Field', color: '#4A7C59' },
-  { key: 'corner', label: 'Corner', color: '#5F8A7E' },
-  { key: 'found', label: 'Found', color: '#D4956A' },
-  { key: 'table', label: 'Table', color: '#C4634F' },
-]
+import { VERTICAL_ACCENTS, getVerticalBadge } from '@/lib/verticalUrl'
+
+const VERTICALS = ['sba', 'collection', 'craft', 'fine_grounds', 'rest', 'field', 'corner', 'found', 'table']
+  .map(key => ({ key, label: getVerticalBadge(key), color: VERTICAL_ACCENTS[key] }))
 
 const SCORE_FILTERS = [
   { key: 'all', label: 'Below 70', maxScore: 70 },
