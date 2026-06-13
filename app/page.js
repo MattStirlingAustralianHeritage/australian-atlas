@@ -81,6 +81,17 @@ const VERTICAL_GUIDE = [
   { key: 'found',        name: 'Found',        label: 'Vintage & secondhand',   desc: 'Antique dealers, op shops, salvage yards, and curated secondhand.',       accent: '#D4956A', Icon: Clock },
 ]
 
+// Example queries for the hero search chips — each demonstrates a different
+// plain-English pattern (style, thing + region, vibe + state, category + city).
+// Every query was verified against the live /api/search to return real
+// results; don't swap one in without checking it isn't a dead end.
+const EXAMPLE_SEARCHES = [
+  'wood-fired bakery',
+  'natural wine in the Adelaide Hills',
+  'quiet farm stay in Tasmania',
+  'galleries in Hobart',
+]
+
 function getWeeklySeed() {
   const now = new Date()
   return Math.floor(now.getTime() / (7 * 24 * 60 * 60 * 1000))
@@ -373,12 +384,60 @@ export default async function Home() {
           fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '17px',
           lineHeight: 1.65, color: 'var(--color-muted)', maxWidth: '600px',
         }}>
-          The curated guide to the best of independent Australia — coffee roasters, makers, distillers, galleries, boutique stays, and wild places. Every one verified, mapped, and independently run.
+          The curated guide to the best of independent Australia — every place verified, mapped, and independently run.
         </p>
 
+        {/* Search — the front door of the site. The kicker names the tool,
+            the bar cycles example placeholders, the helper line states the
+            plain-English contract, and the chips run real queries (each one
+            verified against the live search API — see EXAMPLE_SEARCHES). */}
+        <p style={{
+          fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
+          letterSpacing: '0.22em', textTransform: 'uppercase',
+          color: GOLD, marginTop: '36px',
+        }}>
+          Search the atlas
+        </p>
+
+        <HomeSearchBar />
+
+        <p className="mt-3 px-4" style={{
+          fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '13.5px',
+          lineHeight: 1.6, color: 'var(--color-muted)', maxWidth: '560px',
+        }}>
+          Ask in plain English — name a thing, a place, or a feeling, and we&apos;ll search every category at once.
+        </p>
+
+        <div className="mt-4 flex items-center justify-center gap-x-2 gap-y-2 flex-wrap px-4" style={{ maxWidth: '680px' }}>
+          <span style={{
+            fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '12px',
+            color: 'var(--color-muted)', letterSpacing: '0.02em',
+          }}>
+            Try
+          </span>
+          {EXAMPLE_SEARCHES.map((q) => (
+            <Link
+              key={q}
+              href={`/search?q=${encodeURIComponent(q)}`}
+              className="home-try-chip inline-flex items-center"
+              style={{
+                fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '12.5px',
+                color: 'var(--color-ink)', background: 'rgba(255,255,255,0.6)',
+                border: '1px solid var(--color-border)', borderRadius: '999px',
+                padding: '5px 13px', minHeight: 'unset', whiteSpace: 'nowrap', gap: '6px',
+              }}
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ color: GOLD, flexShrink: 0 }}>
+                <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              {q}
+            </Link>
+          ))}
+        </div>
+
         {stats.listings > 0 && (
-          <div className="mt-5 flex items-center justify-center gap-3 sm:gap-5 flex-wrap" style={{
-            fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '15px', letterSpacing: '0.01em',
+          <div className="mt-7 flex items-center justify-center gap-3 sm:gap-5 flex-wrap" style={{
+            fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '13.5px', letterSpacing: '0.01em',
           }}>
             <span>
               <span style={{ color: GOLD, fontWeight: 500 }}>{stats.listings.toLocaleString()}</span>
@@ -396,40 +455,6 @@ export default async function Home() {
             </span>
           </div>
         )}
-
-        <HomeSearchBar />
-
-        {/* Scope-revealing example searches — surface what's searchable + the
-            categories, high above the fold (best-practice: example-rich search
-            affordance). Each links to the on-site filtered search. */}
-        <div className="mt-4 flex items-center justify-center gap-x-2 gap-y-2 flex-wrap" style={{ maxWidth: '600px' }}>
-          <span style={{
-            fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '12px',
-            color: 'var(--color-muted)', letterSpacing: '0.02em',
-          }}>
-            Try
-          </span>
-          {[
-            { label: 'Coffee roasters', href: '/search?vertical=fine_grounds' },
-            { label: 'Cellar doors', href: '/search?vertical=sba' },
-            { label: 'Farm stays', href: '/search?vertical=rest' },
-            { label: 'Galleries', href: '/search?vertical=collection' },
-          ].map((chip) => (
-            <Link
-              key={chip.href}
-              href={chip.href}
-              className="hover:border-[var(--color-ink)] transition-colors"
-              style={{
-                fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '12.5px',
-                color: 'var(--color-ink)', background: 'rgba(255,255,255,0.6)',
-                border: '1px solid var(--color-border)', borderRadius: '999px',
-                padding: '5px 13px', minHeight: 'unset', whiteSpace: 'nowrap',
-              }}
-            >
-              {chip.label}
-            </Link>
-          ))}
-        </div>
 
         <div className="mt-6 flex items-center justify-center gap-4 flex-wrap">
           <Link

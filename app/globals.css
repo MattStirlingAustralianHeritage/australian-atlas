@@ -197,6 +197,27 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 8px 24px rgba(0,0,0,0.08);
 }
 
+/* Homepage hero search. The shell glows gold on focus so the bar reads as the
+   page's focal point the moment it's touched; the example-query chips pick up
+   the same accent on hover to signal they run a real search. */
+.home-search-shell {
+  background: #ffffff;
+  border: 1.5px solid #e3d9c8;
+  box-shadow: 0 6px 28px rgba(28, 26, 23, 0.09), 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.home-search-shell:focus-within {
+  border-color: var(--color-gold);
+  box-shadow: 0 6px 32px rgba(196, 151, 59, 0.22), 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+.home-try-chip {
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.home-try-chip:hover {
+  border-color: var(--color-gold);
+  background: #fff;
+}
+
 /* Vertical-category guide grid. Centred flex-wrap (not a rigid grid) so an
    incomplete final row — e.g. the 10th card when Way is live — centres rather
    than stranding a left-aligned orphan. 1 / 2 / 3 columns across breakpoints. */

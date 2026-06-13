@@ -42,7 +42,7 @@ const TYPE_CONFIG = {
 
 const TYPE_ORDER = ['place', 'suburb', 'region']
 
-export default function SearchAutocomplete({ value, onChange, onSelect, placeholder }) {
+export default function SearchAutocomplete({ value, onChange, onSelect, placeholder, inputStyle, ariaLabel }) {
   const [results, setResults] = useState([])
   const [isOpen, setIsOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -196,8 +196,9 @@ export default function SearchAutocomplete({ value, onChange, onSelect, placehol
         }}
         placeholder={placeholder}
         className="w-full bg-transparent outline-none placeholder:text-[var(--color-muted)]/60"
-        style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px' }}
+        style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px', ...inputStyle }}
         autoComplete="off"
+        aria-label={ariaLabel}
         role="combobox"
         aria-expanded={isOpen}
         aria-haspopup="listbox"
