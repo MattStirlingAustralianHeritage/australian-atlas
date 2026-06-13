@@ -372,19 +372,20 @@ export default async function Home() {
           background: 'linear-gradient(180deg, #FAF8F4 0%, #F0EBE3 100%)',
         }}
       >
-        <h1 style={{
+        <h1 className="hero-rise" style={{
           fontFamily: 'var(--font-display)', fontWeight: 400, letterSpacing: '-0.01em',
           fontSize: 'clamp(2.5rem, 6vw, 5rem)', lineHeight: 1.1,
           color: 'var(--color-ink)', maxWidth: '880px', textWrap: 'balance',
         }}>
-          Discover the <em style={{ fontStyle: 'italic' }}>independent</em> Australia worth the drive.
+          Discover <em style={{ fontStyle: 'italic' }}>independent</em> Australia
         </h1>
 
-        <p className="mt-6" style={{
+        <p className="mt-6 hero-rise" style={{
           fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '17px',
           lineHeight: 1.65, color: 'var(--color-muted)', maxWidth: '600px',
+          animationDelay: '0.09s',
         }}>
-          The curated guide to the best of independent Australia — every place verified, mapped, and independently run.
+          The curated guide to Australia&apos;s best independent places — every one verified, mapped, and independently run.
         </p>
 
         {/* Search — the front door of the site. The kicker names the tool,
@@ -443,12 +444,12 @@ export default async function Home() {
               <span style={{ color: GOLD, fontWeight: 500 }}>{stats.listings.toLocaleString()}</span>
               <span style={{ color: 'var(--color-muted)' }}> verified places</span>
             </span>
-            <span style={{ color: GOLD, fontSize: '5px' }}>●</span>
+            <span aria-hidden="true" style={{ color: GOLD, fontSize: '5px' }}>●</span>
             <span>
               <span style={{ color: GOLD, fontWeight: 500 }}>{verticalCount}</span>
               <span style={{ color: 'var(--color-muted)' }}> categories</span>
             </span>
-            <span style={{ color: GOLD, fontSize: '5px' }}>●</span>
+            <span aria-hidden="true" style={{ color: GOLD, fontSize: '5px' }}>●</span>
             <span>
               <span style={{ color: GOLD, fontWeight: 500 }}>{stats.regions || '71'}</span>
               <span style={{ color: 'var(--color-muted)' }}> regions</span>

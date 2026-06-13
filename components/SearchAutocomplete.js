@@ -42,7 +42,7 @@ const TYPE_CONFIG = {
 
 const TYPE_ORDER = ['place', 'suburb', 'region']
 
-export default function SearchAutocomplete({ value, onChange, onSelect, placeholder, inputStyle, ariaLabel }) {
+export default function SearchAutocomplete({ value, onChange, onSelect, placeholder, inputStyle, ariaLabel, overlay }) {
   const [results, setResults] = useState([])
   const [isOpen, setIsOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -204,6 +204,11 @@ export default function SearchAutocomplete({ value, onChange, onSelect, placehol
         aria-haspopup="listbox"
         aria-autocomplete="list"
       />
+
+      {/* Animated hint overlay (hero only). Shown over the empty field as a
+          richer stand-in for the native placeholder; hidden the moment a value
+          is typed. pointer-events:none on the overlay keeps focus on the input. */}
+      {overlay && !value ? overlay : null}
 
       {/* Loading indicator */}
       {loading && value.trim().length >= 2 && (

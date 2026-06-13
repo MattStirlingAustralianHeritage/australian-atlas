@@ -46,15 +46,10 @@ export default function NearbySection() {
     setError(false)
 
     const url = `/api/nearby?lat=${location.lat}&lng=${location.lng}&limit=6&adaptive=true&min_results=6&max_per_vertical=2`
-    console.log('[Atlas Nearby] Fetching:', url)
 
     fetch(url)
-      .then(res => {
-        console.log('[Atlas Nearby] Response status:', res.status)
-        return res.json()
-      })
+      .then(res => res.json())
       .then(data => {
-        console.log('[Atlas Nearby] Response data:', { listings: data.listings?.length, total: data.total, radius: data.radius_used, region: data.region })
         if (data.error) {
           console.error('[Atlas Nearby] API error:', data.error)
         }
