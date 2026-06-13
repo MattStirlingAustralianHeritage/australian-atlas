@@ -366,8 +366,8 @@ export default async function Home() {
       <section
         className="relative text-center flex flex-col items-center justify-center px-6 sm:px-12"
         style={{
-          minHeight: 'clamp(400px, 70vh, 700px)',
-          paddingTop: '3rem',
+          minHeight: 'clamp(340px, 56vh, 580px)',
+          paddingTop: '2.25rem',
           paddingBottom: '2rem',
           background: 'linear-gradient(180deg, #FAF8F4 0%, #F0EBE3 100%)',
         }}
@@ -395,7 +395,7 @@ export default async function Home() {
         <p style={{
           fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
           letterSpacing: '0.22em', textTransform: 'uppercase',
-          color: GOLD, marginTop: '36px',
+          color: GOLD, marginTop: '26px',
         }}>
           Search the atlas
         </p>
