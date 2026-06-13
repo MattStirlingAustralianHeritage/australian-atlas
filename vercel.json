@@ -45,6 +45,10 @@
       "schedule": "40 21 * * *"
     },
     {
+      "path": "/api/cron/ensure-candidates",
+      "schedule": "50 21 * * *"
+    },
+    {
       "path": "/api/health/trail-builder",
       "schedule": "0 */6 * * *"
     },

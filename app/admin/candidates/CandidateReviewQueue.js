@@ -2343,7 +2343,7 @@ const HEADLINES_PUBLISHED = [
 ]
 const HEADLINE_NONE_PUBLISHED = 'Nothing made the cut today. The bar stays high.'
 
-function CompletionScreen({ approved, rejected, regions }) {
+function CompletionScreen({ approved, rejected, regions, vertical }) {
   const [headlineIdx] = useState(() => Math.floor(Math.random() * HEADLINES_PUBLISHED.length))
   const headline = approved > 0 ? HEADLINES_PUBLISHED[headlineIdx] : HEADLINE_NONE_PUBLISHED
   const totalReviewed = approved + rejected
@@ -2424,13 +2424,21 @@ function CompletionScreen({ approved, rejected, regions }) {
         </div>
       )}
 
+      {/* Per-vertical refill — when reviewing a single Atlas, refill it now
+          instead of waiting for the overnight floor top-up. */}
+      {vertical && vertical !== 'way' && (
+        <RefillVerticalButton vertical={vertical} />
+      )}
+
       {/* Next run note */}
       <p style={{
         fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 300,
         color: 'var(--color-muted)', opacity: 0.6,
         marginTop: 28, marginBottom: 0,
       }}>
-        Check back tomorrow — the prospector runs overnight.
+        {vertical === 'way'
+          ? 'Way refills via its own supervised discovery.'
+          : 'Every Atlas is topped back up to 10 overnight — check back tomorrow.'}
       </p>
     </div>
   )
@@ -2665,6 +2673,74 @@ function GenerateButton({ onGenerated }) {
             </span>
           ))}
         </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Per-vertical refill ──────────────────────────────────
+// Shown when the reviewer has worked one vertical's queue down to zero. Tops
+// that single Atlas back up to the floor on demand (the daily cron does this
+// automatically each morning, but this lets the reviewer refill immediately).
+
+function RefillVerticalButton({ vertical }) {
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState(null)
+  const isWay = vertical === 'way'
+
+  const handleRefill = async () => {
+    setBusy(true)
+    setMsg(null)
+    try {
+      const res = await fetch('/api/admin/candidates/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vertical }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setMsg(data.error || 'Refill failed'); setBusy(false); return }
+      const r = data.results?.[0]
+      if (r?.status === 'needs_manual') { setMsg('Way is seeded via supervised discovery.'); setBusy(false); return }
+      if (data.total_queued > 0) { window.location.reload(); return }
+      setMsg(`No new ${VERTICAL_NAMES[vertical] || vertical} found right now (${data.duration_seconds}s)`)
+      setBusy(false)
+    } catch (err) {
+      setMsg(err.message || 'Network error')
+      setBusy(false)
+    }
+  }
+
+  if (isWay) return null
+
+  return (
+    <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+      <button
+        onClick={handleRefill}
+        disabled={busy}
+        style={{
+          fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 600, letterSpacing: '0.04em',
+          color: '#fff', background: busy ? '#3a6a49' : '#4A7C59',
+          border: 'none', borderRadius: 8, padding: '10px 20px',
+          cursor: busy ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+          boxShadow: '0 1px 3px rgba(74,124,89,0.3)',
+        }}
+      >
+        {busy ? (
+          <>
+            <div style={{ width: 14, height: 14, border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'candidateSpinner 0.6s linear infinite' }} />
+            Finding more…
+          </>
+        ) : (
+          <>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M7 1V13M1 7H13" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+            Find 10 more in {VERTICAL_NAMES[vertical] || vertical}
+          </>
+        )}
+      </button>
+      {msg && (
+        <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-muted)' }}>{msg}</span>
       )}
     </div>
   )
@@ -2910,6 +2986,7 @@ export default function CandidateReviewQueue({ initialCandidates = [], initialRe
               approved={approved}
               rejected={rejected}
               regions={publishedRegions}
+              vertical={verticalFilter}
             />
           ) : (
             <div style={{
@@ -2928,10 +3005,13 @@ export default function CandidateReviewQueue({ initialCandidates = [], initialRe
                 color: 'var(--color-muted)', lineHeight: 1.5,
               }}>
                 {verticalFilter
-                  ? 'Try removing the filter or click Generate Now above.'
-                  : 'Click Generate Now to populate the candidate queue.'
+                  ? (verticalFilter === 'way'
+                      ? 'Way is seeded via its own supervised discovery — it refills separately.'
+                      : 'Refilled to 10 automatically each morning. Want more now? Find them below.')
+                  : 'Refilled to a floor of 10 per Atlas each morning. Click Generate Now to populate immediately.'
                 }
               </p>
+              {verticalFilter && <RefillVerticalButton vertical={verticalFilter} />}
             </div>
           )}
         </>
