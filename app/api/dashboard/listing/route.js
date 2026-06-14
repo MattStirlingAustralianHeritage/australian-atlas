@@ -5,6 +5,8 @@ import { updateListing } from '@/lib/admin/updateListing'
 import { isApprovedImageSource } from '@/lib/image-utils'
 import { writeGallery, isListingPaid, MAX_GALLERY_PHOTOS } from '@/lib/listing-gallery'
 import { normalizeHighlights } from '@/lib/operator-highlights/normalize'
+import { normalizeSearchKeywords } from '@/lib/search-keywords/normalize'
+import { regenerateListingEmbedding } from '@/lib/embeddings/regenerateOne'
 
 /**
  * PATCH /api/dashboard/listing — operator self-service edit of a claimed listing.
@@ -216,14 +218,49 @@ export async function PATCH(request) {
     savedHighlights = norm.value
   }
 
+  // ── search_keywords → master-only write (search-only: never rendered, never
+  //    synced — the same sync-safe-by-omission contract as hours/highlights).
+  //    The terms feed this listing's embedding (lib/embeddings/sourceText.js)
+  //    and the lexical search document (migration 162). We regenerate ONLY this
+  //    listing's vector inline so the change is searchable immediately, with no
+  //    bulk job; needs_embedding=true is the safety net (the cron retries if
+  //    Voyage is momentarily unavailable). ──
+  let savedKeywords
+  if ('search_keywords' in body) {
+    const norm = normalizeSearchKeywords(body.search_keywords)
+    if (!norm.ok) {
+      return NextResponse.json({ error: norm.error }, { status: 400 })
+    }
+    const { error: kErr } = await sb
+      .from('listings')
+      .update({ search_keywords: norm.value, needs_embedding: true, updated_at: new Date().toISOString() })
+      .eq('id', listingId)
+    if (kErr) {
+      // Forward-compat: column absent until migration 161 is applied.
+      if (kErr.code === '42703') {
+        return NextResponse.json({ error: 'Search keywords aren’t switched on yet — please try again shortly.' }, { status: 503 })
+      }
+      return NextResponse.json({ error: `Failed to save keywords: ${kErr.message}` }, { status: 400 })
+    }
+    try {
+      await regenerateListingEmbedding(sb, listingId)
+    } catch (e) {
+      // Inline re-embed is best-effort; needs_embedding=true above lets the cron
+      // refresh the vector. The save itself still succeeds.
+      console.warn(`[dashboard] inline re-embed deferred for ${listingId}: ${e.message}`)
+    }
+    savedKeywords = norm.value
+  }
+
   const { data: fresh } = await sb
     .from('listings')
-    .select('id, name, slug, vertical, website, phone, hours, hero_image_url, description, is_claimed, status')
+    .select('id, name, slug, vertical, website, phone, hours, hero_image_url, description, is_claimed, status, search_keywords')
     .eq('id', listingId)
     .single()
 
   if (fresh && savedGallery !== undefined) fresh.gallery_image_urls = savedGallery
   if (fresh && savedHighlights !== undefined) fresh.operator_highlights = savedHighlights
+  if (fresh && savedKeywords !== undefined) fresh.search_keywords = savedKeywords
 
   return NextResponse.json({ success: true, listing: fresh, verticalSync })
 }

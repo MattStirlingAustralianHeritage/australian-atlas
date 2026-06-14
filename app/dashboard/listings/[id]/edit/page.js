@@ -7,6 +7,7 @@ import { getDashboardToken } from '@/lib/dashboard-token'
 import { getListingRegion } from '@/lib/regions'
 import { getVerticalLabel, getVerticalBrandColour } from '@/lib/verticalUrl'
 import HighlightsEditor from './HighlightsEditor'
+import KeywordsEditor from './KeywordsEditor'
 import EventsSection from './EventsSection'
 import PicksSection from './PicksSection'
 
@@ -856,6 +857,14 @@ export default function EditListingPage() {
             subType={listing.sub_type || (Array.isArray(listing.sub_types) && listing.sub_types[0]) || null}
             token={token}
             initialHighlights={listing.operator_highlights}
+            accent={vertColor}
+          />
+
+          {/* ── Search keywords — operator-authored, search-only (never public) ── */}
+          <KeywordsEditor
+            listingId={id}
+            token={token}
+            initialKeywords={listing.search_keywords}
             accent={vertColor}
           />
 

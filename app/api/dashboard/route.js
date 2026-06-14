@@ -19,7 +19,7 @@ import { readHighlightsMap } from '@/lib/operator-highlights/read'
  */
 
 // Columns the dashboard renders per listing (+ resolved region fields).
-const LISTING_SELECT = `id, name, slug, vertical, sub_type, sub_types, region, state, lat, lng, website, phone, address, hero_image_url, is_claimed, is_featured, status, description, hours, created_at, updated_at, ${LISTING_REGION_SELECT}`
+const LISTING_SELECT = `id, name, slug, vertical, sub_type, sub_types, region, state, lat, lng, website, phone, address, hero_image_url, is_claimed, is_featured, status, description, hours, search_keywords, created_at, updated_at, ${LISTING_REGION_SELECT}`
 
 // True if `userId` holds an active ownership claim on `listingId`.
 async function ownsListing(sb, listingId, userId) {
