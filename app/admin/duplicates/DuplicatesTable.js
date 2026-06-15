@@ -460,7 +460,7 @@ export default function DuplicatesTable({ initialPairs, initialCounts }) {
             <br />
             REMOVE: &ldquo;{pendingMerge.removeName}&rdquo;
             <br />
-            The removed listing will be marked as a duplicate.
+            The removed listing will be hidden and linked to the one you keep. This is reversible.
           </>
         ) : ''}
         confirmLabel="Merge"

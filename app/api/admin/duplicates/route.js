@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { unpublishInVertical } from '@/lib/sync/pushToVertical'
 import { checkAdmin } from '@/lib/admin-auth'
 
 // ─── GET: Fetch duplicate pairs with listing details ─────
@@ -124,11 +125,31 @@ export async function POST(request) {
         return NextResponse.json({ error: 'keep_id and remove_id must match the pair listings' }, { status: 400 })
       }
 
-      // Update the "remove" listing: mark as duplicate
+      // Load the listing being removed — we need its vertical + source_id to
+      // unpublish the matching row in the vertical's own DB (step 2).
+      const { data: removeListing, error: removeFetchError } = await sb
+        .from('listings')
+        .select('id, vertical, source_id')
+        .eq('id', remove_id)
+        .single()
+
+      if (removeFetchError || !removeListing) {
+        return NextResponse.json({ error: 'Listing to remove not found' }, { status: 404 })
+      }
+
+      // 1. Master DB — soft-archive the removed listing and record the survivor.
+      //    Status is 'hidden', NOT 'duplicate': migration 153 redefined
+      //    listings_status_check to ('active','inactive','pending','hidden',
+      //    'deleted'), dropping the 'duplicate' value that migration 062 had
+      //    added — so writing 'duplicate' now violates the constraint and the
+      //    whole merge fails. 'hidden' is the current reversible dedup state
+      //    (cf. migration 160's aurum soft-archive and the gate-review "Hide"
+      //    action). merged_into is retained as the audit pointer to the kept
+      //    listing. Fully reversible — no hard delete.
       const { error: listingError } = await sb
         .from('listings')
         .update({
-          status: 'duplicate',
+          status: 'hidden',
           merged_into: keep_id,
         })
         .eq('id', remove_id)
@@ -138,7 +159,27 @@ export async function POST(request) {
         return NextResponse.json({ error: 'Failed to update listing: ' + listingError.message }, { status: 500 })
       }
 
-      // Update the pair record
+      // 2. Vertical source DB — unpublish the removed row so the source→master
+      //    sync (every 6h, app/api/cron/sync) can't re-activate it. The master
+      //    'hidden' above is the authoritative reversible action; this source
+      //    write is best-effort and non-fatal. If it fails (or there's no source
+      //    row), we still report success but surface a warning so the admin can
+      //    finish by hand. Without this, a merged duplicate in any synced
+      //    vertical silently reappears within 6 hours.
+      let sourceUnpublish
+      try {
+        sourceUnpublish = await unpublishInVertical(removeListing.vertical, removeListing.source_id)
+      } catch (e) {
+        sourceUnpublish = { ok: false, error: e?.message || String(e) }
+      }
+      if (sourceUnpublish?.ok === false && sourceUnpublish.error) {
+        console.error(
+          `[api/admin/duplicates] Source unpublish failed for ${removeListing.vertical}/${removeListing.source_id}:`,
+          sourceUnpublish.error,
+        )
+      }
+
+      // 3. Update the pair record
       const { error: pairUpdateError } = await sb
         .from('duplicate_pairs')
         .update({
@@ -153,11 +194,17 @@ export async function POST(request) {
         return NextResponse.json({ error: 'Failed to update pair: ' + pairUpdateError.message }, { status: 500 })
       }
 
+      const warning = (sourceUnpublish?.ok === false && sourceUnpublish.error)
+        ? `Listing hidden in the master DB, but its ${removeListing.vertical} source row could not be unpublished (${sourceUnpublish.error}). The 6-hourly sync may re-activate it — unpublish it manually in ${removeListing.vertical}.`
+        : null
+
       return NextResponse.json({
         success: true,
         action: 'merge',
         keep_id,
         remove_id,
+        source_unpublish: sourceUnpublish,
+        warning,
       })
     }
 
