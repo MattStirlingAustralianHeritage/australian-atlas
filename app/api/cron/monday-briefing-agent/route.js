@@ -27,6 +27,7 @@ const VERTICAL_LABELS = {
   corner: 'Corner',
   found: 'Found',
   table: 'Table',
+  way: 'Way', // 10th vertical — was missing, so Way listings were dropped from the network-health table
 }
 
 export async function GET(request) {
