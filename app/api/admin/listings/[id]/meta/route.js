@@ -36,7 +36,10 @@ export async function GET(request, { params }) {
   const table = EXTENSION_TABLES[listing.vertical]
   if (!table) return NextResponse.json({ meta: null, verticals })
 
-  const { data: meta } = await sb.from(table).select('listing_id, entity_type, subcategory, tags, features, extra').eq('listing_id', id).maybeSingle()
+  // select('*') — meta tables differ in shape per vertical; naming a column
+  // absent from this table (e.g. entity_type on sba_meta) errors the query and
+  // silently returns null meta. See the upsert note in ../route.js.
+  const { data: meta } = await sb.from(table).select('*').eq('listing_id', id).maybeSingle()
   return NextResponse.json({ meta: meta || null, verticals })
 }
 
@@ -60,7 +63,7 @@ export async function PATCH(request, { params }) {
   const { data, error } = await sb.from(table).upsert(
     { listing_id: id, ...updates },
     { onConflict: 'listing_id' }
-  ).select('listing_id, entity_type, subcategory, tags, features, extra').single()
+  ).select('*').single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ meta: data })

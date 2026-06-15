@@ -52,10 +52,16 @@ export async function PATCH(request, { params }) {
       const metaTable = row ? EXTENSION_TABLES[row.vertical] : null
 
       if (metaTable) {
+        // NOTE: select('*') — meta tables have DIFFERENT shapes per vertical
+        // (sba_meta has producer_type/subtype, fine_grounds_meta has entity_type,
+        // etc.). A hardcoded RETURNING column list that names a column absent from
+        // the target table aborts the entire INSERT…ON CONFLICT…RETURNING statement
+        // (Postgres 42703), silently rolling back the upsert. select('*') returns
+        // whatever columns the actual table has, so the write always commits.
         const { data: metaData, error: metaError } = await sb.from(metaTable).upsert(
           { listing_id: id, ..._meta },
           { onConflict: 'listing_id' }
-        ).select('listing_id, entity_type, subcategory, tags, features, extra').single()
+        ).select('*').single()
 
         if (metaError) {
           console.warn('[admin/listings/PATCH] Meta save failed:', metaError.message)
