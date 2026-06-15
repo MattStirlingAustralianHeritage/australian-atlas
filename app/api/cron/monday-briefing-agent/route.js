@@ -108,7 +108,7 @@ export async function GET(request) {
       .eq('agent', 'editorial-signals')
       .order('completed_at', { ascending: false })
       .limit(1)
-      .single()
+      .maybeSingle() // no run logged yet -> null, not a PGRST116 error
 
     if (err) throw err
     signals.editorialSignals = data?.summary || null
@@ -126,7 +126,7 @@ export async function GET(request) {
       .eq('agent', 'staleness')
       .order('completed_at', { ascending: false })
       .limit(1)
-      .single()
+      .maybeSingle() // no run logged yet -> null, not a PGRST116 error
 
     if (err) throw err
     signals.stalenessSignals = data?.summary || null
