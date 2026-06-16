@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
+import { findDuplicate } from '@/lib/candidates/duplicateCheck.mjs'
 
 /**
  * POST /api/admin/candidates/create
@@ -10,7 +11,12 @@ import { checkAdmin } from '@/lib/admin-auth'
  * Inserts a pending `user_suggested` candidate that then flows through
  * the exact same review/enrich/publish pipeline as auto-discovered ones.
  *
- * Body: { name, vertical, website_url?, address?, state?, region?, notes? }
+ * Refuses (409) to queue something already on the network — a published
+ * listing or an open candidate — unless `force: true` is passed, so an
+ * accidental duplicate can't slip in. (The auto-discovery pipeline already
+ * dedups at Gate 0; this brings the manual path to parity.)
+ *
+ * Body: { name, vertical, website_url?, address?, state?, region?, notes?, force? }
  * Auth: admin cookie
  */
 
@@ -52,8 +58,17 @@ export async function POST(request) {
     const state = (body.state || '').trim().toUpperCase() || null
     const notes = (body.notes || '').trim() || null
     const today = new Date().toISOString().split('T')[0]
+    const force = body.force === true || body.force === 'true'
 
     const sb = getSupabaseAdmin()
+
+    // Duplicate guardrail — don't queue something already on the network.
+    if (!force) {
+      const { duplicate } = await findDuplicate({ name, website_url, vertical, state }, sb)
+      if (duplicate) {
+        return NextResponse.json({ error: duplicate.message, duplicate }, { status: 409 })
+      }
+    }
 
     // Core columns present on every deployment (migrations 024 / 029).
     // confidence is omitted so the table default (0.5) applies; gate_results
@@ -65,7 +80,7 @@ export async function POST(request) {
       region,
       notes,
       source: 'user_suggested',
-      source_detail: `manual — ${today}`,
+      source_detail: `manual — ${today}${force ? ' · added past duplicate warning' : ''}`,
       status: 'pending',
     }
 

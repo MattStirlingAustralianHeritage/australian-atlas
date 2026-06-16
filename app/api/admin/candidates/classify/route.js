@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
 import { extractStateFromPlaceName } from '@/lib/geo/stateDerivation'
+import { findDuplicate } from '@/lib/candidates/duplicateCheck.mjs'
 
 /**
  * POST /api/admin/candidates/classify
@@ -274,6 +275,22 @@ export async function POST(request) {
 
     const sb = getSupabaseAdmin()
 
+    // 2b. Duplicate guardrail — refuse to queue something already on the
+    //     network (a published listing or an open candidate) unless overridden.
+    //     The dropped URL is a strong signal here, so this catches re-pasting
+    //     an operator already listed under a slightly different name.
+    const force = body.force === true || body.force === 'true'
+    if (!force) {
+      const { duplicate } = await findDuplicate({ name, website_url: url, vertical, state }, sb)
+      if (duplicate) {
+        return NextResponse.json({
+          error: duplicate.message,
+          duplicate,
+          classification: { vertical, verticalName, confidence, reasoning },
+        }, { status: 409 })
+      }
+    }
+
     // 3. Insert the candidate. Same core/extended column-fallback pattern as
     //    the manual create route, so it works whether or not migration 086
     //    (address/state columns) has reached this deployment.
@@ -284,7 +301,7 @@ export async function POST(request) {
       region,
       notes: noteLines.join(' '),
       source: 'user_suggested',
-      source_detail: `url suggestion — ${today}`,
+      source_detail: `url suggestion — ${today}${force ? ' · added past duplicate warning' : ''}`,
       status: 'pending',
     }
     if (confidence != null) core.confidence = confidence

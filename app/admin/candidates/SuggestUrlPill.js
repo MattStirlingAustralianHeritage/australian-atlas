@@ -21,6 +21,7 @@ export default function SuggestUrlPill({ onCreated }) {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
   const [result, setResult] = useState(null) // { verticalName, confidence }
+  const [dup, setDup] = useState(null) // { error, duplicate } from a 409
   const inputRef = useRef(null)
 
   useEffect(() => {
@@ -31,14 +32,21 @@ export default function SuggestUrlPill({ onCreated }) {
     setUrl('')
     setError(null)
     setResult(null)
+    setDup(null)
     setSubmitting(false)
     setOpen(false)
   }
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault()
+    submit(false)
+  }
+
+  // force=true re-submits past the duplicate guardrail (admin override).
+  const submit = async (force) => {
     setError(null)
     setResult(null)
+    if (!force) setDup(null)
     if (!url.trim()) { setError('Paste a URL first'); return }
 
     setSubmitting(true)
@@ -46,9 +54,14 @@ export default function SuggestUrlPill({ onCreated }) {
       const res = await fetch('/api/admin/candidates/classify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify(force ? { url, force: true } : { url }),
       })
       const data = await res.json()
+      if (res.status === 409 && data.duplicate) {
+        setDup(data)
+        setSubmitting(false)
+        return
+      }
       if (!res.ok) {
         setError(data.error || 'Could not sort that URL')
         setSubmitting(false)
@@ -63,6 +76,7 @@ export default function SuggestUrlPill({ onCreated }) {
         verticalName: c.verticalName || data.candidate?.vertical || 'a vertical',
         confidence: typeof c.confidence === 'number' ? Math.round(c.confidence * 100) : null,
       })
+      setDup(null)
       setUrl('') // ready for the next paste
     } catch (err) {
       setError(err.message || 'Network error')
@@ -127,7 +141,7 @@ export default function SuggestUrlPill({ onCreated }) {
           type="text"
           inputMode="url"
           value={url}
-          onChange={(e) => { setUrl(e.target.value); if (error) setError(null) }}
+          onChange={(e) => { setUrl(e.target.value); if (error) setError(null); if (dup) setDup(null) }}
           placeholder="https://www.commonfolkcoffee.com.au/"
           disabled={submitting}
           style={inputStyle}
@@ -156,6 +170,45 @@ export default function SuggestUrlPill({ onCreated }) {
           ) : 'Sort'}
         </button>
       </form>
+
+      {dup && (
+        <div style={{
+          marginTop: 8, padding: '10px 12px',
+          background: 'rgba(184,134,43,0.08)', border: '1px solid rgba(184,134,43,0.45)',
+          borderRadius: 8,
+        }}>
+          <div style={{
+            fontFamily: 'var(--font-body)', fontSize: 12.5, fontWeight: 500,
+            color: 'var(--color-ink)', lineHeight: 1.4,
+          }}>
+            {dup.duplicate?.message || dup.error}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 9 }}>
+            <button
+              type="button"
+              onClick={() => submit(true)}
+              disabled={submitting}
+              style={{
+                fontFamily: 'var(--font-body)', fontSize: 11.5, fontWeight: 600, letterSpacing: '0.03em',
+                color: '#8a6520', background: 'transparent', border: '1px solid rgba(184,134,43,0.6)',
+                borderRadius: 7, padding: '6px 14px', cursor: submitting ? 'default' : 'pointer',
+              }}
+            >
+              Add anyway
+            </button>
+            <button
+              type="button"
+              onClick={() => setDup(null)}
+              style={{
+                fontFamily: 'var(--font-body)', fontSize: 11.5, color: 'var(--color-muted)',
+                background: 'none', border: 'none', cursor: 'pointer',
+              }}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
 
       {(result || error) && (
         <div style={{ marginTop: 8 }}>

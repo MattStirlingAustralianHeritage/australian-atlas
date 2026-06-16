@@ -38,19 +38,32 @@ export default function AddListingForm({ onCreated }) {
   const [open, setOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
+  const [dup, setDup] = useState(null) // { error, duplicate } from a 409
   const [form, setForm] = useState(EMPTY)
 
-  const set = (key) => (e) => setForm(f => ({ ...f, [key]: e.target.value }))
+  const set = (key) => (e) => {
+    const value = e.target.value
+    setForm(f => ({ ...f, [key]: value }))
+    // Editing the name or website addresses a duplicate warning — clear it.
+    if (dup && (key === 'name' || key === 'website_url')) setDup(null)
+  }
 
   const close = () => {
     setForm(EMPTY)
     setError(null)
+    setDup(null)
     setOpen(false)
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    submit(false)
+  }
+
+  // force=true re-submits past the duplicate guardrail (admin override).
+  const submit = async (force) => {
     setError(null)
+    if (!force) setDup(null)
     if (!form.name.trim()) { setError('Name is required'); return }
     if (!form.vertical) { setError('Choose a vertical'); return }
 
@@ -59,9 +72,14 @@ export default function AddListingForm({ onCreated }) {
       const res = await fetch('/api/admin/candidates/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(force ? { ...form, force: true } : form),
       })
       const data = await res.json()
+      if (res.status === 409 && data.duplicate) {
+        setDup(data)
+        setSubmitting(false)
+        return
+      }
       if (!res.ok) {
         setError(data.error || 'Create failed')
         setSubmitting(false)
@@ -237,6 +255,50 @@ export default function AddListingForm({ onCreated }) {
             />
           </div>
         </div>
+
+        {dup && (
+          <div style={{
+            marginBottom: 12, padding: '10px 12px',
+            background: 'rgba(184,134,43,0.08)', border: '1px solid rgba(184,134,43,0.45)',
+            borderRadius: 8,
+          }}>
+            <div style={{
+              fontFamily: 'var(--font-body)', fontSize: 12.5, fontWeight: 500,
+              color: 'var(--color-ink)', lineHeight: 1.4,
+            }}>
+              {dup.duplicate?.message || dup.error}
+            </div>
+            <div style={{
+              fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-muted)', marginTop: 3,
+            }}>
+              Edit the name or website above to point at a different venue, or add it anyway.
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 9 }}>
+              <button
+                type="button"
+                onClick={() => submit(true)}
+                disabled={submitting}
+                style={{
+                  fontFamily: 'var(--font-body)', fontSize: 11.5, fontWeight: 600, letterSpacing: '0.03em',
+                  color: '#8a6520', background: 'transparent', border: '1px solid rgba(184,134,43,0.6)',
+                  borderRadius: 7, padding: '6px 14px', cursor: submitting ? 'default' : 'pointer',
+                }}
+              >
+                Add anyway
+              </button>
+              <button
+                type="button"
+                onClick={() => setDup(null)}
+                style={{
+                  fontFamily: 'var(--font-body)', fontSize: 11.5, color: 'var(--color-muted)',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                }}
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button
