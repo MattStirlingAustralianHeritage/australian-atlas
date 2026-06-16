@@ -1,6 +1,6 @@
 import { getVerticalUrl, VERTICAL_CARD_TOKENS } from '@/lib/verticalUrl'
 import VerticalBadge from '@/components/VerticalBadge'
-import { isApprovedImageSource } from '@/lib/image-utils'
+import { isApprovedImageSource, isHeroDisplayable } from '@/lib/image-utils'
 import { getListingRegion } from '@/lib/regions'
 
 // ============================================================
@@ -319,7 +319,10 @@ export default function ListingCard({ listing, meta, linkToVertical = false, dis
 
   const isAtlasSelect = listing.editors_pick
   const showFeatured = !isAtlasSelect && listing.is_featured && listing.is_claimed
-  const hasRealImage = listing.hero_image_url && isApprovedImageSource(listing.hero_image_url)
+  // Moderation gate is fail-open on absent field: a card whose query didn't
+  // select image_moderation_status behaves exactly as before; only an explicit
+  // flagged/held verdict swaps the photo for the typographic card.
+  const hasRealImage = listing.hero_image_url && isApprovedImageSource(listing.hero_image_url) && isHeroDisplayable(listing)
   const tokens = VERTICAL_TOKENS[listing.vertical] || VERTICAL_TOKENS.portal
   const region = getListingRegion(listing)
   const distanceLabel = formatDistance(distanceKm)

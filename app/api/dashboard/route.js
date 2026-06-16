@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { verifySharedToken } from '@/lib/shared-auth'
 import { LISTING_REGION_SELECT } from '@/lib/regions'
-import { readGallery, isListingPaid } from '@/lib/listing-gallery'
+import { readGalleryEntries, isListingPaid } from '@/lib/listing-gallery'
 import { readHighlightsMap } from '@/lib/operator-highlights/read'
 
 /**
@@ -145,14 +145,18 @@ export async function GET(request) {
 
       // Gallery (paid perk) + paid flag, so the editor can render/gate the
       // photo manager. gallery_image_urls is a storage manifest, not a column.
-      const [gallery, paid] = await Promise.all([
-        readGallery(sb, listing.id),
+      const [galleryEntries, paid] = await Promise.all([
+        readGalleryEntries(sb, listing.id),
         isListingPaid(sb, listing.id),
       ])
 
       return {
         ...listing,
-        gallery_image_urls: gallery,
+        // All gallery urls (incl. held/flagged) so the editor can show + manage
+        // them, plus their moderation status for the per-photo badge. Public
+        // surfaces use readGallery() which returns clean-only.
+        gallery_image_urls: galleryEntries.map(e => e.url),
+        gallery_moderation: galleryEntries.map(e => ({ url: e.url, status: e.status, reason: e.reason })),
         operator_highlights: highlightsMap.get(listing.id) || null,
         paid,
         score: scoreData || null,

@@ -1,5 +1,7 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { readGalleryEntries } from '@/lib/listing-gallery'
 import CandidateReviewQueue from './CandidateReviewQueue'
+import FlaggedHeroImages from './FlaggedHeroImages'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Listing Candidates — Admin' }
@@ -14,6 +16,7 @@ export default async function CandidatesPage() {
   let rejectedCandidates = []
   let queueDepth = {}
   let regions = []
+  let reviewItems = []
 
   try {
     // Fetch pending candidates — always use select('*') to avoid column-not-found
@@ -66,6 +69,40 @@ export default async function CandidatesPage() {
       .order('name', { ascending: true })
 
     if (regionRows) regions = regionRows
+
+    // Operator-uploaded images (hero + gallery) the AI moderation filter flagged
+    // or held — surfaced here for a manual approve/reject decision, one row per
+    // image. Defensive: these columns don't exist until migration 164 is applied
+    // (error → empty, page still renders). The gallery roll-up marks a listing;
+    // the per-image gallery verdicts live in the storage manifest.
+    const { data: rows, error: rowsErr } = await sb
+      .from('listings')
+      .select('id, name, vertical, hero_image_url, image_moderation_status, image_moderation_category, image_moderation_reason, image_moderation_confidence, gallery_moderation_status')
+      .or('image_moderation_status.in.(flagged,held),gallery_moderation_status.in.(flagged,held)')
+      .limit(200)
+    if (!rowsErr && rows) {
+      for (const r of rows) {
+        if (r.image_moderation_status === 'flagged' || r.image_moderation_status === 'held') {
+          reviewItems.push({
+            key: `${r.id}:hero`, listingId: r.id, listingName: r.name, vertical: r.vertical, kind: 'hero',
+            url: r.hero_image_url, status: r.image_moderation_status,
+            category: r.image_moderation_category, reason: r.image_moderation_reason,
+            confidence: r.image_moderation_confidence,
+          })
+        }
+        if (r.gallery_moderation_status === 'flagged' || r.gallery_moderation_status === 'held') {
+          const entries = await readGalleryEntries(sb, r.id)
+          for (const e of entries) {
+            if (e.status === 'flagged' || e.status === 'held') {
+              reviewItems.push({
+                key: `${r.id}:gallery:${e.url}`, listingId: r.id, listingName: r.name, vertical: r.vertical, kind: 'gallery',
+                url: e.url, status: e.status, category: e.category, reason: e.reason, confidence: e.confidence,
+              })
+            }
+          }
+        }
+      }
+    }
   } catch (err) {
     console.error('[admin/candidates] Query error:', err.message)
   }
@@ -82,6 +119,8 @@ export default async function CandidatesPage() {
           Preview each listing, edit inline, then publish to the network or skip.
         </p>
       </div>
+
+      <FlaggedHeroImages initial={reviewItems} />
 
       <CandidateReviewQueue
         initialCandidates={candidates}
