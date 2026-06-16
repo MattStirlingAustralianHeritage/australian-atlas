@@ -7,6 +7,7 @@ import { writeGallery, isListingPaid, MAX_GALLERY_PHOTOS } from '@/lib/listing-g
 import { normalizeHighlights } from '@/lib/operator-highlights/normalize'
 import { normalizeSearchKeywords } from '@/lib/search-keywords/normalize'
 import { regenerateListingEmbedding } from '@/lib/embeddings/regenerateOne'
+import { moderateImageUrl } from '@/lib/moderation/imageModeration'
 
 /**
  * PATCH /api/dashboard/listing — operator self-service edit of a claimed listing.
@@ -92,7 +93,7 @@ export async function PATCH(request) {
   //    membership no longer grants edit rights. Admins bypass the check. ──
   const { data: owned, error: ownErr } = await sb
     .from('listings')
-    .select('id, vertical, sub_type, sub_types, is_claimed')
+    .select('id, vertical, sub_type, sub_types, is_claimed, hero_image_url')
     .eq('id', listingId)
     .single()
 
@@ -134,10 +135,12 @@ export async function PATCH(request) {
   }
 
   // ── Base fields → canonical updateListing (master write + vertical sync-back) ──
+  // hero_image_url is handled SEPARATELY below — a NEW operator upload is moderated
+  // before it can become eligible for public display or be pushed to the vertical
+  // source DB, so it must not ride this unconditional sync.
   const baseUpdates = {}
   if ('website' in body) baseUpdates.website = body.website
   if ('phone' in body) baseUpdates.phone = body.phone === '' ? null : body.phone
-  if ('hero_image_url' in body) baseUpdates.hero_image_url = body.hero_image_url || null
 
   let verticalSync = null
   if (Object.keys(baseUpdates).length > 0) {
@@ -146,6 +149,87 @@ export async function PATCH(request) {
       return NextResponse.json({ error: result.error || 'Update failed' }, { status: 400 })
     }
     verticalSync = result.verticalSync
+  }
+
+  // ── hero_image_url → AI-moderated write + gated sync ────────────────────────
+  // Operators upload to our public Storage bucket via
+  // /api/dashboard/listing/upload, then save the returned URL here. Every NEW
+  // hero is triaged by the image-moderation model (lib/moderation) BEFORE it can
+  // appear on the portal or be synced to the vertical site. Bias toward holding —
+  // any uncertainty fails closed to 'held'. The verdict gates this write's sync;
+  // the central sync gate (lib/sync/pushToVertical) is the belt-and-braces that
+  // also keeps a blocked hero from leaking on a later unrelated edit.
+  let imageModeration = null
+  if ('hero_image_url' in body) {
+    const currentHero = owned.hero_image_url || null
+    const newHero = body.hero_image_url || null
+
+    if (!newHero) {
+      // Cleared — nothing to moderate. Remove it (sync the removal) + reset status.
+      const heroRes = await updateListing(listingId, { hero_image_url: null }, { action: 'operator-edit' })
+      if (!heroRes.success) {
+        return NextResponse.json({ error: heroRes.error || 'Update failed' }, { status: 400 })
+      }
+      await sb.from('listings').update({
+        image_moderation_status: 'pending',
+        image_moderation_category: null,
+        image_moderation_reason: null,
+        image_moderation_confidence: null,
+        image_moderation_checked_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }).eq('id', listingId).then(({ error }) => {
+        if (error && error.code !== '42703') console.warn('[dashboard] moderation reset failed:', error.message)
+      })
+      imageModeration = { status: 'pending' }
+    } else if (newHero === currentHero) {
+      // Unchanged — keep the existing verdict, re-affirm the value (sync is gated
+      // centrally on the stored status, so a held image still won't propagate).
+      const heroRes = await updateListing(listingId, { hero_image_url: newHero }, { action: 'operator-edit' })
+      if (!heroRes.success) {
+        return NextResponse.json({ error: heroRes.error || 'Update failed' }, { status: 400 })
+      }
+    } else {
+      // NEW image → moderate before it can go public.
+      const verdict = isApprovedImageSource(newHero)
+        ? await moderateImageUrl(newHero)
+        // Not one of our upload hosts — we won't fetch arbitrary URLs to verify.
+        // Hold it (fail closed) rather than trust an unknown source.
+        : { status: 'held', category: 'unverified_source', reason: 'Image is not from an approved upload source', confidence: null }
+
+      const blocked = verdict.status === 'flagged' || verdict.status === 'held'
+      // Write the new hero to master either way (so it is the listing's hero and
+      // is reviewable in Candidate Review), but sync to the vertical ONLY when the
+      // verdict is clean.
+      const heroRes = await updateListing(
+        listingId,
+        { hero_image_url: newHero },
+        { action: blocked ? 'operator-hero-held' : 'operator-edit', syncToVertical: !blocked }
+      )
+      if (!heroRes.success) {
+        return NextResponse.json({ error: heroRes.error || 'Update failed' }, { status: 400 })
+      }
+
+      const { error: modErr } = await sb.from('listings').update({
+        image_moderation_status: verdict.status,
+        image_moderation_category: verdict.category || null,
+        image_moderation_reason: verdict.reason || null,
+        image_moderation_confidence: verdict.confidence ?? null,
+        image_moderation_checked_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }).eq('id', listingId)
+
+      if (modErr) {
+        // Forward-compat: columns absent until migration 164 is applied. We just
+        // wrote an unverified hero we now can't gate — fail closed by reverting it
+        // to the previous value (master only) rather than letting it through.
+        if (modErr.code === '42703') {
+          await updateListing(listingId, { hero_image_url: currentHero }, { action: 'operator-hero-revert', syncToVertical: false })
+          return NextResponse.json({ error: 'Image moderation isn’t switched on yet — please try again shortly.' }, { status: 503 })
+        }
+        return NextResponse.json({ error: `Failed to record image moderation: ${modErr.message}` }, { status: 400 })
+      }
+      imageModeration = { status: verdict.status, category: verdict.category || null, reason: verdict.reason || null }
+    }
   }
 
   // ── hours → master-only write (listings.hours is never set by inbound sync) ──
@@ -262,5 +346,5 @@ export async function PATCH(request) {
   if (fresh && savedHighlights !== undefined) fresh.operator_highlights = savedHighlights
   if (fresh && savedKeywords !== undefined) fresh.search_keywords = savedKeywords
 
-  return NextResponse.json({ success: true, listing: fresh, verticalSync })
+  return NextResponse.json({ success: true, listing: fresh, verticalSync, imageModeration })
 }

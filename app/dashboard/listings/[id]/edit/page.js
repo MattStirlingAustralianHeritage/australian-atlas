@@ -295,6 +295,7 @@ export default function EditListingPage() {
 
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState(null)
+  const [imageNotice, setImageNotice] = useState(null) // { tone, text } from moderation
   const [galleryUploading, setGalleryUploading] = useState(0)
   const [galleryError, setGalleryError] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -496,6 +497,7 @@ export default function EditListingPage() {
   async function handleSave() {
     setSaving(true)
     setSaveError(null)
+    setImageNotice(null)
     try {
       const res = await fetch('/api/dashboard/listing', {
         method: 'PATCH',
@@ -522,6 +524,13 @@ export default function EditListingPage() {
           setBaseline(w, p, h, d, g)
         } else {
           setBaseline(website, phone, heroImageUrl, days, gallery)
+        }
+        // Hero moderation feedback: a flagged/held upload won't appear publicly.
+        const mod = data.imageModeration
+        if (mod && mod.status === 'flagged') {
+          setImageNotice({ tone: 'error', text: `This photo can’t be published${mod.reason ? `: ${mod.reason}` : ''}. Please choose a different image.` })
+        } else if (mod && mod.status === 'held') {
+          setImageNotice({ tone: 'warn', text: 'Your photo has been submitted for review and will appear once approved.' })
         }
         setHoursEditing(false)
         setJustSaved(true)
@@ -780,6 +789,14 @@ export default function EditListingPage() {
         <div style={{ padding: 'clamp(20px, 4vw, 40px)' }}>
           {uploadError && (
             <div style={{ marginBottom: 16, padding: '10px 14px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', fontFamily: 'var(--font-body)', fontSize: 13 }}>{uploadError}</div>
+          )}
+          {imageNotice && (
+            <div style={{
+              marginBottom: 16, padding: '10px 14px', borderRadius: 8, fontFamily: 'var(--font-body)', fontSize: 13,
+              background: imageNotice.tone === 'error' ? '#fef2f2' : '#fffbeb',
+              border: `1px solid ${imageNotice.tone === 'error' ? '#fecaca' : '#fde68a'}`,
+              color: imageNotice.tone === 'error' ? '#991b1b' : '#92400e',
+            }}>{imageNotice.text}</div>
           )}
           {listing.is_featured && (
             <div style={{ marginBottom: 20 }}>

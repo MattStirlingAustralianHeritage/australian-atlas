@@ -1,5 +1,6 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import CandidateReviewQueue from './CandidateReviewQueue'
+import FlaggedHeroImages from './FlaggedHeroImages'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Listing Candidates — Admin' }
@@ -14,6 +15,7 @@ export default async function CandidatesPage() {
   let rejectedCandidates = []
   let queueDepth = {}
   let regions = []
+  let flaggedImages = []
 
   try {
     // Fetch pending candidates — always use select('*') to avoid column-not-found
@@ -66,6 +68,17 @@ export default async function CandidatesPage() {
       .order('name', { ascending: true })
 
     if (regionRows) regions = regionRows
+
+    // Operator hero uploads the AI moderation filter flagged or held — surfaced
+    // here for a manual approve/reject decision. Defensive: these columns don't
+    // exist until migration 164 is applied (error → empty, page still renders).
+    const { data: flagged, error: flaggedErr } = await sb
+      .from('listings')
+      .select('id, name, vertical, region, state, hero_image_url, image_moderation_status, image_moderation_category, image_moderation_reason, image_moderation_confidence, image_moderation_checked_at')
+      .in('image_moderation_status', ['flagged', 'held'])
+      .order('image_moderation_checked_at', { ascending: false })
+      .limit(200)
+    if (!flaggedErr && flagged) flaggedImages = flagged
   } catch (err) {
     console.error('[admin/candidates] Query error:', err.message)
   }
@@ -82,6 +95,8 @@ export default async function CandidatesPage() {
           Preview each listing, edit inline, then publish to the network or skip.
         </p>
       </div>
+
+      <FlaggedHeroImages initial={flaggedImages} />
 
       <CandidateReviewQueue
         initialCandidates={candidates}

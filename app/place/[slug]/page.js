@@ -7,7 +7,7 @@ import { getVerticalUrl, getVerticalLabel, getVerticalTagline, getVerticalBrandC
 import { relationHasVerticals, listingVerticals } from '@/lib/listings/verticalFilter'
 import { listingJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
 import { checkAdmin } from '@/lib/admin-auth'
-import { isApprovedImageSource } from '@/lib/image-utils'
+import { isApprovedImageSource, isHeroDisplayable } from '@/lib/image-utils'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 import { stripTrackingParams } from '@/lib/urlHygiene'
 import { listOutgoing, listIncoming } from '@/lib/picks/producerPicks'
@@ -151,6 +151,18 @@ const getListing = cache(async function getListing(slug) {
   }
 
   if (!data) return null
+
+  // Hero moderation status (migration 164) — read separately + guarded so a
+  // pre-migration deploy can't 404 this page (the column is simply absent).
+  // The public hero render gates on it via isHeroDisplayable(); absent → shown.
+  try {
+    const { data: mod, error: modErr } = await sb
+      .from('listings')
+      .select('image_moderation_status')
+      .eq('id', data.id)
+      .maybeSingle()
+    if (!modErr && mod) data.image_moderation_status = mod.image_moderation_status
+  } catch { /* column absent pre-migration — leave undefined (displayable) */ }
 
   // Render-time hygiene: never emit ad/analytics tracking params on the
   // operator's website link (or in JSON-LD), even if a future sync
@@ -626,7 +638,9 @@ export default async function PlacePage({ params }) {
       {/* ── Hero ────────────────────────────────────────── */}
       {/* Visible breadcrumb intentionally removed; SEO breadcrumbs are emitted via JSON-LD above. */}
       {/* .atlas-hero-band height tiers live in app/globals.css */}
-      {isApprovedImageSource(listing.hero_image_url) ? (
+      {/* Moderation gate: a flagged/held operator upload falls back to the
+          typographic hero card. Grandfathered + clean images render as before. */}
+      {isApprovedImageSource(listing.hero_image_url) && isHeroDisplayable(listing) ? (
         <div className="atlas-hero-band w-full relative overflow-hidden">
           <img
             src={listing.hero_image_url}
