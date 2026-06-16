@@ -146,6 +146,7 @@ const VERTICAL_FIELDS = {
       { value: 'hot_air_balloon',            label: 'Hot Air Ballooning' },
       { value: 'marine_wildlife_swim',       label: 'Marine Wildlife Swim' },
       { value: 'whale_watching',             label: 'Whale Watching' },
+      { value: 'snorkelling',                label: 'Snorkelling' },
     ]},
     { key: 'operator_type', label: 'Operator Type', type: 'select', options: [
       { value: 'independent',                     label: 'Independent' },

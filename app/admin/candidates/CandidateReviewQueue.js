@@ -157,6 +157,7 @@ const SUBCATEGORY_OPTIONS = {
     { value: 'hot_air_balloon',            label: 'Hot Air Ballooning' },
     { value: 'marine_wildlife_swim',       label: 'Marine Wildlife Swim' },
     { value: 'whale_watching',             label: 'Whale Watching' },
+    { value: 'snorkelling',                label: 'Snorkelling' },
   ],
 }
 
