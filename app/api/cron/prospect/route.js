@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { replenishVertical, buildDedupSets, AUTO_VERTICALS, VERTICAL_NAMES } from '@/lib/prospector/replenish'
+import { probePlacesQuota } from '@/lib/prospector/google-places'
 
 /**
  * GET /api/cron/prospect
@@ -30,12 +31,6 @@ export async function GET(request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  if (!process.env.GOOGLE_PLACES_API_KEY) {
-    return NextResponse.json({
-      error: 'GOOGLE_PLACES_API_KEY not configured — prospector cannot run without a verified discovery source',
-    }, { status: 500 })
-  }
-
   const { searchParams } = new URL(request.url)
   const onlyVertical = searchParams.get('vertical')
   const dryRun = searchParams.get('dry_run') === 'true'
@@ -43,6 +38,14 @@ export async function GET(request) {
   const sb = getSupabaseAdmin()
   const startTime = Date.now()
   const deadlineMs = startTime + 270000
+
+  // OSM Overpass is the primary, quota-free supply; Google Places is an optional
+  // top-up only when its quota is healthy. Probe once so a dead quota is skipped
+  // (not burned) and reported rather than silently starving the queue.
+  const places = await probePlacesQuota()
+  if (!places.available) {
+    console.warn(`[prospect] Google Places unavailable (${places.status}: ${places.reason}) — OSM-only this run`)
+  }
 
   const verticalsToRun = onlyVertical && AUTO_VERTICALS.includes(onlyVertical)
     ? [onlyVertical]
@@ -66,6 +69,7 @@ export async function GET(request) {
         dryRun,
         dedup,
         deadlineMs,
+        placesAvailable: places.available,
         log: (m) => console.log(m),
       })
       totalQueued += report.queued
@@ -90,7 +94,8 @@ export async function GET(request) {
 
   return NextResponse.json({
     success: true,
-    source: 'google_places',
+    source: places.available ? 'osm_overpass+google_places' : 'osm_overpass',
+    google_places: { available: places.available, status: places.status, reason: places.reason },
     date: new Date().toISOString().split('T')[0],
     duration_seconds: parseFloat(duration),
     total_discovered: totalDiscovered,

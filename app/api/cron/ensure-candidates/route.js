@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { replenishVertical, buildDedupSets, AUTO_VERTICALS, VERTICAL_NAMES } from '@/lib/prospector/replenish'
 import { dayOfYear } from '@/lib/prospector/regional-centers'
+import { probePlacesQuota } from '@/lib/prospector/google-places'
 
 /**
  * GET /api/cron/ensure-candidates
@@ -39,12 +40,6 @@ export async function GET(request) {
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-  if (!process.env.GOOGLE_PLACES_API_KEY) {
-    return NextResponse.json({
-      error: 'GOOGLE_PLACES_API_KEY not configured — cannot replenish from a verified source',
-    }, { status: 500 })
-  }
-
   const { searchParams } = new URL(request.url)
   const onlyVertical = searchParams.get('vertical')
   const dryRun = searchParams.get('dry_run') === 'true'
@@ -54,6 +49,15 @@ export async function GET(request) {
   const startTime = Date.now()
   const deadlineMs = startTime + TIME_BUDGET_MS
   const rotationSeed = dayOfYear()
+
+  // Primary supply is OSM Overpass (free, no quota). Google Places is an optional
+  // top-up — probe it once so we can skip it entirely when its quota is dead
+  // (every call would OVER_QUERY_LIMIT and burn the budget). The verdict is
+  // surfaced in the response so a lapsed billing account is never a silent starve.
+  const places = await probePlacesQuota()
+  if (!places.available) {
+    console.warn(`[ensure-candidates] Google Places unavailable (${places.status}: ${places.reason}) — OSM-only this run`)
+  }
 
   // Current pending depth for every vertical.
   const depth = {}
@@ -109,6 +113,7 @@ export async function GET(request) {
       dedup,
       rotationSeed,
       deadlineMs,
+      placesAvailable: places.available,
       log: (m) => console.log(m),
     })
     totalQueued += report.queued
@@ -131,6 +136,8 @@ export async function GET(request) {
     duration_seconds: parseFloat(duration),
     total_queued: totalQueued,
     below_floor: belowFloor,
+    primary_source: 'osm_overpass',
+    google_places: { available: places.available, status: places.status, reason: places.reason },
     dry_run: dryRun,
     results,
   })

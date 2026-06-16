@@ -46,7 +46,7 @@
     },
     {
       "path": "/api/cron/ensure-candidates",
-      "schedule": "50 21 * * *"
+      "schedule": "30 20 * * *"
     },
     {
       "path": "/api/health/trail-builder",
