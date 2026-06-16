@@ -16,7 +16,8 @@ const args = process.argv.slice(2)
 const floorArg = args.find(a => a.startsWith('--floor='))
 const vertArg = args.find(a => a.startsWith('--vertical='))
 const FLOOR = floorArg ? parseInt(floorArg.split('=')[1], 10) : 10
-const only = vertArg ? vertArg.split('=')[1] : null
+// --vertical accepts one key or a comma-separated list (e.g. --vertical=rest,corner,table)
+const onlyList = vertArg ? vertArg.split('=')[1].split(',').map(s => s.trim()).filter(Boolean) : null
 
 const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
   global: { fetch: (url, options = {}) => fetch(url, { ...options, cache: 'no-store' }) },
@@ -26,7 +27,13 @@ const places = await probePlacesQuota()
 console.log(`Google Places: ${places.available ? 'AVAILABLE' : 'UNAVAILABLE'} (${places.status}${places.reason ? ': ' + places.reason : ''})`)
 console.log(`Primary source: OSM Overpass — floor ${FLOOR}\n`)
 
-const verticals = only ? [only] : AUTO_VERTICALS
+const verticals = onlyList || AUTO_VERTICALS
+
+// A single continent-wide Overpass query is fast for most verticals, but for the
+// densest ones (restaurants/cafes) it times out — those sweep per-state instead.
+const AU_TOO_DENSE = ['table']
+const POPULOUS_FIRST = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'ACT', 'NT']
+const osmAreasFor = (v) => (AU_TOO_DENSE.includes(v) ? POPULOUS_FIRST : ['AU'])
 const dedup = await buildDedupSets(sb)
 const summary = []
 
@@ -45,7 +52,11 @@ for (const v of verticals) {
       maxNew: FLOOR - pending,
       dedup,
       placesAvailable: places.available,
-      osmMaxResults: 250,
+      // Mostly one continent-wide Overpass query per vertical (far fewer requests
+      // than per-state, so the public instances don't rate-limit the bulk seed);
+      // the densest verticals fall back to per-state to dodge query timeouts.
+      osmAreaOverride: osmAreasFor(v),
+      osmMaxResults: 500,
       log: (m) => console.log('   ' + m),
     })
     console.log(`   → discovered ${report.discovered}, queued ${report.queued}, disqualified ${report.disqualified} ${JSON.stringify(report.disqualified_by_gate)}`)
