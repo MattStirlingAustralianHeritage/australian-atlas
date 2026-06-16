@@ -501,7 +501,9 @@ export async function generateMetadata({ params }) {
       locale: 'en_AU',
       type: 'website',
       images: [
-        isApprovedImageSource(listing.hero_image_url)
+        // Same moderation gate as the visible hero — a flagged/held image must
+        // not leak into social-share cards either; fall back to the generated OG.
+        isApprovedImageSource(listing.hero_image_url) && isHeroDisplayable(listing)
           ? { url: listing.hero_image_url, width: 1200, height: 630, alt: listing.name }
           : { url: `https://australianatlas.com.au/og/${slug}`, width: 1200, height: 630, alt: listing.name },
       ],
