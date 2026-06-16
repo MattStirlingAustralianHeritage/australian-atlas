@@ -2,9 +2,10 @@
 
 import { useState, useCallback } from 'react'
 
-// Surfaces operator hero uploads the moderation model flagged or held, with
-// manual approve (→ display) / reject (→ remove) controls. Backed by
-// POST /api/admin/image-moderation/[id]. Mirrors the Candidate Review surface.
+// Surfaces operator-uploaded listing images (hero AND gallery) the moderation
+// model flagged or held, one row per image, with manual approve (→ display) /
+// reject (→ remove) controls. Backed by POST /api/admin/image-moderation/[id]
+// ({ action, target: 'hero'|'gallery', url? }). Sits in the Candidate Review page.
 
 const VERT_NAMES = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
@@ -33,28 +34,32 @@ function categoryLabel(c) {
 
 export default function FlaggedHeroImages({ initial = [] }) {
   const [items, setItems] = useState(initial)
-  const [busyId, setBusyId] = useState(null)
-  const [errorId, setErrorId] = useState(null)
+  const [busyKey, setBusyKey] = useState(null)
+  const [errorKey, setErrorKey] = useState(null)
 
-  const act = useCallback(async (id, action) => {
-    setBusyId(id)
-    setErrorId(null)
+  const act = useCallback(async (item, action) => {
+    setBusyKey(item.key)
+    setErrorKey(null)
     try {
-      const res = await fetch(`/api/admin/image-moderation/${id}`, {
+      const res = await fetch(`/api/admin/image-moderation/${item.listingId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({
+          action,
+          target: item.kind,
+          ...(item.kind === 'gallery' ? { url: item.url } : {}),
+        }),
       })
       if (!res.ok) {
-        setErrorId(id)
+        setErrorKey(item.key)
         return
       }
       // Approved or rejected → leaves the queue either way.
-      setItems(prev => prev.filter(it => it.id !== id))
+      setItems(prev => prev.filter(it => it.key !== item.key))
     } catch {
-      setErrorId(id)
+      setErrorKey(item.key)
     } finally {
-      setBusyId(null)
+      setBusyKey(null)
     }
   }, [])
 
@@ -62,7 +67,7 @@ export default function FlaggedHeroImages({ initial = [] }) {
     <div style={{ marginBottom: 44 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 4 }}>
         <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)', margin: 0 }}>
-          Hero images awaiting review
+          Images awaiting review
         </h2>
         <span style={{
           fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 600,
@@ -74,24 +79,25 @@ export default function FlaggedHeroImages({ initial = [] }) {
         </span>
       </div>
       <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 13, color: 'var(--color-muted)', margin: '0 0 16px' }}>
-        Operator uploads the AI filter flagged or held. They are hidden from the public site and the vertical sites until approved.
+        Operator-uploaded cover photos and gallery images the AI filter flagged or held. They are hidden from the public site and the vertical sites until approved.
       </p>
 
       {items.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '1.75rem 0', border: '1px dashed var(--color-border, #e5e5e5)', borderRadius: 8 }}>
           <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--color-muted)', margin: 0 }}>
-            No hero images awaiting review.
+            No images awaiting review.
           </p>
         </div>
       ) : (
         <div style={{ display: 'grid', gap: 14 }}>
           {items.map(it => {
-            const status = STATUS_STYLE[it.image_moderation_status] || STATUS_STYLE.held
-            const busy = busyId === it.id
-            const conf = it.image_moderation_confidence
+            const status = STATUS_STYLE[it.status] || STATUS_STYLE.held
+            const busy = busyKey === it.key
+            const conf = it.confidence
             const confPct = (conf || conf === 0) ? `${Math.round(Number(conf) * 100)}%` : null
+            const kindLabel = it.kind === 'gallery' ? 'Gallery photo' : 'Cover photo'
             return (
-              <div key={it.id} style={{
+              <div key={it.key} style={{
                 display: 'flex', gap: 16, padding: 16, borderRadius: 12,
                 border: '1px solid var(--color-border, #e5e5e5)', background: '#fff',
                 flexWrap: 'wrap', alignItems: 'flex-start',
@@ -101,9 +107,9 @@ export default function FlaggedHeroImages({ initial = [] }) {
                   width: 132, height: 132, flexShrink: 0, borderRadius: 8, overflow: 'hidden',
                   background: '#f3f1ec', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                  {it.hero_image_url ? (
+                  {it.url ? (
                     /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={it.hero_image_url} alt={it.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={it.url} alt={it.listingName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
                     <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-muted)' }}>no image</span>
                   )}
@@ -113,7 +119,7 @@ export default function FlaggedHeroImages({ initial = [] }) {
                 <div style={{ flex: '1 1 260px', minWidth: 220 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
                     <span style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 15, color: 'var(--color-ink)' }}>
-                      {it.name}
+                      {it.listingName}
                     </span>
                     <span style={{
                       fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 9, letterSpacing: '0.08em',
@@ -121,6 +127,13 @@ export default function FlaggedHeroImages({ initial = [] }) {
                       padding: '2px 7px', borderRadius: 100, whiteSpace: 'nowrap',
                     }}>
                       {VERT_NAMES[it.vertical] || it.vertical}
+                    </span>
+                    <span style={{
+                      fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 9, letterSpacing: '0.08em',
+                      textTransform: 'uppercase', color: '#6b5d3f', background: '#f3eede',
+                      padding: '2px 8px', borderRadius: 100, whiteSpace: 'nowrap',
+                    }}>
+                      {kindLabel}
                     </span>
                     <span style={{
                       fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 10, letterSpacing: '0.06em',
@@ -132,9 +145,9 @@ export default function FlaggedHeroImages({ initial = [] }) {
                   </div>
 
                   <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 8 }}>
-                    {categoryLabel(it.image_moderation_category) && (
+                    {categoryLabel(it.category) && (
                       <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-ink)' }}>
-                        <strong style={{ fontWeight: 600 }}>Category:</strong> {categoryLabel(it.image_moderation_category)}
+                        <strong style={{ fontWeight: 600 }}>Category:</strong> {categoryLabel(it.category)}
                       </span>
                     )}
                     {confPct && (
@@ -144,30 +157,30 @@ export default function FlaggedHeroImages({ initial = [] }) {
                     )}
                   </div>
 
-                  {it.image_moderation_reason && (
+                  {it.reason && (
                     <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '0 0 12px', lineHeight: 1.4 }}>
-                      {it.image_moderation_reason}
+                      {it.reason}
                     </p>
                   )}
 
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                     <button
                       type="button"
-                      onClick={() => act(it.id, 'approve')}
-                      disabled={busy || !it.hero_image_url}
+                      onClick={() => act(it, 'approve')}
+                      disabled={busy || !it.url}
                       style={{
                         fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 13,
                         color: '#fff', background: '#16a34a', border: 'none',
                         padding: '7px 16px', borderRadius: 6,
-                        cursor: busy || !it.hero_image_url ? 'default' : 'pointer',
-                        opacity: busy || !it.hero_image_url ? 0.55 : 1,
+                        cursor: busy || !it.url ? 'default' : 'pointer',
+                        opacity: busy || !it.url ? 0.55 : 1,
                       }}
                     >
                       {busy ? '…' : 'Approve'}
                     </button>
                     <button
                       type="button"
-                      onClick={() => act(it.id, 'reject')}
+                      onClick={() => act(it, 'reject')}
                       disabled={busy}
                       style={{
                         fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 13,
@@ -179,7 +192,7 @@ export default function FlaggedHeroImages({ initial = [] }) {
                       {busy ? '…' : 'Reject'}
                     </button>
                     <a
-                      href={`/admin/listings/${it.id}`}
+                      href={`/admin/listings/${it.listingId}`}
                       style={{
                         fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12,
                         color: 'var(--color-muted)', textDecoration: 'none', padding: '7px 4px',
@@ -187,7 +200,7 @@ export default function FlaggedHeroImages({ initial = [] }) {
                     >
                       Open listing →
                     </a>
-                    {errorId === it.id && (
+                    {errorKey === it.key && (
                       <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: '#dc2626' }}>
                         Action failed — try again.
                       </span>

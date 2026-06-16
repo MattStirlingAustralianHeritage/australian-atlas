@@ -3,7 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { verifySharedToken } from '@/lib/shared-auth'
 import { updateListing } from '@/lib/admin/updateListing'
 import { isApprovedImageSource } from '@/lib/image-utils'
-import { writeGallery, isListingPaid, MAX_GALLERY_PHOTOS } from '@/lib/listing-gallery'
+import { readGalleryEntries, writeGalleryEntries, galleryModerationStatus, isListingPaid, MAX_GALLERY_PHOTOS } from '@/lib/listing-gallery'
 import { normalizeHighlights } from '@/lib/operator-highlights/normalize'
 import { normalizeSearchKeywords } from '@/lib/search-keywords/normalize'
 import { regenerateListingEmbedding } from '@/lib/embeddings/regenerateOne'
@@ -247,8 +247,14 @@ export async function PATCH(request) {
     }
   }
 
-  // ── gallery → master-only storage manifest (PAID perk: active standard claim) ──
+  // ── gallery → AI-moderated, master-only storage manifest (PAID perk) ──
+  // Every NEW gallery image is triaged before it is eligible for public display,
+  // exactly like the hero (same model, same fail-closed decision). The manifest
+  // carries per-image verdicts; readGallery() returns clean-only URLs so the
+  // public lightbox auto-gates, and a roll-up marker on the listings row lets
+  // Candidate Review find galleries needing review.
   let savedGallery
+  let galleryModeration = null
   if ('gallery_image_urls' in body) {
     const raw = body.gallery_image_urls
     if (!Array.isArray(raw)) {
@@ -269,7 +275,46 @@ export async function PATCH(request) {
     if (urls.length > 0 && user.role !== 'admin' && !(await isListingPaid(sb, listingId))) {
       return NextResponse.json({ error: 'Photo galleries are a paid feature — upgrade this listing to add photos.' }, { status: 403 })
     }
-    savedGallery = await writeGallery(sb, listingId, urls)
+
+    // Reuse an existing CLEAN verdict for an unchanged URL (no re-spend);
+    // moderate everything else — new uploads, and re-checks of held/flagged ones.
+    const prior = await readGalleryEntries(sb, listingId)
+    const priorByUrl = new Map(prior.map(e => [e.url, e]))
+    const entries = []
+    for (const url of urls) {
+      const known = priorByUrl.get(url)
+      if (known && known.status === 'clean') {
+        entries.push(known)
+        continue
+      }
+      const verdict = await moderateImageUrl(url) // approved-source enforced above
+      entries.push({
+        url,
+        status: verdict.status,
+        category: verdict.category || null,
+        reason: verdict.reason || null,
+        confidence: verdict.confidence ?? null,
+        checked_at: new Date().toISOString(),
+      })
+    }
+    const saved = await writeGalleryEntries(sb, listingId, entries)
+
+    // Queryable roll-up marker for Candidate Review (guarded — column lands with
+    // migration 164; pre-migration the manifest still gates display correctly).
+    await sb.from('listings')
+      .update({ gallery_moderation_status: galleryModerationStatus(saved), updated_at: new Date().toISOString() })
+      .eq('id', listingId)
+      .then(({ error }) => { if (error && error.code !== '42703') console.warn('[dashboard] gallery moderation marker failed:', error.message) })
+
+    // Return ALL urls (so the operator's editor keeps held/flagged ones to manage)
+    // plus a per-url status list + counts for the save notice.
+    savedGallery = saved.map(e => e.url)
+    galleryModeration = {
+      statuses: saved.map(e => ({ url: e.url, status: e.status, reason: e.reason })),
+      flagged: saved.filter(e => e.status === 'flagged').length,
+      held: saved.filter(e => e.status === 'held').length,
+      hidden: saved.filter(e => e.status !== 'clean').length,
+    }
   }
 
   // ── operator_highlights → master-only write (never synced; sync-safe by
@@ -346,5 +391,5 @@ export async function PATCH(request) {
   if (fresh && savedHighlights !== undefined) fresh.operator_highlights = savedHighlights
   if (fresh && savedKeywords !== undefined) fresh.search_keywords = savedKeywords
 
-  return NextResponse.json({ success: true, listing: fresh, verticalSync, imageModeration })
+  return NextResponse.json({ success: true, listing: fresh, verticalSync, imageModeration, galleryModeration })
 }

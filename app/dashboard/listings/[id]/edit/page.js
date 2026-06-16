@@ -296,6 +296,7 @@ export default function EditListingPage() {
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState(null)
   const [imageNotice, setImageNotice] = useState(null) // { tone, text } from moderation
+  const [galleryStatus, setGalleryStatus] = useState({}) // url -> { status, reason } for per-photo badges
   const [galleryUploading, setGalleryUploading] = useState(0)
   const [galleryError, setGalleryError] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -348,6 +349,9 @@ export default function EditListingPage() {
               setPhone(p)
               setHeroImageUrl(h)
               setGallery(g)
+              if (Array.isArray(l.gallery_moderation)) {
+                setGalleryStatus(Object.fromEntries(l.gallery_moderation.map(s => [s.url, { status: s.status, reason: s.reason }])))
+              }
               setDays(d)
               setBaseline(w, p, h, d, g)
             }
@@ -525,12 +529,24 @@ export default function EditListingPage() {
         } else {
           setBaseline(website, phone, heroImageUrl, days, gallery)
         }
-        // Hero moderation feedback: a flagged/held upload won't appear publicly.
+        // Image-moderation feedback for hero + gallery: anything flagged or held
+        // won't appear publicly until it passes / an admin approves it.
         const mod = data.imageModeration
-        if (mod && mod.status === 'flagged') {
-          setImageNotice({ tone: 'error', text: `This photo can’t be published${mod.reason ? `: ${mod.reason}` : ''}. Please choose a different image.` })
-        } else if (mod && mod.status === 'held') {
-          setImageNotice({ tone: 'warn', text: 'Your photo has been submitted for review and will appear once approved.' })
+        const gmod = data.galleryModeration
+        const msgs = []
+        let tone = 'warn'
+        if (mod && mod.status === 'flagged') { msgs.push(`Your cover photo can’t be published${mod.reason ? `: ${mod.reason}` : ''}.`); tone = 'error' }
+        else if (mod && mod.status === 'held') { msgs.push('Your cover photo is under review and will appear once approved.') }
+        if (gmod && gmod.hidden > 0) {
+          const parts = []
+          if (gmod.flagged) parts.push(`${gmod.flagged} can’t be published`)
+          if (gmod.held) parts.push(`${gmod.held} under review`)
+          msgs.push(`${gmod.hidden} gallery photo${gmod.hidden === 1 ? '' : 's'} won’t appear yet${parts.length ? ` (${parts.join(', ')})` : ''}.`)
+          if (gmod.flagged) tone = 'error'
+        }
+        setImageNotice(msgs.length ? { tone, text: msgs.join(' ') } : null)
+        if (gmod && Array.isArray(gmod.statuses)) {
+          setGalleryStatus(Object.fromEntries(gmod.statuses.map(s => [s.url, { status: s.status, reason: s.reason }])))
         }
         setHoursEditing(false)
         setJustSaved(true)
@@ -903,9 +919,22 @@ export default function EditListingPage() {
               <>
                 {galleryError && <div style={errBox}>{galleryError}</div>}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12 }}>
-                  {gallery.map((url, i) => (
+                  {gallery.map((url, i) => {
+                    const gst = galleryStatus[url]?.status
+                    const blocked = gst === 'flagged' || gst === 'held'
+                    return (
                     <div key={url} className="aa-gtile" style={galleryTile}>
-                      <img src={url} alt={`Photo ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      <img src={url} alt={`Photo ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: blocked ? 0.5 : 1 }} />
+                      {blocked && (
+                        <span title={galleryStatus[url]?.reason || ''} style={{
+                          position: 'absolute', top: 8, left: 8, zIndex: 2,
+                          fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 600, letterSpacing: '0.03em',
+                          padding: '3px 8px', borderRadius: 100, color: '#fff',
+                          background: gst === 'flagged' ? 'rgba(220,38,38,0.92)' : 'rgba(180,83,9,0.92)',
+                        }}>
+                          {gst === 'flagged' ? 'Not shown' : 'Under review'}
+                        </span>
+                      )}
                       <span style={galleryIndex}>{i + 1}</span>
                       <div className="aa-gtile-bar" style={galleryTileBar}>
                         <button type="button" onClick={() => moveGallery(i, -1)} disabled={i === 0} aria-label="Move earlier" title="Move earlier" style={{ ...gBtn, opacity: i === 0 ? 0.4 : 1, cursor: i === 0 ? 'default' : 'pointer' }}>&lsaquo;</button>
@@ -913,7 +942,8 @@ export default function EditListingPage() {
                         <button type="button" onClick={() => moveGallery(i, 1)} disabled={i === gallery.length - 1} aria-label="Move later" title="Move later" style={{ ...gBtn, opacity: i === gallery.length - 1 ? 0.4 : 1, cursor: i === gallery.length - 1 ? 'default' : 'pointer' }}>&rsaquo;</button>
                       </div>
                     </div>
-                  ))}
+                    )
+                  })}
                   {Array.from({ length: galleryUploading }).map((_, k) => (
                     <div key={`up-${k}`} style={{ ...galleryTile, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-muted)' }}>Uploading…</span>

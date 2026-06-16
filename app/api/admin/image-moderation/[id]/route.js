@@ -3,16 +3,21 @@ import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
 import { updateListing } from '@/lib/admin/updateListing'
+import { readGalleryEntries, writeGalleryEntries, galleryModerationStatus } from '@/lib/listing-gallery'
 
 /**
- * POST /api/admin/image-moderation/[id] — manual decision on a moderated hero.
+ * POST /api/admin/image-moderation/[id] — manual decision on a moderated image.
  *
- * Body: { action: 'approve' | 'reject' }
- *   approve → image_moderation_status = 'clean'. The now-cleared hero is pushed
- *             to the vertical source DB (the sync gate allows a clean hero).
- *   reject  → the hero is removed (hero_image_url = null, synced) and the row
- *             leaves the moderation queue (status → 'pending', the neutral
- *             no-hero state). A future re-upload is re-moderated from scratch.
+ * Body: { action: 'approve' | 'reject', target?: 'hero' | 'gallery', url?: string }
+ *   target 'hero' (default):
+ *     approve → image_moderation_status = 'clean'; the hero is pushed to the
+ *               vertical source DB (the sync gate allows a clean hero).
+ *     reject  → hero removed (hero_image_url = null, synced); status → 'pending'.
+ *   target 'gallery' (requires `url`):
+ *     approve → that manifest entry's status → 'clean' (now publicly visible).
+ *     reject  → that image is removed from the gallery manifest.
+ *     The listings.gallery_moderation_status roll-up is recomputed either way.
+ *     (Gallery is master-only — no vertical sync.)
  *
  * Auth: admin cookie (checkAdmin), same as the rest of /api/admin/*.
  */
@@ -41,7 +46,30 @@ export async function POST(request, { params }) {
 
   const sb = getSupabaseAdmin()
   const now = new Date().toISOString()
+  const target = body?.target === 'gallery' ? 'gallery' : 'hero'
 
+  // ── Gallery image: act on its per-image verdict in the storage manifest ──
+  if (target === 'gallery') {
+    const url = typeof body?.url === 'string' ? body.url : ''
+    if (!url) {
+      return NextResponse.json({ error: 'Missing gallery image url' }, { status: 400 })
+    }
+    const entries = await readGalleryEntries(sb, id)
+    if (!entries.some(e => e.url === url)) {
+      return NextResponse.json({ error: 'Gallery image not found' }, { status: 404 })
+    }
+    const next = action === 'approve'
+      ? entries.map(e => (e.url === url ? { ...e, status: 'clean', reason: 'Approved by admin', checked_at: now } : e))
+      : entries.filter(e => e.url !== url) // reject → drop it from the gallery
+    const saved = await writeGalleryEntries(sb, id, next)
+    await sb.from('listings')
+      .update({ gallery_moderation_status: galleryModerationStatus(saved), updated_at: now })
+      .eq('id', id)
+      .then(({ error }) => { if (error && error.code !== '42703') console.warn('[image-moderation] gallery marker update failed:', error.message) })
+    return NextResponse.json({ success: true, target: 'gallery', action, status: action === 'approve' ? 'clean' : 'removed' })
+  }
+
+  // ── Hero image (default) ──
   const { data: row, error: readErr } = await sb
     .from('listings')
     .select('id, hero_image_url, image_moderation_status')
