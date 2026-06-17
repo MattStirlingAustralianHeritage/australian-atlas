@@ -204,6 +204,14 @@ function ResearchedPitch({ result, name, formVertical, onDiscard }) {
           vertical: effVertical || undefined,
           listingId: L?.id || undefined,
           region: L?.region || undefined,
+          slotType: result.slot_type || undefined,
+          // Provenance lives on the result, not pitch_data — pass it through so
+          // the Editorial Queue can show how this pitch was researched.
+          provenance: {
+            prompt_version: result.prompt_version || null,
+            generated_by: result.generated_by || null,
+            generated_at: result.generated_at || null,
+          },
           pitch,
         }),
       })

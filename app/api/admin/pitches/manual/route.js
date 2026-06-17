@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
 import { runManualPipeline } from '@/lib/pitch/manual/pipeline.mjs'
+import { buildStoryIdeaFromPitch } from '@/lib/pitch/storyIdea.mjs'
 
 // Research runs a website fetch + up to two LLM compositions + two prose-verify
 // calls, so allow the same budget as the other admin LLM-gate routes.
@@ -93,7 +94,6 @@ async function handleKeep(body) {
 
   const name = typeof body?.name === 'string' ? body.name.trim() : ''
   const headline = typeof pitch.headline === 'string' ? pitch.headline.trim() : ''
-  const angle = typeof pitch.angle === 'string' ? pitch.angle.trim() : ''
   if (!name && !headline) {
     return NextResponse.json({ error: 'Nothing to keep — the pitch has no name or headline.' }, { status: 400 })
   }
@@ -104,21 +104,42 @@ async function handleKeep(body) {
     typeof body?.listingId === 'string' && UUID_RE.test(body.listingId.trim())
       ? body.listingId.trim()
       : null
+  const slotType =
+    body?.slotType === 'new_producer' ? 'new_producer'
+    : body?.slotType === 'general' ? 'general'
+    : null
+
+  // The manual researcher has no pitches row, so the snapshot is the only record
+  // of how the pitch was made. Fold in the slot type and the provenance the
+  // client carries from the research result (prompt version, model, timestamp).
+  const prov = body?.provenance && typeof body.provenance === 'object' ? body.provenance : {}
+  const snapshot = {
+    ...pitch,
+    slot_type: slotType,
+    prompt_version: typeof prov.prompt_version === 'string' ? prov.prompt_version : null,
+    generated_by: typeof prov.generated_by === 'string' ? prov.generated_by : null,
+    generated_at: typeof prov.generated_at === 'string' ? prov.generated_at : null,
+  }
 
   const sb = getSupabaseAdmin()
   try {
+    // Carry the full researched pitch through to the Editorial Queue — headline,
+    // angle, editorial framing, verified facts and research-needed list — via the
+    // same shared mapper the auto-triage keep uses, so both feeds are identical.
     const { error: ideaErr } = await sb
       .from('story_ideas')
-      .insert({
-        venue_name: name || headline || null,
-        listing_id: listingId,
-        vertical,
-        region,
-        story_angle: headline || angle || null,
-        notes: composeNotes(pitch),
-        source: 'manual_pitch',
-        status: 'in_progress',
-      })
+      .insert(
+        buildStoryIdeaFromPitch(pitch, {
+          venueName: name || headline || null,
+          region,
+          listingId,
+          vertical,
+          slotType,
+          source: 'manual_pitch',
+          pitchId: null,
+          snapshot,
+        })
+      )
     if (ideaErr) throw ideaErr
     return NextResponse.json({ success: true, action: 'kept' })
   } catch (err) {
@@ -171,26 +192,4 @@ function extractSlugCandidate(ref) {
     // not a URL — fall through
   }
   return ref
-}
-
-/**
- * Fold the researched brief into the story_ideas.notes column so the editor
- * sees the angle, the creative framing, and any open research items — not just
- * the headline. Plain text; story_ideas has no structured pitch storage.
- */
-function composeNotes(pitch) {
-  const parts = []
-  const angle = typeof pitch.angle === 'string' ? pitch.angle.trim() : ''
-  const framing = typeof pitch.editorial_framing === 'string' ? pitch.editorial_framing.trim() : ''
-  if (angle) parts.push(angle)
-  if (framing) parts.push(`Editorial framing: ${framing}`)
-
-  if (Array.isArray(pitch.research_needed) && pitch.research_needed.length) {
-    const items = pitch.research_needed
-      .filter(s => typeof s === 'string' && s.trim())
-      .map(s => `  - ${s.trim()}`)
-    if (items.length) parts.push(`Research needed before publishing:\n${items.join('\n')}`)
-  }
-
-  return parts.length ? parts.join('\n\n') : null
 }

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
+import { buildStoryIdeaFromPitch } from '@/lib/pitch/storyIdea.mjs'
 
 // ─── GET — list active pitches awaiting triage ─────────────
 export async function GET() {
@@ -75,9 +76,13 @@ export async function POST(request) {
         .insert({ pitch_id: pitchId })
       if (insErr) throw insErr
 
-      // Surface it on /admin/editorial as an in-progress piece. anchor_listing_id
-      // is FK-guaranteed to be a real listings row (or null), so it's safe to
-      // reuse as story_ideas.listing_id; we read the listing only for display.
+      // Surface it on /admin/editorial as an in-progress piece, carrying the
+      // ENTIRE pitch through — headline, angle, editorial framing, verified
+      // facts, research-needed list, supporting venues, scores and provenance —
+      // not just the headline. The writer who picks this up needs the grounded
+      // facts to avoid hallucinating. anchor_listing_id is FK-guaranteed to be a
+      // real listings row (or null), so it's safe to reuse as
+      // story_ideas.listing_id; we read the listing only for display name/region.
       let venueName = null
       let region = null
       if (pitch.anchor_listing_id) {
@@ -92,16 +97,18 @@ export async function POST(request) {
 
       const { error: ideaErr } = await sb
         .from('story_ideas')
-        .insert({
-          venue_name: venueName,
-          listing_id: pitch.anchor_listing_id ?? null,
-          vertical: pitch.vertical ?? null,
-          region,
-          story_angle: pitch.headline || pitch.angle || null,
-          notes: pitch.headline ? (pitch.angle || null) : null,
-          source: 'pitch',
-          status: 'in_progress',
-        })
+        .insert(
+          buildStoryIdeaFromPitch(pitch, {
+            venueName,
+            region,
+            listingId: pitch.anchor_listing_id ?? null,
+            vertical: pitch.vertical ?? null,
+            slotType: pitch.slot_type ?? null,
+            source: 'pitch',
+            pitchId: pitch.id,
+            snapshot: pitch,
+          })
+        )
       if (ideaErr) throw ideaErr
 
       const { error: updErr } = await sb
