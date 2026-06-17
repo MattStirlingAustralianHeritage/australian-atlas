@@ -55,7 +55,15 @@ export async function middleware(request, event) {
   }
 
   // ── Council routes: validate HMAC-signed session cookie ──
-  if (pathname.startsWith('/council') && !pathname.startsWith('/council/login') && !pathname.startsWith('/council/enquire')) {
+  // Public council surfaces are exempt: login, enquire, the example report, and
+  // the print-optimised region report (/council/{slug}/report) — a white-label
+  // deliverable meant to be shared/printed, exposing only aggregate region data.
+  const isPublicCouncilRoute =
+    pathname.startsWith('/council/login') ||
+    pathname.startsWith('/council/enquire') ||
+    pathname === '/council/example' ||
+    /^\/council\/[^/]+\/report$/.test(pathname)
+  if (pathname.startsWith('/council') && !isPublicCouncilRoute) {
     const councilCookie = request.cookies.get('council_session')
     const valid = await validateCouncilHmac(councilCookie?.value)
     if (!valid) {

@@ -48,6 +48,17 @@ body {
   overflow-x: clip;
 }
 
+/* Print: drop site chrome and interactive controls so print-to-PDF surfaces
+   (e.g. the council region report) render as a clean document. `.no-print`
+   hides any control opted out of print; `.print-avoid-break` keeps a card
+   from splitting across pages. */
+@media print {
+  nav, footer, .no-print { display: none !important; }
+  html, body { background: #fff !important; }
+  .print-avoid-break { break-inside: avoid; page-break-inside: avoid; }
+  @page { margin: 14mm; }
+}
+
 h1, h2, h3, h4, h5, h6 {
   line-height: 1.3;
 }

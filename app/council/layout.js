@@ -63,8 +63,16 @@ export default function CouncilLayout({ children }) {
   const router = useRouter()
   const pathname = usePathname()
 
-  // Skip layout for login page
-  if (pathname === '/council/login' || pathname === '/council/enquire') {
+  // Skip the dashboard chrome (sidebar + auth fetch) for standalone pages:
+  // login/enquire, the public example, and the print-optimised region report
+  // (/council/{slug}/report). These render bare so the report prints cleanly and
+  // the example is publicly viewable.
+  const isStandalone =
+    pathname === '/council/login' ||
+    pathname === '/council/enquire' ||
+    pathname === '/council/example' ||
+    /^\/council\/[^/]+\/report$/.test(pathname)
+  if (isStandalone) {
     return children
   }
 
