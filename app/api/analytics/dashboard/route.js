@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { computeDashboard } from '@/lib/analytics/aggregate'
+import { computeDashboardPreferRpc } from '@/lib/analytics/aggregate'
 import { cookies } from 'next/headers'
 import { checkAdmin } from '@/lib/admin-auth'
 
@@ -40,12 +40,12 @@ export async function GET(request) {
 
   try {
     const t0 = Date.now()
-    const { traffic, geo, timeline, topPages, totalUniqueVisitors, windowTotal, humanRows, botRows } =
-      await computeDashboard(sb, { since, vertical })
+    const { traffic, geo, timeline, topPages, totalUniqueVisitors, windowTotal, humanRows, botRows, source } =
+      await computeDashboardPreferRpc(sb, { since, vertical })
 
     console.log(JSON.stringify({
       event: 'analytics_dashboard',
-      range, vertical, since,
+      range, vertical, since, source,
       windowTotal, humanRows, botRows,
       totalUniqueVisitors, verticals: traffic.length,
       ms: Date.now() - t0,

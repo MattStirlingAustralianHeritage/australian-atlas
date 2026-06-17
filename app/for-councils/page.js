@@ -394,7 +394,7 @@ export default async function ForCouncilsPage() {
             },
             {
               title: 'Analytics & reporting',
-              desc: 'Understand how your region performs on the network: which listings are viewed, which trails feature your venues, and how visitors discover your area.',
+              desc: 'Understand how your region performs on the network: which listings are viewed, where visitors come from, and what they search for. Export a white-label PDF report any time.',
               icon: (
                 <svg width="24" height="24" fill="none" stroke="var(--color-sage)" strokeWidth="1.5" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6a7.5 7.5 0 107.5 7.5h-7.5V6z" />
@@ -422,6 +422,25 @@ export default async function ForCouncilsPage() {
               </p>
             </div>
           ))}
+        </div>
+
+        {/* Example report CTA */}
+        <div style={{ textAlign: 'center', marginTop: 40 }}>
+          <Link
+            href="/council/example"
+            style={{
+              display: 'inline-block', fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500,
+              color: 'white', background: 'var(--color-sage)', padding: '12px 28px', borderRadius: 99,
+              textDecoration: 'none',
+            }}
+          >
+            See an example regional report →
+          </Link>
+          <p style={{
+            fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', marginTop: 12,
+          }}>
+            A live sample built from real Australian Atlas data &mdash; the actual deliverable, not a mock-up.
+          </p>
         </div>
       </section>
 

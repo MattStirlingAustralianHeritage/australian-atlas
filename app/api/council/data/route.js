@@ -1,7 +1,17 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
+import { excludeTestListings, excludeNeedsReview } from '@/lib/listings/publicFilter'
 import { validateCouncilSession } from '@/lib/council-session'
+import { computeRegionMetricsBatch } from '@/lib/analytics/regionMetrics'
+
+// Council reporting window. The pageviews dataset is young; 90 days captures the
+// full history and matches a quarterly council reporting cadence.
+const RANGE_DAYS = { '30d': 30, '90d': 90, '1y': 365 }
+function sinceFromRange(range) {
+  const days = RANGE_DAYS[range] || 90
+  return new Date(Date.now() - days * 86400000).toISOString()
+}
 
 // GET: Fetch council dashboard data
 export async function GET(req) {
@@ -39,21 +49,23 @@ export async function GET(req) {
     }))
 
     const regionSlugs = regions.map(r => r.slug)
+    // Trustworthy region attribution is by FK (region_override_id |
+    // region_computed_id), exposed as listings_with_region.region_id. The legacy
+    // listings.region_slug column this route used does not exist on listings, so
+    // every listing query here was erroring/empty.
+    const regionIds = regions.map(r => r.id).filter(Boolean)
 
     if (view === 'overview') {
-      // Get listing counts for managed regions
+      // Get listing counts for managed regions (FK attribution, public-only).
       let totalListings = 0
       let listingsByVertical = {}
 
-      if (regionSlugs.length > 0) {
-        const { data: listings } = await sb
-          .from('listings')
-          .select('id, vertical, region_slug')
-          .eq('status', 'active')
-          .in('region_slug', regionSlugs)
-
-        totalListings = listings?.length || 0
-        listingsByVertical = (listings || []).reduce((acc, l) => {
+      if (regionIds.length > 0) {
+        const rows = await fetchAllRegionListings(sb, regionIds, 'slug, vertical')
+        // listings_with_region yields one row per (slug, vertical); count venues
+        // by distinct slug so a cross-vertical venue isn't double-counted.
+        totalListings = new Set(rows.map(l => l.slug)).size
+        listingsByVertical = rows.reduce((acc, l) => {
           acc[l.vertical] = (acc[l.vertical] || 0) + 1
           return acc
         }, {})
@@ -88,27 +100,28 @@ export async function GET(req) {
     }
 
     if (view === 'listings') {
-      if (regionSlugs.length === 0) {
+      if (regionIds.length === 0) {
         return NextResponse.json({ council, regions: [], listings: [] })
       }
 
-      // Always validate region param against server-side assigned regions
+      // Validate the region param against server-side assigned regions, then
+      // resolve to its id for FK-based filtering via listings_with_region.
       const requestedRegion = searchParams.get('region')
-      const regionSlug = (requestedRegion && regionSlugs.includes(requestedRegion))
-        ? requestedRegion
-        : regionSlugs[0]
+      const region = (requestedRegion && regions.find(r => r.slug === requestedRegion)) || regions[0]
       const vertical = searchParams.get('vertical')
       const page = parseInt(searchParams.get('page') || '1')
       const perPage = 50
 
-      let query = sb
-        .from('listings')
-        .select('id, name, vertical, status, region_slug, suburb, state, website, hero_image_url, listing_type, created_at', { count: 'exact' })
-        .eq('region_slug', regionSlug)
-        .eq('status', 'active')
+      let query = excludeNeedsReview(excludeTestListings(
+        sb
+          .from('listings_with_region')
+          .select('id, name, vertical, status, suburb, state, website, hero_image_url, created_at', { count: 'exact' })
+          .eq('region_id', region.id)
+          .eq('status', 'active'),
+      ))
 
       if (vertical) {
-        query = filterByVertical(query, vertical, await relationHasVerticals(sb, 'listings'))
+        query = filterByVertical(query, vertical, await relationHasVerticals(sb, 'listings_with_region'))
       }
 
       const { data: listings, count } = await query
@@ -137,32 +150,41 @@ export async function GET(req) {
         })
       }
 
-      if (regionSlugs.length === 0) {
-        return NextResponse.json({ council, regions, analytics: { views: 0, clicks: 0, searches: 0 } })
+      const range = searchParams.get('range') || '90d'
+      const since = sinceFromRange(range)
+
+      if (regionIds.length === 0) {
+        return NextResponse.json({
+          council, regions, range, since,
+          analytics: { views: 0, clicks: 0, searches: 0, regions: [] },
+        })
       }
 
-      // Get analytics for the last 30 days
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+      // Real region-scoped metrics from pageviews + search_logs (bot-filtered),
+      // computed once over shared windows and aggregated per managed region.
+      const perRegion = await computeRegionMetricsBatch(sb, regions, { since, limit: 10 })
 
-      const { data: analyticsData } = await sb
-        .from('listing_analytics')
-        .select('event_type, region_slug, created_at')
-        .in('region_slug', regionSlugs)
-        .gte('created_at', thirtyDaysAgo)
-
-      const analytics = (analyticsData || []).reduce((acc, e) => {
-        acc[e.event_type] = (acc[e.event_type] || 0) + 1
+      // Network-card totals: sum across the council's regions.
+      const totals = perRegion.reduce((acc, m) => {
+        acc.views += m.regionPageViews
+        acc.clicks += m.totalClicks
+        acc.searches += m.topSearches.reduce((s, q) => s + q.count, 0)
+        acc.newListings += m.newListings
         return acc
-      }, {})
+      }, { views: 0, clicks: 0, searches: 0, newListings: 0 })
 
       return NextResponse.json({
         council,
         regions,
+        range,
+        since,
         analytics: {
-          views: analytics.view || 0,
-          clicks: analytics.click || 0,
-          searches: analytics.search_appearance || 0,
-          period: '30d',
+          views: totals.views,
+          clicks: totals.clicks,
+          searches: totals.searches,
+          newListings: totals.newListings,
+          period: range,
+          regions: perRegion,
         },
       })
     }
@@ -196,4 +218,26 @@ export async function GET(req) {
     console.error('Council data error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
+}
+
+/**
+ * Fetch all active, public listings across the given region ids (FK attribution
+ * via listings_with_region), paginating past PostgREST's 1000-row cap so totals
+ * aren't silently truncated.
+ */
+async function fetchAllRegionListings(sb, regionIds, select) {
+  const rows = []
+  const pageSize = 1000
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await excludeNeedsReview(excludeTestListings(
+      sb.from('listings_with_region')
+        .select(select)
+        .eq('status', 'active')
+        .in('region_id', regionIds),
+    )).order('slug', { ascending: true }).range(from, from + pageSize - 1)
+    if (error) throw error
+    rows.push(...(data || []))
+    if (!data || data.length < pageSize) break
+  }
+  return rows
 }
