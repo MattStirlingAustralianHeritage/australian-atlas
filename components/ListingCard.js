@@ -81,11 +81,93 @@ export function TypographicCard({
   size = 'card',
   aspectRatio = '4/5',
   showVerticalTag = false,
+  align = 'center',
+  ground,
+  textColor,
+  eyebrow,
 }) {
   const tokens = VERTICAL_TOKENS[vertical] || VERTICAL_TOKENS.portal
+  // Callers may override the ground/text (e.g. the events surface drives the
+  // ground off event category, not vertical). Defaults preserve the listing
+  // treatment exactly.
+  const bg = ground || tokens.bg
+  const text = textColor || tokens.text
   const isField = vertical === 'field'
   const isHero = size === 'hero'
   const categoryLabel = formatCategory(category)
+
+  // ── Poster variant: eyebrow top-left, serif title lower-left, cream on the
+  // ground. Used by the events surface; listings use the centred default
+  // below (unchanged). ──
+  if (align === 'poster') {
+    const posterEyebrow = (eyebrow != null ? eyebrow : categoryLabel) || null
+    const padding = isHero ? 'clamp(1.75rem, 5vw, 4rem)' : '1.25rem'
+    const eyebrowSize = isHero ? 12 : 10
+    const titleSize = isHero ? 'clamp(2.25rem, 5.5vw, 4rem)' : 'clamp(1.4rem, 4.5vw, 1.9rem)'
+    const titleLineHeight = isHero ? 1.06 : 1.15
+    const posterStyle = {
+      position: 'relative',
+      ...(isHero ? {} : { aspectRatio }),
+      borderRadius: isHero ? 0 : 'var(--radius-card)',
+      overflow: 'hidden',
+      background: bg,
+      color: text,
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      padding,
+      textAlign: 'left',
+    }
+    return (
+      <div className={isHero ? 'atlas-hero-band' : undefined} style={posterStyle}>
+        {/* Dot grid texture */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          backgroundImage: `radial-gradient(circle, ${text} 1px, transparent 1px)`,
+          backgroundSize: '16px 16px',
+          opacity: isHero ? 0.06 : 0.08,
+          pointerEvents: 'none',
+        }} />
+        {isField && <TopoLines color={text} />}
+
+        {/* Eyebrow — category, top-left */}
+        <div style={{ position: 'relative', zIndex: 1, width: '100%' }}>
+          {posterEyebrow && (
+            <p style={{
+              fontFamily: 'var(--font-body, "DM Sans", system-ui)',
+              fontSize: eyebrowSize, fontWeight: 500, letterSpacing: '0.15em',
+              textTransform: 'uppercase', opacity: isHero ? 0.7 : 0.6,
+              margin: 0, lineHeight: 1.4,
+            }}>
+              {posterEyebrow}
+            </p>
+          )}
+        </div>
+
+        {/* Title — display serif, roman, lower-left (poster style) */}
+        <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: isHero ? 880 : '100%' }}>
+          {isHero ? (
+            <h1 style={{
+              fontFamily: 'var(--font-display, "Playfair Display", Georgia)',
+              fontSize: titleSize, fontWeight: 400, fontStyle: 'normal', margin: 0,
+              lineHeight: titleLineHeight, letterSpacing: '0.005em',
+            }}>
+              {name}
+            </h1>
+          ) : (
+            <p style={{
+              fontFamily: 'var(--font-display, "Playfair Display", Georgia)',
+              fontSize: titleSize, fontWeight: 400, fontStyle: 'normal', margin: 0,
+              lineHeight: titleLineHeight, letterSpacing: '0.005em',
+            }}>
+              {name}
+            </p>
+          )}
+        </div>
+      </div>
+    )
+  }
   const topLine = showVerticalTag
     ? `${tokens.label}${categoryLabel ? `  \u00B7  ${categoryLabel}` : ''}`.toUpperCase()
     : categoryLabel
