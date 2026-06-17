@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getPublicVerticals } from '@/lib/verticalUrl'
 import { relationHasVerticals } from '@/lib/listings/verticalFilter'
+import { excludeNeedsReview, excludeTestListings } from '@/lib/listings/publicFilter'
 
 // Cache for 5 minutes via ISR — avoids Vercel timeout on every request
 export const revalidate = 300
@@ -47,6 +48,10 @@ export async function GET() {
       [
         q => q.eq('status', 'active'),
         q => q.in('vertical', publicVerticals),
+        // Match the /place/[slug] detail-page visibility gate so a pin never
+        // links to a 404: drop needs_review=true venues and admin fixtures.
+        q => excludeNeedsReview(q),
+        q => excludeTestListings(q),
         q => q.not('lat', 'is', null),
         q => q.not('lng', 'is', null),
         q => q.or('address_on_request.eq.false,address_on_request.is.null'),

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
+import { getPublicVerticals } from '@/lib/verticalUrl'
+import { excludeNeedsReview, excludeTestListings } from '@/lib/listings/publicFilter'
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url)
@@ -18,21 +20,33 @@ export async function GET(request) {
   if (!safe) return NextResponse.json({ results: [] })
 
   try {
-    // Parallel queries: name matches, suburb matches, region matches
+    // Parallel queries: name matches, suburb matches, region matches.
+    // The listings queries must apply the SAME public-visibility gate as the
+    // /place/[slug] detail page (status=active + needs_review≠true + public
+    // vertical + no admin fixtures). Without it, autocomplete suggests places
+    // whose detail page 404s — e.g. an approved listing flagged needs_review
+    // would surface here but dead-link on click (the original Port Fairy bug).
+    const publicVerticals = getPublicVerticals()
     const [nameRes, suburbRes, regionRes] = await Promise.all([
-      sb.from('listings')
-        .select(`id, name, slug, vertical, region, state, suburb, ${LISTING_REGION_SELECT}`)
-        .eq('status', 'active')
-        .or(`name.ilike.${safe}%,name.ilike.% ${safe}%`)
+      excludeTestListings(excludeNeedsReview(
+        sb.from('listings')
+          .select(`id, name, slug, vertical, region, state, suburb, ${LISTING_REGION_SELECT}`)
+          .eq('status', 'active')
+          .in('vertical', publicVerticals)
+          .or(`name.ilike.${safe}%,name.ilike.% ${safe}%`)
+      ))
         .order('quality_score', { ascending: false, nullsFirst: false })
         .order('is_claimed', { ascending: false })
         .limit(6),
 
-      sb.from('listings')
-        .select(`suburb, state, region, ${LISTING_REGION_SELECT}`)
-        .eq('status', 'active')
-        .not('suburb', 'is', null)
-        .ilike('suburb', `${prefix}%`)
+      excludeTestListings(excludeNeedsReview(
+        sb.from('listings')
+          .select(`suburb, state, region, ${LISTING_REGION_SELECT}`)
+          .eq('status', 'active')
+          .in('vertical', publicVerticals)
+          .not('suburb', 'is', null)
+          .ilike('suburb', `${prefix}%`)
+      ))
         .limit(20),
 
       sb.from('regions')
