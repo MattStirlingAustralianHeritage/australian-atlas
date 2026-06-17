@@ -5,6 +5,7 @@ import { getVerticalLabel, VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 import VerticalBadge from '@/components/VerticalBadge'
 import ClaimForm from './ClaimForm'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
+import { getCurrentLegalDocuments, CLAIM_REQUIRED_DOC_TYPES } from '@/lib/legal/documents'
 
 export const revalidate = 3600
 
@@ -59,6 +60,9 @@ export default async function ClaimPage({ params }) {
   const descriptionSnippet = listing.description
     ? listing.description.slice(0, 200) + (listing.description.length > 200 ? '...' : '')
     : null
+
+  // Current legal docs (rendered from the DB so wording is a data change, not code).
+  const legalDocs = await getCurrentLegalDocuments(getSupabaseAdmin(), CLAIM_REQUIRED_DOC_TYPES)
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--color-bg)' }}>
@@ -160,6 +164,7 @@ export default async function ClaimPage({ params }) {
             listingName={listing.name}
             slug={listing.slug}
             vertColor={vertColor}
+            legalDocs={legalDocs}
           />
         )}
       </div>

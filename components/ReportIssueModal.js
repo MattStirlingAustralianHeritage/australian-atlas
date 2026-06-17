@@ -11,7 +11,7 @@ const REPORT_TYPES = [
 
 const DETAIL_TYPES = ['incorrect_info', 'request_deletion']
 
-export default function ReportIssueModal({ listingId, listingName, onClose }) {
+export default function ReportIssueModal({ listingId, listingName, slug, onClose }) {
   const [selected, setSelected] = useState(null)
   const [details, setDetails] = useState('')
   const [contactEmail, setContactEmail] = useState('')
@@ -152,6 +152,16 @@ export default function ReportIssueModal({ listingId, listingName, onClose }) {
             }}
           />
         )}
+
+        {/* Notice-and-takedown entry point for rights holders. */}
+        <div style={{ borderTop: '1px solid var(--color-border)', margin: '4px 0 14px', paddingTop: 14 }}>
+          <a
+            href={`/report-infringement?${new URLSearchParams({ ...(slug ? { slug } : {}), ...(listingName ? { name: listingName } : {}) }).toString()}`}
+            style={{ fontFamily: 'var(--font-body)', fontSize: 12.5, color: 'var(--color-muted)', textDecoration: 'underline' }}
+          >
+            Report a copyright or intellectual-property issue →
+          </a>
+        </div>
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={{

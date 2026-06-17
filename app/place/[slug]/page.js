@@ -780,7 +780,7 @@ export default async function PlacePage({ params }) {
               </div>
             </div>
 
-            <ReportIssueButton listingId={listing.id} listingName={listing.name} />
+            <ReportIssueButton listingId={listing.id} listingName={listing.name} slug={listing.slug} />
           </div>
 
           {/* Sidebar — meta details. The small map that used to live here is

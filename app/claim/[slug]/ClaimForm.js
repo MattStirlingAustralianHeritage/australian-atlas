@@ -21,7 +21,7 @@ const TIERS = [
   },
 ]
 
-export default function ClaimForm({ listingId, listingName, slug, vertColor }) {
+export default function ClaimForm({ listingId, listingName, slug, vertColor, legalDocs = {} }) {
   const router = useRouter()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -29,14 +29,34 @@ export default function ClaimForm({ listingId, listingName, slug, vertColor }) {
   const [tier, setTier] = useState('free')
   const [websiteDomain, setWebsiteDomain] = useState('')
   const [honeypot, setHoneypot] = useState('')
+  const [agreedOperator, setAgreedOperator] = useState(false)
+  const [agreedUpload, setAgreedUpload] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [paymentPending, setPaymentPending] = useState(false)
   const [error, setError] = useState(null)
 
+  const operatorDoc = legalDocs.operator_agreement || null
+  const uploadDoc = legalDocs.upload_terms || null
+  // Fail closed: if the current legal docs can't be loaded, the claim can't be
+  // completed (the server independently enforces this too).
+  const termsAvailable = Boolean(operatorDoc && uploadDoc)
+  const bothAccepted = agreedOperator && agreedUpload
+
   async function handleSubmit(e) {
     e.preventDefault()
     setError(null)
+
+    // Acceptance gate — block before any network call.
+    if (!termsAvailable) {
+      setError('Our terms are being updated and claims are paused for a moment. Please try again shortly.')
+      return
+    }
+    if (!bothAccepted) {
+      setError('Please read and accept both the Operator Agreement and the Upload Terms to continue.')
+      return
+    }
+
     setSubmitting(true)
 
     try {
@@ -53,6 +73,8 @@ export default function ClaimForm({ listingId, listingName, slug, vertColor }) {
           tier,
           websiteDomain: websiteDomain.trim() || null,
           website: honeypot || undefined,
+          acceptOperatorAgreement: agreedOperator,
+          acceptUploadTerms: agreedUpload,
         }),
       })
 
@@ -387,6 +409,52 @@ export default function ClaimForm({ listingId, listingName, slug, vertColor }) {
             </a>
           </p>
         </div>
+
+        {/* Legal agreements — rendered from legal_documents (is_current) so the
+            wording is a data change, not code. Each requires a separate, explicit
+            affirmation. INTERIM copy pending solicitor review. */}
+        <div>
+          <label style={labelStyle}>
+            Agreements <span style={{ color: vertColor }}>*</span>
+          </label>
+          {!termsAvailable ? (
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', fontWeight: 300, color: 'var(--color-muted)' }}>
+              Our terms are being updated. Please check back shortly to complete your claim.
+            </p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {[
+                { doc: operatorDoc, checked: agreedOperator, set: setAgreedOperator, id: 'agree-operator' },
+                { doc: uploadDoc, checked: agreedUpload, set: setAgreedUpload, id: 'agree-upload' },
+              ].map(({ doc, checked, set, id }) => (
+                <div key={id} style={{ border: '1px solid var(--color-border)', borderRadius: '10px', overflow: 'hidden' }}>
+                  <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--color-border)', background: 'var(--color-cream)' }}>
+                    <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', color: 'var(--color-ink)', margin: 0 }}>
+                      {doc.title}
+                    </p>
+                  </div>
+                  <div style={{ maxHeight: '120px', overflowY: 'auto', padding: '12px 14px' }}>
+                    <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '12px', lineHeight: 1.6, color: 'var(--color-ink)', opacity: 0.85, margin: 0, whiteSpace: 'pre-wrap' }}>
+                      {doc.body_md}
+                    </p>
+                  </div>
+                  <label htmlFor={id} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '10px 14px', borderTop: '1px solid var(--color-border)', cursor: 'pointer' }}>
+                    <input
+                      id={id}
+                      type="checkbox"
+                      checked={checked}
+                      onChange={e => set(e.target.checked)}
+                      style={{ marginTop: '2px', accentColor: vertColor, width: '15px', height: '15px', flexShrink: 0 }}
+                    />
+                    <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '12.5px', color: 'var(--color-ink)' }}>
+                      I have read and accept the {doc.title}.
+                    </span>
+                  </label>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Error */}
@@ -399,8 +467,8 @@ export default function ClaimForm({ listingId, listingName, slug, vertColor }) {
       {/* Submit */}
       <button
         type="submit"
-        disabled={submitting}
-        className="mt-8 w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+        disabled={submitting || !termsAvailable || !bothAccepted}
+        className="mt-8 w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
         style={{ background: vertColor, fontFamily: 'var(--font-body)', cursor: submitting ? 'wait' : 'pointer' }}
       >
         {submitting ? 'Submitting...' : tier === 'standard' ? 'Submit claim ($295/yr)' : 'Submit claim (free)'}

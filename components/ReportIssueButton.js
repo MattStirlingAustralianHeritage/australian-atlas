@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import ReportIssueModal from './ReportIssueModal'
 
-export default function ReportIssueButton({ listingId, listingName }) {
+export default function ReportIssueButton({ listingId, listingName, slug }) {
   const [showModal, setShowModal] = useState(false)
 
   return (
@@ -34,6 +34,7 @@ export default function ReportIssueButton({ listingId, listingName }) {
         <ReportIssueModal
           listingId={listingId}
           listingName={listingName}
+          slug={slug}
           onClose={() => setShowModal(false)}
         />
       )}

@@ -299,6 +299,10 @@ export default function EditListingPage() {
   const [galleryStatus, setGalleryStatus] = useState({}) // url -> { status, reason } for per-photo badges
   const [galleryUploading, setGalleryUploading] = useState(0)
   const [galleryError, setGalleryError] = useState(null)
+  // Upload-rights gate (governs hero + gallery uploads).
+  const [uploadWarrantyAccepted, setUploadWarrantyAccepted] = useState(false)
+  const [sourceDeclaration, setSourceDeclaration] = useState('')
+  const [uploadTermsDoc, setUploadTermsDoc] = useState(null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
   const [justSaved, setJustSaved] = useState(false)
@@ -313,6 +317,16 @@ export default function EditListingPage() {
   }, [])
 
   useEffect(() => { setMounted(true) }, [])
+
+  // Load current upload terms so the image-rights panel renders live DB wording.
+  useEffect(() => {
+    let active = true
+    fetch('/api/legal/current?types=upload_terms')
+      .then(r => r.json())
+      .then(d => { if (active) setUploadTermsDoc(d?.docs?.upload_terms || null) })
+      .catch(() => {})
+    return () => { active = false }
+  }, [])
 
   // Returning from a successful upgrade checkout (?upgraded=1). The webhook may
   // take a moment to flip the claim to standard, so we flag it and let the
@@ -419,10 +433,19 @@ export default function EditListingPage() {
     const file = e.target.files?.[0]
     if (!file) return
     setUploadError(null)
+    if (!uploadWarrantyAccepted) {
+      setUploadError('Please tick the image-rights confirmation below before uploading.')
+      e.target.value = ''
+      return
+    }
     setUploading(true)
     try {
       const fd = new FormData()
       fd.append('file', file)
+      fd.append('listingId', id)
+      fd.append('assetKind', 'hero')
+      fd.append('uploadWarrantyAccepted', 'true')
+      if (sourceDeclaration.trim()) fd.append('sourceDeclaration', sourceDeclaration.trim())
       const res = await fetch('/api/dashboard/listing/upload', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
@@ -445,6 +468,10 @@ export default function EditListingPage() {
     e.target.value = ''
     if (!files.length) return
     setGalleryError(null)
+    if (!uploadWarrantyAccepted) {
+      setGalleryError('Please tick the image-rights confirmation below before uploading.')
+      return
+    }
     const remaining = MAX_GALLERY - gallery.length
     if (remaining <= 0) { setGalleryError(`You can add up to ${MAX_GALLERY} photos.`); return }
     const toUpload = files.slice(0, remaining)
@@ -456,6 +483,10 @@ export default function EditListingPage() {
       try {
         const fd = new FormData()
         fd.append('file', file)
+        fd.append('listingId', id)
+        fd.append('assetKind', 'gallery')
+        fd.append('uploadWarrantyAccepted', 'true')
+        if (sourceDeclaration.trim()) fd.append('sourceDeclaration', sourceDeclaration.trim())
         const res = await fetch('/api/dashboard/listing/upload', {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
@@ -819,6 +850,44 @@ export default function EditListingPage() {
               <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 12px', borderRadius: 100, fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500, color: '#fff', background: 'var(--color-accent)' }}>Featured</span>
             </div>
           )}
+
+          {/* Image-rights gate — governs hero + gallery uploads. Wording from
+              legal_documents (upload_terms, is_current); INTERIM pending review. */}
+          <div style={{ marginBottom: 24, padding: '16px 18px', borderRadius: 12, border: '1px solid var(--color-border)', background: 'var(--color-cream)' }}>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 13, color: 'var(--color-ink)', margin: '0 0 8px' }}>
+              Image rights — required before uploading photos
+            </p>
+            {uploadTermsDoc?.body_md && (
+              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 12, lineHeight: 1.6, color: 'var(--color-ink)', opacity: 0.8, margin: '0 0 12px', whiteSpace: 'pre-wrap' }}>
+                {uploadTermsDoc.body_md}
+              </p>
+            )}
+            <label htmlFor="upload-warranty" style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer' }}>
+              <input
+                id="upload-warranty"
+                type="checkbox"
+                checked={uploadWarrantyAccepted}
+                onChange={e => setUploadWarrantyAccepted(e.target.checked)}
+                style={{ marginTop: 2, accentColor: vertColor, width: 15, height: 15, flexShrink: 0 }}
+              />
+              <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12.5, color: 'var(--color-ink)' }}>
+                I confirm I own or am licensed to use the images I upload, that they infringe no copyright or moral rights, and that anyone identifiable in them has consented.
+              </span>
+            </label>
+            <div style={{ marginTop: 12 }}>
+              <label htmlFor="source-declaration" style={{ display: 'block', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, color: 'var(--color-ink)', marginBottom: 4 }}>
+                Image source / credit <span style={{ fontWeight: 300, color: 'var(--color-muted)' }}>(optional)</span>
+              </label>
+              <input
+                id="source-declaration"
+                type="text"
+                value={sourceDeclaration}
+                onChange={e => setSourceDeclaration(e.target.value)}
+                placeholder="e.g. My own photo / commissioned from …"
+                style={{ width: '100%', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-ink)', background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 8, padding: '8px 12px', outline: 'none' }}
+              />
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-5" style={{ gap: 40 }}>
             {/* Editorial column (read-only preview) */}

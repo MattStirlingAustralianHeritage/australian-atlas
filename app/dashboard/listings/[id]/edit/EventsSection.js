@@ -19,7 +19,7 @@ const ICONS = {
   plus: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>,
 }
 
-const emptyForm = { id: null, title: '', category: '', start_date: '', end_date: '', hero_image_url: '', ticket_url: '', is_free: true, description: '', address: '', published: false }
+const emptyForm = { id: null, title: '', category: '', start_date: '', end_date: '', hero_image_url: '', ticket_url: '', is_free: true, description: '', address: '', published: false, imgWarranty: false }
 
 function toDateInput(iso) {
   if (!iso) return ''
@@ -66,10 +66,17 @@ export default function EventsSection({ listingId, token, isPaid, listingSlug })
     e.target.value = ''
     if (!file) return
     setFormError(null)
+    if (!form?.imgWarranty) {
+      setFormError('Please confirm you have the rights to this image before uploading.')
+      return
+    }
     setUploading(true)
     try {
       const fd = new FormData()
       fd.append('file', file)
+      fd.append('listingId', listingId)
+      fd.append('assetKind', 'event')
+      fd.append('uploadWarrantyAccepted', 'true')
       const res = await fetch('/api/dashboard/listing/upload', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd })
       const data = await res.json()
       if (!res.ok) setFormError(data.error || 'Image upload failed')
@@ -212,7 +219,7 @@ export default function EventsSection({ listingId, token, isPaid, listingSlug })
                 <button type="button" onClick={() => togglePublish(ev)} disabled={busyId === ev.id} style={ghostBtn} title={ev.published ? 'Unpublish' : 'Publish'}>
                   {ev.published ? 'Unpublish' : 'Publish'}
                 </button>
-                <button type="button" onClick={() => setForm({ id: ev.id, title: ev.title || '', category: ev.category || '', start_date: toDateInput(ev.start_date), end_date: toDateInput(ev.end_date), hero_image_url: ev.hero_image_url || '', ticket_url: ev.ticket_url || '', is_free: ev.is_free !== false, description: ev.description || '', address: ev.address || '', published: !!ev.published })} style={ghostBtn}>Edit</button>
+                <button type="button" onClick={() => setForm({ id: ev.id, title: ev.title || '', category: ev.category || '', start_date: toDateInput(ev.start_date), end_date: toDateInput(ev.end_date), hero_image_url: ev.hero_image_url || '', ticket_url: ev.ticket_url || '', is_free: ev.is_free !== false, description: ev.description || '', address: ev.address || '', published: !!ev.published, imgWarranty: false })} style={ghostBtn}>Edit</button>
                 <button type="button" onClick={() => remove(ev)} disabled={busyId === ev.id} aria-label="Delete event" style={iconBtn}>{ICONS.trash}</button>
               </div>
             </div>
@@ -287,6 +294,12 @@ export default function EventsSection({ listingId, token, isPaid, listingSlug })
                   <button type="button" onClick={() => patchForm({ hero_image_url: '' })} style={ghostBtn}>Remove</button>
                 )}
               </div>
+              <label htmlFor="evt-img-warranty" style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 10, cursor: 'pointer' }}>
+                <input id="evt-img-warranty" type="checkbox" checked={!!form.imgWarranty} onChange={e => patchForm({ imgWarranty: e.target.checked })} style={{ marginTop: 2, width: 15, height: 15, flexShrink: 0 }} />
+                <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12.5, color: 'var(--color-ink)' }}>
+                  I own or am licensed to use this image, it infringes no copyright or moral rights, and anyone identifiable in it has consented.
+                </span>
+              </label>
             </Field>
 
             <label style={{ ...toggleRow, padding: '10px 12px', borderRadius: 8, background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}>
