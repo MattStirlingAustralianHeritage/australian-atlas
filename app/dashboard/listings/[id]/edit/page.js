@@ -303,6 +303,8 @@ export default function EditListingPage() {
   const [uploadWarrantyAccepted, setUploadWarrantyAccepted] = useState(false)
   const [sourceDeclaration, setSourceDeclaration] = useState('')
   const [uploadTermsDoc, setUploadTermsDoc] = useState(null)
+  const uploadGateRef = useRef(null) // scroll target when an upload is blocked on consent
+  const [gateNudge, setGateNudge] = useState(false) // momentary highlight on the rights panel
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
   const [justSaved, setJustSaved] = useState(false)
@@ -429,13 +431,28 @@ export default function EditListingPage() {
     setDays(prev => ({ ...prev, [day]: { ...prev[day], ...patch } }))
   }, [])
 
+  // When an upload is blocked because the operator hasn't ticked the image-rights
+  // box, the box can be off-screen below the hero — so bring it into view and flash
+  // it. Without this, the upload button (in the hero) and the consent box (in the
+  // body) are far apart and the message reads as "there's nowhere to confirm".
+  const nudgeUploadGate = useCallback(() => {
+    try {
+      uploadGateRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    } catch {
+      uploadGateRef.current?.scrollIntoView()
+    }
+    setGateNudge(true)
+    setTimeout(() => setGateNudge(false), 2400)
+  }, [])
+
   async function handlePhotoChange(e) {
     const file = e.target.files?.[0]
     if (!file) return
     setUploadError(null)
     if (!uploadWarrantyAccepted) {
-      setUploadError('Please tick the image-rights confirmation below before uploading.')
+      setUploadError('Tick the “image rights” box just below the photo to confirm you can use this image, then add your photo again.')
       e.target.value = ''
+      nudgeUploadGate()
       return
     }
     setUploading(true)
@@ -469,7 +486,8 @@ export default function EditListingPage() {
     if (!files.length) return
     setGalleryError(null)
     if (!uploadWarrantyAccepted) {
-      setGalleryError('Please tick the image-rights confirmation below before uploading.')
+      setGalleryError('Tick the “image rights” box near the top of this page to confirm you can use these images, then add your photos again.')
+      nudgeUploadGate()
       return
     }
     const remaining = MAX_GALLERY - gallery.length
@@ -802,7 +820,11 @@ export default function EditListingPage() {
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '60%', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
               <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.72)' }}>
                 <span style={{ display: 'inline-flex' }}>{ICONS.camera}</span>
-                <div style={{ marginTop: 8, fontSize: 13, fontFamily: 'var(--font-body)' }}>Add a cover photo to bring your listing to life</div>
+                <div style={{ marginTop: 8, fontSize: 13, fontFamily: 'var(--font-body)' }}>
+                  {uploadWarrantyAccepted
+                    ? 'Add a cover photo to bring your listing to life'
+                    : 'Tick the image-rights box below, then add a cover photo'}
+                </div>
               </div>
             </div>
           )}
@@ -852,23 +874,51 @@ export default function EditListingPage() {
           )}
 
           {/* Image-rights gate — governs hero + gallery uploads. Wording from
-              legal_documents (upload_terms, is_current); INTERIM pending review. */}
-          <div style={{ marginBottom: 24, padding: '16px 18px', borderRadius: 12, border: '1px solid var(--color-border)', background: 'var(--color-cream)' }}>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 13, color: 'var(--color-ink)', margin: '0 0 8px' }}>
-              Image rights — required before uploading photos
+              legal_documents (upload_terms, is_current); INTERIM pending review.
+              Lives below the hero, but the hero's upload button scrolls here and
+              flashes it (nudgeUploadGate) so the consent box is never "missing". */}
+          <div
+            ref={uploadGateRef}
+            style={{
+              marginBottom: 24,
+              padding: '16px 18px',
+              borderRadius: 12,
+              border: `1px solid ${uploadWarrantyAccepted ? 'var(--color-border)' : vertColor}`,
+              background: gateNudge ? '#fffbeb' : 'var(--color-cream)',
+              boxShadow: gateNudge ? `0 0 0 3px ${vertColor}55` : 'none',
+              transition: 'box-shadow 0.25s ease, background 0.25s ease, border-color 0.25s ease',
+              scrollMarginTop: 24,
+            }}
+          >
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 13, color: uploadWarrantyAccepted ? 'var(--color-ink)' : vertColor, margin: '0 0 8px' }}>
+              {uploadWarrantyAccepted
+                ? 'Image rights — confirmed ✓'
+                : 'Step 1 — confirm image rights (required before uploading photos)'}
             </p>
             {uploadTermsDoc?.body_md && (
               <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 12, lineHeight: 1.6, color: 'var(--color-ink)', opacity: 0.8, margin: '0 0 12px', whiteSpace: 'pre-wrap' }}>
                 {uploadTermsDoc.body_md}
               </p>
             )}
-            <label htmlFor="upload-warranty" style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer' }}>
+            <label
+              htmlFor="upload-warranty"
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 10,
+                cursor: 'pointer',
+                padding: '10px 12px',
+                borderRadius: 8,
+                border: `1px solid ${uploadWarrantyAccepted ? 'var(--color-border)' : vertColor}`,
+                background: '#fff',
+              }}
+            >
               <input
                 id="upload-warranty"
                 type="checkbox"
                 checked={uploadWarrantyAccepted}
                 onChange={e => setUploadWarrantyAccepted(e.target.checked)}
-                style={{ marginTop: 2, accentColor: vertColor, width: 15, height: 15, flexShrink: 0 }}
+                style={{ marginTop: 1, accentColor: vertColor, width: 18, height: 18, flexShrink: 0, cursor: 'pointer' }}
               />
               <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12.5, color: 'var(--color-ink)' }}>
                 I confirm I own or am licensed to use the images I upload, that they infringe no copyright or moral rights, and that anyone identifiable in them has consented.
