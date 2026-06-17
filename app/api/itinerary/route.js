@@ -9,7 +9,7 @@ import { logSearchEvent } from '@/lib/search/log'
 export const maxDuration = 60
 
 // Hardcoded model — one less thing that can break
-const MODEL = 'claude-sonnet-4-20250514'
+const MODEL = 'claude-sonnet-4-6'
 
 /** Generate an anonymous session id from user-agent + date (no PII) */
 function getSessionId(request) {

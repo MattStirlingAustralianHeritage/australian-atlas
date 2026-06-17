@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const REPORTS_EMAIL = 'listings@australianatlas.com.au'
 
@@ -73,6 +74,8 @@ async function sendReportEmail({ listing, reportType, details, contactEmail }) {
 }
 
 export async function POST(request) {
+  const rl = checkRateLimit(request, { keyPrefix: 'report', maxRequests: 10, windowMs: 60_000 })
+  if (rl) return rl
   try {
     const body = await request.json()
     const { listing_id, report_type, details } = body

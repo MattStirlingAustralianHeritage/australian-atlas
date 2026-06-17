@@ -5,13 +5,16 @@ import { createHash } from 'crypto'
 import { LISTING_REGION_SELECT, resolveRegionParam } from '@/lib/regions'
 import { getPublicVerticals, isVerticalPublic } from '@/lib/verticalUrl'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
-import { excludeTestListings, isPublicListing } from '@/lib/listings/publicFilter'
+import { excludeTestListings, excludeNeedsReview, isPublicListing } from '@/lib/listings/publicFilter'
 import { embedQueryCached } from '@/lib/embeddings/queryCache'
 import { logSearchEvent } from '@/lib/search/log'
 import { parseQueryLocation } from '@/lib/search/parseQuery'
 import { resolveQueryRegion } from '@/lib/search/resolveQueryRegion'
 
-const SELECT_FIELDS = `id, vertical, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website, address, ${LISTING_REGION_SELECT}`
+// NOTE: `address` is deliberately NOT selected — search must not leak street
+// addresses (esp. for address_on_request venues). The place page shows address
+// (gated on the privacy flag); search results never do.
+const SELECT_FIELDS = `id, vertical, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website, ${LISTING_REGION_SELECT}`
 
 // Calibrated in Phase 7 (see report). Admits clearly-relevant semantic matches,
 // rejects off-topic queries. Overridable per request via ?floor=.
@@ -170,11 +173,12 @@ export async function GET(request) {
         })
         if (stateData && stateData.length) { all = stateData; detectedSuburb = null }
       }
-      // Admin/QA fixture rows never surface publicly (RPC results, so row-level).
+      // Admin/QA fixtures + needs_review venues never surface publicly (row-level).
       all = all.filter(isPublicListing)
       const total = all.length
       const offset = (page - 1) * limit
-      const listings = all.slice(offset, offset + limit).map(({ fused_score, ...rest }) => rest)
+      // Strip internal scoring AND `address` — search must not leak street addresses.
+      const listings = all.slice(offset, offset + limit).map(({ fused_score, address, ...rest }) => rest)
 
       trackSearchAppearances(listings)
       logSearch(request, { queryText: q, verticalFilter: vertical, resultCount: total })
@@ -199,13 +203,13 @@ export async function GET(request) {
       query: null, state: state || null, vertical, limit: 4,
     }).catch(() => [])
 
-    let baseQuery = excludeTestListings(
+    let baseQuery = excludeNeedsReview(excludeTestListings(
       sb
         .from('listings_with_region')
         .select(SELECT_FIELDS, { count: 'exact' })
         .eq('status', 'active')
         .in('vertical', publicVerticals)
-    )
+    ))
 
     if (vertical) baseQuery = filterByVertical(baseQuery, vertical, await relationHasVerticals(sb, 'listings_with_region'))
     if (state) baseQuery = baseQuery.eq('state', state)

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { magicLinkEmail, recoveryEmail } from '@/lib/email/authEmails'
+import { safeNextPath } from '@/lib/safe-redirect'
 
 // Atlas-branded magic-link sign-in + password-reset, sent APP-SIDE via Resend.
 //
@@ -29,8 +30,8 @@ export async function POST(request) {
 
   const type = String(body?.type || '')
   const email = String(body?.email || '').trim().toLowerCase()
-  let next = String(body?.next || '/account')
-  if (!next.startsWith('/')) next = '/account'
+  // open-redirect guard (startsWith('/') alone would still allow //evil.com)
+  const next = safeNextPath(String(body?.next || '/account'))
 
   if (!TYPES[type]) {
     return NextResponse.json({ error: 'Invalid request.' }, { status: 400 })

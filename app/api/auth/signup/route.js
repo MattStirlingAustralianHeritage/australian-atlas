@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { signupConfirmationEmail } from '@/lib/email/authEmails'
+import { safeNextPath } from '@/lib/safe-redirect'
 
 // Public self-signup, Atlas-branded.
 //
@@ -27,10 +28,10 @@ export async function POST(request) {
 
   const email = String(body?.email || '').trim().toLowerCase()
   const password = String(body?.password || '')
-  let next = String(body?.next || '/account')
   // next is echoed into the emailed link and later used by the callback as
-  // `${origin}${next}` — keep it a same-origin relative path.
-  if (!next.startsWith('/')) next = '/account'
+  // `${origin}${next}` — keep it a same-origin relative path (open-redirect guard:
+  // startsWith('/') alone would still allow //evil.com).
+  const next = safeNextPath(String(body?.next || '/account'))
 
   if (!EMAIL_RE.test(email)) {
     return NextResponse.json({ error: 'Enter a valid email address.' }, { status: 400 })

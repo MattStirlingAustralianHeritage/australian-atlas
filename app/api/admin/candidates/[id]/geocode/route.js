@@ -3,6 +3,8 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { extractStateFromPlaceName } from '@/lib/geo/stateDerivation'
 import { anchoredGeocode } from '@/lib/geo/anchoredGeocode'
 import { resolveRegionForCoords } from '@/lib/geo/resolveRegionForCoords'
+import { cookies } from 'next/headers'
+import { checkAdmin } from '@/lib/admin-auth'
 
 // ─────────────────────────────────────────────────────────────────────
 // POST /api/admin/candidates/[id]/geocode
@@ -38,6 +40,11 @@ import { resolveRegionForCoords } from '@/lib/geo/resolveRegionForCoords'
 // ─────────────────────────────────────────────────────────────────────
 
 export async function POST(request, { params }) {
+  // Admin-only: writes to listing_candidates via the service-role client.
+  // (Every sibling candidate route already gates on checkAdmin; this one didn't.)
+  if (!(await checkAdmin(await cookies()))) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
   const { id } = await params
   let body
   try {

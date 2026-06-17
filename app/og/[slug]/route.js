@@ -35,6 +35,7 @@ export async function GET(request, { params }) {
     .select(`name, vertical, region, state, description, ${LISTING_REGION_SELECT}`)
     .eq('slug', slug)
     .eq('status', 'active')
+    .or('needs_review.is.null,needs_review.eq.false')
     .order('updated_at', { ascending: false })
     .limit(1)
     .maybeSingle()

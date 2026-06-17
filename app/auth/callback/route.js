@@ -1,5 +1,6 @@
 import { createAuthServerClient } from '@/lib/supabase/auth-clients'
 import { NextResponse } from 'next/server'
+import { safeNextPath } from '@/lib/safe-redirect'
 
 // Handles every Supabase Auth redirect that lands back on the portal:
 //   - OAuth / PKCE password flows           → ?code=...            (exchangeCodeForSession)
@@ -13,7 +14,8 @@ export async function GET(request) {
   const code = searchParams.get('code')
   const tokenHash = searchParams.get('token_hash')
   const type = searchParams.get('type')
-  const next = searchParams.get('next') ?? '/account'
+  // Guard against open-redirect: reject //host, /\host, and absolute URLs.
+  const next = safeNextPath(searchParams.get('next'))
 
   const supabase = await createAuthServerClient()
 

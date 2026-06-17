@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { signNewsletterToken } from '@/lib/newsletter/confirmToken'
 import { newsletterConfirmEmail } from '@/lib/email/authEmails'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -10,6 +11,8 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 // (status 'active') when they click the link (app/api/newsletter/confirm). This
 // keeps the list free of unconfirmed / spoofed addresses.
 export async function POST(request) {
+  const rl = checkRateLimit(request, { keyPrefix: 'newsletter', maxRequests: 6, windowMs: 60_000 })
+  if (rl) return rl
   try {
     const { email } = await request.json()
     if (!email || !EMAIL_RE.test(email)) {

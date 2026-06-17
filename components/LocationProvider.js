@@ -70,7 +70,6 @@ export function LocationProvider({ children, savedLocation }) {
       })
       clearTimeout(timeout)
       const data = await res.json()
-      console.log('[Atlas Location] reverse geocode response:', data)
       return data.features?.[0]?.text || null
     } catch (err) {
       console.warn('[Atlas Location] reverse geocode failed:', err.message || err)
@@ -105,16 +104,11 @@ export function LocationProvider({ children, savedLocation }) {
     }
 
     setStatus('detecting')
-    console.log('[Atlas Location] Requesting browser geolocation...')
-
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         try {
           const { latitude: lat, longitude: lng } = pos.coords
-          console.log('[Atlas Location] Geolocation success:', { lat, lng })
-
           if (!isInAustralia(lat, lng)) {
-            console.log('[Atlas Location] Outside Australia bounds, setting overseas')
             setStatus('overseas')
             return
           }
@@ -123,13 +117,11 @@ export function LocationProvider({ children, savedLocation }) {
           let name = null
           try {
             name = await reverseGeocode(lat, lng)
-            console.log('[Atlas Location] Reverse geocode name:', name)
           } catch (rgErr) {
             console.warn('[Atlas Location] Reverse geocode error (non-blocking):', rgErr)
           }
 
           setLocation(lat, lng, name)
-          console.log('[Atlas Location] Location set, status → ready')
         } catch (err) {
           // Catch-all: if anything in the async callback fails,
           // still try to set location from raw coords

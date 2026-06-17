@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { checkRateLimit } from '@/lib/rate-limit'
 import { embedQueryCached } from '@/lib/embeddings/queryCache'
 import { logSearchEvent } from '@/lib/search/log'
 import { isVerticalPublic } from '@/lib/verticalUrl'
@@ -9,7 +10,7 @@ import { isPublicListing } from '@/lib/listings/publicFilter'
 
 export const maxDuration = 60
 
-const MODEL = 'claude-sonnet-4-20250514'
+const MODEL = 'claude-sonnet-4-6'
 const SIMILARITY_FLOOR = 0.48
 
 const VERTICAL_LABELS = {
@@ -44,6 +45,9 @@ async function callClaude(client, params) {
  * floor the result set is honestly empty — never padded with random listings.
  */
 export async function POST(request) {
+  // Vibe search calls Claude + Voyage per request — rate-limit to curb cost abuse.
+  const rl = checkRateLimit(request, { keyPrefix: 'vibe', maxRequests: 20, windowMs: 60_000 })
+  if (rl) return rl
   const t0 = Date.now()
   try {
     const body = await request.json()

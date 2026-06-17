@@ -12,6 +12,10 @@ export async function GET(request) {
 
   const sb = getSupabaseAdmin()
   const prefix = q.trim()
+  // PostgREST .or() reserved chars (, . : ( ) and LIKE wildcards) — strip them so
+  // a crafted `q` can't break out of the filter grammar below.
+  const safe = prefix.replace(/[,.:()%_*\\]/g, ' ').replace(/\s+/g, ' ').trim()
+  if (!safe) return NextResponse.json({ results: [] })
 
   try {
     // Parallel queries: name matches, suburb matches, region matches
@@ -19,7 +23,7 @@ export async function GET(request) {
       sb.from('listings')
         .select(`id, name, slug, vertical, region, state, suburb, ${LISTING_REGION_SELECT}`)
         .eq('status', 'active')
-        .or(`name.ilike.${prefix}%,name.ilike.% ${prefix}%`)
+        .or(`name.ilike.${safe}%,name.ilike.% ${safe}%`)
         .order('quality_score', { ascending: false, nullsFirst: false })
         .order('is_claimed', { ascending: false })
         .limit(6),

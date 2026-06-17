@@ -65,6 +65,7 @@ export default async function CollectionPage({ params }) {
       .select(`id, name, slug, vertical, region, state, hero_image_url, source_id, is_featured, is_claimed, editors_pick, ${LISTING_REGION_SELECT}`)
       .in('id', collection.listing_ids)
       .eq('status', 'active')
+      .or('needs_review.is.null,needs_review.eq.false')
 
     if (data) {
       // Preserve the order from listing_ids

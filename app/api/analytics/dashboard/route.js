@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { computeDashboard } from '@/lib/analytics/aggregate'
+import { cookies } from 'next/headers'
+import { checkAdmin } from '@/lib/admin-auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,6 +20,12 @@ export const dynamic = 'force-dynamic'
 const RANGE_DAYS = { '7d': 7, '30d': 30, '90d': 90, '1y': 365 }
 
 export async function GET(request) {
+  // Admin-only: this returns network-wide business intelligence over the
+  // service-role key. Previously unauthenticated.
+  if (!(await checkAdmin(await cookies()))) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const { searchParams } = new URL(request.url)
   const range = searchParams.get('range') || '30d'
   const vertical = searchParams.get('vertical') || null

@@ -60,6 +60,8 @@ export default async function sitemap() {
     fetchAllPaginated(supabase, 'listings', 'slug, updated_at', [
       ['eq', 'status', 'active'],
       ['not', 'slug', 'ilike', 'admin%'],
+      // needs_review=true venues must not be indexed (CLAUDE.md hard rule).
+      ['or', 'needs_review.is.null,needs_review.eq.false'],
     ]),
     // Regions
     supabase
