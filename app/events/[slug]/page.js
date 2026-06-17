@@ -3,6 +3,9 @@ import { notFound } from 'next/navigation'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getPublishedEventBySlug } from '@/lib/events'
 import { getVerticalBadge, getVerticalBrandColour } from '@/lib/verticalUrl'
+import { TypographicCard } from '@/components/ListingCard'
+import { eventHeroPalette } from '@/lib/events-palette'
+import ListingMap from '@/components/ListingMap'
 import CopyUrlButton from './CopyUrlButton'
 
 export const revalidate = 3600
@@ -77,121 +80,149 @@ export default async function EventDetailPage({ params }) {
 
   const venue = event.listing
   const place = [venue?.suburb || venue?.region, event.state].filter(Boolean).join(', ')
+  const palette = eventHeroPalette(event.category, event.category_key)
+  const brandColour = getVerticalBrandColour(venue?.vertical) || '#5F8A7E'
+  // Map only when the host listing genuinely has coordinates — never fabricated.
+  const hasCoords = !!venue && venue.lat != null && venue.lng != null
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10">
-      {/* Hero image */}
-      {event.hero_image_url && (
-        <div className="rounded-2xl overflow-hidden max-h-[400px]">
+    <div>
+      {/* ── Hero band (full-width) ─────────────────────────── */}
+      {/* Same typographic treatment as the rest of the network: category ground
+          + serif title (roman) + category eyebrow. An operator/host image, when
+          present, takes the band instead with the same eyebrow + title overlay. */}
+      {event.hero_image_url ? (
+        <div className="atlas-hero-band w-full relative overflow-hidden">
           <img
             src={event.hero_image_url}
             alt={event.title}
-            className="w-full h-full object-cover max-h-[400px]"
+            loading="eager"
+            className="w-full h-full object-cover absolute inset-0"
           />
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(28,26,23,0.7) 0%, rgba(28,26,23,0.2) 45%, transparent 75%)' }} />
+          <div className="absolute bottom-0 left-0 right-0 p-8 sm:p-12" style={{ zIndex: 2 }}>
+            <div className="max-w-5xl mx-auto">
+              {event.category && (
+                <p style={{
+                  fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 500,
+                  letterSpacing: '0.15em', textTransform: 'uppercase',
+                  color: 'rgba(255,255,255,0.7)', marginBottom: '12px',
+                }}>
+                  {event.category}
+                </p>
+              )}
+              <h1 style={{
+                fontFamily: 'var(--font-display)', fontWeight: 400, fontStyle: 'normal',
+                fontSize: 'clamp(2rem, 5vw, 3.5rem)', lineHeight: 1.06,
+                color: '#fff', margin: 0,
+              }}>
+                {event.title}
+              </h1>
+            </div>
+          </div>
         </div>
+      ) : (
+        <TypographicCard
+          name={event.title}
+          size="hero"
+          align="poster"
+          eyebrow={event.category || null}
+          ground={palette.ground}
+          textColor={palette.text}
+        />
       )}
 
-      <div className="mt-6">
-        {/* Badges */}
-        <div className="flex flex-wrap gap-2 mb-3">
-          {event.category && (
-            <span className="bg-[#F1EFE8] text-[#5F5E5A] text-xs px-2.5 py-1 rounded-full capitalize">
-              {event.category}
-            </span>
-          )}
-          {event.is_free && (
-            <span className="text-xs px-2.5 py-1 rounded-full" style={{ background: 'rgba(122,143,107,0.16)', color: '#3a7d44' }}>
-              Free
-            </span>
-          )}
-        </div>
-
-        {/* Title */}
-        <h1 className="font-[family-name:var(--font-serif)] italic text-3xl sm:text-4xl font-bold text-[var(--color-ink)] leading-tight">
-          {event.title}
-        </h1>
-
-        {/* Date */}
-        <p className="mt-3 text-[var(--color-ink)] font-medium">
-          {formatDateRange(event.start_date, event.end_date)}
-        </p>
-
-        {/* Location / venue */}
-        {(venue?.name || place) && (
-          <p className="mt-1 text-[var(--color-muted)]">
-            {[venue?.name, place].filter(Boolean).join(' · ')}
-          </p>
-        )}
-
-        {/* Description */}
-        {event.description && (
-          <div className="mt-6 text-base leading-relaxed text-[var(--color-ink)] whitespace-pre-line">
-            {event.description}
-          </div>
-        )}
-
-        {/* CTAs */}
-        <div className="mt-8 flex flex-wrap gap-3">
-          {event.ticket_url && (
-            <a
-              href={event.ticket_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[var(--color-sage)] text-white text-sm font-medium hover:opacity-90 transition-opacity"
-            >
-              Get tickets
-            </a>
-          )}
-          {venue && (
-            <Link
-              href={`/place/${venue.slug}`}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-[var(--color-ink)] text-[var(--color-ink)] text-sm font-medium hover:bg-[var(--color-ink)] hover:text-white transition-colors"
-            >
-              Visit venue
-            </Link>
-          )}
-        </div>
-
-        {/* Share */}
-        <div className="mt-6">
-          <CopyUrlButton />
-        </div>
-      </div>
-
-      {/* Hosted by */}
-      {venue && (
-        <div className="mt-14 border-t border-[var(--color-border)] pt-8">
-          <h2 className="font-[family-name:var(--font-serif)] text-xl font-bold text-[var(--color-ink)] mb-5">
-            Hosted by
-          </h2>
-          <Link
-            href={`/place/${venue.slug}`}
-            className="group inline-flex flex-col rounded-xl border border-[var(--color-border)] bg-white p-4 hover:shadow-md transition-shadow"
-          >
-            <span
-              className="self-start text-xs px-2 py-0.5 rounded-full text-white"
-              style={{ backgroundColor: getVerticalBrandColour(venue.vertical) || '#888' }}
-            >
-              {getVerticalBadge(venue.vertical)}
-            </span>
-            <h3 className="mt-1.5 font-[family-name:var(--font-serif)] font-bold text-base text-[var(--color-ink)] leading-tight group-hover:text-[var(--color-sage)] transition-colors">
-              {venue.name}
-            </h3>
-            <p className="mt-0.5 text-sm text-[var(--color-muted)]">
-              {[venue.suburb || venue.region, venue.state].filter(Boolean).join(', ')}
+      {/* ── Body ───────────────────────────────────────────── */}
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-12">
+        <div className="lg:grid lg:grid-cols-3 lg:gap-12">
+          {/* Left: copy + CTAs */}
+          <div className="lg:col-span-2">
+            {/* Date */}
+            <p className="text-lg text-[var(--color-ink)] font-medium">
+              {formatDateRange(event.start_date, event.end_date)}
             </p>
+
+            {/* Description */}
+            {event.description && (
+              <div className="mt-6 text-base leading-relaxed text-[var(--color-ink)] whitespace-pre-line">
+                {event.description}
+              </div>
+            )}
+
+            {/* CTAs */}
+            <div className="mt-8 flex flex-wrap gap-3">
+              {event.ticket_url && (
+                <a
+                  href={event.ticket_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[var(--color-sage)] text-white text-sm font-medium hover:opacity-90 transition-opacity"
+                >
+                  Get tickets
+                </a>
+              )}
+              {venue && (
+                <Link
+                  href={`/place/${venue.slug}`}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-[var(--color-ink)] text-[var(--color-ink)] text-sm font-medium hover:bg-[var(--color-ink)] hover:text-white transition-colors"
+                >
+                  Visit venue
+                </Link>
+              )}
+              <CopyUrlButton />
+            </div>
+          </div>
+
+          {/* Right rail: Hosted by + venue/region + map */}
+          {venue && (
+            <aside className="mt-12 lg:mt-0 lg:col-span-1">
+              <h2 className="font-[family-name:var(--font-serif)] text-sm font-semibold uppercase tracking-wide text-[var(--color-muted)] mb-3">
+                Hosted by
+              </h2>
+              <Link
+                href={`/place/${venue.slug}`}
+                className="group block rounded-xl border border-[var(--color-border)] bg-white p-4 hover:shadow-md transition-shadow"
+              >
+                <span
+                  className="inline-block text-xs px-2 py-0.5 rounded-full text-white"
+                  style={{ backgroundColor: brandColour }}
+                >
+                  {getVerticalBadge(venue.vertical)}
+                </span>
+                <h3 className="mt-2 font-[family-name:var(--font-serif)] font-bold text-base text-[var(--color-ink)] leading-tight group-hover:text-[var(--color-sage)] transition-colors">
+                  {venue.name}
+                </h3>
+                {place && (
+                  <p className="mt-0.5 text-sm text-[var(--color-muted)]">
+                    {place}
+                  </p>
+                )}
+              </Link>
+
+              {/* Venue map — only when the host listing has coordinates */}
+              {hasCoords && (
+                <div className="mt-4">
+                  <div
+                    className="rounded-xl overflow-hidden border border-[var(--color-border)]"
+                    style={{ height: 240 }}
+                  >
+                    <ListingMap lat={venue.lat} lng={venue.lng} name={venue.name} color={brandColour} />
+                  </div>
+                </div>
+              )}
+            </aside>
+          )}
+        </div>
+
+        {/* Back link */}
+        <div className="mt-12">
+          <Link
+            href="/events"
+            className="text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] transition-colors"
+          >
+            &larr; All events
           </Link>
         </div>
-      )}
-
-      {/* Back link */}
-      <div className="mt-10">
-        <Link
-          href="/events"
-          className="text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] transition-colors"
-        >
-          &larr; All events
-        </Link>
       </div>
     </div>
   )

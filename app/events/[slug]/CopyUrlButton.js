@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 
+// Ghost/secondary button consistent with "Visit venue" on the detail page.
 export default function CopyUrlButton() {
   const [copied, setCopied] = useState(false)
 
@@ -17,10 +18,22 @@ export default function CopyUrlButton() {
 
   return (
     <button
+      type="button"
       onClick={handleCopy}
-      className="text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] transition-colors underline underline-offset-2"
+      aria-live="polite"
+      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-[var(--color-ink)] text-[var(--color-ink)] text-sm font-medium hover:bg-[var(--color-ink)] hover:text-white transition-colors"
     >
-      {copied ? 'Link copied!' : 'Copy link to share'}
+      {copied ? (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      ) : (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+        </svg>
+      )}
+      {copied ? 'Link copied!' : 'Copy link'}
     </button>
   )
 }
