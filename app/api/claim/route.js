@@ -3,6 +3,13 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { createHash } from 'crypto'
 
+// Minimal HTML-entity escape for values interpolated into outbound email HTML.
+// Claimant-supplied name/role/domain land in the admin notification inbox — an
+// unescaped `<img onerror=…>` would otherwise be live HTML there.
+const escHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => (
+  { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+))
+
 export async function POST(request) {
   // In-memory rate limit (first line of defence)
   const rateLimited = checkRateLimit(request, { keyPrefix: 'claim', maxRequests: 5 })
@@ -165,8 +172,8 @@ export async function POST(request) {
           subject: `Claim received for ${listingName}`,
           html: `
             <h2>We've received your claim</h2>
-            <p>Hi ${name.trim()},</p>
-            <p>Thanks for submitting a claim for <strong>${listingName}</strong>. Our team will review it and get back to you within 1-2 business days.</p>
+            <p>Hi ${escHtml(name)},</p>
+            <p>Thanks for submitting a claim for <strong>${escHtml(listingName)}</strong>. Our team will review it and get back to you within 1-2 business days.</p>
             <p>You selected the <strong>${tier === 'standard' ? 'Standard ($295/yr)' : 'Free'}</strong> tier.</p>
             <p style="color:#888;font-size:13px;margin-top:24px;">If you didn't submit this claim, you can safely ignore this email.</p>
           `,
@@ -179,12 +186,12 @@ export async function POST(request) {
           subject: `New claim submitted: ${listingName}`,
           html: `
             <h2>New claim submission</h2>
-            <p><strong>Listing:</strong> ${listingName}</p>
-            <p><strong>Vertical:</strong> ${listing.vertical || 'unknown'}</p>
-            <p><strong>Claimant:</strong> ${name.trim()} (${email.trim()})</p>
-            <p><strong>Role:</strong> ${role || 'not specified'}</p>
-            <p><strong>Tier:</strong> ${tier || 'free'}</p>
-            <p><strong>Domain:</strong> ${websiteDomain?.trim() || 'not provided'}</p>
+            <p><strong>Listing:</strong> ${escHtml(listingName)}</p>
+            <p><strong>Vertical:</strong> ${escHtml(listing.vertical || 'unknown')}</p>
+            <p><strong>Claimant:</strong> ${escHtml(name)} (${escHtml(email)})</p>
+            <p><strong>Role:</strong> ${escHtml(role || 'not specified')}</p>
+            <p><strong>Tier:</strong> ${escHtml(tier || 'free')}</p>
+            <p><strong>Domain:</strong> ${escHtml(websiteDomain?.trim() || 'not provided')}</p>
             <p style="margin-top:16px;"><a href="https://www.australianatlas.com.au/admin/claims">Review in admin</a></p>
           `,
         }).catch(err => console.error('[claim] Admin notification error:', err.message))

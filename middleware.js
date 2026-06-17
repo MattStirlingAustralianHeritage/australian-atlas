@@ -45,11 +45,8 @@ export async function middleware(request, event) {
       // Valid JWT — let the request through
       return NextResponse.next()
     } catch (err) {
-      // Legacy raw-password cookie — allow
-      if (adminToken === process.env.ADMIN_PASSWORD) {
-        return NextResponse.next()
-      }
-      // Invalid token — clear and redirect
+      // Invalid token — clear and redirect. Legacy raw-password cookies are no
+      // longer accepted; re-login at /admin/login mints a fresh signed JWT.
       const res = NextResponse.redirect(new URL('/admin/login', request.url))
       res.cookies.delete('atlas_admin')
       res.cookies.delete('admin_auth')

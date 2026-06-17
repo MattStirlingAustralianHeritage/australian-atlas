@@ -58,3 +58,7 @@ pitch-run-*.jsonl
 *.tsbuildinfo
 next-env.d.ts
 .env*.local
+
+# Secret/reference docs — never commit (rotate + purge history for the council secret)
+Council_session_secret.rtf
+Stripe Price ids.rtf

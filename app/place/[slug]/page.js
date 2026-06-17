@@ -134,9 +134,11 @@ const getListing = cache(async function getListing(slug) {
   const hasVerticals = await relationHasVerticals(sb, 'listings')
   const { data, error } = await sb
     .from('listings')
-    .select(`id, vertical, name, slug, description, region, state, suburb, lat, lng, website, phone, address, hero_image_url, is_featured, is_claimed, editors_pick, status, hours, verified, sub_type, sub_types, ${hasVerticals ? 'verticals, ' : ''}${LISTING_REGION_SELECT}`)
+    .select(`id, vertical, name, slug, description, region, state, suburb, lat, lng, website, phone, address, address_on_request, data_source, hero_image_url, is_featured, is_claimed, editors_pick, status, hours, verified, sub_type, sub_types, ${hasVerticals ? 'verticals, ' : ''}${LISTING_REGION_SELECT}`)
     .eq('slug', slug)
     .eq('status', 'active')
+    // CLAUDE.md hard rule: needs_review=true venues 404 (never render publicly).
+    .or('needs_review.is.null,needs_review.eq.false')
     // Go-live gate: a flag-gated vertical (e.g. way while WAY_ATLAS_PUBLIC is
     // unset) must not render its detail page by direct URL. getPublicVerticals()
     // is called inside this cache()'d fn so per-slug dedup is preserved.
@@ -724,6 +726,13 @@ export default async function PlacePage({ params }) {
               </div>
             )}
 
+            {listing.data_source === 'ai_generated' && (
+              <p style={{ marginTop: '14px', fontSize: '13px', fontStyle: 'italic', color: 'var(--color-ink)', opacity: 0.6 }}>
+                Description auto-generated. Own this listing?{' '}
+                <a href={`/claim/${listing.slug}`} style={{ textDecoration: 'underline' }}>Claim it</a> to update.
+              </p>
+            )}
+
             {/* CTA buttons — two-tier hierarchy.
                 Primary pair (Visit Website + Start a trail here): equal visual
                 weight, stacked full-width on mobile, side-by-side on desktop.
@@ -780,7 +789,7 @@ export default async function PlacePage({ params }) {
             <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--color-border)', background: 'var(--color-card-bg)' }}>
               <div className="p-5">
                 <div className="flex flex-col gap-4">
-                  {listing.address && (
+                  {listing.address && !listing.address_on_request && (
                     <DetailItem icon="pin" label="Address" value={listing.address} />
                   )}
                   {websiteUrl && (

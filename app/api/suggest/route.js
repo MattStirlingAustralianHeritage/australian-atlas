@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 /**
  * POST /api/suggest — Submit a venue suggestion
@@ -7,6 +8,8 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
  * No auth required — public submission.
  */
 export async function POST(request) {
+  const rl = checkRateLimit(request, { keyPrefix: 'suggest', maxRequests: 10, windowMs: 60_000 })
+  if (rl) return rl
   try {
     const body = await request.json()
     const { name, region, vertical, website_url, notes, why_listed, submitter_name, submitter_email } = body

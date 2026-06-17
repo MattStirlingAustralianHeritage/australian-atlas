@@ -11,7 +11,7 @@ Umbrella platform for the 9-vertical Australian Atlas Network. Acts as the **aut
 - **Hosting**: Vercel
 - **Payments**: Stripe (vendor subscriptions, council subscriptions, event listings)
 - **Maps**: Mapbox + PostGIS
-- **AI**: Anthropic Claude (editorial), Voyage AI (embeddings, 1536-dim)
+- **AI**: Anthropic Claude (editorial), Voyage AI (embeddings, voyage-3.5, 1024-dim)
 - **Email**: Resend
 - **JWT**: jose (HS256 for cross-vertical auth)
 
@@ -197,7 +197,7 @@ scripts/        — data sync, seeding, editorial generation
 - All pages use App Router (lowercase page.js, layout.js)
 - Portal does NOT have its own detail pages — cards link to vertical canonical URLs
 - One-directional sync: verticals → master (via cron/sync API)
-- Embeddings: 1536-dim vectors (OpenAI text-embedding-3-small compatible)
+- Embeddings: 1024-dim vectors (Voyage AI voyage-3.5)
 - CSS uses custom properties (--color-cream, --color-accent, --color-ink, etc.)
 - Fonts: `--font-display` (Playfair Display), `--font-body` (DM Sans)
 - Editorial content is generated once and stored — never generated at runtime

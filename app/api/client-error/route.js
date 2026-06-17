@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 export async function POST(request) {
+  const rl = checkRateLimit(request, { keyPrefix: 'clienterr', maxRequests: 30, windowMs: 60_000 })
+  if (rl) return rl
   try {
     const body = await request.json()
     const { route, error_message, error_stack } = body

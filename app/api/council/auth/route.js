@@ -131,8 +131,10 @@ export async function POST(req) {
         })
       } catch (emailErr) {
         console.error('Failed to send magic link email:', emailErr)
-        // In development, log the code to console
-        console.log(`[DEV] Magic link code for ${email}: ${magicToken}`)
+        // Only ever log the live OTP in non-production (never to prod logs).
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`[DEV] Magic link code for ${email}: ${magicToken}`)
+        }
       }
 
       await logAuthAttempt(sb, { email: normalised, success: true, failureReason: null, ip })
@@ -155,7 +157,13 @@ export async function POST(req) {
         return NextResponse.json({ error: 'Account not found' }, { status: 404 })
       }
 
-      if (council.magic_link_token !== token) {
+      // Constant-time compare of the 6-digit OTP (avoids a timing side-channel).
+      const expectedToken = String(council.magic_link_token ?? '')
+      const providedToken = String(token ?? '')
+      const tokenMatches = expectedToken.length > 0
+        && expectedToken.length === providedToken.length
+        && crypto.timingSafeEqual(Buffer.from(expectedToken), Buffer.from(providedToken))
+      if (!tokenMatches) {
         return NextResponse.json({ error: 'Invalid code' }, { status: 401 })
       }
 

@@ -17,10 +17,14 @@ async function getNetworkStats() {
 
     const verticalCounts = {}
     const verticals = ['sba', 'collection', 'craft', 'fine_grounds', 'rest', 'field', 'corner', 'found', 'table']
-    for (const v of verticals) {
-      const { count } = await sb.from('listings').select('*', { count: 'exact', head: true }).eq('vertical', v).eq('status', 'active')
-      verticalCounts[v] = count || 0
-    }
+    // Parallel, not 9 sequential round-trips.
+    const verticalCountResults = await Promise.all(
+      verticals.map(v =>
+        sb.from('listings').select('*', { count: 'exact', head: true }).eq('vertical', v).eq('status', 'active')
+          .then(r => r.count || 0)
+      )
+    )
+    verticals.forEach((v, i) => { verticalCounts[v] = verticalCountResults[i] })
 
     return { listings: listings || 0, regions: regions || 0, claimed: claimed || 0, verticalCounts }
   } catch {

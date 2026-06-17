@@ -31,12 +31,16 @@ async function getNetworkData(publicVerticals) {
 
     // Per-vertical counts
     const verticalCounts = {}
-    for (const key of publicVerticals) {
-      let cq = sb.from('listings').select('*', { count: 'exact', head: true }).eq('status', 'active')
-      cq = filterByVertical(cq, key, await relationHasVerticals(sb, 'listings'))
-      const { count } = await cq
-      verticalCounts[key] = count || 0
-    }
+    // Parallel, not N sequential round-trips; resolve the relation shape once.
+    const hasVerticals = await relationHasVerticals(sb, 'listings')
+    const verticalCountResults = await Promise.all(
+      publicVerticals.map(key => {
+        let cq = sb.from('listings').select('*', { count: 'exact', head: true }).eq('status', 'active')
+        cq = filterByVertical(cq, key, hasVerticals)
+        return cq.then(r => r.count || 0)
+      })
+    )
+    publicVerticals.forEach((key, i) => { verticalCounts[key] = verticalCountResults[i] })
 
     // Recently added (last 20)
     const { data: recent } = await sb
