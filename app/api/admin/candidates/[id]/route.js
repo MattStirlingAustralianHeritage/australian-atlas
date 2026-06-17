@@ -602,7 +602,14 @@ export async function POST(request, { params }) {
         is_claimed: false,
         is_featured: false,
         data_source: isAiOriginated ? 'ai_generated' : 'manually_curated',
-        needs_review: isAiOriginated,
+        // Admin approval in /admin/candidates IS the human review, so the listing
+        // goes live immediately. data_source stays 'ai_generated' for accurate
+        // provenance (and to keep the "auto-generated — claim it" disclaimer);
+        // needs_review tracks review STATE, not provenance. The old value
+        // (needs_review: isAiOriginated) conflated the two and silently 404'd
+        // every approved AI-prospector candidate via the public gate — see
+        // lib/listings/publicFilter.js + app/place/[slug]/page.js.
+        needs_review: false,
         address_on_request: fullData.address_on_request,
         visitable: fullData.visitable,
         presence_type: fullData.presence_type,
