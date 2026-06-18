@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
+import { regenerateListingEmbedding } from '@/lib/embeddings/regenerateOne'
 import { pushToVerticalWithRetry, updateInVertical, getVerticalListingUrl, VERTICAL_DISPLAY_NAMES, VERTICAL_CATEGORIES, recordSyncAndRevalidate } from '@/lib/sync/pushToVertical'
 import { resolveRegionName } from '@/lib/regions'
 import { extractStateFromPlaceName, deriveStateFromCoords, VALID_STATES } from '@/lib/geo/stateDerivation'
@@ -847,6 +848,20 @@ export async function POST(request, { params }) {
         }
       } catch (vTagErr) {
         console.warn('[approve] cross-vertical tag step errored (non-fatal):', vTagErr.message)
+      }
+
+      // 7c. Embed the new listing immediately so it is searchable on BOTH the
+      // lexical and the semantic arm right away — no wait for the 6-hourly
+      // embedding cron (during which a fresh, embedding-less venue can be
+      // out-ranked by semantically-plausible-but-wrong matches). Reuses the
+      // same free-tier Voyage *document* embedding as the cron. Best-effort:
+      // on Voyage failure the row keeps embedding=NULL and the cron retries it
+      // (listings with a null embedding are already in the cron's work set).
+      try {
+        await regenerateListingEmbedding(sb, listingId)
+        console.log(`[approve] Embedded new listing ${listingId} inline`)
+      } catch (embErr) {
+        console.warn(`[approve] inline embed failed (cron will retry) for ${listingId}:`, embErr.message)
       }
 
       // 8. Mark candidate as converted
