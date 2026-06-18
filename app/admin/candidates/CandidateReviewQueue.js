@@ -132,6 +132,7 @@ const SUBCATEGORY_OPTIONS = {
     { value: 'providore', label: 'Providore' },
     { value: 'food_trail', label: 'Food Trail' },
     { value: 'creamery', label: 'Creamery' },
+    { value: 'chocolatier', label: 'Chocolatier' },
   ],
   // Way Atlas primary types (extends Spec §III). Order matches the spec's
   // narrative grouping: walks → cultural → flights → marine → specialist

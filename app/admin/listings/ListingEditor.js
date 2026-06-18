@@ -117,6 +117,7 @@ const VERTICAL_FIELDS = {
       { value: 'artisan_producer', label: 'Artisan Producer' }, { value: 'specialty_retail', label: 'Specialty Retail' },
       { value: 'destination', label: 'Destination' }, { value: 'cooking_school', label: 'Cooking School' },
       { value: 'providore', label: 'Providore' }, { value: 'food_trail', label: 'Food Trail' },
+      { value: 'creamery', label: 'Creamery' }, { value: 'chocolatier', label: 'Chocolatier' },
     ]},
     { key: 'cafe_on_site', label: 'Cafe On Site', type: 'toggle' },
   ],
