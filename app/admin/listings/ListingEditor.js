@@ -564,6 +564,16 @@ function GeocodePicker({ address, region, state, currentLat, currentLng, onSelec
 
 // ─── Listing Card ───────────────────────────────────────────
 
+// Effective region for display/edit = override ?? computed ?? legacy text.
+// Mirrors getListingRegion() (lib/regions) but tolerates rows fetched without
+// the FK joins — the PATCH response returns only the synced `region` text
+// column, so after a save we fall back to that (which updateListing keeps in
+// lockstep with the canonical FK). This is what makes the editor field show the
+// same region the public page shows, instead of the dead text column alone.
+function effectiveRegionName(l) {
+  return l?.region_override?.name || l?.region_computed?.name || l?.region || ''
+}
+
 function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, regions }) {
   const [draft, setDraft] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -584,7 +594,10 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
   const verticalColor = VERTICAL_COLORS[listing.vertical] || '#999'
 
   useEffect(() => {
-    if (isExpanded && !draft) setDraft({ ...listing })
+    // Seed the region field from the effective (FK) region, not the dead text
+    // column — so editing region operates on the same value the public page
+    // shows and updateListing writes back as a canonical override.
+    if (isExpanded && !draft) setDraft({ ...listing, region: effectiveRegionName(listing) })
   }, [isExpanded, listing, draft])
 
   useEffect(() => {
@@ -757,9 +770,9 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
               {listing.is_claimed && <Badge label="Claimed" bg="#5A8A9A" />}
               {listing.is_featured && <Badge label="Featured" bg="#C49A3C" />}
               {listing.editors_pick && <Badge label="Editor's Pick" bg="#7A6B8A" />}
-              {listing.region && (
+              {effectiveRegionName(listing) && (
                 <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-muted)' }}>
-                  {listing.region}{listing.state ? `, ${listing.state}` : ''}
+                  {effectiveRegionName(listing)}{listing.state ? `, ${listing.state}` : ''}
                 </span>
               )}
             </div>
@@ -846,6 +859,22 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
             <Field label="Phone" value={draft.phone} onChange={v => updateDraft('phone', v)} />
             <Field label="Region" value={draft.region} onChange={v => updateDraft('region', v)} options={regions} />
             <Field label="State" value={draft.state} onChange={v => updateDraft('state', v)} options={STATES} />
+            {/* Region override conflict: the field shows the effective region
+                (a manual override) which differs from what the pin computes.
+                Clearing the field and saving drops the override so the pin wins. */}
+            {listing.region_override?.name && listing.region_computed?.name &&
+              listing.region_override.name !== listing.region_computed.name && (
+              <div style={{
+                gridColumn: '1 / -1', marginTop: -4, marginBottom: 12,
+                fontFamily: 'var(--font-body)', fontSize: 11, lineHeight: 1.5,
+                color: '#8a5a00', background: '#fff8e1', border: '1px solid #fff0b2',
+                borderRadius: 6, padding: '7px 10px',
+              }}>
+                Manual override — the site shows <strong>{listing.region_override.name}</strong>,
+                but this pin computes <strong>{listing.region_computed.name}</strong>.
+                Clear the Region field and save to use the pin’s region instead.
+              </div>
+            )}
             <Field label="Address" value={draft.address} onChange={v => updateDraft('address', v)} style={{ gridColumn: '1 / -1' }} />
             <Field label="Latitude" value={draft.lat} onChange={v => updateDraft('lat', v)} type="number" />
             <Field label="Longitude" value={draft.lng} onChange={v => updateDraft('lng', v)} type="number" />

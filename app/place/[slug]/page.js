@@ -1284,7 +1284,18 @@ export default async function PlacePage({ params }) {
             address: listing.address,
             website: listing.website,
             phone: listing.phone,
-            region: listing.region,
+            // Effective region (override ?? computed) — the same FK-resolved
+            // value the page displays, NOT the dead `region` text column. Keeps
+            // the inline editor's region field in lockstep with what users see
+            // and with the canonical write path in updateListing. Falls back to
+            // legacy text only when there's no FK region (quarantine rows) so a
+            // save can promote that text to a canonical override rather than
+            // nulling it — matches the admin editor's effectiveRegionName().
+            region: getListingRegion(listing)?.name || listing.region || '',
+            // Provenance so the editor can flag an override that contradicts the
+            // pin (clear the field to fall back to the pin-computed region).
+            regionComputedName: listing.region_computed?.name || null,
+            regionOverrideName: listing.region_override?.name || null,
             state: listing.state,
             status: listing.status,
             vertical: listing.vertical,

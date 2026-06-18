@@ -601,6 +601,22 @@ export default function InlineListingEditor({ listing }) {
                   options={STATES} />
               </div>
 
+              {/* Region override conflict: the field shows the effective region
+                  (an override), which differs from what the pin computes. Clear
+                  the field and save to fall back to the pin-computed region. */}
+              {listing.regionOverrideName && listing.regionComputedName &&
+                listing.regionOverrideName !== listing.regionComputedName && (
+                <div style={{
+                  fontFamily: 'var(--font-body, system-ui)', fontSize: 11, lineHeight: 1.5,
+                  color: '#8a5a00', background: '#fff8e1', border: '1px solid #fff0b2',
+                  borderRadius: 6, padding: '7px 10px', marginTop: -2, marginBottom: 4,
+                }}>
+                  Manual override — the site shows <strong>{listing.regionOverrideName}</strong>,
+                  but this pin computes <strong>{listing.regionComputedName}</strong>.
+                  Clear the Region field and save to use the pin’s region.
+                </div>
+              )}
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <PanelField label="Latitude" value={draft.lat} onChange={v => updateField('lat', v === '' ? null : Number(v))} type="number" />
                 <PanelField label="Longitude" value={draft.lng} onChange={v => updateField('lng', v === '' ? null : Number(v))} type="number" />

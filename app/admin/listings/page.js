@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { LISTING_REGION_SELECT } from '@/lib/regions'
 import ListingEditor from './ListingEditor'
 
 export const dynamic = 'force-dynamic'
@@ -12,9 +13,13 @@ export default async function ListingsPage() {
   let total = 0
 
   try {
+    // Join the region FK relations (LISTING_REGION_SELECT) so the editor can
+    // show the effective region (override ?? computed) — the same value the
+    // public page shows — rather than the deprecated `region` text column.
+    // Mirrors the GET /api/admin/listings select used for pagination.
     const { data, error, count } = await sb
       .from('listings')
-      .select('id, vertical, source_id, name, slug, description, region, state, lat, lng, website, phone, address, hero_image_url, is_claimed, is_featured, is_market, status, editors_pick, created_at, updated_at', { count: 'exact' })
+      .select(`id, vertical, source_id, name, slug, description, region, state, lat, lng, website, phone, address, hero_image_url, is_claimed, is_featured, is_market, status, editors_pick, created_at, updated_at, ${LISTING_REGION_SELECT}`, { count: 'exact' })
       .order('updated_at', { ascending: false })
       .range(0, 24)
 
