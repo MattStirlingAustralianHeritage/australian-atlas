@@ -585,6 +585,11 @@ export default async function PlacePage({ params }) {
   const specificSubcategory = formatSubcategory(listing._subcategory || listing.sub_type)
   const categoryLabel = specificSubcategory || VERTICAL_CATEGORY_LABELS[listing.vertical] || 'Place'
   const secondarySubcategories = (listing.sub_types || []).slice(1).map(formatSubcategory).filter(Boolean)
+  // National parks are public land with no operator to claim — suppress the
+  // claim CTA for any listing whose subcategory is "National Park" (matches the
+  // raw `national_park` key or a stored "National Park" label, across verticals).
+  const isNationalPark = [listing._subcategory, listing.sub_type, ...(listing.sub_types || [])]
+    .some(v => v && String(v).trim().toLowerCase().replace(/\s+/g, '_') === 'national_park')
   const verticalUrl = getVerticalUrl(listing.vertical, listing.slug)
   const location = [cleanRegion, listing.state].filter(Boolean).join(', ')
   const hasCoords = listing.lat && listing.lng
@@ -1242,8 +1247,9 @@ export default async function PlacePage({ params }) {
             so it doesn't interrupt the traveller flow. Editorially important
             to the platform, functionally irrelevant to the user, so it sits
             after the discovery content rather than between primary and
-            discovery sections. */}
-        {!listing.is_claimed && (
+            discovery sections. National parks are public land with no operator
+            to claim, so the CTA is suppressed for them. */}
+        {!listing.is_claimed && !isNationalPark && (
           <div className="mt-12" style={{
             background: '#F5F0E8', margin: '3rem -1.5rem 0', padding: '3rem 2rem',
             textAlign: 'center',
