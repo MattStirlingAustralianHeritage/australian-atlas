@@ -731,13 +731,6 @@ export default async function PlacePage({ params }) {
               </div>
             )}
 
-            {listing.data_source === 'ai_generated' && (
-              <p style={{ marginTop: '14px', fontSize: '13px', fontStyle: 'italic', color: 'var(--color-ink)', opacity: 0.6 }}>
-                Description auto-generated. Own this listing?{' '}
-                <a href={`/claim/${listing.slug}`} style={{ textDecoration: 'underline' }}>Claim it</a> to update.
-              </p>
-            )}
-
             {/* CTA buttons — two-tier hierarchy.
                 Primary pair (Visit Website + Start a trail here): equal visual
                 weight, stacked full-width on mobile, side-by-side on desktop.
