@@ -3,6 +3,8 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 import { useRef, useEffect, useState } from 'react'
 import { getVerticalUrl, getVerticalBadge, getVerticalLabel, getVerticalBrandColour, getPublicVerticals } from '@/lib/verticalUrl'
 import { listingVerticals } from '@/lib/listings/verticalFilter'
+import { SUB_TYPE_LABELS } from '@/lib/subTypeLabels'
+import { isApprovedImageSource } from '@/lib/image-utils'
 
 const PRIMARY = '#5f8a7e'
 const PREMIUM_COLOR = '#c8943a'
@@ -12,56 +14,8 @@ const PREMIUM_COLOR = '#c8943a'
 // from the public-vertical registry passed down from the server (see below).
 const verticalColor = (key) => getVerticalBrandColour(key) || PRIMARY
 
-// Sub-type labels per vertical — shown as secondary filter pills
-const SUB_TYPE_LABELS = {
-  sba: {
-    winery: 'Winery', brewery: 'Brewery', distillery: 'Distillery',
-    cidery: 'Cidery', meadery: 'Meadery', cellar_door: 'Cellar Door',
-    sour_brewery: 'Sour Brewery', non_alcoholic: 'Non-Alcoholic',
-  },
-  collection: {
-    museum: 'Museum', gallery: 'Gallery', heritage_site: 'Heritage Site',
-    botanical_garden: 'Botanical Garden', cultural_centre: 'Cultural Centre',
-  },
-  craft: {
-    ceramics_clay: 'Ceramics & Clay', visual_art: 'Visual Art',
-    jewellery_metalwork: 'Jewellery & Metalwork', textile_fibre: 'Textile & Fibre',
-    wood_furniture: 'Wood & Furniture', glass: 'Glass', printmaking: 'Printmaking',
-    leathermaker: 'Leatherwork', shoemaker: 'Shoemaking',
-  },
-  fine_grounds: {
-    roaster: 'Roaster', cafe: 'Cafe',
-  },
-  rest: {
-    boutique_hotel: 'Boutique Hotel', guesthouse: 'Guesthouse', bnb: 'B&B',
-    farm_stay: 'Farm Stay', glamping: 'Glamping', cottage: 'Cottage',
-    self_contained: 'Self Contained',
-  },
-  field: {
-    swimming_hole: 'Swimming Hole', waterfall: 'Waterfall', lookout: 'Lookout',
-    gorge: 'Gorge', coastal_walk: 'Coastal Walk', hot_spring: 'Hot Spring',
-    cave: 'Cave', national_park: 'National Park',
-    wildlife_zoo: 'Wildlife & Zoo', bush_walk: 'Bush Walk',
-    botanic_garden: 'Botanic Garden', nature_reserve: 'Nature Reserve',
-  },
-  corner: {
-    bookshop: 'Bookshop', records: 'Records', homewares: 'Homewares',
-    stationery: 'Stationery', jewellery: 'Jewellery', toys: 'Toys',
-    general: 'General', clothing: 'Clothing', food_drink: 'Food & Drink',
-    plants: 'Plants',
-  },
-  found: {
-    vintage_clothing: 'Vintage Clothing', vintage_furniture: 'Vintage Furniture',
-    vintage_store: 'Vintage Store', antiques: 'Antiques', op_shop: 'Op Shop',
-    books_ephemera: 'Books & Ephemera', art_objects: 'Art & Objects', market: 'Market',
-  },
-  table: {
-    restaurant: 'Restaurant', bakery: 'Bakery', market: 'Market',
-    farm_gate: 'Farm Gate', artisan_producer: 'Artisan Producer',
-    specialty_retail: 'Specialty Retail', destination: 'Destination',
-    cooking_school: 'Cooking School', providore: 'Providore', food_trail: 'Food Trail',
-  },
-}
+// SUB_TYPE_LABELS (secondary filter pills + popup category) is shared with the
+// place-page nearby list via lib/subTypeLabels.js so labels never diverge.
 
 const STATES = ['All States', 'NSW', 'VIC', 'QLD', 'SA', 'WA', 'TAS', 'ACT', 'NT']
 
@@ -133,6 +87,7 @@ export default function MapClient({
   prefilteredListings = null,
   initialBounds = null,
   highlightListingId = null,
+  focusListingId = null,
   publicVerticals = null,
 }) {
   const isEmbedded = mode === 'embedded'
@@ -369,7 +324,10 @@ export default function MapClient({
 
         m.addSource('listings-clustered', {
           type: 'geojson',
-          cluster: true,
+          // Embedded (nearby) maps hold a small, already-near set — clustering
+          // would roll close neighbours into a count bubble and hide the very
+          // places the section exists to surface. Keep every pin individual.
+          cluster: !isEmbedded,
           clusterMaxZoom: 10,
           clusterMinPoints: 10,
           clusterRadius: 50,
@@ -515,6 +473,20 @@ export default function MapClient({
     prevFilterKey.current = key
   }, [allListings, selectedVerticals, subTypeFilter, stateFilter, search, mapReady])
 
+  // Embedded list ↔ map sync: when a nearby-list row is hovered/focused, open
+  // that listing's popup on the map so the reader can see where it sits. No
+  // camera move — the map is already fit to the radius, so every pin is in
+  // view and panning on hover would feel twitchy. A null focus closes it.
+  useEffect(() => {
+    if (!mapReady || !map.current || !popup.current) return
+    if (!focusListingId) { popup.current.remove(); return }
+    const l = listingsRef.current.find(x => x.id === focusListingId)
+    if (!l || l.lat == null || l.lng == null) return
+    const coords = [parseFloat(l.lng), parseFloat(l.lat)]
+    const isCurrent = highlightListingId && l.id === highlightListingId
+    popup.current.setLngLat(coords).setHTML(buildPopupHTML(listingToProps(l), { isCurrent })).addTo(map.current)
+  }, [focusListingId, mapReady, highlightListingId])
+
   // Keep vertical/state in the URL so a filtered view survives refresh and
   // can be shared. Only a single-vertical selection maps onto the ?vertical=
   // param (the server only parses one); multi-select just drops it.
@@ -557,6 +529,16 @@ export default function MapClient({
 
   const isAllVerticals = selectedVerticals.size === 0
   const activeFilterCount = (!isAllVerticals ? 1 : 0) + (subTypeFilter !== 'all' ? 1 : 0) + (stateFilter !== 'All States' ? 1 : 0) + (search ? 1 : 0)
+
+  // Embedded legend — the nearby map ships no chrome, so coloured dots are
+  // otherwise unexplained. Build a compact key from the verticals actually
+  // present, plus a "This place" swatch for the highlighted pin.
+  const highlightListing = highlightListingId ? allListings.find(l => l.id === highlightListingId) : null
+  const highlightColor = highlightListing ? verticalColor(highlightListing.vertical) : PRIMARY
+  const embeddedLegend = isEmbedded
+    ? [...new Set(allListings.filter(l => l.id !== highlightListingId).map(l => l.vertical).filter(Boolean))]
+        .map(v => ({ key: v, label: getVerticalBadge(v), color: verticalColor(v) }))
+    : []
 
   function clearAllFilters() {
     setSelectedVerticals(new Set())
@@ -732,6 +714,30 @@ export default function MapClient({
         )}
         {/* Map canvas */}
         <div ref={mapContainer} style={{ position: 'absolute', inset: 0 }} />
+
+        {/* Embedded legend — compact colour key for the nearby pins */}
+        {isEmbedded && mapReady && (embeddedLegend.length > 0 || highlightListing) && (
+          <div style={{
+            position: 'absolute', top: 10, left: 10, zIndex: 5, maxWidth: 'calc(100% - 80px)',
+            display: 'flex', flexWrap: 'wrap', gap: '5px 10px', alignItems: 'center',
+            background: 'rgba(250,248,245,0.95)', border: '1px solid var(--color-border)',
+            borderRadius: 8, padding: '6px 9px', backdropFilter: 'blur(6px)',
+            boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
+          }}>
+            {highlightListing && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, color: 'var(--color-muted)', fontFamily: 'var(--font-sans, sans-serif)' }}>
+                <span style={{ width: 9, height: 9, borderRadius: '50%', background: highlightColor, boxShadow: `0 0 0 2px ${highlightColor}55` }} />
+                This place
+              </span>
+            )}
+            {embeddedLegend.map(v => (
+              <span key={v.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, color: 'var(--color-muted)', fontFamily: 'var(--font-sans, sans-serif)' }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: v.color }} />
+                {v.label}
+              </span>
+            ))}
+          </div>
+        )}
 
         {/* Loading overlay — the canvas stays blank until pins arrive, so say so */}
         {!isEmbedded && loading && (
@@ -1019,6 +1025,9 @@ function getFiltered(listings, selectedVerticals, subTypeFilter, stateFilter, se
 // so a popup opened either way renders identically.
 function listingToProps(l) {
   const subTypes = SUB_TYPE_LABELS[l.vertical] || {}
+  // _dist (place-page nearby set) or distance_km (RPC rows) — either is the
+  // km from the viewed place; absent in the full /map set, where it's omitted.
+  const dist = l._dist != null ? l._dist : (l.distance_km != null ? l.distance_km : null)
   return {
     id: l.id,
     name: l.name,
@@ -1031,6 +1040,8 @@ function listingToProps(l) {
     featured: l.is_featured || false,
     location: [l.region, l.state].filter(Boolean).join(', '),
     description: l.description || '',
+    image: isApprovedImageSource(l.hero_image_url) ? l.hero_image_url : '',
+    distance: dist != null ? dist : '',
     url: `/place/${l.slug}`,
   }
 }
@@ -1048,6 +1059,20 @@ function buildPopupHTML(props, { isCurrent = false } = {}) {
     ? `<span style="display:inline-flex;align-items:center;gap:5px;background:rgba(95,138,126,0.08);border:1px solid rgba(95,138,126,0.2);padding:3px 9px;border-radius:2px;"><span style="font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#6b6560;">${esc(props.subTypeLabel)}</span></span>`
     : ''
 
+  // Thumbnail — only from a whitelisted image host (listingToProps already
+  // applied isApprovedImageSource; the 'null' guard catches stringified props).
+  const imgHtml = props.image && props.image !== 'null'
+    ? `<div style="width:100%;height:118px;border-radius:3px;overflow:hidden;margin-bottom:9px;background:#efe9e1;"><img src="${esc(props.image)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;"/></div>`
+    : ''
+
+  // Distance from the viewed place — shown for neighbours, never for the
+  // current listing (its distance is 0).
+  const distNum = props.distance != null && props.distance !== '' && props.distance !== 'null'
+    ? parseFloat(props.distance) : NaN
+  const distText = !isCurrent && !Number.isNaN(distNum) && distNum > 0
+    ? (distNum < 1 ? '<1 km away' : `${distNum < 10 ? distNum.toFixed(1) : Math.round(distNum)} km away`)
+    : ''
+
   // The pin for the current listing (embedded mode) shows a "You are here"
   // badge instead of a self-linking "View listing →" button — clicking the
   // page you're already on would be a dead end.
@@ -1055,8 +1080,12 @@ function buildPopupHTML(props, { isCurrent = false } = {}) {
     ? `<div style="display:block;margin-top:10px;padding:7px 0;text-align:center;background:rgba(95,138,126,0.10);color:${PRIMARY};font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;border-radius:2px;border:1px dashed rgba(95,138,126,0.35);">You are here</div>`
     : `<a href="${esc(props.url)}" style="display:block;margin-top:10px;padding:7px 0;text-align:center;background:${PRIMARY};color:#fff;text-decoration:none;font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;border-radius:2px;">View listing →</a>`
 
+  const locLine = [esc(props.location), distText ? `<span style="color:${PRIMARY};font-weight:600;">${distText}</span>` : '']
+    .filter(Boolean).join(' · ')
+
   return (
     `<div style="font-family:system-ui,-apple-system,sans-serif;padding:4px 2px;max-width:260px;">
+      ${imgHtml}
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
         <span style="display:inline-flex;align-items:center;gap:5px;background:${props.color}18;border:1px solid ${props.color}33;padding:3px 9px;border-radius:2px;">
           <span style="width:5px;height:5px;border-radius:50%;background:${props.color};display:inline-block;"></span>
@@ -1064,7 +1093,7 @@ function buildPopupHTML(props, { isCurrent = false } = {}) {
         </span>${subLabel}${featuredBadge}
       </div>
       <div style="font-family:Georgia,serif;font-size:17px;font-weight:400;color:#1a1614;margin-bottom:3px;letter-spacing:-0.01em;line-height:1.2;">${esc(props.name)}</div>
-      <div style="font-size:11px;color:#9a8878;margin-bottom:${desc ? 8 : 10}px;">${esc(props.location)}</div>
+      <div style="font-size:11px;color:#9a8878;margin-bottom:${desc ? 8 : 10}px;">${locLine}</div>
       ${desc ? `<div style="font-size:12px;color:#5a4e45;line-height:1.5;margin-bottom:10px;">${esc(desc)}</div>` : ''}
       ${ctaHtml}
     </div>`

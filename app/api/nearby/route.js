@@ -2,7 +2,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { NextResponse } from 'next/server'
 import { LISTING_REGION_SELECT } from '@/lib/regions'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
-import { excludeTestListings } from '@/lib/listings/publicFilter'
+import { excludeTestListings, isPublicListing } from '@/lib/listings/publicFilter'
 
 // Haversine distance in km
 function haversineKm(lat1, lng1, lat2, lng2) {
@@ -126,32 +126,46 @@ export async function GET(request) {
   // For non-adaptive requests, cap at requested radius (backward compat: old 30km cap)
   const effectiveMaxRadius = adaptive ? HARD_CAP_KM : Math.min(radiusParam, 30)
 
-  // Calculate a bounding box for the initial query (rough filter)
-  // 1 degree lat ~ 111km, 1 degree lng varies by latitude
-  const maxRadius = HARD_CAP_KM
-  const latDelta = maxRadius / 111
-  const lngDelta = maxRadius / (111 * Math.cos(lat * Math.PI / 180))
-
-  let query = excludeTestListings(
-    sb
-      .from('listings')
-      .select(`id, name, slug, description, region, state, lat, lng, hero_image_url, vertical, sub_type, is_featured, is_claimed, ${LISTING_REGION_SELECT}`)
-      .eq('status', 'active')
-      .gte('lat', lat - latDelta)
-      .lte('lat', lat + latDelta)
-      .gte('lng', lng - lngDelta)
-      .lte('lng', lng + lngDelta)
-      .limit(200)
-  )
-
-  if (vertical) {
-    query = filterByVertical(query, vertical, await relationHasVerticals(sb, 'listings'))
-  }
-
-  const { data, error } = await query
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500, headers: CORS_HEADERS })
+  // Candidate fetch — primary path is the nearby_listings PostGIS RPC
+  // (migration 166): it returns the TRUE nearest venues ordered by distance,
+  // honouring the privacy / visitability / needs_review guards in SQL, so the
+  // candidate pool is never truncated before "nearest" is computed. The old
+  // bounding-box + limit(200) query returned an arbitrary 200 rows inside a
+  // 100km box around the origin and, in dense metros, could drop genuinely-
+  // close venues. Bounding box is kept as a graceful fallback.
+  const hasVerticals = await relationHasVerticals(sb, 'listings')
+  let data = null
+  try {
+    const { data: rpcData, error: rpcError } = await sb.rpc('nearby_listings', {
+      center_lat: lat,
+      center_lng: lng,
+      radius_km: HARD_CAP_KM,
+      filter_vertical: vertical || null,
+      max_results: 300,
+    })
+    if (rpcError) throw rpcError
+    data = (rpcData || []).filter(isPublicListing)
+  } catch (e) {
+    console.error('[nearby] nearby_listings RPC failed, using bounding-box fallback:', e?.message)
+    const latDelta = HARD_CAP_KM / 111
+    const lngDelta = HARD_CAP_KM / (111 * Math.cos(lat * Math.PI / 180))
+    let query = excludeTestListings(
+      sb
+        .from('listings')
+        .select(`id, name, slug, description, region, state, lat, lng, hero_image_url, vertical, sub_type, is_featured, is_claimed, ${LISTING_REGION_SELECT}`)
+        .eq('status', 'active')
+        .gte('lat', lat - latDelta)
+        .lte('lat', lat + latDelta)
+        .gte('lng', lng - lngDelta)
+        .lte('lng', lng + lngDelta)
+        .limit(200)
+    )
+    if (vertical) query = filterByVertical(query, vertical, hasVerticals)
+    const { data: bbData, error } = await query
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500, headers: CORS_HEADERS })
+    }
+    data = bbData || []
   }
 
   // Calculate distances and filter

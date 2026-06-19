@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getVerticalUrl, getVerticalLabel, getVerticalTagline, getVerticalBrandColour, getPublicVerticals } from '@/lib/verticalUrl'
 import { relationHasVerticals, listingVerticals } from '@/lib/listings/verticalFilter'
+import { isPublicListing } from '@/lib/listings/publicFilter'
 import { listingJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
 import { checkAdmin } from '@/lib/admin-auth'
 import { isApprovedImageSource, isHeroDisplayable } from '@/lib/image-utils'
@@ -23,7 +24,7 @@ import {
 } from '@/lib/wayLabels'
 import ListingCard, { TypographicCard } from '@/components/ListingCard'
 import MoreInRow from '@/components/MoreInRow'
-import EmbeddedNearbyMap from '@/components/EmbeddedNearbyMap'
+import NearbyExplorer from '@/components/NearbyExplorer'
 import InlineListingEditor from '@/components/InlineListingEditor'
 import StartTrailButton from '@/components/StartTrailButton'
 import SaveListingButton from '@/components/SaveListingButton'
@@ -245,56 +246,84 @@ function haversineKm(lat1, lng1, lat2, lng2) {
 
 /**
  * Listings within an adaptive radius of the current listing for the
- * "Nearby on Australian Atlas" map. Tries 2km → 15km → 30km in turn and
- * picks the smallest band containing at least MIN_FOR_DENSITY listings, so
- * dense urban areas show a tight cluster and outer-metro / regional /
- * remote areas widen out.
+ * "Nearby on Australian Atlas" map + companion list. Tries 2km → 15km → 30km
+ * in turn and picks the smallest band containing at least MIN_FOR_DENSITY
+ * neighbours, so dense urban areas show a tight cluster and outer-metro /
+ * regional / remote areas widen out.
  *
- * Returns { listings, radiusKm } so the caller can fit the map to the
- * chosen radius. Always includes the current listing so the highlighted
- * pin is part of the same data source.
+ * Primary path is the `nearby_listings` PostGIS RPC (migration 166): it
+ * returns the TRUE nearest neighbours ordered by distance, so we never
+ * truncate the candidate pool before "nearest" is computed — the failure mode
+ * of the old bounding-box + limit(120) query, which in a dense origin returned
+ * an arbitrary 120 rows and could drop genuinely-close venues off the map. The
+ * RPC also returns distance_km + hero_image_url + sub_type, which the popups
+ * and the companion list render directly. A bounding-box fallback keeps the
+ * map alive if the RPC ever errors.
+ *
+ * Returns { listings, radiusKm } so the caller can fit the map to the chosen
+ * radius. The current listing is always first (distance 0) so the highlighted
+ * pin shares the same data source; each neighbour carries `_dist` (km).
  */
 async function getMapNearbyListings(listing) {
   const RADII_KM = [2, 15, 30]
   const MIN_FOR_DENSITY = 3
   const FALLBACK_RADIUS_KM = 30
+  const MAX_NEIGHBOURS = 60
   if (!listing.lat || !listing.lng) {
     return { listings: [listing], radiusKm: FALLBACK_RADIUS_KM }
   }
   const sb = getSupabaseAdmin()
-  const latDelta = FALLBACK_RADIUS_KM / 111
-  const lngDelta = FALLBACK_RADIUS_KM / (111 * Math.cos(listing.lat * Math.PI / 180))
+  const trimDesc = (d) => (d ? String(d).slice(0, 200) : null)
 
-  const { data } = await sb
-    .from('listings')
-    .select('id, name, slug, vertical, region, state, lat, lng, is_featured, is_claimed, editors_pick, sub_type, address_on_request')
-    .eq('status', 'active')
-    .neq('id', listing.id)
-    .or('address_on_request.eq.false,address_on_request.is.null')
-    .or('visitable.eq.true,visitable.is.null,presence_type.eq.by_appointment')
-    .gte('lat', listing.lat - latDelta)
-    .lte('lat', listing.lat + latDelta)
-    .gte('lng', listing.lng - lngDelta)
-    .lte('lng', listing.lng + lngDelta)
-    .not('lat', 'is', null)
-    .not('lng', 'is', null)
-    .limit(120)
-
-  const withDist = (data || [])
-    .map(l => ({ ...l, _dist: haversineKm(listing.lat, listing.lng, l.lat, l.lng) }))
-    .filter(l => l._dist <= FALLBACK_RADIUS_KM)
-    .sort((a, b) => a._dist - b._dist)
+  let neighbours = null
+  try {
+    const { data, error } = await sb.rpc('nearby_listings', {
+      center_lat: listing.lat,
+      center_lng: listing.lng,
+      radius_km: FALLBACK_RADIUS_KM,
+      filter_vertical: null,
+      max_results: MAX_NEIGHBOURS,
+    })
+    if (error) throw error
+    neighbours = (data || [])
+      .filter(l => l.id !== listing.id && l.lat != null && l.lng != null && isPublicListing(l))
+      .map(l => ({ ...l, description: trimDesc(l.description), _dist: l.distance_km }))
+      .sort((a, b) => a._dist - b._dist)
+  } catch (e) {
+    // Graceful degradation: bounding-box + JS haversine (pre-166 behaviour).
+    console.error('[place] nearby_listings RPC failed, using bounding-box fallback:', e?.message)
+    const latDelta = FALLBACK_RADIUS_KM / 111
+    const lngDelta = FALLBACK_RADIUS_KM / (111 * Math.cos(listing.lat * Math.PI / 180))
+    const { data } = await sb
+      .from('listings')
+      .select('id, name, slug, vertical, verticals, region, state, lat, lng, hero_image_url, description, is_featured, is_claimed, editors_pick, sub_type, address_on_request')
+      .eq('status', 'active')
+      .neq('id', listing.id)
+      .or('address_on_request.eq.false,address_on_request.is.null')
+      .or('visitable.eq.true,visitable.is.null,presence_type.eq.by_appointment')
+      .gte('lat', listing.lat - latDelta)
+      .lte('lat', listing.lat + latDelta)
+      .gte('lng', listing.lng - lngDelta)
+      .lte('lng', listing.lng + lngDelta)
+      .not('lat', 'is', null)
+      .not('lng', 'is', null)
+      .limit(120)
+    neighbours = (data || [])
+      .map(l => ({ ...l, description: trimDesc(l.description), _dist: haversineKm(listing.lat, listing.lng, l.lat, l.lng) }))
+      .filter(l => l._dist <= FALLBACK_RADIUS_KM)
+      .sort((a, b) => a._dist - b._dist)
+  }
 
   let chosenRadius = FALLBACK_RADIUS_KM
   for (const r of RADII_KM) {
-    if (withDist.filter(l => l._dist <= r).length >= MIN_FOR_DENSITY) {
+    if (neighbours.filter(l => l._dist <= r).length >= MIN_FOR_DENSITY) {
       chosenRadius = r
       break
     }
   }
 
-  const inBand = withDist.filter(l => l._dist <= chosenRadius)
-  return { listings: [listing, ...inBand], radiusKm: chosenRadius }
+  const inBand = neighbours.filter(l => l._dist <= chosenRadius)
+  return { listings: [{ ...listing, _dist: 0 }, ...inBand], radiusKm: chosenRadius }
 }
 
 /** Compute a bounding box around (lat, lng) for the given radius in km. */
@@ -1175,11 +1204,12 @@ export default async function PlacePage({ params }) {
           </section>
         )}
 
-        {/* ── Nearby on Australian Atlas — full-width interactive map ──
-            Replaces the small sidebar map AND the previous nearby/region
-            carousel duplication. Pins are pre-fetched server-side with a
-            density-aware radius (2/10/25 km) so dense urban areas show a
-            tight cluster and remote areas widen out. */}
+        {/* ── Nearby on Australian Atlas — interactive map paired with a
+            ranked, distance-stamped list of the nearest places. Neighbours are
+            fetched server-side via the nearby_listings PostGIS RPC (true
+            nearest, density-aware 2/15/30 km band). The list gives the map a
+            crawlable, keyboard-navigable, screen-reader-legible companion and
+            lets a reader scan what's around without clicking every pin. */}
         {hasCoords && (
           <section className="mt-12">
             <div className="flex items-end justify-between mb-4 gap-4 flex-wrap">
@@ -1200,18 +1230,14 @@ export default async function PlacePage({ params }) {
                 View on full map &rarr;
               </Link>
             </div>
-            <div
-              className="atlas-nearby-map rounded-xl overflow-hidden"
-              style={{ border: '1px solid var(--color-border)' }}
-              role="region"
-              aria-label={`Interactive map of ${listing.name} and nearby Australian Atlas listings within ${mapRadiusKm} km`}
-            >
-              <EmbeddedNearbyMap
-                prefilteredListings={mapNearby}
-                initialBounds={radiusBounds(listing.lat, listing.lng, mapRadiusKm)}
-                highlightListingId={listing.id}
-              />
-            </div>
+            <NearbyExplorer
+              listings={mapNearby}
+              initialBounds={radiusBounds(listing.lat, listing.lng, mapRadiusKm)}
+              highlightListingId={listing.id}
+              radiusKm={mapRadiusKm}
+              accent={vertColor}
+              originName={listing.name}
+            />
           </section>
         )}
 
