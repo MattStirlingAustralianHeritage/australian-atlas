@@ -6,6 +6,10 @@ import { updateRegionCounts } from '../../../../lib/sync/updateRegionCounts.js'
 import { sendSyncAlert } from '../../../../lib/sync/alerts.js'
 import { getSupabaseAdmin } from '../../../../lib/supabase/clients.js'
 
+// Give the full sync (incl. the paced, free-tier Voyage embedding drain) room to
+// run instead of timing out at the default and leaving the backlog stuck.
+export const maxDuration = 300
+
 // Standard verticals (single source table)
 const STANDARD_VERTICALS = [
   'sba', 'collection', 'craft', 'rest',

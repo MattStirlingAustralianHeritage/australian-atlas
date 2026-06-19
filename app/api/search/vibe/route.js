@@ -62,6 +62,7 @@ export async function POST(request) {
     // Mornington Peninsula") binds that region; otherwise fall back to its state.
     let filterRegion = null
     let filterState = null
+    let filterSuburb = null
     let cleaned
     {
       const qr = await resolveQueryRegion(sb, query)
@@ -72,6 +73,9 @@ export async function POST(request) {
         const parsed = parseQueryLocation(query)
         filterState = parsed.state
         cleaned = parsed.cleaned
+        // Suburb-granular tier (mirrors /api/search) — a named suburb scopes to
+        // it; falls back to state below if that finds nothing.
+        if (parsed.suburb) filterSuburb = parsed.suburb
       }
     }
 
@@ -115,6 +119,7 @@ export async function POST(request) {
       query_text: queryText,
       filter_state: filterState,
       filter_region: filterRegion,
+      filter_suburb: filterSuburb,
       match_count: 12,
       similarity_floor: SIMILARITY_FLOOR,
       include_way: isVerticalPublic('way'),
@@ -126,7 +131,18 @@ export async function POST(request) {
       return NextResponse.json({ results: [], query })
     }
 
-    let results = (data || []).filter(isPublicListing).map((r) => ({
+    let rows = data || []
+    // A suburb filter that found nothing → retry state-only so the user isn't stranded.
+    if (filterSuburb && rows.filter(isPublicListing).length === 0) {
+      const { data: stateData } = await sb.rpc('search_listings_hybrid', {
+        query_embedding: queryEmbedding, query_text: queryText, filter_state: filterState,
+        filter_region: filterRegion, filter_suburb: null, match_count: 12,
+        similarity_floor: SIMILARITY_FLOOR, include_way: isVerticalPublic('way'),
+      })
+      if (stateData && stateData.length) rows = stateData
+    }
+
+    let results = rows.filter(isPublicListing).map((r) => ({
       id: r.id, name: r.name, slug: r.slug, vertical: r.vertical,
       region: r.region, state: r.state, hero_image_url: r.hero_image_url,
       similarity: r.similarity, _description: r.description || '',
