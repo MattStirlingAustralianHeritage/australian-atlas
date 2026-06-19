@@ -303,7 +303,12 @@ export default function MapClient({
         closeButton: true,
         closeOnClick: false,
         maxWidth: '280px',
-        offset: 12,
+        // Embedded (nearby) popups get a visible tip + a larger offset so the
+        // card sits clear of its pin and the tip points unambiguously back to
+        // the place it describes. The fullscreen /map keeps the tip-less
+        // floating-card look.
+        offset: isEmbedded ? 18 : 12,
+        className: isEmbedded ? 'nbx-popup' : '',
       })
 
       // Lightweight name tooltip for desktop hover — saves a click per pin
@@ -395,6 +400,21 @@ export default function MapClient({
           })
         }
 
+        // Focus halo + ring — emphasise the pin whose card is hovered/open in
+        // the nearby list so it's unmistakable which place the popup describes.
+        // Filters start matching nothing and are set from the focus effect.
+        // Drawn above every other pin layer (added last in the load handler).
+        m.addLayer({
+          id: 'pin-focus-halo', type: 'circle', source: 'listings-clustered',
+          filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'id'], '__none__']],
+          paint: { 'circle-radius': 22, 'circle-color': ['get', 'color'], 'circle-opacity': 0.14 },
+        })
+        m.addLayer({
+          id: 'pin-focus-ring', type: 'circle', source: 'listings-clustered',
+          filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'id'], '__none__']],
+          paint: { 'circle-radius': 13, 'circle-color': 'transparent', 'circle-stroke-width': 3, 'circle-stroke-color': ['get', 'color'], 'circle-stroke-opacity': 0.95 },
+        })
+
         // Click + hover handlers
         const pinLayers = ['pins-basic', 'pins-featured-glow', 'pins-featured']
         if (highlightListingId) pinLayers.push('pin-highlight-ring', 'pin-highlight')
@@ -479,12 +499,19 @@ export default function MapClient({
   // view and panning on hover would feel twitchy. A null focus closes it.
   useEffect(() => {
     if (!mapReady || !map.current || !popup.current) return
-    if (!focusListingId) { popup.current.remove(); return }
+    const m = map.current
+    const setFocusFilter = (id) => {
+      const f = ['all', ['!', ['has', 'point_count']], ['==', ['get', 'id'], id || '__none__']]
+      if (m.getLayer('pin-focus-halo')) m.setFilter('pin-focus-halo', f)
+      if (m.getLayer('pin-focus-ring')) m.setFilter('pin-focus-ring', f)
+    }
+    if (!focusListingId) { popup.current.remove(); setFocusFilter(null); return }
     const l = listingsRef.current.find(x => x.id === focusListingId)
-    if (!l || l.lat == null || l.lng == null) return
+    if (!l || l.lat == null || l.lng == null) { setFocusFilter(null); return }
+    setFocusFilter(l.id)
     const coords = [parseFloat(l.lng), parseFloat(l.lat)]
     const isCurrent = highlightListingId && l.id === highlightListingId
-    popup.current.setLngLat(coords).setHTML(buildPopupHTML(listingToProps(l), { isCurrent })).addTo(map.current)
+    popup.current.setLngLat(coords).setHTML(buildPopupHTML(listingToProps(l), { isCurrent })).addTo(m)
   }, [focusListingId, mapReady, highlightListingId])
 
   // Keep vertical/state in the URL so a filtered view survives refresh and
@@ -992,6 +1019,18 @@ export default function MapClient({
       <style>{`
         .mapboxgl-popup-content { border-radius: 4px !important; padding: 14px 16px !important; box-shadow: 0 4px 20px rgba(0,0,0,0.12) !important; border: 1px solid rgba(95,138,126,0.15) !important; background: #faf8f5 !important; }
         .mapboxgl-popup-tip { display: none !important; }
+        /* Nearby-map popups restore a tip that points back at the pin (the
+           fullscreen /map keeps the tip-less floating card). Colour the visible
+           edge to match the cream popup body, per anchor. */
+        .nbx-popup .mapboxgl-popup-tip { display: block !important; }
+        .nbx-popup.mapboxgl-popup-anchor-top .mapboxgl-popup-tip,
+        .nbx-popup.mapboxgl-popup-anchor-top-left .mapboxgl-popup-tip,
+        .nbx-popup.mapboxgl-popup-anchor-top-right .mapboxgl-popup-tip { border-bottom-color: #faf8f5 !important; }
+        .nbx-popup.mapboxgl-popup-anchor-bottom .mapboxgl-popup-tip,
+        .nbx-popup.mapboxgl-popup-anchor-bottom-left .mapboxgl-popup-tip,
+        .nbx-popup.mapboxgl-popup-anchor-bottom-right .mapboxgl-popup-tip { border-top-color: #faf8f5 !important; }
+        .nbx-popup.mapboxgl-popup-anchor-left .mapboxgl-popup-tip { border-right-color: #faf8f5 !important; }
+        .nbx-popup.mapboxgl-popup-anchor-right .mapboxgl-popup-tip { border-left-color: #faf8f5 !important; }
         .mapboxgl-popup-close-button { font-size: 18px !important; padding: 4px 8px !important; color: #9a8878 !important; }
         .map-hover-tip { pointer-events: none !important; }
         .map-hover-tip .mapboxgl-popup-content { padding: 8px 11px !important; box-shadow: 0 2px 10px rgba(0,0,0,0.10) !important; }
