@@ -303,7 +303,7 @@ function Kbd({ children }) {
   )
 }
 
-function VerticalSelect({ value, secondary, candidateId, onSaved }) {
+function VerticalSelect({ value, secondary, candidateId, onSaved, onError }) {
   const [saving, setSaving] = useState(false)
   const color = VERTICAL_COLORS[value] || 'var(--color-muted)'
 
@@ -325,9 +325,17 @@ function VerticalSelect({ value, secondary, candidateId, onSaved }) {
       if (res.ok) {
         const { candidate } = await res.json()
         if (candidate) onSaved?.(candidate)
+      } else {
+        // Surface the failure instead of silently swallowing it — a non-ok
+        // response (e.g. 409 duplicate-candidate conflict) used to leave the
+        // controlled <select> snapping back with no feedback, which read as
+        // "nothing happens".
+        const d = await res.json().catch(() => ({}))
+        onError?.(d.error || `Couldn't change vertical (${res.status}).`)
       }
     } catch (err) {
       console.error('Vertical update failed:', err)
+      onError?.(err.message || 'Network error changing vertical.')
     } finally {
       setSaving(false)
     }
@@ -358,7 +366,7 @@ function VerticalSelect({ value, secondary, candidateId, onSaved }) {
 // (e.g. a distillery that also has a cellar-door café). Ghost pill until set,
 // then mirrors the chosen vertical's colour as an outline. Persists via the
 // candidate `verticals` array (primary first).
-function SecondaryVerticalSelect({ primary, value, candidateId, onSaved }) {
+function SecondaryVerticalSelect({ primary, value, candidateId, onSaved, onError }) {
   const [saving, setSaving] = useState(false)
   const color = VERTICAL_COLORS[value] || 'var(--color-muted)'
 
@@ -376,9 +384,13 @@ function SecondaryVerticalSelect({ primary, value, candidateId, onSaved }) {
       if (res.ok) {
         const { candidate } = await res.json()
         if (candidate) onSaved?.(candidate)
+      } else {
+        const d = await res.json().catch(() => ({}))
+        onError?.(d.error || `Couldn't set second vertical (${res.status}).`)
       }
     } catch (err) {
       console.error('Secondary vertical update failed:', err)
+      onError?.(err.message || 'Network error setting second vertical.')
     } finally {
       setSaving(false)
     }
@@ -1024,8 +1036,10 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
         borderBottom: '1px solid var(--color-border)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <VerticalSelect value={vertical} secondary={secondaryVertical} candidateId={candidate.id} onSaved={onUpdate} />
-          <SecondaryVerticalSelect primary={vertical} value={secondaryVertical} candidateId={candidate.id} onSaved={onUpdate} />
+          <VerticalSelect value={vertical} secondary={secondaryVertical} candidateId={candidate.id} onSaved={onUpdate}
+            onError={(msg) => { setErrorMsg(msg); setStatus('error') }} />
+          <SecondaryVerticalSelect primary={vertical} value={secondaryVertical} candidateId={candidate.id} onSaved={onUpdate}
+            onError={(msg) => { setErrorMsg(msg); setStatus('error') }} />
           <SubcategorySelect vertical={vertical} value={subcategory} onChange={setSubcategory} placeholder="Primary..." />
           <SubcategorySelect vertical={vertical} value={subcategorySecondary} onChange={setSubcategorySecondary} exclude={subcategory} placeholder="Secondary..." />
           <span style={{

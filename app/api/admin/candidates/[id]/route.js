@@ -286,6 +286,26 @@ export async function PATCH(request, { params }) {
         .single())
     }
 
+    // Unique index idx_candidates_name_vertical (lower(trim(name)), vertical):
+    // moving this candidate into a vertical that already has a same-named
+    // candidate trips a 23505. Surface a clear, actionable conflict instead of
+    // an opaque 500 (which the UI swallowed silently — looked like "nothing
+    // happened").
+    if (error && error.code === '23505') {
+      const targetVertical = 'vertical' in updates ? updates.vertical : null
+      const verticalName = (targetVertical && VERTICAL_DISPLAY_NAMES[targetVertical]) || targetVertical || 'that vertical'
+      // Best-effort name lookup for a friendlier message (error path only).
+      let name = 'this candidate'
+      try {
+        const { data: row } = await sb.from('listing_candidates').select('name').eq('id', id).maybeSingle()
+        if (row?.name) name = `"${row.name}"`
+      } catch { /* keep generic name */ }
+      return NextResponse.json({
+        error: `Can't move ${name} to ${verticalName} — a candidate with the same name already exists in that queue. Reject or rename the duplicate first.`,
+        code: 'duplicate_candidate',
+      }, { status: 409 })
+    }
+
     if (error) throw error
 
     return NextResponse.json({ candidate: data })
