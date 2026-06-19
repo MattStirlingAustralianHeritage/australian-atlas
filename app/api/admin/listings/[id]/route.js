@@ -46,10 +46,19 @@ export async function PATCH(request, { params }) {
     let metaResult = null
 
     if (_meta && Object.keys(_meta).length > 0) {
-      // We need the vertical to know which meta table to target
+      // We need the vertical to know which meta table to target. When this save
+      // ALSO changes the vertical, the meta fields belong to the NEW vertical —
+      // resolve the table from the vertical being saved (listingFields.vertical)
+      // rather than the stale pre-update value. Otherwise a vertical change (e.g.
+      // sba → rest) tries to write rest's accommodation_type into the old
+      // sba_meta table and fails with a 42703 / "column not in schema cache".
       const sb = getSupabaseAdmin()
       const { data: row } = await sb.from('listings').select('vertical').eq('id', id).single()
-      const metaTable = row ? EXTENSION_TABLES[row.vertical] : null
+      const savingVertical = (typeof listingFields.vertical === 'string' && EXTENSION_TABLES[listingFields.vertical])
+        ? listingFields.vertical
+        : null
+      const effectiveVertical = savingVertical || row?.vertical || null
+      const metaTable = effectiveVertical ? EXTENSION_TABLES[effectiveVertical] : null
 
       if (metaTable) {
         // NOTE: select('*') — meta tables have DIFFERENT shapes per vertical
@@ -75,7 +84,7 @@ export async function PATCH(request, { params }) {
         // category field (e.g. rest.accommodation_type).
         // Secondary subcategories (sub_types[1+]) can be set via _sub_types in the payload.
         // The DB trigger keeps sub_type in sync with sub_types[1] automatically.
-        const categoryKey = META_CATEGORY_KEY[row.vertical]
+        const categoryKey = META_CATEGORY_KEY[effectiveVertical]
         if (categoryKey && categoryKey in _meta) {
           const primarySubType = _meta[categoryKey] || null
 
@@ -93,7 +102,7 @@ export async function PATCH(request, { params }) {
             listingFields.sub_types = []
           }
           // sub_type kept in sync: primary = sub_types[0]
-          console.log(`[admin/listings/PATCH] Syncing ${row.vertical}.${categoryKey} → sub_types: [${listingFields.sub_types.join(', ')}]`)
+          console.log(`[admin/listings/PATCH] Syncing ${effectiveVertical}.${categoryKey} → sub_types: [${listingFields.sub_types.join(', ')}]`)
         }
 
         // Handle explicit _sub_types without category change (reordering secondaries)
