@@ -34,13 +34,28 @@ function RegionIcon() {
   )
 }
 
-const TYPE_CONFIG = {
-  place: { heading: 'Places', Icon: PlaceIcon },
-  suburb: { heading: 'Suburbs', Icon: SuburbIcon },
-  region: { heading: 'Regions', Icon: RegionIcon },
+function CategoryIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+      <rect x="3" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="3" y="14" width="7" height="7" rx="1" />
+      <rect x="14" y="14" width="7" height="7" rx="1" />
+    </svg>
+  )
 }
 
-const TYPE_ORDER = ['place', 'suburb', 'region']
+const TYPE_CONFIG = {
+  region: { heading: 'Regions', Icon: RegionIcon },
+  suburb: { heading: 'Suburbs', Icon: SuburbIcon },
+  category: { heading: 'Categories', Icon: CategoryIcon },
+  place: { heading: 'Places', Icon: PlaceIcon },
+}
+
+// Render/keyboard order: location + category suggestions surface above
+// partial venue-name matches (so e.g. "Yarra Valley" isn't buried under tiny
+// venues, and "brew" suggests the Breweries category).
+const TYPE_ORDER = ['region', 'suburb', 'category', 'place']
 
 export default function SearchAutocomplete({ value, onChange, onSelect, placeholder, inputStyle, ariaLabel, overlay }) {
   const [results, setResults] = useState([])
@@ -203,6 +218,8 @@ export default function SearchAutocomplete({ value, onChange, onSelect, placehol
         aria-expanded={isOpen}
         aria-haspopup="listbox"
         aria-autocomplete="list"
+        aria-controls="aa-listbox"
+        aria-activedescendant={isOpen && activeIndex >= 0 ? `aa-opt-${activeIndex}` : undefined}
       />
 
       {/* Animated hint overlay (hero only). Shown over the empty field as a
@@ -235,11 +252,12 @@ export default function SearchAutocomplete({ value, onChange, onSelect, placehol
       {isOpen && (
         <div
           role="listbox"
+          id="aa-listbox"
           style={{
             position: 'absolute',
             top: 'calc(100% + 8px)',
-            left: '-20px',
-            right: '-20px',
+            left: 0,
+            right: 0,
             background: '#fff',
             borderRadius: '12px',
             border: '1px solid var(--color-border)',
@@ -278,6 +296,7 @@ export default function SearchAutocomplete({ value, onChange, onSelect, placehol
                   return (
                     <button
                       key={`${type}-${item.label}-${item.slug || item.id || idx}`}
+                      id={`aa-opt-${itemIndex}`}
                       role="option"
                       aria-selected={isActive}
                       onClick={() => handleSelect(item)}
@@ -287,6 +306,7 @@ export default function SearchAutocomplete({ value, onChange, onSelect, placehol
                         alignItems: 'center',
                         gap: '10px',
                         width: '100%',
+                        minHeight: '44px',
                         padding: '8px 16px',
                         border: 'none',
                         background: isActive ? 'var(--color-cream)' : 'transparent',

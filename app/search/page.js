@@ -563,6 +563,8 @@ function SearchPageInner() {
               router.push(`/place/${item.slug}`)
             } else if (item.type === 'suburb') {
               setQuery(item.label)
+            } else if (item.type === 'category') {
+              setQuery(item.query || item.label)
             } else if (item.type === 'region' && item.slug) {
               router.push(`/regions/${item.slug}`)
             }

@@ -72,6 +72,8 @@ export default function HomeSearchBar() {
       router.push(`/place/${item.slug}`)
     } else if (item.type === 'suburb') {
       router.push(`/search?q=${encodeURIComponent(item.label)}`)
+    } else if (item.type === 'category') {
+      router.push(`/search?q=${encodeURIComponent(item.query || item.label)}`)
     } else if (item.type === 'region' && item.slug) {
       router.push(`/regions/${item.slug}`)
     }
