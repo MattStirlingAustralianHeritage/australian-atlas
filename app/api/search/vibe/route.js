@@ -53,6 +53,7 @@ export async function POST(request) {
     const body = await request.json()
     const query = (body.query || '').trim()
     if (!query) return NextResponse.json({ error: 'Query is required' }, { status: 400 })
+    const loggedQuery = query.slice(0, 200)  // PII/retention guard before persisting
 
     const sb = getSupabaseAdmin()
 
@@ -121,7 +122,7 @@ export async function POST(request) {
 
     if (error) {
       console.error('[vibe-search] hybrid error:', error.message)
-      logSearchEvent(sb, { query_text: query, surface: 'vibe', result_count: 0, latency_ms: Date.now() - t0, vector_arm_fired: !!queryEmbedding, fell_back: !queryEmbedding, voyage_error: voyageError || error.message, zero_result: true })
+      logSearchEvent(sb, { query_text: loggedQuery, surface: 'vibe', result_count: 0, latency_ms: Date.now() - t0, vector_arm_fired: !!queryEmbedding, fell_back: !queryEmbedding, voyage_error: voyageError || error.message, zero_result: true })
       return NextResponse.json({ results: [], query })
     }
 
@@ -133,7 +134,7 @@ export async function POST(request) {
 
     // Honest empty — never pad.
     if (results.length === 0) {
-      logSearchEvent(sb, { query_text: query, surface: 'vibe', result_count: 0, latency_ms: Date.now() - t0, vector_arm_fired: !!queryEmbedding, fell_back: !queryEmbedding, voyage_error: voyageError, zero_result: true })
+      logSearchEvent(sb, { query_text: loggedQuery, surface: 'vibe', result_count: 0, latency_ms: Date.now() - t0, vector_arm_fired: !!queryEmbedding, fell_back: !queryEmbedding, voyage_error: voyageError, zero_result: true })
       return NextResponse.json({ results: [], query })
     }
 
@@ -165,7 +166,7 @@ export async function POST(request) {
     }
 
     const out = results.map(({ _description, ...rest }) => rest)
-    logSearchEvent(sb, { query_text: query, surface: 'vibe', result_count: out.length, latency_ms: Date.now() - t0, vector_arm_fired: !!queryEmbedding, fell_back: !queryEmbedding, voyage_error: voyageError, zero_result: false })
+    logSearchEvent(sb, { query_text: loggedQuery, surface: 'vibe', result_count: out.length, latency_ms: Date.now() - t0, vector_arm_fired: !!queryEmbedding, fell_back: !queryEmbedding, voyage_error: voyageError, zero_result: false })
 
     return NextResponse.json({ results: out, query })
   } catch (err) {

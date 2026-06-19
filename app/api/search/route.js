@@ -10,6 +10,47 @@ import { embedQueryCached } from '@/lib/embeddings/queryCache'
 import { logSearchEvent } from '@/lib/search/log'
 import { parseQueryLocation } from '@/lib/search/parseQuery'
 import { resolveQueryRegion } from '@/lib/search/resolveQueryRegion'
+import { checkRateLimit } from '@/lib/rate-limit'
+
+// Largest candidate pool the RPC ranks per request. Pagination/dedup/total are
+// computed over this fixed pool so `total` is stable across pages (it does NOT
+// grow page-to-page) and deep pages never claim phantom results. Broad queries
+// that fill the pool are reported as "capped" so the UI can show "120+".
+const RESULT_POOL = 120
+
+/** Cap a free-text query before it is persisted (PII / retention guard). */
+function clampQuery(s) {
+  return (s || '').slice(0, 200)
+}
+
+/** Resolve a promise but never wait longer than `ms` (fallback value on timeout). */
+function withTimeout(promise, ms, fallback) {
+  return Promise.race([
+    promise,
+    new Promise((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ])
+}
+
+/** Collapse rows that share a slug (same venue cross-listed across verticals),
+ *  keeping the highest-ranked row and recording the other verticals as `also_in`. */
+function dedupeBySlug(rows) {
+  const bySlug = new Map()
+  const out = []
+  for (const r of rows) {
+    const key = r.slug || r.id
+    const existing = bySlug.get(key)
+    if (existing) {
+      if (r.vertical && !existing.also_in.includes(r.vertical) && r.vertical !== existing.vertical) {
+        existing.also_in.push(r.vertical)
+      }
+      continue
+    }
+    const row = { ...r, also_in: [] }
+    bySlug.set(key, row)
+    out.push(row)
+  }
+  return out
+}
 
 // NOTE: `address` is deliberately NOT selected — search must not leak street
 // addresses (esp. for address_on_request venues). The place page shows address
@@ -63,6 +104,13 @@ function trackSearchAppearances(listings) {
  * Without ?q=: a filtered browse ordered by claimed/featured/recency.
  */
 export async function GET(request) {
+  // Per-IP rate limit. This route calls Voyage + the full-scan hybrid RPC on
+  // every request; the front door also fires on typing — an unthrottled client
+  // can exhaust the Voyage free tier (the 2026-06-06 429 cascade) and spike the
+  // DB. Ceiling is generous enough for debounced typing, low enough to curb abuse.
+  const limited = checkRateLimit(request, { keyPrefix: 'search', maxRequests: 60, windowMs: 60_000 })
+  if (limited) return limited
+
   const { searchParams } = new URL(request.url)
   const q = (searchParams.get('q') || '').trim()
   const vertical = searchParams.get('vertical') || null
@@ -138,8 +186,8 @@ export async function GET(request) {
 
       const { lit: queryEmbedding, error: voyageError } = await embedQueryCached(sb, cleaned)
 
-      // Fetch enough ranked rows to satisfy the requested page, capped.
-      const matchCount = Math.min(page * limit, 120)
+      // Rank a fixed candidate pool (NOT page*limit) so total/pagination are
+      // stable across pages and dedup happens over the whole result set.
       const { data, error } = await sb.rpc('search_listings_hybrid', {
         query_embedding: queryEmbedding,
         query_text: cleaned,
@@ -147,7 +195,7 @@ export async function GET(request) {
         filter_state: filterState,
         filter_region: effectiveRegion,
         filter_suburb: filterSuburb,
-        match_count: matchCount,
+        match_count: RESULT_POOL,
         similarity_floor: similarityFloor,
         include_way: isVerticalPublic('way') || vertical === 'way',
       })
@@ -155,7 +203,7 @@ export async function GET(request) {
       if (error) {
         console.error('[search] hybrid RPC error:', error.message)
         logSearchEvent(sb, {
-          query_text: q, surface: 'front_door', result_count: 0, latency_ms: Date.now() - t0,
+          query_text: clampQuery(q), surface: 'front_door', result_count: 0, latency_ms: Date.now() - t0,
           vector_arm_fired: !!queryEmbedding, fell_back: !queryEmbedding,
           voyage_error: voyageError || error.message, zero_result: true,
         })
@@ -168,31 +216,34 @@ export async function GET(request) {
         const { data: stateData } = await sb.rpc('search_listings_hybrid', {
           query_embedding: queryEmbedding, query_text: cleaned, filter_vertical: vertical,
           filter_state: filterState, filter_region: effectiveRegion, filter_suburb: null,
-          match_count: matchCount, similarity_floor: similarityFloor,
+          match_count: RESULT_POOL, similarity_floor: similarityFloor,
           include_way: isVerticalPublic('way') || vertical === 'way',
         })
         if (stateData && stateData.length) { all = stateData; detectedSuburb = null }
       }
-      // Admin/QA fixtures + needs_review venues never surface publicly (row-level).
-      all = all.filter(isPublicListing)
+      // Admin/QA fixtures + needs_review venues never surface publicly (row-level),
+      // then collapse the same venue cross-listed across verticals to one card.
+      all = dedupeBySlug(all.filter(isPublicListing))
       const total = all.length
+      const capped = total >= RESULT_POOL          // pool full → there may be more ("120+")
       const offset = (page - 1) * limit
       // Strip internal scoring AND `address` — search must not leak street addresses.
       const listings = all.slice(offset, offset + limit).map(({ fused_score, address, ...rest }) => rest)
 
       trackSearchAppearances(listings)
-      logSearch(request, { queryText: q, verticalFilter: vertical, resultCount: total })
+      logSearch(request, { queryText: clampQuery(q), verticalFilter: vertical, resultCount: total })
       logSearchEvent(sb, {
-        query_text: q, surface: 'front_door', result_count: total, latency_ms: Date.now() - t0,
+        query_text: clampQuery(q), surface: 'front_door', result_count: total, latency_ms: Date.now() - t0,
         vector_arm_fired: !!queryEmbedding, fell_back: !queryEmbedding,
         voyage_error: voyageError, zero_result: total === 0,
       })
 
       return NextResponse.json({
-        listings, total, page, limit,
+        listings, total, capped, page, limit,
         totalPages: Math.ceil(total / limit),
         detectedVertical: null, detectedState: detectedState || null, detectedRegion, detectedSuburb,
-        events: await eventsPromise,
+        // Events are a secondary lane — never let a slow events query block results.
+        events: await withTimeout(eventsPromise, 1200, []),
       })
     }
 
@@ -234,7 +285,7 @@ export async function GET(request) {
     return NextResponse.json({
       listings: data || [], total: count || 0, page, limit,
       totalPages: Math.ceil((count || 0) / limit),
-      events: await eventsPromise,
+      events: await withTimeout(eventsPromise, 1200, []),
     })
   } catch (err) {
     console.error('[search] Fatal error:', err)
