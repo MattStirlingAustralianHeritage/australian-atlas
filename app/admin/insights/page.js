@@ -11,15 +11,23 @@ export default async function InsightsPage() {
 
   let searchRows = []
   let trailRows = []
+  let health = []
+  let clickRows = []
 
   try {
-    // Supabase JS doesn't support GROUP BY, so we fetch raw rows and aggregate in JS
-    const [searchRes, trailRes] = await Promise.all([
-      sb.from('search_logs').select('query_text, result_count').gte('created_at', sevenDaysAgo).order('created_at', { ascending: false }).limit(5000),
+    // Supabase JS doesn't support GROUP BY, so we fetch raw rows and aggregate in JS.
+    // search_events (not legacy search_logs) is the source of truth — it carries
+    // the zero_result / fell_back / latency signals the health panel needs.
+    const [searchRes, trailRes, healthRes, clickRes] = await Promise.all([
+      sb.from('search_events').select('query_text, result_count, zero_result, fell_back, voyage_error, latency_ms').gte('created_at', sevenDaysAgo).order('created_at', { ascending: false }).limit(8000),
       sb.from('trail_logs').select('prompt_text, region_detected').gte('created_at', sevenDaysAgo).order('created_at', { ascending: false }).limit(5000),
+      sb.from('search_health').select('*'),
+      sb.from('search_click_events').select('slug, vertical').gte('created_at', sevenDaysAgo).limit(8000),
     ])
     if (!searchRes.error && searchRes.data) searchRows = searchRes.data
     if (!trailRes.error && trailRes.data) trailRows = trailRes.data
+    if (!healthRes.error && healthRes.data) health = healthRes.data
+    if (!clickRes.error && clickRes.data) clickRows = clickRes.data
   } catch (err) {
     console.error('[admin/insights] Query error:', err.message)
     // Continue with empty state rather than crashing
@@ -28,14 +36,43 @@ export default async function InsightsPage() {
   // ── Aggregate search data ──────────────────────────────────────────
   const searchCounts = {}
   const zeroResultCounts = {}
+  const latencies = []
+  let zeroCount = 0
+  let fellBackCount = 0
+  let voyageErrCount = 0
   for (const row of (searchRows || [])) {
+    if (typeof row.latency_ms === 'number') latencies.push(row.latency_ms)
+    if (row.zero_result) zeroCount++
+    if (row.fell_back) fellBackCount++
+    if (row.voyage_error) voyageErrCount++
     const q = (row.query_text || '').toLowerCase().trim()
     if (!q) continue
     searchCounts[q] = (searchCounts[q] || 0) + 1
-    if (row.result_count === 0) {
+    if (row.zero_result || row.result_count === 0) {
       zeroResultCounts[q] = (zeroResultCounts[q] || 0) + 1
     }
   }
+  const eventTotal = (searchRows || []).length
+  latencies.sort((a, b) => a - b)
+  const pct = (p) => latencies.length ? latencies[Math.min(latencies.length - 1, Math.floor(p * latencies.length))] : null
+  const searchMetrics = {
+    total: eventTotal,
+    zeroPct: eventTotal ? Math.round((zeroCount / eventTotal) * 1000) / 10 : 0,
+    fellBack: fellBackCount,
+    voyageErr: voyageErrCount,
+    p50: pct(0.5),
+    p95: pct(0.95),
+  }
+
+  // Top clicked results (CTR proxy) + overall click count.
+  const clickCounts = {}
+  for (const c of (clickRows || [])) {
+    const k = c.slug
+    if (!k) continue
+    clickCounts[k] = (clickCounts[k] || 0) + 1
+  }
+  const topClickedList = Object.entries(clickCounts).sort((a, b) => b[1] - a[1]).slice(0, 15)
+  const clicksTotal = (clickRows || []).length
 
   const topSearchList = Object.entries(searchCounts)
     .sort((a, b) => b[1] - a[1])
@@ -136,6 +173,50 @@ export default async function InsightsPage() {
         <div style={{ marginBottom: '2rem' }}>
           <h1 style={styles.heading}>Search Insights</h1>
           <p style={styles.subtitle}>Last 7 days &middot; {(searchRows || []).length} searches &middot; {(trailRows || []).length} trail prompts</p>
+        </div>
+
+        {/* Search health (from search_events / search_health) */}
+        <div style={{ ...styles.card, marginBottom: '1.5rem' }}>
+          <h2 style={styles.sectionTitle}>Search Health (7 days)</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px,1fr))', gap: '1rem', marginTop: '0.5rem' }}>
+            {[
+              ['Searches', searchMetrics.total],
+              ['Zero-result', searchMetrics.zeroPct + '%'],
+              ['p50 latency', searchMetrics.p50 != null ? searchMetrics.p50 + ' ms' : '—'],
+              ['p95 latency', searchMetrics.p95 != null ? searchMetrics.p95 + ' ms' : '—'],
+              ['Voyage fallbacks', searchMetrics.fellBack],
+              ['Result clicks', clicksTotal],
+            ].map(([label, val]) => (
+              <div key={label} style={{ padding: '0.75rem 1rem', background: 'var(--color-cream,#FAF8F5)', borderRadius: 8 }}>
+                <div style={{ fontSize: '1.5rem', fontWeight: 600, color: 'var(--color-ink,#1a1a1a)' }}>{val}</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--color-muted,#888)' }}>{label}</div>
+              </div>
+            ))}
+          </div>
+          {health.length > 0 && (
+            <div style={{ marginTop: '1.25rem' }}>
+              <div style={{ fontSize: '0.8rem', color: 'var(--color-muted,#888)', marginBottom: 6 }}>Embedding coverage by vertical</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                {health.map(h => (
+                  <span key={h.vertical} style={{ fontSize: '0.78rem', padding: '4px 8px', borderRadius: 6, background: '#fff', border: '1px solid var(--color-border,#eee)' }}>
+                    {h.vertical}: {h.coverage_pct}% ({h.needs_embedding} stale)
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {topClickedList.length > 0 && (
+            <div style={{ marginTop: '1.25rem' }}>
+              <div style={{ fontSize: '0.8rem', color: 'var(--color-muted,#888)', marginBottom: 6 }}>Most-clicked results</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                {topClickedList.map(([slug, count]) => (
+                  <span key={slug} style={{ fontSize: '0.78rem', padding: '4px 8px', borderRadius: 6, background: '#fff', border: '1px solid var(--color-border,#eee)' }}>
+                    {slug} &middot; {count}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Grid: two columns on wider screens */}

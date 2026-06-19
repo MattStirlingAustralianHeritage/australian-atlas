@@ -388,7 +388,7 @@ function formatDistance(km) {
   return `${Math.round(km)} km`
 }
 
-export default function ListingCard({ listing, meta, linkToVertical = false, distanceKm = null }) {
+export default function ListingCard({ listing, meta, linkToVertical = false, distanceKm = null, onClick }) {
   const derivedMeta = meta || {}
   if (!derivedMeta.entity_type && listing.vertical === 'fine_grounds' && listing.source_id) {
     if (listing.source_id.startsWith('cafe_')) derivedMeta.entity_type = 'cafe'
@@ -413,6 +413,7 @@ export default function ListingCard({ listing, meta, linkToVertical = false, dis
     <a
       href={url}
       {...(linkToVertical ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+      {...(onClick ? { onClick } : {})}
       className="group listing-card block overflow-hidden"
       style={{ borderRadius: 'var(--radius-card)', border: '0.5px solid var(--color-border)', position: 'relative' }}
     >

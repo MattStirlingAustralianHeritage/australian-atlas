@@ -477,6 +477,19 @@ function SearchPageInner() {
     search(1)
   }
 
+  // Fire-and-forget click logging (CTR-at-rank). sendBeacon survives the
+  // navigation the click triggers; never blocks it.
+  function trackSearchClick(listing, rank) {
+    try {
+      const payload = JSON.stringify({ query, slug: listing.slug, listingId: listing.id, vertical: listing.vertical, rank })
+      if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+        navigator.sendBeacon('/api/search/click', new Blob([payload], { type: 'application/json' }))
+      } else {
+        fetch('/api/search/click', { method: 'POST', body: payload, headers: { 'Content-Type': 'application/json' }, keepalive: true }).catch(() => {})
+      }
+    } catch { /* analytics must never break navigation */ }
+  }
+
   // Build contextual results message
   function getResultsMessage() {
     if (loading) return 'Searching...'
@@ -965,8 +978,13 @@ function SearchPageInner() {
             </div>
           )}
           <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5" style={{ opacity: loading ? 0.5 : 1, transition: 'opacity 0.15s', pointerEvents: loading ? 'none' : 'auto' }}>
-            {gridListings.map(listing => (
-              <ListingCard key={listing.id} listing={listing} distanceKm={listing.distanceKm} />
+            {gridListings.map((listing, idx) => (
+              <ListingCard
+                key={listing.id}
+                listing={listing}
+                distanceKm={listing.distanceKm}
+                onClick={query ? () => trackSearchClick(listing, featured.length + idx + 1) : undefined}
+              />
             ))}
           </div>
 
