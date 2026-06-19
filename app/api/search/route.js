@@ -52,6 +52,34 @@ function dedupeBySlug(rows) {
   return out
 }
 
+/** Sub_type facet counts over the ranked pool, most common first (top 12). */
+function buildFacets(rows) {
+  const counts = new Map()
+  for (const r of rows) {
+    if (!r.sub_type) continue
+    counts.set(r.sub_type, (counts.get(r.sub_type) || 0) + 1)
+  }
+  const subTypes = [...counts.entries()]
+    .map(([key, count]) => ({ key, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 12)
+  return { subTypes }
+}
+
+/** On a zero-result query, fuzzy-match the raw text (no filters) to suggest a
+ *  correction — surfaces the venue a typo'd query was reaching for. */
+async function fuzzySuggest(sb, q) {
+  if (!q || q.length < 3) return null
+  try {
+    const { data } = await sb.rpc('search_listings_hybrid', {
+      query_embedding: null, query_text: q, match_count: 1,
+      include_way: isVerticalPublic('way'),
+    })
+    const hit = (data || []).find(isPublicListing)
+    return hit ? hit.name : null
+  } catch { return null }
+}
+
 // NOTE: `address` is deliberately NOT selected — search must not leak street
 // addresses (esp. for address_on_request venues). The place page shows address
 // (gated on the privacy flag); search results never do.
@@ -116,6 +144,8 @@ export async function GET(request) {
   const vertical = searchParams.get('vertical') || null
   const state = searchParams.get('state') || null
   const region = searchParams.get('region') || null
+  const subType = searchParams.get('sub_type') || null   // facet refine
+  const noBind = searchParams.get('bind') === '0'         // ignore region/suburb auto-binding
   const page = Math.max(parseInt(searchParams.get('page') || '1', 10), 1)
   const limit = Math.min(parseInt(searchParams.get('limit') || '24', 10), 100)
   const floorParam = parseFloat(searchParams.get('floor'))
@@ -153,11 +183,13 @@ export async function GET(request) {
       let detectedSuburb = null            // reported to the UI (suburb chip)
       let cleaned
 
+      // `bind=0` (the user dismissed the "in <region>" chip) skips auto-binding
+      // a region/suburb named in the query, so results broaden to the state.
+      const qr = (effectiveRegion || noBind) ? null : await resolveQueryRegion(sb, q)
       if (effectiveRegion) {
         cleaned = parseQueryLocation(q).cleaned
       } else {
-        const qr = await resolveQueryRegion(sb, q)
-        if (qr.region) {
+        if (qr && qr.region) {
           effectiveRegion = qr.region.id
           filterState = null               // the named region IS the constraint
           detectedState = qr.region.state  // light up the region's state chip
@@ -224,11 +256,18 @@ export async function GET(request) {
       // Admin/QA fixtures + needs_review venues never surface publicly (row-level),
       // then collapse the same venue cross-listed across verticals to one card.
       all = dedupeBySlug(all.filter(isPublicListing))
-      const total = all.length
-      const capped = total >= RESULT_POOL          // pool full → there may be more ("120+")
+      const capped = all.length >= RESULT_POOL     // pool full → there may be more ("120+")
+      // Facet counts over the full ranked pool (before the sub_type refine).
+      const facets = buildFacets(all)
+      // Optional sub_type facet refine.
+      const filtered = subType ? all.filter((l) => l.sub_type === subType) : all
+      const total = filtered.length
       const offset = (page - 1) * limit
       // Strip internal scoring AND `address` — search must not leak street addresses.
-      const listings = all.slice(offset, offset + limit).map(({ fused_score, address, ...rest }) => rest)
+      const listings = filtered.slice(offset, offset + limit).map(({ fused_score, address, ...rest }) => rest)
+
+      // Zero results → fuzzy "did you mean" against the raw query (no filters).
+      const didYouMean = total === 0 ? await fuzzySuggest(sb, q) : null
 
       trackSearchAppearances(listings)
       logSearch(request, { queryText: clampQuery(q), verticalFilter: vertical, resultCount: total })
@@ -239,7 +278,7 @@ export async function GET(request) {
       })
 
       return NextResponse.json({
-        listings, total, capped, page, limit,
+        listings, total, capped, facets, subType, didYouMean, page, limit,
         totalPages: Math.ceil(total / limit),
         detectedVertical: null, detectedState: detectedState || null, detectedRegion, detectedSuburb,
         // Events are a secondary lane — never let a slow events query block results.

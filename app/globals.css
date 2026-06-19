@@ -404,6 +404,15 @@ nav a, .inline-link { min-height: unset; }
   to { transform: translateY(-50%) rotate(360deg); }
 }
 
+/* Indeterminate progress bar shown while a search re-runs (search page). */
+@keyframes search-progress {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .search-progress-static { animation: none !important; }
+}
+
 /* Listing-page hero band — used by both <TypographicCard size="hero"> and
    the image hero branch on /place/[slug]. Height tiers align with Tailwind
    breakpoints (sm=640, lg=1024, xl=1280). */
