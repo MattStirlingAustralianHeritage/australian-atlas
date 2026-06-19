@@ -169,12 +169,18 @@ const EXAMPLE_VIBES = [
   'The kind of place that smells like old books',
 ]
 
-export default function VibeSearch() {
-  const [query, setQuery] = useState('')
+export default function VibeSearch({ initialQuery = '', onQueryChange }) {
+  const [query, setQuery] = useState(initialQuery)
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
   const [error, setError] = useState(null)
+
+  // Carry the typed text back up so toggling Search↔Vibe keeps the query.
+  const updateQuery = useCallback((v) => {
+    setQuery(v)
+    if (onQueryChange) onQueryChange(v)
+  }, [onQueryChange])
 
   const handleSearch = useCallback(async (searchQuery) => {
     const q = (searchQuery || query).trim()
@@ -252,7 +258,7 @@ export default function VibeSearch() {
           <input
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => updateQuery(e.target.value)}
             placeholder="Describe a feeling, mood, or scenario..."
             style={{
               flex: 1,

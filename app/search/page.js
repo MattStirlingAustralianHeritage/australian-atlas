@@ -32,6 +32,47 @@ function prettySubType(key) {
   return String(key || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
+// Significant query terms (drop short/stop-ish words) for snippet matching.
+function queryTerms(q) {
+  return [...new Set((q || '').toLowerCase().match(/[a-z0-9]{3,}/g) || [])]
+}
+
+// Build a description excerpt CENTRED on the first matching query term, so a
+// match in sentence 3 isn't hidden behind the opening 180 chars.
+function buildSnippet(desc, terms, maxLen = 180) {
+  const text = (desc || '').trim()
+  if (!text) return ''
+  let firstIdx = -1
+  if (terms.length) {
+    const lower = text.toLowerCase()
+    for (const t of terms) {
+      const i = lower.indexOf(t)
+      if (i >= 0 && (firstIdx < 0 || i < firstIdx)) firstIdx = i
+    }
+  }
+  if (firstIdx <= maxLen - 40) {
+    // Match is already near the start (or no match) → original head excerpt.
+    return text.length > maxLen ? text.slice(0, maxLen).replace(/\s+\S*$/, '') + '…' : text
+  }
+  let start = Math.max(0, firstIdx - 60)
+  const sp = text.indexOf(' ', start)
+  if (sp >= 0 && sp < start + 20) start = sp + 1
+  let out = text.slice(start, start + maxLen)
+  if (start + maxLen < text.length) out = out.replace(/\s+\S*$/, '') + '…'
+  return '…' + out
+}
+
+// Render a snippet with matched terms bolded (terms are [a-z0-9]+ → regex-safe).
+function highlightTerms(text, terms) {
+  if (!text || !terms.length) return text
+  const re = new RegExp('(' + terms.join('|') + ')', 'ig')
+  return text.split(re).map((part, i) =>
+    terms.includes(part.toLowerCase())
+      ? <strong key={i} style={{ fontWeight: 600, color: 'var(--color-ink)', opacity: 1 }}>{part}</strong>
+      : part
+  )
+}
+
 /**
  * Heuristic intent classifier: does the query look like an itinerary request?
  * Returns true if the query matches itinerary-like patterns.
@@ -304,7 +345,7 @@ function SearchEventCard({ event }) {
 
 // Enlarged "top result" card — a taller visual header plus a detail panel with
 // category, location, the venue address, and a description excerpt.
-function FeaturedCard({ listing }) {
+function FeaturedCard({ listing, query }) {
   const region = getListingRegion(listing)
   const tokens = VERTICAL_TOKENS[listing.vertical] || VERTICAL_TOKENS.portal
   const hasImg = listing.hero_image_url && isApprovedImageSource(listing.hero_image_url)
@@ -313,8 +354,8 @@ function FeaturedCard({ listing }) {
     .filter(Boolean)
     .filter((v, i, a) => a.findIndex((x) => x.toLowerCase() === v.toLowerCase()) === i)
   const loc = locParts.join('  ·  ')
-  const desc = (listing.description || '').trim()
-  const excerpt = desc.length > 180 ? desc.slice(0, 180).replace(/\s+\S*$/, '') + '…' : desc
+  const terms = queryTerms(query)
+  const excerpt = buildSnippet(listing.description, terms)
 
   return (
     <a
@@ -351,7 +392,7 @@ function FeaturedCard({ listing }) {
         )}
         {excerpt && (
           <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 13.5, color: 'var(--color-ink)', opacity: 0.82, margin: '11px 0 0', lineHeight: 1.55, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-            {excerpt}
+            {highlightTerms(excerpt, terms)}
           </p>
         )}
       </div>
@@ -386,8 +427,20 @@ function SearchPageInner() {
   const [facets, setFacets] = useState({ subTypes: [] })
   const [subType, setSubType] = useState('')           // sub_type facet refine
   const [sortBy, setSortBy] = useState('relevance')    // relevance | az | nearest
+  const [trending, setTrending] = useState([])         // popular recent queries (discovery)
 
   const { location } = useLocation()                   // { lat, lng, name } or null
+
+  // Trending searches — fetched once, used for the browse-mode discovery row and
+  // as the zero-result recovery chips when we have real signal.
+  useEffect(() => {
+    let alive = true
+    fetch('/api/search/trending')
+      .then((r) => r.json())
+      .then((d) => { if (alive) setTrending(Array.isArray(d.trending) ? d.trending : []) })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [])
 
   // Sync URL when filters change (debounced alongside search)
   const updateUrl = useCallback((q, v, s, r) => {
@@ -458,12 +511,13 @@ function SearchPageInner() {
   // (it used to hijack any query containing "tour"/"day"/"trail" mid-typing) —
   // it only fires on explicit submit (handleSubmit) now.
   useEffect(() => {
+    if (mode !== 'search') return  // Vibe mode runs its own search; don't double-fire.
     const timer = setTimeout(() => {
       updateUrl(query, vertical, state, region)
       search(1)
     }, 600)
     return () => clearTimeout(timer)
-  }, [search, updateUrl, query, vertical, state, region, subType, noBind])
+  }, [search, updateUrl, query, vertical, state, region, subType, noBind, mode])
 
   // Explicit submit (Enter / search button): force an immediate search, and
   // honour itinerary intent here (only on a deliberate action, not while typing).
@@ -609,8 +663,15 @@ function SearchPageInner() {
         </button>
       </div>
 
-      {/* Vibe mode */}
-      {mode === 'vibe' && <VibeSearch />}
+      {/* One-line mode subtitle so Search vs Vibe is self-explaining. */}
+      <p className="mt-2" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '12.5px', color: 'var(--color-muted)' }}>
+        {mode === 'vibe'
+          ? 'Describe a mood or scenario — we match the feeling, not just the words.'
+          : 'Search by name, place, category, or style across all ten atlases.'}
+      </p>
+
+      {/* Vibe mode — seeded with the current query so toggling keeps your text. */}
+      {mode === 'vibe' && <VibeSearch initialQuery={query} onQueryChange={setQuery} />}
 
       {/* Standard search mode */}
       {mode === 'search' && <>
@@ -794,6 +855,28 @@ function SearchPageInner() {
         </div>
       )}
 
+      {/* Trending searches — discovery row in browse mode (no query typed). */}
+      {!query && trending.length > 0 && (
+        <div className="mt-5">
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--color-gold)', margin: '0 0 10px' }}>
+            Trending searches
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {trending.map(t => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => { setNoBind(false); setSubType(''); setQuery(t) }}
+                className="px-3 py-1.5 rounded-full whitespace-nowrap"
+                style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', background: '#fff', color: 'var(--color-ink)', border: '1px solid var(--color-border)' }}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Results count + sort. role=status/aria-live so screen readers hear the
           count change and the "Searching…" state. */}
       <div className="mt-6 flex items-center justify-between gap-3 flex-wrap">
@@ -931,11 +1014,11 @@ function SearchPageInner() {
             </div>
           )}
 
-          {/* Popular searches */}
+          {/* Popular / trending searches */}
           <div className="mb-6">
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-muted)', marginBottom: 8 }}>Popular searches</p>
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-muted)', marginBottom: 8 }}>{trending.length ? 'Trending searches' : 'Popular searches'}</p>
             <div className="flex flex-wrap items-center justify-center gap-2" style={{ maxWidth: 480, margin: '0 auto' }}>
-              {POPULAR_CATEGORIES.map(c => (
+              {(trending.length ? trending : POPULAR_CATEGORIES).map(c => (
                 <button
                   key={c}
                   type="button"
@@ -965,7 +1048,7 @@ function SearchPageInner() {
           {featured.length > 0 && (
             <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-5" style={{ opacity: loading ? 0.5 : 1, transition: 'opacity 0.15s', pointerEvents: loading ? 'none' : 'auto' }}>
               {featured.map(listing => (
-                <FeaturedCard key={listing.id} listing={listing} />
+                <FeaturedCard key={listing.id} listing={listing} query={query} />
               ))}
             </div>
           )}
