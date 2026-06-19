@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
-import { isBotRow } from '@/lib/analytics/aggregate'
+import { isBotRow, isBotUA } from '@/lib/analytics/aggregate'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -34,9 +34,9 @@ export async function OPTIONS() {
  *   device_type - (optional) 'desktop', 'mobile', 'tablet' (mapped to pageviews.device)
  *   visitor_id  - (optional) anonymous visitor id for unique-visitor counts
  *
- * Geographic data is resolved server-side from the request headers, and (after
- * migration 141) is_bot is classified at write time via the same geo heuristic
- * used by the dashboard's historical backfill.
+ * Geographic data is resolved server-side from the request headers. is_bot is
+ * classified at write time as isBotUA(user_agent) || isBotRow(geo) — the same
+ * canonical predicate the read paths use (migrations 141 + 178).
  */
 export async function POST(request) {
   try {
@@ -73,30 +73,36 @@ export async function POST(request) {
 
     const supabase = getSupabaseAdmin()
 
-    // After migration 141, pageviews carries user_agent + is_bot. is_bot is
-    // classified at write time with the SAME geo-only heuristic (isBotRow) as
-    // 141's historical backfill AND as every read path (the RPC reads the stored
-    // is_bot column; the JS fallback recomputes isBotRow) — so all three agree
-    // exactly, for historical and future rows alike. user_agent is stored for
-    // later analysis but deliberately not used for is_bot, which would make the
-    // stored column diverge from the recompute. Try the enriched insert first;
-    // if those columns aren't present yet (141 not applied), fall back to the
-    // base payload so pageviews are never dropped.
-    const enriched = { ...base, user_agent, is_bot: isBotRow(geo) }
+    // pageviews carries user_agent + is_bot (migration 141). is_bot is classified
+    // at write time with the canonical predicate isBotUA(user_agent) || isBotRow(geo)
+    // (migration 178) — declared crawlers caught by UA, datacenter/null-geo origins
+    // by geo. The RPC reads the stored is_bot column; the JS fallback recomputes the
+    // SAME predicate over the stored user_agent, so all paths agree. Try the enriched
+    // insert first; if user_agent/is_bot aren't present (a DB without 141), fall back
+    // to the base payload so pageviews are never dropped.
+    const enriched = { ...base, user_agent, is_bot: isBotUA(user_agent) || isBotRow(geo) }
     let { error } = await supabase.from('pageviews').insert(enriched)
     if (error && isMissingColumnError(error)) {
       ;({ error } = await supabase.from('pageviews').insert(base))
     }
 
+    // Fail LOUDLY. A prior regression silently inserted into a non-existent
+    // `site_analytics` table and returned ok:true, so every vertical pageview was
+    // dropped undetected for weeks. Never report ok on a failed write again — log
+    // the full error server-side and return non-2xx. Trackers fire-and-forget
+    // (fetch ignores the body; 500 is not a network reject) so this never breaks UX.
     if (error) {
       console.error('[analytics/ingest] Insert failed:', error.message, error.code, error.details)
+      return NextResponse.json({ ok: false, error: 'insert_failed' }, { status: 500, headers: CORS_HEADERS })
     }
 
     return NextResponse.json({ ok: true }, { headers: CORS_HEADERS })
   } catch (err) {
-    // Analytics should never break the user experience — log and fail silently
-    console.error('Analytics ingest error:', err)
-    return NextResponse.json({ ok: true }, { headers: CORS_HEADERS })
+    console.error('[analytics/ingest] Error:', err?.message, err)
+    // Malformed JSON is a client error; anything else is a server fault. Either
+    // way, do NOT return ok — surface the failure.
+    const status = err instanceof SyntaxError ? 400 : 500
+    return NextResponse.json({ ok: false, error: 'ingest_error' }, { status, headers: CORS_HEADERS })
   }
 }
 
