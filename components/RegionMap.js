@@ -10,9 +10,13 @@ const VERTICAL_COLORS = VERTICAL_ACCENTS
  * Mapbox map showing all listings in a region.
  * Points are colour-coded by vertical.
  *
- * @param {{ points: Array<{lat: number, lng: number, name: string, vertical: string}>, regionName: string }}
+ * @param {{ points: Array<{lat: number, lng: number, name: string, vertical: string}>, regionName: string, fill?: boolean }}
+ *
+ * `fill` (default false) makes the component flex to fill its parent's height
+ * instead of using a fixed 360px map — used by the embeddable widget so the map
+ * fills the iframe. Default behaviour is unchanged for existing callers.
  */
-export default function RegionMap({ points, regionName }) {
+export default function RegionMap({ points, regionName, fill = false }) {
   const mapRef = useRef(null)
   const mapInstance = useRef(null)
 
@@ -45,6 +49,10 @@ export default function RegionMap({ points, regionName }) {
       map.addControl(new mapboxgl.NavigationControl(), 'top-right')
 
       map.on('load', () => {
+        // Settle the canvas to the (possibly flex-sized) container — fill mode
+        // mounts before layout is final, so without this the map can init at 0px.
+        map.resize()
+
         // GeoJSON source
         const features = points.map(p => ({
           type: 'Feature',
@@ -115,7 +123,7 @@ export default function RegionMap({ points, regionName }) {
   }, [points])
 
   return (
-    <div>
+    <div style={fill ? { display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 } : undefined}>
       <div
         style={{
           padding: '0.875rem 1.25rem',
@@ -123,6 +131,7 @@ export default function RegionMap({ points, regionName }) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
+          flexShrink: 0,
         }}
       >
         <h2
@@ -148,7 +157,7 @@ export default function RegionMap({ points, regionName }) {
       </div>
       <div
         ref={mapRef}
-        style={{ height: 360, width: '100%' }}
+        style={fill ? { flex: 1, minHeight: 0, width: '100%' } : { height: 360, width: '100%' }}
       />
     </div>
   )
