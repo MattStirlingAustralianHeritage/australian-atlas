@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
-import { computeRegionMetrics } from '@/lib/analytics/regionMetrics'
+import { computeRegionMetrics, computeRegionSessions } from '@/lib/analytics/regionMetrics'
 import RegionReport from '@/components/council/RegionReport'
 
 export const dynamic = 'force-dynamic'
@@ -40,7 +40,31 @@ export default async function CouncilRegionReport({ params, searchParams }) {
 
   if (!region) notFound()
 
-  const metrics = await computeRegionMetrics(sb, region, { since, limit: 10 })
+  // White-label branding: the public name + logo of the council that manages this
+  // region (council_regions → council_accounts). ONLY name + logo_url are read —
+  // never tier, billing, or contact (council-private). Falls back to Atlas-only
+  // branding when no council manages the region (e.g. the generic example).
+  const { data: crRows } = await sb
+    .from('council_regions')
+    .select('council:council_accounts(name, logo_url)')
+    .eq('region_id', region.id)
+    .limit(1)
+  const council = crRows?.[0]?.council || null
 
-  return <RegionReport metrics={metrics} variant="report" rangeLabel={RANGE_LABELS[range]} />
+  // Headline numbers come from the same path the dashboard uses (so they match);
+  // unique visitors is computed read-only alongside it.
+  const [metrics, uniqueVisitors] = await Promise.all([
+    computeRegionMetrics(sb, region, { since, limit: 10 }),
+    computeRegionSessions(sb, region, { since }),
+  ])
+
+  return (
+    <RegionReport
+      metrics={metrics}
+      council={council}
+      uniqueVisitors={uniqueVisitors}
+      variant="report"
+      rangeLabel={RANGE_LABELS[range]}
+    />
+  )
 }

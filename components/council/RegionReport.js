@@ -52,9 +52,10 @@ function SectionTitle({ children, note }) {
   )
 }
 
-export default function RegionReport({ metrics, variant = 'report', rangeLabel = 'Last 90 days' }) {
+export default function RegionReport({ metrics, variant = 'report', rangeLabel = 'Last 90 days', council = null, uniqueVisitors = null }) {
   const region = metrics?.region || {}
   const periodEnd = fmtDate(metrics?.generatedAt)
+  const hasUnique = typeof uniqueVisitors === 'number'
 
   return (
     <div style={{ background: variant === 'example' ? 'var(--color-bg)' : '#fff', minHeight: '100vh', padding: '2rem 1rem' }}>
@@ -92,38 +93,66 @@ export default function RegionReport({ metrics, variant = 'report', rangeLabel =
           border: `1px solid ${C.border}`, padding: '2.5rem 2.25rem',
         }}
       >
-        {/* Masthead */}
-        <header style={{ borderBottom: `2px solid ${C.ink}`, paddingBottom: '1rem', marginBottom: '1.5rem' }}>
+        {/* Masthead — white-labelled to the managing council when known (logo +
+            name), Atlas-branded otherwise. Only public branding is ever shown. */}
+        <header style={{ borderBottom: `2px solid ${C.ink}`, paddingBottom: '1rem', marginBottom: '1.25rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
             <div>
-              <p style={{ fontFamily: C.display, fontSize: '0.8rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: C.muted, margin: '0 0 0.5rem' }}>
-                Australian Atlas
-              </p>
+              {council?.logo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={council.logo_url}
+                  alt={council.name || 'Council'}
+                  style={{ maxHeight: 46, maxWidth: 220, objectFit: 'contain', display: 'block', marginBottom: '0.6rem' }}
+                />
+              ) : (
+                <p style={{ fontFamily: C.display, fontSize: '0.8rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: C.muted, margin: '0 0 0.5rem' }}>
+                  {council?.name || 'Australian Atlas'}
+                </p>
+              )}
               <h1 style={{ fontFamily: C.display, fontSize: '1.9rem', fontWeight: 400, color: C.ink, margin: 0, lineHeight: 1.15 }}>
                 {region.name}
               </h1>
               <p style={{ fontFamily: C.body, fontSize: '0.9rem', color: C.muted, margin: '0.35rem 0 0' }}>
                 Regional Performance Report{region.state ? ` · ${region.state}` : ''}
+                {council?.name ? ` · prepared for ${council.name}` : ''}
               </p>
             </div>
             <div style={{ textAlign: 'right' }}>
               <p style={{ fontFamily: C.body, fontSize: '0.75rem', color: C.muted, margin: 0, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                 {rangeLabel}
               </p>
-              {periodEnd && (
-                <p style={{ fontFamily: C.body, fontSize: '0.75rem', color: C.muted, margin: '0.2rem 0 0' }}>
-                  Generated {periodEnd}
-                </p>
-              )}
+              <p style={{ fontFamily: C.body, fontSize: '0.72rem', color: C.muted, margin: '0.2rem 0 0' }}>
+                Prepared by Australian Atlas
+              </p>
             </div>
           </div>
         </header>
+
+        {/* Point-in-time stamp — the spine of the artifact. Prominent + dated so the
+            report reads honestly as a frozen snapshot, never a live view. */}
+        <div
+          className="print-avoid-break"
+          style={{
+            display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap',
+            border: `1px solid ${C.sage}`, borderLeft: `4px solid ${C.sage}`, borderRadius: 8,
+            background: C.cream, padding: '0.7rem 1rem', margin: '0 0 1.75rem',
+          }}
+        >
+          <span style={{ fontFamily: C.display, fontSize: '1rem', color: C.ink, fontWeight: 600 }}>
+            Data as at {periodEnd || '—'}
+          </span>
+          <span style={{ fontFamily: C.body, fontSize: '0.78rem', color: C.muted }}>
+            Point-in-time snapshot — figures are frozen as of this date and will differ from the live dashboard.
+          </span>
+        </div>
 
         {/* Summary stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem', marginBottom: '1.75rem' }}>
           <Stat value={fmt(metrics?.regionPageViews)} label="Region page views" />
           <Stat value={fmt(metrics?.totalClicks)} label="Listing clicks" />
-          <Stat value={fmt(metrics?.totalListings)} label="Listings in region" />
+          {hasUnique && <Stat value={fmt(uniqueVisitors)} label="Unique visitors" />}
+          <Stat value={fmt(metrics?.totalListings)} label="Independent operators" sub="Published in this region" />
           <Stat value={fmt(metrics?.newListings)} label="New this period" />
         </div>
 
@@ -198,13 +227,16 @@ export default function RegionReport({ metrics, variant = 'report', rangeLabel =
         {/* Methodology + attribution. A <div>, not a <footer>: the global print
             rule hides <footer> (the site footer) and we want this to print. */}
         <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: '1rem', marginTop: '0.5rem' }}>
+          <p style={{ fontFamily: C.body, fontSize: '0.78rem', color: C.ink, fontWeight: 500, margin: '0 0 0.5rem' }}>
+            Generated from Australian Atlas — live data at australianatlas.com.au
+          </p>
           <p style={{ fontFamily: C.body, fontSize: '0.72rem', color: C.muted, lineHeight: 1.55, margin: '0 0 0.5rem' }}>
             Methodology: metrics are drawn from anonymous pageviews and on-site searches across the nine
             Australian Atlas verticals, with datacenter and crawler traffic excluded. Listings are attributed
             to {region.name} by verified geographic anchoring. Test fixtures are excluded.
           </p>
           <p style={{ fontFamily: C.body, fontSize: '0.72rem', color: C.muted, margin: 0 }}>
-            Prepared by Australian Atlas · australianatlas.com.au · councils@australianatlas.com.au
+            councils@australianatlas.com.au
           </p>
         </div>
       </article>
