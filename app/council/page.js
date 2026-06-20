@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
+import CouncilRegionTools from '@/components/council/CouncilRegionTools'
 
 const VERTICAL_LABELS = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
@@ -193,6 +194,9 @@ export default function CouncilOverview() {
           </div>
         )}
       </section>
+
+      {/* Embed + reports — region-scoped to the account */}
+      <CouncilRegionTools regions={regions} />
 
       {/* Listings by vertical */}
       {Object.keys(stats.listingsByVertical || {}).length > 0 && (

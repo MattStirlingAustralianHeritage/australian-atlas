@@ -13,8 +13,10 @@ export default function PageTracker({ vertical = 'portal' }) {
   const pathname = usePathname()
 
   useEffect(() => {
-    // Skip admin and vendor routes
-    if (pathname.startsWith('/admin') || pathname.startsWith('/vendor')) return
+    // Skip admin and vendor routes. Also skip /embed: the embeddable region map
+    // runs in third-party iframes, so counting its loads would inflate the very
+    // region pageviews the council analytics + report are built from.
+    if (pathname.startsWith('/admin') || pathname.startsWith('/vendor') || pathname.startsWith('/embed')) return
 
     const device = /Mobi|Android/i.test(navigator.userAgent) ? 'mobile'
       : /Tablet|iPad/i.test(navigator.userAgent) ? 'tablet'
