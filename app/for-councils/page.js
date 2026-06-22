@@ -1,11 +1,18 @@
 import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { getAtlasCount } from '@/lib/networkStats'
 
 export const revalidate = 86400
 
+// Single source of truth for the live vertical count (currently 10). Derived
+// from getPublicVerticals() via getAtlasCount() so every mention on this page
+// stays in lockstep with the network config instead of a hardcoded number that
+// silently drifts when a vertical goes live (this is why the page said "9").
+const ATLAS_COUNT = getAtlasCount()
+
 export const metadata = {
   title: 'For Regional Councils & Tourism Bodies | Australian Atlas',
-  description: 'Partner with Australian Atlas to surface independent businesses in your region. Verified listings, editorial content, and discovery infrastructure across 9 categories.',
+  description: `Partner with Australian Atlas to surface independent businesses in your region. Verified listings, editorial content, and discovery infrastructure across ${ATLAS_COUNT} categories.`,
 }
 
 async function getNetworkStats() {
@@ -54,6 +61,34 @@ export default async function ForCouncilsPage() {
   return (
     <div style={{ background: 'var(--color-bg)', minHeight: '100vh' }}>
 
+      {/* Free founding beta banner */}
+      <div style={{
+        background: 'var(--color-ink)',
+        borderBottom: '1px solid rgba(255,255,255,0.08)',
+      }}>
+        <div style={{
+          maxWidth: 820, margin: '0 auto', padding: '14px 1.5rem',
+          display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'center',
+          textAlign: 'center', flexWrap: 'wrap',
+        }}>
+          <span style={{
+            flexShrink: 0,
+            fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 600,
+            letterSpacing: '0.1em', textTransform: 'uppercase',
+            color: 'var(--color-ink)', background: 'var(--color-sage)',
+            padding: '3px 10px', borderRadius: 99,
+          }}>
+            Free founding beta
+          </span>
+          <p style={{
+            fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 300,
+            color: 'rgba(255,255,255,0.78)', lineHeight: 1.55, margin: 0,
+          }}>
+            Australian Atlas for councils is in free founding beta. Early partners get full access at no cost while the product matures, and lock a founding rate for the life of their account before the paywall.
+          </p>
+        </div>
+      </div>
+
       {/* Hero */}
       <section style={{ maxWidth: 720, margin: '0 auto', padding: '5rem 1.5rem 3.5rem', textAlign: 'center' }}>
         <p style={{
@@ -74,7 +109,7 @@ export default async function ForCouncilsPage() {
           color: 'var(--color-muted)', lineHeight: 1.65, maxWidth: 560, margin: '0 auto',
         }}>
           Australian Atlas is a verified, editorially curated network of {stats.listings.toLocaleString()} independent
-          places across 9 categories and {stats.regions} regions. Built and operated in Australia.
+          places across {ATLAS_COUNT} categories and {stats.regions} regions. Built and operated in Australia.
         </p>
       </section>
 
@@ -85,8 +120,8 @@ export default async function ForCouncilsPage() {
       }}>
         {[
           {
-            title: '9 curated atlases',
-            desc: 'Wineries and breweries. Galleries and heritage sites. Makers and studios. Coffee roasters. Boutique stays. Natural places. Independent retail. Vintage and antiques. Farm gates and food producers.',
+            title: `${ATLAS_COUNT} curated atlases`,
+            desc: 'Wineries and breweries. Galleries and heritage sites. Makers and studios. Coffee roasters. Restaurants and eateries. Boutique stays. Natural places. Independent retail. Vintage and antiques. Farm gates and food producers.',
           },
           {
             title: `${stats.listings.toLocaleString()} verified listings`,
@@ -226,7 +261,7 @@ export default async function ForCouncilsPage() {
                 'Structured data (schema.org) on every listing',
                 'Canonical URLs per venue, per vertical',
                 'Regional pages with geographic anchoring',
-                'Internal linking across 9 vertical sites',
+                `Internal linking across ${ATLAS_COUNT} vertical sites`,
               ].map((f, i) => (
                 <li key={i} style={{
                   display: 'flex', alignItems: 'flex-start', gap: 8,
@@ -327,7 +362,7 @@ export default async function ForCouncilsPage() {
                 color: 'var(--color-muted)', lineHeight: 1.6, margin: 0,
               }}>
                 Australian Atlas provides this infrastructure: verified entities, structured
-                metadata, canonical URLs, and cross-linked editorial content across ten
+                metadata, canonical URLs, and cross-linked editorial content across {ATLAS_COUNT}
                 specialist verticals. Your region&apos;s independent businesses become
                 discoverable in both traditional and generative search.
               </p>
@@ -366,17 +401,8 @@ export default async function ForCouncilsPage() {
         }}>
           {[
             {
-              title: 'Regional content co-creation',
-              desc: 'Curate editorial trails, regional picks, and seasonal guides for your area. Your local knowledge, published through a platform that reaches independent-minded travellers nationally.',
-              icon: (
-                <svg width="24" height="24" fill="none" stroke="var(--color-sage)" strokeWidth="1.5" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
-                </svg>
-              ),
-            },
-            {
               title: 'Verified listing data',
-              desc: 'Access the verified, categorised listing data for every independent business in your region. Know exactly what\'s operating, where, and in which category.',
+              desc: 'The verified, categorised record of every independent business operating in your region. Know exactly what\'s open, where, and in which category: the cellar doors, studios, and producers that never reach ATDW or your tourism site. This is the layer most regional data misses, mapped and audited.',
               icon: (
                 <svg width="24" height="24" fill="none" stroke="var(--color-sage)" strokeWidth="1.5" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605" />
@@ -393,8 +419,17 @@ export default async function ForCouncilsPage() {
               ),
             },
             {
+              title: 'Regional content co-creation',
+              desc: 'Curate editorial trails, regional picks, and seasonal guides for your area. Your local knowledge, published through a platform that reaches independent-minded travellers nationally.',
+              icon: (
+                <svg width="24" height="24" fill="none" stroke="var(--color-sage)" strokeWidth="1.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                </svg>
+              ),
+            },
+            {
               title: 'Analytics & reporting',
-              desc: 'Understand how your region performs on the network: which listings are viewed, where visitors come from, and what they search for. Export a white-label PDF report any time.',
+              desc: 'From the day you join, your region builds a performance baseline: page views, listing clicks, visitor origin, and search interest across the network, bot-filtered and exportable. Early in a region\'s life these numbers are small and honest. Their value is the trend line you own as coverage and traffic grow.',
               icon: (
                 <svg width="24" height="24" fill="none" stroke="var(--color-sage)" strokeWidth="1.5" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6a7.5 7.5 0 107.5 7.5h-7.5V6z" />
@@ -451,7 +486,7 @@ export default async function ForCouncilsPage() {
         padding: '4rem 1.5rem',
       }}>
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 40 }}>
+          <div style={{ textAlign: 'center', marginBottom: 28 }}>
             <p style={{
               fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600,
               letterSpacing: '0.15em', textTransform: 'uppercase',
@@ -461,10 +496,30 @@ export default async function ForCouncilsPage() {
             </p>
             <h2 style={{
               fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 400,
-              color: 'var(--color-ink)', lineHeight: 1.25,
+              color: 'var(--color-ink)', lineHeight: 1.25, marginBottom: 12,
             }}>
-              Straightforward, annual pricing
+              Free during beta. Here&apos;s what it costs after.
             </h2>
+            <p style={{
+              fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 300,
+              color: 'var(--color-muted)', lineHeight: 1.6, maxWidth: 540, margin: '0 auto',
+            }}>
+              Founding partners lock a reduced rate for the life of their account. No card required to join.
+            </p>
+          </div>
+
+          {/* Primary beta CTA — the single action on the page; lands on the enquiry form */}
+          <div style={{ textAlign: 'center', marginBottom: 36 }}>
+            <Link
+              href="/council/enquire"
+              style={{
+                display: 'inline-block', fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 600,
+                color: 'white', background: 'var(--color-sage)', padding: '14px 32px', borderRadius: 99,
+                textDecoration: 'none',
+              }}
+            >
+              Join the free founding beta
+            </Link>
           </div>
 
           <div style={{
@@ -553,7 +608,7 @@ export default async function ForCouncilsPage() {
                     {tier.period}
                   </span>
                 </div>
-                <ul style={{ margin: '0 0 24px', padding: 0, listStyle: 'none', flex: 1 }}>
+                <ul style={{ margin: 0, padding: 0, listStyle: 'none', flex: 1 }}>
                   {tier.features.map((f, i) => (
                     <li key={i} style={{
                       display: 'flex', alignItems: 'flex-start', gap: 8,
@@ -565,20 +620,6 @@ export default async function ForCouncilsPage() {
                     </li>
                   ))}
                 </ul>
-                <Link
-                  href={`/council/enquire?plan=${tier.name.toLowerCase()}`}
-                  style={{
-                    display: 'block', textAlign: 'center', padding: '10px 16px',
-                    borderRadius: 8, fontFamily: 'var(--font-body)', fontSize: 14,
-                    fontWeight: 500, textDecoration: 'none', transition: 'opacity 0.15s',
-                    ...(tier.highlighted
-                      ? { background: 'var(--color-sage)', color: 'white', border: 'none' }
-                      : { background: 'white', color: 'var(--color-ink)', border: '1px solid var(--color-border)' }
-                    ),
-                  }}
-                >
-                  {tier.name === 'Enterprise' ? 'Contact us' : 'Get started'}
-                </Link>
               </div>
             ))}
           </div>
