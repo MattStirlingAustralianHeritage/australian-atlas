@@ -47,7 +47,7 @@ const FAQ = [
   },
   {
     q: 'Can we contribute our own data?',
-    a: 'Yes. Partner and Enterprise councils can submit listings, flag corrections, and co-create editorial content for their region. All submissions go through our verification pipeline before publishing.',
+    a: 'Yes. Partner and Enterprise councils can suggest operators for consideration, with operators opting in themselves, flag corrections, and co-create editorial content for their region. All submissions go through our verification pipeline before publishing.',
   },
   {
     q: 'Who runs Australian Atlas?',
