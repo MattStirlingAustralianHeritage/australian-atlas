@@ -7,7 +7,7 @@ import { useSearchParams } from 'next/navigation'
 const VERTICAL_LABELS = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
   fine_grounds: 'Fine Grounds', rest: 'Rest', field: 'Field',
-  corner: 'Corner', found: 'Found', table: 'Table',
+  corner: 'Corner', found: 'Found', table: 'Table', way: 'Way',
 }
 
 export default function CouncilRegion() {
