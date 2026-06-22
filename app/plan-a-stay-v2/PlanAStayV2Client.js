@@ -1423,19 +1423,6 @@ export default function PlanAStayV2Client({ regions = [] }) {
               autoAdvance()
             }}
           />
-          {/* "Not sure yet" — delicate footer line */}
-          <p style={{
-            textAlign: 'center',
-            fontFamily: 'var(--font-body)',
-            fontSize: 13,
-            fontStyle: 'italic',
-            color: 'var(--color-muted, #6B6760)',
-            opacity: 0.45,
-            marginTop: 28,
-            lineHeight: 1.4,
-          }}>
-            Not sure yet? Region recommendations coming soon.
-          </p>
         </QuestionScreen>
 
         {/* ── Question 5: Season (conditional) ─────────────────────── */}
