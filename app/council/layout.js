@@ -19,6 +19,7 @@ const NAV_ITEMS = [
   { label: 'Analytics', href: '/council/analytics', icon: 'chart' },
   { label: 'Content', href: '/council/content', icon: 'pen' },
   { label: 'Feedback', href: '/council/feedback', icon: 'chat' },
+  { label: 'Settings', href: '/council/settings', icon: 'cog' },
 ]
 
 function NavIcon({ type, size = 18 }) {
@@ -36,6 +37,8 @@ function NavIcon({ type, size = 18 }) {
       return <svg {...s} viewBox="0 0 24 24"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
     case 'chat':
       return <svg {...s} viewBox="0 0 24 24"><path d="M8 12h8m-8-4h5m-5 8h.01M21 12a8 8 0 01-11.6 7.13L4 20l1.07-4.4A8 8 0 1121 12z" strokeLinecap="round" strokeLinejoin="round"/></svg>
+    case 'cog':
+      return <svg {...s} viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path strokeLinecap="round" strokeLinejoin="round" d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
     case 'logout':
       return <svg {...s} viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h5a2 2 0 012 2v1"/></svg>
     case 'menu':
