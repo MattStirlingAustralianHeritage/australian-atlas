@@ -40,20 +40,44 @@ export async function GET(request) {
 
   try {
     const t0 = Date.now()
-    const { traffic, geo, timeline, topPages, totalUniqueVisitors, windowTotal, humanRows, botRows, source } =
-      await computeDashboardPreferRpc(sb, { since, vertical })
+    const [
+      { traffic, geo, timeline, topPages, totalUniqueVisitors, windowTotal, humanRows, botRows, source },
+      { totalSignups, totalClaims },
+    ] = await Promise.all([
+      computeDashboardPreferRpc(sb, { since, vertical }),
+      conversionTotals(sb, since),
+    ])
 
     console.log(JSON.stringify({
       event: 'analytics_dashboard',
       range, vertical, since, source,
       windowTotal, humanRows, botRows,
-      totalUniqueVisitors, verticals: traffic.length,
+      totalUniqueVisitors, totalSignups, totalClaims, verticals: traffic.length,
       ms: Date.now() - t0,
     }))
 
-    return NextResponse.json({ traffic, geo, timeline, topPages, totalUniqueVisitors, range, vertical })
+    return NextResponse.json({ traffic, geo, timeline, topPages, totalUniqueVisitors, totalSignups, totalClaims, range, vertical })
   } catch (err) {
     console.error(JSON.stringify({ event: 'analytics_dashboard_error', range, vertical, error: err.message }))
-    return NextResponse.json({ traffic: [], geo: [], timeline: [], topPages: [], totalUniqueVisitors: 0, range, vertical })
+    return NextResponse.json({ traffic: [], geo: [], timeline: [], topPages: [], totalUniqueVisitors: 0, totalSignups: 0, totalClaims: 0, range, vertical })
   }
+}
+
+/**
+ * Network conversion KPIs over the dashboard window. pageviews is a pageview-only
+ * table, so these come from their own tables: signups = profiles created in window,
+ * claims completed = listing_claims that reached `active` (the grantClaim terminal
+ * state), timed by claimed_at. Two cheap exact head-counts. The summary cards
+ * previously read v.total_signups / v.total_claims off the per-vertical traffic
+ * rows — fields the aggregation never produced — so both always rendered 0.
+ * A failing count must not zero the whole dashboard; degrade each independently.
+ */
+async function conversionTotals(sb, since) {
+  const [signupRes, claimsRes] = await Promise.all([
+    sb.from('profiles').select('id', { count: 'exact', head: true }).gte('created_at', since),
+    sb.from('listing_claims').select('id', { count: 'exact', head: true }).eq('status', 'active').gte('claimed_at', since),
+  ])
+  if (signupRes.error) console.error(JSON.stringify({ event: 'analytics_signups_error', error: signupRes.error.message }))
+  if (claimsRes.error) console.error(JSON.stringify({ event: 'analytics_claims_error', error: claimsRes.error.message }))
+  return { totalSignups: signupRes.count || 0, totalClaims: claimsRes.count || 0 }
 }

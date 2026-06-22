@@ -161,12 +161,15 @@ export default function AnalyticsDashboard() {
     }
   }, [data?.geo])
 
-  // Calculate totals
-  const totals = data?.traffic?.reduce((acc, v) => ({
-    pageviews: acc.pageviews + (v.total_pageviews || 0),
-    signups: acc.signups + (v.total_signups || 0),
-    claims: acc.claims + (v.total_claims || 0),
-  }), { pageviews: 0, signups: 0, claims: 0 }) || { pageviews: 0, signups: 0, claims: 0 }
+  // Pageviews sum the per-vertical traffic rows. Signups/claims come straight from
+  // the API (profiles + completed listing_claims in window) — they are NOT fields on
+  // the per-vertical traffic rows, so summing those always yielded 0.
+  const totalPageviews = data?.traffic?.reduce((acc, v) => acc + (v.total_pageviews || 0), 0) || 0
+  const totals = {
+    pageviews: totalPageviews,
+    signups: data?.totalSignups || 0,
+    claims: data?.totalClaims || 0,
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--color-cream, #F5F1EB)', fontFamily: 'var(--font-sans, system-ui)' }}>
