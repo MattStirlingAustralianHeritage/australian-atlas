@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { getSupabaseAdmin } from '@/lib/supabase/clients'
 
 // ── Rate limiter (5 enquiries per hour per IP) ──────────────────────────────
 const _rateWindows = new Map()
@@ -37,10 +38,37 @@ export async function POST(request) {
   if (rateLimited) return rateLimited
 
   const body = await request.json()
-  const { name, organisation, email, region, plan, message } = body
+  const { name, organisation, email, region, role, plan, message } = body
 
-  if (!name || !organisation || !email || !region || !plan) {
-    return NextResponse.json({ error: 'All fields are required' }, { status: 400 })
+  // Plan is optional now the council portal is a free founding beta — the
+  // landing-page CTA sends enquirers here without preselecting a tier. Role is
+  // the enquirer's job title at the council/organisation.
+  if (!name || !organisation || !email || !region || !role) {
+    return NextResponse.json(
+      { error: 'Name, organisation, email, region, and role are required' },
+      { status: 400 }
+    )
+  }
+
+  // Persist the lead (best-effort). RLS-locked table, service-role write. A
+  // missing table (migration 180 not yet applied) or any insert failure must
+  // NOT block the enquiry — councils@ is still notified below and the user
+  // still sees success, mirroring the best-effort email path.
+  try {
+    const sb = getSupabaseAdmin()
+    const { error } = await sb.from('council_enquiries').insert({
+      name: String(name).slice(0, 200),
+      organisation: String(organisation).slice(0, 200),
+      email: String(email).slice(0, 200),
+      region: String(region).slice(0, 500),
+      role: String(role).slice(0, 200),
+      plan: plan ? String(plan).slice(0, 100) : null,
+      message: message ? String(message).slice(0, 2000) : null,
+      source: 'for-councils-beta',
+    })
+    if (error) console.error('Council enquiry persist error:', error.message)
+  } catch (err) {
+    console.error('Council enquiry persist exception:', err)
   }
 
   // Sanitise all user input before embedding in HTML
@@ -48,6 +76,7 @@ export async function POST(request) {
   const safeOrg = escapeHtml(organisation)
   const safeEmail = escapeHtml(email)
   const safeRegion = escapeHtml(region)
+  const safeRole = escapeHtml(role)
   const safePlan = escapeHtml(plan)
   const safeMessage = escapeHtml(message)
 
@@ -62,14 +91,15 @@ export async function POST(request) {
       body: JSON.stringify({
         from: 'Australian Atlas <noreply@australianatlas.com.au>',
         to: 'councils@australianatlas.com.au',
-        subject: `Council enquiry — ${safeOrg} (${safePlan})`,
+        subject: `Council enquiry — ${safeOrg}${safePlan ? ` (${safePlan})` : ''}`,
         html: `
           <h2>New council portal enquiry</h2>
           <p><strong>Name:</strong> ${safeName}</p>
+          <p><strong>Role:</strong> ${safeRole}</p>
           <p><strong>Organisation:</strong> ${safeOrg}</p>
           <p><strong>Email:</strong> ${safeEmail}</p>
           <p><strong>Region:</strong> ${safeRegion}</p>
-          <p><strong>Plan:</strong> ${safePlan}</p>
+          ${safePlan ? `<p><strong>Plan of interest:</strong> ${safePlan}</p>` : ''}
           ${safeMessage ? `<p><strong>Message:</strong> ${safeMessage}</p>` : ''}
         `,
       }),

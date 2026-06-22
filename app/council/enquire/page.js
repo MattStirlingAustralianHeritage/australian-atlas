@@ -24,6 +24,7 @@ function CouncilEnquireForm() {
 
   const [form, setForm] = useState({
     name: '',
+    role: '',
     organisation: '',
     email: '',
     region: '',
@@ -137,7 +138,7 @@ function CouncilEnquireForm() {
             color: 'var(--color-muted)',
             lineHeight: 1.5,
           }}>
-            Interested in the council portal? Tell us about your organisation and we'll be in touch.
+            Join the free founding beta. Tell us about your region and we'll set you up with founding-partner access &mdash; free while the portal matures, no card required.
           </p>
         </div>
 
@@ -197,6 +198,18 @@ function CouncilEnquireForm() {
               </div>
 
               <div style={{ marginBottom: '1rem' }}>
+                <label style={labelStyle}>Your role</label>
+                <input
+                  type="text"
+                  value={form.role}
+                  onChange={(e) => update('role', e.target.value)}
+                  required
+                  placeholder="e.g. Tourism Manager, Economic Development Officer"
+                  style={inputStyle}
+                />
+              </div>
+
+              <div style={{ marginBottom: '1rem' }}>
                 <label style={labelStyle}>Council or organisation name</label>
                 <input
                   type="text"
@@ -221,7 +234,7 @@ function CouncilEnquireForm() {
               </div>
 
               <div style={{ marginBottom: '1rem' }}>
-                <label style={labelStyle}>Region</label>
+                <label style={labelStyle}>Region(s)</label>
                 <input
                   type="text"
                   value={form.region}
@@ -232,22 +245,30 @@ function CouncilEnquireForm() {
                 />
               </div>
 
-              <div style={{ marginBottom: '1rem' }}>
-                <label style={labelStyle}>Plan of interest</label>
+              <div style={{ marginBottom: '1.25rem' }}>
+                <label style={labelStyle}>Tier of interest after beta (optional)</label>
                 <select
                   value={form.plan}
                   onChange={(e) => update('plan', e.target.value)}
-                  required
                   style={{
                     ...inputStyle,
                     appearance: 'auto',
                   }}
                 >
-                  <option value="">Select a plan</option>
+                  <option value="">No preference yet</option>
                   {PLANS.map(p => (
                     <option key={p.value} value={p.value}>{p.label}</option>
                   ))}
                 </select>
+                <p style={{
+                  fontFamily: 'var(--font-body)',
+                  fontSize: '0.75rem',
+                  color: 'var(--color-muted)',
+                  margin: '0.4rem 0 0',
+                  lineHeight: 1.4,
+                }}>
+                  Free during the founding beta — this just helps us prepare for when standard pricing begins.
+                </p>
               </div>
 
               <div style={{ marginBottom: '1.25rem' }}>
