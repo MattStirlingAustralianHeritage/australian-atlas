@@ -492,24 +492,78 @@ export default async function ForCouncilsPage() {
               letterSpacing: '0.15em', textTransform: 'uppercase',
               color: 'var(--color-sage)', marginBottom: 12,
             }}>
-              Plans
+              Beta access &amp; pricing
             </p>
             <h2 style={{
               fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 400,
               color: 'var(--color-ink)', lineHeight: 1.25, marginBottom: 12,
             }}>
-              Free during beta. Here&apos;s what it costs after.
+              Free right now, while we&apos;re in beta
             </h2>
             <p style={{
               fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 300,
-              color: 'var(--color-muted)', lineHeight: 1.6, maxWidth: 540, margin: '0 auto',
+              color: 'var(--color-muted)', lineHeight: 1.6, maxWidth: 580, margin: '0 auto',
             }}>
-              Founding partners lock a reduced rate for the life of their account. No card required to join.
+              Australian Atlas for councils is in free founding beta. Early partners get full access at no cost
+              while the product matures &mdash; no card, no tier to choose &mdash; and lock a reduced founding rate
+              for the life of their account before the paywall.
             </p>
           </div>
 
+          {/* What founding-beta partners get — free. The clarity centrepiece. */}
+          <div style={{
+            background: 'var(--color-cream)', border: '1px solid var(--color-sage)',
+            borderRadius: 14, padding: '28px', marginBottom: 28,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+              <span style={{
+                fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 700,
+                letterSpacing: '0.06em', textTransform: 'uppercase',
+                color: 'white', background: 'var(--color-sage)',
+                padding: '4px 12px', borderRadius: 99,
+              }}>
+                $0 during beta
+              </span>
+              <h3 style={{
+                fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 400,
+                color: 'var(--color-ink)', margin: 0,
+              }}>
+                What founding partners get &mdash; free
+              </h3>
+            </div>
+            <p style={{
+              fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 300,
+              color: 'var(--color-muted)', lineHeight: 1.6, margin: '0 0 18px',
+            }}>
+              You&apos;re set up with full access &mdash; the same capability that becomes the Partner and Enterprise
+              tiers once standard pricing begins. Nothing to pay while you&apos;re a beta partner.
+            </p>
+            <ul style={{
+              margin: 0, padding: 0, listStyle: 'none',
+              display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '10px 24px',
+            }}>
+              {[
+                'Your region’s complete verified listing data',
+                'A live region dashboard, kept current automatically',
+                'Analytics & reporting — views, clicks, visitor origin and search interest (bot-filtered, exportable)',
+                'Regional content co-creation — trails, picks and seasonal guides',
+                'An embeddable region map for your own website',
+                'A white-label regional report you can share internally',
+              ].map((f, i) => (
+                <li key={i} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 8,
+                  fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 300,
+                  color: 'var(--color-ink)', lineHeight: 1.5,
+                }}>
+                  <span style={{ color: 'var(--color-sage)', flexShrink: 0, marginTop: 2 }}>&#10003;</span>
+                  {f}
+                </li>
+              ))}
+            </ul>
+          </div>
+
           {/* Primary beta CTA — the single action on the page; lands on the enquiry form */}
-          <div style={{ textAlign: 'center', marginBottom: 36 }}>
+          <div style={{ textAlign: 'center', marginBottom: 44 }}>
             <Link
               href="/council/enquire"
               style={{
@@ -520,6 +574,34 @@ export default async function ForCouncilsPage() {
             >
               Join the free founding beta
             </Link>
+            <p style={{
+              fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '12px 0 0',
+            }}>
+              No card required. It takes a minute.
+            </p>
+          </div>
+
+          {/* Post-beta pricing reference — clearly future, not now */}
+          <div style={{ textAlign: 'center', marginBottom: 24 }}>
+            <p style={{
+              fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600,
+              letterSpacing: '0.15em', textTransform: 'uppercase',
+              color: 'var(--color-muted)', marginBottom: 8,
+            }}>
+              For reference &middot; after beta
+            </p>
+            <h3 style={{
+              fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 400,
+              color: 'var(--color-ink)', lineHeight: 1.3, margin: '0 0 6px',
+            }}>
+              What it will cost once beta ends
+            </h3>
+            <p style={{
+              fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 300,
+              color: 'var(--color-muted)', lineHeight: 1.6, maxWidth: 520, margin: '0 auto',
+            }}>
+              You pay none of this today. Founding partners keep a reduced rate when these standard plans begin.
+            </p>
           </div>
 
           <div style={{
@@ -595,18 +677,18 @@ export default async function ForCouncilsPage() {
                   {tier.desc}
                 </p>
                 <div style={{ marginBottom: 20 }}>
-                  <span style={{
-                    fontFamily: 'var(--font-body)', fontSize: 32, fontWeight: 600,
-                    color: 'var(--color-ink)',
+                  <div style={{
+                    fontFamily: 'var(--font-body)', fontSize: 17, fontWeight: 600,
+                    color: 'var(--color-sage)', marginBottom: 2,
                   }}>
-                    {tier.price}
-                  </span>
-                  <span style={{
-                    fontFamily: 'var(--font-body)', fontSize: 14,
+                    Free during beta
+                  </div>
+                  <div style={{
+                    fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 300,
                     color: 'var(--color-muted)',
                   }}>
-                    {tier.period}
-                  </span>
+                    then {tier.price}{tier.period} after beta
+                  </div>
                 </div>
                 <ul style={{ margin: 0, padding: 0, listStyle: 'none', flex: 1 }}>
                   {tier.features.map((f, i) => (
