@@ -45,31 +45,46 @@ export async function GET(request) {
 
   // ── 1. Network health ───────────────────────────────────
   try {
-    // Active listings by vertical
-    const { data: activeListings, error: err1 } = await sb
-      .from('listings')
-      .select('vertical')
-      .eq('status', 'active')
-
-    if (err1) throw err1
+    // Per-vertical active + new counts via exact head counts.
+    // DO NOT fetch all rows and tally in JS: PostgREST caps .select()
+    // at 1000 rows (the `max-rows` setting), which silently truncated
+    // this section — the whole network read as "1000 active, all
+    // Collection" because the first 1000 unordered rows were Collection.
+    const verticals = Object.keys(VERTICAL_LABELS)
 
     const byVertical = {}
-    for (const row of (activeListings || [])) {
-      byVertical[row.vertical] = (byVertical[row.vertical] || 0) + 1
-    }
-
-    // New listings in last 7 days by vertical
-    const { data: newListings, error: err2 } = await sb
-      .from('listings')
-      .select('vertical')
-      .gte('created_at', sevenDaysAgo)
-
-    if (err2) throw err2
-
     const newByVertical = {}
-    for (const row of (newListings || [])) {
-      newByVertical[row.vertical] = (newByVertical[row.vertical] || 0) + 1
+    for (const v of verticals) {
+      const { count: activeCount, error: aErr } = await sb
+        .from('listings')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'active')
+        .eq('vertical', v)
+      if (aErr) throw aErr
+      if (activeCount) byVertical[v] = activeCount
+
+      const { count: newCount, error: nErr } = await sb
+        .from('listings')
+        .select('id', { count: 'exact', head: true })
+        .eq('vertical', v)
+        .gte('created_at', sevenDaysAgo)
+      if (nErr) throw nErr
+      if (newCount) newByVertical[v] = newCount
     }
+
+    // Network-wide totals via single exact head counts (vertical-agnostic,
+    // so they also include any rows with an unmapped/null vertical).
+    const { count: totalActiveCount, error: taErr } = await sb
+      .from('listings')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'active')
+    if (taErr) throw taErr
+
+    const { count: totalNewCount, error: tnErr } = await sb
+      .from('listings')
+      .select('id', { count: 'exact', head: true })
+      .gte('created_at', sevenDaysAgo)
+    if (tnErr) throw tnErr
 
     // Count unverified
     const { count: unverifiedCount, error: err3 } = await sb
@@ -89,9 +104,9 @@ export async function GET(request) {
 
     signals.networkHealth = {
       activeByVertical: byVertical,
-      totalActive: (activeListings || []).length,
+      totalActive: totalActiveCount || 0,
       newByVertical,
-      totalNew: (newListings || []).length,
+      totalNew: totalNewCount || 0,
       unverified: unverifiedCount || 0,
       lowGeocode: lowGeoCount || 0,
     }
