@@ -124,7 +124,16 @@ export default function RegionReport({ metrics, variant = 'report', rangeLabel =
           <Stat value={fmt(metrics?.regionPageViews)} label="Region page views" />
           <Stat value={fmt(metrics?.totalClicks)} label="Listing clicks" />
           <Stat value={fmt(metrics?.totalListings)} label="Listings in region" />
-          <Stat value={fmt(metrics?.newListings)} label="New this period" />
+          {/* "New this period" is only meaningful once the dataset has aged: a
+              listing's created_at is its Atlas import date, so early in a region's
+              life every listing reads as "new" (newListings === totalListings) and
+              the stat just duplicates "Listings in region". Show it only once it
+              carries signal (some, but not all, listings new in the window). */}
+          {typeof metrics?.newListings === 'number'
+            && metrics.newListings > 0
+            && metrics.newListings < metrics.totalListings && (
+            <Stat value={fmt(metrics.newListings)} label="New this period" />
+          )}
         </div>
 
         {/* Top listings by clicks */}
@@ -159,7 +168,7 @@ export default function RegionReport({ metrics, variant = 'report', rangeLabel =
         {/* Two-up: visitor origin + searches */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.5rem', marginBottom: '1.75rem' }}>
           <section className="print-avoid-break">
-            <SectionTitle note="Where visitors to this region's places are browsing from.">Visitor origin</SectionTitle>
+            <SectionTitle note="Where in Australia visitors to this region's places are browsing from.">Visitor origin</SectionTitle>
             {metrics?.visitorOrigin?.length ? (
               <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
                 {metrics.visitorOrigin.map((o, i) => (
@@ -199,9 +208,10 @@ export default function RegionReport({ metrics, variant = 'report', rangeLabel =
             rule hides <footer> (the site footer) and we want this to print. */}
         <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: '1rem', marginTop: '0.5rem' }}>
           <p style={{ fontFamily: C.body, fontSize: '0.72rem', color: C.muted, lineHeight: 1.55, margin: '0 0 0.5rem' }}>
-            Methodology: metrics are drawn from anonymous pageviews and on-site searches across the nine
-            Australian Atlas verticals, with datacenter and crawler traffic excluded. Listings are attributed
-            to {region.name} by verified geographic anchoring. Test fixtures are excluded.
+            Methodology: metrics are drawn from anonymous pageviews and on-site searches across the
+            Australian Atlas verticals, with datacenter and crawler traffic excluded and visitor origin
+            limited to Australian locations. Listings are attributed to {region.name} by verified geographic
+            anchoring. Test fixtures are excluded.
           </p>
           <p style={{ fontFamily: C.body, fontSize: '0.72rem', color: C.muted, margin: 0 }}>
             Prepared by Australian Atlas · australianatlas.com.au · councils@australianatlas.com.au

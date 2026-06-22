@@ -70,7 +70,7 @@ export default function CouncilAnalytics() {
             <StatCard label="Region page views" value={data.views} />
             <StatCard label="Listing clicks" value={data.clicks} />
             <StatCard label="Search interest" value={data.searches} />
-            <StatCard label="New listings" value={data.newListings} />
+            <StatCard label="Listings added" value={data.newListings} />
           </div>
 
           {(data.regions || []).length === 0 ? (
