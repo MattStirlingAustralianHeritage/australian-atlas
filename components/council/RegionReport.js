@@ -73,7 +73,7 @@ export default function RegionReport({ metrics, variant = 'report', rangeLabel =
             report covers your own region(s).
           </span>
           <Link
-            href="/council/enquire?plan=partner"
+            href="/council/enquire"
             style={{
               fontFamily: C.body, fontSize: '0.8rem', fontWeight: 500, textDecoration: 'none',
               background: C.sage, color: '#fff', padding: '0.5rem 1rem', borderRadius: 999, whiteSpace: 'nowrap',

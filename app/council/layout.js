@@ -12,24 +12,12 @@ export function useCouncil() {
   return ctx
 }
 
-const TIER_LABELS = {
-  explorer: 'Explorer',
-  partner: 'Partner',
-  enterprise: 'Enterprise',
-}
-
-const TIER_COLORS = {
-  explorer: { bg: '#eff6ff', text: '#1e40af', border: '#bfdbfe' },
-  partner: { bg: '#f0fdf4', text: '#166534', border: '#bbf7d0' },
-  enterprise: { bg: '#fffbeb', text: '#92400e', border: '#fde68a' },
-}
-
 const NAV_ITEMS = [
   { label: 'Overview', href: '/council', icon: 'home' },
   { label: 'Region', href: '/council/region', icon: 'map' },
   { label: 'Listings', href: '/council/listings', icon: 'list' },
-  { label: 'Analytics', href: '/council/analytics', icon: 'chart', minTier: 'partner' },
-  { label: 'Content', href: '/council/content', icon: 'pen', minTier: 'partner' },
+  { label: 'Analytics', href: '/council/analytics', icon: 'chart' },
+  { label: 'Content', href: '/council/content', icon: 'pen' },
   { label: 'Feedback', href: '/council/feedback', icon: 'chat' },
 ]
 
@@ -116,8 +104,6 @@ export default function CouncilLayout({ children }) {
   }
 
   const council = data?.council
-  const tier = council?.tier || 'explorer'
-  const tierColor = TIER_COLORS[tier]
 
   const sidebar = (
     <div style={{
@@ -165,10 +151,10 @@ export default function CouncilLayout({ children }) {
               fontWeight: 600,
               letterSpacing: '0.06em',
               textTransform: 'uppercase',
-              background: tierColor.bg,
-              color: tierColor.text,
+              background: 'var(--color-sage)',
+              color: '#fff',
             }}>
-              {TIER_LABELS[tier]}
+              Founding partner
             </span>
           </>
         )}
@@ -177,9 +163,6 @@ export default function CouncilLayout({ children }) {
       {/* Nav */}
       <nav style={{ flex: 1, padding: '1rem 0' }}>
         {NAV_ITEMS.map((item) => {
-          // Hide items above tier
-          if (item.minTier === 'partner' && tier === 'explorer') return null
-
           const active = isActive(item.href)
           return (
             <Link

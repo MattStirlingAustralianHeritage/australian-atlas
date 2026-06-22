@@ -11,17 +11,13 @@ export default function CouncilAnalytics() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [range, setRange] = useState('90d')
-  const [upgradeRequired, setUpgradeRequired] = useState(false)
-  const [upgrading, setUpgrading] = useState(false)
-  const [upgradeError, setUpgradeError] = useState(null)
 
   useEffect(() => {
     setLoading(true)
     fetch(`/api/council/data?view=analytics&range=${range}`)
       .then(r => r.json())
       .then(d => {
-        if (d.upgrade_required) setUpgradeRequired(true)
-        else setData(d.analytics || null)
+        setData(d.analytics || null)
         setLoading(false)
       })
       .catch(() => setLoading(false))
@@ -40,25 +36,21 @@ export default function CouncilAnalytics() {
             How your region performs across the Atlas network
           </p>
         </div>
-        {!upgradeRequired && (
-          <select
-            value={range}
-            onChange={e => setRange(e.target.value)}
-            style={{
-              fontFamily: 'var(--font-body)', fontSize: '0.85rem', padding: '0.45rem 0.75rem',
-              borderRadius: 8, border: '1px solid var(--color-border)', background: '#fff', color: 'var(--color-ink)',
-            }}
-          >
-            <option value="30d">Last 30 days</option>
-            <option value="90d">Last 90 days</option>
-            <option value="1y">Last 12 months</option>
-          </select>
-        )}
+        <select
+          value={range}
+          onChange={e => setRange(e.target.value)}
+          style={{
+            fontFamily: 'var(--font-body)', fontSize: '0.85rem', padding: '0.45rem 0.75rem',
+            borderRadius: 8, border: '1px solid var(--color-border)', background: '#fff', color: 'var(--color-ink)',
+          }}
+        >
+          <option value="30d">Last 30 days</option>
+          <option value="90d">Last 90 days</option>
+          <option value="1y">Last 12 months</option>
+        </select>
       </div>
 
-      {upgradeRequired ? (
-        <UpgradePanel upgrading={upgrading} setUpgrading={setUpgrading} upgradeError={upgradeError} setUpgradeError={setUpgradeError} />
-      ) : loading ? (
+      {loading ? (
         <p style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)' }}>Loading…</p>
       ) : data ? (
         <>
@@ -156,49 +148,6 @@ function Empty({ children }) {
   return (
     <div style={{ background: '#fff', borderRadius: 12, border: '1px solid var(--color-border)', padding: '2rem', textAlign: 'center' }}>
       <p style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)', margin: 0 }}>{children}</p>
-    </div>
-  )
-}
-
-function UpgradePanel({ upgrading, setUpgrading, upgradeError, setUpgradeError }) {
-  return (
-    <div style={{ background: '#fff', borderRadius: 12, border: '1px solid var(--color-border)', padding: '3rem 2rem', textAlign: 'center' }}>
-      <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem', color: 'var(--color-ink)', margin: '0 0 0.5rem' }}>
-        Analytics is available on Partner and Enterprise plans
-      </p>
-      <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.875rem', color: 'var(--color-muted)', margin: '0 0 1.5rem' }}>
-        Upgrade to see region page views, listing clicks, visitor origin, and search interest for your regions.
-      </p>
-      {upgradeError && (
-        <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.85rem', color: '#b91c1c', margin: '0 0 1rem' }}>{upgradeError}</p>
-      )}
-      <button
-        disabled={upgrading}
-        onClick={async () => {
-          setUpgrading(true)
-          setUpgradeError(null)
-          try {
-            const res = await fetch('/api/council/checkout', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ tier: 'partner' }),
-            })
-            const data = await res.json()
-            if (data.url) window.location.href = data.url
-            else { setUpgradeError(data.error || 'Failed to start checkout. Contact councils@australianatlas.com.au'); setUpgrading(false) }
-          } catch {
-            setUpgradeError('Something went wrong. Please try again or contact councils@australianatlas.com.au'); setUpgrading(false)
-          }
-        }}
-        style={{
-          padding: '0.7rem 1.5rem', borderRadius: 8, border: 'none',
-          background: upgrading ? 'var(--color-muted)' : 'var(--color-sage)', color: '#fff',
-          fontFamily: 'var(--font-body)', fontSize: '0.9rem', fontWeight: 500,
-          cursor: upgrading ? 'wait' : 'pointer', opacity: upgrading ? 0.7 : 1,
-        }}
-      >
-        {upgrading ? 'Redirecting…' : 'Upgrade to Partner'}
-      </button>
     </div>
   )
 }

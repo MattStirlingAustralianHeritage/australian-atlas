@@ -139,17 +139,7 @@ export async function GET(req) {
     }
 
     if (view === 'analytics') {
-      // Only available for partner+ tiers
-      if (council.tier === 'explorer') {
-        return NextResponse.json({
-          council,
-          regions,
-          analytics: null,
-          upgrade_required: true,
-          message: 'Analytics is available on Partner and Enterprise tiers',
-        })
-      }
-
+      // Single founding-partner tier — full access, no tier gating.
       const range = searchParams.get('range') || '90d'
       const since = sinceFromRange(range)
 
@@ -190,16 +180,7 @@ export async function GET(req) {
     }
 
     if (view === 'content') {
-      // Only available for partner+ tiers
-      if (council.tier === 'explorer') {
-        return NextResponse.json({
-          council,
-          regions,
-          content: [],
-          upgrade_required: true,
-        })
-      }
-
+      // Single founding-partner tier — full access, no tier gating.
       const { data: content } = await sb
         .from('council_content')
         .select('id, council_id, title, body, content_type, status, created_at, updated_at')

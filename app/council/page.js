@@ -1,8 +1,6 @@
 'use client'
 
 import { useCouncil } from './layout'
-import { useSearchParams } from 'next/navigation'
-import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 
@@ -14,79 +12,26 @@ const VERTICAL_LABELS = {
 
 const VERTICAL_COLORS = VERTICAL_ACCENTS
 
-const TIER_FEATURES = {
-  explorer: {
-    name: 'Explorer',
-    price: '$249',
-    features: ['View listing data for your region', 'Basic region report', 'Map embed'],
-    upgrade: 'partner',
-  },
-  partner: {
-    name: 'Partner',
-    price: '$3,500',
-    features: ['Full analytics dashboard', 'Content co-creation', 'Listing management', 'Priority support'],
-    upgrade: 'enterprise',
-  },
-  enterprise: {
-    name: 'Enterprise',
-    price: '$8,500',
-    features: ['Multiple regions', 'API access', 'White-label reports', 'Dedicated account manager'],
-    upgrade: null,
-  },
-}
+// Single founding-partner tier — full access, no pricing. Everything the
+// council product offers (formerly split across Explorer/Partner/Enterprise).
+const FOUNDING_FEATURES = [
+  'Verified listing data for your region, with performance (views & clicks)',
+  'Live region dashboard across all of your regions',
+  'Analytics & reporting — views, clicks, visitor origin, search interest',
+  'Content co-creation — trails, editorials, picks and seasonal guides',
+  'Embeddable region map for your own website',
+  'White-label regional report (your branding) to share or print',
+  'Export your region’s full listing data (CSV)',
+  'A direct line to the team for support and feedback',
+]
 
 export default function CouncilOverview() {
   const { council, regions, stats } = useCouncil()
-  const searchParams = useSearchParams()
-  const [banner, setBanner] = useState(null)
-  const [upgrading, setUpgrading] = useState(false)
-  const [upgradeError, setUpgradeError] = useState(null)
-
-  useEffect(() => {
-    const subscribed = searchParams.get('subscribed')
-    const cancelled = searchParams.get('cancelled')
-    const tier = searchParams.get('tier')
-    if (subscribed === '1') {
-      setBanner({ type: 'success', text: `Subscription activated${tier ? ` — ${tier.charAt(0).toUpperCase() + tier.slice(1)} plan` : ''}. Welcome aboard!` })
-    } else if (cancelled === '1') {
-      setBanner({ type: 'info', text: 'Checkout was cancelled. You can upgrade anytime from your plan section below.' })
-    }
-  }, [searchParams])
 
   if (!council) return null
 
-  const tierInfo = TIER_FEATURES[council.tier] || TIER_FEATURES.explorer
-
   return (
     <div>
-      {/* Checkout return banner */}
-      {banner && (
-        <div style={{
-          padding: '0.875rem 1.25rem',
-          borderRadius: '8px',
-          marginBottom: '1.5rem',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          background: banner.type === 'success' ? '#F0FDF4' : '#F0F4FF',
-          border: `1px solid ${banner.type === 'success' ? '#BBF7D0' : '#C7D2FE'}`,
-          color: banner.type === 'success' ? '#166534' : '#3730A3',
-          fontFamily: 'var(--font-body)',
-          fontSize: '0.875rem',
-        }}>
-          <span>{banner.text}</span>
-          <button
-            onClick={() => setBanner(null)}
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              fontSize: '1.1rem', color: 'inherit', padding: '0 0 0 1rem',
-            }}
-          >
-            &times;
-          </button>
-        </div>
-      )}
-
       {/* Header */}
       <div style={{ marginBottom: '2rem' }}>
         <h1 style={{
@@ -104,7 +49,7 @@ export default function CouncilOverview() {
           color: 'var(--color-muted)',
           margin: 0,
         }}>
-          {council.name} — {tierInfo.name} plan
+          {council.name} — Founding partner
         </p>
       </div>
 
@@ -252,7 +197,7 @@ export default function CouncilOverview() {
         </section>
       )}
 
-      {/* Plan info + upgrade */}
+      {/* Founding partner access */}
       <section>
         <h2 style={{
           fontFamily: 'var(--font-display)',
@@ -261,7 +206,7 @@ export default function CouncilOverview() {
           color: 'var(--color-ink)',
           margin: '0 0 1rem',
         }}>
-          Your plan
+          Founding partner access
         </h2>
         <div style={{
           background: '#fff',
@@ -269,97 +214,43 @@ export default function CouncilOverview() {
           border: '1px solid var(--color-border)',
           padding: '1.5rem',
         }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', marginBottom: '0.75rem' }}>
-            <span style={{
-              fontFamily: 'var(--font-body)',
-              fontSize: '1.1rem',
-              fontWeight: 600,
-              color: 'var(--color-ink)',
-            }}>
-              {tierInfo.name}
-            </span>
-            <span style={{
-              fontFamily: 'var(--font-body)',
-              fontSize: '0.85rem',
-              color: 'var(--color-muted)',
-            }}>
-              {tierInfo.price}/year
-            </span>
-          </div>
-          <ul style={{ margin: '0 0 1rem', padding: '0 0 0 1.25rem' }}>
-            {tierInfo.features.map((f, i) => (
+          <span style={{
+            display: 'inline-block',
+            fontFamily: 'var(--font-body)', fontSize: '0.7rem', fontWeight: 700,
+            letterSpacing: '0.06em', textTransform: 'uppercase',
+            color: '#fff', background: 'var(--color-sage)',
+            padding: '0.2rem 0.6rem', borderRadius: '999px', marginBottom: '0.75rem',
+          }}>
+            Free during beta
+          </span>
+          <p style={{
+            fontFamily: 'var(--font-body)', fontSize: '0.9rem', color: 'var(--color-muted)',
+            lineHeight: 1.6, margin: '0 0 1rem',
+          }}>
+            You have full access to the council toolkit as a founding partner — everything below, at no cost while we&apos;re in beta.
+          </p>
+          <ul style={{ margin: 0, padding: '0 0 0 1.25rem' }}>
+            {FOUNDING_FEATURES.map((f, i) => (
               <li key={i} style={{
                 fontFamily: 'var(--font-body)',
                 fontSize: '0.85rem',
-                color: 'var(--color-muted)',
-                marginBottom: '0.25rem',
+                color: 'var(--color-ink)',
+                marginBottom: '0.35rem',
+                lineHeight: 1.5,
               }}>
                 {f}
               </li>
             ))}
           </ul>
-          {tierInfo.upgrade && (
-            <>
-              {upgradeError && (
-                <p style={{
-                  fontFamily: 'var(--font-body)',
-                  fontSize: '0.85rem',
-                  color: '#b91c1c',
-                  margin: '0 0 0.75rem',
-                }}>
-                  {upgradeError}
-                </p>
-              )}
-              <button
-                disabled={upgrading}
-                onClick={async () => {
-                  setUpgrading(true)
-                  setUpgradeError(null)
-                  try {
-                    const res = await fetch('/api/council/checkout', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ tier: tierInfo.upgrade }),
-                    })
-                    const data = await res.json()
-                    if (data.url) {
-                      window.location.href = data.url
-                    } else {
-                      setUpgradeError(data.error || 'Failed to start checkout. Contact councils@australianatlas.com.au')
-                      setUpgrading(false)
-                    }
-                  } catch {
-                    setUpgradeError('Something went wrong. Please try again or contact councils@australianatlas.com.au')
-                    setUpgrading(false)
-                  }
-                }}
-                style={{
-                  padding: '0.6rem 1.25rem',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: upgrading ? 'var(--color-muted)' : 'var(--color-sage)',
-                  color: '#fff',
-                  fontFamily: 'var(--font-body)',
-                  fontSize: '0.875rem',
-                  fontWeight: 500,
-                  cursor: upgrading ? 'wait' : 'pointer',
-                  opacity: upgrading ? 0.7 : 1,
-                }}
-              >
-                {upgrading ? 'Redirecting...' : `Upgrade to ${TIER_FEATURES[tierInfo.upgrade].name}`}
-              </button>
-            </>
-          )}
-          {council.billing_cycle_end && (
-            <p style={{
-              fontFamily: 'var(--font-body)',
-              fontSize: '0.8rem',
-              color: 'var(--color-muted)',
-              marginTop: '0.75rem',
-            }}>
-              Current billing period ends {new Date(council.billing_cycle_end).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}
-            </p>
-          )}
+          <p style={{
+            fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-muted)',
+            margin: '1rem 0 0',
+          }}>
+            Something missing or an idea to share?{' '}
+            <Link href="/council/feedback" style={{ color: 'var(--color-sage)', textDecoration: 'underline', textUnderlineOffset: 3 }}>
+              Send us feedback
+            </Link>.
+          </p>
         </div>
       </section>
     </div>

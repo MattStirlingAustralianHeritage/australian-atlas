@@ -1,14 +1,7 @@
 'use client'
 
 import { useState, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-
-const PLANS = [
-  { value: 'explorer', label: 'Explorer — $249/year' },
-  { value: 'partner', label: 'Partner — $3,500/year' },
-  { value: 'enterprise', label: 'Enterprise — $8,500/year' },
-]
 
 export default function CouncilEnquirePage() {
   return (
@@ -19,16 +12,12 @@ export default function CouncilEnquirePage() {
 }
 
 function CouncilEnquireForm() {
-  const searchParams = useSearchParams()
-  const preselectedPlan = searchParams.get('plan') || ''
-
   const [form, setForm] = useState({
     name: '',
     role: '',
     organisation: '',
     email: '',
     region: '',
-    plan: preselectedPlan,
     message: '',
   })
   const [submitted, setSubmitted] = useState(false)
@@ -243,32 +232,6 @@ function CouncilEnquireForm() {
                   placeholder="e.g. Yarra Valley, Byron Bay, Barossa"
                   style={inputStyle}
                 />
-              </div>
-
-              <div style={{ marginBottom: '1.25rem' }}>
-                <label style={labelStyle}>Tier of interest after beta (optional)</label>
-                <select
-                  value={form.plan}
-                  onChange={(e) => update('plan', e.target.value)}
-                  style={{
-                    ...inputStyle,
-                    appearance: 'auto',
-                  }}
-                >
-                  <option value="">No preference yet</option>
-                  {PLANS.map(p => (
-                    <option key={p.value} value={p.value}>{p.label}</option>
-                  ))}
-                </select>
-                <p style={{
-                  fontFamily: 'var(--font-body)',
-                  fontSize: '0.75rem',
-                  color: 'var(--color-muted)',
-                  margin: '0.4rem 0 0',
-                  lineHeight: 1.4,
-                }}>
-                  Free during the founding beta — this just helps us prepare for when standard pricing begins.
-                </p>
               </div>
 
               <div style={{ marginBottom: '1.25rem' }}>
