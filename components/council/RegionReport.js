@@ -52,9 +52,13 @@ function SectionTitle({ children, note }) {
   )
 }
 
-export default function RegionReport({ metrics, variant = 'report', rangeLabel = 'Last 90 days' }) {
+export default function RegionReport({ metrics, variant = 'report', rangeLabel = 'Last 90 days', council = null }) {
   const region = metrics?.region || {}
   const periodEnd = fmtDate(metrics?.generatedAt)
+  // White-label: when an authenticated council views its own region's report we
+  // lead with the council's branding (logo + name); prospects (and the public
+  // example) keep the Australian Atlas masthead.
+  const brandName = council?.name || 'Australian Atlas'
 
   return (
     <div style={{ background: variant === 'example' ? 'var(--color-bg)' : '#fff', minHeight: '100vh', padding: '2rem 1rem' }}>
@@ -96,8 +100,12 @@ export default function RegionReport({ metrics, variant = 'report', rangeLabel =
         <header style={{ borderBottom: `2px solid ${C.ink}`, paddingBottom: '1rem', marginBottom: '1.5rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
             <div>
+              {council?.logo_url ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={council.logo_url} alt={brandName} style={{ height: 34, width: 'auto', margin: '0 0 0.6rem', display: 'block' }} />
+              ) : null}
               <p style={{ fontFamily: C.display, fontSize: '0.8rem', letterSpacing: '0.14em', textTransform: 'uppercase', color: C.muted, margin: '0 0 0.5rem' }}>
-                Australian Atlas
+                {brandName}
               </p>
               <h1 style={{ fontFamily: C.display, fontSize: '1.9rem', fontWeight: 400, color: C.ink, margin: 0, lineHeight: 1.15 }}>
                 {region.name}

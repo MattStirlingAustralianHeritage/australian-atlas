@@ -1,6 +1,8 @@
 import { notFound } from 'next/navigation'
+import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { computeRegionMetrics } from '@/lib/analytics/regionMetrics'
+import { validateCouncilSession } from '@/lib/council-session'
 import RegionReport from '@/components/council/RegionReport'
 
 export const dynamic = 'force-dynamic'
@@ -40,7 +42,31 @@ export default async function CouncilRegionReport({ params, searchParams }) {
 
   if (!region) notFound()
 
+  // White-label: if an authenticated council manages this region, brand the
+  // report with their name/logo. Public/prospect views stay Atlas-branded.
+  let council = null
+  try {
+    const cookieStore = await cookies()
+    const session = validateCouncilSession(cookieStore.get('council_session')?.value)
+    if (session?.councilId) {
+      const { data: link } = await sb
+        .from('council_regions')
+        .select('council_id')
+        .eq('council_id', session.councilId)
+        .eq('region_id', region.id)
+        .maybeSingle()
+      if (link) {
+        const { data: acct } = await sb
+          .from('council_accounts')
+          .select('name, logo_url')
+          .eq('id', session.councilId)
+          .maybeSingle()
+        if (acct) council = acct
+      }
+    }
+  } catch { /* non-fatal — fall back to Atlas branding */ }
+
   const metrics = await computeRegionMetrics(sb, region, { since, limit: 10 })
 
-  return <RegionReport metrics={metrics} variant="report" rangeLabel={RANGE_LABELS[range]} />
+  return <RegionReport metrics={metrics} variant="report" rangeLabel={RANGE_LABELS[range]} council={council} />
 }

@@ -47,6 +47,12 @@ export default function CouncilListings() {
 
   if (!council) return null
 
+  const exportQuery = [
+    selectedRegion && `region=${encodeURIComponent(selectedRegion)}`,
+    selectedVertical && `vertical=${encodeURIComponent(selectedVertical)}`,
+  ].filter(Boolean).join('&')
+  const exportHref = `/api/council/export${exportQuery ? `?${exportQuery}` : ''}`
+
   const pillStyle = (active) => ({
     padding: '0.35rem 0.75rem',
     borderRadius: '999px',
@@ -61,24 +67,36 @@ export default function CouncilListings() {
 
   return (
     <div>
-      <div style={{ marginBottom: '1.5rem' }}>
-        <h1 style={{
-          fontFamily: 'var(--font-display)',
-          fontSize: '1.75rem',
-          fontWeight: 400,
-          color: 'var(--color-ink)',
-          margin: '0 0 0.25rem',
-        }}>
-          Listings
-        </h1>
-        <p style={{
-          fontFamily: 'var(--font-body)',
-          fontSize: '0.95rem',
-          color: 'var(--color-muted)',
-          margin: 0,
-        }}>
-          Browse all listings in your managed regions
-        </p>
+      <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '1rem' }}>
+        <div>
+          <h1 style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: '1.75rem',
+            fontWeight: 400,
+            color: 'var(--color-ink)',
+            margin: '0 0 0.25rem',
+          }}>
+            Listings
+          </h1>
+          <p style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: '0.95rem',
+            color: 'var(--color-muted)',
+            margin: 0,
+          }}>
+            Browse all listings in your managed regions
+          </p>
+        </div>
+        <a
+          href={exportHref}
+          style={{
+            fontFamily: 'var(--font-body)', fontSize: '0.85rem', fontWeight: 500,
+            color: '#fff', background: 'var(--color-sage)', textDecoration: 'none',
+            padding: '0.5rem 1rem', borderRadius: 8, whiteSpace: 'nowrap',
+          }}
+        >
+          Export CSV
+        </a>
       </div>
 
       {/* Filters */}
