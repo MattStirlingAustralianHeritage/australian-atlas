@@ -84,7 +84,11 @@ export async function POST(req) {
     await sb.storage.from(BUCKET).remove([prevPath]).catch(() => {})
   }
 
-  await sb.from('council_activity').insert({ council_id: session.councilId, action: 'logo_updated' }).catch(() => {})
+  // Activity log (best-effort). Wrapped in try/catch — the PostgREST builder is a
+  // thenable without .catch(), so chaining .catch() on it would throw.
+  try {
+    await sb.from('council_activity').insert({ council_id: session.councilId, action: 'logo_updated' })
+  } catch { /* non-fatal */ }
 
   return NextResponse.json({ logo_url: logoUrl })
 }
