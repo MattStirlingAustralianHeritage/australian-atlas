@@ -39,7 +39,7 @@ const FAQ = [
   },
   {
     q: 'What commitment is required?',
-    a: 'Plans run annually. The Explorer tier lets you understand what\'s already in your region before committing to anything deeper. There\'s no lock-in beyond the annual term, and you can upgrade or adjust at any time.',
+    a: 'None. While we\'re in beta it\'s free for founding partners, with full access and no lock-in. You can step away at any time, and we\'ll give partners plenty of notice before anything changes.',
   },
   {
     q: 'What regions are already active?',
@@ -47,7 +47,7 @@ const FAQ = [
   },
   {
     q: 'Can we contribute our own data?',
-    a: 'Yes. Partner and Enterprise councils can suggest operators for consideration, with operators opting in themselves, flag corrections, and co-create editorial content for their region. All submissions go through our verification pipeline before publishing.',
+    a: 'Yes. Founding partners can suggest operators for consideration, with operators opting in themselves, flag corrections, and co-create editorial content for their region. All submissions go through our verification pipeline before publishing.',
   },
   {
     q: 'Who runs Australian Atlas?',
@@ -84,7 +84,7 @@ export default async function ForCouncilsPage() {
             fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 300,
             color: 'rgba(255,255,255,0.78)', lineHeight: 1.55, margin: 0,
           }}>
-            Australian Atlas for councils is in free founding beta. Early partners get full access at no cost while the product matures, and lock a founding rate for the life of their account before the paywall.
+            Australian Atlas for councils is in free founding beta. Founding partners get full access at no cost while the product matures.
           </p>
         </div>
       </div>
@@ -492,7 +492,7 @@ export default async function ForCouncilsPage() {
               letterSpacing: '0.15em', textTransform: 'uppercase',
               color: 'var(--color-sage)', marginBottom: 12,
             }}>
-              Beta access &amp; pricing
+              Beta access
             </p>
             <h2 style={{
               fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 400,
@@ -504,9 +504,8 @@ export default async function ForCouncilsPage() {
               fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 300,
               color: 'var(--color-muted)', lineHeight: 1.6, maxWidth: 580, margin: '0 auto',
             }}>
-              Australian Atlas for councils is in free founding beta. Early partners get full access at no cost
-              while the product matures &mdash; no card, no tier to choose &mdash; and lock a reduced founding rate
-              for the life of their account before the paywall.
+              Australian Atlas for councils is in free founding beta. Founding partners get full access at no cost
+              while the product matures &mdash; no card, no tiers to weigh up. One offering, everything included.
             </p>
           </div>
 
@@ -522,7 +521,7 @@ export default async function ForCouncilsPage() {
                 color: 'white', background: 'var(--color-sage)',
                 padding: '4px 12px', borderRadius: 99,
               }}>
-                $0 during beta
+                Free during beta
               </span>
               <h3 style={{
                 fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 400,
@@ -535,20 +534,23 @@ export default async function ForCouncilsPage() {
               fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 300,
               color: 'var(--color-muted)', lineHeight: 1.6, margin: '0 0 18px',
             }}>
-              You&apos;re set up with full access &mdash; the same capability that becomes the Partner and Enterprise
-              tiers once standard pricing begins. Nothing to pay while you&apos;re a beta partner.
+              You&apos;re set up as a founding partner with full access to everything below &mdash; the complete
+              council toolkit, with nothing held back behind a higher tier.
             </p>
             <ul style={{
               margin: 0, padding: 0, listStyle: 'none',
               display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '10px 24px',
             }}>
               {[
-                'Your region’s complete verified listing data',
+                'Your region’s complete verified listing data, with performance (views & clicks)',
                 'A live region dashboard, kept current automatically',
-                'Analytics & reporting — views, clicks, visitor origin and search interest (bot-filtered, exportable)',
-                'Regional content co-creation — trails, picks and seasonal guides',
+                'Multiple regions in a single dashboard',
+                'Analytics & reporting — views, clicks, visitor origin and search interest (bot-filtered)',
+                'Regional content co-creation — trails, editorials, picks and seasonal guides',
                 'An embeddable region map for your own website',
-                'A white-label regional report you can share internally',
+                'A white-label regional report (your branding) to share or print',
+                'Export your region’s full listing data (CSV)',
+                'A direct line to the team for support and feedback',
               ].map((f, i) => (
                 <li key={i} style={{
                   display: 'flex', alignItems: 'flex-start', gap: 8,
@@ -577,133 +579,8 @@ export default async function ForCouncilsPage() {
             <p style={{
               fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '12px 0 0',
             }}>
-              No card required. It takes a minute.
+              It takes a minute.
             </p>
-          </div>
-
-          {/* Post-beta pricing reference — clearly future, not now */}
-          <div style={{ textAlign: 'center', marginBottom: 24 }}>
-            <p style={{
-              fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600,
-              letterSpacing: '0.15em', textTransform: 'uppercase',
-              color: 'var(--color-muted)', marginBottom: 8,
-            }}>
-              For reference &middot; after beta
-            </p>
-            <h3 style={{
-              fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 400,
-              color: 'var(--color-ink)', lineHeight: 1.3, margin: '0 0 6px',
-            }}>
-              What it will cost once beta ends
-            </h3>
-            <p style={{
-              fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 300,
-              color: 'var(--color-muted)', lineHeight: 1.6, maxWidth: 520, margin: '0 auto',
-            }}>
-              You pay none of this today. Founding partners keep a reduced rate when these standard plans begin.
-            </p>
-          </div>
-
-          <div style={{
-            display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 20,
-          }}>
-            {[
-              {
-                name: 'Explorer', price: '$249', period: '/year',
-                desc: 'Understand your region on the Atlas network',
-                features: [
-                  'View all listings in your region',
-                  'Basic region report',
-                  'Listing count by vertical',
-                  'Embeddable map widget',
-                  'Email support',
-                ],
-                highlighted: false,
-              },
-              {
-                name: 'Partner', price: '$3,500', period: '/year',
-                desc: 'Actively manage and promote your region',
-                features: [
-                  'Everything in Explorer',
-                  'Full analytics dashboard',
-                  'Listing performance data',
-                  'Content co-creation tools',
-                  'Create itineraries & editorials',
-                  'Regional picks curation',
-                  'Priority support',
-                ],
-                highlighted: true,
-              },
-              {
-                name: 'Enterprise', price: '$8,500', period: '/year',
-                desc: 'Full regional control across the network',
-                features: [
-                  'Everything in Partner',
-                  'Multiple regions',
-                  'API access to listing data',
-                  'White-label reports',
-                  'Custom data exports',
-                  'Dedicated account manager',
-                ],
-                highlighted: false,
-              },
-            ].map(tier => (
-              <div key={tier.name} style={{
-                background: 'var(--color-bg)', borderRadius: 12, padding: '28px 24px',
-                border: tier.highlighted ? '2px solid var(--color-sage)' : '1px solid var(--color-border)',
-                position: 'relative', display: 'flex', flexDirection: 'column',
-              }}>
-                {tier.highlighted && (
-                  <span style={{
-                    position: 'absolute', top: -11, left: '50%', transform: 'translateX(-50%)',
-                    background: 'var(--color-sage)', color: 'white',
-                    fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 600,
-                    letterSpacing: '0.08em', textTransform: 'uppercase',
-                    padding: '3px 12px', borderRadius: 99,
-                  }}>
-                    Recommended
-                  </span>
-                )}
-                <h3 style={{
-                  fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 400,
-                  color: 'var(--color-ink)', margin: '0 0 4px',
-                }}>
-                  {tier.name}
-                </h3>
-                <p style={{
-                  fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 300,
-                  color: 'var(--color-muted)', margin: '0 0 16px',
-                }}>
-                  {tier.desc}
-                </p>
-                <div style={{ marginBottom: 20 }}>
-                  <div style={{
-                    fontFamily: 'var(--font-body)', fontSize: 17, fontWeight: 600,
-                    color: 'var(--color-sage)', marginBottom: 2,
-                  }}>
-                    Free during beta
-                  </div>
-                  <div style={{
-                    fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 300,
-                    color: 'var(--color-muted)',
-                  }}>
-                    then {tier.price}{tier.period} after beta
-                  </div>
-                </div>
-                <ul style={{ margin: 0, padding: 0, listStyle: 'none', flex: 1 }}>
-                  {tier.features.map((f, i) => (
-                    <li key={i} style={{
-                      display: 'flex', alignItems: 'flex-start', gap: 8,
-                      fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 300,
-                      color: 'var(--color-ink)', marginBottom: 8, lineHeight: 1.4,
-                    }}>
-                      <span style={{ color: 'var(--color-sage)', flexShrink: 0, marginTop: 1 }}>&#10003;</span>
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
           </div>
 
           <p style={{
@@ -792,7 +669,7 @@ export default async function ForCouncilsPage() {
             </a>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
               <Link
-                href="/pricing"
+                href="/council/enquire"
                 style={{
                   fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500,
                   color: 'white', background: 'var(--color-sage)',
@@ -800,7 +677,7 @@ export default async function ForCouncilsPage() {
                   transition: 'opacity 0.15s',
                 }}
               >
-                View detailed pricing
+                Join the free founding beta
               </Link>
               <Link
                 href="/council/login"
