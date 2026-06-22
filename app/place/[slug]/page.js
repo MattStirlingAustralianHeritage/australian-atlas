@@ -911,11 +911,23 @@ export default async function PlacePage({ params }) {
             distinct from the synced editorial meta sections lower down. Renders
             only when the operator has filled at least one field. ── */}
         {highlightTextFields.length + highlightUrlFields.length > 0 && (
-          <section className="mb-10">
-            <h2 className="mb-4" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)' }}>
-              {highlightDef.heading || 'From the operator'}
-            </h2>
-            <div className="p-5 rounded-lg flex flex-col gap-4" style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}>
+          <section className="mb-10" aria-labelledby="from-the-maker-heading">
+            {/* The whole section is fenced inside a warm sand panel — the brand
+                gold at low alpha (the same wash as ::selection), distinctly
+                warmer than the white the editorial description sits on — so a
+                reader can see at a glance these are the operator's own words,
+                not Atlas editorial. The panel and its framing/provenance lines
+                render only inside this gate, i.e. only when an operator has
+                actually filled a field; unclaimed listings show nothing. */}
+            <div className="rounded-xl p-6 flex flex-col gap-4" style={{ background: 'rgba(196, 151, 59, 0.12)', border: '1px solid var(--color-border)' }}>
+              <div>
+                <h2 id="from-the-maker-heading" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)', margin: 0 }}>
+                  {highlightDef.heading || 'From the operator'}
+                </h2>
+                <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: '15px', color: 'var(--color-muted)', margin: '4px 0 0' }}>
+                  In their own words
+                </p>
+              </div>
               {highlightTextFields.map(f => {
                 const value = storedHighlightFields[f.key]
                 if (f.type === 'list') {
@@ -947,6 +959,16 @@ export default async function PlacePage({ params }) {
                   ))}
                 </div>
               )}
+              {/* Provenance — a low-prominence colophon that fences the voice:
+                  these are the operator's words, supplied by them. Name alone
+                  today (no operator-logo field exists); a logo would sit beside
+                  the name here if one were ever added. */}
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-muted)', margin: 0, paddingTop: '12px', borderTop: '1px solid var(--color-border)', lineHeight: 1.5 }}>
+                {listing.name && (
+                  <><span style={{ fontWeight: 600, color: 'var(--color-ink)' }}>{listing.name}</span>{' · '}</>
+                )}
+                Words supplied by the operator.
+              </p>
             </div>
           </section>
         )}
