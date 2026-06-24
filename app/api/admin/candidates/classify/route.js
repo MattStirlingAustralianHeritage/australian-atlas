@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
 import { extractStateFromPlaceName } from '@/lib/geo/stateDerivation'
 import { findDuplicate } from '@/lib/candidates/duplicateCheck.mjs'
+import { fetchSiteText } from '@/lib/scrape/fetchSiteText'
 
 /**
  * POST /api/admin/candidates/classify
@@ -71,45 +72,6 @@ function normaliseUrl(url) {
 
 function hostnameOf(url) {
   try { return new URL(url).hostname.replace(/^www\./, '') } catch { return '' }
-}
-
-/** Fetch a URL and return stripped plain text + the <title>. Mirrors the
- *  enrichment fetch in app/api/admin/candidates/[id]/route.js. */
-async function fetchSiteText(url) {
-  try {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 12000)
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: { 'User-Agent': 'AustralianAtlas/1.0 (listing-classifier)' },
-      redirect: 'follow',
-    })
-    clearTimeout(timeout)
-    if (!res.ok) return { text: null, title: null, status: res.status }
-
-    const html = await res.text()
-    const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)
-    const title = titleMatch?.[1]?.replace(/\s+/g, ' ').trim() || null
-
-    const text = html
-      .replace(/<script[\s\S]*?<\/script>/gi, '')
-      .replace(/<style[\s\S]*?<\/style>/gi, '')
-      .replace(/<nav[\s\S]*?<\/nav>/gi, '')
-      .replace(/<footer[\s\S]*?<\/footer>/gi, '')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&#?\w+;/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, 7000)
-
-    return { text, title, status: res.status }
-  } catch (err) {
-    return { text: null, title: null, status: 0, error: err.message || String(err) }
-  }
 }
 
 /** Ask Claude to classify the page into one vertical and pull the basics. */

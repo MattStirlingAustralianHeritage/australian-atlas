@@ -6,8 +6,12 @@ import { regenerateListingEmbedding } from '@/lib/embeddings/regenerateOne'
 import { pushToVerticalWithRetry, updateInVertical, getVerticalListingUrl, VERTICAL_DISPLAY_NAMES, VERTICAL_CATEGORIES, recordSyncAndRevalidate } from '@/lib/sync/pushToVertical'
 import { resolveRegionName } from '@/lib/regions'
 import { extractStateFromPlaceName, deriveStateFromCoords, VALID_STATES } from '@/lib/geo/stateDerivation'
+import { fetchSiteText } from '@/lib/scrape/fetchSiteText'
 // Hero image scraping removed — all new listings use the default fallback hero.
 // Venue owners upload their own hero image when they claim the listing.
+
+// Allow headroom for the direct fetch + reader-proxy fallback + Claude call.
+export const maxDuration = 60
 
 /** Normalise a URL to include https:// prefix */
 function normaliseUrl(url) {
@@ -37,51 +41,18 @@ const VERTICAL_LABELS = {
 // ─── Website Enrichment ────────────────────────────────────
 
 /** Fetch a URL and return stripped plain text + og:image.
- *  Returns { text, ogImage } — text is the page content (max 8000 chars),
- *  ogImage is the og:image URL extracted from meta tags before stripping HTML.
+ *  Delegates to the shared fetcher (browser headers → Jina reader fallback) so
+ *  Cloudflare/WAF-protected operator sites that 403 our datacenter fetch still
+ *  enrich. Returns { text, ogImage } — text is the page content (max 8000 chars).
  */
 async function fetchWebsiteContent(url) {
-  try {
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 10000)
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: { 'User-Agent': 'AustralianAtlas/1.0 (listing-enrichment)' },
-      redirect: 'follow',
-    })
-    clearTimeout(timeout)
-    if (!res.ok) {
-      console.log(`[fetchWebsite] HTTP ${res.status} for ${url}`)
-      return { text: null, ogImage: null }
-    }
-
-    const html = await res.text()
-
-    // Extract og:image before stripping HTML — handles both meta attribute orders
-    const ogMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)
-      || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i)
-    const ogImage = ogMatch?.[1] || null
-
-    const text = html
-      .replace(/<script[\s\S]*?<\/script>/gi, '')
-      .replace(/<style[\s\S]*?<\/style>/gi, '')
-      .replace(/<nav[\s\S]*?<\/nav>/gi, '')
-      .replace(/<footer[\s\S]*?<\/footer>/gi, '')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&amp;/g, '&')
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&#?\w+;/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, 8000)
-
-    return { text, ogImage }
-  } catch (err) {
-    console.log(`[fetchWebsite] Error for ${url}: ${err.message || err}`)
-    return { text: null, ogImage: null }
+  const { text, ogImage, status, via } = await fetchSiteText(url, { maxChars: 8000 })
+  if (!text) {
+    console.log(`[fetchWebsite] No content for ${url} (HTTP ${status || 'error'})`)
+  } else if (via === 'reader') {
+    console.log(`[fetchWebsite] Fetched ${url} via reader proxy (direct fetch blocked)`)
   }
+  return { text, ogImage }
 }
 
 /** Ask Claude to extract structured venue data from website text */
