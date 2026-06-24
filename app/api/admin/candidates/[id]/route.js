@@ -300,7 +300,12 @@ export async function POST(request, { params }) {
   }
 
   try {
-    const { action, subcategory, subcategory_secondary, address_on_request, visitable, presence_type, offers_classes, reviewerOverrides, wayClassification } = await request.json()
+    const { action, subcategory, subcategory_secondary, address_on_request, visitable, presence_type, service_area, offers_classes, reviewerOverrides, wayClassification } = await request.json()
+    // Mobile venues (food trucks, coffee carts, pop-ups) have no fixed street
+    // address — they're discoverable & featured via their region, but their
+    // exact location is never pinned. They stay visitable (you can find & visit
+    // them) so they surface in search and region pages like a permanent venue.
+    const isMobile = presence_type === 'mobile'
 
     if (!['approve', 'reject'].includes(action)) {
       return NextResponse.json({ error: 'Invalid action — must be approve or reject' }, { status: 400 })
@@ -437,8 +442,8 @@ export async function POST(request, { params }) {
       // field blank.
       const formAddress = (ro.address || '').trim() || candidate.address || null
       const formSuburb = (ro.suburb || '').trim() || enriched.suburb || null
-      const formLat = ro.lat ?? candidate.lat ?? coords?.lat ?? null
-      const formLng = ro.lng ?? candidate.lng ?? coords?.lng ?? null
+      let formLat = ro.lat ?? candidate.lat ?? coords?.lat ?? null
+      let formLng = ro.lng ?? candidate.lng ?? coords?.lng ?? null
 
       let formState = null
       let stateSource = 'null'
@@ -452,7 +457,27 @@ export async function POST(request, { params }) {
         else {
           const fromCoords = deriveStateFromCoords(formLat, formLng)
           if (fromCoords) { formState = fromCoords; stateSource = 'coords' }
+          else if (ro.region_override_id) {
+            // Region-only listings (mobile venues, by-appointment makers) carry
+            // no address to geocode, so derive state from the reviewer's chosen
+            // region. regions.state is the editorial source of truth.
+            const { data: regionStateRow } = await sb
+              .from('regions')
+              .select('state')
+              .eq('id', ro.region_override_id)
+              .maybeSingle()
+            if (regionStateRow?.state) { formState = regionStateRow.state; stateSource = 'region' }
+          }
         }
+      }
+
+      // Mobile venues have no fixed pin or street address: discovery is carried
+      // by the region (resolved above into formState / region_override_id), so
+      // we suppress exact coordinates here to avoid a misleading map pin and a
+      // "Get Directions" link to a spot the truck isn't at.
+      if (isMobile) {
+        formLat = null
+        formLng = null
       }
 
       const effectiveVisitable = visitable ?? true
@@ -495,14 +520,20 @@ export async function POST(request, { params }) {
         region: candidate.region || null,
       })
 
-      // Compose display address: street, suburb, state postcode
-      let displayAddress = formAddress
+      // Compose display address: street, suburb, state postcode.
+      // Mobile venues have no fixed street address — leave it null (the region
+      // and service_area line carry their location instead).
+      let displayAddress = isMobile ? null : formAddress
       if (displayAddress && (formSuburb || formState)) {
         const parts = [displayAddress]
         const localityParts = [formSuburb, [formState, enriched.postcode].filter(Boolean).join(' ')].filter(Boolean)
         if (localityParts.length > 0) parts.push(localityParts.join(' '))
         displayAddress = parts.join(', ')
       }
+
+      // Optional "where to find them" line — only meaningful for mobile / market
+      // venues. Trimmed to null so a blank input doesn't store an empty string.
+      const serviceArea = isMobile ? ((service_area || '').trim() || null) : null
 
       const fullData = {
         name: ro.name || candidate.name,
@@ -532,6 +563,7 @@ export async function POST(request, { params }) {
         address_on_request: !!address_on_request,
         visitable: visitable ?? true,
         presence_type: presence_type || 'permanent',
+        service_area: serviceArea,
         offers_classes: !!offers_classes,
       }
 
@@ -605,6 +637,7 @@ export async function POST(request, { params }) {
         address_on_request: fullData.address_on_request,
         visitable: fullData.visitable,
         presence_type: fullData.presence_type,
+        service_area: fullData.service_area,
       }
 
       // Check if listing already exists — match by slug OR source_id to catch:
@@ -666,6 +699,7 @@ export async function POST(request, { params }) {
           address_on_request: fullData.address_on_request,
           visitable: fullData.visitable,
           presence_type: fullData.presence_type,
+          service_area: fullData.service_area,
         }
         // Never overwrite hero_image_url from scraping — owner uploads on claim
 

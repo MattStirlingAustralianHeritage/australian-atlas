@@ -94,7 +94,7 @@ async function getRegionNarrative(regionId) {
 async function getRegionListings(region, venueVerticals) {
   const sb = getSupabaseAdmin()
   const hasVerticals = await relationHasVerticals(sb, 'listings_with_region')
-  const select = `id, vertical, source_id, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website, ${hasVerticals ? 'verticals, ' : ''}${LISTING_REGION_SELECT}`
+  const select = `id, vertical, source_id, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website, presence_type, ${hasVerticals ? 'verticals, ' : ''}${LISTING_REGION_SELECT}`
 
   // Override-wins resolution per docs/regions.md, via the
   // listings_with_region view (migration 125). region_id is
@@ -143,7 +143,7 @@ async function getWayInRegion(region, publicVerticals) {
   const ids = Object.keys(metaById)
   if (ids.length === 0) return { based: [], runs: [] }
 
-  const select = 'id, vertical, source_id, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website'
+  const select = 'id, vertical, source_id, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website, presence_type'
   const { data: rows } = await excludeNeedsReview(excludeTestListings(
     sb
       .from('listings')

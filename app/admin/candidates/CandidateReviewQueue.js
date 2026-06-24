@@ -662,6 +662,10 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
   const [visitable, setVisitable] = useState(true)
   const [presenceType, setPresenceType] = useState('permanent')
   const [offersClasses, setOffersClasses] = useState(false)
+  // Mobile venues (food trucks, coffee carts, pop-ups): no fixed address, but
+  // still visitable & discoverable. Distinct from "Non-visitable" (online-only).
+  const isMobile = presenceType === 'mobile'
+  const [serviceArea, setServiceArea] = useState('')
 
   // ─── Editable address / suburb / region (regions overhaul, 2026-04-30) ───
   // The address triggers geocoding on blur via /api/admin/candidates/[id]/geocode,
@@ -956,6 +960,7 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
           address_on_request: addressOnRequest,
           visitable,
           presence_type: presenceType,
+          service_area: isMobile ? (serviceArea || undefined) : undefined,
           offers_classes: offersClasses,
           wayClassification,
           reviewerOverrides: {
@@ -1095,11 +1100,38 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
               checked={!visitable}
               onChange={e => {
                 setVisitable(!e.target.checked)
-                if (!e.target.checked) setPresenceType('permanent')
+                // Checking → switch into a non-visitable presence type (so the
+                // dropdown has a valid value). Unchecking → back to permanent.
+                if (e.target.checked) {
+                  if (presenceType === 'permanent' || presenceType === 'mobile') setPresenceType('by_appointment')
+                } else {
+                  setPresenceType('permanent')
+                }
               }}
               style={{ margin: 0, accentColor: '#7C3AED' }}
             />
             Non-visitable
+          </label>
+          {/* Mobile — first-class, distinct from Non-visitable. A food truck is
+              visitable (you can find & visit it) but has no fixed address, so it
+              stays discoverable/featured while its exact location is suppressed. */}
+          <label style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 500,
+            color: isMobile ? '#C1603A' : 'var(--color-muted)',
+            cursor: 'pointer', userSelect: 'none',
+          }}
+            title="Food truck / cart / pop-up — no fixed address, still discoverable">
+            <input
+              type="checkbox"
+              checked={isMobile}
+              onChange={e => {
+                if (e.target.checked) { setPresenceType('mobile'); setVisitable(true) }
+                else { setPresenceType('permanent') }
+              }}
+              style={{ margin: 0, accentColor: '#C1603A' }}
+            />
+            Mobile
           </label>
           {vertical === 'craft' && (
             <label style={{
@@ -1132,7 +1164,6 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
               <option value="markets">Markets</option>
               <option value="online">Online only</option>
               <option value="seasonal">Seasonal</option>
-              <option value="mobile">Mobile</option>
             </select>
           )}
         </div>
@@ -1370,7 +1401,37 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
                     Region auto-detected from address. Override above if incorrect.
                   </div>
                 )}
+                {isMobile && (
+                  <div style={{ fontSize: 11, color: '#9A4A28', fontFamily: 'var(--font-body)', lineHeight: 1.45 }}>
+                    Mobile venue — no fixed address needed. Pick the home region above;
+                    the street address and map pin are hidden on the public page.
+                  </div>
+                )}
               </div>
+
+              {/* Mobile "where to find them" — only for food-truck-class venues.
+                  Stored in listings.service_area; shown on the detail page in
+                  place of the street address (falls back to the region name). */}
+              {isMobile && (
+                <label style={{ display: 'block', marginTop: 8 }}>
+                  <span style={{
+                    fontSize: 9, fontWeight: 700, letterSpacing: '0.12em',
+                    textTransform: 'uppercase', color: 'var(--color-muted)',
+                    fontFamily: 'var(--font-body)', display: 'block', marginBottom: 4,
+                  }}>Where to find them (optional)</span>
+                  <input
+                    type="text"
+                    value={serviceArea}
+                    onChange={e => setServiceArea(e.target.value)}
+                    placeholder="e.g. Weekends at Mornington &amp; Red Hill markets — see socials"
+                    style={{
+                      width: '100%', padding: '8px 10px', fontSize: 13,
+                      fontFamily: 'var(--font-body)', color: 'var(--color-ink)',
+                      background: '#fff', border: '1px solid var(--color-border)', borderRadius: 3,
+                    }}
+                  />
+                </label>
+              )}
             </div>
           )
         })()}
@@ -2066,7 +2127,8 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {[
-                  { label: 'Address + geocoding', has: true },
+                  { label: 'Service area (region only)', has: isMobile },
+                  { label: 'Address + geocoding', has: !isMobile },
                   { label: 'Opening hours', has: !!candidate.website_url },
                   { label: 'Phone + email', has: !!candidate.website_url },
                   { label: 'Category assignment', has: true },
@@ -2096,7 +2158,7 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
               fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-muted)',
               textAlign: 'center', marginTop: 8, opacity: 0.6,
             }}>
-              Approximate location — geocoded on publish
+              {isMobile ? 'Mobile venue — no fixed map pin, shown by region' : 'Approximate location — geocoded on publish'}
             </p>
           </div>
         </div>

@@ -10,6 +10,7 @@ import { listingJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
 import { checkAdmin } from '@/lib/admin-auth'
 import { isApprovedImageSource, isHeroDisplayable } from '@/lib/image-utils'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
+import { isMobileListing, mobileLocationLine, MOBILE_LABEL } from '@/lib/listings/presence'
 import { stripTrackingParams } from '@/lib/urlHygiene'
 import { listOutgoing, listIncoming } from '@/lib/picks/producerPicks'
 import { readGallery, filterPaidListingIds } from '@/lib/listing-gallery'
@@ -135,7 +136,7 @@ const getListing = cache(async function getListing(slug) {
   const hasVerticals = await relationHasVerticals(sb, 'listings')
   const { data, error } = await sb
     .from('listings')
-    .select(`id, vertical, name, slug, description, region, state, suburb, lat, lng, website, phone, address, address_on_request, data_source, hero_image_url, is_featured, is_claimed, editors_pick, status, hours, verified, sub_type, sub_types, ${hasVerticals ? 'verticals, ' : ''}${LISTING_REGION_SELECT}`)
+    .select(`id, vertical, name, slug, description, region, state, suburb, lat, lng, website, phone, address, address_on_request, presence_type, service_area, data_source, hero_image_url, is_featured, is_claimed, editors_pick, status, hours, verified, sub_type, sub_types, ${hasVerticals ? 'verticals, ' : ''}${LISTING_REGION_SELECT}`)
     .eq('slug', slug)
     .eq('status', 'active')
     // CLAUDE.md hard rule: needs_review=true venues 404 (never render publicly).
@@ -387,7 +388,7 @@ async function getRegionListings(listing, excludeIds = [], limit = 4) {
   const region = getListingRegion(listing)
   if (!region) return []
   const sb = getSupabaseAdmin()
-  const SELECT = `id, name, slug, vertical, region, state, lat, lng, hero_image_url, description, is_featured, is_claimed, editors_pick, ${LISTING_REGION_SELECT}`
+  const SELECT = `id, name, slug, vertical, region, state, lat, lng, hero_image_url, description, is_featured, is_claimed, editors_pick, presence_type, ${LISTING_REGION_SELECT}`
   const MIN_PRIMARY = 8
   // Big-city regions (e.g. "Melbourne") span 30km+, so a region-only match can
   // surface a venue 30km away under "More in [city]". The urban density gate
@@ -622,6 +623,12 @@ export default async function PlacePage({ params }) {
   const verticalUrl = getVerticalUrl(listing.vertical, listing.slug)
   const location = [cleanRegion, listing.state].filter(Boolean).join(', ')
   const hasCoords = listing.lat && listing.lng
+  // Mobile venues (food trucks, carts, pop-ups) have no fixed location, so we
+  // never show a precise pin, street address, or "Get Directions" — their
+  // region + service-area line carry where to find them instead.
+  const isMobile = isMobileListing(listing)
+  const showExactLocation = hasCoords && !isMobile
+  const mobileWhereToFind = isMobile ? mobileLocationLine(listing, cleanRegion) : null
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''
   const websiteUrl = listing.website?.startsWith('http') ? listing.website : listing.website ? `https://${listing.website}` : null
 
@@ -729,8 +736,8 @@ export default async function PlacePage({ params }) {
       {/* ── Content ───────────────────────────────────────── */}
       <div className="max-w-4xl mx-auto px-6 sm:px-8 pb-20" style={{ marginTop: '48px' }}>
 
-        {/* Atlas Select / Featured badges */}
-        {(listing.editors_pick || (listing.is_featured && listing.is_claimed)) && (
+        {/* Atlas Select / Featured / Mobile badges */}
+        {(listing.editors_pick || (listing.is_featured && listing.is_claimed) || isMobile) && (
           <div className="flex items-center gap-2 mb-6">
             {listing.editors_pick && (
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-white" style={{ background: 'var(--color-ink)' }}>
@@ -740,6 +747,18 @@ export default async function PlacePage({ params }) {
             {listing.is_featured && listing.is_claimed && !listing.editors_pick && (
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-white" style={{ background: 'var(--color-accent)' }}>
                 Featured
+              </span>
+            )}
+            {isMobile && (
+              <span
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium"
+                style={{ background: 'var(--color-cream)', color: 'var(--color-ink)', border: '1px solid var(--color-border)' }}
+                title="No fixed address — location varies"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <path d="M3 13h11V6H3v7zm11 0h4l3 3v-3M3 17a2 2 0 104 0M14 17a2 2 0 104 0" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                {MOBILE_LABEL}
               </span>
             )}
           </div>
@@ -788,7 +807,7 @@ export default async function PlacePage({ params }) {
               </div>
 
               <div className="flex flex-wrap items-center gap-4">
-                {hasCoords && (
+                {showExactLocation && (
                   <a
                     href={`https://www.google.com/maps/dir/?api=1&destination=${listing.lat},${listing.lng}`}
                     target="_blank"
@@ -816,9 +835,11 @@ export default async function PlacePage({ params }) {
             <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--color-border)', background: 'var(--color-card-bg)' }}>
               <div className="p-5">
                 <div className="flex flex-col gap-4">
-                  {listing.address && !listing.address_on_request && (
+                  {isMobile ? (
+                    <DetailItem icon="pin" label="Where to find them" value={mobileWhereToFind} />
+                  ) : listing.address && !listing.address_on_request ? (
                     <DetailItem icon="pin" label="Address" value={listing.address} />
-                  )}
+                  ) : null}
                   {websiteUrl && (
                     <DetailItem icon="globe" label="Website">
                       <a href={websiteUrl} target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: vertColor }}>
@@ -1232,7 +1253,7 @@ export default async function PlacePage({ params }) {
             nearest, density-aware 2/15/30 km band). The list gives the map a
             crawlable, keyboard-navigable, screen-reader-legible companion and
             lets a reader scan what's around without clicking every pin. */}
-        {hasCoords && (
+        {showExactLocation && (
           <section className="mt-12">
             <div className="flex items-end justify-between mb-4 gap-4 flex-wrap">
               <h2 style={{

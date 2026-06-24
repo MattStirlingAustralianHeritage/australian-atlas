@@ -107,7 +107,7 @@ const STATES = ['VIC', 'NSW', 'QLD', 'SA', 'WA', 'TAS', 'ACT', 'NT']
 
 // ── Field components ────────────────────────────────────────
 
-function PanelField({ label, value, onChange, type = 'text', options, multiline }) {
+function PanelField({ label, value, onChange, type = 'text', options, multiline, placeholder }) {
   const baseInput = {
     fontFamily: 'var(--font-body, system-ui)', fontSize: 13, color: 'var(--color-ink)',
     border: '1px solid var(--color-border, #e0dcd4)', borderRadius: 6,
@@ -139,7 +139,7 @@ function PanelField({ label, value, onChange, type = 'text', options, multiline 
           style={baseInput} />
       ) : (
         <input type="text" value={value || ''} onChange={e => onChange(e.target.value)}
-          style={baseInput} />
+          placeholder={placeholder} style={baseInput} />
       )}
     </div>
   )
@@ -328,6 +328,8 @@ export default function InlineListingEditor({ listing }) {
       is_featured: listing.is_featured || false,
       editors_pick: listing.editors_pick || false,
       address_on_request: listing.address_on_request || false,
+      presence_type: listing.presence_type || 'permanent',
+      service_area: listing.service_area || '',
     })
     setMetaDraft(listing.meta || {})
     // Initialize sub_types from listing data — prefer sub_types array, fall back to sub_type scalar
@@ -588,6 +590,32 @@ export default function InlineListingEditor({ listing }) {
                   Hide street address publicly — show suburb/state only
                 </div>
               </div>
+
+              {/* Mobile venue — food trucks, carts, pop-ups. Keeps the listing
+                  visitable & discoverable but suppresses the street address, map
+                  pin, and Get Directions; sets presence_type accordingly. */}
+              <div style={{ marginBottom: 16 }}>
+                <PanelToggle
+                  label="Mobile venue (no fixed address)"
+                  value={draft.presence_type === 'mobile'}
+                  onChange={v => updateField('presence_type', v ? 'mobile' : 'permanent')}
+                />
+                <div style={{
+                  fontFamily: 'var(--font-body, system-ui)', fontSize: 11,
+                  color: 'var(--color-muted, #6B6760)', marginTop: -4, paddingLeft: 24,
+                }}>
+                  Food truck / cart / pop-up — shown with a Mobile badge, no map pin
+                </div>
+              </div>
+
+              {draft.presence_type === 'mobile' && (
+                <PanelField
+                  label="Where to find them"
+                  value={draft.service_area}
+                  onChange={v => updateField('service_area', v)}
+                  placeholder="e.g. Weekends at Mornington & Red Hill markets — see socials"
+                />
+              )}
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <PanelField label="Phone" value={draft.phone} onChange={v => updateField('phone', v)} />

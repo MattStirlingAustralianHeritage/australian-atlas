@@ -85,6 +85,7 @@ export function TypographicCard({
   ground,
   textColor,
   eyebrow,
+  mobile = false,
 }) {
   const tokens = VERTICAL_TOKENS[vertical] || VERTICAL_TOKENS.portal
   // Callers may override the ground/text (e.g. the events surface drives the
@@ -300,7 +301,17 @@ export function TypographicCard({
             textTransform: 'uppercase', opacity: tagOpacity,
             margin: 0, lineHeight: 1.4,
           }}>
-            {bottomLine}
+            {bottomLine}{mobile ? '  ·  Mobile' : ''}
+          </p>
+        )}
+        {!bottomLine && mobile && (
+          <p style={{
+            fontFamily: 'var(--font-body, "DM Sans", system-ui)',
+            fontSize: tagFontSize, fontWeight: 400, letterSpacing: '0.15em',
+            textTransform: 'uppercase', opacity: tagOpacity,
+            margin: 0, lineHeight: 1.4,
+          }}>
+            Mobile
           </p>
         )}
       </div>
@@ -408,6 +419,9 @@ export default function ListingCard({ listing, meta, linkToVertical = false, dis
   const tokens = VERTICAL_TOKENS[listing.vertical] || VERTICAL_TOKENS.portal
   const region = getListingRegion(listing)
   const distanceLabel = formatDistance(distanceKm)
+  // Mobile venues (food trucks, carts) carry a subtle "Mobile" marker in place
+  // of a precise location. Fail-safe: absent on queries that don't select it.
+  const isMobile = listing.presence_type === 'mobile'
 
   return (
     <a
@@ -456,13 +470,14 @@ export default function ListingCard({ listing, meta, linkToVertical = false, dis
               >
                 {listing.name}
               </h3>
-              {(region?.name || listing.state) && (
+              {(region?.name || listing.state || isMobile) && (
                 <p style={{
                   fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '11px',
                   color: 'rgba(255,255,255,0.6)', margin: '4px 0 0',
                   letterSpacing: '0.04em',
                 }}>
                   {[region?.name, listing.state].filter(Boolean).join(', ')}
+                  {isMobile ? `${(region?.name || listing.state) ? '  ·  ' : ''}Mobile` : ''}
                 </p>
               )}
             </div>
@@ -476,6 +491,7 @@ export default function ListingCard({ listing, meta, linkToVertical = false, dis
             state={listing.state}
             aspectRatio="4/5"
             showVerticalTag={true}
+            mobile={isMobile}
           />
         )}
 
