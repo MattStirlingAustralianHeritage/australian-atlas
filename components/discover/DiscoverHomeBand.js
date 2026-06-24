@@ -13,13 +13,13 @@ export default function DiscoverHomeBand() {
     <section
       aria-label="Discover independent places"
       style={{
-        padding: 'clamp(2.5rem, 6vw, 4.5rem) 1.5rem',
+        padding: 'clamp(1.75rem, 4vw, 3rem) 1.5rem',
         background: 'linear-gradient(180deg, #FFFFFF 0%, #FBF9F5 100%)',
         borderTop: '0.5px solid var(--color-border)',
         borderBottom: '0.5px solid var(--color-border)',
       }}
     >
-      <div style={{ maxWidth: '480px', margin: '0 auto' }}>
+      <div style={{ maxWidth: '380px', margin: '0 auto' }}>
         <DiscoverDeck variant="band" />
       </div>
     </section>

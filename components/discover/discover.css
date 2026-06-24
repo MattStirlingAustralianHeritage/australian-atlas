@@ -36,7 +36,7 @@
 }
 
 .dd-deck--band {
-  max-width: 380px;
+  max-width: 340px;
 }
 
 /* Hinted next card peeking from behind (stacked-deck affordance). */
@@ -69,7 +69,7 @@
 }
 
 .dd-card--band {
-  min-height: 380px;
+  min-height: 318px;
 }
 
 /* Quiet watermark initial — a motif, not the whole composition. */
@@ -162,7 +162,7 @@
   max-width: 420px;
   margin: 18px auto 0;
 }
-.dd-actions--band { max-width: 380px; }
+.dd-actions--band { max-width: 340px; }
 
 .dd-btn {
   flex: 1;
@@ -228,7 +228,7 @@
   padding: 16px 18px;
   text-align: center;
 }
-.dd-reflection--band { max-width: 380px; }
+.dd-reflection--band { max-width: 340px; }
 .dd-reflection p {
   font-family: var(--font-display, 'Playfair Display', Georgia, serif);
   font-size: 16px;
@@ -283,7 +283,7 @@
 .dd-band-title {
   font-family: var(--font-display, 'Playfair Display', Georgia, serif);
   font-weight: 400;
-  font-size: clamp(1.6rem, 4vw, 2.25rem);
+  font-size: clamp(1.35rem, 3.4vw, 1.8rem);
   line-height: 1.15;
   color: var(--color-ink, #2a2218);
   margin: 0;
@@ -291,11 +291,11 @@
 .dd-band-sub {
   font-family: var(--font-body, 'DM Sans', system-ui);
   font-weight: 300;
-  font-size: 15px;
+  font-size: 13.5px;
   color: var(--color-muted, #6b6256);
-  margin: 8px auto 0;
-  max-width: 460px;
-  line-height: 1.55;
+  margin: 7px auto 0;
+  max-width: 380px;
+  line-height: 1.5;
 }
 
 /* Empty / exhausted / loading. */

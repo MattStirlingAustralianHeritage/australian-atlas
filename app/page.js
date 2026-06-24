@@ -482,9 +482,6 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* ── 1.5 Discover band — live swipeable taster ───── */}
-      <DiscoverHomeBand />
-
       {/* ── 2. Map Strip ────────────────────────────────── */}
       <HomeMapSection listingCount={stats.listings} />
 
@@ -682,6 +679,9 @@ export default async function Home() {
 
       {/* ── 3b. Worth Finding Nearby ─────────────────── */}
       <NearbySection />
+
+      {/* ── 3c. Discover band — live swipeable taster (mid-page) ───── */}
+      <DiscoverHomeBand />
 
       {/* ── 4. Journal Feature ──────────────────────────── */}
       {featuredArticle && (
