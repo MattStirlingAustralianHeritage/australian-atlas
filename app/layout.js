@@ -7,7 +7,6 @@ import PageTracker from "@/components/PageTracker";
 import { websiteJsonLd, organizationJsonLd } from "@/lib/jsonLd";
 import GlobalErrorReporter from "@/components/GlobalErrorReporter";
 import LocationWrapper from "@/components/LocationWrapper";
-import DiscoverSessionMerge from "@/components/DiscoverSessionMerge";
 import { createAuthServerClient } from "@/lib/supabase/auth-clients";
 
 const playfair = Playfair_Display({
@@ -121,7 +120,6 @@ export default async function RootLayout({ children }) {
         <AtlasAnalytics />
         <PageTracker vertical="portal" />
         <GlobalErrorReporter />
-        <DiscoverSessionMerge />
       </body>
     </html>
   );

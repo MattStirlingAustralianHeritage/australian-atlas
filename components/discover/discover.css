@@ -1,0 +1,336 @@
+/* ============================================================
+   Discover deck — lighter, floating, vertical-tinted card.
+   Shared by the full-screen /discover surface and the homepage band.
+   Dynamic per-vertical tints are set inline; everything that needs a
+   media query or :hover lives here as a class.
+   ============================================================ */
+
+.dd-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+/* Full-screen surface: light ground, generous surrounding space. */
+.dd-stage--fullscreen {
+  min-height: calc(100vh - 52px); /* below the sticky 52px nav */
+  padding: 28px 20px 40px;
+  background:
+    radial-gradient(120% 80% at 50% 0%, #FBF9F5 0%, #F3EEE6 60%, #EFE9DF 100%);
+}
+
+/* Homepage band: contained, sits inside the page flow. */
+.dd-stage--band {
+  padding: 8px 0 4px;
+  min-height: 0;
+}
+
+/* The card-stack wrapper — holds the active card and the hinted next card. */
+.dd-deck {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.dd-deck--band {
+  max-width: 380px;
+}
+
+/* Hinted next card peeking from behind (stacked-deck affordance). */
+.dd-hint {
+  position: absolute;
+  inset: 0;
+  transform: translateY(14px) scale(0.94);
+  filter: saturate(0.9) brightness(0.97);
+  opacity: 0.55;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.dd-card-wrap {
+  position: relative;
+  z-index: 1;
+  touch-action: pan-y;
+  will-change: transform;
+}
+
+/* The floating card itself. */
+.dd-card {
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 18px 48px rgba(28, 22, 14, 0.22), 0 2px 8px rgba(28, 22, 14, 0.12);
+  display: flex;
+  flex-direction: column;
+  min-height: 440px;
+}
+
+.dd-card--band {
+  min-height: 380px;
+}
+
+/* Quiet watermark initial — a motif, not the whole composition. */
+.dd-watermark {
+  position: absolute;
+  top: -14px;
+  right: 6px;
+  font-family: var(--font-display, 'Playfair Display', Georgia, serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 150px;
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
+}
+
+.dd-card-body {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: 26px 24px 22px;
+}
+
+.dd-tag {
+  align-self: flex-start;
+  font-family: var(--font-body, 'DM Sans', system-ui);
+  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 5px 11px;
+  border-radius: 999px;
+  margin-bottom: 18px;
+}
+
+.dd-name {
+  font-family: var(--font-display, 'Playfair Display', Georgia, serif);
+  font-weight: 400;
+  font-size: clamp(26px, 6vw, 34px);
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  margin: 0 0 12px;
+}
+
+.dd-hook {
+  font-family: var(--font-body, 'DM Sans', system-ui);
+  font-weight: 300;
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0 0 16px;
+  opacity: 0.82;
+}
+
+.dd-breadcrumb {
+  font-family: var(--font-body, 'DM Sans', system-ui);
+  font-weight: 400;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin: 0;
+  opacity: 0.55;
+}
+
+.dd-view {
+  margin-top: auto;
+  padding-top: 16px;
+  font-family: var(--font-body, 'DM Sans', system-ui);
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  opacity: 0.85;
+  min-height: 40px;
+}
+.dd-view:hover { opacity: 1; }
+.dd-view-arrow { transition: transform 0.2s ease; }
+.dd-view:hover .dd-view-arrow { transform: translateX(3px); }
+
+/* Action row below the card. */
+.dd-actions {
+  display: flex;
+  gap: 12px;
+  max-width: 420px;
+  margin: 18px auto 0;
+}
+.dd-actions--band { max-width: 380px; }
+
+.dd-btn {
+  flex: 1;
+  font-family: var(--font-body, 'DM Sans', system-ui);
+  font-weight: 500;
+  font-size: 14px;
+  border-radius: 12px;
+  padding: 14px 20px;
+  min-height: 50px;
+  cursor: pointer;
+  transition: background-color 0.18s ease, border-color 0.18s ease, opacity 0.18s ease, color 0.18s ease;
+  letter-spacing: 0.01em;
+}
+.dd-btn:disabled { opacity: 0.45; cursor: default; }
+
+.dd-btn-skip {
+  flex: 0.85;
+  color: var(--color-muted, #6b6256);
+  background: transparent;
+  border: 1px solid var(--color-border, rgba(0,0,0,0.12));
+}
+.dd-btn-skip:not(:disabled):hover {
+  border-color: var(--color-ink, #2a2218);
+  color: var(--color-ink, #2a2218);
+}
+
+.dd-btn-pick {
+  color: #fff;
+  border: 1px solid transparent;
+}
+
+/* Counter — small, persistent, non-blocking. */
+.dd-counter {
+  display: block;
+  width: 100%;
+  text-align: center;
+  margin: 16px auto 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-body, 'DM Sans', system-ui);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--color-muted, #6b6256);
+  letter-spacing: 0.01em;
+  padding: 6px;
+}
+.dd-counter--static { cursor: default; }
+.dd-counter b { font-weight: 600; color: var(--color-ink, #2a2218); }
+.dd-counter u {
+  text-decoration: underline;
+  text-decoration-color: var(--color-gold, #b8862b);
+  text-underline-offset: 3px;
+}
+
+/* Taste-reflection CTA card. */
+.dd-reflection {
+  max-width: 420px;
+  margin: 16px auto 0;
+  border: 1px solid rgba(184, 134, 43, 0.28);
+  background: rgba(184, 134, 43, 0.07);
+  border-radius: 14px;
+  padding: 16px 18px;
+  text-align: center;
+}
+.dd-reflection--band { max-width: 380px; }
+.dd-reflection p {
+  font-family: var(--font-display, 'Playfair Display', Georgia, serif);
+  font-size: 16px;
+  line-height: 1.4;
+  color: var(--color-ink, #2a2218);
+  margin: 0 0 12px;
+}
+.dd-reflection-cta {
+  font-family: var(--font-body, 'DM Sans', system-ui);
+  font-weight: 500;
+  font-size: 13px;
+  color: #fff;
+  background: var(--color-gold, #b8862b);
+  border: none;
+  border-radius: 10px;
+  padding: 10px 22px;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+.dd-reflection-cta:hover { opacity: 0.9; }
+
+/* Swipe hint — touch only. */
+.dd-swipe-hint {
+  text-align: center;
+  font-family: var(--font-body, 'DM Sans', system-ui);
+  font-size: 11px;
+  font-weight: 300;
+  color: var(--color-muted, #6b6256);
+  opacity: 0.7;
+  margin: 14px 0 0;
+  letter-spacing: 0.02em;
+  display: none;
+}
+@media (hover: none) and (pointer: coarse) {
+  .dd-swipe-hint { display: block; }
+}
+
+/* Band header. */
+.dd-band-head {
+  text-align: center;
+  margin-bottom: 14px;
+}
+.dd-band-kicker {
+  font-family: var(--font-body, 'DM Sans', system-ui);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-gold, #b8862b);
+  margin: 0 0 8px;
+}
+.dd-band-title {
+  font-family: var(--font-display, 'Playfair Display', Georgia, serif);
+  font-weight: 400;
+  font-size: clamp(1.6rem, 4vw, 2.25rem);
+  line-height: 1.15;
+  color: var(--color-ink, #2a2218);
+  margin: 0;
+}
+.dd-band-sub {
+  font-family: var(--font-body, 'DM Sans', system-ui);
+  font-weight: 300;
+  font-size: 15px;
+  color: var(--color-muted, #6b6256);
+  margin: 8px auto 0;
+  max-width: 460px;
+  line-height: 1.55;
+}
+
+/* Empty / exhausted / loading. */
+.dd-empty {
+  max-width: 420px;
+  margin: 0 auto;
+  text-align: center;
+  padding: 40px 24px;
+}
+.dd-empty-rule {
+  width: 40px;
+  height: 1px;
+  background: rgba(184, 134, 43, 0.4);
+  margin: 0 auto 22px;
+}
+.dd-empty h2 {
+  font-family: var(--font-display, 'Playfair Display', Georgia, serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: clamp(22px, 5vw, 30px);
+  color: var(--color-ink, #2a2218);
+  margin: 0 0 12px;
+}
+.dd-empty p {
+  font-family: var(--font-body, 'DM Sans', system-ui);
+  font-weight: 300;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--color-muted, #6b6256);
+  margin: 0 0 24px;
+}
+
+/* Card transition states (driven by inline transform on .dd-card-wrap). */
+@keyframes ddFadeIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.dd-enter { animation: ddFadeIn 0.28s ease both; }
