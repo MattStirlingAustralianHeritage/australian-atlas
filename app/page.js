@@ -5,6 +5,7 @@ import HomeMapSection from '@/components/HomeMapSection'
 import NewsletterSignup from '@/components/NewsletterSignup'
 import ScrollReveal from '@/components/ScrollReveal'
 import NearbySection from '@/components/NearbySection'
+import DiscoverHomeBand from '@/components/discover/DiscoverHomeBand'
 import { getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
 import { getListingRegion, LISTING_REGION_SELECT, resolveRegionParam } from '@/lib/regions'
 import { getPublicVerticals, VERTICAL_CARD_TOKENS } from '@/lib/verticalUrl'
@@ -480,6 +481,9 @@ export default async function Home() {
           </Link>
         </div>
       </section>
+
+      {/* ── 1.5 Discover band — live swipeable taster ───── */}
+      <DiscoverHomeBand />
 
       {/* ── 2. Map Strip ────────────────────────────────── */}
       <HomeMapSection listingCount={stats.listings} />

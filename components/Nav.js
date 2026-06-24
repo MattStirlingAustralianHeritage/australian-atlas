@@ -90,12 +90,12 @@ export default function Nav() {
     { href: '/regions', label: 'Regions' },
     { href: '/journal', label: 'Journal' },
     { href: '/search', label: 'Search' },
+    { href: '/discover', label: 'Discover' },
   ]
 
   const secondaryLinks = [
     { href: '/near-me', label: 'Near Me' },
     { href: '/trails', label: 'Trails' },
-    { href: '/discover', label: 'Discover' },
     { href: '/collections', label: 'Collections' },
     { href: '/producer-picks', label: 'Producer Picks' },
     { href: '/events', label: 'Events' },
