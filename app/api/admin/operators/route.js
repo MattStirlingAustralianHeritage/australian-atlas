@@ -196,7 +196,7 @@ export async function POST(request) {
         const resend = new Resend(process.env.RESEND_API_KEY)
         await resend.emails.send({
           from: 'Australian Atlas <noreply@australianatlas.com.au>',
-          to: 'matt@australianheritage.au',
+          to: 'matt@australianatlas.com.au',
           subject: `New operator registered: ${business_name}`,
           html: `
             <h2>New operator registration</h2>
