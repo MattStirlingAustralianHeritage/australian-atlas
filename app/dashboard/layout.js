@@ -22,6 +22,7 @@ const NAV_ITEMS = [
   { label: 'Listing Insights', href: '/dashboard/analytics', icon: 'chart' },
   { label: 'Producer Picks', href: '/dashboard/picks', icon: 'star', picksOnly: true },
   { label: 'Editorial', href: '/dashboard/editorial', icon: 'pen' },
+  { label: 'Recommend a Listing', href: '/dashboard/recommend', icon: 'plus' },
   { label: 'Subscription', href: '/dashboard/subscription', icon: 'card' },
 ]
 
@@ -40,6 +41,8 @@ function NavIcon({ type, size = 18 }) {
       return <svg {...s} viewBox="0 0 24 24"><path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674h4.914c.969 0 1.371 1.24.588 1.81l-3.976 2.888 1.519 4.674c.3.922-.755 1.688-1.538 1.118L12 15.203l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.519-4.674-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914l1.519-4.674z"/></svg>
     case 'pen':
       return <svg {...s} viewBox="0 0 24 24"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+    case 'plus':
+      return <svg {...s} viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
     case 'doc':
       return <svg {...s} viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 4H7a2 2 0 01-2-2V6a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V18a2 2 0 01-2 2z"/></svg>
     case 'card':
