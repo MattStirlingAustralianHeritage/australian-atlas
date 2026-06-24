@@ -182,7 +182,7 @@ export async function POST(request) {
         // 2. Admin notification
         resend.emails.send({
           from: 'Australian Atlas <noreply@australianatlas.com.au>',
-          to: 'matt@australianheritage.au',
+          to: 'matt@australianatlas.com.au',
           subject: `New claim submitted: ${listingName}`,
           html: `
             <h2>New claim submission</h2>
