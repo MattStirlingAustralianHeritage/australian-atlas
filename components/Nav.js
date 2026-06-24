@@ -101,6 +101,7 @@ export default function Nav() {
     { href: '/events', label: 'Events' },
     { href: '/atlas-index', label: 'Index' },
     { href: '/for-councils', label: 'For Councils' },
+    { href: '/for-trade', label: 'For Trade' },
     { href: '/operators', label: 'For Operators' },
   ]
 
