@@ -363,124 +363,180 @@ export default async function Home() {
 
   return (
     <>
-      {/* ── 1. Hero ─────────────────────────────────────── */}
+      {/* ── 1. Hero — asymmetric editorial masthead ─────────── */}
+      {/* Hard-left masthead (≈60%) beside a stat "colophon" ledger (≈40%) on a
+          faint kraft panel. Breaks the centered rhythm at the very top. All hero
+          content is preserved — only the axis and composition change. */}
       <section
-        className="relative text-center flex flex-col items-center justify-center px-6 sm:px-12"
+        className="relative px-6 sm:px-12"
         style={{
-          minHeight: 'clamp(340px, 56vh, 580px)',
-          paddingTop: '2.25rem',
-          paddingBottom: '2rem',
+          paddingTop: '2.75rem',
+          paddingBottom: '2.5rem',
           background: 'linear-gradient(180deg, #FAF8F4 0%, #F0EBE3 100%)',
         }}
       >
-        <h1 className="hero-rise" style={{
-          fontFamily: 'var(--font-display)', fontWeight: 400, letterSpacing: '-0.01em',
-          fontSize: 'clamp(2.5rem, 6vw, 5rem)', lineHeight: 1.1,
-          color: 'var(--color-ink)', maxWidth: '880px', textWrap: 'balance',
-        }}>
-          Discover <em style={{ fontStyle: 'italic' }}>independent</em> Australia
-        </h1>
+        <div className="max-w-6xl mx-auto grid items-start gap-10 lg:gap-16 lg:grid-cols-[minmax(0,1.6fr)_minmax(250px,1fr)]">
+          {/* LEFT — masthead + the front-door search */}
+          <div>
+            <p className="hero-rise section-dateline" style={{ marginBottom: '22px' }}>
+              The curated guide · Independent Australia
+            </p>
+            <h1 className="hero-rise" style={{
+              fontFamily: 'var(--font-display)', fontWeight: 400, letterSpacing: '-0.018em',
+              fontSize: 'clamp(2.75rem, 6.4vw, 5.5rem)', lineHeight: 1.02,
+              color: 'var(--color-ink)', margin: 0,
+            }}>
+              Discover<br />
+              <em style={{ fontStyle: 'italic' }}>independent</em><br />
+              Australia
+            </h1>
 
-        <p className="mt-6 hero-rise" style={{
-          fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '17px',
-          lineHeight: 1.65, color: 'var(--color-muted)', maxWidth: '600px',
-          animationDelay: '0.09s',
-        }}>
-          The curated guide to Australia&apos;s best independent places — every one verified, mapped, and independently run.
-        </p>
+            <p className="mt-6 hero-rise" style={{
+              fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '17px',
+              lineHeight: 1.65, color: 'var(--color-muted)', maxWidth: '480px',
+              animationDelay: '0.09s',
+            }}>
+              The curated guide to Australia&apos;s best independent places — every one verified, mapped, and independently run.
+            </p>
 
-        {/* Search — the front door of the site. The kicker names the tool,
-            the bar cycles example placeholders, the helper line states the
-            plain-English contract, and the chips run real queries (each one
-            verified against the live search API — see EXAMPLE_SEARCHES). */}
-        <p style={{
-          fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
-          letterSpacing: '0.22em', textTransform: 'uppercase',
-          color: GOLD, marginTop: '26px',
-        }}>
-          Search the atlas
-        </p>
+            {/* Search — the front door. Kicker names the tool, the bar cycles
+                example placeholders, the helper states the plain-English
+                contract, the chips run real verified queries. */}
+            <p style={{
+              fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
+              letterSpacing: '0.22em', textTransform: 'uppercase',
+              color: GOLD, marginTop: '30px',
+            }}>
+              Search the atlas
+            </p>
 
-        <HomeSearchBar />
+            <div style={{ maxWidth: '560px' }}>
+              <HomeSearchBar />
+            </div>
 
-        <p className="mt-3 px-4" style={{
-          fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '13.5px',
-          lineHeight: 1.6, color: 'var(--color-muted)', maxWidth: '560px',
-        }}>
-          Ask in plain English — name a thing, a place, or a feeling, and we&apos;ll search every category at once.
-        </p>
+            <p className="mt-3" style={{
+              fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '13.5px',
+              lineHeight: 1.6, color: 'var(--color-muted)', maxWidth: '520px',
+            }}>
+              Ask in plain English — name a thing, a place, or a feeling, and we&apos;ll search every category at once.
+            </p>
 
-        <div className="mt-4 flex items-center justify-center gap-x-2 gap-y-2 flex-wrap px-4" style={{ maxWidth: '680px' }}>
-          <span style={{
-            fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '12px',
-            color: 'var(--color-muted)', letterSpacing: '0.02em',
-          }}>
-            Try
-          </span>
-          {EXAMPLE_SEARCHES.map((q) => (
-            <Link
-              key={q}
-              href={`/search?q=${encodeURIComponent(q)}`}
-              className="home-try-chip inline-flex items-center"
-              style={{
-                fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '12.5px',
-                color: 'var(--color-ink)', background: 'rgba(255,255,255,0.6)',
-                border: '1px solid var(--color-border)', borderRadius: '999px',
-                padding: '5px 13px', minHeight: 'unset', whiteSpace: 'nowrap', gap: '6px',
-              }}
-            >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ color: GOLD, flexShrink: 0 }}>
-                <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              {q}
-            </Link>
-          ))}
-        </div>
+            <div className="mt-4 flex items-center gap-x-2 gap-y-2 flex-wrap" style={{ maxWidth: '620px' }}>
+              <span style={{
+                fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '12px',
+                color: 'var(--color-muted)', letterSpacing: '0.02em',
+              }}>
+                Try
+              </span>
+              {EXAMPLE_SEARCHES.map((q) => (
+                <Link
+                  key={q}
+                  href={`/search?q=${encodeURIComponent(q)}`}
+                  className="home-try-chip inline-flex items-center"
+                  style={{
+                    fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '12.5px',
+                    color: 'var(--color-ink)', background: 'rgba(255,255,255,0.6)',
+                    border: '1px solid var(--color-border)', borderRadius: '999px',
+                    padding: '5px 13px', minHeight: 'unset', whiteSpace: 'nowrap', gap: '6px',
+                  }}
+                >
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ color: GOLD, flexShrink: 0 }}>
+                    <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  {q}
+                </Link>
+              ))}
+            </div>
 
-        {stats.listings > 0 && (
-          <div className="mt-7 flex items-center justify-center gap-3 sm:gap-5 flex-wrap" style={{
-            fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '13.5px', letterSpacing: '0.01em',
-          }}>
-            <span>
-              <span style={{ color: GOLD, fontWeight: 500 }}>{stats.listings.toLocaleString()}</span>
-              <span style={{ color: 'var(--color-muted)' }}> verified places</span>
-            </span>
-            <span aria-hidden="true" style={{ color: GOLD, fontSize: '5px' }}>●</span>
-            <span>
-              <span style={{ color: GOLD, fontWeight: 500 }}>{verticalCount}</span>
-              <span style={{ color: 'var(--color-muted)' }}> categories</span>
-            </span>
-            <span aria-hidden="true" style={{ color: GOLD, fontSize: '5px' }}>●</span>
-            <span>
-              <span style={{ color: GOLD, fontWeight: 500 }}>{stats.regions || '71'}</span>
-              <span style={{ color: 'var(--color-muted)' }}> regions</span>
-            </span>
+            <div className="mt-7 flex items-center gap-4 flex-wrap">
+              <Link
+                href="/map"
+                className="inline-flex items-center gap-2 px-7 py-3 rounded-full hover:opacity-90 transition-opacity"
+                style={{
+                  fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px',
+                  background: '#1A1A1A', color: '#FAF8F4',
+                }}
+              >
+                Explore the map
+              </Link>
+              <Link
+                href="/near-me"
+                className="inline-flex items-center gap-2 px-7 py-3 rounded-full transition-colors hover:border-[var(--color-ink)]"
+                style={{
+                  fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px',
+                  color: 'var(--color-ink)', border: '1px solid var(--color-border)',
+                }}
+              >
+                What&apos;s near me?
+              </Link>
+            </div>
           </div>
-        )}
 
-        <div className="mt-6 flex items-center justify-center gap-4 flex-wrap">
-          <Link
-            href="/map"
-            className="inline-flex items-center gap-2 px-7 py-3 rounded-full hover:opacity-90 transition-opacity"
-            style={{
-              fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px',
-              background: '#1A1A1A', color: '#FAF8F4',
-            }}
-          >
-            Explore the map
-          </Link>
-          <Link
-            href="/near-me"
-            className="inline-flex items-center gap-2 px-7 py-3 rounded-full transition-colors hover:border-[var(--color-ink)]"
-            style={{
-              fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px',
-              color: 'var(--color-ink)', border: '1px solid var(--color-border)',
-            }}
-          >
-            What&apos;s near me?
-          </Link>
+          {/* RIGHT — the stat colophon: a vertical ledger on a kraft panel */}
+          {stats.listings > 0 && (
+            <aside className="hero-rise" style={{
+              animationDelay: '0.16s',
+              background: 'rgba(231,220,198,0.5)',
+              border: '1px solid rgba(28,26,23,0.06)',
+              borderRadius: 'var(--radius-lg)',
+              padding: '8px 28px 18px',
+              alignSelf: 'start',
+            }}>
+              {[
+                { fig: stats.listings.toLocaleString(), label: 'verified places' },
+                { fig: String(verticalCount), label: 'categories' },
+                { fig: String(stats.regions || '71'), label: 'regions' },
+              ].map((s, i) => (
+                <div key={s.label} style={{
+                  padding: '18px 0',
+                  borderTop: i === 0 ? 'none' : '1px solid rgba(28,26,23,0.10)',
+                }}>
+                  <div style={{
+                    fontFamily: 'var(--font-display)', fontWeight: 400,
+                    fontSize: 'clamp(34px, 4vw, 46px)', lineHeight: 1,
+                    color: GOLD, fontVariantNumeric: 'tabular-nums',
+                  }}>
+                    {s.fig}
+                  </div>
+                  <div style={{
+                    fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
+                    letterSpacing: '0.18em', textTransform: 'uppercase',
+                    color: 'var(--color-muted)', marginTop: '9px',
+                  }}>
+                    {s.label}
+                  </div>
+                </div>
+              ))}
+            </aside>
+          )}
         </div>
       </section>
+
+      {/* ── 1b. Living spectrum spine — full-bleed colour masthead ── */}
+      {/* The ten saturated grounds as one thin 100vw bar in journey order; each
+          segment links to its filtered search and peels open on hover (wide
+          pointer) to name itself. Masthead, legend, and quick-nav in one. The
+          same ten links live labelled in the index ledger below, so the slim
+          bar can be decorative-first without being a fragile mobile tap target. */}
+      <nav className="spectrum-spine" aria-label="Browse the ten kinds by colour">
+        {VERTICAL_GUIDE.filter(v => publicVerticals.includes(v.key)).map((v, i) => {
+          const ground = (VERTICAL_CARD_COLORS[v.key] || {}).bg || '#333'
+          const count = stats.verticalCounts[v.key]
+          return (
+            <Link
+              key={v.key}
+              href={`/search?vertical=${v.key}`}
+              className="spectrum-seg"
+              style={{ background: ground, animationDelay: `${i * 40}ms` }}
+              aria-label={`${v.name}${count ? ` — ${count.toLocaleString()} places` : ''}`}
+            >
+              <span className="spectrum-seg-label">
+                {v.name}{count ? `  ·  ${count.toLocaleString()}` : ''}
+              </span>
+            </Link>
+          )
+        })}
+      </nav>
 
       {/* ── 2. Map Strip ────────────────────────────────── */}
       <HomeMapSection listingCount={stats.listings} />
@@ -495,101 +551,105 @@ export default async function Home() {
         borderTop: '1px solid rgba(28,26,23,0.06)',
       }}>
         <div className="max-w-6xl mx-auto px-6 sm:px-12">
-          <div className="reveal text-center" style={{ marginBottom: '46px' }}>
-            <p style={{
-              fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
-              letterSpacing: '0.22em', textTransform: 'uppercase',
-              color: GOLD, marginBottom: '16px',
-            }}>
+          <div className="reveal" style={{ marginBottom: '40px', maxWidth: '560px' }}>
+            <p className="section-dateline" style={{ marginBottom: '18px' }}>
               What you&apos;ll find
             </p>
             <h2 style={{
               fontFamily: 'var(--font-display)', fontWeight: 400,
-              fontSize: 'clamp(26px, 3.4vw, 40px)', color: 'var(--color-ink)',
-              lineHeight: 1.15, marginBottom: '14px', textWrap: 'balance',
+              fontSize: 'clamp(28px, 3.6vw, 44px)', color: 'var(--color-ink)',
+              lineHeight: 1.1, marginBottom: '14px',
             }}>
               {COUNT_WORDS[verticalCount] || verticalCount} kinds of independent place
             </h2>
             <p style={{
               fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
-              lineHeight: 1.65, color: 'var(--color-muted)',
-              maxWidth: '540px', margin: '0 auto',
+              lineHeight: 1.65, color: 'var(--color-muted)', margin: 0,
             }}>
-              Every place we list belongs to one of {(COUNT_WORDS[verticalCount] || String(verticalCount)).toLowerCase()} categories. Browse a category on its own, or search across all of them at once.
+              Every place we list belongs to one of {(COUNT_WORDS[verticalCount] || String(verticalCount)).toLowerCase()} categories. Read it like a field guide&apos;s contents — or open any one.
             </p>
           </div>
 
-          <div className="vguide-grid">
+          {/* The INDEX LEDGER — each vertical a numbered row: a giant Playfair
+              numeral and a rule in that vertical's SATURATED ground colour, so
+              read top-to-bottom the ten grounds form a living colour gamut down
+              the page. Hover widens the rule, shifts the row, and slides in the
+              arrow (see .index-row). Same hrefs/counts as before. */}
+          <div style={{ borderTop: '1px solid rgba(28,26,23,0.08)' }}>
             {VERTICAL_GUIDE.filter(v => publicVerticals.includes(v.key)).map((v, vi) => {
               const Icon = v.Icon
+              const ground = (VERTICAL_CARD_COLORS[v.key] || {}).bg || '#333'
+              const count = stats.verticalCounts[v.key]
               return (
                 <Link
                   key={v.key}
                   href={`/search?vertical=${v.key}`}
-                  className="reveal vguide-card group block"
-                  data-reveal-index={(vi % 3) + 1}
+                  className="reveal index-row group flex items-center"
+                  data-reveal-index={(vi % 5) + 1}
                   style={{
-                    '--vc': v.accent,
-                    background: '#FFFFFF',
-                    border: '1px solid var(--color-border)',
-                    borderRadius: 'var(--radius-card)',
-                    padding: '22px 22px 20px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    minHeight: '150px',
+                    gap: 'clamp(14px, 2.4vw, 26px)',
+                    padding: '20px 4px',
+                    borderBottom: '1px solid rgba(28,26,23,0.08)',
+                    textDecoration: 'none',
                   }}
                 >
-                  <div className="flex items-center justify-between" style={{ marginBottom: '14px' }}>
-                    <div className="flex items-center" style={{ gap: '11px' }}>
-                      <span style={{
-                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        width: '36px', height: '36px', borderRadius: '10px',
-                        background: `${v.accent}14`,
-                      }}>
-                        <Icon size={18} strokeWidth={1.6} style={{ color: v.accent }} />
-                      </span>
+                  <span style={{
+                    fontFamily: 'var(--font-display)', fontWeight: 400,
+                    fontSize: 'clamp(34px, 5.4vw, 64px)', lineHeight: 0.9,
+                    letterSpacing: '-0.03em', color: ground,
+                    width: 'clamp(52px, 8vw, 92px)', flexShrink: 0,
+                    fontVariantNumeric: 'tabular-nums',
+                  }}>
+                    {String(vi + 1).padStart(2, '0')}
+                  </span>
+
+                  <span className="index-rule" style={{ background: ground, borderRadius: '2px' }} aria-hidden="true" />
+
+                  <span style={{ flex: 1, minWidth: 0 }}>
+                    <span className="flex items-center" style={{ gap: '9px', marginBottom: '4px' }}>
+                      <Icon size={14} strokeWidth={1.7} style={{ color: ground, flexShrink: 0 }} aria-hidden="true" />
                       <span style={{
                         fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
-                        letterSpacing: '0.1em', textTransform: 'uppercase',
-                        color: 'var(--color-ink)',
+                        letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-ink)',
                       }}>
                         {v.label}
                       </span>
-                    </div>
-                    <span className="vguide-arrow" aria-hidden="true" style={{
-                      color: v.accent, fontSize: '16px', fontWeight: 500, lineHeight: 1,
+                    </span>
+                    <span style={{
+                      display: 'block', fontFamily: 'var(--font-display)', fontWeight: 400,
+                      fontSize: 'clamp(20px, 2.4vw, 26px)', lineHeight: 1.12, color: 'var(--color-ink)',
+                    }}>
+                      {v.name}
+                    </span>
+                    <span className="hidden sm:block" style={{
+                      fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '13.5px',
+                      lineHeight: 1.5, color: 'var(--color-muted)', marginTop: '3px',
+                    }}>
+                      {v.desc}
+                    </span>
+                  </span>
+
+                  <span className="flex items-center" style={{ gap: '14px', flexShrink: 0 }}>
+                    {count > 0 && (
+                      <span style={{
+                        fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
+                        letterSpacing: '0.03em', color: ground, fontVariantNumeric: 'tabular-nums',
+                      }}>
+                        {count.toLocaleString()}
+                      </span>
+                    )}
+                    <span className="index-arrow" aria-hidden="true" style={{
+                      color: GOLD, fontSize: '18px', fontWeight: 500, lineHeight: 1,
                     }}>
                       &rarr;
                     </span>
-                  </div>
-                  <h3 style={{
-                    fontFamily: 'var(--font-display)', fontWeight: 400,
-                    fontSize: '21px', lineHeight: 1.2, color: 'var(--color-ink)',
-                    marginBottom: '7px',
-                  }}>
-                    {v.name}
-                  </h3>
-                  <p style={{
-                    fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '13.5px',
-                    lineHeight: 1.55, color: 'var(--color-muted)', margin: 0,
-                  }}>
-                    {v.desc}
-                  </p>
-                  {stats.verticalCounts[v.key] > 0 && (
-                    <p style={{
-                      fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '11.5px',
-                      letterSpacing: '0.04em', color: v.accent,
-                      margin: 0, marginTop: 'auto', paddingTop: '12px',
-                    }}>
-                      {stats.verticalCounts[v.key].toLocaleString()} places
-                    </p>
-                  )}
+                  </span>
                 </Link>
               )
             })}
           </div>
 
-          <div className="reveal text-center" style={{ marginTop: '34px' }}>
+          <div className="reveal" style={{ marginTop: '32px' }}>
             <Link href="/explore" className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity" style={{
               fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
               color: GOLD, padding: '10px 4px', minHeight: 44,
@@ -604,76 +664,132 @@ export default async function Home() {
       {featured.length > 0 && (
         <ScrollReveal as="section" style={{ paddingBlock: '80px' }}>
           <div className="max-w-5xl mx-auto px-6 sm:px-12">
-            <h2 className="reveal text-center" style={{
-              fontFamily: 'var(--font-display)', fontWeight: 400,
-              fontSize: 'clamp(24px, 3vw, 36px)', color: 'var(--color-ink)',
-              marginBottom: '12px',
-            }}>
-              Worth finding this week
-            </h2>
-            <p className="reveal text-center" style={{
-              fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
-              color: 'var(--color-muted)', marginBottom: '48px',
-            }}>
-              A few of the independent places we think you should know about.
-            </p>
+            <div className="reveal" style={{ marginBottom: '36px', maxWidth: '560px' }}>
+              <p className="section-dateline" style={{ marginBottom: '16px' }}>
+                This week
+              </p>
+              <h2 style={{
+                fontFamily: 'var(--font-display)', fontWeight: 400,
+                fontSize: 'clamp(26px, 3.2vw, 40px)', color: 'var(--color-ink)',
+                lineHeight: 1.1, marginBottom: '12px',
+              }}>
+                Worth finding this week
+              </h2>
+              <p style={{
+                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
+                color: 'var(--color-muted)', margin: 0,
+              }}>
+                A few of the independent places we think you should know about — one cover story, and a handful more.
+              </p>
+            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              {featured.map((listing, li) => {
-                const colors = VERTICAL_CARD_COLORS[listing.vertical] || { bg: '#333', text: '#FAF8F4' }
-                return (
+            {/* LEAD + RAIL: the first featured listing is the dominant cover
+                story (1.6fr, full-bleed ground or its photo); the rest stack as
+                a compact coloured rail (1fr). Scale contrast carries hierarchy. */}
+            {(() => {
+              const lead = featured[0]
+              const rail = featured.slice(1, 4)
+              const leadColors = VERTICAL_CARD_COLORS[lead.vertical] || { bg: '#333', text: '#FAF8F4' }
+              const leadRegion = getListingRegion(lead)
+              return (
+                <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-6">
+                  {/* LEAD */}
                   <Link
-                    key={listing.id}
-                    href={`/place/${listing.slug}`}
+                    key={lead.id}
+                    href={`/place/${lead.slug}`}
                     className="reveal group listing-card block overflow-hidden"
-                    data-reveal-index={li + 1}
+                    data-reveal-index={1}
                     style={{
-                      background: listing.hero_image_url ? '#1A1A1A' : colors.bg,
+                      background: lead.hero_image_url ? '#1A1A1A' : leadColors.bg,
                       border: '1px solid transparent',
-                      borderRadius: 'var(--radius-card)',
+                      borderRadius: 'var(--radius-lg)',
+                      display: 'flex', flexDirection: 'column',
+                      minHeight: 'clamp(300px, 40vw, 440px)',
                     }}
                   >
-                    {listing.hero_image_url && (
-                      <div className="overflow-hidden" style={{ height: '180px' }}>
+                    {lead.hero_image_url && (
+                      <div className="overflow-hidden" style={{ flex: '1 1 55%', minHeight: '180px' }}>
                         <img
-                          src={listing.hero_image_url}
+                          src={lead.hero_image_url}
                           alt=""
                           loading="lazy"
                           className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700"
                         />
                       </div>
                     )}
-                    <div style={{ padding: '20px 20px 24px' }}>
+                    <div style={{ padding: '30px 30px 32px', display: 'flex', flexDirection: 'column', flex: lead.hero_image_url ? '0 0 auto' : 1 }}>
                       <p style={{
-                        fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 600,
+                        fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
                         letterSpacing: '0.15em', textTransform: 'uppercase',
-                        color: listing.hero_image_url ? GOLD : 'rgba(250,248,244,0.5)',
-                        marginBottom: '8px',
+                        color: GOLD, marginBottom: '10px',
                       }}>
-                        {VERTICAL_LABELS[listing.vertical] || listing.vertical}
-                        {(() => { const r = getListingRegion(listing); return r ? ` · ${r.name}` : '' })()}
+                        {VERTICAL_LABELS[lead.vertical] || lead.vertical}
+                        {leadRegion ? `  ·  ${leadRegion.name}` : ''}
                       </p>
+                      {!lead.hero_image_url && <div style={{ flex: 1, minHeight: 20 }} />}
                       <h3 style={{
                         fontFamily: 'var(--font-display)', fontWeight: 400,
-                        fontSize: '20px', lineHeight: 1.3,
-                        color: '#FAF8F4', marginBottom: '8px',
+                        fontSize: 'clamp(26px, 3.2vw, 36px)', lineHeight: 1.12,
+                        color: '#FAF8F4', marginBottom: '12px',
                       }}>
-                        {listing.name}
+                        {lead.name}
                       </h3>
-                      {listing.description && (
+                      {lead.description && (
                         <p style={{
-                          fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px',
-                          lineHeight: 1.6, color: 'rgba(250,248,244,0.55)',
-                          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                          fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px',
+                          lineHeight: 1.65, color: 'rgba(250,248,244,0.62)', margin: 0, maxWidth: '46ch',
+                          display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
                         }}>
-                          {firstSentence(listing.description)}
+                          {firstSentence(lead.description)}
                         </p>
                       )}
                     </div>
                   </Link>
-                )
-              })}
-            </div>
+
+                  {/* RAIL */}
+                  {rail.length > 0 && (
+                    <div className="flex flex-col gap-4">
+                      {rail.map((listing, ri) => {
+                        const colors = VERTICAL_CARD_COLORS[listing.vertical] || { bg: '#333', text: '#FAF8F4' }
+                        const r = getListingRegion(listing)
+                        return (
+                          <Link
+                            key={listing.id}
+                            href={`/place/${listing.slug}`}
+                            className="reveal group listing-card block overflow-hidden"
+                            data-reveal-index={ri + 2}
+                            style={{
+                              background: colors.bg,
+                              border: '1px solid transparent',
+                              borderRadius: 'var(--radius-card)',
+                              padding: '18px 20px',
+                              display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                              flex: '1 1 0', minHeight: '104px',
+                            }}
+                          >
+                            <p style={{
+                              fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 600,
+                              letterSpacing: '0.15em', textTransform: 'uppercase',
+                              color: 'rgba(250,248,244,0.5)', margin: 0,
+                            }}>
+                              {VERTICAL_LABELS[listing.vertical] || listing.vertical}
+                              {r ? `  ·  ${r.name}` : ''}
+                            </p>
+                            <h3 style={{
+                              fontFamily: 'var(--font-display)', fontWeight: 400,
+                              fontSize: '19px', lineHeight: 1.22,
+                              color: colors.text, margin: '8px 0 0',
+                            }}>
+                              {listing.name}
+                            </h3>
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
           </div>
         </ScrollReveal>
       )}
@@ -692,15 +808,26 @@ export default async function Home() {
           paddingBottom: '40px',
         }}>
           <div className="max-w-5xl mx-auto px-6 sm:px-12">
+            <div className="reveal" style={{ marginBottom: '30px', maxWidth: '560px' }}>
+              <p className="section-dateline" style={{ marginBottom: '14px' }}>
+                From the journal
+              </p>
+              <h2 style={{
+                fontFamily: 'var(--font-display)', fontWeight: 400,
+                fontSize: 'clamp(24px, 3vw, 34px)', color: '#FAF8F4', lineHeight: 1.12,
+              }}>
+                Stories from the network
+              </h2>
+            </div>
             {articlesWithImages.length >= 2 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-start">
                 {articlesWithImages.map((article, ai) => (
                   <a
                     key={article.id || ai}
                     href={article.article_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="reveal group block"
+                    className={`reveal group block${ai === 1 ? ' sm:mt-12' : ''}`}
                     data-reveal-index={ai}
                   >
                     <div className="overflow-hidden rounded-lg" style={{
@@ -821,16 +948,19 @@ export default async function Home() {
           borderBottom: '1px solid rgba(28,26,23,0.05)',
         }}>
           <div className="max-w-5xl mx-auto px-6 sm:px-12">
-            <div className="reveal text-center mb-14">
+            <div className="reveal mb-14" style={{ maxWidth: '560px' }}>
+              <p className="section-dateline" style={{ marginBottom: '16px' }}>
+                Where it overlaps
+              </p>
               <h2 style={{
                 fontFamily: 'var(--font-display)', fontWeight: 400,
-                fontSize: 'clamp(24px, 3vw, 36px)', color: 'var(--color-ink)',
+                fontSize: 'clamp(26px, 3.2vw, 40px)', color: 'var(--color-ink)', lineHeight: 1.1,
               }}>
                 Discover a cluster
               </h2>
               <p className="mt-3" style={{
                 fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
-                color: 'var(--color-muted)', maxWidth: '480px', margin: '12px auto 0',
+                color: 'var(--color-muted)', margin: '12px 0 0',
               }}>
                 Regions where makers, stays, culture, and food overlap. One place, many reasons to go.
               </p>
@@ -841,7 +971,7 @@ export default async function Home() {
                 const regionSlug = CLUSTER_REGION_SLUGS[cluster.region]
                 return (
                   <div key={cluster.region} className="reveal" data-reveal-index={ci + 1}>
-                    <div style={{ marginBottom: '16px' }}>
+                    <div style={{ marginBottom: '16px', maxWidth: '520px', ...(ci % 2 === 1 ? { marginLeft: 'auto', textAlign: 'right' } : {}) }}>
                       {regionSlug ? (
                         <Link href={`/regions/${regionSlug}`} className="group inline-block">
                           <h3 style={{
@@ -911,123 +1041,114 @@ export default async function Home() {
         </ScrollReveal>
       )}
 
-      {/* ── 6. Plan a Trip ─────────────────────────────── */}
-      <ScrollReveal as="section" style={{ paddingBlock: '80px' }}>
-        <div className="max-w-5xl mx-auto px-6 sm:px-12">
-          <h2 className="reveal text-center mb-10" style={{
-            fontFamily: 'var(--font-display)', fontWeight: 400,
-            fontSize: 'clamp(24px, 3vw, 36px)', color: 'var(--color-ink)',
-          }}>
-            Plan a trip
-          </h2>
-          <div className="max-w-xl mx-auto">
-            <Link
-              href="/on-this-road"
-              className="reveal group listing-card block"
-              data-reveal-index="1"
-              style={{
-                background: '#2C2420',
-                border: '1px solid transparent',
-                borderRadius: 'var(--radius-lg)',
-                padding: '32px 28px',
-                minHeight: '200px',
-                display: 'flex',
-                flexDirection: 'column',
-              }}
-            >
-              <h3 style={{
-                fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '26px',
-                color: '#FAF8F4', lineHeight: 1.25, marginBottom: 10,
-              }}>
-                Road trip
-              </h3>
-              <p style={{
-                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px',
-                color: 'rgba(250,248,244,0.6)', lineHeight: 1.6,
-              }}>
-                You know where you&apos;re going. We&apos;ll find the stops.
+      {/* ── 6 + 7. Plan a trip + Explore by region — paired columns ── */}
+      {/* Two formerly-stacked centered blocks become one alternating two-column
+          editorial row: a tall dark "Plan a trip" feature beside an offset
+          region mosaic. Breaks the stacked rhythm; all links/counts preserved. */}
+      <ScrollReveal as="section" style={{ paddingBlock: '88px' }}>
+        <div className="max-w-6xl mx-auto px-6 sm:px-12">
+          <div className="grid grid-cols-1 lg:grid-cols-[0.92fr_1.28fr] gap-10 lg:gap-14 items-start">
+            {/* LEFT — Plan a trip feature */}
+            <div className="reveal" data-reveal-index={1}>
+              <p className="section-dateline" style={{ marginBottom: '18px' }}>
+                Plan a trip
               </p>
-              <div style={{ flex: 1, minHeight: 24 }} />
-              <span style={{
-                fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
-                color: GOLD,
-              }}>
-                Plan a road trip &rarr;
-              </span>
-            </Link>
-          </div>
-        </div>
-      </ScrollReveal>
+              <Link
+                href="/on-this-road"
+                className="group listing-card block"
+                style={{
+                  background: '#2C2420',
+                  border: '1px solid transparent',
+                  borderRadius: 'var(--radius-lg)',
+                  padding: '32px 30px',
+                  minHeight: 'clamp(280px, 32vw, 380px)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                }}
+              >
+                <h3 style={{
+                  fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 'clamp(26px, 3vw, 34px)',
+                  color: '#FAF8F4', lineHeight: 1.18, marginBottom: 12,
+                }}>
+                  Road trip
+                </h3>
+                <p style={{
+                  fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px',
+                  color: 'rgba(250,248,244,0.62)', lineHeight: 1.6, maxWidth: '34ch',
+                }}>
+                  You know where you&apos;re going. We&apos;ll find the stops — the makers, the lunch, the detour worth taking.
+                </p>
+                <div style={{ flex: 1, minHeight: 24 }} />
+                <span style={{
+                  fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', color: GOLD,
+                }}>
+                  Plan a road trip &rarr;
+                </span>
+              </Link>
+            </div>
 
-      {/* ── 7. Regions ────────────────────────────────── */}
-      <ScrollReveal as="section" style={{ paddingBlock: '80px' }}>
-        <div className="max-w-5xl mx-auto px-6 sm:px-12">
-          <h2 className="reveal text-center mb-10" style={{
-            fontFamily: 'var(--font-display)', fontWeight: 400,
-            fontSize: 'clamp(24px, 3vw, 36px)', color: 'var(--color-ink)',
-          }}>
-            Explore by region
-          </h2>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[
-              { name: 'Barossa Valley', slug: 'barossa-valley', state: 'SA' },
-              { name: 'Mornington Peninsula', slug: 'mornington-peninsula', state: 'VIC' },
-              { name: 'Yarra Valley', slug: 'yarra-valley', state: 'VIC' },
-              { name: 'Byron Bay', slug: 'byron-bay', state: 'NSW' },
-              { name: 'Blue Mountains', slug: 'blue-mountains', state: 'NSW' },
-              { name: 'Adelaide Hills', slug: 'adelaide-hills', state: 'SA' },
-            ].map((r, ri) => {
-              const count = stats.regionCounts[r.name]
-              const gradient = STATE_CARD_GRADIENTS[r.state] || STATE_CARD_GRADIENTS.VIC
-              return (
-                <Link
-                  key={r.slug}
-                  href={`/regions/${r.slug}`}
-                  className="reveal group listing-card block overflow-hidden"
-                  data-reveal-index={ri + 1}
-                  style={{
-                    background: gradient,
-                    border: '1px solid #E2D8C6',
-                    borderRadius: 'var(--radius-card)',
-                  }}
-                >
-                  <div className="p-6 flex flex-col" style={{ minHeight: 140 }}>
-                    <h3 style={{
-                      fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22,
-                      color: 'var(--color-ink)', lineHeight: 1.25, marginBottom: 4,
-                    }}>
-                      {r.name}
-                    </h3>
-                    <p style={{
-                      fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '10px',
-                      letterSpacing: '0.15em', textTransform: 'uppercase',
-                      color: GOLD, marginBottom: 0,
-                    }}>
-                      {r.state}
-                    </p>
-                    <div style={{ flex: 1, minHeight: 16 }} />
-                    {count > 0 && (
-                      <span style={{
-                        fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13,
-                        color: 'var(--color-muted)',
-                      }}>
-                        {count} listings
-                      </span>
-                    )}
-                  </div>
+            {/* RIGHT — region mosaic */}
+            <div className="reveal" data-reveal-index={2}>
+              <div className="flex items-baseline justify-between" style={{ gap: '16px', marginBottom: '20px' }}>
+                <p className="section-dateline">By region</p>
+                <Link href="/regions" className="hover:opacity-80 transition-opacity" style={{
+                  fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', color: GOLD,
+                }}>
+                  Browse all &rarr;
                 </Link>
-              )
-            })}
-          </div>
-
-          <div className="mt-8 text-center">
-            <Link href="/regions" className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity" style={{
-              fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
-              color: GOLD, padding: '10px 4px', minHeight: 44,
-            }}>
-              Browse all regions &rarr;
-            </Link>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                {[
+                  { name: 'Barossa Valley', slug: 'barossa-valley', state: 'SA' },
+                  { name: 'Mornington Peninsula', slug: 'mornington-peninsula', state: 'VIC' },
+                  { name: 'Yarra Valley', slug: 'yarra-valley', state: 'VIC' },
+                  { name: 'Byron Bay', slug: 'byron-bay', state: 'NSW' },
+                  { name: 'Blue Mountains', slug: 'blue-mountains', state: 'NSW' },
+                  { name: 'Adelaide Hills', slug: 'adelaide-hills', state: 'SA' },
+                ].map((r, ri) => {
+                  const count = stats.regionCounts[r.name]
+                  const gradient = STATE_CARD_GRADIENTS[r.state] || STATE_CARD_GRADIENTS.VIC
+                  return (
+                    <Link
+                      key={r.slug}
+                      href={`/regions/${r.slug}`}
+                      className="reveal group listing-card block overflow-hidden"
+                      data-reveal-index={(ri % 3) + 1}
+                      style={{
+                        background: gradient,
+                        border: '1px solid #E2D8C6',
+                        borderRadius: 'var(--radius-card)',
+                      }}
+                    >
+                      <div className="flex flex-col" style={{ padding: '18px', minHeight: 116 }}>
+                        <h3 style={{
+                          fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 19,
+                          color: 'var(--color-ink)', lineHeight: 1.2, marginBottom: 4,
+                        }}>
+                          {r.name}
+                        </h3>
+                        <p style={{
+                          fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '10px',
+                          letterSpacing: '0.15em', textTransform: 'uppercase',
+                          color: GOLD, marginBottom: 0,
+                        }}>
+                          {r.state}
+                        </p>
+                        <div style={{ flex: 1, minHeight: 14 }} />
+                        {count > 0 && (
+                          <span style={{
+                            fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12.5,
+                            color: 'var(--color-muted)',
+                          }}>
+                            {count} listings
+                          </span>
+                        )}
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
           </div>
         </div>
       </ScrollReveal>
@@ -1080,29 +1201,21 @@ export default async function Home() {
         paddingBlock: '96px',
         borderTop: '1px solid rgba(28,26,23,0.06)',
       }}>
-        <div className="max-w-2xl mx-auto px-6 sm:px-12 text-center">
-          <div aria-hidden="true" style={{
-            width: '40px', height: '1px', background: GOLD,
-            margin: '0 auto 26px', opacity: 0.85,
-          }} />
-          <p style={{
-            fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
-            letterSpacing: '0.22em', textTransform: 'uppercase',
-            color: GOLD, marginBottom: '18px',
-          }}>
+        <div className="max-w-3xl mx-auto px-6 sm:px-12">
+          <p className="section-dateline" style={{ marginBottom: '20px' }}>
             Plan a stay
           </p>
           <h2 style={{
             fontFamily: 'var(--font-display)', fontWeight: 400,
-            fontSize: 'clamp(28px, 3.6vw, 40px)', lineHeight: 1.15,
-            color: 'var(--color-ink)', marginBottom: '16px', textWrap: 'balance',
+            fontSize: 'clamp(30px, 4.2vw, 48px)', lineHeight: 1.08,
+            color: 'var(--color-ink)', marginBottom: '18px', maxWidth: '640px',
           }}>
             Tell us the kind of trip. We&apos;ll build the days.
           </h2>
           <p style={{
             fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
             lineHeight: 1.65, color: 'var(--color-muted)',
-            maxWidth: '480px', margin: '0 auto 32px',
+            maxWidth: '520px', margin: '0 0 32px',
           }}>
             Coffee to start, a long lunch in the middle, and somewhere good to stay — a day-by-day trip drawn entirely from the independent places listed across the network.
           </p>
@@ -1121,16 +1234,19 @@ export default async function Home() {
           band into the stone ground reads as a deliberate section boundary. */}
       <ScrollReveal as="section" style={{ paddingBlock: '80px', background: 'var(--color-stone)', borderTop: '1px solid rgba(28,26,23,0.06)' }}>
         <div className="max-w-5xl mx-auto px-6 sm:px-12">
-          <div className="reveal text-center" style={{ marginBottom: '40px' }}>
+          <div className="reveal" style={{ marginBottom: '36px', maxWidth: '560px' }}>
+            <p className="section-dateline" style={{ marginBottom: '16px' }}>
+              On the calendar
+            </p>
             <h2 style={{
               fontFamily: 'var(--font-display)', fontWeight: 400,
-              fontSize: 'clamp(24px, 3vw, 36px)', color: 'var(--color-ink)',
+              fontSize: 'clamp(26px, 3.2vw, 40px)', color: 'var(--color-ink)', lineHeight: 1.1,
             }}>
               What&apos;s on
             </h2>
             <p className="mt-3" style={{
               fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
-              color: 'var(--color-muted)', maxWidth: '480px', margin: '12px auto 0',
+              color: 'var(--color-muted)', margin: '12px 0 0',
             }}>
               Festivals, markets, and long-table dinners across the network.
             </p>
@@ -1160,16 +1276,18 @@ export default async function Home() {
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {eventCards.map((event, ei) => (
+                {eventCards.map((event, ei) => {
+                  const isLead = ei === 0
+                  return (
                   <Link
                     key={event.id}
                     href={`/events/${event.slug}`}
-                    className="reveal group listing-card block overflow-hidden"
+                    className={`reveal group listing-card block overflow-hidden${isLead ? ' sm:col-span-2' : ''}`}
                     data-reveal-index={ei + 1}
                     style={{ background: '#fff', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-card)' }}
                   >
                     {event.image_url && (
-                      <div className="overflow-hidden" style={{ height: '160px' }}>
+                      <div className="overflow-hidden" style={{ height: isLead ? '240px' : '160px' }}>
                         <img
                           src={event.image_url}
                           alt=""
@@ -1178,7 +1296,7 @@ export default async function Home() {
                         />
                       </div>
                     )}
-                    <div style={{ padding: '18px 20px 22px' }}>
+                    <div style={{ padding: isLead ? '22px 24px 26px' : '18px 20px 22px' }}>
                       <p style={{
                         fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 600,
                         letterSpacing: '0.08em', textTransform: 'uppercase',
@@ -1188,7 +1306,7 @@ export default async function Home() {
                       </p>
                       <h3 style={{
                         fontFamily: 'var(--font-display)', fontWeight: 400,
-                        fontSize: '20px', lineHeight: 1.28,
+                        fontSize: isLead ? 'clamp(24px, 3vw, 30px)' : '20px', lineHeight: 1.22,
                         color: 'var(--color-ink)', marginBottom: '6px',
                       }}>
                         {event.name}
@@ -1201,7 +1319,7 @@ export default async function Home() {
                       </p>
                     </div>
                   </Link>
-                ))}
+                )})}
               </div>
 
               <div className="mt-10 flex items-center justify-center gap-6 flex-wrap">
