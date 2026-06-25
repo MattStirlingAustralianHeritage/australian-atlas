@@ -1,7 +1,14 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #F8F6F1;
+  /* Page ground — a warm stone, one step deeper than the old near-white cream
+     (#F8F6F1) so white and tinted cards lift off it instead of dissolving into
+     it. The cream survives as --color-cream for "white" surfaces and as the
+     airy hero gradient. --color-kraft is the intermediate band tone used to
+     break long cream runs (e.g. the cluster grid). */
+  --color-bg: #EFE7D8;
+  --color-stone: #EFE7D8;
+  --color-kraft: #E7DCC6;
   --color-cream: #faf8f5;
   --color-ink: #1C1A17;
   --color-sage: #5f8a7e;
@@ -22,13 +29,16 @@
    everywhere new code is written; legacy inline values migrate as touched. */
 :root {
   --radius-sm: 8px;
-  --radius-card: 12px;
-  --radius-lg: 16px;
+  --radius-card: 14px;
+  --radius-lg: 18px;
   --radius-pill: 999px;
-  --shadow-xs: 0 1px 3px rgba(28, 26, 23, 0.05);
-  --shadow-sm: 0 2px 8px rgba(28, 26, 23, 0.06);
-  --shadow-md: 0 8px 24px rgba(28, 26, 23, 0.08);
-  --shadow-lg: 0 16px 40px rgba(28, 26, 23, 0.12);
+  /* Card elevation is warm, not grey. The tint is a deep umber (82,58,30) drawn
+     from the stone/kraft family — a neutral-grey shadow reads as dirt on a warm
+     ground, so every elevation token shares this brown base at rising opacity. */
+  --shadow-xs: 0 1px 2px rgba(82, 58, 30, 0.06);
+  --shadow-sm: 0 2px 8px rgba(82, 58, 30, 0.08);
+  --shadow-md: 0 10px 28px rgba(82, 58, 30, 0.10);
+  --shadow-lg: 0 18px 44px rgba(82, 58, 30, 0.14);
   --focus-ring: 0 0 0 2px var(--color-bg), 0 0 0 4px var(--color-sage);
 }
 
@@ -198,14 +208,17 @@ h1, h2, h3, h4, h5, h6 {
   display: none;
 }
 
-/* Card transitions and hover */
+/* Card transitions and hover. A soft warm resting shadow lifts every card off
+   the stone ground; hover deepens it and floats the card a little higher. The
+   shadow tint is the umber from the elevation tokens, never grey. */
 .listing-card {
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  box-shadow: 0 1px 2px rgba(82,58,30,0.05), 0 6px 18px rgba(82,58,30,0.06);
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
 }
 .listing-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(28,26,23,0.28) !important;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+  transform: translateY(-3px);
+  border-color: rgba(82,58,30,0.28) !important;
+  box-shadow: 0 2px 4px rgba(82,58,30,0.07), 0 14px 34px rgba(82,58,30,0.13);
 }
 
 /* Homepage hero search. The shell glows gold on focus so the bar reads as the
@@ -309,12 +322,13 @@ h1, h2, h3, h4, h5, h6 {
    its own brand colour via the --vc custom property; on hover the border picks
    it up, the card lifts, and the arrow slides in. */
 .vguide-card {
+  box-shadow: 0 1px 2px rgba(82,58,30,0.05), 0 6px 18px rgba(82,58,30,0.06);
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 .vguide-card:hover {
   transform: translateY(-3px);
   border-color: var(--vc, var(--color-ink)) !important;
-  box-shadow: 0 10px 28px rgba(0,0,0,0.08);
+  box-shadow: 0 14px 32px rgba(82,58,30,0.13);
 }
 .vguide-card .vguide-arrow {
   opacity: 0;
@@ -340,7 +354,7 @@ h1, h2, h3, h4, h5, h6 {
 .example-trail-card:hover {
   transform: translateY(-2px);
   border-color: var(--color-sage) !important;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+  box-shadow: 0 12px 30px rgba(82,58,30,0.12);
 }
 
 /* Scroll reveal animations */
