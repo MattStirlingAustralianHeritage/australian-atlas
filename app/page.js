@@ -491,7 +491,7 @@ export default async function Home() {
           descriptor, always visible) are the homepage's core comprehension fix. */}
       <ScrollReveal as="section" style={{
         paddingBlock: '84px',
-        background: 'linear-gradient(180deg, #F4EFE7 0%, #F8F6F1 100%)',
+        background: 'linear-gradient(180deg, #F6F1E9 0%, var(--color-stone) 100%)',
         borderTop: '1px solid rgba(28,26,23,0.06)',
       }}>
         <div className="max-w-6xl mx-auto px-6 sm:px-12">
@@ -808,8 +808,17 @@ export default async function Home() {
       )}
 
       {/* ── 5. Cross-Vertical Cluster ──────────────────── */}
+      {/* The intermediate kraft band — one oatmeal third surface between the
+          binary cream/near-black rhythm. It breaks the long cream run that
+          follows the dark Journal and lets the now-saturated vertical cards
+          (dark-on-kraft) read at their strongest. */}
       {clusters.length > 0 && (
-        <ScrollReveal as="section" style={{ paddingBlock: '96px' }}>
+        <ScrollReveal as="section" style={{
+          paddingBlock: '96px',
+          background: 'var(--color-kraft)',
+          borderTop: '1px solid rgba(28,26,23,0.05)',
+          borderBottom: '1px solid rgba(28,26,23,0.05)',
+        }}>
           <div className="max-w-5xl mx-auto px-6 sm:px-12">
             <div className="reveal text-center mb-14">
               <h2 style={{
@@ -1104,7 +1113,7 @@ export default async function Home() {
       </section>
 
       {/* ── 9. What's on (Events) ─────────────────────── */}
-      <ScrollReveal as="section" style={{ paddingBlock: '80px', background: '#F8F6F1' }}>
+      <ScrollReveal as="section" style={{ paddingBlock: '80px', background: 'var(--color-stone)' }}>
         <div className="max-w-5xl mx-auto px-6 sm:px-12">
           <div className="reveal text-center" style={{ marginBottom: '40px' }}>
             <h2 style={{
