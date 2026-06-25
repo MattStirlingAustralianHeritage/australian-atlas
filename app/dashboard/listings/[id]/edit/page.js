@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { getDashboardToken } from '@/lib/dashboard-token'
+import { compressImage } from '@/lib/compressImage'
 import { getListingRegion } from '@/lib/regions'
 import { getVerticalLabel, getVerticalBrandColour } from '@/lib/verticalUrl'
 import HighlightsEditor from './HighlightsEditor'
@@ -458,7 +459,7 @@ export default function EditListingPage() {
     setUploading(true)
     try {
       const fd = new FormData()
-      fd.append('file', file)
+      fd.append('file', await compressImage(file))
       fd.append('listingId', id)
       fd.append('assetKind', 'hero')
       fd.append('uploadWarrantyAccepted', 'true')
@@ -468,8 +469,9 @@ export default function EditListingPage() {
         headers: { Authorization: `Bearer ${token}` },
         body: fd,
       })
-      const data = await res.json()
-      if (!res.ok) setUploadError(data.error || 'Upload failed')
+      let data = {}
+      try { data = await res.json() } catch {}
+      if (!res.ok) setUploadError(data.error || (res.status === 413 ? 'That image is too large — please use a smaller photo.' : 'Upload failed'))
       else setHeroImageUrl(data.url)
     } catch {
       setUploadError('Upload failed')
@@ -500,7 +502,7 @@ export default function EditListingPage() {
     for (const file of toUpload) {
       try {
         const fd = new FormData()
-        fd.append('file', file)
+        fd.append('file', await compressImage(file))
         fd.append('listingId', id)
         fd.append('assetKind', 'gallery')
         fd.append('uploadWarrantyAccepted', 'true')
@@ -510,8 +512,9 @@ export default function EditListingPage() {
           headers: { Authorization: `Bearer ${token}` },
           body: fd,
         })
-        const data = await res.json()
-        if (!res.ok) setGalleryError(data.error || 'Some photos failed to upload')
+        let data = {}
+        try { data = await res.json() } catch {}
+        if (!res.ok) setGalleryError(data.error || (res.status === 413 ? 'One photo was too large — please use smaller images.' : 'Some photos failed to upload'))
         else if (data.url) setGallery(prev => (prev.length < MAX_GALLERY && !prev.includes(data.url) ? [...prev, data.url] : prev))
       } catch {
         setGalleryError('Some photos failed to upload')
