@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { createAuthServerClient } from '@/lib/supabase/auth-clients'
 import { getDistanceBudget, getStopLimits } from '@/lib/route-budgets'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
+import { getUserTasteProfile, tasteAffinity } from '@/lib/discover/tasteProfile'
+
+// Soft bonus toward the kinds of place the signed-in user keeps saving in
+// Discover, added to a route stop's selection score (terms are roughly in the
+// 0–150 range). 0 when anonymous / no saves → identical behaviour.
+const TASTE_BONUS = 25
 
 export const maxDuration = 120
 
@@ -704,6 +711,15 @@ async function buildItinerary({
   const seenIds = new Set()
   const allListings = []
 
+  // Discover personalisation (optional): if signed in, lean stop selection
+  // toward the kinds of place the user keeps saving. Anonymous → null → no change.
+  let tasteProfile = null
+  try {
+    const auth = await createAuthServerClient()
+    const { data: { user } } = await auth.auth.getUser()
+    if (user) tasteProfile = await getUserTasteProfile(sb, user.id)
+  } catch { /* anonymous or auth unavailable — no personalisation */ }
+
   // Cycling uses a narrower corridor (cyclists don't detour far off-route)
   const effectiveBufferKm = isCycling ? Math.min(detourConfig.bufferKm, 5) : detourConfig.bufferKm
 
@@ -841,6 +857,7 @@ async function buildItinerary({
         positionKm: Math.round(routeDistances[proj.routeIndex] || 0),
         preferenceScore: scoreListingPreferences(listing, preferences),
         seasonalScore: scoreSeasonalRelevance(listing, currentSeason),
+        tasteScore: tasteAffinity(tasteProfile, listing),
       }
     })
     .filter(l => {
@@ -972,8 +989,8 @@ async function buildItinerary({
         const prefB = Math.min(b.preferenceScore || 0, 3)
         const phaseA = scoreDayPhase(a, dayPhase)
         const phaseB = scoreDayPhase(b, dayPhase)
-        const scoreA = (a.quality_score > 0 ? a.quality_score : 50) + (prefA * 15) + (a.seasonalScore * 5) - a.zonePenalty + (phaseA * 8)
-        const scoreB = (b.quality_score > 0 ? b.quality_score : 50) + (prefB * 15) + (b.seasonalScore * 5) - b.zonePenalty + (phaseB * 8)
+        const scoreA = (a.quality_score > 0 ? a.quality_score : 50) + (prefA * 15) + (a.seasonalScore * 5) - a.zonePenalty + (phaseA * 8) + ((a.tasteScore || 0) * TASTE_BONUS)
+        const scoreB = (b.quality_score > 0 ? b.quality_score : 50) + (prefB * 15) + (b.seasonalScore * 5) - b.zonePenalty + (phaseB * 8) + ((b.tasteScore || 0) * TASTE_BONUS)
         return scoreB - scoreA
       })
       for (const listing of seg) {

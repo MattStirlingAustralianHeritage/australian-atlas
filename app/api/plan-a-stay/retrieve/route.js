@@ -1,6 +1,13 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { createAuthServerClient } from '@/lib/supabase/auth-clients'
 import { NextResponse } from 'next/server'
 import { isCoffeeListing, isLunchListing } from '@/lib/plan-a-stay/assemble-days'
+import { getUserTasteProfile, tasteAffinity } from '@/lib/discover/tasteProfile'
+
+// How hard the user's Discover taste reorders candidates WITHIN a geographic
+// cluster. A soft additive bonus on top of the [0,1] base score — enough to
+// surface the kinds of places they keep saving, without overriding geography.
+const TASTE_WEIGHT = 0.35
 
 export const runtime = 'nodejs'
 
@@ -175,7 +182,7 @@ function resolveVerticals(intents) {
 /* ═══════════════════════════════════════════════════════════════════════
    Within-cluster ranking
    ═══════════════════════════════════════════════════════════════════════ */
-function rankCandidates(candidates, clusterCentroid, primaryVerticals, secondaryVerticals) {
+function rankCandidates(candidates, clusterCentroid, primaryVerticals, secondaryVerticals, tasteProfile = null) {
   // Compute distances from cluster centroid
   const withDist = candidates.map(c => ({
     ...c,
@@ -195,13 +202,18 @@ function rankCandidates(candidates, clusterCentroid, primaryVerticals, secondary
       const descQuality = Math.min(1.0, (c.description?.length || 0) / DESCRIPTION_QUALITY_CAP)
       const featuredBoost = c.is_featured ? 1.0 : 0.0
 
-      const score =
+      const base =
         verticalMatch * RANKING_WEIGHTS.vertical_match +
         distanceScore * RANKING_WEIGHTS.distance_score +
         descQuality * RANKING_WEIGHTS.description_quality +
         featuredBoost * RANKING_WEIGHTS.featured_boost
 
-      return { ...c, score, dist_from_centroid: Math.round(c.dist_from_centroid * 10) / 10 }
+      // Discover personalisation: soft additive bonus toward the kinds of place
+      // the user keeps saving (0 when anonymous / no saves → identical ranking).
+      const taste = tasteAffinity(tasteProfile, c)
+      const score = base + taste * TASTE_WEIGHT
+
+      return { ...c, score, taste_affinity: Math.round(taste * 1000) / 1000, dist_from_centroid: Math.round(c.dist_from_centroid * 10) / 10 }
     })
     .sort((a, b) => b.score - a.score)
 }
@@ -285,6 +297,17 @@ export async function POST(request) {
     const filterPath = []
     const fallbacksUsed = []
     let bindingConstraint = 'none'
+
+    // ── Discover personalisation (optional) ────────────────────────
+    // If the user is signed in, lean candidate ranking toward the kinds of
+    // place they keep saving in Discover. Anonymous → null → no change.
+    let tasteProfile = null
+    try {
+      const auth = await createAuthServerClient()
+      const { data: { user } } = await auth.auth.getUser()
+      if (user) tasteProfile = await getUserTasteProfile(sb, user.id)
+      if (tasteProfile) filterPath.push(`taste: ${tasteProfile.savedCount} saved → personalised`)
+    } catch { /* anonymous or auth unavailable — no personalisation */ }
 
     // ── Resolve pacing budget ──────────────────────────────────────
     const budget = PACING_BUDGETS[pacing] || PACING_BUDGETS['steady']
@@ -523,7 +546,7 @@ export async function POST(request) {
     // ── Rank within each cluster ───────────────────────────────────
     const outputClusters = validClusters.map((cluster, idx) => {
       const clusterCandidates = cluster.members.map(i => candidates[i])
-      const ranked = rankCandidates(clusterCandidates, cluster.centroid, primaryVerticals, secondaryVerticals)
+      const ranked = rankCandidates(clusterCandidates, cluster.centroid, primaryVerticals, secondaryVerticals, tasteProfile)
       const top5 = ranked.slice(0, 5)
 
       return {
