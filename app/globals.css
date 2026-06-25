@@ -357,20 +357,100 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 12px 30px rgba(82,58,30,0.12);
 }
 
-/* Scroll reveal animations */
+/* Scroll reveal animations. Base rises + fades; directional/scale variants layer
+   on with :not(.revealed) so the offset only applies before reveal, then
+   .revealed (translateY(0)) cleanly resets every axis. Used to give the
+   left-anchored editorial mastheads directional entrances. */
 .reveal {
   opacity: 0;
   transform: translateY(20px);
-  transition: opacity 0.6s ease, transform 0.6s ease;
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .revealed {
   opacity: 1;
   transform: translateY(0);
 }
+.reveal-l:not(.revealed)     { transform: translateX(-32px); }
+.reveal-r:not(.revealed)     { transform: translateX(32px); }
+.reveal-scale:not(.revealed) { transform: scale(0.93); }
 @media (prefers-reduced-motion: reduce) {
   .reveal { opacity: 1; transform: none; transition: none; }
   .revealed { opacity: 1; transform: none; }
 }
+
+/* ============================================================
+   Homepage redesign — "The Index, energised by the Living Spectrum".
+   The page's kinetic layer is deliberately RESERVED: one full-bleed colour
+   spine, the index-row hover, and a recurring gold-hairline dateline. No
+   marquee, no grain, no tilt — motion is editorial and rare so the saturated
+   palette does the shouting while the type stays quiet. Each primitive ships
+   its own prefers-reduced-motion guard.
+   ============================================================ */
+
+/* Living colour-spectrum spine — a full-bleed bar of the ten saturated grounds
+   sitting between the hero and the map. Each segment is a real link; on a wide
+   pointer it accordion-peels open on hover to reveal the vertical name + count
+   in cream. Masthead, legend and quick-nav in one kinetic object. The same ten
+   links live (labelled) in the index ledger below, so the slim bar can stay
+   decorative-first without becoming a fragile mobile tap target. */
+.spectrum-spine { display: flex; width: 100vw; margin-left: calc(50% - 50vw); }
+@keyframes spine-wipe { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.spectrum-seg {
+  flex: 1 1 0;
+  min-height: 14px;            /* overrides the global a{min-height:44px}: this is a slim decorative bar */
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden; color: #FAF8F4; text-decoration: none;
+  transform-origin: left;
+  animation: spine-wipe 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  transition: flex-grow 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.spectrum-seg-label {
+  opacity: 0; white-space: nowrap;
+  font-family: var(--font-body); font-size: 11px; font-weight: 600;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  transition: opacity 0.3s ease;
+}
+@media (min-width: 768px) {
+  .spectrum-seg { min-height: 18px; }
+  .spectrum-seg:hover { flex-grow: 6; }
+  .spectrum-seg:hover .spectrum-seg-label { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spectrum-seg { animation: none; transform: none; transition: none; }
+  .spectrum-seg:hover { flex-grow: 1; }
+}
+
+/* Index ledger row — the "Ten kinds" grid reborn as a printed contents page.
+   Flex row so the coloured rule can grow its width smoothly on hover while the
+   whole row shifts right and the gold arrow slides in. The rule's COLOUR is set
+   inline per vertical; its WIDTH is owned here so hover animates cleanly. */
+.index-row { transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1); }
+.index-row .index-rule { width: 4px; align-self: stretch; flex-shrink: 0; transition: width 0.22s ease; }
+.index-row .index-arrow { opacity: 0; transform: translateX(-6px); transition: opacity 0.2s ease, transform 0.2s ease; }
+@media (min-width: 769px) {
+  .index-row:hover { transform: translateX(8px); }
+  .index-row:hover .index-rule { width: 11px; }
+  .index-row:hover .index-arrow { opacity: 1; transform: translateX(0); }
+}
+@media (max-width: 768px) {
+  .index-row .index-arrow { opacity: 0.5; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .index-row, .index-row .index-rule, .index-row .index-arrow { transition: none; }
+  .index-row:hover { transform: none; }
+  .index-row:hover .index-rule { width: 4px; }
+  .index-row .index-arrow { opacity: 0.5; transform: none; }
+}
+
+/* Recurring section-head motif — a gold hairline + small-caps dateline that ties
+   the left-anchored, asymmetric mastheads together as one publication. */
+.section-dateline {
+  display: inline-flex; align-items: center; gap: 12px;
+  font-family: var(--font-body); font-size: 11px; font-weight: 600;
+  letter-spacing: 0.22em; text-transform: uppercase; color: var(--color-gold);
+}
+.section-dateline::before { content: ''; width: 28px; height: 1px; background: var(--color-gold); opacity: 0.8; }
 
 /* Mobile refinements */
 @media (max-width: 768px) {
