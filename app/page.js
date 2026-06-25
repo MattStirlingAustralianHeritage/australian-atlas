@@ -363,152 +363,124 @@ export default async function Home() {
 
   return (
     <>
-      {/* ── 1. Hero — asymmetric editorial masthead ─────────── */}
-      {/* Hard-left masthead (≈60%) beside a stat "colophon" ledger (≈40%) on a
-          faint kraft panel. Breaks the centered rhythm at the very top. All hero
-          content is preserved — only the axis and composition change. */}
+      {/* ── 1. Hero — centred masthead ──────────────────────── */}
+      {/* Reverted to the centred treatment (the asymmetric masthead + stat box
+          didn't land); the front-door search stays the focal point. The new
+          warm-stone palette and the spectrum spine below carry the freshness. */}
       <section
-        className="relative px-6 sm:px-12"
+        className="relative text-center flex flex-col items-center justify-center px-6 sm:px-12"
         style={{
-          paddingTop: '2.75rem',
-          paddingBottom: '2.5rem',
+          minHeight: 'clamp(340px, 56vh, 580px)',
+          paddingTop: '2.5rem',
+          paddingBottom: '2.25rem',
           background: 'linear-gradient(180deg, #FAF8F4 0%, #F0EBE3 100%)',
         }}
       >
-        <div className="max-w-6xl mx-auto grid items-start gap-10 lg:gap-16 lg:grid-cols-[minmax(0,1.6fr)_minmax(250px,1fr)]">
-          {/* LEFT — masthead + the front-door search */}
-          <div>
-            <p className="hero-rise section-dateline" style={{ marginBottom: '22px' }}>
-              The curated guide · Independent Australia
-            </p>
-            <h1 className="hero-rise" style={{
-              fontFamily: 'var(--font-display)', fontWeight: 400, letterSpacing: '-0.018em',
-              fontSize: 'clamp(2.75rem, 6.4vw, 5.5rem)', lineHeight: 1.02,
-              color: 'var(--color-ink)', margin: 0,
-            }}>
-              Discover<br />
-              <em style={{ fontStyle: 'italic' }}>independent</em><br />
-              Australia
-            </h1>
+        <h1 className="hero-rise" style={{
+          fontFamily: 'var(--font-display)', fontWeight: 400, letterSpacing: '-0.012em',
+          fontSize: 'clamp(2.6rem, 6.2vw, 5.25rem)', lineHeight: 1.08,
+          color: 'var(--color-ink)', maxWidth: '900px', textWrap: 'balance',
+        }}>
+          Discover <em style={{ fontStyle: 'italic' }}>independent</em> Australia
+        </h1>
 
-            <p className="mt-6 hero-rise" style={{
-              fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '17px',
-              lineHeight: 1.65, color: 'var(--color-muted)', maxWidth: '480px',
-              animationDelay: '0.09s',
-            }}>
-              The curated guide to Australia&apos;s best independent places — every one verified, mapped, and independently run.
-            </p>
+        <p className="mt-6 hero-rise" style={{
+          fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '17px',
+          lineHeight: 1.65, color: 'var(--color-muted)', maxWidth: '600px',
+          animationDelay: '0.09s',
+        }}>
+          The curated guide to Australia&apos;s best independent places — every one verified, mapped, and independently run.
+        </p>
 
-            {/* Search — the front door. Kicker names the tool, the bar cycles
-                example placeholders, the helper states the plain-English
-                contract, the chips run real verified queries. */}
-            <p style={{
-              fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
-              letterSpacing: '0.22em', textTransform: 'uppercase',
-              color: GOLD, marginTop: '30px',
-            }}>
-              Search the atlas
-            </p>
+        {/* Search — the front door of the site. The kicker names the tool, the
+            bar cycles example placeholders, the helper line states the
+            plain-English contract, and the chips run real verified queries. */}
+        <p style={{
+          fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
+          letterSpacing: '0.22em', textTransform: 'uppercase',
+          color: GOLD, marginTop: '28px',
+        }}>
+          Search the atlas
+        </p>
 
-            <div style={{ maxWidth: '560px' }}>
-              <HomeSearchBar />
-            </div>
+        <HomeSearchBar />
 
-            <p className="mt-3" style={{
-              fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '13.5px',
-              lineHeight: 1.6, color: 'var(--color-muted)', maxWidth: '520px',
-            }}>
-              Ask in plain English — name a thing, a place, or a feeling, and we&apos;ll search every category at once.
-            </p>
+        <p className="mt-3 px-4" style={{
+          fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '13.5px',
+          lineHeight: 1.6, color: 'var(--color-muted)', maxWidth: '560px',
+        }}>
+          Ask in plain English — name a thing, a place, or a feeling, and we&apos;ll search every category at once.
+        </p>
 
-            <div className="mt-4 flex items-center gap-x-2 gap-y-2 flex-wrap" style={{ maxWidth: '620px' }}>
-              <span style={{
-                fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '12px',
-                color: 'var(--color-muted)', letterSpacing: '0.02em',
-              }}>
-                Try
-              </span>
-              {EXAMPLE_SEARCHES.map((q) => (
-                <Link
-                  key={q}
-                  href={`/search?q=${encodeURIComponent(q)}`}
-                  className="home-try-chip inline-flex items-center"
-                  style={{
-                    fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '12.5px',
-                    color: 'var(--color-ink)', background: 'rgba(255,255,255,0.6)',
-                    border: '1px solid var(--color-border)', borderRadius: '999px',
-                    padding: '5px 13px', minHeight: 'unset', whiteSpace: 'nowrap', gap: '6px',
-                  }}
-                >
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ color: GOLD, flexShrink: 0 }}>
-                    <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  {q}
-                </Link>
-              ))}
-            </div>
+        <div className="mt-4 flex items-center justify-center gap-x-2 gap-y-2 flex-wrap px-4" style={{ maxWidth: '680px' }}>
+          <span style={{
+            fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '12px',
+            color: 'var(--color-muted)', letterSpacing: '0.02em',
+          }}>
+            Try
+          </span>
+          {EXAMPLE_SEARCHES.map((q) => (
+            <Link
+              key={q}
+              href={`/search?q=${encodeURIComponent(q)}`}
+              className="home-try-chip inline-flex items-center"
+              style={{
+                fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '12.5px',
+                color: 'var(--color-ink)', background: 'rgba(255,255,255,0.6)',
+                border: '1px solid var(--color-border)', borderRadius: '999px',
+                padding: '5px 13px', minHeight: 'unset', whiteSpace: 'nowrap', gap: '6px',
+              }}
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ color: GOLD, flexShrink: 0 }}>
+                <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              {q}
+            </Link>
+          ))}
+        </div>
 
-            <div className="mt-7 flex items-center gap-4 flex-wrap">
-              <Link
-                href="/map"
-                className="inline-flex items-center gap-2 px-7 py-3 rounded-full hover:opacity-90 transition-opacity"
-                style={{
-                  fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px',
-                  background: '#1A1A1A', color: '#FAF8F4',
-                }}
-              >
-                Explore the map
-              </Link>
-              <Link
-                href="/near-me"
-                className="inline-flex items-center gap-2 px-7 py-3 rounded-full transition-colors hover:border-[var(--color-ink)]"
-                style={{
-                  fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px',
-                  color: 'var(--color-ink)', border: '1px solid var(--color-border)',
-                }}
-              >
-                What&apos;s near me?
-              </Link>
-            </div>
+        {stats.listings > 0 && (
+          <div className="mt-7 flex items-center justify-center gap-3 sm:gap-5 flex-wrap" style={{
+            fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '13.5px', letterSpacing: '0.01em',
+          }}>
+            <span>
+              <span style={{ color: GOLD, fontWeight: 500 }}>{stats.listings.toLocaleString()}</span>
+              <span style={{ color: 'var(--color-muted)' }}> verified places</span>
+            </span>
+            <span aria-hidden="true" style={{ color: GOLD, fontSize: '5px' }}>●</span>
+            <span>
+              <span style={{ color: GOLD, fontWeight: 500 }}>{verticalCount}</span>
+              <span style={{ color: 'var(--color-muted)' }}> categories</span>
+            </span>
+            <span aria-hidden="true" style={{ color: GOLD, fontSize: '5px' }}>●</span>
+            <span>
+              <span style={{ color: GOLD, fontWeight: 500 }}>{stats.regions || '71'}</span>
+              <span style={{ color: 'var(--color-muted)' }}> regions</span>
+            </span>
           </div>
+        )}
 
-          {/* RIGHT — the stat colophon: a vertical ledger on a kraft panel */}
-          {stats.listings > 0 && (
-            <aside className="hero-rise" style={{
-              animationDelay: '0.16s',
-              background: 'rgba(231,220,198,0.5)',
-              border: '1px solid rgba(28,26,23,0.06)',
-              borderRadius: 'var(--radius-lg)',
-              padding: '8px 28px 18px',
-              alignSelf: 'start',
-            }}>
-              {[
-                { fig: stats.listings.toLocaleString(), label: 'verified places' },
-                { fig: String(verticalCount), label: 'categories' },
-                { fig: String(stats.regions || '71'), label: 'regions' },
-              ].map((s, i) => (
-                <div key={s.label} style={{
-                  padding: '18px 0',
-                  borderTop: i === 0 ? 'none' : '1px solid rgba(28,26,23,0.10)',
-                }}>
-                  <div style={{
-                    fontFamily: 'var(--font-display)', fontWeight: 400,
-                    fontSize: 'clamp(34px, 4vw, 46px)', lineHeight: 1,
-                    color: GOLD, fontVariantNumeric: 'tabular-nums',
-                  }}>
-                    {s.fig}
-                  </div>
-                  <div style={{
-                    fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
-                    letterSpacing: '0.18em', textTransform: 'uppercase',
-                    color: 'var(--color-muted)', marginTop: '9px',
-                  }}>
-                    {s.label}
-                  </div>
-                </div>
-              ))}
-            </aside>
-          )}
+        <div className="mt-6 flex items-center justify-center gap-4 flex-wrap">
+          <Link
+            href="/map"
+            className="inline-flex items-center gap-2 px-7 py-3 rounded-full hover:opacity-90 transition-opacity"
+            style={{
+              fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px',
+              background: '#1A1A1A', color: '#FAF8F4',
+            }}
+          >
+            Explore the map
+          </Link>
+          <Link
+            href="/near-me"
+            className="inline-flex items-center gap-2 px-7 py-3 rounded-full transition-colors hover:border-[var(--color-ink)]"
+            style={{
+              fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px',
+              color: 'var(--color-ink)', border: '1px solid var(--color-border)',
+            }}
+          >
+            What&apos;s near me?
+          </Link>
         </div>
       </section>
 
@@ -551,105 +523,106 @@ export default async function Home() {
         borderTop: '1px solid rgba(28,26,23,0.06)',
       }}>
         <div className="max-w-6xl mx-auto px-6 sm:px-12">
-          <div className="reveal" style={{ marginBottom: '40px', maxWidth: '560px' }}>
-            <p className="section-dateline" style={{ marginBottom: '18px' }}>
+          <div className="reveal text-center" style={{ marginBottom: '46px' }}>
+            <p style={{
+              fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
+              letterSpacing: '0.22em', textTransform: 'uppercase',
+              color: GOLD, marginBottom: '16px',
+            }}>
               What you&apos;ll find
             </p>
             <h2 style={{
               fontFamily: 'var(--font-display)', fontWeight: 400,
-              fontSize: 'clamp(28px, 3.6vw, 44px)', color: 'var(--color-ink)',
-              lineHeight: 1.1, marginBottom: '14px',
+              fontSize: 'clamp(26px, 3.4vw, 40px)', color: 'var(--color-ink)',
+              lineHeight: 1.15, marginBottom: '14px', textWrap: 'balance',
             }}>
               {COUNT_WORDS[verticalCount] || verticalCount} kinds of independent place
             </h2>
             <p style={{
               fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
-              lineHeight: 1.65, color: 'var(--color-muted)', margin: 0,
+              lineHeight: 1.65, color: 'var(--color-muted)',
+              maxWidth: '540px', margin: '0 auto',
             }}>
-              Every place we list belongs to one of {(COUNT_WORDS[verticalCount] || String(verticalCount)).toLowerCase()} categories. Read it like a field guide&apos;s contents — or open any one.
+              Every place we list belongs to one of {(COUNT_WORDS[verticalCount] || String(verticalCount)).toLowerCase()} categories. Browse a category on its own, or search across all of them at once.
             </p>
           </div>
 
-          {/* The INDEX LEDGER — each vertical a numbered row: a giant Playfair
-              numeral and a rule in that vertical's SATURATED ground colour, so
-              read top-to-bottom the ten grounds form a living colour gamut down
-              the page. Hover widens the rule, shifts the row, and slides in the
-              arrow (see .index-row). Same hrefs/counts as before. */}
-          <div style={{ borderTop: '1px solid rgba(28,26,23,0.08)' }}>
+          {/* The category cards — the comprehension grid. Reverted to the tile
+              layout, but each tile now draws its icon, count, and hover border
+              from its vertical's SATURATED ground colour (not the old muted
+              accent), so the grid carries the same richer palette as the rest. */}
+          <div className="vguide-grid">
             {VERTICAL_GUIDE.filter(v => publicVerticals.includes(v.key)).map((v, vi) => {
               const Icon = v.Icon
-              const ground = (VERTICAL_CARD_COLORS[v.key] || {}).bg || '#333'
-              const count = stats.verticalCounts[v.key]
+              const ground = (VERTICAL_CARD_COLORS[v.key] || {}).bg || v.accent
               return (
                 <Link
                   key={v.key}
                   href={`/search?vertical=${v.key}`}
-                  className="reveal index-row group flex items-center"
-                  data-reveal-index={(vi % 5) + 1}
+                  className="reveal vguide-card group block"
+                  data-reveal-index={(vi % 3) + 1}
                   style={{
-                    gap: 'clamp(14px, 2.4vw, 26px)',
-                    padding: '20px 4px',
-                    borderBottom: '1px solid rgba(28,26,23,0.08)',
-                    textDecoration: 'none',
+                    '--vc': ground,
+                    background: '#FFFFFF',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-card)',
+                    padding: '22px 22px 20px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    minHeight: '150px',
                   }}
                 >
-                  <span style={{
-                    fontFamily: 'var(--font-display)', fontWeight: 400,
-                    fontSize: 'clamp(34px, 5.4vw, 64px)', lineHeight: 0.9,
-                    letterSpacing: '-0.03em', color: ground,
-                    width: 'clamp(52px, 8vw, 92px)', flexShrink: 0,
-                    fontVariantNumeric: 'tabular-nums',
-                  }}>
-                    {String(vi + 1).padStart(2, '0')}
-                  </span>
-
-                  <span className="index-rule" style={{ background: ground, borderRadius: '2px' }} aria-hidden="true" />
-
-                  <span style={{ flex: 1, minWidth: 0 }}>
-                    <span className="flex items-center" style={{ gap: '9px', marginBottom: '4px' }}>
-                      <Icon size={14} strokeWidth={1.7} style={{ color: ground, flexShrink: 0 }} aria-hidden="true" />
+                  <div className="flex items-center justify-between" style={{ marginBottom: '14px' }}>
+                    <div className="flex items-center" style={{ gap: '11px' }}>
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        width: '36px', height: '36px', borderRadius: '10px',
+                        background: `${ground}14`,
+                      }}>
+                        <Icon size={18} strokeWidth={1.6} style={{ color: ground }} />
+                      </span>
                       <span style={{
                         fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
-                        letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-ink)',
+                        letterSpacing: '0.1em', textTransform: 'uppercase',
+                        color: 'var(--color-ink)',
                       }}>
                         {v.label}
                       </span>
-                    </span>
-                    <span style={{
-                      display: 'block', fontFamily: 'var(--font-display)', fontWeight: 400,
-                      fontSize: 'clamp(20px, 2.4vw, 26px)', lineHeight: 1.12, color: 'var(--color-ink)',
-                    }}>
-                      {v.name}
-                    </span>
-                    <span className="hidden sm:block" style={{
-                      fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '13.5px',
-                      lineHeight: 1.5, color: 'var(--color-muted)', marginTop: '3px',
-                    }}>
-                      {v.desc}
-                    </span>
-                  </span>
-
-                  <span className="flex items-center" style={{ gap: '14px', flexShrink: 0 }}>
-                    {count > 0 && (
-                      <span style={{
-                        fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
-                        letterSpacing: '0.03em', color: ground, fontVariantNumeric: 'tabular-nums',
-                      }}>
-                        {count.toLocaleString()}
-                      </span>
-                    )}
-                    <span className="index-arrow" aria-hidden="true" style={{
-                      color: GOLD, fontSize: '18px', fontWeight: 500, lineHeight: 1,
+                    </div>
+                    <span className="vguide-arrow" aria-hidden="true" style={{
+                      color: ground, fontSize: '16px', fontWeight: 500, lineHeight: 1,
                     }}>
                       &rarr;
                     </span>
-                  </span>
+                  </div>
+                  <h3 style={{
+                    fontFamily: 'var(--font-display)', fontWeight: 400,
+                    fontSize: '21px', lineHeight: 1.2, color: 'var(--color-ink)',
+                    marginBottom: '7px',
+                  }}>
+                    {v.name}
+                  </h3>
+                  <p style={{
+                    fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '13.5px',
+                    lineHeight: 1.55, color: 'var(--color-muted)', margin: 0,
+                  }}>
+                    {v.desc}
+                  </p>
+                  {stats.verticalCounts[v.key] > 0 && (
+                    <p style={{
+                      fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '11.5px',
+                      letterSpacing: '0.04em', color: ground,
+                      margin: 0, marginTop: 'auto', paddingTop: '12px',
+                    }}>
+                      {stats.verticalCounts[v.key].toLocaleString()} places
+                    </p>
+                  )}
                 </Link>
               )
             })}
           </div>
 
-          <div className="reveal" style={{ marginTop: '32px' }}>
+          <div className="reveal text-center" style={{ marginTop: '34px' }}>
             <Link href="/explore" className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity" style={{
               fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
               color: GOLD, padding: '10px 4px', minHeight: 44,
@@ -661,8 +634,16 @@ export default async function Home() {
       </ScrollReveal>
 
       {/* ── 3. Worth Finding This Week ──────────────────── */}
+      {/* On its own pale cream band (with hairline edges) so it reads as a
+          distinct section from the stone-ground "Worth finding nearby" below —
+          and the dark lead/rail cards lift off the lighter surface. */}
       {featured.length > 0 && (
-        <ScrollReveal as="section" style={{ paddingBlock: '80px' }}>
+        <ScrollReveal as="section" style={{
+          paddingBlock: '80px',
+          background: 'linear-gradient(180deg, #FBF8F2 0%, #F8F4EB 100%)',
+          borderTop: '1px solid rgba(28,26,23,0.06)',
+          borderBottom: '1px solid rgba(28,26,23,0.08)',
+        }}>
           <div className="max-w-5xl mx-auto px-6 sm:px-12">
             <div className="reveal" style={{ marginBottom: '36px', maxWidth: '560px' }}>
               <p className="section-dateline" style={{ marginBottom: '16px' }}>
@@ -820,14 +801,14 @@ export default async function Home() {
               </h2>
             </div>
             {articlesWithImages.length >= 2 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-start">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 {articlesWithImages.map((article, ai) => (
                   <a
                     key={article.id || ai}
                     href={article.article_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`reveal group block${ai === 1 ? ' sm:mt-12' : ''}`}
+                    className="reveal group block"
                     data-reveal-index={ai}
                   >
                     <div className="overflow-hidden rounded-lg" style={{
@@ -971,7 +952,7 @@ export default async function Home() {
                 const regionSlug = CLUSTER_REGION_SLUGS[cluster.region]
                 return (
                   <div key={cluster.region} className="reveal" data-reveal-index={ci + 1}>
-                    <div style={{ marginBottom: '16px', maxWidth: '520px', ...(ci % 2 === 1 ? { marginLeft: 'auto', textAlign: 'right' } : {}) }}>
+                    <div style={{ marginBottom: '16px', maxWidth: '520px' }}>
                       {regionSlug ? (
                         <Link href={`/regions/${regionSlug}`} className="group inline-block">
                           <h3 style={{
@@ -1276,18 +1257,16 @@ export default async function Home() {
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {eventCards.map((event, ei) => {
-                  const isLead = ei === 0
-                  return (
+                {eventCards.map((event, ei) => (
                   <Link
                     key={event.id}
                     href={`/events/${event.slug}`}
-                    className={`reveal group listing-card block overflow-hidden${isLead ? ' sm:col-span-2' : ''}`}
+                    className="reveal group listing-card block overflow-hidden"
                     data-reveal-index={ei + 1}
                     style={{ background: '#fff', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-card)' }}
                   >
                     {event.image_url && (
-                      <div className="overflow-hidden" style={{ height: isLead ? '240px' : '160px' }}>
+                      <div className="overflow-hidden" style={{ height: '160px' }}>
                         <img
                           src={event.image_url}
                           alt=""
@@ -1296,7 +1275,7 @@ export default async function Home() {
                         />
                       </div>
                     )}
-                    <div style={{ padding: isLead ? '22px 24px 26px' : '18px 20px 22px' }}>
+                    <div style={{ padding: '18px 20px 22px' }}>
                       <p style={{
                         fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 600,
                         letterSpacing: '0.08em', textTransform: 'uppercase',
@@ -1306,7 +1285,7 @@ export default async function Home() {
                       </p>
                       <h3 style={{
                         fontFamily: 'var(--font-display)', fontWeight: 400,
-                        fontSize: isLead ? 'clamp(24px, 3vw, 30px)' : '20px', lineHeight: 1.22,
+                        fontSize: '20px', lineHeight: 1.28,
                         color: 'var(--color-ink)', marginBottom: '6px',
                       }}>
                         {event.name}
@@ -1319,7 +1298,7 @@ export default async function Home() {
                       </p>
                     </div>
                   </Link>
-                )})}
+                ))}
               </div>
 
               <div className="mt-10 flex items-center justify-center gap-6 flex-wrap">
