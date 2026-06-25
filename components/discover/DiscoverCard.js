@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { VERTICAL_CARD_TOKENS, VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 
@@ -12,23 +13,55 @@ function getHook(text) {
   return first
 }
 
+/** sub_type → a readable category label (native data, no AI). */
+function formatCategory(subType) {
+  if (!subType) return ''
+  return subType
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+const PRESENCE_LABELS = {
+  by_appointment: 'By appointment',
+  markets: 'Markets & stalls',
+  mobile: 'Mobile / no fixed address',
+  online: 'Online',
+  seasonal: 'Seasonal',
+}
+
 /**
- * DiscoverCard — the floating, vertical-tinted card. Purely presentational;
- * the deck owns gestures, advancement, and the action row. Each card inherits
- * its vertical's typographic-card tint (the same tokens unclaimed cards use),
- * so moving through the deck reads as moving through the ten verticals.
+ * DiscoverCard — the floating, vertical-tinted card. Purely presentational
+ * apart from a self-contained "More" info panel that reveals the listing's own
+ * fields (category, full description, location) — native data only, no AI.
+ * The deck owns gestures, advancement, and the action row.
  *
  * Props:
- *   listing  – { name, slug, vertical, description, suburb, region, state }
+ *   listing  – { name, slug, vertical, sub_type, description, suburb, region, state, presence_type? }
  *   variant  – 'fullscreen' | 'band'
  *   hint     – true when rendered as the faint next-card behind the active one
  */
 export default function DiscoverCard({ listing, variant = 'fullscreen', hint = false }) {
+  const [showInfo, setShowInfo] = useState(false)
   const tokens = VERTICAL_CARD_TOKENS[listing.vertical] || VERTICAL_CARD_TOKENS.portal
   const accent = VERTICAL_ACCENTS[listing.vertical] || tokens.bg
   const hook = getHook(listing.description)
-  const breadcrumb = [listing.suburb, listing.region, listing.state].filter(Boolean).join(' · ')
+  const locParts = [listing.suburb, listing.region, listing.state]
+    .filter(Boolean)
+    .filter((p, i, arr) => i === 0 || p.toLowerCase() !== arr[i - 1].toLowerCase())
+  const breadcrumb = locParts.join(' · ')
   const initial = (listing.name || '?').trim()[0]?.toUpperCase() || '?'
+  const category = formatCategory(listing.sub_type)
+  const presence = listing.presence_type && listing.presence_type !== 'permanent'
+    ? PRESENCE_LABELS[listing.presence_type] || null
+    : null
+
+  // Offer "More" only when there's genuinely more than the hook (or a category
+  // worth surfacing). Never on the faint hint card.
+  const hasMore = !hint && (
+    !!category ||
+    !!presence ||
+    (!!listing.description && listing.description.trim().length > hook.length + 8)
+  )
 
   return (
     <article
@@ -53,6 +86,21 @@ export default function DiscoverCard({ listing, variant = 'fullscreen', hint = f
         {initial}
       </span>
 
+      {hasMore && (
+        <button
+          type="button"
+          className="dd-more-tab"
+          onClick={() => setShowInfo(true)}
+          aria-label={`More about ${listing.name}`}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 11v5" /><path d="M12 8h.01" />
+          </svg>
+          More
+        </button>
+      )}
+
       <div className="dd-card-body">
         <span className="dd-tag" style={{ background: accent, color: '#fff' }}>
           {tokens.label}
@@ -64,8 +112,7 @@ export default function DiscoverCard({ listing, variant = 'fullscreen', hint = f
 
         {breadcrumb && <p className="dd-breadcrumb">{breadcrumb}</p>}
 
-        {/* View listing — opens the portal detail page. Disabled visually on
-            the hinted card so it isn't a tab target behind the active card. */}
+        {/* View listing — opens the portal detail page. */}
         {!hint ? (
           <Link
             href={`/place/${listing.slug}`}
@@ -84,6 +131,23 @@ export default function DiscoverCard({ listing, variant = 'fullscreen', hint = f
           <span className="dd-view" style={{ color: tokens.text }} aria-hidden="true">View listing</span>
         )}
       </div>
+
+      {/* Info panel — the listing's own fields, no AI. */}
+      {showInfo && !hint && (
+        <div className="dd-info-panel" style={{ color: tokens.text }}>
+          <button type="button" className="dd-info-close" onClick={() => setShowInfo(false)} aria-label="Close details">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+          </button>
+          {category && <p className="dd-info-cat">{tokens.label} · {category}</p>}
+          {!category && <p className="dd-info-cat">{tokens.label}</p>}
+          <h3 className="dd-info-name">{listing.name}</h3>
+          <p className="dd-info-desc">{listing.description}</p>
+          <div className="dd-info-meta">
+            {breadcrumb && <span className="dd-info-row">{breadcrumb}</span>}
+            {presence && <span className="dd-info-row">{presence}</span>}
+          </div>
+        </div>
+      )}
     </article>
   )
 }

@@ -7,7 +7,7 @@ import { getPublicVerticals } from '@/lib/verticalUrl'
 
 // Card payload: everything the floating card renders. presence_type is NOT
 // here — reflection is derived server-side (below) where we can read it.
-const CARD_FIELDS = 'id, name, slug, vertical, sub_type, description, region, state, suburb, hero_image_url'
+const CARD_FIELDS = 'id, name, slug, vertical, sub_type, description, region, state, suburb, hero_image_url, presence_type'
 
 const DEFAULT_LIMIT = 10
 const MAX_MATCH = 100
@@ -118,6 +118,7 @@ function trimCard(l) {
     state: l.state,
     suburb: l.suburb,
     hero_image_url: l.hero_image_url,
+    presence_type: l.presence_type,
   }
 }
 
