@@ -9,6 +9,7 @@ import { isPublicListing } from '@/lib/listings/publicFilter'
 import { listingJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
 import { checkAdmin } from '@/lib/admin-auth'
 import { isApprovedImageSource, isHeroDisplayable } from '@/lib/image-utils'
+import OptimizedImage from '@/components/OptimizedImage'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 import { isMobileListing, mobileLocationLine, MOBILE_LABEL } from '@/lib/listings/presence'
 import { stripTrackingParams } from '@/lib/urlHygiene'
@@ -687,10 +688,11 @@ export default async function PlacePage({ params }) {
           typographic hero card. Grandfathered + clean images render as before. */}
       {isApprovedImageSource(listing.hero_image_url) && isHeroDisplayable(listing) ? (
         <div className="atlas-hero-band w-full relative overflow-hidden">
-          <img
+          <OptimizedImage
             src={listing.hero_image_url}
             alt={listing.name}
-            loading="eager"
+            priority
+            sizes="100vw"
             className="w-full h-full object-cover absolute inset-0"
           />
           <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(28,26,23,0.6) 0%, rgba(28,26,23,0.15) 40%, transparent 70%)' }} />

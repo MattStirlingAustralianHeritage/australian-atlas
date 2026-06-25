@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import ConfirmDialog from '@/components/ConfirmDialog'
-import { compressImage } from '@/lib/compressImage'
+import { uploadOperatorImage } from '@/lib/uploadOperatorImage'
 
 /**
  * Events manager for the listing editor (paid perk).
@@ -73,17 +73,9 @@ export default function EventsSection({ listingId, token, isPaid, listingSlug })
     }
     setUploading(true)
     try {
-      const fd = new FormData()
-      fd.append('file', await compressImage(file))
-      fd.append('listingId', listingId)
-      fd.append('assetKind', 'event')
-      fd.append('uploadWarrantyAccepted', 'true')
-      const res = await fetch('/api/dashboard/listing/upload', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd })
-      let data = {}
-      try { data = await res.json() } catch {}
-      if (!res.ok) setFormError(data.error || (res.status === 413 ? 'That image is too large — please use a smaller photo.' : 'Image upload failed'))
-      else patchForm({ hero_image_url: data.url })
-    } catch { setFormError('Image upload failed') }
+      const url = await uploadOperatorImage(file, { token, listingId, assetKind: 'hero' })
+      patchForm({ hero_image_url: url })
+    } catch (err) { setFormError(err?.message || 'Image upload failed') }
     finally { setUploading(false) }
   }
 

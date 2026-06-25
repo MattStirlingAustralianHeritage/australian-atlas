@@ -13,9 +13,16 @@ const SECURITY_HEADERS = [
 
 const nextConfig = {
   images: {
+    // Only our own Supabase-hosted images are sent through the optimizer (see
+    // components/OptimizedImage.js — approved external hosts pass through as-is,
+    // so we don't need to allowlist every operator CDN here).
     remotePatterns: [
       { protocol: 'https', hostname: '*.supabase.co' },
     ],
+    formats: ['image/avif', 'image/webp'],
+    deviceSizes: [360, 640, 750, 828, 1080, 1200, 1920],
+    imageSizes: [96, 160, 240, 320, 480],
+    minimumCacheTTL: 31536000,
   },
   async redirects() {
     return [
