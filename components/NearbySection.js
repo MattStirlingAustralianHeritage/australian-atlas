@@ -212,12 +212,13 @@ export default function NearbySection() {
               <Link
                 key={listing.id}
                 href={`/place/${listing.slug}`}
-                className="listing-card group block flex-shrink-0 rounded-xl overflow-hidden"
+                className="listing-card group block flex-shrink-0 overflow-hidden"
                 style={{
                   width: 'clamp(260px, 40vw, 300px)',
                   scrollSnapAlign: 'start',
                   background: listing.image_url ? '#1A1A1A' : bg,
                   border: '1px solid transparent',
+                  borderRadius: 'var(--radius-card)',
                 }}
               >
                 {listing.image_url && (

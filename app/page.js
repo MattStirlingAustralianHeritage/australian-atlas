@@ -532,7 +532,7 @@ export default async function Home() {
                     '--vc': v.accent,
                     background: '#FFFFFF',
                     border: '1px solid var(--color-border)',
-                    borderRadius: '14px',
+                    borderRadius: 'var(--radius-card)',
                     padding: '22px 22px 20px',
                     display: 'flex',
                     flexDirection: 'column',
@@ -625,11 +625,12 @@ export default async function Home() {
                   <Link
                     key={listing.id}
                     href={`/place/${listing.slug}`}
-                    className="reveal group listing-card block rounded-xl overflow-hidden"
+                    className="reveal group listing-card block overflow-hidden"
                     data-reveal-index={li + 1}
                     style={{
                       background: listing.hero_image_url ? '#1A1A1A' : colors.bg,
                       border: '1px solid transparent',
+                      borderRadius: 'var(--radius-card)',
                     }}
                   >
                     {listing.hero_image_url && (
@@ -874,9 +875,10 @@ export default async function Home() {
                           <Link
                             key={pick.id}
                             href={`/place/${pick.slug}`}
-                            className="listing-card block rounded-xl overflow-hidden"
+                            className="listing-card block overflow-hidden"
                             style={{
                               background: colors.bg,
+                              borderRadius: 'var(--radius-card)',
                               padding: '20px 16px',
                               minHeight: '140px',
                               display: 'flex',
@@ -921,11 +923,12 @@ export default async function Home() {
           <div className="max-w-xl mx-auto">
             <Link
               href="/on-this-road"
-              className="reveal group listing-card block rounded-2xl"
+              className="reveal group listing-card block"
               data-reveal-index="1"
               style={{
                 background: '#2C2420',
                 border: '1px solid transparent',
+                borderRadius: 'var(--radius-lg)',
                 padding: '32px 28px',
                 minHeight: '200px',
                 display: 'flex',
@@ -981,11 +984,12 @@ export default async function Home() {
                 <Link
                   key={r.slug}
                   href={`/regions/${r.slug}`}
-                  className="reveal group listing-card block rounded-xl overflow-hidden"
+                  className="reveal group listing-card block overflow-hidden"
                   data-reveal-index={ri + 1}
                   style={{
                     background: gradient,
-                    border: '1px solid #E8E0D4',
+                    border: '1px solid #E2D8C6',
+                    borderRadius: 'var(--radius-card)',
                   }}
                 >
                   <div className="p-6 flex flex-col" style={{ minHeight: 140 }}>
@@ -1113,7 +1117,9 @@ export default async function Home() {
       </section>
 
       {/* ── 9. What's on (Events) ─────────────────────── */}
-      <ScrollReveal as="section" style={{ paddingBlock: '80px', background: 'var(--color-stone)' }}>
+      {/* Hairline top edge so the soft tonal step from the warm "Plan a stay"
+          band into the stone ground reads as a deliberate section boundary. */}
+      <ScrollReveal as="section" style={{ paddingBlock: '80px', background: 'var(--color-stone)', borderTop: '1px solid rgba(28,26,23,0.06)' }}>
         <div className="max-w-5xl mx-auto px-6 sm:px-12">
           <div className="reveal text-center" style={{ marginBottom: '40px' }}>
             <h2 style={{
@@ -1158,9 +1164,9 @@ export default async function Home() {
                   <Link
                     key={event.id}
                     href={`/events/${event.slug}`}
-                    className="reveal group listing-card block rounded-xl overflow-hidden"
+                    className="reveal group listing-card block overflow-hidden"
                     data-reveal-index={ei + 1}
-                    style={{ background: '#fff', border: '1px solid var(--color-border)' }}
+                    style={{ background: '#fff', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-card)' }}
                   >
                     {event.image_url && (
                       <div className="overflow-hidden" style={{ height: '160px' }}>
@@ -1214,7 +1220,7 @@ export default async function Home() {
           ) : (
             <div className="reveal text-center" style={{
               maxWidth: '440px', margin: '0 auto',
-              border: '1px solid var(--color-border)', borderRadius: '16px',
+              border: '1px solid var(--color-border)', borderRadius: 'var(--radius-lg)',
               padding: '48px 32px', background: '#fff',
             }}>
               <p style={{
