@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { createAuthServerClient } from '@/lib/supabase/auth-clients'
 import { computeTasteVector } from '@/lib/discover/tasteVector'
+import { getTasteProfile } from '@/lib/discover/getTasteProfile'
 import { deriveTasteReflection, shouldShowReflection } from '@/lib/discover/tasteReflection'
 import { getPublicVerticals } from '@/lib/verticalUrl'
 
@@ -166,17 +167,31 @@ export async function POST(request) {
   // The in-memory session sets reset on reload, but a logged-in user's picks
   // persist in user_saves — so without this a saved place reappears on the
   // next visit/refresh. Re-derive the exclusion from user_saves every request.
+  let user = null
   try {
     const auth = await createAuthServerClient()
-    const { data: { user } } = await auth.auth.getUser()
+    const res = await auth.auth.getUser()
+    user = res?.data?.user || null
     if (user) {
       const { data: saved } = await sb.from('user_saves').select('listing_id').eq('user_id', user.id)
       for (const r of saved || []) seen.add(String(r.listing_id))
     }
   } catch { /* anonymous, or auth unavailable — nothing to exclude */ }
 
-  // ── Taste vector (cold start when no picks yet) ─────────────────────
-  const { literal: taste, error: tasteError } = await computeTasteVector(sb, pickedIds, skippedIds)
+  // ── Durable taste baseline (option a: seed-from-baseline) ───────────
+  // A signed-in user with a qualifying persisted profile seeds the feed from
+  // their saved/trail history, so the deck reflects their taste from card one —
+  // even before the first pick this session. Anonymous / no profile / below the
+  // confidence floor → null → the session-only vector below (today's behaviour).
+  let baseVector = null
+  if (user) {
+    const tp = await getTasteProfile(sb, user.id)
+    if (tp?.vector) baseVector = tp.vector
+  }
+
+  // ── Taste vector (durable baseline blended with this session; cold start
+  //     only when neither exists) ────────────────────────────────────────
+  const { literal: taste, error: tasteError } = await computeTasteVector(sb, pickedIds, skippedIds, baseVector)
   if (tasteError) {
     return NextResponse.json({ error: `Taste ranking failed: ${tasteError}` }, { status: 500 })
   }
