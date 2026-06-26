@@ -1,0 +1,222 @@
+[
+  {
+    "region": "Canberra District",
+    "rows": 9
+  },
+  {
+    "region": "Blue Mountains",
+    "rows": 10
+  },
+  {
+    "region": "Byron Bay",
+    "rows": 4
+  },
+  {
+    "region": "Canberra Wine District",
+    "rows": 3
+  },
+  {
+    "region": "Central Coast",
+    "rows": 3
+  },
+  {
+    "region": "Coffs Coast",
+    "rows": 2
+  },
+  {
+    "region": "Hunter Valley",
+    "rows": 3
+  },
+  {
+    "region": "Mudgee",
+    "rows": 1
+  },
+  {
+    "region": "New England North West",
+    "rows": 2
+  },
+  {
+    "region": "Newcastle",
+    "rows": 1
+  },
+  {
+    "region": "Northern Rivers",
+    "rows": 8
+  },
+  {
+    "region": "Orange",
+    "rows": 1
+  },
+  {
+    "region": "Port Macquarie & Hastings",
+    "rows": 1
+  },
+  {
+    "region": "Riverina",
+    "rows": 1
+  },
+  {
+    "region": "Snowy Mountains",
+    "rows": 3
+  },
+  {
+    "region": "South Coast NSW",
+    "rows": 5
+  },
+  {
+    "region": "Southern Highlands",
+    "rows": 3
+  },
+  {
+    "region": "Sydney",
+    "rows": 37
+  },
+  {
+    "region": "Wollongong",
+    "rows": 5
+  },
+  {
+    "region": "Alice Springs & Red Centre",
+    "rows": 5
+  },
+  {
+    "region": "Darwin & Top End",
+    "rows": 8
+  },
+  {
+    "region": "Adelaide",
+    "rows": 40
+  },
+  {
+    "region": "Brisbane",
+    "rows": 24
+  },
+  {
+    "region": "Cairns & Tropical North",
+    "rows": 5
+  },
+  {
+    "region": "Capricorn Coast",
+    "rows": 1
+  },
+  {
+    "region": "Granite Belt",
+    "rows": 1
+  },
+  {
+    "region": "Scenic Rim",
+    "rows": 10
+  },
+  {
+    "region": "Sunshine Coast",
+    "rows": 2
+  },
+  {
+    "region": "Sunshine Coast Hinterland",
+    "rows": 17
+  },
+  {
+    "region": "Toowoomba & Darling Downs",
+    "rows": 2
+  },
+  {
+    "region": "Townsville",
+    "rows": 1
+  },
+  {
+    "region": "Adelaide Hills",
+    "rows": 10
+  },
+  {
+    "region": "Barossa Valley",
+    "rows": 6
+  },
+  {
+    "region": "Clare Valley",
+    "rows": 1
+  },
+  {
+    "region": "Kangaroo Island",
+    "rows": 1
+  },
+  {
+    "region": "McLaren Vale",
+    "rows": 3
+  },
+  {
+    "region": "Cradle Country",
+    "rows": 13
+  },
+  {
+    "region": "Hobart & Southern Tasmania",
+    "rows": 25
+  },
+  {
+    "region": "Hobart City",
+    "rows": 24
+  },
+  {
+    "region": "Launceston & Tamar Valley",
+    "rows": 14
+  },
+  {
+    "region": "Tarkine & West Coast",
+    "rows": 2
+  },
+  {
+    "region": "Bendigo",
+    "rows": 1
+  },
+  {
+    "region": "Daylesford & Hepburn Springs",
+    "rows": 1
+  },
+  {
+    "region": "Geelong",
+    "rows": 3
+  },
+  {
+    "region": "Gippsland",
+    "rows": 4
+  },
+  {
+    "region": "Great Ocean Road",
+    "rows": 5
+  },
+  {
+    "region": "Melbourne",
+    "rows": 36
+  },
+  {
+    "region": "Mornington Peninsula",
+    "rows": 8
+  },
+  {
+    "region": "Phillip Island",
+    "rows": 2
+  },
+  {
+    "region": "Southern Forests",
+    "rows": 1
+  },
+  {
+    "region": "Victorian High Country",
+    "rows": 8
+  },
+  {
+    "region": "Yarra Valley",
+    "rows": 11
+  },
+  {
+    "region": "Australia's Golden Outback",
+    "rows": 1
+  },
+  {
+    "region": "Margaret River",
+    "rows": 11
+  },
+  {
+    "region": "Perth",
+    "rows": 34
+  }
+]

@@ -1,0 +1,74 @@
+[
+  {
+    "id": "ba2a705a",
+    "old": "26 Gray Street, New Farm",
+    "new": "Brisbane"
+  },
+  {
+    "id": "719f2a2e",
+    "old": "192 Syndicate Rd, allebudgera Valley Queensland",
+    "new": "Tallebudgera Valley"
+  },
+  {
+    "id": "f57db8af",
+    "old": "1800 Glen Davis Rd",
+    "new": "Glen Davis"
+  },
+  {
+    "id": "22f475e1",
+    "old": "40 Seal Rocks Rd",
+    "new": "Seal Rocks"
+  },
+  {
+    "id": "9390f68d",
+    "old": "969 Bombah Point Rd",
+    "new": "Bombah Point"
+  },
+  {
+    "id": "8dd344f5",
+    "old": "2 Euroka Ave",
+    "new": "Kempsey"
+  },
+  {
+    "id": "94edd075",
+    "old": "1 Seaworld Dr",
+    "new": "Gold Coast"
+  },
+  {
+    "id": "8a8cba2c",
+    "old": "88 William St",
+    "new": "Young"
+  },
+  {
+    "id": "e5b034bd",
+    "old": "175 Swan St",
+    "new": "Hunter Valley"
+  },
+  {
+    "id": "87bd88a7",
+    "old": "14228 Tasman Hwy",
+    "new": "East Coast"
+  },
+  {
+    "id": "0014b4b8",
+    "old": "Lime Kiln Rd, Australian Capital Territory",
+    "new": "Canberra District"
+  },
+  {
+    "id": "65ce8738",
+    "old": "4 Elizabeth St",
+    "new": "Gold Coast"
+  },
+  {
+    "id": "43aabcdc",
+    "old": "32 Bean Ln",
+    "new": null,
+    "reason": "32 Bean Ln — Hartley/Lithgow area, no matching live or free-text region"
+  },
+  {
+    "id": "76e9558b",
+    "old": "60 Smith St",
+    "new": null,
+    "reason": "60 Smith St — Redlands bayside (Victoria Point), no matching region"
+  }
+]
