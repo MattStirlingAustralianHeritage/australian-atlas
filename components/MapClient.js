@@ -612,7 +612,18 @@ export default function MapClient({
           pointerEvents: 'auto', boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
         }}>
           {[{ key: 'map', label: 'Map' }, { key: 'builder', label: 'Build a trail' }].map(tab => (
-            <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
+            <button key={tab.key} onClick={() => {
+              // On phones the builder is its own full-screen page with its own
+              // Builder/Map tabs — iframing it here would stack a second tab bar
+              // on top of the page's. Navigate instead so mobile gets one clean
+              // chrome (the builder carries a "← Map" link back here). Desktop
+              // keeps the in-place iframe tab.
+              if (tab.key === 'builder' && typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches) {
+                window.location.href = '/trails/builder'
+                return
+              }
+              setActiveTab(tab.key)
+            }} style={{
               padding: '10px 20px', border: 'none', cursor: 'pointer',
               fontSize: 12, fontWeight: activeTab === tab.key ? 600 : 400,
               fontFamily: 'var(--font-sans)', minHeight: 44,

@@ -80,7 +80,7 @@ export default function StopsPanel({
           <div style={{ fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 8 }}>
             No stops yet
           </div>
-          Click any pin on the map, search above, or start from a suggestion.
+          Tap a pin on the map, search above, or start from a suggestion.
         </div>
       ) : (
         <>

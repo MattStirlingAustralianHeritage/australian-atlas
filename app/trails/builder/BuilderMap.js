@@ -1,7 +1,7 @@
 'use client'
 
 import 'mapbox-gl/dist/mapbox-gl.css'
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { getVerticalBadge, getVerticalBrandColour, VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 
 const VERTICAL_COLORS = VERTICAL_ACCENTS
@@ -56,6 +56,13 @@ export default function BuilderMap({
   const stopIdsRef = useRef(stopIds)
   const prevStopsLenRef = useRef(0)
   const callbacksRef = useRef({ onAddStop, onRemoveStop, onViewportChange })
+
+  // Legend: always open on desktop, collapsed to a small pill on phones so it
+  // doesn't blanket the bottom-left of a 375px map (and clear the Mapbox logo).
+  const [legendOpen, setLegendOpen] = useState(true)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches) setLegendOpen(false)
+  }, [])
 
   useEffect(() => { stopIdsRef.current = stopIds }, [stopIds])
   useEffect(() => { callbacksRef.current = { onAddStop, onRemoveStop, onViewportChange } }, [onAddStop, onRemoveStop, onViewportChange])
@@ -417,30 +424,54 @@ export default function BuilderMap({
     <>
       <div ref={containerRef} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
 
-      {/* Compact legend */}
-      <div style={{
-        position: 'absolute', bottom: 36, left: 12, background: 'rgba(250,247,242,0.97)',
-        border: '1px solid var(--color-border)', borderRadius: 4, padding: '10px 12px', zIndex: 5,
-        maxWidth: 190,
-      }}>
-        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', marginBottom: 7, fontFamily: 'var(--font-body)' }}>
-          Click any pin to add it
+      {/* Compact legend — collapses to a pill on phones */}
+      {legendOpen ? (
+        <div style={{
+          position: 'absolute', bottom: 36, left: 12, background: 'rgba(250,247,242,0.97)',
+          border: '1px solid var(--color-border)', borderRadius: 4, padding: '10px 12px', zIndex: 5,
+          maxWidth: 190, boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 7 }}>
+            <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', fontFamily: 'var(--font-body)' }}>
+              Tap a pin to add it
+            </span>
+            <button onClick={() => setLegendOpen(false)} aria-label="Hide legend" className="builder-legend-close" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-muted)', fontSize: 15, lineHeight: 1, padding: 0, display: 'none' }}>×</button>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px 12px' }}>
+            {Object.entries(VERTICAL_COLORS).map(([key, color]) => (
+              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, display: 'inline-block', flexShrink: 0 }} />
+                <span style={{ fontSize: 9.5, color: 'var(--color-ink)', fontFamily: 'var(--font-body)' }}>{getVerticalBadge(key)}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <svg width="22" height="8" style={{ flexShrink: 0 }}>
+              <line x1="0" y1="4" x2="22" y2="4" stroke="#5F8A7E" strokeWidth="2.5" strokeDasharray="4 3" />
+            </svg>
+            <span style={{ fontSize: 9.5, color: 'var(--color-ink)', fontFamily: 'var(--font-body)' }}>Your route</span>
+          </div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px 12px' }}>
-          {Object.entries(VERTICAL_COLORS).map(([key, color]) => (
-            <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, display: 'inline-block', flexShrink: 0 }} />
-              <span style={{ fontSize: 9.5, color: 'var(--color-ink)', fontFamily: 'var(--font-body)' }}>{getVerticalBadge(key)}</span>
-            </div>
-          ))}
-        </div>
-        <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', gap: 6 }}>
-          <svg width="22" height="8" style={{ flexShrink: 0 }}>
-            <line x1="0" y1="4" x2="22" y2="4" stroke="#5F8A7E" strokeWidth="2.5" strokeDasharray="4 3" />
-          </svg>
-          <span style={{ fontSize: 9.5, color: 'var(--color-ink)', fontFamily: 'var(--font-body)' }}>Your route</span>
-        </div>
-      </div>
+      ) : (
+        <button onClick={() => setLegendOpen(true)} style={{
+          position: 'absolute', bottom: 36, left: 12, zIndex: 5,
+          background: 'rgba(250,247,242,0.97)', border: '1px solid var(--color-border)',
+          borderRadius: 999, padding: '7px 13px', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: 6, minHeight: 36,
+          boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
+          fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+          color: 'var(--color-muted)', fontFamily: 'var(--font-body)',
+        }}>
+          <span style={{ display: 'inline-flex', gap: 2 }}>
+            {['#C4973B', '#5f8a7e', '#C4603A'].map(c => (
+              <span key={c} style={{ width: 7, height: 7, borderRadius: '50%', background: c }} />
+            ))}
+          </span>
+          Key
+        </button>
+      )}
+      {/* Show the close affordance only on touch/small screens */}
+      <style>{`@media (max-width: 768px) { .builder-legend-close { display: inline-flex !important; } }`}</style>
     </>
   )
 }

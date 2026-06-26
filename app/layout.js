@@ -24,6 +24,15 @@ const dmSans = DM_Sans({
   display: "swap",
 });
 
+// Mobile viewport + browser-chrome tint. Kept to the safe defaults (no
+// viewport-fit:cover) so no page tucks content under a notch; themeColor
+// matches the warm page ground so the status/URL bar blends in on phones.
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  themeColor: '#EFE7D8',
+}
+
 export const metadata = {
   title: "Australian Atlas — Discover Australia's best independent places",
   description:
