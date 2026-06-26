@@ -11,9 +11,50 @@ import './discover.css'
 const BATCH_LIMIT = 10
 const SWIPE_THRESHOLD = 80
 const EXIT_MS = 280
+// Hard guarantee on the SERVED sequence: never show more than this many of one
+// vertical in a row. Enforced client-side (we know exactly what's been shown),
+// independent of server ranking — reorders the buffer to pull up a different
+// vertical before a 4th-in-a-row would appear.
+const CLIENT_MAX_RUN = 3
 
 function uniq(arr) {
   return [...new Set(arr)]
+}
+
+/**
+ * Reorder `queue` (upcoming cards) so the served sequence never exceeds
+ * `maxRun` of one vertical consecutively, continuing the run already shown
+ * (`servedVerticals`). queue[0] (the current/just-advanced card) is kept in
+ * place; only later cards are pulled up. If the buffer has no different-vertical
+ * card to pull (rare — the server returns cross-sections), the run is left as-is
+ * and a top-up fetch brings diversity.
+ */
+function capConsecutive(queue, servedVerticals, maxRun) {
+  if (!Array.isArray(queue) || queue.length < 2) return queue
+  const out = queue.slice()
+  // Seed the run from what's already been shown.
+  let rv = null, rc = 0
+  for (let i = servedVerticals.length - 1; i >= 0; i--) {
+    if (rv === null) { rv = servedVerticals[i]; rc = 1 }
+    else if (servedVerticals[i] === rv) rc += 1
+    else break
+  }
+  // queue[0] is current. If it isn't the last-shown vertical, it starts a new run.
+  if (out[0].vertical !== rv) { rv = out[0].vertical; rc = 1 }
+  for (let i = 1; i < out.length; i += 1) {
+    if (out[i].vertical === rv && rc >= maxRun) {
+      let alt = -1
+      for (let j = i + 1; j < out.length; j += 1) {
+        if (out[j].vertical !== rv) { alt = j; break }
+      }
+      if (alt === -1) break // nothing different left to pull up
+      const [c] = out.splice(alt, 1)
+      out.splice(i, 0, c)
+    }
+    if (out[i].vertical === rv) rc += 1
+    else { rv = out[i].vertical; rc = 1 }
+  }
+  return out
 }
 
 /**
@@ -118,16 +159,21 @@ export default function DiscoverDeck({ variant = 'fullscreen' }) {
       const incoming = Array.isArray(data.listings) ? data.listings : []
 
       setQueue((prev) => {
+        let next
         if (mode === 'rerank' && prev.length > 0) {
           // Keep the card now on screen; re-rank everything behind it.
           const head = prev[0]
           const tail = incoming.filter((l) => String(l.id) !== String(head.id))
-          return [head, ...tail]
+          next = [head, ...tail]
+        } else if (mode === 'init') {
+          next = incoming
+        } else {
+          // append — dedupe against what's already buffered
+          const have = new Set(prev.map((l) => String(l.id)))
+          next = [...prev, ...incoming.filter((l) => !have.has(String(l.id)))]
         }
-        if (mode === 'init') return incoming
-        // append — dedupe against what's already buffered
-        const have = new Set(prev.map((l) => String(l.id)))
-        return [...prev, ...incoming.filter((l) => !have.has(String(l.id)))]
+        // Hard cap: never more than CLIENT_MAX_RUN of one vertical in a row.
+        return capConsecutive(next, servedRef.current, CLIENT_MAX_RUN)
       })
     } catch {
       setError('Could not load the feed. Check your connection and try again.')
@@ -189,7 +235,7 @@ export default function DiscoverDeck({ variant = 'fullscreen' }) {
     window.setTimeout(() => {
       setAnimating(false)
       setDirection(null)
-      setQueue((prev) => prev.slice(1)) // advance instantly (no loading gap)
+      setQueue((prev) => capConsecutive(prev.slice(1), servedRef.current, CLIENT_MAX_RUN)) // advance + cap runs
       loadFeed({ picked: newPicked, skipped: newSkipped, mode: kind === 'pick' ? 'rerank' : 'append' })
     }, EXIT_MS)
   }, [current, animating, pickedIds, skippedIds, authed, persistOne, loadFeed])
