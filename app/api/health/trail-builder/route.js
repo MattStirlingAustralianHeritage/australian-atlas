@@ -8,6 +8,8 @@
  */
 
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { reserveAnthropicBudget, reconcileAnthropicBudget } from '@/lib/ai/guardedAnthropic'
+import { estimateTokens } from '@/lib/budget/governor'
 
 export const maxDuration = 15
 
@@ -39,20 +41,34 @@ export async function GET() {
   // Test Claude API with minimal call (haiku, 10 tokens)
   if (process.env.ANTHROPIC_API_KEY) {
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': process.env.ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 10,
-          messages: [{ role: 'user', content: 'ping' }],
-        }),
+      const _resv = await reserveAnthropicBudget({
+        model: 'claude-haiku-4-5-20251001',
+        inputTokens: estimateTokens('ping'),
+        maxOutputTokens: 10,
       })
-      checks.claude_reachable = response.ok
+      if (!_resv.ok) {
+        checks.claude_reachable = false
+        checks.claude_budget_reached = true
+      } else {
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': process.env.ANTHROPIC_API_KEY,
+            'anthropic-version': '2023-06-01',
+          },
+          body: JSON.stringify({
+            model: 'claude-haiku-4-5-20251001',
+            max_tokens: 10,
+            messages: [{ role: 'user', content: 'ping' }],
+          }),
+        })
+        checks.claude_reachable = response.ok
+        try {
+          const data = await response.json()
+          await reconcileAnthropicBudget(_resv, data.usage)
+        } catch {}
+      }
     } catch {
       checks.claude_reachable = false
     }

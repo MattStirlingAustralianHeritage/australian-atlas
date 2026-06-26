@@ -5,6 +5,8 @@ import { checkAdmin } from '@/lib/admin-auth'
 import { extractStateFromPlaceName } from '@/lib/geo/stateDerivation'
 import { findDuplicate } from '@/lib/candidates/duplicateCheck.mjs'
 import { fetchSiteText } from '@/lib/scrape/fetchSiteText'
+import { reserveAnthropicBudget, reconcileAnthropicBudget } from '@/lib/ai/guardedAnthropic'
+import { estimateTokens } from '@/lib/budget/governor'
 
 /**
  * POST /api/admin/candidates/classify
@@ -114,6 +116,12 @@ Return a JSON object. Use null for anything you cannot confidently read from the
 
 Return ONLY valid JSON, no markdown fences, no other text.`
 
+  const _resv = await reserveAnthropicBudget({ model: 'claude-haiku-4-5', inputTokens: estimateTokens(prompt), maxOutputTokens: 700 })
+  if (!_resv.ok) {
+    console.warn('[classify] anthropic monthly budget reached — skipping')
+    return { __budgetReached: true }
+  }
+
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -135,6 +143,7 @@ Return ONLY valid JSON, no markdown fences, no other text.`
   }
 
   const result = await res.json()
+  await reconcileAnthropicBudget(_resv, result.usage)
   const raw = result.content?.[0]?.text?.trim()
   if (!raw) return null
 
@@ -203,6 +212,9 @@ export async function POST(request) {
 
     // 2. Classify with Claude.
     const classification = await classifyWithClaude({ url, hostname, title, text })
+    if (classification?.__budgetReached) {
+      return NextResponse.json({ error: 'AI budget reached, try again next month' }, { status: 429 })
+    }
     if (!classification) {
       return NextResponse.json({ error: 'Classification failed — try again in a moment.' }, { status: 502 })
     }

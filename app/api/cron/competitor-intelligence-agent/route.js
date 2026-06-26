@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { startRun, completeRun } from '@/lib/agents/logRun'
 import { sendAgentEmail } from '@/lib/agents/email'
+import { reserveAnthropicBudget, reconcileAnthropicBudget } from '@/lib/ai/guardedAnthropic'
+import { estimateTokens } from '@/lib/budget/governor'
 
 export const maxDuration = 300
 
@@ -80,6 +82,18 @@ export async function GET(request) {
 
   // ── Step 1: Call Claude API ───────────────────────────────
   try {
+    const prompt = `Search each of these Australian publications for venue features, new openings, or best-of lists published in the last 7 days: Broadsheet Australia (broadsheet.com.au), Time Out Australia (timeout.com/australia), Concrete Playground (concreteplayground.com), Australian Traveller (australiantraveller.com), Gourmet Traveller (gourmettraveller.com.au).
+
+For each venue mentioned extract: name, suburb, state, category. Return JSON array only, no other text: [{ "name": string, "suburb": string, "state": string, "category": string, "source": string, "url": string, "published_date": string }]. Independent venues only — exclude chains, franchises, hotels over 50 rooms, national retail brands. If no venues found, return [].`
+
+    const _resv = await reserveAnthropicBudget({ model: 'claude-sonnet-4-6', inputTokens: estimateTokens(prompt), maxOutputTokens: 4000 })
+    if (!_resv.ok) {
+      console.warn('[competitor-intelligence] anthropic monthly budget reached — skipping')
+      const skipSummary = { sources_checked: 5, venues_found: 0, new_candidates: 0, existing_mentioned: 0, errors: 0 }
+      await completeRun(runId, { status: 'success', summary: { ...skipSummary, note: 'anthropic monthly budget reached — AI step skipped' } })
+      return NextResponse.json({ success: true, skipped: 'ai_budget', summary: skipSummary })
+    }
+
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -92,9 +106,7 @@ export async function GET(request) {
         max_tokens: 4000,
         messages: [{
           role: 'user',
-          content: `Search each of these Australian publications for venue features, new openings, or best-of lists published in the last 7 days: Broadsheet Australia (broadsheet.com.au), Time Out Australia (timeout.com/australia), Concrete Playground (concreteplayground.com), Australian Traveller (australiantraveller.com), Gourmet Traveller (gourmettraveller.com.au).
-
-For each venue mentioned extract: name, suburb, state, category. Return JSON array only, no other text: [{ "name": string, "suburb": string, "state": string, "category": string, "source": string, "url": string, "published_date": string }]. Independent venues only — exclude chains, franchises, hotels over 50 rooms, national retail brands. If no venues found, return [].`
+          content: prompt
         }],
       }),
     })
@@ -105,6 +117,7 @@ For each venue mentioned extract: name, suburb, state, category. Return JSON arr
     }
 
     const data = await res.json()
+    await reconcileAnthropicBudget(_resv, data.usage)
     const rawText = data?.content?.[0]?.text || '[]'
     const jsonStr = extractJSON(rawText)
 

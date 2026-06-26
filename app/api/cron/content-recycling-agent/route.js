@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { startRun, completeRun } from '@/lib/agents/logRun'
 import { sendAgentEmail } from '@/lib/agents/email'
+import { reserveAnthropicBudget, reconcileAnthropicBudget } from '@/lib/ai/guardedAnthropic'
+import { estimateTokens } from '@/lib/budget/governor'
 
 export const maxDuration = 300
 
@@ -37,6 +39,9 @@ function esc(str) {
  * Call Claude API with a prompt and return text content.
  */
 async function callClaude(prompt, maxTokens = 2000) {
+  const _resv = await reserveAnthropicBudget({ model: 'claude-haiku-4-5-20251001', inputTokens: estimateTokens(prompt), maxOutputTokens: maxTokens })
+  if (!_resv.ok) { console.warn('[content-recycling] anthropic monthly budget reached — skipping'); return '' }
+
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -53,6 +58,7 @@ async function callClaude(prompt, maxTokens = 2000) {
 
   if (!res.ok) throw new Error(`Claude API error: ${res.status}`)
   const data = await res.json()
+  await reconcileAnthropicBudget(_resv, data.usage)
   return data.content?.[0]?.text || ''
 }
 

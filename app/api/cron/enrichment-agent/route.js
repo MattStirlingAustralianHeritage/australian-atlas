@@ -3,6 +3,8 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { startRun, completeRun } from '@/lib/agents/logRun'
 import { sendAgentEmail } from '@/lib/agents/email'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
+import { reserveAnthropicBudget, reconcileAnthropicBudget } from '@/lib/ai/guardedAnthropic'
+import { estimateTokens } from '@/lib/budget/governor'
 
 export const maxDuration = 300
 
@@ -306,6 +308,9 @@ SOURCE MATERIAL:
 ${scrapedText}`
 
   try {
+    const _resv = await reserveAnthropicBudget({ model: 'claude-haiku-4-5-20251001', inputTokens: estimateTokens(prompt), maxOutputTokens: 300 })
+    if (!_resv.ok) { console.warn('[enrichment-agent] anthropic monthly budget reached — skipping'); return null }
+
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -329,6 +334,7 @@ ${scrapedText}`
     }
 
     const data = await res.json()
+    await reconcileAnthropicBudget(_resv, data.usage)
     const text = data?.content?.[0]?.text?.trim()
     return text || null
 
@@ -381,6 +387,9 @@ Scoring guide:
 If issues array is empty, that means no problems found.`
 
   try {
+    const _resv = await reserveAnthropicBudget({ model: 'claude-haiku-4-5-20251001', inputTokens: estimateTokens(prompt), maxOutputTokens: 500 })
+    if (!_resv.ok) { console.warn('[enrichment-agent] anthropic monthly budget reached — skipping'); return fallback }
+
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -403,6 +412,7 @@ If issues array is empty, that means no problems found.`
     }
 
     const data = await res.json()
+    await reconcileAnthropicBudget(_resv, data.usage)
     const text = data?.content?.[0]?.text?.trim()
 
     if (!text) return fallback

@@ -7,6 +7,8 @@ import { pushToVerticalWithRetry, updateInVertical, getVerticalListingUrl, VERTI
 import { resolveRegionName } from '@/lib/regions'
 import { extractStateFromPlaceName, deriveStateFromCoords, VALID_STATES } from '@/lib/geo/stateDerivation'
 import { fetchSiteText } from '@/lib/scrape/fetchSiteText'
+import { reserveAnthropicBudget, reconcileAnthropicBudget } from '@/lib/ai/guardedAnthropic'
+import { estimateTokens } from '@/lib/budget/governor'
 // Hero image scraping removed — all new listings use the default fallback hero.
 // Venue owners upload their own hero image when they claim the listing.
 
@@ -87,6 +89,11 @@ Return a JSON object. Use null for any field you cannot confidently determine. D
 Return ONLY valid JSON, no markdown fences, no other text.`
 
   try {
+    const _resv = await reserveAnthropicBudget({ model: 'claude-haiku-4-5', inputTokens: estimateTokens(prompt), maxOutputTokens: 1000 })
+    if (!_resv.ok) {
+      console.warn('[enrichFromWebsite] anthropic monthly budget reached — skipping')
+      return null
+    }
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -106,6 +113,7 @@ Return ONLY valid JSON, no markdown fences, no other text.`
       return null
     }
     const result = await res.json()
+    await reconcileAnthropicBudget(_resv, result.usage)
     const text = result.content?.[0]?.text?.trim()
     if (!text) {
       console.error('[enrichFromWebsite] Claude returned empty content')
@@ -160,6 +168,11 @@ async function generateDescription(candidate, attempt = 1) {
 Tone: warm, concise, editorial — like a curated travel guide. Focus on what makes the place distinctive. Do not invent specific details you don't know. Do not include the venue name in the description. Return only the description text, nothing else.`
 
   try {
+    const _resv = await reserveAnthropicBudget({ model: 'claude-haiku-4-5', inputTokens: estimateTokens(prompt), maxOutputTokens: 300 })
+    if (!_resv.ok) {
+      console.warn('[generateDescription] anthropic monthly budget reached — skipping')
+      return null
+    }
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -184,6 +197,7 @@ Tone: warm, concise, editorial — like a curated travel guide. Focus on what ma
       return null
     }
     const result = await res.json()
+    await reconcileAnthropicBudget(_resv, result.usage)
     const text = result.content?.[0]?.text?.trim()
     if (!text) {
       console.error('[generateDescription] Claude returned empty content')

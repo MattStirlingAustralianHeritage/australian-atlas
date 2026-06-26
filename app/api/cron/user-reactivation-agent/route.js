@@ -3,6 +3,8 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { startRun, completeRun } from '@/lib/agents/logRun'
 import { sendAgentEmail } from '@/lib/agents/email'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
+import { reserveAnthropicBudget, reconcileAnthropicBudget } from '@/lib/ai/guardedAnthropic'
+import { estimateTokens } from '@/lib/budget/governor'
 
 export const maxDuration = 300
 
@@ -22,7 +24,7 @@ function esc(str) {
 /**
  * Call Claude Haiku for email generation.
  */
-async function callClaude(prompt) {
+async function callClaude(prompt, resv) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -38,6 +40,7 @@ async function callClaude(prompt) {
   })
   if (!res.ok) throw new Error(`Claude API error: ${res.status}`)
   const data = await res.json()
+  if (resv) await reconcileAnthropicBudget(resv, data.usage)
   return data.content?.[0]?.text || ''
 }
 
@@ -168,9 +171,15 @@ export async function GET(request) {
         const recentlyViewed = (viewedListings || []).map(l => l.name).join(', ')
         const recommended = (recommendedListings || []).map(l => `${l.name} (${getListingRegion(l)?.name || l.state}): ${l.description?.substring(0, 80) || ''}`).join('; ')
 
-        const emailBody = await callClaude(
-          `Write a short, warm, non-corporate reactivation email for an Australian Atlas user who hasn't visited in ${daysSinceVisit} days. Voice: like a friend who thinks they'd genuinely like to know this. Do not say 'we miss you'. Do not use 'exciting' or 'amazing'. Lead with something specific and true: how many new listings in their area, or a specific listing they'd probably love based on what they've been saving. Keep it under 150 words. Include one clear CTA. User context: last visited ${daysSinceVisit} days ago, home state ${userState || 'unknown'}, recently viewed: ${recentlyViewed || 'various listings'}, ${stateNewCount} new listings in their state since last visit, recommended new listings: ${recommended || 'various new additions'}.`
-        )
+        const reactivationPrompt = `Write a short, warm, non-corporate reactivation email for an Australian Atlas user who hasn't visited in ${daysSinceVisit} days. Voice: like a friend who thinks they'd genuinely like to know this. Do not say 'we miss you'. Do not use 'exciting' or 'amazing'. Lead with something specific and true: how many new listings in their area, or a specific listing they'd probably love based on what they've been saving. Keep it under 150 words. Include one clear CTA. User context: last visited ${daysSinceVisit} days ago, home state ${userState || 'unknown'}, recently viewed: ${recentlyViewed || 'various listings'}, ${stateNewCount} new listings in their state since last visit, recommended new listings: ${recommended || 'various new additions'}.`
+
+        const _resv = await reserveAnthropicBudget({ model: 'claude-haiku-4-5-20251001', inputTokens: estimateTokens(reactivationPrompt), maxOutputTokens: 1000 })
+        if (!_resv.ok) {
+          console.warn('[user-reactivation] anthropic monthly budget reached — skipping')
+          break
+        }
+
+        const emailBody = await callClaude(reactivationPrompt, _resv)
 
         // Generate personalised subject line
         let subject

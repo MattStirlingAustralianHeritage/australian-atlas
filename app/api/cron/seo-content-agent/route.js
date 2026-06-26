@@ -3,6 +3,8 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { startRun, completeRun } from '@/lib/agents/logRun'
 import { sendAgentEmail } from '@/lib/agents/email'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
+import { reserveAnthropicBudget, reconcileAnthropicBudget } from '@/lib/ai/guardedAnthropic'
+import { estimateTokens } from '@/lib/budget/governor'
 
 export const maxDuration = 300
 
@@ -75,6 +77,15 @@ export async function GET(request) {
     // ── Step 1: Identify content opportunities via Claude ──────
     console.log('[seo-content] Step 1: Identifying content opportunities...')
 
+    const opportunityPrompt = `Identify the 10 highest-traffic location + category search combinations relevant to independent Australian travel, food, drink, accommodation, and culture that currently return weak or no results from australianatlas.com.au. Focus on specific, high-intent queries like 'best cellar doors Mornington Peninsula', 'independent bookshops Brisbane', 'glamping Victoria', 'farm stays Hunter Valley', 'ceramic studios Melbourne'. For each query return: { "query": string, "location": string, "category": string, "estimated_intent": string, "suggested_page_title": string, "suggested_slug": string }. Return JSON array only, no other text.`
+
+    const _resvOpp = await reserveAnthropicBudget({ model: 'claude-sonnet-4-6', inputTokens: estimateTokens(opportunityPrompt), maxOutputTokens: 4000 })
+    if (!_resvOpp.ok) {
+      console.warn('[seo-content] anthropic monthly budget reached — skipping')
+      await completeRun(runId, { status: 'success', summary: { ...counts, note: 'AI budget reached' } })
+      return NextResponse.json({ ok: true, ...counts, note: 'AI budget reached' })
+    }
+
     const opportunityRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -87,7 +98,7 @@ export async function GET(request) {
         max_tokens: 4000,
         messages: [{
           role: 'user',
-          content: `Identify the 10 highest-traffic location + category search combinations relevant to independent Australian travel, food, drink, accommodation, and culture that currently return weak or no results from australianatlas.com.au. Focus on specific, high-intent queries like 'best cellar doors Mornington Peninsula', 'independent bookshops Brisbane', 'glamping Victoria', 'farm stays Hunter Valley', 'ceramic studios Melbourne'. For each query return: { "query": string, "location": string, "category": string, "estimated_intent": string, "suggested_page_title": string, "suggested_slug": string }. Return JSON array only, no other text.`,
+          content: opportunityPrompt,
         }],
       }),
     })
@@ -97,6 +108,7 @@ export async function GET(request) {
     }
 
     const opportunityData = await opportunityRes.json()
+    await reconcileAnthropicBudget(_resvOpp, opportunityData.usage)
     const rawText = opportunityData.content?.[0]?.text || '[]'
     let opportunities = []
 
@@ -186,6 +198,14 @@ export async function GET(request) {
         description: l.description?.substring(0, 200),
       }))
 
+      const contentPrompt = `You are writing for Australian Atlas, a curated guide to independent Australian places. Write a regional guide page for '${opp.query}'. Voice: place-based, specific, editorial, non-promotional. Structure: opening paragraph (60-80 words) that earns its place — says something specific and true about this place and this category that a visitor would actually want to know. Then a brief introduction to each listing (20-30 words each) that reads as editorial recommendation not directory copy. Close with one paragraph (40-60 words) about the broader experience of this place — what it feels like to spend time here across these venues. Do not use 'unique', 'passionate', 'journey', 'amazing', 'hidden gem'. Listings data: ${JSON.stringify(listingData)}. Location: ${opp.location}. Category: ${opp.category}.`
+
+      const _resvContent = await reserveAnthropicBudget({ model: 'claude-sonnet-4-6', inputTokens: estimateTokens(contentPrompt), maxOutputTokens: 3000 })
+      if (!_resvContent.ok) {
+        console.warn('[seo-content] anthropic monthly budget reached — skipping')
+        break
+      }
+
       const contentRes = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -198,7 +218,7 @@ export async function GET(request) {
           max_tokens: 3000,
           messages: [{
             role: 'user',
-            content: `You are writing for Australian Atlas, a curated guide to independent Australian places. Write a regional guide page for '${opp.query}'. Voice: place-based, specific, editorial, non-promotional. Structure: opening paragraph (60-80 words) that earns its place — says something specific and true about this place and this category that a visitor would actually want to know. Then a brief introduction to each listing (20-30 words each) that reads as editorial recommendation not directory copy. Close with one paragraph (40-60 words) about the broader experience of this place — what it feels like to spend time here across these venues. Do not use 'unique', 'passionate', 'journey', 'amazing', 'hidden gem'. Listings data: ${JSON.stringify(listingData)}. Location: ${opp.location}. Category: ${opp.category}.`,
+            content: contentPrompt,
           }],
         }),
       })
@@ -210,6 +230,7 @@ export async function GET(request) {
       }
 
       const contentData = await contentRes.json()
+      await reconcileAnthropicBudget(_resvContent, contentData.usage)
       const content = contentData.content?.[0]?.text || ''
 
       // Quality gate: minimum word count

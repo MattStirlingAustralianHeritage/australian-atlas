@@ -3,6 +3,8 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { startRun, completeRun } from '@/lib/agents/logRun'
 import { sendAgentEmail } from '@/lib/agents/email'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
+import { reserveAnthropicBudget, reconcileAnthropicBudget } from '@/lib/ai/guardedAnthropic'
+import { estimateTokens } from '@/lib/budget/governor'
 
 export const maxDuration = 120
 
@@ -232,30 +234,39 @@ export async function GET(request) {
     if (!process.env.ANTHROPIC_API_KEY) {
       claudeSummary = 'Claude summary skipped — ANTHROPIC_API_KEY not set.'
     } else {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': process.env.ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 500,
-          messages: [{
-            role: 'user',
-            content: `You are the revenue intelligence layer for Australian Atlas. Based on the weekly revenue signals below, write a 3-sentence summary for Matt, the founder. Voice: direct, honest, no spin. Highlight the most important number, flag any concern, suggest one specific action if the data calls for it. Data: ${JSON.stringify(signals)}`,
-          }],
-        }),
-      })
+      const summaryPrompt = `You are the revenue intelligence layer for Australian Atlas. Based on the weekly revenue signals below, write a 3-sentence summary for Matt, the founder. Voice: direct, honest, no spin. Highlight the most important number, flag any concern, suggest one specific action if the data calls for it. Data: ${JSON.stringify(signals)}`
 
-      if (!res.ok) {
-        const body = await res.text()
-        throw new Error(`Claude API ${res.status}: ${body}`)
+      const _resv = await reserveAnthropicBudget({ model: 'claude-haiku-4-5-20251001', inputTokens: estimateTokens(summaryPrompt), maxOutputTokens: 500 })
+      if (!_resv.ok) {
+        console.warn('[revenue-signal] anthropic monthly budget reached — skipping')
+        claudeSummary = 'Summary skipped — monthly AI budget reached.'
+      } else {
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'x-api-key': process.env.ANTHROPIC_API_KEY,
+            'anthropic-version': '2023-06-01',
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'claude-haiku-4-5-20251001',
+            max_tokens: 500,
+            messages: [{
+              role: 'user',
+              content: summaryPrompt,
+            }],
+          }),
+        })
+
+        if (!res.ok) {
+          const body = await res.text()
+          throw new Error(`Claude API ${res.status}: ${body}`)
+        }
+
+        const result = await res.json()
+        await reconcileAnthropicBudget(_resv, result.usage)
+        claudeSummary = result.content?.[0]?.text || 'No summary generated.'
       }
-
-      const result = await res.json()
-      claudeSummary = result.content?.[0]?.text || 'No summary generated.'
     }
   } catch (err) {
     console.error('[revenue-signal] Claude summary error:', err.message)

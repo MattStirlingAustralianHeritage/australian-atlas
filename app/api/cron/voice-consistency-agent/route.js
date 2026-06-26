@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { startRun, completeRun } from '@/lib/agents/logRun'
 import { sendAgentEmail } from '@/lib/agents/email'
+import { reserveAnthropicBudget, reconcileAnthropicBudget } from '@/lib/ai/guardedAnthropic'
+import { estimateTokens } from '@/lib/budget/governor'
 
 /**
  * GET /api/cron/voice-consistency-agent
@@ -80,6 +82,12 @@ export async function GET(request) {
       try {
         const prompt = `You are the editorial standards agent for Australian Atlas. Evaluate this listing description against the Australian Atlas voice: place-based, specific, non-promotional, measured, non-triumphalist. Never generic. Never uses 'unique', 'passionate', 'journey', 'amazing'. Grounds the reader in what is specific about this place.\n\nScore 1-10 for voice consistency. Return JSON only: { "score": number, "issues": [string], "rewrite_priority": "high"|"medium"|"low", "suggested_rewrite": string }\n\nDescription: ${listing.description}\n\nListing: ${listing.name}, ${listing.vertical}, ${listing.suburb || ''} ${listing.state || ''}`
 
+        const _resv = await reserveAnthropicBudget({ model: 'claude-haiku-4-5-20251001', inputTokens: estimateTokens(prompt), maxOutputTokens: 500 })
+        if (!_resv.ok) {
+          console.warn('[voice-consistency] anthropic monthly budget reached — skipping')
+          break
+        }
+
         const res = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
           headers: {
@@ -103,6 +111,7 @@ export async function GET(request) {
         }
 
         const data = await res.json()
+        await reconcileAnthropicBudget(_resv, data.usage)
         const rawText = data.content?.[0]?.text || ''
 
         // Parse JSON — handle possible markdown fencing

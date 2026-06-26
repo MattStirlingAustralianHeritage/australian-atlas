@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { startRun, completeRun } from '@/lib/agents/logRun'
 import { sendAgentEmail } from '@/lib/agents/email'
+import { reserveAnthropicBudget, reconcileAnthropicBudget } from '@/lib/ai/guardedAnthropic'
+import { estimateTokens } from '@/lib/budget/governor'
 
 /**
  * GET /api/cron/monday-briefing-agent
@@ -294,28 +296,35 @@ export async function GET(request) {
   try {
     const prompt = `You are the editorial intelligence layer for Australian Atlas, a curated guide to independent Australian places. Based on the weekly signals below, write a Monday morning briefing for Matt, the founder. Voice: direct, warm, non-corporate. Structure: five sections — Network, Editorial, Operators, Users, This Week's Priority. The final section identifies the single most impactful action Matt could take this week. Be specific — not "focus on growth" but "There are 4 high quality-score listings in the Mornington Peninsula that are unclaimed. Tuesday morning outreach window." Data: ${JSON.stringify(signals)}`
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1500,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    })
+    const _resv = await reserveAnthropicBudget({ model: 'claude-haiku-4-5-20251001', inputTokens: estimateTokens(prompt), maxOutputTokens: 1500 })
+    if (!_resv.ok) {
+      console.warn('[monday-briefing] anthropic monthly budget reached — skipping')
+      briefingHtml = '<p style="color: #6b7280;">AI briefing skipped — monthly budget reached. Signal data follows below.</p>'
+    } else {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': process.env.ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 1500,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      })
 
-    if (!res.ok) {
-      const errText = await res.text()
-      throw new Error(`Anthropic API ${res.status}: ${errText}`)
+      if (!res.ok) {
+        const errText = await res.text()
+        throw new Error(`Anthropic API ${res.status}: ${errText}`)
+      }
+
+      const json = await res.json()
+      await reconcileAnthropicBudget(_resv, json.usage)
+      const briefingText = json.content?.[0]?.text || ''
+      briefingHtml = formatBriefingToHtml(briefingText)
     }
-
-    const json = await res.json()
-    const briefingText = json.content?.[0]?.text || ''
-    briefingHtml = formatBriefingToHtml(briefingText)
   } catch (err) {
     console.error('[monday-briefing] Claude API error:', err.message)
     errors.push(`Claude briefing: ${err.message}`)

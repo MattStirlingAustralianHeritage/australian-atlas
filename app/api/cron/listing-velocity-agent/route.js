@@ -3,6 +3,8 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { startRun, completeRun } from '@/lib/agents/logRun'
 import { sendAgentEmail } from '@/lib/agents/email'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
+import { reserveAnthropicBudget, reconcileAnthropicBudget } from '@/lib/ai/guardedAnthropic'
+import { estimateTokens } from '@/lib/budget/governor'
 
 export const maxDuration = 300
 
@@ -214,26 +216,34 @@ export async function GET(request) {
         stagnant_verticals: stagnantVerticals.map(v => VERT_NAMES[v] || v),
       })
 
-      const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': process.env.ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
-          max_tokens: 1000,
-          messages: [{
-            role: 'user',
-            content: `You are the growth intelligence layer for Australian Atlas. Based on this month's listing velocity data, write a 150-word narrative summary for Matt, the founder. Voice: direct, specific, no spin. Identify: the fastest growing vertical, the fastest growing region, any vertical/region combination that has had zero new listings in 90 days (stagnant), and whether overall network growth is accelerating or decelerating compared to last month. End with one specific recommendation. ${!hasPriorData ? 'Note: this is the first snapshot — no prior month to compare. Focus on current state and where the biggest opportunities are.' : ''} Data: ${velocityData}`,
-          }],
-        }),
-      })
+      const narrativePrompt = `You are the growth intelligence layer for Australian Atlas. Based on this month's listing velocity data, write a 150-word narrative summary for Matt, the founder. Voice: direct, specific, no spin. Identify: the fastest growing vertical, the fastest growing region, any vertical/region combination that has had zero new listings in 90 days (stagnant), and whether overall network growth is accelerating or decelerating compared to last month. End with one specific recommendation. ${!hasPriorData ? 'Note: this is the first snapshot — no prior month to compare. Focus on current state and where the biggest opportunities are.' : ''} Data: ${velocityData}`
 
-      if (claudeRes.ok) {
-        const data = await claudeRes.json()
-        narrative = data.content?.[0]?.text || ''
+      const _resv = await reserveAnthropicBudget({ model: 'claude-haiku-4-5-20251001', inputTokens: estimateTokens(narrativePrompt), maxOutputTokens: 1000 })
+      if (!_resv.ok) {
+        console.warn('[listing-velocity] anthropic monthly budget reached — skipping')
+      } else {
+        const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'x-api-key': process.env.ANTHROPIC_API_KEY,
+            'anthropic-version': '2023-06-01',
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'claude-haiku-4-5-20251001',
+            max_tokens: 1000,
+            messages: [{
+              role: 'user',
+              content: narrativePrompt,
+            }],
+          }),
+        })
+
+        if (claudeRes.ok) {
+          const data = await claudeRes.json()
+          await reconcileAnthropicBudget(_resv, data.usage)
+          narrative = data.content?.[0]?.text || ''
+        }
       }
     } catch (err) {
       console.error('[listing-velocity] Claude narrative error:', err.message)
