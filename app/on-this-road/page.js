@@ -1,4 +1,5 @@
 import OnThisRoadClient from './OnThisRoadClient'
+import PlannerDiscoveryGate from '@/components/planner/PlannerDiscoveryGate'
 
 export const metadata = {
   title: 'On This Road — Australian Atlas',
@@ -17,5 +18,9 @@ export const metadata = {
 }
 
 export default function OnThisRoadPage() {
-  return <OnThisRoadClient />
+  return (
+    <PlannerDiscoveryGate planner="on-this-road">
+      <OnThisRoadClient />
+    </PlannerDiscoveryGate>
+  )
 }

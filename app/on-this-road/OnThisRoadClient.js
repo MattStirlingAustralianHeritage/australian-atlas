@@ -12,6 +12,7 @@ import {
   Star, Camera, ChevronRight, Bike, Car, Download,
 } from 'lucide-react'
 import { VERTICAL_MUTED } from '@/lib/verticalUrl'
+import { readDiscoveryPicks } from '@/lib/discover/sessionPicks'
 import './on-this-road.css'
 
 const RouteMap = dynamic(() => import('./RouteMap'), { ssr: false })
@@ -246,6 +247,11 @@ export default function OnThisRoadClient() {
       setLoadingMsg(msgs[msgIdx])
     }, 3500)
 
+    // Discovery onboarding picks (in-session "I'd visit this") bias stop
+    // selection toward the kinds of place the visitor just kept — works for
+    // anonymous visitors too, before any account exists.
+    const discoveryPicks = readDiscoveryPicks()
+
     try {
       const res = await fetch('/api/on-this-road', {
         method: 'POST',
@@ -253,6 +259,7 @@ export default function OnThisRoadClient() {
         body: JSON.stringify({
           start: startPlace,
           end: surpriseMe ? undefined : endPlace,
+          discoveryPicks,
           tripLength: transportMode === 'cycling' ? tripLength : tripLength,
           departureTiming: isSurpriseMode ? 'tomorrow_morning' : departureTiming,
           detourTolerance: isSurpriseMode ? 'happy_to_detour' : detourTolerance,

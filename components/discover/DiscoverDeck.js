@@ -72,12 +72,20 @@ function capConsecutive(queue, servedVerticals, maxRun) {
  *  §1 redesign         — renders the floating vertical-tinted <DiscoverCard>
  *                       with gestures + button fallback.
  *
- * variant: 'fullscreen' (the /discover page) | 'band' (homepage taster).
- * Identical mechanic in both; the band is just smaller chrome.
+ * variant: 'fullscreen' (the /discover page) | 'band' (homepage taster)
+ *          | 'onboarding' (inside the planner popup — the surrounding
+ *            PlannerDiscoveryGate owns the sign-in / account chrome, so the
+ *            deck suppresses its own counter, reflection and AuthModal here).
+ * Identical mechanic in all three; only the chrome differs.
+ *
+ * onPicksChange(pickedIds): optional. Fired whenever the in-memory pick set
+ *          changes, so a host (the planner gate) can mirror the picks out to
+ *          the trip it is about to build.
  */
-export default function DiscoverDeck({ variant = 'fullscreen' }) {
+export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange }) {
   const supabase = getAuthSupabase()
   const { location } = useLocation()
+  const isOnboarding = variant === 'onboarding'
 
   const [queue, setQueue] = useState([])
   const [pickedIds, setPickedIds] = useState([])
@@ -103,6 +111,10 @@ export default function DiscoverDeck({ variant = 'fullscreen' }) {
   const lastServedId = useRef(null)
   useEffect(() => { queueRef.current = queue }, [queue])
   useEffect(() => { locRef.current = location }, [location])
+
+  // Mirror the live pick set out to a host (the planner onboarding gate), which
+  // carries it into the trip the visitor is about to build.
+  useEffect(() => { onPicksChange?.(pickedIds) }, [pickedIds, onPicksChange])
 
   const cardWrapRef = useRef(null)
   const touchStartX = useRef(null)
@@ -308,9 +320,12 @@ export default function DiscoverDeck({ variant = 'fullscreen' }) {
 
   // ── Render helpers ──────────────────────────────────────────────────
   const isBand = variant === 'band'
-  const showReflection = !!reflection && authed === false && pickCount > 0
+  // Onboarding: the gate renders the tally, account invite and AuthModal, so the
+  // deck stays a pure swipe surface (no duplicate sign-in chrome).
+  const showReflection = !isOnboarding && !!reflection && authed === false && pickCount > 0
 
   const counterEl = (() => {
+    if (isOnboarding) return null
     if (pickCount === 0) return null
     if (authed) {
       return (
@@ -368,15 +383,17 @@ export default function DiscoverDeck({ variant = 'fullscreen' }) {
               : 'Come back soon for more.'}
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-            {pickCount > 0 && authed === false && (
+            {pickCount > 0 && authed === false && !isOnboarding && (
               <button className="dd-reflection-cta" onClick={() => setAuthModalOpen(true)}>Sign in to keep them</button>
             )}
-            <Link href="/explore" className="dd-btn dd-btn-skip" style={{ flex: '0 0 auto', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
-              Explore the network
-            </Link>
+            {!isOnboarding && (
+              <Link href="/explore" className="dd-btn dd-btn-skip" style={{ flex: '0 0 auto', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+                Explore the network
+              </Link>
+            )}
           </div>
         </div>
-        <AuthModal open={authModalOpen} onClose={() => setAuthModalOpen(false)} onAuthSuccess={handleAuthSuccess} returnTo={returnTo} />
+        {!isOnboarding && <AuthModal open={authModalOpen} onClose={() => setAuthModalOpen(false)} onAuthSuccess={handleAuthSuccess} returnTo={returnTo} />}
       </div>
     )
   }
@@ -455,7 +472,7 @@ export default function DiscoverDeck({ variant = 'fullscreen' }) {
         )}
       </div>
 
-      <AuthModal open={authModalOpen} onClose={() => setAuthModalOpen(false)} onAuthSuccess={handleAuthSuccess} returnTo={returnTo} />
+      {!isOnboarding && <AuthModal open={authModalOpen} onClose={() => setAuthModalOpen(false)} onAuthSuccess={handleAuthSuccess} returnTo={returnTo} />}
     </div>
   )
 }

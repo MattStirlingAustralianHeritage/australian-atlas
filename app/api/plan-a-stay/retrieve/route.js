@@ -2,7 +2,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { createAuthServerClient } from '@/lib/supabase/auth-clients'
 import { NextResponse } from 'next/server'
 import { isCoffeeListing, isLunchListing } from '@/lib/plan-a-stay/assemble-days'
-import { tasteAffinity } from '@/lib/discover/tasteProfile'
+import { tasteAffinity, buildTasteProfileFromListingIds, mergeTasteProfiles } from '@/lib/discover/tasteProfile'
 import { getTasteProfile } from '@/lib/discover/getTasteProfile'
 
 // How hard the user's Discover taste reorders candidates WITHIN a geographic
@@ -282,6 +282,9 @@ export async function POST(request) {
   try {
     const body = await request.json()
     const { intent, pacing, duration, region, anchor } = body
+    const discoveryPicks = Array.isArray(body.discoveryPicks)
+      ? body.discoveryPicks.map(String).slice(0, 50)
+      : []
 
     // ── Validate inputs ────────────────────────────────────────────
     if (!intent || !Array.isArray(intent) || intent.length === 0) {
@@ -305,16 +308,28 @@ export async function POST(request) {
     // Reads the persisted taste_profiles.category_shares (saves + owned
     // trail-stops). Same shape as the old user_saves recompute → drop-in for
     // tasteAffinity. null (anon / no profile / below floor) → no personalisation.
-    let tasteProfile = null
+    // Two signals, folded together: the durable persisted profile (signed-in)
+    // and the picks just made in the planner's Discovery onboarding popup. The
+    // session picks are what let an ANONYMOUS visitor's choices steer the trip
+    // with no account at all.
+    let persistedProfile = null
     try {
       const auth = await createAuthServerClient()
       const { data: { user } } = await auth.auth.getUser()
       if (user) {
         const tp = await getTasteProfile(sb, user.id)
-        tasteProfile = tp?.shares || null
+        persistedProfile = tp?.shares || null
       }
-      if (tasteProfile) filterPath.push(`taste: ${tasteProfile.savedCount} sources → personalised`)
-    } catch { /* anonymous or auth unavailable — no personalisation */ }
+    } catch { /* anonymous or auth unavailable — no persisted signal */ }
+
+    const sessionProfile = await buildTasteProfileFromListingIds(sb, discoveryPicks)
+    const tasteProfile = mergeTasteProfiles(persistedProfile, sessionProfile)
+    if (tasteProfile) {
+      const src = []
+      if (persistedProfile) src.push(`${persistedProfile.savedCount} saved`)
+      if (sessionProfile) src.push(`${sessionProfile.savedCount} discovery picks`)
+      filterPath.push(`taste: ${src.join(' + ')} → personalised`)
+    }
 
     // ── Resolve pacing budget ──────────────────────────────────────
     const budget = PACING_BUDGETS[pacing] || PACING_BUDGETS['steady']

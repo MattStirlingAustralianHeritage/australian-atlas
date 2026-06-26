@@ -1,0 +1,168 @@
+/* ============================================================
+   PlannerDiscoveryGate — first-visit Discovery popup for the trip planners.
+   Editorial card over a soft scrim; sits above the sticky nav.
+   ============================================================ */
+
+.pdg-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: clamp(16px, 5vh, 56px) 16px;
+  overflow-y: auto;
+  background: rgba(20, 18, 14, 0.55);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  animation: pdg-fade 0.25s ease-out;
+}
+
+@keyframes pdg-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.pdg-modal {
+  position: relative;
+  width: 100%;
+  max-width: 540px;
+  margin: auto;
+  background: var(--color-bg, #F8F6F1);
+  border: 1px solid rgba(28, 26, 23, 0.08);
+  border-radius: 16px;
+  box-shadow: 0 24px 60px rgba(20, 18, 14, 0.28);
+  padding: 28px clamp(20px, 4vw, 36px) 22px;
+  animation: pdg-rise 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes pdg-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.pdg-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--color-muted, #6B6760);
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+.pdg-close:hover { background: rgba(28, 26, 23, 0.06); color: var(--color-ink, #1C1A17); }
+
+/* ── Header ── */
+.pdg-head { text-align: center; margin-bottom: 6px; }
+
+.pdg-kicker {
+  font-family: var(--font-body, system-ui);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--color-accent, #C4603A);
+  margin: 0 0 8px;
+}
+
+.pdg-title {
+  font-family: var(--font-display, Georgia, serif);
+  font-weight: 400;
+  font-size: clamp(24px, 4.5vw, 32px);
+  line-height: 1.1;
+  color: var(--color-ink, #1C1A17);
+  margin: 0 0 10px;
+}
+
+.pdg-sub {
+  font-family: var(--font-body, system-ui);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--color-muted, #6B6760);
+  margin: 0 auto;
+  max-width: 420px;
+}
+
+/* ── Anonymous account invite ── */
+.pdg-account {
+  margin: 16px auto 0;
+  max-width: 440px;
+  padding: 13px 16px;
+  background: rgba(184, 134, 43, 0.07);
+  border: 1px solid rgba(184, 134, 43, 0.22);
+  border-radius: 10px;
+}
+
+.pdg-account-copy {
+  font-family: var(--font-body, system-ui);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-ink, #1C1A17);
+  margin: 0;
+}
+.pdg-account-copy b { font-weight: 600; }
+
+.pdg-account-btn {
+  margin-top: 10px;
+  font-family: var(--font-body, system-ui);
+  font-size: 13px;
+  font-weight: 600;
+  color: #FAF8F4;
+  background: var(--color-gold, #b8862b);
+  border: none;
+  border-radius: 8px;
+  padding: 9px 18px;
+  cursor: pointer;
+  transition: opacity 0.18s ease;
+}
+.pdg-account-btn:hover { opacity: 0.9; }
+
+/* ── Deck host ── */
+.pdg-deck-host {
+  margin: 14px 0 4px;
+}
+
+/* ── Footer ── */
+.pdg-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 14px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(28, 26, 23, 0.1);
+}
+
+.pdg-tally {
+  font-family: var(--font-body, system-ui);
+  font-size: 13px;
+  color: var(--color-muted, #6B6760);
+}
+.pdg-tally b { font-weight: 600; color: var(--color-ink, #2a2218); }
+
+.pdg-cta {
+  flex-shrink: 0;
+  font-family: var(--font-body, system-ui);
+  font-size: 14px;
+  font-weight: 500;
+  color: #FAF8F4;
+  background: var(--color-ink, #1C1A17);
+  border: none;
+  border-radius: 8px;
+  padding: 11px 22px;
+  cursor: pointer;
+  transition: opacity 0.18s ease;
+}
+.pdg-cta:hover { opacity: 0.85; }
+
+@media (max-width: 480px) {
+  .pdg-foot { flex-direction: column-reverse; align-items: stretch; }
+  .pdg-cta { width: 100%; text-align: center; }
+  .pdg-tally { text-align: center; }
+}

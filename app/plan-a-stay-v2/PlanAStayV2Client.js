@@ -9,6 +9,7 @@ import {
 } from '@/components/PlanAStayTripRender'
 import RegionMapSelect from '@/components/RegionMapSelect'
 import AuthModal from '@/components/AuthModal'
+import { readDiscoveryPicks } from '@/lib/discover/sessionPicks'
 
 /* ─── Trip persistence helpers ───────────────────────────────────────────
    Build the exact payload sent to /share and /save. Visitor accommodation
@@ -734,11 +735,15 @@ function LoadingScreen({ state, onComplete, onError }) {
         anchor: null,
       }
 
+      // Discovery onboarding picks (in-session) personalise candidate ranking,
+      // even for anonymous visitors with no account yet.
+      const discoveryPicks = readDiscoveryPicks()
+
       // Step 1: Retrieve
       fetch('/api/plan-a-stay/retrieve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(answers),
+        body: JSON.stringify({ ...answers, discoveryPicks }),
       })
         .then(res => {
           if (!res.ok) throw new Error(`Retrieve failed: ${res.status}`)

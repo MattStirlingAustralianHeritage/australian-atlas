@@ -4,7 +4,7 @@ import { createAuthServerClient } from '@/lib/supabase/auth-clients'
 import { getDistanceBudget, getStopLimits } from '@/lib/route-budgets'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
-import { tasteAffinity } from '@/lib/discover/tasteProfile'
+import { tasteAffinity, buildTasteProfileFromListingIds, mergeTasteProfiles } from '@/lib/discover/tasteProfile'
 import { getTasteProfile } from '@/lib/discover/getTasteProfile'
 import { reserveAnthropicBudget, reconcileAnthropicBudget } from '@/lib/ai/guardedAnthropic'
 import { estimateTokens } from '@/lib/budget/governor'
@@ -499,6 +499,11 @@ export async function POST(request) {
       bikeType = 'any',         // 'road' | 'gravel' | 'any'
       fitness = 'moderate',     // 'relaxed' | 'moderate' | 'strong'
     } = body
+    // In-session Discovery onboarding picks — bias stop selection toward what the
+    // visitor just kept. Works for anonymous visitors (no account required).
+    const discoveryPicks = Array.isArray(body.discoveryPicks)
+      ? body.discoveryPicks.map(String).slice(0, 50)
+      : []
 
     if (!start) {
       return NextResponse.json({ error: 'Start location is required.' }, { status: 400 })
@@ -555,7 +560,7 @@ export async function POST(request) {
 
       const itineraryResponse = await buildItinerary({
         startCoords, endCoords: startCoords, route,
-        detourConfig, tripConfig, departureConfig, preferences,
+        detourConfig, tripConfig, departureConfig, preferences, discoveryPicks,
         currentSeason, isMultiDay, isSurpriseLoop, returnDifferentRoad: false,
         startName: start, endName: start,
         preSelectedListings: loopResult.listings,
@@ -601,7 +606,7 @@ export async function POST(request) {
     // 5. Build outbound itinerary
     const result = await buildItinerary({
       startCoords, endCoords, route,
-      detourConfig, tripConfig, departureConfig, preferences,
+      detourConfig, tripConfig, departureConfig, preferences, discoveryPicks,
       currentSeason, isMultiDay, isSurpriseLoop: false, returnDifferentRoad,
       startName: start, endName: end,
       transportMode, bikeType, fitness,
@@ -616,7 +621,7 @@ export async function POST(request) {
         const returnResult = await buildItinerary({
           startCoords: endCoords, endCoords: startCoords, route: returnRoute,
           detourConfig, tripConfig: { ...tripConfig, days: Math.max(1, tripConfig.days - 1) },
-          departureConfig: null, preferences, currentSeason,
+          departureConfig: null, preferences, discoveryPicks, currentSeason,
           isMultiDay: tripConfig.days >= 3, isSurpriseLoop: false, returnDifferentRoad: false,
           startName: end, endName: start,
           transportMode, bikeType, fitness,
@@ -678,7 +683,7 @@ export async function POST(request) {
 
 async function buildItinerary({
   startCoords, endCoords, route,
-  detourConfig, tripConfig, departureConfig, preferences,
+  detourConfig, tripConfig, departureConfig, preferences, discoveryPicks = [],
   currentSeason, isMultiDay, isSurpriseLoop, returnDifferentRoad,
   startName, endName, preSelectedListings,
   transportMode = 'driving', bikeType = 'any', fitness = 'moderate',
@@ -719,15 +724,20 @@ async function buildItinerary({
   // Reads the persisted taste_profiles.category_shares (saves + owned
   // trail-stops). Same shape as the old user_saves recompute → drop-in for
   // tasteAffinity. null (anon / no profile / below floor) → no personalisation.
-  let tasteProfile = null
+  let persistedProfile = null
   try {
     const auth = await createAuthServerClient()
     const { data: { user } } = await auth.auth.getUser()
     if (user) {
       const tp = await getTasteProfile(sb, user.id)
-      tasteProfile = tp?.shares || null
+      persistedProfile = tp?.shares || null
     }
-  } catch { /* anonymous or auth unavailable — no personalisation */ }
+  } catch { /* anonymous or auth unavailable — no persisted signal */ }
+
+  // Fold in the in-session Discovery onboarding picks (anonymous-friendly): the
+  // persisted profile and this trip's picks together shape stop selection.
+  const sessionProfile = await buildTasteProfileFromListingIds(sb, discoveryPicks)
+  const tasteProfile = mergeTasteProfiles(persistedProfile, sessionProfile)
 
   // Cycling uses a narrower corridor (cyclists don't detour far off-route)
   const effectiveBufferKm = isCycling ? Math.min(detourConfig.bufferKm, 5) : detourConfig.bufferKm

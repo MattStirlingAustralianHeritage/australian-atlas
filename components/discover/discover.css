@@ -27,6 +27,13 @@
   min-height: 0;
 }
 
+/* Onboarding: lives inside the planner popup, so no ground of its own. */
+.dd-stage--onboarding {
+  padding: 4px 0 0;
+  min-height: 0;
+  background: transparent;
+}
+
 /* The card-stack wrapper — holds the active card and the hinted next card. */
 .dd-deck {
   position: relative;

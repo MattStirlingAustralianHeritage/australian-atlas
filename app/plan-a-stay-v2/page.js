@@ -1,5 +1,6 @@
 import PlanAStayV2Client from './PlanAStayV2Client'
 import { getQualifyingRegions } from '@/lib/plan-a-stay/qualifying-regions'
+import PlannerDiscoveryGate from '@/components/planner/PlannerDiscoveryGate'
 
 export const metadata = {
   title: 'Plan a stay — Australian Atlas',
@@ -18,5 +19,9 @@ export const metadata = {
 export default async function PlanAStayV2Page() {
   const regions = await getQualifyingRegions()
 
-  return <PlanAStayV2Client regions={regions} />
+  return (
+    <PlannerDiscoveryGate planner="plan-a-stay">
+      <PlanAStayV2Client regions={regions} />
+    </PlannerDiscoveryGate>
+  )
 }
