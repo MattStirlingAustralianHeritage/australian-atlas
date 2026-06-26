@@ -122,6 +122,12 @@ export default function DashboardDescription() {
   }
 
   const latest = drafts[0] || null
+  // Lead with the free-text request; keep the structured facts below it.
+  const coverageField = INTAKE_FIELDS.find(f => f.key === 'coverage_request')
+  const factFields = INTAKE_FIELDS.filter(f => f.key !== 'coverage_request')
+  const currentListing = myListings.find(l => l.id === listingId) || null
+  const hasDescription = Boolean(currentListing?.description) || drafts.length > 0
+  const primaryLabel = hasDescription ? 'Request a rewrite' : 'Request my description'
 
   return (
     <div>
@@ -129,9 +135,10 @@ export default function DashboardDescription() {
         <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '1.75rem', fontWeight: 600, color: 'var(--color-ink)', margin: '0 0 0.25rem' }}>
           Your Description
         </h1>
-        <p style={{ fontFamily: 'var(--font-sans)', fontSize: '0.95rem', color: 'var(--color-muted)', margin: 0, maxWidth: 620 }}>
-          Tell us the facts about your venue. We write the description in the Atlas voice from those facts — and only those facts.
-          Nothing goes live until our editors approve it.
+        <p style={{ fontFamily: 'var(--font-sans)', fontSize: '0.95rem', color: 'var(--color-muted)', margin: 0, maxWidth: 640 }}>
+          Tell us what you’d like your listing to say — the things you want written about and anything to add —
+          along with a few key facts. We write it in the Atlas voice and send it for a quick editorial check before
+          it goes live. We only ever write from what you tell us.
         </p>
       </div>
 
@@ -157,23 +164,38 @@ export default function DashboardDescription() {
           body="Claim your listing to submit the facts we use to write your description." />
       ) : (
         <>
-          {/* Facts form */}
+          {/* Rewrite request — lead with what the operator wants, in their words */}
+          {coverageField && (
+            <section style={{ background: '#fff', borderRadius: 12, border: '1px solid var(--color-border)', padding: '1.5rem', marginBottom: '1.5rem' }}>
+              <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-muted)', margin: '0 0 0.5rem' }}>
+                {hasDescription ? 'Request a rewrite' : 'What you’d like written'}
+              </h2>
+              <p style={{ fontFamily: 'var(--font-sans)', fontSize: '0.82rem', color: 'var(--color-muted)', margin: '0 0 1rem', lineHeight: 1.5 }}>
+                {hasDescription
+                  ? 'Want something changed or added? Tell us here — what to mention, what to add, what to drop — and we’ll rewrite it in the Atlas voice.'
+                  : 'Start here. Tell us what you want your listing to say.'}
+              </p>
+              <FactField field={coverageField} value={form.coverage_request} onChange={v => setField('coverage_request', v)} />
+            </section>
+          )}
+
+          {/* Key facts — the grounding details we write from */}
           <section style={{ background: '#fff', borderRadius: 12, border: '1px solid var(--color-border)', padding: '1.5rem', marginBottom: '1.5rem' }}>
             <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-muted)', margin: '0 0 1.25rem' }}>
               The facts
             </h2>
-            {INTAKE_FIELDS.map(field => (
+            {factFields.map(field => (
               <FactField key={field.key} field={field} value={form[field.key]} onChange={v => setField(field.key, v)} />
             ))}
 
             <div style={{ display: 'flex', gap: 10, marginTop: '1.25rem', flexWrap: 'wrap' }}>
               <button onClick={saveFacts} disabled={saving || generating}
                 style={btn('ghost', saving || generating)}>
-                {saving ? 'Saving…' : 'Save facts'}
+                {saving ? 'Saving…' : 'Save draft'}
               </button>
               <button onClick={generate} disabled={saving || generating}
                 style={btn('primary', saving || generating)}>
-                {generating ? 'Writing…' : 'Generate description'}
+                {generating ? 'Writing…' : primaryLabel}
               </button>
             </div>
           </section>
@@ -252,7 +274,7 @@ function FactField({ field, value, onChange }) {
       </label>
       <p style={{ fontFamily: 'var(--font-sans)', fontSize: '0.78rem', color: 'var(--color-muted)', margin: '0 0 0.4rem' }}>{field.help}</p>
       {field.type === 'paragraph' || field.type === 'list' ? (
-        <textarea value={value} onChange={e => onChange(e.target.value)} rows={field.type === 'list' ? 3 : 3}
+        <textarea value={value} onChange={e => onChange(e.target.value)} rows={field.type === 'list' ? 3 : 4}
           placeholder={field.type === 'list' ? 'One per line' : ''}
           style={{ ...inputStyle, resize: 'vertical', borderColor: emph ? '#C49A3C' : 'var(--color-border)' }} />
       ) : field.type === 'year' ? (

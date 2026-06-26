@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { getAuthSupabase } from '@/lib/supabase/auth-clients'
 import { getVerticalFeatures } from '@/lib/vertical-features'
+import { getVerticalBadge } from '@/lib/verticalUrl'
 import { getDashboardToken } from '@/lib/dashboard-token'
 
 const AuthContext = createContext(null)
@@ -63,6 +64,12 @@ export default function DashboardLayout({ children }) {
   const [loading, setLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [vendorVerticals, setVendorVerticals] = useState({})
+  // The operator's owned listings — the thing this whole dashboard is about.
+  // Fetched once here (canonical listing_claims source via /api/dashboard) and
+  // shared with every page through context, so the sidebar, My Listings, and any
+  // other surface all speak about the same listing instead of diverging.
+  const [listings, setListings] = useState([])
+  const [listingsLoading, setListingsLoading] = useState(true)
   const router = useRouter()
   const pathname = usePathname()
   const supabase = getAuthSupabase()
@@ -74,11 +81,17 @@ export default function DashboardLayout({ children }) {
     })
 
     getDashboardToken().then(token => {
-      if (!token) return
+      if (!token) { setListingsLoading(false); return }
       try {
         const payload = JSON.parse(atob(token.split('.')[1]))
         setVendorVerticals(payload.verticals || {})
       } catch { /* silent */ }
+
+      fetch('/api/dashboard', { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => (r.ok ? r.json() : null))
+        .then(data => { setListings(data?.listings || []) })
+        .catch(() => { /* sidebar context is best-effort */ })
+        .finally(() => setListingsLoading(false))
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -141,6 +154,47 @@ export default function DashboardLayout({ children }) {
           }}>
             {user.email}
           </p>
+        )}
+
+        {/* Managed-listing context — anchors the whole sidebar to the venue the
+            operator is actually managing, so the nav reads as "this listing's
+            tools" rather than a set of free-floating pages. */}
+        {!listingsLoading && listings.length > 0 && (
+          <Link
+            href={`/dashboard/listings/${listings[0].id}/edit`}
+            onClick={() => setSidebarOpen(false)}
+            style={{
+              display: 'block',
+              marginTop: '1rem',
+              paddingTop: '1rem',
+              borderTop: '1px solid rgba(255,255,255,0.1)',
+              textDecoration: 'none',
+            }}
+          >
+            <p style={{
+              fontFamily: 'var(--font-sans)', fontSize: '0.6rem', fontWeight: 600,
+              letterSpacing: '0.14em', textTransform: 'uppercase',
+              color: 'rgba(255,255,255,0.4)', margin: '0 0 0.3rem',
+            }}>
+              Managing
+            </p>
+            <p style={{
+              fontFamily: 'var(--font-serif)', fontSize: '0.95rem', color: '#fff',
+              margin: 0, lineHeight: 1.25,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {listings[0].name}
+            </p>
+            <p style={{
+              fontFamily: 'var(--font-sans)', fontSize: '0.7rem',
+              color: 'var(--color-sage)', margin: '0.2rem 0 0',
+            }}>
+              {getVerticalBadge(listings[0].vertical)}
+              {listings.length > 1 && (
+                <span style={{ color: 'rgba(255,255,255,0.4)' }}> · +{listings.length - 1} more</span>
+              )}
+            </p>
+          </Link>
         )}
       </div>
 
@@ -218,7 +272,7 @@ export default function DashboardLayout({ children }) {
   )
 
   return (
-    <AuthContext.Provider value={{ user, supabase }}>
+    <AuthContext.Provider value={{ user, supabase, listings, listingsLoading }}>
       <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--color-cream)' }}>
         {/* Desktop sidebar */}
         <div className="hidden md:block" style={{ position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 40 }}>

@@ -1,295 +1,151 @@
 'use client'
 
+import Link from 'next/link'
 import { useAuth } from '../layout'
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { getListingRegion } from '@/lib/regions'
-import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
+import { getVerticalUrl, getVerticalBadge, VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 
-const VERTICAL_COLORS = VERTICAL_ACCENTS
+// My Listings reads the SAME canonical source as the Overview and the sidebar:
+// the operator's owned listings (listing_claims → /api/dashboard), lifted into
+// the dashboard layout and shared via context. The previous version queried each
+// vertical's legacy vendor_profiles/claims tables, which the current claim flow
+// no longer writes — so a fully-claimed listing showed here as "none". One source
+// of truth keeps the whole dashboard talking about the same venue.
 
-const VERTICAL_LABELS = {
-  sba: 'Small Batch Atlas',
-  collection: 'Culture Atlas',
-  craft: 'Craft Atlas',
-  fine_grounds: 'Fine Grounds Atlas',
-  rest: 'Rest Atlas',
-  field: 'Field Atlas',
-  corner: 'Corner Atlas',
-  found: 'Found Atlas',
-  table: 'Table Atlas',
+function StatusPill({ children, tone }) {
+  const tones = {
+    live: { bg: '#dcfce7', fg: '#166534' },
+    paid: { bg: '#dbeafe', fg: '#1e40af' },
+    free: { bg: '#f3f4f6', fg: '#6b7280' },
+    featured: { bg: '#fce7f3', fg: '#9d174d' },
+  }
+  const t = tones[tone] || tones.free
+  return (
+    <span style={{
+      display: 'inline-block', padding: '0.2rem 0.6rem', borderRadius: '999px',
+      fontSize: '0.7rem', fontFamily: 'var(--font-sans)', fontWeight: 500,
+      background: t.bg, color: t.fg,
+    }}>
+      {children}
+    </span>
+  )
 }
 
-function ListingCard({ vertical, data, onToast }) {
-  const router = useRouter()
-  const color = VERTICAL_COLORS[vertical]
-  const label = VERTICAL_LABELS[vertical]
-  const venue = data.venue
-  const master = data.masterListing
-  const tier = data.tier || 'free'
-
-  function handleEdit() {
-    if (master?.id) {
-      router.push(`/dashboard/listings/${master.id}/edit`)
-    } else {
-      onToast(`Listing editing for ${label} is coming soon`)
-    }
-  }
+function ListingCard({ listing }) {
+  const accent = VERTICAL_ACCENTS[listing.vertical] || 'var(--color-sage)'
+  const region = getListingRegion(listing)
+  const location = [region?.name, listing.state].filter(Boolean).join(', ')
+  const editUrl = `/dashboard/listings/${listing.id}/edit`
 
   return (
     <div style={{
-      background: '#fff',
-      borderRadius: '12px',
-      border: '1px solid var(--color-border)',
-      padding: '1.5rem',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '0.75rem',
+      background: '#fff', borderRadius: '12px', border: '1px solid var(--color-border)',
+      padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem',
     }}>
       {/* Vertical badge */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: accent, display: 'inline-block', flexShrink: 0 }} />
         <span style={{
-          width: '8px',
-          height: '8px',
-          borderRadius: '50%',
-          background: color,
-          display: 'inline-block',
-          flexShrink: 0,
-        }} />
-        <span style={{
-          fontFamily: 'var(--font-sans)',
-          fontSize: '0.75rem',
-          fontWeight: 500,
-          color: color,
-          textTransform: 'uppercase',
-          letterSpacing: '0.05em',
+          fontFamily: 'var(--font-sans)', fontSize: '0.72rem', fontWeight: 600,
+          color: accent, textTransform: 'uppercase', letterSpacing: '0.06em',
         }}>
-          {label}
+          {getVerticalBadge(listing.vertical)}
         </span>
       </div>
 
       {/* Venue name */}
-      <h3 style={{
-        fontFamily: 'var(--font-serif)',
-        fontSize: '1.15rem',
-        fontWeight: 600,
-        color: 'var(--color-ink)',
-        margin: 0,
-      }}>
-        {venue?.name || master?.name || 'Unnamed venue'}
+      <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: '1.15rem', fontWeight: 600, color: 'var(--color-ink)', margin: 0 }}>
+        {listing.name}
       </h3>
 
       {/* Region / State */}
-      {(() => {
-        const r = master ? getListingRegion(master) : null
-        return (r || master?.state) && (
-          <p style={{
-            fontFamily: 'var(--font-sans)',
-            fontSize: '0.825rem',
-            color: 'var(--color-muted)',
-            margin: 0,
-          }}>
-            {[r?.name, master.state].filter(Boolean).join(', ')}
-          </p>
-        )
-      })()}
+      {location && (
+        <p style={{ fontFamily: 'var(--font-sans)', fontSize: '0.825rem', color: 'var(--color-muted)', margin: 0 }}>
+          {location}
+        </p>
+      )}
 
-      {/* Badges */}
+      {/* Status badges */}
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-        <span style={{
-          display: 'inline-block',
-          padding: '0.2rem 0.6rem',
-          borderRadius: '999px',
-          fontSize: '0.7rem',
-          fontFamily: 'var(--font-sans)',
-          fontWeight: 500,
-          background: data.claimed ? '#dcfce7' : '#f3f4f6',
-          color: data.claimed ? '#166534' : '#6b7280',
-        }}>
-          {data.claimed ? 'Claimed' : 'Unclaimed'}
-        </span>
-        <span style={{
-          display: 'inline-block',
-          padding: '0.2rem 0.6rem',
-          borderRadius: '999px',
-          fontSize: '0.7rem',
-          fontFamily: 'var(--font-sans)',
-          fontWeight: 500,
-          background: tier === 'premium' ? '#fef3c7' : tier === 'standard' ? '#dbeafe' : '#f3f4f6',
-          color: tier === 'premium' ? '#92400e' : tier === 'standard' ? '#1e40af' : '#6b7280',
-          textTransform: 'capitalize',
-        }}>
-          {tier}
-        </span>
-        {master?.is_featured && (
-          <span style={{
-            display: 'inline-block',
-            padding: '0.2rem 0.6rem',
-            borderRadius: '999px',
-            fontSize: '0.7rem',
-            fontFamily: 'var(--font-sans)',
-            fontWeight: 500,
-            background: '#fce7f3',
-            color: '#9d174d',
-          }}>
-            Featured
-          </span>
-        )}
+        <StatusPill tone="live">Claimed &amp; live</StatusPill>
+        <StatusPill tone={listing.paid ? 'paid' : 'free'}>{listing.paid ? 'Standard' : 'Free'}</StatusPill>
+        {listing.is_featured && <StatusPill tone="featured">Featured</StatusPill>}
       </div>
 
-      {/* Edit button */}
-      <button
-        onClick={handleEdit}
-        style={{
-          marginTop: '0.25rem',
-          padding: '0.5rem 1rem',
-          borderRadius: '8px',
-          border: '1px solid var(--color-border)',
-          background: '#fff',
-          fontFamily: 'var(--font-sans)',
-          fontSize: '0.825rem',
-          fontWeight: 500,
-          color: 'var(--color-ink)',
-          cursor: 'pointer',
-          transition: 'all 0.15s',
-          alignSelf: 'flex-start',
-        }}
-        onMouseOver={(e) => {
-          e.currentTarget.style.background = 'var(--color-ink)'
-          e.currentTarget.style.color = '#fff'
-        }}
-        onMouseOut={(e) => {
-          e.currentTarget.style.background = '#fff'
-          e.currentTarget.style.color = 'var(--color-ink)'
-        }}
-      >
-        Edit listing
-      </button>
+      {/* Listing-scoped tools — the side-nav actions, pointed at THIS listing */}
+      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
+        <Link href={editUrl} style={primaryBtn}>Edit listing</Link>
+        <Link href="/dashboard/description" style={ghostBtn}>Your description</Link>
+        <a href={getVerticalUrl(listing.vertical, listing.slug)} target="_blank" rel="noopener noreferrer" style={ghostBtn}>
+          View on site
+        </a>
+      </div>
+
+      {/* Not-paid nudge — editing is a Standard-plan feature */}
+      {!listing.paid && (
+        <p style={{ fontFamily: 'var(--font-sans)', fontSize: '0.78rem', color: 'var(--color-muted)', margin: '0.25rem 0 0', lineHeight: 1.5 }}>
+          Your listing is live. Activate Standard to edit its details, photos and hours.
+        </p>
+      )}
     </div>
   )
 }
 
 export default function DashboardListings() {
-  const { user } = useAuth()
-  const [network, setNetwork] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [toast, setToast] = useState(null)
-
-  useEffect(() => {
-    fetch('/api/dashboard/network')
-      .then((r) => r.json())
-      .then((data) => {
-        setNetwork(data.network || {})
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
-  }, [])
-
-  function showToast(message) {
-    setToast(message)
-    setTimeout(() => setToast(null), 3500)
-  }
-
-  const claimedVerticals = network
-    ? Object.entries(network).filter(([, d]) => d.claimed)
-    : []
+  const { listings, listingsLoading } = useAuth()
 
   return (
     <div>
       <div style={{ marginBottom: '2rem' }}>
-        <h1 style={{
-          fontFamily: 'var(--font-serif)',
-          fontSize: '1.75rem',
-          fontWeight: 600,
-          color: 'var(--color-ink)',
-          margin: '0 0 0.25rem',
-        }}>
+        <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '1.75rem', fontWeight: 600, color: 'var(--color-ink)', margin: '0 0 0.25rem' }}>
           My Listings
         </h1>
-        <p style={{
-          fontFamily: 'var(--font-sans)',
-          fontSize: '0.95rem',
-          color: 'var(--color-muted)',
-          margin: 0,
-        }}>
+        <p style={{ fontFamily: 'var(--font-sans)', fontSize: '0.95rem', color: 'var(--color-muted)', margin: 0 }}>
           Venues you have claimed across the Atlas network
         </p>
       </div>
 
-      {loading ? (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-          gap: '1rem',
-        }}>
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} style={{
-              background: '#fff',
-              borderRadius: '12px',
-              border: '1px solid var(--color-border)',
-              padding: '1.5rem',
-            }}>
+      {listingsLoading ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} style={{ background: '#fff', borderRadius: '12px', border: '1px solid var(--color-border)', padding: '1.5rem' }}>
               <div style={{ width: '40%', height: '10px', background: 'var(--color-border)', borderRadius: '4px', marginBottom: '1rem' }} />
               <div style={{ width: '70%', height: '14px', background: 'var(--color-border)', borderRadius: '4px', marginBottom: '0.75rem' }} />
               <div style={{ width: '50%', height: '10px', background: 'var(--color-border)', borderRadius: '4px' }} />
             </div>
           ))}
         </div>
-      ) : claimedVerticals.length === 0 ? (
-        <div style={{
-          background: '#fff',
-          borderRadius: '12px',
-          border: '1px solid var(--color-border)',
-          padding: '3rem 2rem',
-          textAlign: 'center',
-        }}>
-          <p style={{
-            fontFamily: 'var(--font-serif)',
-            fontSize: '1.1rem',
-            color: 'var(--color-ink)',
-            margin: '0 0 0.5rem',
-          }}>
+      ) : listings.length === 0 ? (
+        <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid var(--color-border)', padding: '3rem 2rem', textAlign: 'center' }}>
+          <p style={{ fontFamily: 'var(--font-serif)', fontSize: '1.1rem', color: 'var(--color-ink)', margin: '0 0 0.5rem' }}>
             No claimed listings yet
           </p>
-          <p style={{
-            fontFamily: 'var(--font-sans)',
-            fontSize: '0.875rem',
-            color: 'var(--color-muted)',
-            margin: 0,
-          }}>
-            Visit a vertical site to claim your venue and manage it from here.
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '0.875rem', color: 'var(--color-muted)', margin: '0 0 1.25rem' }}>
+            Find your venue on any Atlas site and claim it — it will appear here once your claim is approved.
           </p>
+          <Link href="/explore" style={primaryBtn}>Find your listing</Link>
         </div>
       ) : (
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-          gap: '1rem',
-        }}>
-          {claimedVerticals.map(([v, data]) => (
-            <ListingCard key={v} vertical={v} data={data} onToast={showToast} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
+          {listings.map(listing => (
+            <ListingCard key={listing.id} listing={listing} />
           ))}
-        </div>
-      )}
-
-      {toast && (
-        <div style={{
-          position: 'fixed',
-          bottom: '2rem',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          background: 'var(--color-ink)',
-          color: '#fff',
-          padding: '0.75rem 1.5rem',
-          borderRadius: '8px',
-          fontFamily: 'var(--font-sans)',
-          fontSize: '0.875rem',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-          zIndex: 1000,
-        }}>
-          {toast}
         </div>
       )}
     </div>
   )
+}
+
+const primaryBtn = {
+  display: 'inline-block', padding: '0.5rem 1rem', borderRadius: '8px',
+  border: '1px solid var(--color-ink)', background: 'var(--color-ink)', color: '#fff',
+  fontFamily: 'var(--font-sans)', fontSize: '0.8rem', fontWeight: 500,
+  textDecoration: 'none', cursor: 'pointer',
+}
+
+const ghostBtn = {
+  display: 'inline-block', padding: '0.5rem 1rem', borderRadius: '8px',
+  border: '1px solid var(--color-border)', background: '#fff', color: 'var(--color-ink)',
+  fontFamily: 'var(--font-sans)', fontSize: '0.8rem', fontWeight: 500,
+  textDecoration: 'none', cursor: 'pointer',
 }

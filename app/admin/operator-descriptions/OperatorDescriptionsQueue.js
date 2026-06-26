@@ -9,6 +9,7 @@ const VERTICAL_NAMES = {
 
 // The labelled facts in form order, for the verify-against-source panel.
 const FACT_ROWS = [
+  ['coverage_request', 'What they’d like covered'],
   ['building_description', 'The building'],
   ['what_you_book', 'What you book'],
   ['design_fitting_detail', 'Design & fittings'],

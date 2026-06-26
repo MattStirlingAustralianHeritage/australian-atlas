@@ -25,6 +25,8 @@ const FACT_KEYS = [
   'design_fitting_detail',
   'where_it_sits',
   'ownership_transition_note',
+  // Free-text rewrite request — what the operator wants covered or added.
+  'coverage_request',
 ]
 
 async function requireUser() {

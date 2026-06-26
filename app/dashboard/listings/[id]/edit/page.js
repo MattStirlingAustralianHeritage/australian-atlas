@@ -864,67 +864,97 @@ export default function EditListingPage() {
               legal_documents (upload_terms, is_current); INTERIM pending review.
               Lives below the hero, but the hero's upload button scrolls here and
               flashes it (nudgeUploadGate) so the consent box is never "missing". */}
-          <div
-            ref={uploadGateRef}
-            style={{
-              marginBottom: 24,
-              padding: '16px 18px',
-              borderRadius: 12,
-              border: `1px solid ${uploadWarrantyAccepted ? 'var(--color-border)' : vertColor}`,
-              background: gateNudge ? '#fffbeb' : 'var(--color-cream)',
-              boxShadow: gateNudge ? `0 0 0 3px ${vertColor}55` : 'none',
-              transition: 'box-shadow 0.25s ease, background 0.25s ease, border-color 0.25s ease',
-              scrollMarginTop: 24,
-            }}
-          >
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 13, color: uploadWarrantyAccepted ? 'var(--color-ink)' : vertColor, margin: '0 0 8px' }}>
-              {uploadWarrantyAccepted
-                ? 'Image rights — confirmed ✓'
-                : 'Step 1 — confirm image rights (required before uploading photos)'}
-            </p>
-            {uploadTermsDoc?.body_md && (
-              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 12, lineHeight: 1.6, color: 'var(--color-ink)', opacity: 0.8, margin: '0 0 12px', whiteSpace: 'pre-wrap' }}>
-                {uploadTermsDoc.body_md}
-              </p>
-            )}
-            <label
-              htmlFor="upload-warranty"
+          {uploadWarrantyAccepted ? (
+            /* Confirmed — the challenge collapses to a slim acknowledgement. The
+               full terms, checkbox and credit field return only if the operator
+               taps "Change", so the page isn't crowded by a settled step. */
+            <div
+              ref={uploadGateRef}
               style={{
+                marginBottom: 24,
+                padding: '10px 14px',
+                borderRadius: 10,
+                border: '1px solid var(--color-border)',
+                background: 'var(--color-cream)',
                 display: 'flex',
-                alignItems: 'flex-start',
+                alignItems: 'center',
                 gap: 10,
-                cursor: 'pointer',
-                padding: '10px 12px',
-                borderRadius: 8,
-                border: `1px solid ${uploadWarrantyAccepted ? 'var(--color-border)' : vertColor}`,
-                background: '#fff',
+                scrollMarginTop: 24,
               }}
             >
-              <input
-                id="upload-warranty"
-                type="checkbox"
-                checked={uploadWarrantyAccepted}
-                onChange={e => setUploadWarrantyAccepted(e.target.checked)}
-                style={{ marginTop: 1, accentColor: vertColor, width: 18, height: 18, flexShrink: 0, cursor: 'pointer' }}
-              />
-              <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12.5, color: 'var(--color-ink)' }}>
-                I confirm I own or am licensed to use the images I upload, that they infringe no copyright or moral rights, and that anyone identifiable in them has consented.
+              <span style={{ color: 'var(--color-sage)', display: 'inline-flex', flexShrink: 0 }}>{ICONS.check}</span>
+              <span style={{ fontFamily: 'var(--font-body)', fontSize: 12.5, color: 'var(--color-ink)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                Image rights confirmed{sourceDeclaration.trim() ? ` · ${sourceDeclaration.trim()}` : ''}
               </span>
-            </label>
-            <div style={{ marginTop: 12 }}>
-              <label htmlFor="source-declaration" style={{ display: 'block', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, color: 'var(--color-ink)', marginBottom: 4 }}>
-                Image source / credit <span style={{ fontWeight: 300, color: 'var(--color-muted)' }}>(optional)</span>
-              </label>
-              <input
-                id="source-declaration"
-                type="text"
-                value={sourceDeclaration}
-                onChange={e => setSourceDeclaration(e.target.value)}
-                placeholder="e.g. My own photo / commissioned from …"
-                style={{ width: '100%', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-ink)', background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 8, padding: '8px 12px', outline: 'none' }}
-              />
+              <button
+                type="button"
+                onClick={() => setUploadWarrantyAccepted(false)}
+                style={{ ...editToggle, flexShrink: 0 }}
+              >
+                Change
+              </button>
             </div>
-          </div>
+          ) : (
+            <div
+              ref={uploadGateRef}
+              style={{
+                marginBottom: 24,
+                padding: '16px 18px',
+                borderRadius: 12,
+                border: `1px solid ${vertColor}`,
+                background: gateNudge ? '#fffbeb' : 'var(--color-cream)',
+                boxShadow: gateNudge ? `0 0 0 3px ${vertColor}55` : 'none',
+                transition: 'box-shadow 0.25s ease, background 0.25s ease, border-color 0.25s ease',
+                scrollMarginTop: 24,
+              }}
+            >
+              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 13, color: vertColor, margin: '0 0 8px' }}>
+                Step 1 — confirm image rights (required before uploading photos)
+              </p>
+              {uploadTermsDoc?.body_md && (
+                <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 12, lineHeight: 1.6, color: 'var(--color-ink)', opacity: 0.8, margin: '0 0 12px', whiteSpace: 'pre-wrap' }}>
+                  {uploadTermsDoc.body_md}
+                </p>
+              )}
+              <label
+                htmlFor="upload-warranty"
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 10,
+                  cursor: 'pointer',
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  border: `1px solid ${vertColor}`,
+                  background: '#fff',
+                }}
+              >
+                <input
+                  id="upload-warranty"
+                  type="checkbox"
+                  checked={uploadWarrantyAccepted}
+                  onChange={e => setUploadWarrantyAccepted(e.target.checked)}
+                  style={{ marginTop: 1, accentColor: vertColor, width: 18, height: 18, flexShrink: 0, cursor: 'pointer' }}
+                />
+                <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12.5, color: 'var(--color-ink)' }}>
+                  I confirm I own or am licensed to use the images I upload, that they infringe no copyright or moral rights, and that anyone identifiable in them has consented.
+                </span>
+              </label>
+              <div style={{ marginTop: 12 }}>
+                <label htmlFor="source-declaration" style={{ display: 'block', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12, color: 'var(--color-ink)', marginBottom: 4 }}>
+                  Image source / credit <span style={{ fontWeight: 300, color: 'var(--color-muted)' }}>(optional)</span>
+                </label>
+                <input
+                  id="source-declaration"
+                  type="text"
+                  value={sourceDeclaration}
+                  onChange={e => setSourceDeclaration(e.target.value)}
+                  placeholder="e.g. My own photo / commissioned from …"
+                  style={{ width: '100%', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-ink)', background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 8, padding: '8px 12px', outline: 'none' }}
+                />
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-5" style={{ gap: 40 }}>
             {/* Editorial column (read-only preview) */}
