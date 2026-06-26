@@ -4,7 +4,8 @@ import { createAuthServerClient } from '@/lib/supabase/auth-clients'
 import { getDistanceBudget, getStopLimits } from '@/lib/route-budgets'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
-import { getUserTasteProfile, tasteAffinity } from '@/lib/discover/tasteProfile'
+import { tasteAffinity } from '@/lib/discover/tasteProfile'
+import { getTasteProfile } from '@/lib/discover/getTasteProfile'
 
 // Soft bonus toward the kinds of place the signed-in user keeps saving in
 // Discover, added to a route stop's selection score (terms are roughly in the
@@ -713,11 +714,17 @@ async function buildItinerary({
 
   // Discover personalisation (optional): if signed in, lean stop selection
   // toward the kinds of place the user keeps saving. Anonymous → null → no change.
+  // Reads the persisted taste_profiles.category_shares (saves + owned
+  // trail-stops). Same shape as the old user_saves recompute → drop-in for
+  // tasteAffinity. null (anon / no profile / below floor) → no personalisation.
   let tasteProfile = null
   try {
     const auth = await createAuthServerClient()
     const { data: { user } } = await auth.auth.getUser()
-    if (user) tasteProfile = await getUserTasteProfile(sb, user.id)
+    if (user) {
+      const tp = await getTasteProfile(sb, user.id)
+      tasteProfile = tp?.shares || null
+    }
   } catch { /* anonymous or auth unavailable — no personalisation */ }
 
   // Cycling uses a narrower corridor (cyclists don't detour far off-route)
