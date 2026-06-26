@@ -338,7 +338,7 @@ export default function DiscoverDeck({ variant = 'fullscreen' }) {
           <div className="dd-band-head">
             <p className="dd-band-kicker">Discover</p>
             <h2 className="dd-band-title">One place at a time</h2>
-            <p className="dd-band-sub">Flick through independent Australia. The more you pick, the better it reads you.</p>
+            <p className="dd-band-sub">Flick through independent Australia. The more you pick, the more it&apos;s to your taste.</p>
           </div>
         )}
 
