@@ -55,6 +55,11 @@ export default function DiscoverDeck({ variant = 'fullscreen' }) {
   const queueRef = useRef([])
   const hasFetched = useRef(false)
   const locRef = useRef(null)
+  // Verticals the user has actually been SHOWN (most recent last). Sent to the
+  // feed so the server caps single-vertical runs across the whole session, not
+  // just within one batch (otherwise re-rank-on-pick walls up one category).
+  const servedRef = useRef([])
+  const lastServedId = useRef(null)
   useEffect(() => { queueRef.current = queue }, [queue])
   useEffect(() => { locRef.current = location }, [location])
 
@@ -67,6 +72,14 @@ export default function DiscoverDeck({ variant = 'fullscreen' }) {
   const nextHint = queue[1] || null
   const pickCount = pickedIds.length
   const swipeCount = pickedIds.length + skippedIds.length
+
+  // Record each card the user is shown (its vertical) for the run cap.
+  useEffect(() => {
+    if (current && current.id !== lastServedId.current) {
+      lastServedId.current = current.id
+      if (current.vertical) servedRef.current.push(current.vertical)
+    }
+  }, [current])
 
   // ── Feed fetch ──────────────────────────────────────────────────────
   const loadFeed = useCallback(async ({ picked, skipped, mode }) => {
@@ -92,6 +105,7 @@ export default function DiscoverDeck({ variant = 'fullscreen' }) {
           limit: BATCH_LIMIT,
           lat: loc?.lat ?? null,
           lng: loc?.lng ?? null,
+          recentVerticals: servedRef.current.slice(-12),
         }),
       })
       const data = await res.json().catch(() => ({}))

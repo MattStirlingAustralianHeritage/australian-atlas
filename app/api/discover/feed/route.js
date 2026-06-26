@@ -12,9 +12,12 @@ const CARD_FIELDS = 'id, name, slug, vertical, sub_type, description, region, st
 
 const DEFAULT_LIMIT = 10
 const MAX_MATCH = 100
-// Never serve more than this many of the same vertical in a row, even when the
-// taste vector is strongly concentrated — avoids a monotonous single-category wall.
-const MAX_RUN = 3
+// Never serve more than this many of the same vertical CONSECUTIVELY (counted
+// across the session via recentVerticals, not just within one batch).
+const MAX_RUN = 2
+// And cap any single vertical's SHARE of a batch, so even a strongly-concentrated
+// taste yields a genuine cross-section of verticals rather than a firehose of one.
+const MAX_DOMINANT_SHARE = 0.4
 
 /** Fisher–Yates shuffle (returns a copy). */
 function shuffle(arr) {
@@ -24,42 +27,6 @@ function shuffle(arr) {
     ;[a[i], a[j]] = [a[j], a[i]]
   }
   return a
-}
-
-/**
- * Reorder a rank-ordered list so no vertical appears more than `maxRun` times
- * consecutively. Rank order is preserved otherwise; when a run would exceed the
- * cap we pull up the next-best card of a different vertical. If the remaining
- * pool is a single vertical, the cap can't apply (unavoidable) and rank holds.
- */
-function diversify(items, maxRun) {
-  const remaining = items.slice()
-  const out = []
-  let lastV = null
-  let run = 0
-  while (remaining.length) {
-    let idx = 0
-    if (lastV !== null && run >= maxRun) {
-      const alt = remaining.findIndex((it) => it.vertical !== lastV)
-      if (alt !== -1) idx = alt
-    }
-    const [picked] = remaining.splice(idx, 1)
-    if (picked.vertical === lastV) run += 1
-    else { lastV = picked.vertical; run = 1 }
-    out.push(picked)
-  }
-  return out
-}
-
-/** Longest run of the same vertical in a sequence. */
-function maxRunOf(items) {
-  let max = 0, run = 0, last = null
-  for (const it of items) {
-    if (it.vertical === last) run += 1
-    else { last = it.vertical; run = 1 }
-    if (run > max) max = run
-  }
-  return max
 }
 
 /** Most frequent vertical in a list. */
@@ -73,32 +40,95 @@ function modeVertical(items) {
   return best
 }
 
-/**
- * Interleave taste-ranked cards with diverse "breaker" cards so no vertical
- * runs longer than maxRun. Ranked (taste-relevant) cards are always preferred;
- * a breaker of a different vertical is pulled in only to interrupt an over-long
- * run — so adaptation stays dominant but never becomes a single-category wall.
- */
-function assembleWithBreakers(ranked, breakers, limit, maxRun) {
-  const out = []
-  let lastV = null, run = 0, bi = 0
-  for (let ri = 0; ri < ranked.length && out.length < limit; ) {
-    const cand = ranked[ri]
-    if (cand.vertical === lastV && run >= maxRun) {
-      let inserted = false
-      while (bi < breakers.length) {
-        const b = breakers[bi++]
-        if (b.vertical !== lastV) { out.push(b); lastV = b.vertical; run = 1; inserted = true; break }
-      }
-      if (!inserted) { out.push(cand); ri += 1; run += 1 } // no breaker available
-    } else {
-      out.push(cand); ri += 1
-      if (cand.vertical === lastV) run += 1
-      else { lastV = cand.vertical; run = 1 }
-    }
+/** Trailing same-vertical run from the recently-SERVED verticals (history). */
+function tailRunState(recentVerticals) {
+  if (!recentVerticals?.length) return { lastV: null, run: 0 }
+  const lastV = recentVerticals[recentVerticals.length - 1]
+  let run = 0
+  for (let i = recentVerticals.length - 1; i >= 0; i--) {
+    if (recentVerticals[i] === lastV) run += 1
+    else break
   }
-  while (out.length < limit && bi < breakers.length) out.push(breakers[bi++])
-  return out.slice(0, limit)
+  return { lastV, run }
+}
+
+/**
+ * Build a cross-sectional batch: leans toward the taste-ranked pool but
+ *   (a) caps the DOMINANT (most-picked) vertical at `maxDominant`, and every
+ *       OTHER vertical at a lower `maxOther`, so the batch spreads across MANY
+ *       categories instead of two; and
+ *   (b) never serves more than `maxRun` of one vertical in a row — counted
+ *       CONTINUOUSLY with the recently-served history (`recentVerticals`), so
+ *       re-ranks after each pick can't wall up.
+ * Diverse cards from `explore` (other verticals, round-robined) fill in. Result:
+ * reflects what the user keeps choosing while genuinely spanning verticals.
+ */
+function buildDiverseBatch(tasteRanked, explore, limit, { maxRun, dominantV, recentVerticals }) {
+  const out = []
+  const usedIds = new Set()
+  // Balance over a SLIDING WINDOW spanning recent history + this batch, so a
+  // vertical the user has just seen a lot of gets demoted across re-ranks
+  // (not just within one batch). Caps are relative to the window.
+  const WINDOW = 12
+  const maxDominant = Math.ceil(WINDOW * MAX_DOMINANT_SHARE) // ~5 of 12 (≈40%)
+  const maxOther = 2
+  const windowSeq = (recentVerticals || []).slice(-(WINDOW - 1))
+  let { lastV, run } = tailRunState(recentVerticals)
+
+  const exploreByV = {}
+  for (const c of explore) (exploreByV[c.vertical] ||= []).push(c)
+  const exploreOrder = shuffle(Object.keys(exploreByV))
+
+  const capFor = (v) => (v === dominantV ? maxDominant : maxOther)
+  const windowCount = (v) => {
+    const w = windowSeq.slice(-WINDOW)
+    let n = 0
+    for (const x of w) if (x === v) n += 1
+    return n
+  }
+  const canPlace = (v) => {
+    if (v === lastV && run >= maxRun) return false
+    if (windowCount(v) >= capFor(v)) return false
+    return true
+  }
+  const place = (card) => {
+    out.push(card)
+    usedIds.add(String(card.id))
+    windowSeq.push(card.vertical)
+    if (card.vertical === lastV) run += 1
+    else { lastV = card.vertical; run = 1 }
+  }
+  // Next explore card whose vertical is currently placeable (respects caps+run).
+  const nextPlaceableExplore = () => {
+    for (const v of exploreOrder) {
+      if (!canPlace(v)) continue
+      const arr = exploreByV[v]
+      while (arr && arr.length) {
+        const c = arr.shift()
+        if (!usedIds.has(String(c.id))) return c
+      }
+    }
+    return null
+  }
+
+  const taste = tasteRanked.slice()
+  while (out.length < limit) {
+    // 1) Highest-ranked taste card that respects the run + share caps.
+    const idx = taste.findIndex((c) => !usedIds.has(String(c.id)) && canPlace(c.vertical))
+    if (idx !== -1) { place(taste.splice(idx, 1)[0]); continue }
+    // 2) A diverse explore card of a still-placeable vertical.
+    const e = nextPlaceableExplore()
+    if (e) { place(e); continue }
+    // 3) Last resort: everything's capped but the batch isn't full — relax the
+    //    caps to avoid returning short, preferring a different vertical.
+    const rest = [
+      ...taste.filter((c) => !usedIds.has(String(c.id))),
+      ...Object.values(exploreByV).flat().filter((c) => !usedIds.has(String(c.id))),
+    ]
+    if (!rest.length) break
+    place(rest.find((c) => c.vertical !== lastV) || rest[0])
+  }
+  return out
 }
 
 /** Require a meaningful description (Supabase can't word-count in SQL). */
@@ -155,6 +185,11 @@ export async function POST(request) {
   const limit = Math.min(Math.max(parseInt(body.limit, 10) || DEFAULT_LIMIT, 1), 24)
   const lat = Number.isFinite(body.lat) ? body.lat : null
   const lng = Number.isFinite(body.lng) ? body.lng : null
+  // The verticals of the cards the client has recently SHOWN (most recent last),
+  // so the run cap continues across re-ranks instead of resetting each batch.
+  const recentVerticals = Array.isArray(body.recentVerticals)
+    ? body.recentVerticals.filter((v) => typeof v === 'string').slice(-12)
+    : []
 
   const seen = new Set(seenIds)
   // Picks/skips are always seen even if the client's seenIds lags behind.
@@ -214,8 +249,8 @@ export async function POST(request) {
   const coldStart = !taste
   try {
     listings = taste
-      ? await rankedBatch(sb, taste, seen, limit)
-      : await coldStartBatch(sb, seen, limit, lat, lng)
+      ? await rankedBatch(sb, taste, seen, limit, recentVerticals)
+      : await coldStartBatch(sb, seen, limit, lat, lng, recentVerticals)
   } catch (err) {
     return NextResponse.json({ error: `Feed query failed: ${err.message}` }, { status: 500 })
   }
@@ -234,10 +269,10 @@ export async function POST(request) {
  * the same shape /api/similar uses). The RPC has no exclude-ids param, so we
  * over-fetch and drop seen ids in JS.
  */
-async function rankedBatch(sb, taste, seen, limit) {
-  // Deep pool so diversify() has other-vertical candidates to break up long
-  // runs when the taste vector is strongly concentrated in one category.
-  const matchCount = Math.min(MAX_MATCH, limit * 5 + seen.size + 20)
+async function rankedBatch(sb, taste, seen, limit, recentVerticals = []) {
+  // Deep pool so the dominant vertical has depth AND there are other-vertical
+  // candidates to interleave for a genuine cross-section.
+  const matchCount = Math.min(MAX_MATCH, limit * 6 + seen.size + 20)
   const { data, error } = await sb.rpc('search_listings_hybrid', {
     query_embedding: taste,
     query_text: null,
@@ -255,18 +290,19 @@ async function rankedBatch(sb, taste, seen, limit) {
     ranked.push(trimCard(l))
   }
 
-  // First, try to cap runs using only the taste pool (no extra query).
-  const diversified = diversify(ranked, MAX_RUN).slice(0, limit)
-  if (maxRunOf(diversified) <= MAX_RUN) return diversified
-
-  // The taste pool is too single-vertical to self-diversify (a strong taste
-  // makes the nearest neighbours all one category). Pull diverse breaker cards
-  // from OTHER verticals so the user never sees a long single-category run.
+  // ALWAYS blend in a diverse pool from other verticals (not just as a fallback)
+  // so the served feed is a cross-section. The dominant vertical is capped per
+  // batch and never runs longer than MAX_RUN — counted across the served history.
   const dominant = modeVertical(ranked)
   const exclude = new Set(seen)
   ranked.forEach((r) => exclude.add(String(r.id)))
-  const breakers = await explorationPool(sb, dominant, exclude, limit)
-  return assembleWithBreakers(ranked, breakers, limit, MAX_RUN)
+  const explore = await explorationPool(sb, dominant, exclude, limit * 2)
+
+  return buildDiverseBatch(ranked, explore, limit, {
+    maxRun: MAX_RUN,
+    dominantV: dominant,
+    recentVerticals,
+  })
 }
 
 /**
@@ -315,7 +351,7 @@ async function explorationPool(sb, excludeVertical, exclude, limit) {
  * location is known, each vertical's sample is lightly biased toward nearby
  * venues (bbox-first, national fallback).
  */
-async function coldStartBatch(sb, seen, limit, lat, lng) {
+async function coldStartBatch(sb, seen, limit, lat, lng, recentVerticals = []) {
   const verticals = getPublicVerticals()
   const bbox = (lat != null && lng != null)
     ? { latMin: lat - 3, latMax: lat + 3, lngMin: lng - 3, lngMax: lng + 3 }
@@ -332,7 +368,13 @@ async function coldStartBatch(sb, seen, limit, lat, lng) {
   // Round-robin across verticals for maximum spread in the served batch.
   // Shuffle the vertical order so the lead card varies between loads (the feed
   // isn't identical every refresh) while still spanning categories.
-  const order = shuffle(verticals.filter((v) => byVertical[v]?.length))
+  let order = shuffle(verticals.filter((v) => byVertical[v]?.length))
+  // Don't lead with a vertical the user has just been shown (continuity with
+  // re-ranks / prior loads); rotate it to the back if it's first.
+  const { lastV, run } = tailRunState(recentVerticals)
+  if (run >= MAX_RUN && order.length > 1 && order[0] === lastV) {
+    order = [...order.slice(1), order[0]]
+  }
   const out = []
   let added = true
   while (out.length < limit && added) {
