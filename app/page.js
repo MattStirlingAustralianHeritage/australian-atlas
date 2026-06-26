@@ -6,6 +6,7 @@ import NewsletterSignup from '@/components/NewsletterSignup'
 import ScrollReveal from '@/components/ScrollReveal'
 import NearbySection from '@/components/NearbySection'
 import DiscoverHomeBand from '@/components/discover/DiscoverHomeBand'
+import CategoryGuideSection from '@/components/CategoryGuideSection'
 import { getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
 import { getListingRegion, LISTING_REGION_SELECT, resolveRegionParam } from '@/lib/regions'
 import { getPublicVerticals, VERTICAL_CARD_TOKENS } from '@/lib/verticalUrl'
@@ -513,126 +514,6 @@ export default async function Home() {
       {/* ── 2. Map Strip ────────────────────────────────── */}
       <HomeMapSection listingCount={stats.listings} />
 
-      {/* ── 2.5 What you'll find — the categories ───── */}
-      {/* Decodes the map's colour-coded pins and gives every category a real,
-          on-site entry point. Dual-label tiles (brand name + plain-English
-          descriptor, always visible) are the homepage's core comprehension fix. */}
-      <ScrollReveal as="section" style={{
-        paddingBlock: '84px',
-        background: 'linear-gradient(180deg, #F6F1E9 0%, var(--color-stone) 100%)',
-        borderTop: '1px solid rgba(28,26,23,0.06)',
-      }}>
-        <div className="max-w-6xl mx-auto px-6 sm:px-12">
-          <div className="reveal text-center" style={{ marginBottom: '46px' }}>
-            <p style={{
-              fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
-              letterSpacing: '0.22em', textTransform: 'uppercase',
-              color: GOLD, marginBottom: '16px',
-            }}>
-              What you&apos;ll find
-            </p>
-            <h2 style={{
-              fontFamily: 'var(--font-display)', fontWeight: 400,
-              fontSize: 'clamp(26px, 3.4vw, 40px)', color: 'var(--color-ink)',
-              lineHeight: 1.15, marginBottom: '14px', textWrap: 'balance',
-            }}>
-              {COUNT_WORDS[verticalCount] || verticalCount} kinds of independent place
-            </h2>
-            <p style={{
-              fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
-              lineHeight: 1.65, color: 'var(--color-muted)',
-              maxWidth: '540px', margin: '0 auto',
-            }}>
-              Every place we list belongs to one of {(COUNT_WORDS[verticalCount] || String(verticalCount)).toLowerCase()} categories. Browse a category on its own, or search across all of them at once.
-            </p>
-          </div>
-
-          {/* The category cards — the comprehension grid. Reverted to the tile
-              layout, but each tile now draws its icon, count, and hover border
-              from its vertical's SATURATED ground colour (not the old muted
-              accent), so the grid carries the same richer palette as the rest. */}
-          <div className="vguide-grid">
-            {VERTICAL_GUIDE.filter(v => publicVerticals.includes(v.key)).map((v, vi) => {
-              const Icon = v.Icon
-              const ground = (VERTICAL_CARD_COLORS[v.key] || {}).bg || v.accent
-              return (
-                <Link
-                  key={v.key}
-                  href={`/search?vertical=${v.key}`}
-                  className="reveal vguide-card group block"
-                  data-reveal-index={(vi % 3) + 1}
-                  style={{
-                    '--vc': ground,
-                    background: '#FFFFFF',
-                    border: '1px solid var(--color-border)',
-                    borderRadius: 'var(--radius-card)',
-                    padding: '22px 22px 20px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    minHeight: '150px',
-                  }}
-                >
-                  <div className="flex items-center justify-between" style={{ marginBottom: '14px' }}>
-                    <div className="flex items-center" style={{ gap: '11px' }}>
-                      <span style={{
-                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        width: '36px', height: '36px', borderRadius: '10px',
-                        background: `${ground}14`,
-                      }}>
-                        <Icon size={18} strokeWidth={1.6} style={{ color: ground }} />
-                      </span>
-                      <span style={{
-                        fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
-                        letterSpacing: '0.1em', textTransform: 'uppercase',
-                        color: 'var(--color-ink)',
-                      }}>
-                        {v.label}
-                      </span>
-                    </div>
-                    <span className="vguide-arrow" aria-hidden="true" style={{
-                      color: ground, fontSize: '16px', fontWeight: 500, lineHeight: 1,
-                    }}>
-                      &rarr;
-                    </span>
-                  </div>
-                  <h3 style={{
-                    fontFamily: 'var(--font-display)', fontWeight: 400,
-                    fontSize: '21px', lineHeight: 1.2, color: 'var(--color-ink)',
-                    marginBottom: '7px',
-                  }}>
-                    {v.name}
-                  </h3>
-                  <p style={{
-                    fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '13.5px',
-                    lineHeight: 1.55, color: 'var(--color-muted)', margin: 0,
-                  }}>
-                    {v.desc}
-                  </p>
-                  {stats.verticalCounts[v.key] > 0 && (
-                    <p style={{
-                      fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '11.5px',
-                      letterSpacing: '0.04em', color: ground,
-                      margin: 0, marginTop: 'auto', paddingTop: '12px',
-                    }}>
-                      {stats.verticalCounts[v.key].toLocaleString()} places
-                    </p>
-                  )}
-                </Link>
-              )
-            })}
-          </div>
-
-          <div className="reveal text-center" style={{ marginTop: '34px' }}>
-            <Link href="/explore" className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity" style={{
-              fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
-              color: GOLD, padding: '10px 4px', minHeight: 44,
-            }}>
-              See everything on one page &rarr;
-            </Link>
-          </div>
-        </div>
-      </ScrollReveal>
-
       {/* ── 3. Worth Finding This Week ──────────────────── */}
       {/* On its own pale cream band (with hairline edges) so it reads as a
           distinct section from the stone-ground "Worth finding nearby" below —
@@ -912,112 +793,6 @@ export default async function Home() {
                 </div>
               </a>
             )}
-          </div>
-        </ScrollReveal>
-      )}
-
-      {/* ── 5. Cross-Vertical Cluster ──────────────────── */}
-      {/* The intermediate kraft band — one oatmeal third surface between the
-          binary cream/near-black rhythm. It breaks the long cream run that
-          follows the dark Journal and lets the now-saturated vertical cards
-          (dark-on-kraft) read at their strongest. */}
-      {clusters.length > 0 && (
-        <ScrollReveal as="section" style={{
-          paddingBlock: '96px',
-          background: 'var(--color-kraft)',
-          borderTop: '1px solid rgba(28,26,23,0.05)',
-          borderBottom: '1px solid rgba(28,26,23,0.05)',
-        }}>
-          <div className="max-w-5xl mx-auto px-6 sm:px-12">
-            <div className="reveal mb-14" style={{ maxWidth: '560px' }}>
-              <p className="section-dateline" style={{ marginBottom: '16px' }}>
-                Where it overlaps
-              </p>
-              <h2 style={{
-                fontFamily: 'var(--font-display)', fontWeight: 400,
-                fontSize: 'clamp(26px, 3.2vw, 40px)', color: 'var(--color-ink)', lineHeight: 1.1,
-              }}>
-                Discover a cluster
-              </h2>
-              <p className="mt-3" style={{
-                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
-                color: 'var(--color-muted)', margin: '12px 0 0',
-              }}>
-                Regions where makers, stays, culture, and food overlap. One place, many reasons to go.
-              </p>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '56px' }}>
-              {clusters.map((cluster, ci) => {
-                const regionSlug = CLUSTER_REGION_SLUGS[cluster.region]
-                return (
-                  <div key={cluster.region} className="reveal" data-reveal-index={ci + 1}>
-                    <div style={{ marginBottom: '16px', maxWidth: '520px' }}>
-                      {regionSlug ? (
-                        <Link href={`/regions/${regionSlug}`} className="group inline-block">
-                          <h3 style={{
-                            fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 26,
-                            color: 'var(--color-ink)', lineHeight: 1.25,
-                          }}>
-                            {cluster.region}
-                            <span className="inline-block ml-2 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: GOLD, fontSize: 18 }}>&rarr;</span>
-                          </h3>
-                        </Link>
-                      ) : (
-                        <h3 style={{
-                          fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 26,
-                          color: 'var(--color-ink)', lineHeight: 1.25,
-                        }}>
-                          {cluster.region}
-                        </h3>
-                      )}
-                      <p style={{
-                        fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13,
-                        color: 'var(--color-muted)', marginTop: 4,
-                      }}>
-                        {cluster.total} places across {cluster.verticalCount} categories
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {cluster.picks.map(pick => {
-                        const colors = VERTICAL_CARD_COLORS[pick.vertical] || { bg: '#333', text: '#FAF8F4' }
-                        return (
-                          <Link
-                            key={pick.id}
-                            href={`/place/${pick.slug}`}
-                            className="listing-card block overflow-hidden"
-                            style={{
-                              background: colors.bg,
-                              borderRadius: 'var(--radius-card)',
-                              padding: '20px 16px',
-                              minHeight: '140px',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              justifyContent: 'space-between',
-                            }}
-                          >
-                            <span style={{
-                              fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 600,
-                              letterSpacing: '0.12em', textTransform: 'uppercase',
-                              color: 'rgba(250,248,244,0.45)',
-                            }}>
-                              {VERTICAL_LABELS[pick.vertical] || pick.vertical}
-                            </span>
-                            <span style={{
-                              fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 400,
-                              color: colors.text, lineHeight: 1.3, marginTop: 'auto',
-                            }}>
-                              {pick.name}
-                            </span>
-                          </Link>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
           </div>
         </ScrollReveal>
       )}
@@ -1342,6 +1117,119 @@ export default async function Home() {
           )}
         </div>
       </ScrollReveal>
+
+      {/* ── 5. Cross-Vertical Cluster ──────────────────── */}
+      {/* The intermediate kraft band — one oatmeal third surface between the
+          binary cream/near-black rhythm. It breaks the long cream run that
+          follows the dark Journal and lets the now-saturated vertical cards
+          (dark-on-kraft) read at their strongest. */}
+      {clusters.length > 0 && (
+        <ScrollReveal as="section" style={{
+          paddingBlock: '96px',
+          background: 'var(--color-kraft)',
+          borderTop: '1px solid rgba(28,26,23,0.05)',
+          borderBottom: '1px solid rgba(28,26,23,0.05)',
+        }}>
+          <div className="max-w-5xl mx-auto px-6 sm:px-12">
+            <div className="reveal mb-14" style={{ maxWidth: '560px' }}>
+              <p className="section-dateline" style={{ marginBottom: '16px' }}>
+                Where it overlaps
+              </p>
+              <h2 style={{
+                fontFamily: 'var(--font-display)', fontWeight: 400,
+                fontSize: 'clamp(26px, 3.2vw, 40px)', color: 'var(--color-ink)', lineHeight: 1.1,
+              }}>
+                Discover a cluster
+              </h2>
+              <p className="mt-3" style={{
+                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
+                color: 'var(--color-muted)', margin: '12px 0 0',
+              }}>
+                Regions where makers, stays, culture, and food overlap. One place, many reasons to go.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '56px' }}>
+              {clusters.map((cluster, ci) => {
+                const regionSlug = CLUSTER_REGION_SLUGS[cluster.region]
+                return (
+                  <div key={cluster.region} className="reveal" data-reveal-index={ci + 1}>
+                    <div style={{ marginBottom: '16px', maxWidth: '520px' }}>
+                      {regionSlug ? (
+                        <Link href={`/regions/${regionSlug}`} className="group inline-block">
+                          <h3 style={{
+                            fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 26,
+                            color: 'var(--color-ink)', lineHeight: 1.25,
+                          }}>
+                            {cluster.region}
+                            <span className="inline-block ml-2 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: GOLD, fontSize: 18 }}>&rarr;</span>
+                          </h3>
+                        </Link>
+                      ) : (
+                        <h3 style={{
+                          fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 26,
+                          color: 'var(--color-ink)', lineHeight: 1.25,
+                        }}>
+                          {cluster.region}
+                        </h3>
+                      )}
+                      <p style={{
+                        fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13,
+                        color: 'var(--color-muted)', marginTop: 4,
+                      }}>
+                        {cluster.total} places across {cluster.verticalCount} categories
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {cluster.picks.map(pick => {
+                        const colors = VERTICAL_CARD_COLORS[pick.vertical] || { bg: '#333', text: '#FAF8F4' }
+                        return (
+                          <Link
+                            key={pick.id}
+                            href={`/place/${pick.slug}`}
+                            className="listing-card block overflow-hidden"
+                            style={{
+                              background: colors.bg,
+                              borderRadius: 'var(--radius-card)',
+                              padding: '20px 16px',
+                              minHeight: '140px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              justifyContent: 'space-between',
+                            }}
+                          >
+                            <span style={{
+                              fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 600,
+                              letterSpacing: '0.12em', textTransform: 'uppercase',
+                              color: 'rgba(250,248,244,0.45)',
+                            }}>
+                              {VERTICAL_LABELS[pick.vertical] || pick.vertical}
+                            </span>
+                            <span style={{
+                              fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 400,
+                              color: colors.text, lineHeight: 1.3, marginTop: 'auto',
+                            }}>
+                              {pick.name}
+                            </span>
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </ScrollReveal>
+      )}
+
+      <CategoryGuideSection
+        publicVerticals={publicVerticals}
+        verticalCounts={stats.verticalCounts}
+        verticalCount={verticalCount}
+      />
+
     </>
   )
 }
