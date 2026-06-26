@@ -7,6 +7,7 @@ import { isVerticalPublic } from '@/lib/verticalUrl'
 import { parseQueryLocation } from '@/lib/search/parseQuery'
 import { resolveQueryRegion } from '@/lib/search/resolveQueryRegion'
 import { isPublicListing } from '@/lib/listings/publicFilter'
+import { guardedAnthropicMessage } from '@/lib/ai/guardedAnthropic'
 
 export const maxDuration = 60
 
@@ -25,7 +26,7 @@ async function callClaude(client, params) {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       return await Promise.race([
-        client.messages.create(params),
+        guardedAnthropicMessage(client, params),
         new Promise((_, reject) => setTimeout(() => reject(new Error('CLAUDE_TIMEOUT')), TIMEOUT_MS)),
       ])
     } catch (err) {

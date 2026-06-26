@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { createHash } from 'crypto'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 import { embedQuery } from '@/lib/embeddings/voyage'
+import { guardedAnthropicMessage } from '@/lib/ai/guardedAnthropic'
 import { logSearchEvent } from '@/lib/search/log'
 
 // CRITICAL: Vercel defaults to 10s — extend to 60s. Must be top-level export.
@@ -167,7 +168,7 @@ async function callAnthropicWithRetry(client, params) {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const result = await Promise.race([
-        client.messages.create(params),
+        guardedAnthropicMessage(client, params),
         new Promise((_, reject) =>
           setTimeout(() => reject(new Error('CLAUDE_TIMEOUT')), TIMEOUT_MS)
         ),

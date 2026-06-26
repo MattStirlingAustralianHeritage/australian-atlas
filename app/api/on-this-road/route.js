@@ -6,6 +6,8 @@ import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
 import { tasteAffinity } from '@/lib/discover/tasteProfile'
 import { getTasteProfile } from '@/lib/discover/getTasteProfile'
+import { reserveAnthropicBudget, reconcileAnthropicBudget } from '@/lib/ai/guardedAnthropic'
+import { estimateTokens } from '@/lib/budget/governor'
 
 // Soft bonus toward the kinds of place the signed-in user keeps saving in
 // Discover, added to a route stop's selection score (terms are roughly in the
@@ -1154,32 +1156,39 @@ async function buildItinerary({
     })
   }
 
-  // Call Claude
+  // Call Claude — budget-gated. Over the monthly cap → skip and fall back to
+  // the deterministic template itinerary below (claudeResult stays null).
   let claudeResult = null
-  try {
-    const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 3000,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    })
-    if (!claudeRes.ok) {
-      const errBody = await claudeRes.text().catch(() => '')
-      console.error('[on-this-road] Claude API non-200:', claudeRes.status, errBody.slice(0, 300))
+  const _claudeResv = await reserveAnthropicBudget({ model: MODEL, inputTokens: estimateTokens(prompt), maxOutputTokens: 3000 })
+  if (!_claudeResv.ok) {
+    console.warn('[on-this-road] anthropic monthly budget reached — using deterministic itinerary')
+  } else {
+    try {
+      const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: MODEL,
+          max_tokens: 3000,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      })
+      if (!claudeRes.ok) {
+        const errBody = await claudeRes.text().catch(() => '')
+        console.error('[on-this-road] Claude API non-200:', claudeRes.status, errBody.slice(0, 300))
+      }
+      const claudeData = await claudeRes.json()
+      await reconcileAnthropicBudget(_claudeResv, claudeData.usage)
+      const text = claudeData.content?.[0]?.text || ''
+      const jsonMatch = text.match(/\{[\s\S]*\}/)
+      if (jsonMatch) claudeResult = JSON.parse(jsonMatch[0])
+    } catch (err) {
+      console.error('[on-this-road] Claude API error:', err?.message, '| Route:', routeDistanceKm, 'km', '| Multi-day:', isMultiDay)
     }
-    const claudeData = await claudeRes.json()
-    const text = claudeData.content?.[0]?.text || ''
-    const jsonMatch = text.match(/\{[\s\S]*\}/)
-    if (jsonMatch) claudeResult = JSON.parse(jsonMatch[0])
-  } catch (err) {
-    console.error('[on-this-road] Claude API error:', err?.message, '| Route:', routeDistanceKm, 'km', '| Multi-day:', isMultiDay)
   }
   // Build response
   const listingMap = new Map(routeListings.map(l => [l.id, l]))

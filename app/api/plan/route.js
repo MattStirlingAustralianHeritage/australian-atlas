@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import Anthropic from '@anthropic-ai/sdk'
+import { guardedAnthropicMessage } from '@/lib/ai/guardedAnthropic'
 import { embedQuery } from '@/lib/embeddings/voyage'
 import { logSearchEvent } from '@/lib/search/log'
 
@@ -44,7 +45,7 @@ async function callClaude(client, params) {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       return await Promise.race([
-        client.messages.create(params),
+        guardedAnthropicMessage(client, params),
         new Promise((_, reject) =>
           setTimeout(() => reject(new Error('CLAUDE_TIMEOUT')), TIMEOUT_MS)
         ),
