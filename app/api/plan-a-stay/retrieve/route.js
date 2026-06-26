@@ -2,7 +2,8 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { createAuthServerClient } from '@/lib/supabase/auth-clients'
 import { NextResponse } from 'next/server'
 import { isCoffeeListing, isLunchListing } from '@/lib/plan-a-stay/assemble-days'
-import { getUserTasteProfile, tasteAffinity } from '@/lib/discover/tasteProfile'
+import { tasteAffinity } from '@/lib/discover/tasteProfile'
+import { getTasteProfile } from '@/lib/discover/getTasteProfile'
 
 // How hard the user's Discover taste reorders candidates WITHIN a geographic
 // cluster. A soft additive bonus on top of the [0,1] base score — enough to
@@ -301,12 +302,18 @@ export async function POST(request) {
     // ── Discover personalisation (optional) ────────────────────────
     // If the user is signed in, lean candidate ranking toward the kinds of
     // place they keep saving in Discover. Anonymous → null → no change.
+    // Reads the persisted taste_profiles.category_shares (saves + owned
+    // trail-stops). Same shape as the old user_saves recompute → drop-in for
+    // tasteAffinity. null (anon / no profile / below floor) → no personalisation.
     let tasteProfile = null
     try {
       const auth = await createAuthServerClient()
       const { data: { user } } = await auth.auth.getUser()
-      if (user) tasteProfile = await getUserTasteProfile(sb, user.id)
-      if (tasteProfile) filterPath.push(`taste: ${tasteProfile.savedCount} saved → personalised`)
+      if (user) {
+        const tp = await getTasteProfile(sb, user.id)
+        tasteProfile = tp?.shares || null
+      }
+      if (tasteProfile) filterPath.push(`taste: ${tasteProfile.savedCount} sources → personalised`)
     } catch { /* anonymous or auth unavailable — no personalisation */ }
 
     // ── Resolve pacing budget ──────────────────────────────────────
