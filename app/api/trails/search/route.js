@@ -4,16 +4,24 @@ import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalF
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 
 /**
- * GET /api/trails/search?q=...&vertical=...&limit=20
+ * GET /api/trails/search?q=...&vertical=...&region=<uuid>&limit=20
  *
  * Search active listings across all verticals for adding as trail stops.
  * Uses service-role client for unrestricted server-side queries.
+ *
+ * `region` (a regions.id UUID) is optional and additive. When supplied, the
+ * search is scoped to that region (coalesce of override/computed) AND becomes
+ * spelling-tolerant via the hybrid RPC's pg_trgm fuzzy arm — so "Mcclellen"
+ * surfaces "McClelland". This is the language-led path the operator-suggested
+ * trail builder uses; without `region` the original ILIKE behaviour is
+ * unchanged (the consumer/admin builders are unaffected).
  */
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url)
     const q = searchParams.get('q')
     const vertical = searchParams.get('vertical')
+    const region = searchParams.get('region')
     const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 100)
 
     if (!q || q.trim().length < 2) {
@@ -24,6 +32,33 @@ export async function GET(request) {
     }
 
     const sb = getSupabaseAdmin()
+
+    // ── Region-scoped, spelling-tolerant path (operator trail builder) ────────
+    if (region) {
+      const { data, error } = await sb.rpc('search_listings_hybrid', {
+        query_text: q.trim(),
+        query_embedding: null,
+        filter_region: region,
+        filter_vertical: vertical || null,
+        match_count: limit,
+      })
+      if (error) {
+        console.error('[trails/search] Hybrid RPC error:', error.message)
+        return NextResponse.json({ error: 'Search failed' }, { status: 500 })
+      }
+      const results = (data || []).map(l => ({
+        id: l.id,
+        name: l.name,
+        slug: l.slug,
+        vertical: l.vertical,
+        sub_type: l.sub_type || null,
+        latitude: l.lat,
+        longitude: l.lng,
+        region: l.region || null,
+        image_url: l.hero_image_url || null,
+      }))
+      return NextResponse.json({ results, total: results.length })
+    }
 
     let query = sb
       .from('listings')
@@ -90,6 +125,7 @@ export async function GET(request) {
     const results = listings.map(l => ({
       id: l.id,
       name: l.name,
+      slug: l.slug,
       vertical: l.vertical,
       sub_type: subTypeMap[l.id] || null,
       latitude: l.lat,
