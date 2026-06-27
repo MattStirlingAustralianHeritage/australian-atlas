@@ -27,6 +27,11 @@ export async function GET(request) {
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
+    // Operator-suggested trails (type='operator') are managed in the operator
+    // dashboard and surface only on their listing page — never in this generic
+    // discovery API, the /trails index, or a creator's /account/trails list.
+    query = query.neq('type', 'operator')
+
     if (createdBy) {
       // User viewing their own trails — return all of them
       query = query.eq('created_by', createdBy)

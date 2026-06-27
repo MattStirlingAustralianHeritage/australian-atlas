@@ -22,6 +22,7 @@ const NAV_ITEMS = [
   { label: 'Your Description', href: '/dashboard/description', icon: 'doc' },
   { label: 'Listing Insights', href: '/dashboard/analytics', icon: 'chart' },
   { label: 'Producer Picks', href: '/dashboard/picks', icon: 'star', picksOnly: true },
+  { label: 'Suggested Trail', href: '/dashboard/trail', icon: 'route' },
   { label: 'Editorial', href: '/dashboard/editorial', icon: 'pen' },
   { label: 'Recommend a Listing', href: '/dashboard/recommend', icon: 'plus' },
   { label: 'Subscription', href: '/dashboard/subscription', icon: 'card' },
@@ -42,6 +43,8 @@ function NavIcon({ type, size = 18 }) {
       return <svg {...s} viewBox="0 0 24 24"><path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674h4.914c.969 0 1.371 1.24.588 1.81l-3.976 2.888 1.519 4.674c.3.922-.755 1.688-1.538 1.118L12 15.203l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.519-4.674-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914l1.519-4.674z"/></svg>
     case 'pen':
       return <svg {...s} viewBox="0 0 24 24"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+    case 'route':
+      return <svg {...s} viewBox="0 0 24 24"><circle cx="6" cy="19" r="2"/><circle cx="18" cy="5" r="2"/><path d="M8 19h6a4 4 0 004-4V9m-12 6V9a4 4 0 014-4h2"/></svg>
     case 'plus':
       return <svg {...s} viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
     case 'doc':
