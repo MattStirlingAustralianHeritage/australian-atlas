@@ -36,6 +36,8 @@ import PlaceMemories from '@/components/PlaceMemories'
 import ProducerPicks from '@/components/ProducerPicks'
 import VerificationBadge from '@/components/VerificationBadge'
 import GalleryLightbox from '@/components/GalleryLightbox'
+import OperatorTrailSection from '@/components/OperatorTrailSection'
+import { readOperatorTrailForListing } from '@/lib/trails/operatorTrail'
 
 export const revalidate = 3600
 
@@ -598,6 +600,11 @@ export default async function PlacePage({ params }) {
   const picksGiven = picksGivenRaw.filter(p => p.pickedStatus === 'active')
   const picksReceived = picksReceivedRaw.filter(p => p.curatorStatus === 'active')
 
+  // Operator-suggested trail — the published day-trip the operator authored for
+  // this listing (type='operator'), read off the curated public view. Null when
+  // absent or unpublished. Surfaces here only; never on region cards / discovery.
+  const operatorTrail = await readOperatorTrailForListing(sbMem, listing.id)
+
   // Photo gallery — a paid perk, stored as a master-only storage manifest. Only
   // surfaced for paid (active standard) listings; each URL is host-validated.
   const galleryUrls = paidCuratorSet.has(listing.id)
@@ -1085,6 +1092,10 @@ export default async function PlacePage({ params }) {
             </div>
           </section>
         )}
+
+        {/* ── Operator-suggested trail — the day-trip the operator authored for
+            this listing, in their voice. Renders nothing when none/unpublished. */}
+        <OperatorTrailSection trail={operatorTrail} operatorName={listing.name} />
 
         {/* ── Producer Picks — cross-venue endorsements (public) ──
             Outgoing = venues this place vouches for; incoming = venues that
