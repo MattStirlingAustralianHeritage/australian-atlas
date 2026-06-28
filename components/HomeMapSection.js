@@ -4,13 +4,26 @@ import { VERTICAL_ACCENTS, getVerticalBadge, getPublicVerticals } from '@/lib/ve
 const VERTICAL_COLORS = VERTICAL_ACCENTS
 const ALL_VERTICALS = getPublicVerticals()
 
-// Static map strip. The homepage no longer boots an interactive Mapbox GL
-// instance here (heavy JS bundle + a /api/map fetch on every visit) — it
-// renders a pre-rendered Mapbox static image (mapbox/light-v11, warm-toned to
-// the Atlas cream palette) that links straight through to the full interactive
-// /map. The ten verticals stay as a decorative legend; the whole strip is one
-// link, so they're plain spans (an <a> can't nest inside the wrapping <a>).
-export default function HomeMapSection() {
+// The homepage map strip — an editorial "living atlas" portrait.
+//
+// Rather than boot an interactive Mapbox GL instance (heavy JS + a /api/map
+// fetch every visit), this renders ONE pre-rendered image that IS the data:
+// every verified place plotted as a small dot in its vertical's brand colour
+// over a warm cream Australia (mapbox/light-v11 tinted to the Atlas palette).
+// Dense cities coalesce into colour; the interior shows individual finds.
+//
+// Design principles applied: (1) data as the hero — the constellation shows the
+// network's real reach; (2) honest affordance — it is plainly a picture that
+// links to the real interactive /map, not a fake live map, so the whole surface
+// is one link with an explicit CTA and no dead clicks; (3) editorial framing —
+// a dateline + serif caption, in the site's own voice; (4) restraint — a quiet
+// basemap, the colour carried by the data. The ten-colour legend below doubles
+// as the key to the dots. Zero client JS.
+export default function HomeMapSection({ listingCount }) {
+  const count = typeof listingCount === 'number' && listingCount > 0
+    ? listingCount.toLocaleString()
+    : null
+
   return (
     <section className="home-map-strip relative w-full overflow-hidden">
       <Link
@@ -19,10 +32,10 @@ export default function HomeMapSection() {
         className="home-map-link"
       >
         <picture>
-          <source srcSet="/maps/home-map-light.webp" type="image/webp" />
+          <source srcSet="/maps/home-map-atlas.webp" type="image/webp" />
           <img
-            src="/maps/home-map-light.jpg"
-            alt="Map of Australia covering the Australian Atlas network of verified places"
+            src="/maps/home-map-atlas.jpg"
+            alt="A map of Australia with every verified independent place in the Atlas network marked as a coloured dot — clustered densely around the capital cities and coastlines, scattered through the interior."
             className="home-map-img"
             width={2560}
             height={680}
@@ -31,13 +44,22 @@ export default function HomeMapSection() {
           />
         </picture>
 
-        {/* Gentle bottom blend into the cream section below */}
-        <span className="home-map-overlay" aria-hidden="true" />
+        {/* Cream scrims: legibility for caption (top) + blend into section below */}
+        <span className="home-map-scrim home-map-scrim-top" aria-hidden="true" />
+        <span className="home-map-scrim home-map-scrim-bottom" aria-hidden="true" />
 
-        {/* Vertical legend — decorative */}
+        {/* Editorial caption — top-left, over the open Indian Ocean */}
+        <span className="home-map-caption">
+          <span className="home-map-overline">The living atlas</span>
+          <span className="home-map-headline">
+            {count ? `${count} verified places, mapped` : 'Every verified place, mapped'}
+          </span>
+        </span>
+
+        {/* Legend — keys the dot colours; bottom-left */}
         <span className="home-map-legend">
           {ALL_VERTICALS.map((v) => (
-            <span key={v} className="home-map-pill" style={{ borderColor: VERTICAL_COLORS[v] }}>
+            <span key={v} className="home-map-key">
               <span className="home-map-dot" style={{ backgroundColor: VERTICAL_COLORS[v] }} />
               {getVerticalBadge(v)}
             </span>
@@ -55,78 +77,104 @@ export default function HomeMapSection() {
 
       <style>{`
         .home-map-strip { background: #efe6d4; }
-        .home-map-link {
-          position: relative;
-          display: block;
-          overflow: hidden;
-        }
+        .home-map-link { position: relative; display: block; overflow: hidden; }
         .home-map-img {
           display: block;
           width: 100%;
-          height: min(32vh, 380px);
+          height: min(40vh, 460px);
           object-fit: cover;
           object-position: center;
           background: #efe6d4;
-          transition: transform 600ms cubic-bezier(0.22, 1, 0.36, 1);
+          transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
         }
-        .home-map-link:hover .home-map-img {
-          transform: scale(1.025);
+        .home-map-link:hover .home-map-img { transform: scale(1.02); }
+
+        .home-map-scrim { position: absolute; left: 0; right: 0; pointer-events: none; }
+        .home-map-scrim-top {
+          top: 0; height: 46%;
+          background: linear-gradient(180deg, rgba(248,244,235,0.72) 0%, rgba(248,244,235,0.22) 42%, rgba(248,244,235,0) 100%);
         }
-        .home-map-overlay {
+        .home-map-scrim-bottom {
+          bottom: 0; height: 42%;
+          background: linear-gradient(0deg, rgba(251,248,242,0.96) 0%, rgba(251,248,242,0.5) 38%, rgba(251,248,242,0) 100%);
+        }
+
+        .home-map-caption {
           position: absolute;
-          inset: 0;
-          pointer-events: none;
-          background: linear-gradient(0deg, rgba(251,248,242,0.92) 0%, rgba(251,248,242,0) 18%);
+          top: clamp(18px, 4vw, 40px);
+          left: clamp(20px, 5vw, 64px);
+          z-index: 3;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          max-width: min(46vw, 420px);
         }
+        .home-map-overline {
+          display: inline-flex;
+          align-items: center;
+          gap: 12px;
+          font-family: var(--font-body);
+          font-weight: 600;
+          font-size: 12px;
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+          color: #96743c;
+        }
+        .home-map-overline::before {
+          content: "";
+          width: 28px;
+          height: 1px;
+          background: #96743c;
+          opacity: 0.7;
+        }
+        .home-map-headline {
+          font-family: var(--font-display);
+          font-weight: 400;
+          font-size: clamp(20px, 2.6vw, 34px);
+          line-height: 1.08;
+          color: var(--color-ink, #1C1A17);
+          max-width: 9em;
+        }
+
         .home-map-legend {
           position: absolute;
-          top: 0; left: 0; right: 0;
-          z-index: 2;
+          bottom: clamp(14px, 2.4vw, 22px);
+          left: clamp(20px, 5vw, 64px);
+          right: clamp(150px, 22vw, 220px);
+          z-index: 3;
           display: flex;
           flex-wrap: wrap;
           align-items: center;
-          justify-content: center;
-          gap: 6px;
-          padding: 14px 16px 0;
+          gap: 6px 16px;
         }
-        .home-map-pill {
+        .home-map-key {
           display: inline-flex;
           align-items: center;
-          gap: 6px;
-          padding: 4px 10px;
-          border-radius: 9999px;
-          border: 1px solid;
-          background: rgba(255,255,255,0.82);
-          color: var(--color-ink, #1C1A17);
-          font-family: var(--font-body);
-          font-weight: 500;
-          font-size: 11px;
-          line-height: 1;
-          white-space: nowrap;
-          box-shadow: 0 1px 4px rgba(28,26,23,0.10);
-          backdrop-filter: blur(6px);
-          -webkit-backdrop-filter: blur(6px);
-        }
-        .home-map-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 9999px;
-          flex: none;
-        }
-        .home-map-cta {
-          position: absolute;
-          bottom: 16px; right: 16px;
-          z-index: 2;
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 8px 16px;
-          border-radius: 9999px;
-          background: rgba(26,24,21,0.88);
-          color: #FAF8F4;
+          gap: 7px;
           font-family: var(--font-body);
           font-weight: 500;
           font-size: 12px;
+          line-height: 1;
+          color: var(--color-ink, #1C1A17);
+          white-space: nowrap;
+        }
+        .home-map-dot { width: 9px; height: 9px; border-radius: 9999px; flex: none; box-shadow: 0 0 0 2px rgba(251,248,242,0.65); }
+
+        .home-map-cta {
+          position: absolute;
+          bottom: clamp(14px, 2.4vw, 22px);
+          right: clamp(16px, 3vw, 28px);
+          z-index: 4;
+          display: inline-flex;
+          align-items: center;
+          gap: 7px;
+          padding: 9px 17px;
+          border-radius: 9999px;
+          background: rgba(26,24,21,0.9);
+          color: #FAF8F4;
+          font-family: var(--font-body);
+          font-weight: 500;
+          font-size: 12.5px;
           line-height: 1;
           box-shadow: 0 8px 24px rgba(28,26,23,0.22);
           backdrop-filter: blur(8px);
@@ -135,13 +183,18 @@ export default function HomeMapSection() {
         }
         .home-map-link:hover .home-map-cta {
           transform: translateX(2px);
-          box-shadow: 0 10px 28px rgba(28,26,23,0.30);
+          box-shadow: 0 10px 30px rgba(28,26,23,0.32);
         }
-        .home-map-cta-arrow { width: 14px; height: 14px; }
-        @media (max-width: 640px) {
-          .home-map-img { height: min(40vh, 320px); }
-          .home-map-legend { gap: 5px; padding: 12px 12px 0; }
-          .home-map-pill { font-size: 10px; padding: 3px 8px; }
+        .home-map-cta-arrow { width: 15px; height: 15px; }
+
+        @media (max-width: 760px) {
+          .home-map-img { height: min(52vh, 360px); }
+          .home-map-caption { max-width: 78vw; }
+          .home-map-legend { display: none; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .home-map-img, .home-map-cta { transition: none; }
+          .home-map-link:hover .home-map-img { transform: none; }
         }
       `}</style>
     </section>
