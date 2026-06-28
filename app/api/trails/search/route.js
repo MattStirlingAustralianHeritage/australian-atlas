@@ -9,20 +9,32 @@ import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
  * Search active listings across all verticals for adding as trail stops.
  * Uses service-role client for unrestricted server-side queries.
  *
- * `region` (a regions.id UUID) is optional and additive. When supplied, the
- * search is scoped to that region (coalesce of override/computed) AND becomes
- * spelling-tolerant via the hybrid RPC's pg_trgm fuzzy arm — so "Mcclellen"
- * surfaces "McClelland". This is the language-led path the operator-suggested
- * trail builder uses; without `region` the original ILIKE behaviour is
+ * `lat`/`lng` (+ optional `radius`, default 100 km) are optional and additive.
+ * When supplied, the search is scoped to a circle of that radius around the
+ * point AND becomes spelling-tolerant via the hybrid RPC's pg_trgm fuzzy arm —
+ * so "Mcclellen" surfaces "McClelland". This is the language-led path the
+ * operator-suggested trail builder uses (a stop must be within `radius` km of
+ * the operator's listing). Without `lat`/`lng` the original ILIKE behaviour is
  * unchanged (the consumer/admin builders are unaffected).
  */
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const toRad = (d) => (d * Math.PI) / 180
+  const dLat = toRad(lat2 - lat1)
+  const dLng = toRad(lng2 - lng1)
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url)
     const q = searchParams.get('q')
     const vertical = searchParams.get('vertical')
-    const region = searchParams.get('region')
+    const lat = parseFloat(searchParams.get('lat'))
+    const lng = parseFloat(searchParams.get('lng'))
+    const radiusKm = Math.min(Math.max(parseFloat(searchParams.get('radius')) || 100, 1), 500)
     const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 100)
+    const hasCenter = Number.isFinite(lat) && Number.isFinite(lng)
 
     if (!q || q.trim().length < 2) {
       return NextResponse.json(
@@ -33,30 +45,41 @@ export async function GET(request) {
 
     const sb = getSupabaseAdmin()
 
-    // ── Region-scoped, spelling-tolerant path (operator trail builder) ────────
-    if (region) {
+    // ── Radius-scoped, spelling-tolerant path (operator trail builder) ────────
+    if (hasCenter) {
+      // Bounding box that encloses the radius circle (RPC pre-filter), then an
+      // exact great-circle filter to the circle itself.
+      const dLat = radiusKm / 111.045
+      const dLng = radiusKm / (111.045 * Math.max(Math.cos((lat * Math.PI) / 180), 0.01))
       const { data, error } = await sb.rpc('search_listings_hybrid', {
         query_text: q.trim(),
         query_embedding: null,
-        filter_region: region,
         filter_vertical: vertical || null,
-        match_count: limit,
+        match_count: Math.min(limit * 3, 100),
+        lat_min: lat - dLat,
+        lat_max: lat + dLat,
+        lng_min: lng - dLng,
+        lng_max: lng + dLng,
       })
       if (error) {
         console.error('[trails/search] Hybrid RPC error:', error.message)
         return NextResponse.json({ error: 'Search failed' }, { status: 500 })
       }
-      const results = (data || []).map(l => ({
-        id: l.id,
-        name: l.name,
-        slug: l.slug,
-        vertical: l.vertical,
-        sub_type: l.sub_type || null,
-        latitude: l.lat,
-        longitude: l.lng,
-        region: l.region || null,
-        image_url: l.hero_image_url || null,
-      }))
+      const results = (data || [])
+        .filter(l => l.lat != null && l.lng != null && haversineKm(lat, lng, l.lat, l.lng) <= radiusKm)
+        .slice(0, limit)
+        .map(l => ({
+          id: l.id,
+          name: l.name,
+          slug: l.slug,
+          vertical: l.vertical,
+          sub_type: l.sub_type || null,
+          latitude: l.lat,
+          longitude: l.lng,
+          region: l.region || null,
+          distance_km: Math.round(haversineKm(lat, lng, l.lat, l.lng) * 10) / 10,
+          image_url: l.hero_image_url || null,
+        }))
       return NextResponse.json({ results, total: results.length })
     }
 

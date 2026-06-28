@@ -29,6 +29,16 @@ const MIN_STOPS = 2
 const TITLE_MAX = 120
 const INTRO_MAX = 700
 const NOTE_MAX = 240
+const RADIUS_KM = 100 // stops must be within this many km of the operator's listing
+
+// Great-circle distance in km (haversine).
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const toRad = (d) => (d * Math.PI) / 180
+  const dLat = toRad(lat2 - lat1)
+  const dLng = toRad(lng2 - lng1)
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
 
 // True if `userId` holds an active ownership claim on `listingId`.
 async function ownsListing(sb, listingId, userId) {
@@ -53,11 +63,12 @@ async function authOperator(request) {
   return { user, sb: getSupabaseAdmin() }
 }
 
-// Load the operator's listing with its resolved region. Returns null if missing.
+// Load the operator's listing with its coordinates + resolved region (region is
+// a display label only; the trail's perimeter is a radius around the listing).
 async function loadOwnerListing(sb, listingId) {
   const { data } = await sb
     .from('listings')
-    .select(`id, name, slug, vertical, status, ${LISTING_REGION_SELECT}`)
+    .select(`id, name, slug, vertical, status, lat, lng, ${LISTING_REGION_SELECT}`)
     .eq('id', listingId)
     .maybeSingle()
   if (!data) return null
@@ -134,6 +145,9 @@ export async function GET(request) {
       slug: owner.listing.slug,
       vertical: owner.listing.vertical,
       region: owner.region ? { id: owner.region.id, name: owner.region.name } : null,
+      latitude: owner.listing.lat,
+      longitude: owner.listing.lng,
+      radius_km: RADIUS_KM,
     },
     paid,
     trail: trail
@@ -177,10 +191,12 @@ export async function PUT(request) {
 
   const owner = await loadOwnerListing(sb, listingId)
   if (!owner) return NextResponse.json({ error: 'Listing not found' }, { status: 404 })
-  if (!owner.region?.id) {
-    return NextResponse.json({ error: "This listing has no resolved region yet, so a regional trail can't be scoped to it." }, { status: 400 })
+  if (owner.listing.lat == null || owner.listing.lng == null) {
+    return NextResponse.json({ error: "This listing has no map location yet, so a nearby trail can't be anchored to it." }, { status: 400 })
   }
-  const regionId = owner.region.id
+  const centerLat = owner.listing.lat
+  const centerLng = owner.listing.lng
+  const regionId = owner.region?.id || null // display label only; the perimeter is the radius below
 
   const title = String(body.title || '').trim().slice(0, TITLE_MAX)
   if (!title) return NextResponse.json({ error: 'A trail title is required' }, { status: 400 })
@@ -188,8 +204,8 @@ export async function PUT(request) {
   const publish = body.publish === true
 
   // ── Resolve + validate stops ───────────────────────────────────────────────
-  // Stops must be real, active, in-region listings — never free text. Dedupe by
-  // listing id, preserving the operator's order.
+  // Stops must be real, active listings within RADIUS_KM of the operator's
+  // listing — never free text. Dedupe by listing id, preserving the order.
   const rawStops = Array.isArray(body.stops) ? body.stops : []
   const seen = new Set()
   const requested = []
@@ -208,7 +224,7 @@ export async function PUT(request) {
 
   const { data: stopListings } = await sb
     .from('listings')
-    .select('id, name, slug, vertical, lat, lng, hero_image_url, status, region_override_id, region_computed_id')
+    .select('id, name, slug, vertical, lat, lng, hero_image_url, status')
     .in('id', requested.map(s => s.listing_id))
   const byId = new Map((stopListings || []).map(l => [l.id, l]))
 
@@ -218,12 +234,12 @@ export async function PUT(request) {
     if (!l || l.status !== 'active') {
       return NextResponse.json({ error: 'One of the stops is no longer an active listing. Remove it and try again.' }, { status: 400 })
     }
-    const lRegion = l.region_override_id || l.region_computed_id
-    if (lRegion !== regionId) {
-      return NextResponse.json({ error: `"${l.name}" is outside your region — stops must stay within ${owner.region.name}.` }, { status: 400 })
-    }
     if (l.lat == null || l.lng == null) {
       return NextResponse.json({ error: `"${l.name}" has no map location and can't be a stop.` }, { status: 400 })
+    }
+    const distKm = haversineKm(centerLat, centerLng, l.lat, l.lng)
+    if (distKm > RADIUS_KM) {
+      return NextResponse.json({ error: `"${l.name}" is ${Math.round(distKm)} km away — stops must be within ${RADIUS_KM} km of ${owner.listing.name}.` }, { status: 400 })
     }
     resolved.push({ l, note: s.note })
   }
@@ -248,7 +264,7 @@ export async function PUT(request) {
         description: intro || null,
         visibility,
         region_id: regionId,
-        region: owner.region.name || null,
+        region: owner.region?.name || null,
         stop_count: resolved.length,
         published: false, // 'published' boolean is the editorial workflow flag; operator trails gate on visibility
         published_at: publish ? new Date().toISOString() : null,
@@ -273,7 +289,7 @@ export async function PUT(request) {
         created_by: user.id,
         listing_id: listingId,
         region_id: regionId,
-        region: owner.region.name || null,
+        region: owner.region?.name || null,
         transport_mode: 'drive',
         stop_count: resolved.length,
         published: false,

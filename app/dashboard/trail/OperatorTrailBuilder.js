@@ -37,7 +37,8 @@ export default function OperatorTrailBuilder({ listingId, listingName }) {
   const [token, setToken] = useState(null)
   const [loading, setLoading] = useState(true)
   const [paid, setPaid] = useState(false)
-  const [region, setRegion] = useState(null) // { id, name }
+  const [region, setRegion] = useState(null) // { id, name } — display label only
+  const [center, setCenter] = useState(null) // { lat, lng, radiusKm } — the trail perimeter
 
   const [title, setTitle] = useState('')
   const [intro, setIntro] = useState('')
@@ -72,6 +73,8 @@ export default function OperatorTrailBuilder({ listingId, listingName }) {
         if (res.ok) {
           setPaid(!!data.paid)
           setRegion(data.listing?.region || null)
+          const lt = data.listing?.latitude, ln = data.listing?.longitude
+          setCenter(lt != null && ln != null ? { lat: lt, lng: ln, radiusKm: data.listing?.radius_km || 100 } : null)
           setListingSlug(data.listing?.slug || null)
           if (data.trail) {
             setTitle(data.trail.title || '')
@@ -86,15 +89,15 @@ export default function OperatorTrailBuilder({ listingId, listingName }) {
     return () => { alive = false }
   }, [listingId])
 
-  // ── Language-led search (debounced, region-scoped, spelling-tolerant) ────────
+  // ── Language-led search (debounced, radius-scoped, spelling-tolerant) ────────
   useEffect(() => {
     const q = query.trim()
-    if (q.length < 2 || !region?.id) { setCandidates([]); return }
+    if (q.length < 2 || !center) { setCandidates([]); return }
     let alive = true
     setSearching(true)
     const t = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/trails/search?q=${encodeURIComponent(q)}&region=${encodeURIComponent(region.id)}&limit=8`)
+        const res = await fetch(`/api/trails/search?q=${encodeURIComponent(q)}&lat=${center.lat}&lng=${center.lng}&radius=${center.radiusKm}&limit=8`)
         const data = await res.json()
         if (!alive) return
         const taken = new Set(stops.map(s => s.listing_id))
@@ -104,7 +107,7 @@ export default function OperatorTrailBuilder({ listingId, listingName }) {
       if (alive) setSearching(false)
     }, 240)
     return () => { alive = false; clearTimeout(t) }
-  }, [query, region, stops])
+  }, [query, center, stops])
 
   // close the menu on outside click
   useEffect(() => {
@@ -201,12 +204,12 @@ export default function OperatorTrailBuilder({ listingId, listingName }) {
     )
   }
 
-  if (!region?.id) {
+  if (!center) {
     return (
       <div>
         <Header listingName={listingName} region={region} />
         <p style={{ fontFamily: 'var(--font-sans)', color: 'var(--color-muted)' }}>
-          We can’t place {listingName} in a region yet, so a regional trail can’t be scoped to it. Our team will sort the region — check back shortly.
+          {listingName} has no map location yet, so we can’t anchor a nearby trail to it. Our team will sort the pin — check back shortly.
         </p>
       </div>
     )
@@ -266,7 +269,7 @@ export default function OperatorTrailBuilder({ listingId, listingName }) {
             />
           </div>
           <p style={{ fontFamily: 'var(--font-sans)', fontSize: '0.78rem', color: 'var(--color-muted)', margin: '0.5rem 0 0' }}>
-            We match what you type to a real listing in <strong style={{ color: 'var(--color-ink)' }}>{region.name}</strong> — across every Atlas — even if the spelling’s off.
+            We match what you type to a real listing within <strong style={{ color: 'var(--color-ink)' }}>{center.radiusKm} km</strong> of {listingName} — across every Atlas — even if the spelling’s off.
           </p>
 
           {openMenu && query.trim().length >= 2 && (
@@ -280,7 +283,7 @@ export default function OperatorTrailBuilder({ listingId, listingName }) {
               )}
               {!searching && candidates.length === 0 && (
                 <div style={{ padding: '0.85rem 1rem', fontFamily: 'var(--font-sans)', fontSize: '0.85rem', color: 'var(--color-muted)' }}>
-                  No match in {region.name}. Try the venue’s name as it appears on the Atlas.
+                  No match within {center.radiusKm} km. Try the venue’s name as it appears on the Atlas.
                 </div>
               )}
               {candidates.map(c => (
