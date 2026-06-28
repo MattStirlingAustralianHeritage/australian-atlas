@@ -422,7 +422,8 @@ function SearchPageInner() {
   const [slowSearch, setSlowSearch] = useState(false)
   const [detectedVertical, setDetectedVertical] = useState(null)
   const [autoRegion, setAutoRegion] = useState(null)   // region detected from query text
-  const [noBind, setNoBind] = useState(false)          // user dismissed the detected-region chip
+  const [detectedPlace, setDetectedPlace] = useState(null) // town/suburb resolved from query (gazetteer/geocoded)
+  const [noBind, setNoBind] = useState(false)          // user dismissed the detected-region/place chip
   const [didYouMean, setDidYouMean] = useState(null)   // fuzzy suggestion on zero results
   const [facets, setFacets] = useState({ subTypes: [] })
   const [subType, setSubType] = useState('')           // sub_type facet refine
@@ -486,6 +487,7 @@ function SearchPageInner() {
       }
       setAutoSuburb(data.detectedSuburb || '')
       setAutoRegion(data.detectedRegion || null)
+      setDetectedPlace(data.detectedPlace || null)
       // Track detected vertical for contextual header
       setDetectedVertical(data.detectedVertical || null)
     } catch (e) {
@@ -551,6 +553,17 @@ function SearchPageInner() {
     const vertLabel = VERTICAL_LABEL_MAP[vertical]
     const stateLabel = state || autoState
     const locationLabel = region || autoSuburb || stateLabel
+    // Place-aware framing: the query resolved to a town/suburb and the results
+    // are geographic (nearest-first), not a relevance ranking to "match".
+    if (detectedPlace && detectedPlace.proximity) {
+      const vlabel = vertLabel ? `${vertLabel} ` : ''
+      return detectedPlace.source === 'geocoded'
+        ? `No ${vlabel}places in ${detectedPlace.label} yet — ${count} nearest`
+        : `${count} ${vlabel}places in & around ${detectedPlace.label}`
+    }
+    if (detectedPlace && query) {
+      return `${count} results for “${query}” near ${detectedPlace.label}`
+    }
     // Nothing cleared the relevance floor — relabel honestly (never a confident "results")
     if (query && results.length > 0 && !results.some(isStrongMatch)) {
       return `${count} related ${locationLabel ? `listings in ${locationLabel}` : 'listings'} for “${query}”`
@@ -583,11 +596,16 @@ function SearchPageInner() {
   // Contextual header detection
   const contextualHeader = query ? detectContextualHeader(query) : null
 
-  // Distance (when the visitor's location is known) + client-side sort of the page.
+  // Distance + client-side sort. When the query resolved to a place (town/
+  // suburb), distances are measured FROM that place — "how far from Apollo Bay"
+  // — not from the visitor; otherwise from the visitor's own location.
   const hasLoc = location && typeof location.lat === 'number' && typeof location.lng === 'number'
+  const placeOrigin = detectedPlace && typeof detectedPlace.lat === 'number' && typeof detectedPlace.lng === 'number'
+    ? detectedPlace : null
+  const distOrigin = placeOrigin || (hasLoc ? location : null)
   const withDistance = results.map(r => ({
     ...r,
-    distanceKm: hasLoc ? haversineKm(location.lat, location.lng, r.lat, r.lng) : null,
+    distanceKm: distOrigin ? haversineKm(distOrigin.lat, distOrigin.lng, r.lat, r.lng) : null,
   }))
   let displayResults = withDistance
   if (sortBy === 'az') {
@@ -605,7 +623,11 @@ function SearchPageInner() {
     : []
   const featuredIds = new Set(featured.map(f => f.id))
   const gridListings = featured.length > 0 ? displayResults.filter(r => !featuredIds.has(r.id)) : displayResults
-  const weakOnly = displayResults.length > 0 && !anyStrong
+  // Proximity/place results carry no semantic similarity, so they never "clear
+  // the floor" — but they're geographically correct, not weak. Don't shame them
+  // with the "no strong matches" banner; the place chip already frames them.
+  const placeProximity = !!(detectedPlace && detectedPlace.proximity)
+  const weakOnly = displayResults.length > 0 && !anyStrong && !placeProximity
   const hasActiveFilters = !!(vertical || state || region || subType || autoState || autoRegion)
 
   return (
@@ -812,6 +834,37 @@ function SearchPageInner() {
             <button
               type="button"
               aria-label={`Remove ${autoRegion.name} region filter`}
+              onClick={() => setNoBind(true)}
+              className="hover:opacity-70 transition-opacity flex items-center justify-center"
+              style={{ marginLeft: '2px' }}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </span>
+        </div>
+      )}
+
+      {/* Auto-detected town/suburb from the query text (gazetteer or geocoded).
+          Same affordance as the region chip — × broadens the search back out. */}
+      {detectedPlace && !region && !autoRegion && (
+        <div className="mt-3 flex items-center gap-2 flex-wrap">
+          <span
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm"
+            style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', background: 'var(--color-cream)', color: 'var(--color-ink)', border: '1px solid var(--color-border)' }}
+            title={detectedPlace.source === 'geocoded'
+              ? `No Atlas places in ${detectedPlace.label} yet — showing the nearest`
+              : `Results in & around ${detectedPlace.label}, nearest first`}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" /><circle cx="12" cy="10" r="3" />
+            </svg>
+            {detectedPlace.source === 'geocoded' ? `near ${detectedPlace.label}` : `in & around ${detectedPlace.label}`}
+            {detectedPlace.state ? <span style={{ color: 'var(--color-muted)' }}>{detectedPlace.state}</span> : null}
+            <button
+              type="button"
+              aria-label={`Remove ${detectedPlace.label} location filter`}
               onClick={() => setNoBind(true)}
               className="hover:opacity-70 transition-opacity flex items-center justify-center"
               style={{ marginLeft: '2px' }}

@@ -10,6 +10,8 @@ import { embedQueryCached } from '@/lib/embeddings/queryCache'
 import { logSearchEvent } from '@/lib/search/log'
 import { parseQueryLocation } from '@/lib/search/parseQuery'
 import { resolveQueryRegion } from '@/lib/search/resolveQueryRegion'
+import { resolveQueryPlace, geocodePlace, looksLikePlaceQuery } from '@/lib/search/resolveQueryPlace'
+import { relevanceFloorFor } from '@/lib/search/relevanceFloor'
 import { checkRateLimit } from '@/lib/rate-limit'
 
 // Largest candidate pool the RPC ranks per request. Pagination/dedup/total are
@@ -17,6 +19,47 @@ import { checkRateLimit } from '@/lib/rate-limit'
 // grow page-to-page) and deep pages never claim phantom results. Broad queries
 // that fill the pool are reported as "capped" so the UI can show "120+".
 const RESULT_POOL = 120
+
+// ── Place-aware search (towns / suburbs the curated maps don't cover) ─────────
+// A query that resolves to a real locality pivots from token/semantic ranking to
+// a geographic search around that locality's centroid. Radius scales inversely
+// with venue density: a venue-rich town stays tight (its own venues fill the
+// page), a sparse town widens to gather its surroundings.
+function pickRadiusKm(n) {
+  if (n >= 12) return 25
+  if (n >= 4) return 40
+  return 60
+}
+// Radius for the "category in <town>" case (bounding box on the hybrid RPC) and
+// for the geocoder fallback (towns we hold no venues in — cast a wider net).
+const VIBE_RADIUS_KM = 50
+const GEOCODE_RADIUS_KM = 130
+// Below this many in-box hits, a "category in <town>" search broadens to the
+// town's state so the user is never stranded by an over-tight box.
+const MIN_BOX_RESULTS = 4
+
+/** Lat/lng bounding box (degrees) for a radius in km around a centre point. */
+function boxAround(lat, lng, km) {
+  const dLat = km / 111
+  const dLng = km / (111 * Math.max(Math.cos((lat * Math.PI) / 180), 0.01))
+  return { lat_min: lat - dLat, lat_max: lat + dLat, lng_min: lng - dLng, lng_max: lng + dLng }
+}
+
+/** Does a hybrid row clear its vertical's calibrated relevance floor? */
+function isStrongRow(r) {
+  return typeof r?.similarity === 'number' && r.similarity >= relevanceFloorFor(r?.vertical)
+}
+
+/** Distance-ordered neighbours of a point, restricted to public verticals. */
+async function proximityRows(sb, { lat, lng, radiusKm, vertical }) {
+  const { data, error } = await sb.rpc('nearby_listings', {
+    center_lat: lat, center_lng: lng, radius_km: radiusKm,
+    filter_vertical: vertical || null, max_results: RESULT_POOL,
+  })
+  if (error) return []
+  // nearby_listings doesn't apply vertical-publication gating — drop gated rows.
+  return (data || []).filter((r) => isVerticalPublic(r.vertical))
+}
 
 /** Cap a free-text query before it is persisted (PII / retention guard). */
 function clampQuery(s) {
@@ -173,7 +216,11 @@ export async function GET(request) {
       //   1. explicit ?region= (resolvedRegion → filterRegion) — caller wins
       //   2. a region NAMED in the query → enforce as a HARD region filter, so
       //      "coffee in the Mornington Peninsula" is that region, not all of VIC
-      //   3. otherwise a state/city → state-level filter (parseQueryLocation)
+      //   3. a state/city or curated suburb → state/suburb filter (parseQueryLocation)
+      //   4. a TOWN/SUBURB we hold venues in → geographic pivot around its
+      //      centroid (resolveQueryPlace, the gazetteer). This is what makes
+      //      "apollo bay" return Apollo Bay's venues + neighbours instead of
+      //      Byron Bay listings 1,300km away.
       // The matched location phrase is stripped from the text the arms rank on.
       let effectiveRegion = filterRegion
       let filterState = state || null      // passed to the RPC
@@ -181,22 +228,25 @@ export async function GET(request) {
       let detectedState = state || null    // reported to the UI (state chip)
       let detectedRegion = null
       let detectedSuburb = null            // reported to the UI (suburb chip)
+      let detectedPlace = null             // resolved town/suburb (UI chip + distance origin)
+      let geoBox = null                    // bounding box for a "category in <town>" search
+      let placePivot = false               // bare town → distance-ordered proximity browse
       let cleaned
 
-      // `bind=0` (the user dismissed the "in <region>" chip) skips auto-binding
-      // a region/suburb named in the query, so results broaden to the state.
+      // `bind=0` (the user dismissed the "in <place>" chip) skips auto-binding
+      // anything named in the query, so results broaden back out.
       const qr = (effectiveRegion || noBind) ? null : await resolveQueryRegion(sb, q)
       if (effectiveRegion) {
         cleaned = parseQueryLocation(q).cleaned
+      } else if (qr && qr.region) {
+        effectiveRegion = qr.region.id
+        filterState = null               // the named region IS the constraint
+        detectedState = qr.region.state  // light up the region's state chip
+        detectedRegion = { slug: qr.region.slug, name: qr.region.name, state: qr.region.state }
+        cleaned = qr.cleaned
       } else {
-        if (qr && qr.region) {
-          effectiveRegion = qr.region.id
-          filterState = null               // the named region IS the constraint
-          detectedState = qr.region.state  // light up the region's state chip
-          detectedRegion = { slug: qr.region.slug, name: qr.region.name, state: qr.region.state }
-          cleaned = qr.cleaned
-        } else {
-          const parsed = parseQueryLocation(q)
+        const parsed = parseQueryLocation(q)
+        if (parsed.state) {
           filterState = state || parsed.state
           detectedState = filterState
           cleaned = parsed.cleaned
@@ -205,6 +255,30 @@ export async function GET(request) {
           if (parsed.suburb && !state) {
             filterSuburb = parsed.suburb
             detectedSuburb = parsed.suburb
+          }
+        } else {
+          // Nothing curated matched → try the data-driven locality gazetteer.
+          const pr = noBind ? null : await resolveQueryPlace(sb, q)
+          if (pr && pr.place) {
+            const p = pr.place
+            detectedPlace = {
+              label: p.suburb, suburb: p.suburb, state: p.state, region: p.region,
+              lat: p.lat, lng: p.lng, n: p.n, source: 'gazetteer',
+            }
+            detectedState = state || p.state || null
+            cleaned = pr.cleaned
+            if (cleaned) {
+              // "<category> in <town>" → rank the vibe inside a box around the town.
+              filterState = state || p.state || null
+              geoBox = boxAround(p.lat, p.lng, VIBE_RADIUS_KM)
+            } else {
+              // Bare town → proximity browse (nearest venues first).
+              placePivot = true
+            }
+          } else {
+            filterState = state || parsed.state
+            detectedState = filterState
+            cleaned = parsed.cleaned
           }
         }
       }
@@ -216,42 +290,93 @@ export async function GET(request) {
         query: q, state: filterState, vertical, limit: 4,
       }).catch(() => [])
 
-      const { lit: queryEmbedding, error: voyageError } = await embedQueryCached(sb, cleaned)
+      const includeWay = isVerticalPublic('way') || vertical === 'way'
+      let queryEmbedding = null
+      let voyageError = null
+      let all
 
-      // Rank a fixed candidate pool (NOT page*limit) so total/pagination are
-      // stable across pages and dedup happens over the whole result set.
-      const { data, error } = await sb.rpc('search_listings_hybrid', {
-        query_embedding: queryEmbedding,
-        query_text: cleaned,
-        filter_vertical: vertical,
-        filter_state: filterState,
-        filter_region: effectiveRegion,
-        filter_suburb: filterSuburb,
-        match_count: RESULT_POOL,
-        similarity_floor: similarityFloor,
-        include_way: isVerticalPublic('way') || vertical === 'way',
-      })
-
-      if (error) {
-        console.error('[search] hybrid RPC error:', error.message)
-        logSearchEvent(sb, {
-          query_text: clampQuery(q), surface: 'front_door', result_count: 0, latency_ms: Date.now() - t0,
-          vector_arm_fired: !!queryEmbedding, fell_back: !queryEmbedding,
-          voyage_error: voyageError || error.message, zero_result: true,
+      if (placePivot && detectedPlace) {
+        // ── Bare town → distance-ordered proximity browse ────────────────────
+        // The whole query was a place we hold venues in. Rank by nearness, not
+        // by text — the user wants what's in & around that town, nearest first.
+        all = await proximityRows(sb, {
+          lat: detectedPlace.lat, lng: detectedPlace.lng,
+          radiusKm: pickRadiusKm(detectedPlace.n), vertical,
         })
-        return NextResponse.json({ error: error.message }, { status: 500 })
-      }
+      } else {
+        // ── Text query → hybrid retrieval (optionally boxed to a town) ───────
+        const embedded = await embedQueryCached(sb, cleaned)
+        queryEmbedding = embedded.lit
+        voyageError = embedded.error
 
-      let all = data || []
-      // A suburb filter that found nothing → retry state-only so the user isn't stranded.
-      if (filterSuburb && all.length === 0) {
-        const { data: stateData } = await sb.rpc('search_listings_hybrid', {
-          query_embedding: queryEmbedding, query_text: cleaned, filter_vertical: vertical,
-          filter_state: filterState, filter_region: effectiveRegion, filter_suburb: null,
-          match_count: RESULT_POOL, similarity_floor: similarityFloor,
-          include_way: isVerticalPublic('way') || vertical === 'way',
+        // Rank a fixed candidate pool (NOT page*limit) so total/pagination are
+        // stable across pages and dedup happens over the whole result set.
+        const { data, error } = await sb.rpc('search_listings_hybrid', {
+          query_embedding: queryEmbedding,
+          query_text: cleaned,
+          filter_vertical: vertical,
+          filter_state: filterState,
+          filter_region: effectiveRegion,
+          filter_suburb: filterSuburb,
+          match_count: RESULT_POOL,
+          similarity_floor: similarityFloor,
+          include_way: includeWay,
+          ...(geoBox || {}),
         })
-        if (stateData && stateData.length) { all = stateData; detectedSuburb = null }
+
+        if (error) {
+          console.error('[search] hybrid RPC error:', error.message)
+          logSearchEvent(sb, {
+            query_text: clampQuery(q), surface: 'front_door', result_count: 0, latency_ms: Date.now() - t0,
+            vector_arm_fired: !!queryEmbedding, fell_back: !queryEmbedding,
+            voyage_error: voyageError || error.message, zero_result: true,
+          })
+          return NextResponse.json({ error: error.message }, { status: 500 })
+        }
+
+        all = data || []
+        // A suburb filter that found nothing → retry state-only so the user isn't stranded.
+        if (filterSuburb && all.length === 0) {
+          const { data: stateData } = await sb.rpc('search_listings_hybrid', {
+            query_embedding: queryEmbedding, query_text: cleaned, filter_vertical: vertical,
+            filter_state: filterState, filter_region: effectiveRegion, filter_suburb: null,
+            match_count: RESULT_POOL, similarity_floor: similarityFloor, include_way: includeWay,
+          })
+          if (stateData && stateData.length) { all = stateData; detectedSuburb = null }
+        }
+        // A box around a town that's too sparse ("brewery in <tiny town>") →
+        // broaden to the town's state so the user still gets the best matches.
+        if (geoBox && all.length < MIN_BOX_RESULTS) {
+          const { data: wideData } = await sb.rpc('search_listings_hybrid', {
+            query_embedding: queryEmbedding, query_text: cleaned, filter_vertical: vertical,
+            filter_state: filterState, filter_region: effectiveRegion, filter_suburb: null,
+            match_count: RESULT_POOL, similarity_floor: similarityFloor, include_way: includeWay,
+          })
+          if (wideData && wideData.length > all.length) all = wideData
+        }
+
+        // ── Tier C: geocoder fallback for a town we hold NO venues in ────────
+        // Only when NOTHING bound the query to a location (no region/state/
+        // suburb/gazetteer place), the query looks like a bare place, AND
+        // ranking surfaced nothing strong (e.g. "Roma" → romance bookshops).
+        // Geocode the place and show the nearest independent venues to it.
+        // Bounded to this failing tail so common queries never pay the geocode
+        // round-trip, and a query already scoped to a region (e.g. "byron bay")
+        // keeps its existing region results untouched.
+        const unbound = !detectedPlace && !effectiveRegion && !filterState && !filterSuburb
+        if (unbound && looksLikePlaceQuery(q) && !all.some(isStrongRow)) {
+          const geo = await geocodePlace(q)
+          if (geo) {
+            const near = await proximityRows(sb, {
+              lat: geo.lat, lng: geo.lng, radiusKm: GEOCODE_RADIUS_KM, vertical,
+            })
+            if (near.length) {
+              all = near
+              detectedPlace = { label: geo.label, state: geo.state, lat: geo.lat, lng: geo.lng, source: 'geocoded' }
+              detectedState = state || geo.state || detectedState
+            }
+          }
+        }
       }
       // Admin/QA fixtures + needs_review venues never surface publicly (row-level),
       // then collapse the same venue cross-listed across verticals to one card.
@@ -281,6 +406,13 @@ export async function GET(request) {
         listings, total, capped, facets, subType, didYouMean, page, limit,
         totalPages: Math.ceil(total / limit),
         detectedVertical: null, detectedState: detectedState || null, detectedRegion, detectedSuburb,
+        // Place-aware search: the resolved town/suburb the results are scoped to
+        // (gazetteer match or geocoded). Drives the "in <town>" chip + distances.
+        detectedPlace: detectedPlace
+          ? { label: detectedPlace.label, state: detectedPlace.state || null, region: detectedPlace.region || null,
+              lat: detectedPlace.lat, lng: detectedPlace.lng, source: detectedPlace.source,
+              proximity: placePivot || detectedPlace.source === 'geocoded' }
+          : null,
         // Events are a secondary lane — never let a slow events query block results.
         events: await withTimeout(eventsPromise, 1200, []),
       })
