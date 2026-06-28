@@ -65,6 +65,26 @@ const esc = (s) => String(s ?? '')
 
 const placesLabel = (n) => `${n.toLocaleString()} ${n === 1 ? 'place' : 'places'}`
 
+// Human label for a Mapbox geocoding result's primary type, so a town reads as
+// a distinct, selectable thing in the location dropdown (vs a suburb/postcode).
+const PLACE_TYPE_LABEL = {
+  place: 'Town / City', locality: 'Locality', neighborhood: 'Suburb',
+  postcode: 'Postcode', region: 'State / Region', district: 'District',
+  address: 'Address', country: 'Country',
+}
+const placeTypeLabel = (f) => PLACE_TYPE_LABEL[f?.place_type?.[0]] || 'Place'
+
+// Small location-pin glyph — marks every row in the location dropdown so it's
+// visually distinct from the venue-name search results.
+function PlacePin() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5f8a7e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }} aria-hidden="true">
+      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+      <circle cx="12" cy="10" r="3" />
+    </svg>
+  )
+}
+
 /**
  * MapClient
  *
@@ -124,6 +144,14 @@ export default function MapClient({
   const [placeResults, setPlaceResults] = useState([])
   const [showPlaceDropdown, setShowPlaceDropdown] = useState(false)
   const placeSearchRef = useRef(null)
+  // Mobile has its own always-visible location-search bar (the desktop toolbar
+  // is display:none on phones), so a second ref is needed to keep the dropdown
+  // open when the tap lands inside the mobile input rather than the hidden one.
+  const mobilePlaceSearchRef = useRef(null)
+  // Picking a result sets placeQuery to the full place name, which would
+  // otherwise re-fire the debounced geocoder and pop the dropdown back open.
+  // This flag swallows that one programmatic query change.
+  const suppressPlaceSearch = useRef(false)
 
   // Name search dropdown state — typing filters the pins live (as before),
   // and a results list lets the user jump straight to a venue.
@@ -153,6 +181,7 @@ export default function MapClient({
 
   // Debounced geocoding search
   useEffect(() => {
+    if (suppressPlaceSearch.current) { suppressPlaceSearch.current = false; return }
     if (!placeQuery || placeQuery.length < 2) { setPlaceResults([]); return }
     const timer = setTimeout(async () => {
       try {
@@ -167,7 +196,9 @@ export default function MapClient({
 
   useEffect(() => {
     function handleClickOutside(e) {
-      if (placeSearchRef.current && !placeSearchRef.current.contains(e.target)) setShowPlaceDropdown(false)
+      const inDesktopPlace = placeSearchRef.current && placeSearchRef.current.contains(e.target)
+      const inMobilePlace = mobilePlaceSearchRef.current && mobilePlaceSearchRef.current.contains(e.target)
+      if (!inDesktopPlace && !inMobilePlace) setShowPlaceDropdown(false)
       if (nameSearchRef.current && !nameSearchRef.current.contains(e.target)) setShowNameDropdown(false)
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -197,9 +228,26 @@ export default function MapClient({
     const [lng, lat] = feature.center
     const placeType = feature.place_type?.[0] || 'place'
     map.current?.flyTo({ center: [lng, lat], zoom: getZoomForPlaceType(placeType), duration: 1500 })
+    suppressPlaceSearch.current = true
     setPlaceQuery(feature.place_name)
+    setPlaceResults([])
     setShowPlaceDropdown(false)
+    // Drop the soft keyboard on mobile so the fly-to is unobstructed.
+    if (typeof document !== 'undefined' && document.activeElement?.blur) document.activeElement.blur()
   }
+
+  // Shared dropdown row for a geocoded location — pin + name + what-it-is label,
+  // so "Newcastle" reads as a selectable Town / City. Used by desktop + mobile.
+  const renderPlaceRow = (f) => (
+    <button key={f.id} onClick={() => handlePlaceSelect(f)} style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '9px 11px', minHeight: 44, background: 'none', border: 'none', borderBottom: '1px solid var(--color-border)', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-sans)' }}>
+      <PlacePin />
+      <span style={{ minWidth: 0, flex: 1 }}>
+        <span style={{ display: 'block', fontSize: 13, color: 'var(--color-ink)', fontWeight: 500, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.text}</span>
+        <span style={{ display: 'block', fontSize: 10.5, color: 'var(--color-muted)', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.place_name.replace(f.text + ', ', '')}</span>
+      </span>
+      <span style={{ flexShrink: 0, fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#5f8a7e', background: 'rgba(95,138,126,0.1)', borderRadius: 3, padding: '2px 6px' }}>{placeTypeLabel(f)}</span>
+    </button>
+  )
 
   // Lock body scroll and hide footer + nav so the map takes full viewport.
   // Skipped for embedded mode — the map is just a section in a normal page.
@@ -678,22 +726,18 @@ export default function MapClient({
                 </div>
               )}
             </div>
-            {/* Geocoding place search */}
-            <div ref={placeSearchRef} style={{ position: 'relative', minWidth: 150, maxWidth: 200 }}>
-              <input type="text" placeholder="Search a location..." value={placeQuery}
+            {/* Geocoding place / town search — type a town, pick it, fly there */}
+            <div ref={placeSearchRef} style={{ position: 'relative', minWidth: 170, maxWidth: 220 }}>
+              <span style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', display: 'flex', pointerEvents: 'none' }}><PlacePin /></span>
+              <input type="text" placeholder="Find a town or place…" value={placeQuery}
                 onChange={e => { setPlaceQuery(e.target.value); if (!e.target.value) setShowPlaceDropdown(false) }}
                 onFocus={() => { if (placeResults.length) setShowPlaceDropdown(true) }}
                 onKeyDown={e => { if (e.key === 'Enter' && placeResults.length) handlePlaceSelect(placeResults[0]); if (e.key === 'Escape') setShowPlaceDropdown(false) }}
-                aria-label="Search a location"
-                style={{ padding: '6px 12px', background: '#fff', border: '1px solid var(--color-border)', color: 'var(--color-ink)', fontSize: 12, outline: 'none', borderRadius: 2, width: '100%', fontFamily: 'var(--font-sans)' }} />
+                aria-label="Find a town or place"
+                style={{ padding: '6px 12px 6px 28px', background: '#fff', border: '1px solid var(--color-border)', color: 'var(--color-ink)', fontSize: 12, outline: 'none', borderRadius: 2, width: '100%', fontFamily: 'var(--font-sans)', boxSizing: 'border-box' }} />
               {showPlaceDropdown && placeResults.length > 0 && (
-                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 2, background: '#fff', border: '1px solid var(--color-border)', borderRadius: 4, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', zIndex: 1000, maxHeight: 260, overflowY: 'auto' }}>
-                  {placeResults.map(f => (
-                    <button key={f.id} onClick={() => handlePlaceSelect(f)} style={{ display: 'block', width: '100%', padding: '8px 10px', background: 'none', border: 'none', borderBottom: '1px solid var(--color-border)', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-sans)' }}>
-                      <div style={{ fontSize: 12, color: 'var(--color-ink)', fontWeight: 500, lineHeight: 1.3 }}>{f.text}</div>
-                      <div style={{ fontSize: 10, color: 'var(--color-muted)', marginTop: 1 }}>{f.place_name.replace(f.text + ', ', '')}</div>
-                    </button>
-                  ))}
+                <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: 2, width: 320, maxWidth: '80vw', background: '#fff', border: '1px solid var(--color-border)', borderRadius: 4, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', zIndex: 1000, maxHeight: 300, overflowY: 'auto' }}>
+                  {placeResults.map(renderPlaceRow)}
                 </div>
               )}
             </div>
@@ -800,10 +844,42 @@ export default function MapClient({
           </div>
         )}
 
-        {/* Mobile count chip — the toolbar (and its count) is desktop-only */}
-        {!isEmbedded && !mobileSheetOpen && (
+        {/* ── MOBILE LOCATION SEARCH — always-visible town / place finder ──
+            Type a town (e.g. "Newcastle"), pick it from the dropdown, fly there.
+            Mirrors the desktop toolbar's location field, which is display:none on
+            phones — without this, mobile had no way to jump to a place at all. */}
+        {!isEmbedded && (
+          <div ref={mobilePlaceSearchRef} className="map-mobile-only" style={{
+            position: 'absolute', top: 54, left: 12, right: 12, zIndex: 12, flexDirection: 'column',
+          }}>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%' }}>
+              <span style={{ position: 'absolute', left: 12, display: 'flex', pointerEvents: 'none' }}><PlacePin /></span>
+              <input type="text" inputMode="search" placeholder="Find a town or place…" value={placeQuery}
+                onChange={e => { setPlaceQuery(e.target.value); if (!e.target.value) setShowPlaceDropdown(false) }}
+                onFocus={() => { if (placeResults.length) setShowPlaceDropdown(true) }}
+                onKeyDown={e => { if (e.key === 'Enter' && placeResults.length) handlePlaceSelect(placeResults[0]); if (e.key === 'Escape') setShowPlaceDropdown(false) }}
+                aria-label="Find a town or place"
+                style={{ width: '100%', padding: '11px 38px 11px 34px', background: 'rgba(255,255,255,0.98)', border: '1px solid var(--color-border)', color: 'var(--color-ink)', fontSize: 14, outline: 'none', borderRadius: 10, fontFamily: 'var(--font-sans)', boxSizing: 'border-box', boxShadow: '0 2px 10px rgba(0,0,0,0.12)' }} />
+              {placeQuery && (
+                <button onClick={() => { setPlaceQuery(''); setPlaceResults([]); setShowPlaceDropdown(false) }} aria-label="Clear location search" style={{ position: 'absolute', right: 6, width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-muted)' }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                </button>
+              )}
+            </div>
+            {showPlaceDropdown && placeResults.length > 0 && (
+              <div style={{ marginTop: 6, background: '#fff', border: '1px solid var(--color-border)', borderRadius: 10, boxShadow: '0 6px 24px rgba(0,0,0,0.16)', overflow: 'hidden', maxHeight: '50vh', overflowY: 'auto' }}>
+                {placeResults.map(renderPlaceRow)}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Mobile count chip — the toolbar (and its count) is desktop-only.
+            Sits just under the location-search bar; hidden while its dropdown
+            is open so the two never collide. */}
+        {!isEmbedded && !mobileSheetOpen && !(showPlaceDropdown && placeResults.length > 0) && (
           <div className="map-mobile-only" role="status" style={{
-            position: 'absolute', top: 58, left: '50%', transform: 'translateX(-50%)', zIndex: 9,
+            position: 'absolute', top: 104, left: '50%', transform: 'translateX(-50%)', zIndex: 8,
             background: 'rgba(250,248,245,0.95)', border: '1px solid var(--color-border)', borderRadius: 12,
             padding: '4px 12px', pointerEvents: 'none', alignItems: 'center',
             fontFamily: 'var(--font-sans)', fontSize: 10, fontWeight: 600, letterSpacing: '0.04em', color: 'var(--color-muted)',
