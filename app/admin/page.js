@@ -521,6 +521,7 @@ function ListingsZone({ stats, loading }) {
 function ContentZone({ stats, loading }) {
   const contentLinks = [
     { label: 'Articles', description: 'Create and publish journal articles', href: '/admin/articles' },
+    { label: 'Listing Pitches', description: 'Story pitches submitted by operators', href: '/admin/listing-pitches' },
     { label: 'Editorial Queue', description: 'Story ideas and interview pipeline', href: '/admin/editorial' },
     { label: 'Pitch Triage', description: 'Review generated editorial pitches', href: '/admin/pitches' },
     { label: 'Trails', description: 'Editorial trails linking venues', href: '/admin/trails' },

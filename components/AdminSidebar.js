@@ -38,6 +38,7 @@ const SECTIONS = [
     title: 'Content',
     links: [
       ['/admin/articles', 'Articles'],
+      ['/admin/listing-pitches', 'Listing pitches'],
       ['/admin/trails', 'Trails'],
       ['/admin/editorial', 'Editorial queue'],
       ['/admin/pitches', 'Pitches'],

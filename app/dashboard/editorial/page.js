@@ -3,6 +3,7 @@
 import { useAuth } from '../layout'
 import { useState, useEffect } from 'react'
 import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
+import PitchAStory from './PitchAStory'
 
 const VERTICAL_COLORS = VERTICAL_ACCENTS
 
@@ -16,6 +17,17 @@ const VERTICAL_LABELS = {
   corner: 'Corner Atlas',
   found: 'Found Atlas',
   table: 'Table Atlas',
+  way: 'Way Atlas',
+}
+
+const SECTION_HEADING = {
+  fontFamily: 'var(--font-sans)',
+  fontSize: '0.8rem',
+  fontWeight: 600,
+  textTransform: 'uppercase',
+  letterSpacing: '0.08em',
+  color: 'var(--color-muted)',
+  margin: '0 0 0.75rem',
 }
 
 function ArticleCard({ article }) {
@@ -107,7 +119,7 @@ function ArticleCard({ article }) {
 }
 
 export default function DashboardEditorial() {
-  const { user } = useAuth()
+  const { listings } = useAuth()
   const [articles, setArticles] = useState([])
   const [regions, setRegions] = useState([])
   const [loading, setLoading] = useState(true)
@@ -141,24 +153,17 @@ export default function DashboardEditorial() {
           color: 'var(--color-muted)',
           margin: 0,
         }}>
-          Journal mentions and regional appearances
+          Pitch a story to the Atlas Journal, and see where your venue has been mentioned
         </p>
       </div>
+
+      {/* Pitch a story — the new headline action */}
+      <PitchAStory listings={listings} />
 
       {/* Regions */}
       {regions.length > 0 && (
         <div style={{ marginBottom: '2rem' }}>
-          <h2 style={{
-            fontFamily: 'var(--font-sans)',
-            fontSize: '0.8rem',
-            fontWeight: 600,
-            textTransform: 'uppercase',
-            letterSpacing: '0.08em',
-            color: 'var(--color-muted)',
-            margin: '0 0 0.75rem',
-          }}>
-            Your Regions
-          </h2>
+          <h2 style={SECTION_HEADING}>Your Regions</h2>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             {regions.map((r, i) => (
               <span key={i} style={{
@@ -180,17 +185,7 @@ export default function DashboardEditorial() {
 
       {/* Articles */}
       <div>
-        <h2 style={{
-          fontFamily: 'var(--font-sans)',
-          fontSize: '0.8rem',
-          fontWeight: 600,
-          textTransform: 'uppercase',
-          letterSpacing: '0.08em',
-          color: 'var(--color-muted)',
-          margin: '0 0 0.75rem',
-        }}>
-          Journal Mentions
-        </h2>
+        <h2 style={SECTION_HEADING}>Journal Mentions</h2>
 
         {loading ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
