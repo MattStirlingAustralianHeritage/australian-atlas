@@ -7,6 +7,7 @@ import { getAuthSupabase } from '@/lib/supabase/auth-clients'
 import { getVerticalFeatures } from '@/lib/vertical-features'
 import { getVerticalBadge } from '@/lib/verticalUrl'
 import { getDashboardToken } from '@/lib/dashboard-token'
+import { FeatureBadge, FeatureGuideModal, hasGuide, loadSeen, persistSeen } from './FeatureGuide'
 
 const AuthContext = createContext(null)
 
@@ -73,6 +74,13 @@ export default function DashboardLayout({ children }) {
   // other surface all speak about the same listing instead of diverging.
   const [listings, setListings] = useState([])
   const [listingsLoading, setListingsLoading] = useState(true)
+  // Feature-guide state: which dashboard tools this operator has already opened
+  // (so their "!" badges are cleared), whether we've read that from storage yet
+  // (avoids a flash of every badge before localStorage loads), and the guide
+  // currently being walked through.
+  const [seen, setSeen] = useState(() => new Set())
+  const [seenLoaded, setSeenLoaded] = useState(false)
+  const [activeGuide, setActiveGuide] = useState(null)
   const router = useRouter()
   const pathname = usePathname()
   const supabase = getAuthSupabase()
@@ -103,6 +111,41 @@ export default function DashboardLayout({ children }) {
 
     return () => subscription.unsubscribe()
   }, [])
+
+  // Load this operator's "already opened" set once we know who they are.
+  useEffect(() => {
+    if (!user) return
+    setSeen(loadSeen(user.id))
+    setSeenLoaded(true)
+  }, [user?.id])
+
+  // First-click walkthrough: the moment the operator lands on a tool's page they
+  // haven't opened before, surface its guide. Works no matter how they arrived
+  // (sidebar, a button on Overview, a direct link). Closing it marks the tool
+  // seen, so it never re-opens and its badge clears.
+  useEffect(() => {
+    if (!seenLoaded || activeGuide) return
+    if (hasGuide(pathname) && !seen.has(pathname)) setActiveGuide(pathname)
+  }, [pathname, seenLoaded, seen, activeGuide])
+
+  function handleGuideClose() {
+    if (activeGuide) {
+      setSeen(prev => {
+        const next = new Set(prev)
+        next.add(activeGuide)
+        persistSeen(user?.id, next)
+        return next
+      })
+    }
+    setActiveGuide(null)
+  }
+
+  // The amber "!" only ever marks a tool the operator hasn't opened. The
+  // Overview itself is where they land, so it's never badged (its welcome guide
+  // auto-opens on the first visit instead).
+  function showBadge(href) {
+    return seenLoaded && href !== '/dashboard' && hasGuide(href) && !seen.has(href)
+  }
 
   async function handleSignOut() {
     await supabase.auth.signOut()
@@ -239,6 +282,7 @@ export default function DashboardLayout({ children }) {
             >
               <NavIcon type={item.icon} />
               {label}
+              {showBadge(item.href) && <FeatureBadge />}
             </Link>
           )
         })}
@@ -339,6 +383,11 @@ export default function DashboardLayout({ children }) {
             {children}
           </div>
         </div>
+
+        {/* First-click feature walkthrough — overlays everything */}
+        {activeGuide && (
+          <FeatureGuideModal guideKey={activeGuide} onClose={handleGuideClose} />
+        )}
       </div>
     </AuthContext.Provider>
   )
