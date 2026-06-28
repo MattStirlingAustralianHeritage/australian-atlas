@@ -1,211 +1,150 @@
-'use client'
-
-import { useRef, useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { VERTICAL_ACCENTS, getVerticalBadge, getPublicVerticals } from '@/lib/verticalUrl'
 
 const VERTICAL_COLORS = VERTICAL_ACCENTS
-
 const ALL_VERTICALS = getPublicVerticals()
 
-export default function HomeMapSection({ listingCount }) {
-  const containerRef = useRef(null)
-  const mapRef = useRef(null)
-  const [mapLoaded, setMapLoaded] = useState(false)
-  const [visibleVerticals, setVisibleVerticals] = useState(new Set(ALL_VERTICALS))
-  const observerRef = useRef(null)
-
-  useEffect(() => {
-    if (!containerRef.current) return
-
-    observerRef.current = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          initMap()
-          observerRef.current?.disconnect()
-        }
-      },
-      { rootMargin: '200px' }
-    )
-
-    observerRef.current.observe(containerRef.current)
-
-    return () => observerRef.current?.disconnect()
-  }, [])
-
-  async function initMap() {
-    if (mapRef.current || !containerRef.current) return
-
-    // Both the lib and its stylesheet stay out of the homepage bundle until
-    // the section actually scrolls into view.
-    const [{ default: mapboxgl }] = await Promise.all([
-      import('mapbox-gl'),
-      import('mapbox-gl/dist/mapbox-gl.css'),
-    ])
-    mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
-
-    const map = new mapboxgl.Map({
-      container: containerRef.current,
-      style: 'mapbox://styles/mattstirlingaustralianheritage/cmn32b0iz003401swccb7d21k',
-      center: [134, -28],
-      zoom: 3.8,
-      minZoom: 3,
-      maxZoom: 14,
-      attributionControl: false,
-      dragRotate: false,
-      pitchWithRotate: false,
-    })
-
-    map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'bottom-right')
-
-    map.on('load', async () => {
-      mapRef.current = map
-
-      try {
-        const res = await fetch('/api/map')
-        const data = await res.json()
-        const listings = data.listings || data || []
-
-        if (!Array.isArray(listings) || listings.length === 0) {
-          setMapLoaded(true)
-          return
-        }
-
-        const verticalFeatures = {}
-        for (const v of ALL_VERTICALS) verticalFeatures[v] = []
-
-        for (const l of listings) {
-          if (!l.lat || !l.lng || !l.vertical) continue
-          const v = l.vertical
-          if (!verticalFeatures[v]) continue
-          verticalFeatures[v].push({
-            type: 'Feature',
-            geometry: { type: 'Point', coordinates: [l.lng, l.lat] },
-            properties: { name: l.name, vertical: v },
-          })
-        }
-
-        for (const v of ALL_VERTICALS) {
-          map.addSource(`pins-${v}`, {
-            type: 'geojson',
-            data: { type: 'FeatureCollection', features: verticalFeatures[v] },
-          })
-
-          map.addLayer({
-            id: `layer-${v}`,
-            type: 'circle',
-            source: `pins-${v}`,
-            paint: {
-              'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 2, 8, 4, 12, 6],
-              'circle-color': VERTICAL_COLORS[v] || '#888',
-              'circle-opacity': 0.8,
-              'circle-stroke-width': 0.5,
-              'circle-stroke-color': '#fff',
-              'circle-stroke-opacity': 0.6,
-            },
-          })
-        }
-      } catch (err) {
-        console.error('Map listings fetch error:', err)
-      }
-
-      setMapLoaded(true)
-    })
-  }
-
-  const toggleVertical = useCallback((v) => {
-    setVisibleVerticals(prev => {
-      const next = new Set(prev)
-      if (next.has(v)) next.delete(v)
-      else next.add(v)
-
-      if (mapRef.current?.getLayer(`layer-${v}`)) {
-        mapRef.current.setLayoutProperty(
-          `layer-${v}`,
-          'visibility',
-          next.has(v) ? 'visible' : 'none'
-        )
-      }
-
-      return next
-    })
-  }, [])
-
+// Static map strip. The homepage no longer boots an interactive Mapbox GL
+// instance here (heavy JS bundle + a /api/map fetch on every visit) — it
+// renders a pre-rendered Mapbox static image (generated from mapbox/dark-v11)
+// that links straight through to the full interactive /map. The ten verticals
+// stay as a decorative legend; the whole strip is one link, so they're plain
+// spans (an <a> can't nest inside the wrapping <a>).
+export default function HomeMapSection() {
   return (
-    <section className="relative w-full overflow-hidden">
-      <div
-        ref={containerRef}
-        style={{ width: '100%' }}
-        className="map-container"
-      />
+    <section className="home-map-strip relative w-full overflow-hidden">
+      <Link
+        href="/map"
+        aria-label="Explore the full interactive map of Australia"
+        className="home-map-link"
+      >
+        <picture>
+          <source srcSet="/maps/home-map.webp" type="image/webp" />
+          <img
+            src="/maps/home-map.jpg"
+            alt="Map of Australia covering the Australian Atlas network of verified places"
+            className="home-map-img"
+            width={2560}
+            height={680}
+            loading="lazy"
+            decoding="async"
+          />
+        </picture>
 
-      {/* Subtle edge vignette */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background: 'linear-gradient(180deg, rgba(0,0,0,0.15) 0%, transparent 20%, transparent 80%, rgba(0,0,0,0.2) 100%)',
-        }}
-      />
+        {/* Warm tint + top/bottom vignette for legend & CTA legibility */}
+        <span className="home-map-overlay" aria-hidden="true" />
 
-      {/* Vertical filter toggles — top of map */}
-      <div className="absolute top-0 left-0 right-0 z-10 px-4 py-3">
-        <div className="flex items-center justify-center gap-1.5 overflow-x-auto scrollbar-hide">
-          {ALL_VERTICALS.map(v => {
-            const active = visibleVerticals.has(v)
-            const color = VERTICAL_COLORS[v]
-            return (
-              <button
-                key={v}
-                onClick={() => toggleVertical(v)}
-                className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all cursor-pointer"
-                style={{
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 400,
-                  fontSize: '11px',
-                  color: active ? '#FAF8F4' : 'rgba(250,248,244,0.5)',
-                  background: active ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.3)',
-                  borderColor: active ? color : 'rgba(255,255,255,0.15)',
-                  backdropFilter: 'blur(8px)',
-                  WebkitBackdropFilter: 'blur(8px)',
-                }}
-              >
-                <span
-                  className="w-2 h-2 rounded-full"
-                  style={{ backgroundColor: active ? color : 'rgba(255,255,255,0.3)' }}
-                />
-                {getVerticalBadge(v)}
-              </button>
-            )
-          })}
-        </div>
-      </div>
+        {/* Vertical legend — decorative */}
+        <span className="home-map-legend">
+          {ALL_VERTICALS.map((v) => (
+            <span key={v} className="home-map-pill" style={{ borderColor: VERTICAL_COLORS[v] }}>
+              <span className="home-map-dot" style={{ backgroundColor: VERTICAL_COLORS[v] }} />
+              {getVerticalBadge(v)}
+            </span>
+          ))}
+        </span>
 
-      {/* Open full map — bottom-right corner */}
-      <div className="absolute bottom-4 right-4 z-10">
-        <Link
-          href="/map"
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full shadow-lg hover:shadow-xl hover:opacity-90 transition-all"
-          style={{
-            fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '12px',
-            background: 'rgba(0,0,0,0.7)', color: '#FAF8F4',
-            backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
-          }}
-        >
+        {/* Open full map — bottom-right */}
+        <span className="home-map-cta">
           Open full map
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="home-map-cta-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
-        </Link>
-      </div>
+        </span>
+      </Link>
 
-      <style jsx>{`
-        .map-container {
-          height: min(32vh, 380px);
+      <style>{`
+        .home-map-strip { background: #14120e; }
+        .home-map-link {
+          position: relative;
+          display: block;
+          overflow: hidden;
         }
+        .home-map-img {
+          display: block;
+          width: 100%;
+          height: min(32vh, 380px);
+          object-fit: cover;
+          object-position: center;
+          background: #14120e;
+          transition: transform 600ms cubic-bezier(0.22, 1, 0.36, 1), filter 600ms ease;
+        }
+        .home-map-link:hover .home-map-img {
+          transform: scale(1.025);
+          filter: brightness(1.08);
+        }
+        .home-map-overlay {
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          background:
+            linear-gradient(180deg, rgba(20,18,14,0.55) 0%, rgba(20,18,14,0) 30%),
+            linear-gradient(0deg, rgba(20,18,14,0.62) 0%, rgba(20,18,14,0) 28%),
+            linear-gradient(0deg, rgba(58,46,30,0.18), rgba(58,46,30,0.18));
+        }
+        .home-map-legend {
+          position: absolute;
+          top: 0; left: 0; right: 0;
+          z-index: 2;
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          padding: 14px 16px 0;
+        }
+        .home-map-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 10px;
+          border-radius: 9999px;
+          border: 1px solid;
+          background: rgba(0,0,0,0.55);
+          color: #FAF8F4;
+          font-family: var(--font-body);
+          font-weight: 400;
+          font-size: 11px;
+          line-height: 1;
+          white-space: nowrap;
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+        }
+        .home-map-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 9999px;
+          flex: none;
+        }
+        .home-map-cta {
+          position: absolute;
+          bottom: 16px; right: 16px;
+          z-index: 2;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 16px;
+          border-radius: 9999px;
+          background: rgba(0,0,0,0.7);
+          color: #FAF8F4;
+          font-family: var(--font-body);
+          font-weight: 500;
+          font-size: 12px;
+          line-height: 1;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          transition: transform 250ms ease, box-shadow 250ms ease;
+        }
+        .home-map-link:hover .home-map-cta {
+          transform: translateX(2px);
+          box-shadow: 0 10px 28px rgba(0,0,0,0.45);
+        }
+        .home-map-cta-arrow { width: 14px; height: 14px; }
         @media (max-width: 640px) {
-          .map-container {
-            height: min(40vh, 320px);
-          }
+          .home-map-img { height: min(40vh, 320px); }
+          .home-map-legend { gap: 5px; padding: 12px 12px 0; }
+          .home-map-pill { font-size: 10px; padding: 3px 8px; }
         }
       `}</style>
     </section>
