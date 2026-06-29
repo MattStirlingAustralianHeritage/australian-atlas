@@ -54,6 +54,7 @@ const SUBCATEGORY_OPTIONS = {
     { value: 'drive_in', label: 'Drive-In' },
     { value: 'live_music_venue', label: 'Live Music Venue' },
     { value: 'comedy_club', label: 'Comedy Club' },
+    { value: 'theatre', label: 'Theatre' },
   ],
   craft: [
     { value: 'ceramics_clay', label: 'Ceramics & Clay' },

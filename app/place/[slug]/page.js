@@ -100,6 +100,8 @@ const SUBCATEGORY_LABELS = {
   cidery: 'Cidery', non_alcoholic: 'Non-Alcoholic', meadery: 'Meadery',
   museum: 'Museum', gallery: 'Gallery', heritage_site: 'Heritage Site',
   cultural_centre: 'Cultural Centre', botanical_garden: 'Botanical Garden',
+  sculpture_park: 'Sculpture Park', cinema: 'Cinema', drive_in: 'Drive-In Cinema',
+  live_music_venue: 'Live Music Venue', comedy_club: 'Comedy Club', theatre: 'Theatre',
   ceramics_clay: 'Ceramics & Clay', visual_art: 'Visual Art',
   jewellery_metalwork: 'Jewellery & Metalwork', textile_fibre: 'Textile & Fibre',
   wood_furniture: 'Wood & Furniture', glass: 'Glass', printmaking: 'Printmaking',
