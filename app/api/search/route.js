@@ -38,9 +38,10 @@ const GEOCODE_RADIUS_KM = 130
 // Below this many in-box hits, a "category in <town>" search broadens to the
 // town's state so the user is never stranded by an over-tight box.
 const MIN_BOX_RESULTS = 4
-// Below this many hits, a detected-vertical search (e.g. "quiet farm stay" →
-// Rest) broadens back across all atlases so a thin atlas never strands the user.
-const MIN_VERTICAL_RESULTS = 5
+// A detected atlas needs at least this many rows in the pool before we lead with
+// it (and show its banner) — otherwise the keyword matched but the results are
+// really cross-atlas, and leading/labelling would over-claim.
+const MIN_LEAD_ROWS = 3
 
 /** Lat/lng bounding box (degrees) for a radius in km around a centre point. */
 function boxAround(lat, lng, km) {
@@ -99,17 +100,35 @@ function dedupeBySlug(rows) {
   return out
 }
 
-/** Sub_type facet counts over the ranked pool, most common first (top 12). */
-function buildFacets(rows) {
+/** Stable re-rank that LEADS with the detected atlas: rows of `vertical` first
+ *  (in their existing relevance order), then everything else (likewise). Cross-
+ *  atlas matches are kept, not dropped — they just follow the obvious atlas. */
+function leadWithVertical(rows, vertical) {
+  if (!vertical) return rows
+  const lead = [], rest = []
+  for (const r of rows) (r.vertical === vertical ? lead : rest).push(r)
+  return lead.concat(rest)
+}
+
+/** Sub_type facet counts over the ranked pool, most common first (top 12). When
+ *  a `leadVertical` is set, its sub_types sort ahead of the rest so the type bar
+ *  leads with the obvious atlas ("Boutique Hotel · Cottage · Bnb …") rather than
+ *  the most numerous cross-atlas type. */
+function buildFacets(rows, leadVertical) {
   const counts = new Map()
+  const subTypeVertical = new Map()   // sub_type → owning vertical (prefer the lead)
   for (const r of rows) {
     if (!r.sub_type) continue
     counts.set(r.sub_type, (counts.get(r.sub_type) || 0) + 1)
+    if (!subTypeVertical.has(r.sub_type) || r.vertical === leadVertical) {
+      subTypeVertical.set(r.sub_type, r.vertical)
+    }
   }
   const subTypes = [...counts.entries()]
-    .map(([key, count]) => ({ key, count }))
-    .sort((a, b) => b.count - a.count)
+    .map(([key, count]) => ({ key, count, lead: !!leadVertical && subTypeVertical.get(key) === leadVertical }))
+    .sort((a, b) => (Number(b.lead) - Number(a.lead)) || (b.count - a.count))
     .slice(0, 12)
+    .map(({ key, count }) => ({ key, count }))
   return { subTypes }
 }
 
@@ -290,32 +309,28 @@ export async function GET(request) {
 
       // ── Detected atlas (vertical) intent ─────────────────────────────────
       // When the query obviously implies ONE atlas ("quiet farm stay" → Rest,
-      // "specialty coffee" → Fine Grounds, "vintage shops" → Found), bias
-      // retrieval to it so that atlas's venues lead — instead of token matches
-      // bleeding in from other atlases (the word "farm" pulling wineries and
-      // farm-gates above the actual stays). Mirrors the detected region/state
-      // hard-filter precedent: skipped when the caller already pinned a vertical,
-      // dismissed the focus (vbind=0), or the whole query was a bare place
-      // (placePivot — there is no category signal to act on). Thin atlases fall
-      // back to all-atlas below so a focus never strands the user.
+      // "specialty coffee" → Fine Grounds, "vintage shops" → Found), we still
+      // retrieve across EVERY atlas but LEAD the results with that atlas (see the
+      // stable re-rank below) — so the obvious vertical dominates the top while
+      // genuinely-relevant cross-atlas matches (a farm-gate, a winery with rooms)
+      // remain in the pool and reachable. A soft boost, not an exclusive filter.
+      // Skipped when the caller already pinned a vertical, dismissed the focus
+      // (vbind=0), or the whole query was a bare place (placePivot — no category
+      // signal to act on).
       let detectedVertical = null
-      let effectiveVertical = vertical
       if (!vertical && !noVerticalBind && !placePivot) {
         const intent = detectVerticalIntent(q)
-        if (intent && isVerticalPublic(intent.vertical)) {
-          detectedVertical = intent.vertical
-          effectiveVertical = intent.vertical
-        }
+        if (intent && isVerticalPublic(intent.vertical)) detectedVertical = intent.vertical
       }
 
       // Events lane — runs concurrently with the embedding + hybrid retrieval.
       // Raw q (not `cleaned`): the events FTS vector includes suburb/state, so
       // location words help rather than hurt. Failure never breaks search.
       const eventsPromise = searchEvents(sb, {
-        query: q, state: filterState, vertical: effectiveVertical, limit: 4,
+        query: q, state: filterState, vertical, limit: 4,
       }).catch(() => [])
 
-      const includeWay = isVerticalPublic('way') || effectiveVertical === 'way'
+      const includeWay = isVerticalPublic('way') || vertical === 'way'
       let queryEmbedding = null
       let voyageError = null
       let all
@@ -339,7 +354,7 @@ export async function GET(request) {
         const { data, error } = await sb.rpc('search_listings_hybrid', {
           query_embedding: queryEmbedding,
           query_text: cleaned,
-          filter_vertical: effectiveVertical,
+          filter_vertical: vertical,
           filter_state: filterState,
           filter_region: effectiveRegion,
           filter_suburb: filterSuburb,
@@ -363,7 +378,7 @@ export async function GET(request) {
         // A suburb filter that found nothing → retry state-only so the user isn't stranded.
         if (filterSuburb && all.length === 0) {
           const { data: stateData } = await sb.rpc('search_listings_hybrid', {
-            query_embedding: queryEmbedding, query_text: cleaned, filter_vertical: effectiveVertical,
+            query_embedding: queryEmbedding, query_text: cleaned, filter_vertical: vertical,
             filter_state: filterState, filter_region: effectiveRegion, filter_suburb: null,
             match_count: RESULT_POOL, similarity_floor: similarityFloor, include_way: includeWay,
           })
@@ -373,31 +388,11 @@ export async function GET(request) {
         // broaden to the town's state so the user still gets the best matches.
         if (geoBox && all.length < MIN_BOX_RESULTS) {
           const { data: wideData } = await sb.rpc('search_listings_hybrid', {
-            query_embedding: queryEmbedding, query_text: cleaned, filter_vertical: effectiveVertical,
+            query_embedding: queryEmbedding, query_text: cleaned, filter_vertical: vertical,
             filter_state: filterState, filter_region: effectiveRegion, filter_suburb: null,
             match_count: RESULT_POOL, similarity_floor: similarityFloor, include_way: includeWay,
           })
           if (wideData && wideData.length > all.length) all = wideData
-        }
-        // A detected-atlas focus that came back thin → broaden across all atlases
-        // so an under-covered vertical (or a borderline keyword match) never
-        // strands the user. The focus is dropped only when the wider pool is
-        // genuinely richer, so a strong single-atlas result set keeps its focus.
-        if (detectedVertical && all.length < MIN_VERTICAL_RESULTS) {
-          const { data: allVerticalData } = await sb.rpc('search_listings_hybrid', {
-            query_embedding: queryEmbedding, query_text: cleaned, filter_vertical: null,
-            filter_state: filterState, filter_region: effectiveRegion,
-            // Keep the suburb only if it's still in effect (the suburb-retry above
-            // clears detectedSuburb when it broadens to state-wide).
-            filter_suburb: detectedSuburb ? filterSuburb : null,
-            match_count: RESULT_POOL, similarity_floor: similarityFloor,
-            include_way: isVerticalPublic('way'), ...(geoBox || {}),
-          })
-          if (allVerticalData && allVerticalData.length > all.length) {
-            all = allVerticalData
-            detectedVertical = null
-            effectiveVertical = vertical
-          }
         }
 
         // ── Tier C: geocoder fallback for a town we hold NO venues in ────────
@@ -413,7 +408,7 @@ export async function GET(request) {
           const geo = await geocodePlace(q)
           if (geo) {
             const near = await proximityRows(sb, {
-              lat: geo.lat, lng: geo.lng, radiusKm: GEOCODE_RADIUS_KM, vertical: effectiveVertical,
+              lat: geo.lat, lng: geo.lng, radiusKm: GEOCODE_RADIUS_KM, vertical,
             })
             if (near.length) {
               all = near
@@ -426,9 +421,20 @@ export async function GET(request) {
       // Admin/QA fixtures + needs_review venues never surface publicly (row-level),
       // then collapse the same venue cross-listed across verticals to one card.
       all = dedupeBySlug(all.filter(isPublicListing))
+      // Drop the focus if the detected atlas is barely represented — the keyword
+      // matched but the results are really cross-atlas, so don't lead/label it.
+      if (detectedVertical &&
+          all.reduce((c, r) => c + (r.vertical === detectedVertical ? 1 : 0), 0) < MIN_LEAD_ROWS) {
+        detectedVertical = null
+      }
+      // Soft vertical boost: lead the pool with the detected atlas (cross-atlas
+      // matches kept, just below). Applied AFTER dedupe so a venue cross-listed
+      // in the detected atlas is collapsed to the right card first.
+      all = leadWithVertical(all, detectedVertical)
       const capped = all.length >= RESULT_POOL     // pool full → there may be more ("120+")
-      // Facet counts over the full ranked pool (before the sub_type refine).
-      const facets = buildFacets(all)
+      // Facet counts over the full ranked pool (before the sub_type refine),
+      // leading with the detected atlas's types when one was detected.
+      const facets = buildFacets(all, detectedVertical)
       // Optional sub_type facet refine.
       const filtered = subType ? all.filter((l) => l.sub_type === subType) : all
       const total = filtered.length
