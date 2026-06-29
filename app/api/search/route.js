@@ -11,6 +11,7 @@ import { logSearchEvent } from '@/lib/search/log'
 import { parseQueryLocation } from '@/lib/search/parseQuery'
 import { resolveQueryRegion } from '@/lib/search/resolveQueryRegion'
 import { resolveQueryPlace, geocodePlace, looksLikePlaceQuery } from '@/lib/search/resolveQueryPlace'
+import { detectVerticalIntent } from '@/lib/search/verticalIntent'
 import { relevanceFloorFor } from '@/lib/search/relevanceFloor'
 import { checkRateLimit } from '@/lib/rate-limit'
 
@@ -37,6 +38,9 @@ const GEOCODE_RADIUS_KM = 130
 // Below this many in-box hits, a "category in <town>" search broadens to the
 // town's state so the user is never stranded by an over-tight box.
 const MIN_BOX_RESULTS = 4
+// Below this many hits, a detected-vertical search (e.g. "quiet farm stay" →
+// Rest) broadens back across all atlases so a thin atlas never strands the user.
+const MIN_VERTICAL_RESULTS = 5
 
 /** Lat/lng bounding box (degrees) for a radius in km around a centre point. */
 function boxAround(lat, lng, km) {
@@ -189,6 +193,7 @@ export async function GET(request) {
   const region = searchParams.get('region') || null
   const subType = searchParams.get('sub_type') || null   // facet refine
   const noBind = searchParams.get('bind') === '0'         // ignore region/suburb auto-binding
+  const noVerticalBind = searchParams.get('vbind') === '0' // ignore atlas (vertical) auto-detection
   const page = Math.max(parseInt(searchParams.get('page') || '1', 10), 1)
   const limit = Math.min(parseInt(searchParams.get('limit') || '24', 10), 100)
   const floorParam = parseFloat(searchParams.get('floor'))
@@ -283,14 +288,34 @@ export async function GET(request) {
         }
       }
 
+      // ── Detected atlas (vertical) intent ─────────────────────────────────
+      // When the query obviously implies ONE atlas ("quiet farm stay" → Rest,
+      // "specialty coffee" → Fine Grounds, "vintage shops" → Found), bias
+      // retrieval to it so that atlas's venues lead — instead of token matches
+      // bleeding in from other atlases (the word "farm" pulling wineries and
+      // farm-gates above the actual stays). Mirrors the detected region/state
+      // hard-filter precedent: skipped when the caller already pinned a vertical,
+      // dismissed the focus (vbind=0), or the whole query was a bare place
+      // (placePivot — there is no category signal to act on). Thin atlases fall
+      // back to all-atlas below so a focus never strands the user.
+      let detectedVertical = null
+      let effectiveVertical = vertical
+      if (!vertical && !noVerticalBind && !placePivot) {
+        const intent = detectVerticalIntent(q)
+        if (intent && isVerticalPublic(intent.vertical)) {
+          detectedVertical = intent.vertical
+          effectiveVertical = intent.vertical
+        }
+      }
+
       // Events lane — runs concurrently with the embedding + hybrid retrieval.
       // Raw q (not `cleaned`): the events FTS vector includes suburb/state, so
       // location words help rather than hurt. Failure never breaks search.
       const eventsPromise = searchEvents(sb, {
-        query: q, state: filterState, vertical, limit: 4,
+        query: q, state: filterState, vertical: effectiveVertical, limit: 4,
       }).catch(() => [])
 
-      const includeWay = isVerticalPublic('way') || vertical === 'way'
+      const includeWay = isVerticalPublic('way') || effectiveVertical === 'way'
       let queryEmbedding = null
       let voyageError = null
       let all
@@ -314,7 +339,7 @@ export async function GET(request) {
         const { data, error } = await sb.rpc('search_listings_hybrid', {
           query_embedding: queryEmbedding,
           query_text: cleaned,
-          filter_vertical: vertical,
+          filter_vertical: effectiveVertical,
           filter_state: filterState,
           filter_region: effectiveRegion,
           filter_suburb: filterSuburb,
@@ -338,7 +363,7 @@ export async function GET(request) {
         // A suburb filter that found nothing → retry state-only so the user isn't stranded.
         if (filterSuburb && all.length === 0) {
           const { data: stateData } = await sb.rpc('search_listings_hybrid', {
-            query_embedding: queryEmbedding, query_text: cleaned, filter_vertical: vertical,
+            query_embedding: queryEmbedding, query_text: cleaned, filter_vertical: effectiveVertical,
             filter_state: filterState, filter_region: effectiveRegion, filter_suburb: null,
             match_count: RESULT_POOL, similarity_floor: similarityFloor, include_way: includeWay,
           })
@@ -348,11 +373,31 @@ export async function GET(request) {
         // broaden to the town's state so the user still gets the best matches.
         if (geoBox && all.length < MIN_BOX_RESULTS) {
           const { data: wideData } = await sb.rpc('search_listings_hybrid', {
-            query_embedding: queryEmbedding, query_text: cleaned, filter_vertical: vertical,
+            query_embedding: queryEmbedding, query_text: cleaned, filter_vertical: effectiveVertical,
             filter_state: filterState, filter_region: effectiveRegion, filter_suburb: null,
             match_count: RESULT_POOL, similarity_floor: similarityFloor, include_way: includeWay,
           })
           if (wideData && wideData.length > all.length) all = wideData
+        }
+        // A detected-atlas focus that came back thin → broaden across all atlases
+        // so an under-covered vertical (or a borderline keyword match) never
+        // strands the user. The focus is dropped only when the wider pool is
+        // genuinely richer, so a strong single-atlas result set keeps its focus.
+        if (detectedVertical && all.length < MIN_VERTICAL_RESULTS) {
+          const { data: allVerticalData } = await sb.rpc('search_listings_hybrid', {
+            query_embedding: queryEmbedding, query_text: cleaned, filter_vertical: null,
+            filter_state: filterState, filter_region: effectiveRegion,
+            // Keep the suburb only if it's still in effect (the suburb-retry above
+            // clears detectedSuburb when it broadens to state-wide).
+            filter_suburb: detectedSuburb ? filterSuburb : null,
+            match_count: RESULT_POOL, similarity_floor: similarityFloor,
+            include_way: isVerticalPublic('way'), ...(geoBox || {}),
+          })
+          if (allVerticalData && allVerticalData.length > all.length) {
+            all = allVerticalData
+            detectedVertical = null
+            effectiveVertical = vertical
+          }
         }
 
         // ── Tier C: geocoder fallback for a town we hold NO venues in ────────
@@ -368,7 +413,7 @@ export async function GET(request) {
           const geo = await geocodePlace(q)
           if (geo) {
             const near = await proximityRows(sb, {
-              lat: geo.lat, lng: geo.lng, radiusKm: GEOCODE_RADIUS_KM, vertical,
+              lat: geo.lat, lng: geo.lng, radiusKm: GEOCODE_RADIUS_KM, vertical: effectiveVertical,
             })
             if (near.length) {
               all = near
@@ -405,7 +450,7 @@ export async function GET(request) {
       return NextResponse.json({
         listings, total, capped, facets, subType, didYouMean, page, limit,
         totalPages: Math.ceil(total / limit),
-        detectedVertical: null, detectedState: detectedState || null, detectedRegion, detectedSuburb,
+        detectedVertical, detectedState: detectedState || null, detectedRegion, detectedSuburb,
         // Place-aware search: the resolved town/suburb the results are scoped to
         // (gazetteer match or geocoded). Drives the "in <town>" chip + distances.
         detectedPlace: detectedPlace

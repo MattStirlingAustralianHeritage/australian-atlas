@@ -8,6 +8,7 @@ import VibeSearch from './VibeSearch'
 import { getListingRegion } from '@/lib/regions'
 import { isApprovedImageSource } from '@/lib/image-utils'
 import { isStrongMatch } from '@/lib/search/relevanceFloor'
+import { detectVerticalIntent } from '@/lib/search/verticalIntent'
 import { VERTICAL_MUTED, isVerticalPublic } from '@/lib/verticalUrl'
 import { useLocation } from '@/components/LocationProvider'
 
@@ -133,18 +134,9 @@ const VERTICAL_LABEL_MAP = Object.fromEntries(VERTICALS.filter(v => v.key).map(v
 const STATES = ['', 'VIC', 'NSW', 'QLD', 'SA', 'WA', 'TAS', 'ACT', 'NT']
 
 // ── Contextual header mapping ────────────────────────────────
-
-const CONTEXTUAL_VERTICAL_KEYWORDS = {
-  sba: ['brewery', 'breweries', 'winery', 'wineries', 'distillery', 'distilleries', 'cellar door', 'wine', 'beer', 'craft beer', 'spirits', 'gin', 'whisky', 'cider', 'small batch'],
-  collection: ['museum', 'museums', 'gallery', 'galleries', 'heritage', 'cultural', 'art gallery', 'exhibition'],
-  craft: ['maker', 'makers', 'studio', 'studios', 'pottery', 'ceramics', 'woodwork', 'textiles', 'jewellery'],
-  fine_grounds: ['coffee', 'cafe', 'cafes', 'roaster', 'roasters', 'espresso', 'specialty coffee'],
-  rest: ['stay', 'stays', 'hotel', 'hotels', 'accommodation', 'boutique stay', 'glamping', 'farmstay', 'cottage', 'lodge'],
-  field: ['swimming hole', 'waterfall', 'lookout', 'hiking', 'nature', 'bush walk', 'national park', 'wildlife'],
-  corner: ['bookshop', 'record store', 'homewares', 'indie shop'],
-  found: ['vintage', 'op shop', 'antique', 'antiques', 'secondhand', 'thrift', 'retro'],
-  table: ['farm gate', 'bakery', 'food producer', 'providore', 'butcher', 'cheese', 'restaurant', 'dining'],
-}
+// The query→atlas keyword detection lives in lib/search/verticalIntent.js so the
+// API (which biases ranking) and this header read the SAME signal — the header
+// never claims an atlas the results aren't actually focused on.
 
 const CONTEXTUAL_VERTICAL_NAMES = {
   sba: 'Small Batch Atlas',
@@ -210,23 +202,8 @@ function detectContextualHeader(query) {
   if (!query || query.trim().length < 3) return null
   const lower = query.toLowerCase().trim()
 
-  let matchedVertical = null
-  let matchedCategory = null
-
-  // Find vertical match (longest match first)
-  const allPairs = []
-  for (const [vKey, keywords] of Object.entries(CONTEXTUAL_VERTICAL_KEYWORDS)) {
-    for (const kw of keywords) allPairs.push([kw, vKey])
-  }
-  allPairs.sort((a, b) => b[0].length - a[0].length)
-
-  for (const [kw, vKey] of allPairs) {
-    if (lower.includes(kw)) {
-      matchedVertical = vKey
-      matchedCategory = kw
-      break
-    }
-  }
+  // Vertical match — shared with the API's ranking bias (single source of truth).
+  const matchedVertical = detectVerticalIntent(query)?.vertical || null
 
   // Find location match (longest match first)
   let matchedLocation = null
@@ -424,6 +401,7 @@ function SearchPageInner() {
   const [autoRegion, setAutoRegion] = useState(null)   // region detected from query text
   const [detectedPlace, setDetectedPlace] = useState(null) // town/suburb resolved from query (gazetteer/geocoded)
   const [noBind, setNoBind] = useState(false)          // user dismissed the detected-region/place chip
+  const [noVerticalBind, setNoVerticalBind] = useState(false) // user broadened past the detected atlas
   const [didYouMean, setDidYouMean] = useState(null)   // fuzzy suggestion on zero results
   const [facets, setFacets] = useState({ subTypes: [] })
   const [subType, setSubType] = useState('')           // sub_type facet refine
@@ -465,6 +443,7 @@ function SearchPageInner() {
     if (region) params.set('region', region)
     if (subType) params.set('sub_type', subType)
     if (noBind) params.set('bind', '0')
+    if (noVerticalBind) params.set('vbind', '0')
     params.set('page', p.toString())
     params.set('limit', '24')
 
@@ -498,7 +477,11 @@ function SearchPageInner() {
       setSlowSearch(false)
       setInitialLoad(false)
     }
-  }, [query, vertical, state, region, subType, noBind])
+  }, [query, vertical, state, region, subType, noBind, noVerticalBind])
+
+  // A fresh query re-enables atlas auto-detection: broadening ("All") applied to
+  // one query shouldn't silently suppress the focus for the next, unrelated one.
+  useEffect(() => { setNoVerticalBind(false) }, [query])
 
   // Check for itinerary intent on initial load (from homepage submission)
   useEffect(() => {
@@ -519,7 +502,7 @@ function SearchPageInner() {
       search(1)
     }, 600)
     return () => clearTimeout(timer)
-  }, [search, updateUrl, query, vertical, state, region, subType, noBind, mode])
+  }, [search, updateUrl, query, vertical, state, region, subType, noBind, noVerticalBind, mode])
 
   // Explicit submit (Enter / search button): force an immediate search, and
   // honour itinerary intent here (only on a deliberate action, not while typing).
@@ -628,7 +611,7 @@ function SearchPageInner() {
   // with the "no strong matches" banner; the place chip already frames them.
   const placeProximity = !!(detectedPlace && detectedPlace.proximity)
   const weakOnly = displayResults.length > 0 && !anyStrong && !placeProximity
-  const hasActiveFilters = !!(vertical || state || region || subType || autoState || autoRegion)
+  const hasActiveFilters = !!(vertical || state || region || subType || autoState || autoRegion || (detectedVertical && !noVerticalBind))
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
@@ -733,13 +716,20 @@ function SearchPageInner() {
       <div className="mt-5 -mx-4 px-4 overflow-x-auto scrollbar-hide">
         <div className="flex gap-2 min-w-max pb-1">
           {VERTICALS.map(v => {
-            const isActive = vertical === v.key
+            // An explicit pill wins; otherwise the atlas the query was auto-focused
+            // to lights up (unless the user broadened past it). Keeps the pills in
+            // sync with the actual ranking bias.
+            const activeVertical = vertical || (!noVerticalBind ? (detectedVertical || '') : '')
+            const isActive = activeVertical === v.key
             const vs = v.key ? VERTICAL_STYLES[v.key] : null
 
             return (
               <button
                 key={v.key}
-                onClick={() => setVertical(v.key)}
+                onClick={() => {
+                  if (!v.key) { setVertical(''); setNoVerticalBind(true) }   // "All" → broaden past any auto-focus
+                  else { setVertical(v.key); setNoVerticalBind(false) }
+                }}
                 className="px-4 py-2.5 rounded-full transition-all whitespace-nowrap"
                 style={{
                   fontFamily: 'var(--font-body)',
@@ -877,8 +867,10 @@ function SearchPageInner() {
         </div>
       )}
 
-      {/* Contextual header when query maps to a vertical + location */}
-      {contextualHeader && !loading && results.length > 0 && (
+      {/* Contextual header \u2014 shown only when the API actually focused results on
+          this atlas (detectedVertical), so the banner never over-claims. The
+          "Search all atlases" link broadens past the focus. */}
+      {contextualHeader && detectedVertical === contextualHeader.vertical && !loading && results.length > 0 && (
         <div
           className="mt-6 mb-2"
           style={{
@@ -886,6 +878,11 @@ function SearchPageInner() {
             borderRadius: '0.75rem',
             borderLeft: `3px solid ${contextualHeader.verticalColor}`,
             background: '#fff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '1rem',
+            flexWrap: 'wrap',
           }}
         >
           <p
@@ -905,6 +902,19 @@ function SearchPageInner() {
               {contextualHeader.location && ` in ${contextualHeader.location}`}
             </span>
           </p>
+          <button
+            type="button"
+            onClick={() => setNoVerticalBind(true)}
+            style={{
+              fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 500,
+              color: 'var(--color-muted)', background: 'none', border: 'none',
+              cursor: 'pointer', whiteSpace: 'nowrap', textDecoration: 'underline',
+              textUnderlineOffset: 3,
+            }}
+            title="Show matches from every atlas, not just this one"
+          >
+            Search all atlases
+          </button>
         </div>
       )}
 
@@ -1058,7 +1068,7 @@ function SearchPageInner() {
             <div className="mb-5">
               <button
                 type="button"
-                onClick={() => { setVertical(''); setState(''); setRegion(''); setSubType(''); setAutoState(''); setAutoRegion(null); setNoBind(true) }}
+                onClick={() => { setVertical(''); setState(''); setRegion(''); setSubType(''); setAutoState(''); setAutoRegion(null); setNoBind(true); setNoVerticalBind(true) }}
                 className="px-4 rounded-full"
                 style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', background: 'var(--color-ink)', color: '#fff', minHeight: 40 }}
               >
