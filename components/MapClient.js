@@ -644,43 +644,59 @@ export default function MapClient({
     ? { position: 'relative', width: '100%', height: '100%', background: '#faf8f5' }
     : { position: 'fixed', inset: 0, zIndex: 50, background: '#faf8f5' }
 
+  // Map / Build-a-trail switch. 'inline' sits flush on the desktop toolbar's
+  // own top row (no shadow, transparent — it IS the bar). 'floating' is the
+  // self-contained pill used where that toolbar is hidden (every mobile view +
+  // the desktop builder tab), so it needs a background to read over the map.
+  const renderTabToggle = (variant) => (
+    <div style={{
+      display: 'inline-flex', borderRadius: 6, overflow: 'hidden', pointerEvents: 'auto',
+      border: '1px solid var(--color-border)',
+      ...(variant === 'floating'
+        ? { background: 'rgba(250,248,245,0.97)', backdropFilter: 'blur(8px)', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }
+        : { background: 'transparent' }),
+    }}>
+      {[{ key: 'map', label: 'Map' }, { key: 'builder', label: 'Build a trail' }].map(tab => (
+        <button key={tab.key} onClick={() => {
+          // On phones the builder is its own full-screen page with its own
+          // Builder/Map tabs — iframing it here would stack a second tab bar on
+          // top of the page's. Navigate instead so mobile gets one clean chrome
+          // (the builder carries a "← Map" link back here). Desktop keeps the
+          // in-place iframe tab.
+          if (tab.key === 'builder' && typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches) {
+            window.location.href = '/trails/builder'
+            return
+          }
+          setActiveTab(tab.key)
+        }} style={{
+          padding: '9px 20px', border: 'none', cursor: 'pointer',
+          fontSize: 12, fontWeight: activeTab === tab.key ? 600 : 400,
+          fontFamily: 'var(--font-sans)', minHeight: variant === 'floating' ? 44 : 36,
+          background: activeTab === tab.key ? PRIMARY : 'transparent',
+          color: activeTab === tab.key ? '#fff' : 'var(--color-muted)',
+          transition: 'all 0.15s',
+        }}>{tab.label}</button>
+      ))}
+    </div>
+  )
+
   return (
     <div style={rootStyle}>
-      {/* ── TAB TOGGLE: Map / Build a trail (skipped in embedded mode) ── */}
+      {/* ── TAB TOGGLE: Map / Build a trail (floating copy) ──
+          On the desktop map view the toggle lives inline on the toolbar's top
+          row (see Row 0 below), so this floating copy is hidden there via
+          `map-mobile-only`. It only shows where that toolbar is absent: every
+          mobile view, and desktop while the builder tab is open. */}
       {!isEmbedded && (
-      <div style={{
-        position: 'absolute', top: 0, left: 0, right: 0, zIndex: 60,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '8px 0 0',
-        pointerEvents: 'none',
-      }}>
-        <div style={{
-          display: 'inline-flex', background: 'rgba(250,248,245,0.97)', backdropFilter: 'blur(8px)',
-          border: '1px solid var(--color-border)', borderRadius: 6, overflow: 'hidden',
-          pointerEvents: 'auto', boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-        }}>
-          {[{ key: 'map', label: 'Map' }, { key: 'builder', label: 'Build a trail' }].map(tab => (
-            <button key={tab.key} onClick={() => {
-              // On phones the builder is its own full-screen page with its own
-              // Builder/Map tabs — iframing it here would stack a second tab bar
-              // on top of the page's. Navigate instead so mobile gets one clean
-              // chrome (the builder carries a "← Map" link back here). Desktop
-              // keeps the in-place iframe tab.
-              if (tab.key === 'builder' && typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches) {
-                window.location.href = '/trails/builder'
-                return
-              }
-              setActiveTab(tab.key)
-            }} style={{
-              padding: '10px 20px', border: 'none', cursor: 'pointer',
-              fontSize: 12, fontWeight: activeTab === tab.key ? 600 : 400,
-              fontFamily: 'var(--font-sans)', minHeight: 44,
-              background: activeTab === tab.key ? PRIMARY : 'transparent',
-              color: activeTab === tab.key ? '#fff' : 'var(--color-muted)',
-              transition: 'all 0.15s',
-            }}>{tab.label}</button>
-          ))}
-        </div>
+      <div
+        className={activeTab === 'map' ? 'map-mobile-only' : undefined}
+        style={{
+          position: 'absolute', top: 0, left: 0, right: 0, zIndex: 60,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '8px 0 0', pointerEvents: 'none',
+        }}
+      >
+        {renderTabToggle('floating')}
       </div>
       )}
 
@@ -700,8 +716,14 @@ export default function MapClient({
         {/* ── DESKTOP TOOLBAR (overlays map) — fullscreen mode only ── */}
         {!isEmbedded && (
         <div className="map-desktop-toolbar" style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
-          {/* Row 1: vertical + state filters */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '42px 20px 8px', borderBottom: hasSubTypes ? 'none' : '1px solid var(--color-border)', background: 'rgba(250,248,245,0.97)', backdropFilter: 'blur(8px)', flexWrap: 'wrap' }}>
+          {/* Row 0: Map / Build a trail — the toggle is the toolbar's own top
+              row here, so it reads as part of the bar rather than a pill
+              floating above it. (Mobile/builder use the floating copy above.) */}
+          <div style={{ display: 'flex', alignItems: 'center', padding: '10px 20px 0', background: 'rgba(250,248,245,0.97)', backdropFilter: 'blur(8px)' }}>
+            {renderTabToggle('inline')}
+          </div>
+          {/* Row 1: name + location search, vertical + state filters */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px 8px', borderBottom: hasSubTypes ? 'none' : '1px solid var(--color-border)', background: 'rgba(250,248,245,0.97)', backdropFilter: 'blur(8px)', flexWrap: 'wrap' }}>
             <div ref={nameSearchRef} style={{ position: 'relative' }}>
               <input
                 value={search}
