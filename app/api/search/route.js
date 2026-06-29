@@ -13,6 +13,7 @@ import { resolveQueryRegion } from '@/lib/search/resolveQueryRegion'
 import { resolveQueryPlace, geocodePlace, looksLikePlaceQuery } from '@/lib/search/resolveQueryPlace'
 import { detectVerticalIntent } from '@/lib/search/verticalIntent'
 import { relevanceFloorFor } from '@/lib/search/relevanceFloor'
+import { rerankSearchResults } from '@/lib/search/rerank'
 import { checkRateLimit } from '@/lib/rate-limit'
 
 // Largest candidate pool the RPC ranks per request. Pagination/dedup/total are
@@ -42,6 +43,10 @@ const MIN_BOX_RESULTS = 4
 // it (and show its banner) — otherwise the keyword matched but the results are
 // really cross-atlas, and leading/labelling would over-claim.
 const MIN_LEAD_ROWS = 3
+
+// How many of the fused recall pool get the cross-encoder rerank pass (the
+// precision stage). 80 covers the first ~3 pages; the tail keeps fused order.
+const RERANK_TOP_N = parseInt(process.env.SEARCH_RERANK_TOPN || '80', 10)
 
 /** Lat/lng bounding box (degrees) for a radius in km around a centre point. */
 function boxAround(lat, lng, km) {
@@ -421,6 +426,23 @@ export async function GET(request) {
       // Admin/QA fixtures + needs_review venues never surface publicly (row-level),
       // then collapse the same venue cross-listed across verticals to one card.
       all = dedupeBySlug(all.filter(isPublicListing))
+
+      // ── Precision rerank (cross-encoder) ─────────────────────────────────
+      // Reorder the recall pool by TRUE relevance to the query vibe. RRF ranks
+      // by arm POSITION, and the lexical arm's position swings on exactly which
+      // stemmed tokens a phrasing contains — so "a brewery that uses ovens with
+      // wood" and "wood fired oven brewery" returned the same venue at different
+      // ranks. A cross-encoder reads query + document together and is phrasing-
+      // robust, so paraphrases of one intent converge. Skipped for proximity
+      // browses (distance-ordered — no text vibe to score) and fully fail-open:
+      // any error/disabled/over-budget keeps the fused order (see lib/search/rerank).
+      const proximityResult = placePivot || (detectedPlace && detectedPlace.source === 'geocoded')
+      let reranked = false
+      if (!proximityResult && cleaned) {
+        const rr = await rerankSearchResults(sb, cleaned, all, { topN: RERANK_TOP_N })
+        all = rr.listings
+        reranked = rr.reranked
+      }
       // Drop the focus if the detected atlas is barely represented — the keyword
       // matched but the results are really cross-atlas, so don't lead/label it.
       if (detectedVertical &&
@@ -450,11 +472,11 @@ export async function GET(request) {
       logSearchEvent(sb, {
         query_text: clampQuery(q), surface: 'front_door', result_count: total, latency_ms: Date.now() - t0,
         vector_arm_fired: !!queryEmbedding, fell_back: !queryEmbedding,
-        voyage_error: voyageError, zero_result: total === 0,
+        voyage_error: voyageError, zero_result: total === 0, reranked,
       })
 
       return NextResponse.json({
-        listings, total, capped, facets, subType, didYouMean, page, limit,
+        listings, total, capped, facets, subType, didYouMean, page, limit, reranked,
         totalPages: Math.ceil(total / limit),
         detectedVertical, detectedState: detectedState || null, detectedRegion, detectedSuburb,
         // Place-aware search: the resolved town/suburb the results are scoped to
