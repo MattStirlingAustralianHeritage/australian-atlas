@@ -9,6 +9,7 @@ import { getListingRegion } from '@/lib/regions'
 import { isApprovedImageSource } from '@/lib/image-utils'
 import { isStrongMatch } from '@/lib/search/relevanceFloor'
 import { detectVerticalIntent } from '@/lib/search/verticalIntent'
+import { isInquiryQuery } from '@/lib/search/inquiryIntent'
 import { VERTICAL_MUTED, isVerticalPublic } from '@/lib/verticalUrl'
 import { useLocation } from '@/components/LocationProvider'
 
@@ -407,6 +408,8 @@ function SearchPageInner() {
   const [subType, setSubType] = useState('')           // sub_type facet refine
   const [sortBy, setSortBy] = useState('relevance')    // relevance | az | nearest
   const [trending, setTrending] = useState([])         // popular recent queries (discovery)
+  const [askAnswer, setAskAnswer] = useState(null)     // concierge reply for a plain-language inquiry
+  const [forceExact, setForceExact] = useState(false)  // user opted out of the concierge for this query
 
   const { location } = useLocation()                   // { lat, lng, name } or null
 
@@ -436,18 +439,53 @@ function SearchPageInner() {
     setLoading(true)
     setSlowSearch(false)
     const slowTimer = setTimeout(() => setSlowSearch(true), 4000)
-    const params = new URLSearchParams()
-    if (query) params.set('q', query)
-    if (vertical) params.set('vertical', vertical)
-    if (state) params.set('state', state)
-    if (region) params.set('region', region)
-    if (subType) params.set('sub_type', subType)
-    if (noBind) params.set('bind', '0')
-    if (noVerticalBind) params.set('vbind', '0')
-    params.set('page', p.toString())
-    params.set('limit', '24')
+
+    // A plain-language request (a gift, an occasion, "somewhere to take mum")
+    // is answered by the concierge instead of ranked as a name/category lookup.
+    // Itinerary-shaped queries are handled separately (redirect to /itinerary).
+    const useAsk = mode === 'search' && !!query && p === 1 && !forceExact &&
+      isInquiryQuery(query) && !isItineraryIntent(query)
 
     try {
+      if (useAsk) {
+        const res = await fetch('/api/search/ask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query,
+            vertical: vertical || undefined,
+            state: state || undefined,
+          }),
+        })
+        const data = res.ok ? await res.json() : null
+        // Only take the concierge over if it actually found places; otherwise
+        // fall through to the standard search (broader recall + did-you-mean).
+        if (data && Array.isArray(data.listings) && data.listings.length > 0) {
+          setResults(data.listings)
+          setAskAnswer({ answer: data.answer || null, intent: data.intent || null, atlas: data.atlas || null })
+          setTotal(data.total || data.listings.length)
+          setEvents([]); setCapped(false); setPage(1); setTotalPages(0)
+          setFacets({ subTypes: [] }); setDidYouMean(null)
+          setDetectedVertical(data.atlas || null)
+          setAutoState(data.detectedState && !state ? data.detectedState : '')
+          setAutoSuburb(''); setAutoRegion(data.detectedRegion || null); setDetectedPlace(null)
+          return
+        }
+      }
+
+      // ── Standard search path ────────────────────────────────────────────
+      setAskAnswer(null)
+      const params = new URLSearchParams()
+      if (query) params.set('q', query)
+      if (vertical) params.set('vertical', vertical)
+      if (state) params.set('state', state)
+      if (region) params.set('region', region)
+      if (subType) params.set('sub_type', subType)
+      if (noBind) params.set('bind', '0')
+      if (noVerticalBind) params.set('vbind', '0')
+      params.set('page', p.toString())
+      params.set('limit', '24')
+
       const res = await fetch(`/api/search?${params}`)
       const data = await res.json()
       setResults(data.listings || [])
@@ -477,11 +515,12 @@ function SearchPageInner() {
       setSlowSearch(false)
       setInitialLoad(false)
     }
-  }, [query, vertical, state, region, subType, noBind, noVerticalBind])
+  }, [query, vertical, state, region, subType, noBind, noVerticalBind, mode, forceExact])
 
   // A fresh query re-enables atlas auto-detection: broadening ("All") applied to
   // one query shouldn't silently suppress the focus for the next, unrelated one.
-  useEffect(() => { setNoVerticalBind(false) }, [query])
+  // It also re-arms the concierge (a per-query opt-out shouldn't stick).
+  useEffect(() => { setNoVerticalBind(false); setForceExact(false) }, [query])
 
   // Check for itinerary intent on initial load (from homepage submission)
   useEffect(() => {
@@ -497,12 +536,15 @@ function SearchPageInner() {
   // it only fires on explicit submit (handleSubmit) now.
   useEffect(() => {
     if (mode !== 'search') return  // Vibe mode runs its own search; don't double-fire.
+    // A concierge (inquiry) run costs two Claude calls, so give it a longer
+    // idle window than a plain keyword search before firing.
+    const delay = query && isInquiryQuery(query) && !isItineraryIntent(query) ? 900 : 600
     const timer = setTimeout(() => {
       updateUrl(query, vertical, state, region)
       search(1)
-    }, 600)
+    }, delay)
     return () => clearTimeout(timer)
-  }, [search, updateUrl, query, vertical, state, region, subType, noBind, noVerticalBind, mode])
+  }, [search, updateUrl, query, vertical, state, region, subType, noBind, noVerticalBind, mode, forceExact])
 
   // Explicit submit (Enter / search button): force an immediate search, and
   // honour itinerary intent here (only on a deliberate action, not while typing).
@@ -531,6 +573,10 @@ function SearchPageInner() {
 
   // Build contextual results message
   function getResultsMessage() {
+    if (askAnswer) {
+      if (loading) return 'Asking the Atlas…'
+      return `${total.toLocaleString()} place${total === 1 ? '' : 's'} to consider`
+    }
     if (loading) return 'Searching...'
     const count = total.toLocaleString()
     const vertLabel = VERTICAL_LABEL_MAP[vertical]
@@ -578,6 +624,11 @@ function SearchPageInner() {
 
   // Contextual header detection
   const contextualHeader = query ? detectContextualHeader(query) : null
+
+  // Concierge (inquiry) mode: a plain-language request got a written answer +
+  // per-result reasons. Its render bypasses the featured/facet/pagination
+  // machinery in favour of the answer panel and reason-annotated cards.
+  const askMode = !!askAnswer
 
   // Distance + client-side sort. When the query resolved to a place (town/
   // suburb), distances are measured FROM that place — "how far from Apollo Bay"
@@ -691,7 +742,10 @@ function SearchPageInner() {
           value={query}
           onChange={setQuery}
           onSelect={(item) => {
-            if (item.type === 'place' && item.slug) {
+            if (item.type === 'ask') {
+              // Already the typed query — the concierge auto-runs on the debounce.
+              if (item.query && item.query !== query) setQuery(item.query)
+            } else if (item.type === 'place' && item.slug) {
               router.push(`/place/${item.slug}`)
             } else if (item.type === 'suburb') {
               setQuery(item.label)
@@ -870,7 +924,7 @@ function SearchPageInner() {
       {/* Contextual header \u2014 shown only when the API actually focused results on
           this atlas (detectedVertical), so the banner never over-claims. The
           "Search all atlases" link broadens past the focus. */}
-      {contextualHeader && detectedVertical === contextualHeader.vertical && !loading && results.length > 0 && (
+      {!askMode && contextualHeader && detectedVertical === contextualHeader.vertical && !loading && results.length > 0 && (
         <div
           className="mt-6 mb-2"
           style={{
@@ -940,6 +994,51 @@ function SearchPageInner() {
         </div>
       )}
 
+      {/* Concierge answer — a plain-language request gets a written, grounded
+          reply framing the picks below, not just a ranked list. */}
+      {askMode && (
+        <div
+          className="mt-6"
+          style={{
+            padding: '1.25rem 1.4rem',
+            borderRadius: '1rem',
+            background: 'var(--color-cream)',
+            border: '1px solid var(--color-border)',
+            borderLeft: '3px solid var(--color-gold)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--color-gold)' }} aria-hidden="true">
+              <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />
+            </svg>
+            <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--color-gold)' }}>
+              Atlas concierge
+            </span>
+            {askAnswer.intent && (
+              <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 500, color: 'var(--color-muted)', background: '#fff', border: '1px solid var(--color-border)', borderRadius: 999, padding: '2px 10px', textTransform: 'lowercase' }}>
+                {askAnswer.intent}
+              </span>
+            )}
+          </div>
+          <p style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 'clamp(1.05rem, 2.4vw, 1.3rem)', lineHeight: 1.5, color: 'var(--color-ink)', margin: '10px 0 0' }}>
+            {loading
+              ? 'Reading your request and choosing places…'
+              : (askAnswer.answer || 'Here are independent places from across the Atlas that fit what you described.')}
+          </p>
+          <p style={{ margin: '11px 0 0', fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-muted)' }}>
+            Answering in plain English.{' '}
+            <button
+              type="button"
+              onClick={() => setForceExact(true)}
+              style={{ color: 'var(--color-accent)', fontWeight: 500, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 3, padding: 0 }}
+              title="Search names and categories the exact way you typed"
+            >
+              Search names &amp; categories instead
+            </button>
+          </p>
+        </div>
+      )}
+
       {/* Results count + sort. role=status/aria-live so screen readers hear the
           count change and the "Searching…" state. */}
       <div className="mt-6 flex items-center justify-between gap-3 flex-wrap">
@@ -964,7 +1063,7 @@ function SearchPageInner() {
       </div>
 
       {/* Sub_type facet chips (counts over the result pool) */}
-      {!loading && facets.subTypes && facets.subTypes.length > 1 && (
+      {!askMode && !loading && facets.subTypes && facets.subTypes.length > 1 && (
         <div className="mt-3 -mx-4 px-4 overflow-x-auto scrollbar-hide">
           <div className="flex gap-2 min-w-max pb-1">
             <button
@@ -1104,6 +1203,30 @@ function SearchPageInner() {
               Browse regions
             </a>
           </div>
+        </div>
+      ) : askMode ? (
+        /* Concierge results — each card carries a one-line "why it fits" reason. */
+        <div
+          className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"
+          style={{ opacity: loading ? 0.5 : 1, transition: 'opacity 0.15s', pointerEvents: loading ? 'none' : 'auto' }}
+        >
+          {displayResults.map((listing, idx) => (
+            <div key={listing.id}>
+              <ListingCard
+                listing={listing}
+                distanceKm={listing.distanceKm}
+                onClick={() => trackSearchClick(listing, idx + 1)}
+              />
+              {listing.reason && (
+                <p style={{ margin: '9px 2px 0', display: 'flex', gap: 7, alignItems: 'flex-start', fontFamily: 'var(--font-body)', fontSize: '12.5px', lineHeight: 1.5, color: 'var(--color-muted)' }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--color-gold)', flexShrink: 0, marginTop: 2 }} aria-hidden="true">
+                    <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />
+                  </svg>
+                  <span>{listing.reason}</span>
+                </p>
+              )}
+            </div>
+          ))}
         </div>
       ) : (
         <>

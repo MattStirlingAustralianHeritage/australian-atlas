@@ -91,7 +91,7 @@ const VERTICAL_GUIDE = [
 const EXAMPLE_SEARCHES = [
   'wood-fired bakery',
   'natural wine in the Adelaide Hills',
-  'quiet farm stay in Tasmania',
+  'a gift for my niece that’s made in Australia',
   'galleries in Hobart',
 ]
 

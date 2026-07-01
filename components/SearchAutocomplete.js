@@ -1,6 +1,18 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { isInquiryQuery } from '@/lib/search/inquiryIntent'
+
+// Sparkle mark for the "Ask the Atlas" affordance — signals the field just
+// switched from name-lookup to answering a plain-language request.
+function AskIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-hidden="true">
+      <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />
+      <path d="M19 15l.6 1.6L21 17l-1.4.6L19 19l-.6-1.4L17 17l1.4-.4z" />
+    </svg>
+  )
+}
 
 // Icons for each result type
 function PlaceIcon() {
@@ -68,6 +80,13 @@ export default function SearchAutocomplete({ value, onChange, onSelect, placehol
   const abortRef = useRef(null)
   const debounceRef = useRef(null)
 
+  // The moment the typed text reads as a plain-language request rather than a
+  // name/category lookup, the dropdown stops name-matching and offers to answer
+  // the question ("Ask the Atlas") — no wasted /api/autocomplete round-trip, and
+  // no confusing venue-name matches under a "buy a gift for…" query.
+  const trimmed = (value || '').trim()
+  const inquiry = trimmed.length >= 3 && isInquiryQuery(trimmed)
+
   // Build a flat list of items for keyboard navigation (includes headers for skip logic)
   const flatItems = buildFlatList(results)
 
@@ -107,10 +126,18 @@ export default function SearchAutocomplete({ value, onChange, onSelect, placehol
       })
   }, [])
 
-  // Debounced trigger on value change
+  // Debounced trigger on value change. An inquiry short-circuits the network:
+  // abort any in-flight typeahead, drop stale name-matches, and open the "Ask"
+  // panel instead.
   useEffect(() => {
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    if (inquiry) {
+      if (abortRef.current) abortRef.current.abort()
+      setResults([])
+      setLoading(false)
+      setActiveIndex(-1)
+      setIsOpen(true)
+      return
     }
     debounceRef.current = setTimeout(() => {
       fetchResults(value)
@@ -120,7 +147,7 @@ export default function SearchAutocomplete({ value, onChange, onSelect, placehol
         clearTimeout(debounceRef.current)
       }
     }
-  }, [value, fetchResults])
+  }, [value, inquiry, fetchResults])
 
   // Close on click outside
   useEffect(() => {
@@ -205,7 +232,7 @@ export default function SearchAutocomplete({ value, onChange, onSelect, placehol
         onChange={e => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
         onFocus={() => {
-          if (results.length > 0 && value.trim().length >= 2) {
+          if (inquiry || (results.length > 0 && value.trim().length >= 2)) {
             setIsOpen(true)
           }
         }}
@@ -248,8 +275,71 @@ export default function SearchAutocomplete({ value, onChange, onSelect, placehol
         </div>
       )}
 
+      {/* Inquiry mode — offer to ANSWER the request rather than name-match it. */}
+      {isOpen && inquiry && (
+        <div
+          role="listbox"
+          id="aa-listbox"
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 8px)',
+            left: 0,
+            right: 0,
+            background: '#fff',
+            borderRadius: '12px',
+            border: '1px solid var(--color-border)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04)',
+            overflow: 'hidden',
+            zIndex: 100,
+          }}
+        >
+          <button
+            type="button"
+            role="option"
+            aria-selected="true"
+            onClick={() => handleSelect({ type: 'ask', query: trimmed })}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 12, width: '100%',
+              padding: '14px 16px', border: 'none', background: 'transparent',
+              cursor: 'pointer', textAlign: 'left',
+            }}
+          >
+            <span style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+              background: 'var(--color-cream)', color: 'var(--color-gold)',
+            }}>
+              <AskIcon />
+            </span>
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <span style={{
+                display: 'block', fontFamily: 'var(--font-body)', fontWeight: 600,
+                fontSize: 14, color: 'var(--color-ink)',
+              }}>
+                Ask the Atlas
+              </span>
+              <span style={{
+                display: 'block', fontFamily: 'var(--font-body)', fontWeight: 300,
+                fontSize: 12.5, color: 'var(--color-muted)', marginTop: 1,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
+                Get recommendations for “{trimmed}”
+              </span>
+            </span>
+            <span style={{ color: 'var(--color-gold)', fontSize: 18, flexShrink: 0 }} aria-hidden="true">→</span>
+          </button>
+          <div style={{
+            padding: '9px 16px', borderTop: '1px solid var(--color-border)',
+            fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 11.5,
+            color: 'var(--color-muted)', background: 'var(--color-cream)',
+          }}>
+            Reads like a question, so we&apos;ll answer it — not just match names.
+          </div>
+        </div>
+      )}
+
       {/* Dropdown */}
-      {isOpen && (
+      {isOpen && !inquiry && (
         <div
           role="listbox"
           id="aa-listbox"
