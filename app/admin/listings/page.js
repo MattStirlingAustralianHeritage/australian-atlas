@@ -31,14 +31,19 @@ export default async function ListingsPage() {
     console.error('[admin/listings] Query error:', err.message)
   }
 
-  // Get regions for filter dropdown — pull canonical names from regions table
-  // (Phase 3 step 1). API resolves the param via resolveRegionParam so legacy
-  // text values still work as fallback.
+  // Get regions for the filter + per-listing region dropdowns — pull canonical
+  // names from the regions table (Phase 3 step 1). Restricted to assignable
+  // statuses (live + draft): archived regions are retired, and — crucially —
+  // updateListing's explicit-region path only resolves live/draft names to the
+  // region_override_id FK. Offering an archived region here would let an admin
+  // pick a value the save silently drops (it would land only in the dead
+  // `region` text column, never on the public page). Keep the two in lockstep.
   let regions = []
   try {
     const { data } = await sb
       .from('regions')
       .select('name')
+      .in('status', ['live', 'draft'])
       .order('name')
 
     if (data) {
