@@ -51,11 +51,7 @@ export default async function PricingPage() {
     <div style={{ background: 'var(--color-bg)', minHeight: '100vh' }}>
       {/* Hero */}
       <section style={{ padding: '5rem 1.5rem 3rem', maxWidth: '720px', margin: '0 auto' }}>
-        <p style={{
-          fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 10,
-          letterSpacing: '0.18em', textTransform: 'uppercase',
-          color: 'var(--color-sage)', marginBottom: 12,
-        }}>
+        <p className="section-dateline" style={{ marginBottom: 14 }}>
           For Regional Councils & Tourism Bodies
         </p>
         <h1 style={{

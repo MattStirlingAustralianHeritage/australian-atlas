@@ -409,12 +409,12 @@ export default async function RegionPage({ params }) {
                   <p
                     key={i}
                     style={{
-                      fontFamily: 'var(--font-body)',
-                      fontWeight: 300,
+                      fontFamily: 'var(--font-display)',
+                      fontWeight: 400,
                       fontSize: '18px',
-                      lineHeight: 1.8,
+                      lineHeight: 1.78,
                       color: 'var(--color-ink)',
-                      marginBottom: '1rem',
+                      marginBottom: '1.1rem',
                     }}
                   >
                     {paragraph}
@@ -429,10 +429,10 @@ export default async function RegionPage({ params }) {
                 {narrative.editorial_overview && !editorial && (
                   <p
                     style={{
-                      fontFamily: 'var(--font-body)',
-                      fontWeight: 300,
+                      fontFamily: 'var(--font-display)',
+                      fontWeight: 400,
                       fontSize: '18px',
-                      lineHeight: 1.8,
+                      lineHeight: 1.78,
                       color: 'var(--color-ink)',
                       marginBottom: '2.5rem',
                     }}
