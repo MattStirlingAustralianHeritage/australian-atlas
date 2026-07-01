@@ -2,6 +2,20 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import { jwtVerify } from 'jose'
 import { CRAWLER_RE, logCrawlerHit } from '@/lib/crawler-log'
+import { splitLocale, localizePath, defaultLocale, LOCALE_HEADER } from '@/lib/i18n/config'
+
+// hreflang alternates delivered as HTTP Link headers — a Google-supported,
+// route-agnostic way to advertise en/ko/x-default on every HTML page without
+// touching 200+ per-route metadata exports. `basePath` is the unprefixed path.
+function hreflangLinkHeader(origin, basePath) {
+  const en = `${origin}${localizePath(basePath, 'en')}`
+  const ko = `${origin}${localizePath(basePath, 'ko')}`
+  return [
+    `<${en}>; rel="alternate"; hreflang="en"`,
+    `<${ko}>; rel="alternate"; hreflang="ko"`,
+    `<${en}>; rel="alternate"; hreflang="x-default"`,
+  ].join(', ')
+}
 
 export async function middleware(request, event) {
   // ── AI-crawler access logging — FIRST, before any auth/Supabase work ──
@@ -28,8 +42,28 @@ export async function middleware(request, event) {
 
   const { pathname } = request.nextUrl
 
+  // ── Locale prefix (Korean) ──
+  // English URLs are never touched (locale='en', basePath===pathname → no
+  // rewrite). A `/ko/...` request keeps its visible URL but is served by the
+  // underlying route with an `x-atlas-locale: ko` request header that
+  // i18n/request.js reads. All auth checks below run against `basePath` (the
+  // unprefixed path) so gating behaves identically under `/ko`.
+  const { locale, basePath } = splitLocale(pathname)
+  const isKo = locale !== defaultLocale
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set(LOCALE_HEADER, locale)
+  const rewriteUrl = isKo
+    ? new URL(`${basePath}${request.nextUrl.search}`, request.url)
+    : null
+  // Build a passthrough response that carries the locale header and, for Korean,
+  // rewrites to the underlying route. Reused by Supabase's cookie setAll below.
+  const makeResponse = () =>
+    isKo
+      ? NextResponse.rewrite(rewriteUrl, { request: { headers: requestHeaders } })
+      : NextResponse.next({ request: { headers: requestHeaders } })
+
   // ── Admin routes: check FIRST, before Supabase touches cookies ──
-  if (pathname.startsWith('/admin') && !pathname.startsWith('/admin/login')) {
+  if (basePath.startsWith('/admin') && !basePath.startsWith('/admin/login')) {
     const adminToken = request.cookies.get('atlas_admin')?.value
       || request.cookies.get('admin_auth')?.value
 
@@ -59,11 +93,11 @@ export async function middleware(request, event) {
   // the print-optimised region report (/council/{slug}/report) — a white-label
   // deliverable meant to be shared/printed, exposing only aggregate region data.
   const isPublicCouncilRoute =
-    pathname.startsWith('/council/login') ||
-    pathname.startsWith('/council/enquire') ||
-    pathname === '/council/example' ||
-    /^\/council\/[^/]+\/report$/.test(pathname)
-  if (pathname.startsWith('/council') && !isPublicCouncilRoute) {
+    basePath.startsWith('/council/login') ||
+    basePath.startsWith('/council/enquire') ||
+    basePath === '/council/example' ||
+    /^\/council\/[^/]+\/report$/.test(basePath)
+  if (basePath.startsWith('/council') && !isPublicCouncilRoute) {
     const councilCookie = request.cookies.get('council_session')
     const valid = await validateCouncilHmac(councilCookie?.value)
     if (!valid) {
@@ -74,7 +108,7 @@ export async function middleware(request, event) {
   }
 
   // ── Supabase auth: only for non-admin routes that need it ──
-  let response = NextResponse.next({ request: { headers: request.headers } })
+  let response = makeResponse()
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -84,7 +118,7 @@ export async function middleware(request, event) {
         getAll() { return request.cookies.getAll() },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          response = NextResponse.next({ request })
+          response = makeResponse()
           cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
         },
       },
@@ -94,9 +128,13 @@ export async function middleware(request, event) {
   const { data: { user } } = await supabase.auth.getUser()
 
   // Protect authenticated routes (account + dashboard)
-  if ((pathname.startsWith('/dashboard') || pathname.startsWith('/account')) && !user) {
-    return NextResponse.redirect(new URL('/login', request.url))
+  if ((basePath.startsWith('/dashboard') || basePath.startsWith('/account')) && !user) {
+    return NextResponse.redirect(new URL(localizePath('/login', locale), request.url))
   }
+
+  // hreflang alternates on every HTML page (SEO). Cheap header append; the
+  // matcher already excludes static assets and cron.
+  response.headers.set('Link', hreflangLinkHeader(request.nextUrl.origin, basePath))
 
   return response
 }
