@@ -90,7 +90,7 @@ const VERTICAL_GUIDE = [
 const EXAMPLE_SEARCHES = [
   'wood-fired bakery',
   'natural wine in the Adelaide Hills',
-  'quiet farm stay in Tasmania',
+  'a gift for my niece that’s made in Australia',
   'galleries in Hobart',
 ]
 
@@ -410,7 +410,7 @@ export default async function Home() {
           fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '13.5px',
           lineHeight: 1.6, color: 'var(--color-muted)', maxWidth: '560px',
         }}>
-          Ask in plain English — name a thing, a place, or a feeling, and we&apos;ll search every category at once.
+          Search a name — or just ask, in plain English. Describe what you&apos;re after (&ldquo;a gift that fits in a suitcase&rdquo;) and the Atlas answers with real places.
         </p>
 
         <div className="mt-4 flex items-center justify-center gap-x-2 gap-y-2 flex-wrap px-4" style={{ maxWidth: '680px' }}>

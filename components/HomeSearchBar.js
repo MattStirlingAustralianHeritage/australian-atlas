@@ -13,7 +13,8 @@ const PLACEHOLDER_EXAMPLES = [
   'Find a roaster, a winery, a gallery, a farm stay…',
   'Try “wood-fired bakery”',
   'Try “natural wine in the Adelaide Hills”',
-  'Try “quiet farm stay in Tasmania”',
+  'Or just ask: “a gift for my niece that’s made in Australia”',
+  'Or ask: “somewhere to take mum for her birthday”',
   'Try “galleries in Hobart”',
 ]
 
@@ -68,7 +69,9 @@ export default function HomeSearchBar() {
   }
 
   function handleAutocompleteSelect(item) {
-    if (item.type === 'place' && item.slug) {
+    if (item.type === 'ask') {
+      router.push(`/search?q=${encodeURIComponent(item.query || query.trim())}`)
+    } else if (item.type === 'place' && item.slug) {
       router.push(`/place/${item.slug}`)
     } else if (item.type === 'suburb') {
       router.push(`/search?q=${encodeURIComponent(item.label)}`)
