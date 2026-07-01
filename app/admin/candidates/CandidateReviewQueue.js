@@ -109,6 +109,7 @@ const SUBCATEGORY_OPTIONS = {
     { value: 'clothing', label: 'Clothing' },
     { value: 'food_drink', label: 'Food & Drink' },
     { value: 'plants', label: 'Plants' },
+    { value: 'specialty_retail', label: 'Specialty Retail' },
     { value: 'other', label: 'Other' },
   ],
   found: [
