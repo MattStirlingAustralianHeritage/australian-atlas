@@ -1,9 +1,12 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { getAuthSupabase } from '@/lib/supabase/auth-clients'
+import { splitLocale } from '@/lib/i18n/config'
+import LocalizedLink from './LocalizedLink'
+import LanguageSwitcher from './LanguageSwitcher'
 import LocationBar from './LocationBar'
 
 export default function Nav() {
@@ -81,28 +84,31 @@ export default function Nav() {
     return () => document.removeEventListener('keydown', handleKey)
   }, [])
 
+  const t = useTranslations('nav')
   const pathname = usePathname()
-  const isActive = (href) => pathname === href || (href !== '/' && pathname?.startsWith(href + '/'))
+  // Compare against the unprefixed path so active state is correct under /ko.
+  const { basePath } = splitLocale(pathname || '/')
+  const isActive = (href) => basePath === href || (href !== '/' && basePath?.startsWith(href + '/'))
 
   const primaryLinks = [
-    { href: '/explore', label: 'Explore' },
-    { href: '/map', label: 'Map' },
-    { href: '/regions', label: 'Regions' },
-    { href: '/journal', label: 'Journal' },
-    { href: '/search', label: 'Search' },
-    { href: '/discover', label: 'Discover' },
+    { href: '/explore', label: t('explore') },
+    { href: '/map', label: t('map') },
+    { href: '/regions', label: t('regions') },
+    { href: '/journal', label: t('journal') },
+    { href: '/search', label: t('search') },
+    { href: '/discover', label: t('discover') },
   ]
 
   const secondaryLinks = [
-    { href: '/near-me', label: 'Near Me' },
-    { href: '/trails', label: 'Trails' },
-    { href: '/collections', label: 'Collections' },
-    { href: '/producer-picks', label: 'Producer Picks' },
-    { href: '/events', label: 'Events' },
-    { href: '/atlas-index', label: 'Index' },
-    { href: '/for-councils', label: 'For Councils' },
-    { href: '/for-trade', label: 'For Trade' },
-    { href: '/operators', label: 'For Operators' },
+    { href: '/near-me', label: t('nearMe') },
+    { href: '/trails', label: t('trails') },
+    { href: '/collections', label: t('collections') },
+    { href: '/producer-picks', label: t('producerPicks') },
+    { href: '/events', label: t('events') },
+    { href: '/atlas-index', label: t('index') },
+    { href: '/for-councils', label: t('forCouncils') },
+    { href: '/for-trade', label: t('forTrade') },
+    { href: '/operators', label: t('forOperators') },
   ]
 
   const navLinks = [...primaryLinks, ...secondaryLinks]
@@ -139,7 +145,7 @@ export default function Nav() {
       }}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between" style={{ height: '52px' }}>
-        <Link
+        <LocalizedLink
           href="/"
           className="tracking-tight"
           style={{
@@ -150,10 +156,10 @@ export default function Nav() {
           }}
         >
           Australian Atlas
-        </Link>
+        </LocalizedLink>
         <div className="flex items-center gap-6">
           {primaryLinks.map(link => (
-            <Link
+            <LocalizedLink
               key={link.href}
               href={link.href}
               className="hover:text-[var(--color-ink)] transition-colors hidden sm:inline"
@@ -171,7 +177,7 @@ export default function Nav() {
               }}
             >
               {link.label}
-            </Link>
+            </LocalizedLink>
           ))}
 
           {/* More dropdown */}
@@ -192,7 +198,7 @@ export default function Nav() {
                 padding: 0,
               }}
             >
-              More
+              {t('more')}
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: moreOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
                 <path d="M6 9l6 6 6-6" />
               </svg>
@@ -213,7 +219,7 @@ export default function Nav() {
                 padding: '0.375rem 0',
               }}>
                 {secondaryLinks.map(link => (
-                  <Link
+                  <LocalizedLink
                     key={link.href}
                     href={link.href}
                     onClick={() => setMoreOpen(false)}
@@ -221,7 +227,7 @@ export default function Nav() {
                     role="menuitem"
                   >
                     {link.label}
-                  </Link>
+                  </LocalizedLink>
                 ))}
               </div>
             )}
@@ -232,11 +238,16 @@ export default function Nav() {
             <LocationBar />
           </div>
 
+          {/* Language switcher (desktop) */}
+          <div className="hidden sm:block">
+            <LanguageSwitcher />
+          </div>
+
           {/* Mobile hamburger */}
           <button
             className="sm:hidden"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            aria-label="Toggle menu"
+            aria-label={t('toggleMenu')}
             style={{
               background: 'none',
               border: 'none',
@@ -263,7 +274,7 @@ export default function Nav() {
 
           {/* Manage listings — appears once a claim promotes the user to vendor */}
           {user && canManageListings && (
-            <Link
+            <LocalizedLink
               href="/dashboard"
               className="hidden sm:inline-flex items-center"
               style={{
@@ -283,8 +294,8 @@ export default function Nav() {
               onMouseOver={(e) => e.currentTarget.style.opacity = '0.85'}
               onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
             >
-              Manage listings
-            </Link>
+              {t('manageListings')}
+            </LocalizedLink>
           )}
 
           {/* Auth state */}
@@ -294,7 +305,7 @@ export default function Nav() {
                 onClick={() => setMenuOpen(!menuOpen)}
                 aria-expanded={menuOpen}
                 aria-haspopup="menu"
-                aria-label="Account menu"
+                aria-label={t('accountMenu')}
                 style={{
                   width: '32px',
                   height: '32px',
@@ -366,11 +377,11 @@ export default function Nav() {
                   {/* Menu items */}
                   <div style={{ padding: '0.375rem 0' }}>
                     {canManageListings && (
-                      <DropdownLink href="/dashboard" label="Manage listings" accent onClick={() => setMenuOpen(false)} />
+                      <DropdownLink href="/dashboard" label={t('manageListings')} accent onClick={() => setMenuOpen(false)} />
                     )}
-                    <DropdownLink href="/account" label="My Account" onClick={() => setMenuOpen(false)} />
-                    <DropdownLink href="/account/saved" label="Saved places" onClick={() => setMenuOpen(false)} />
-                    <DropdownLink href="/account/trails" label="My trails" onClick={() => setMenuOpen(false)} />
+                    <DropdownLink href="/account" label={t('myAccount')} onClick={() => setMenuOpen(false)} />
+                    <DropdownLink href="/account/saved" label={t('savedPlaces')} onClick={() => setMenuOpen(false)} />
+                    <DropdownLink href="/account/trails" label={t('myTrails')} onClick={() => setMenuOpen(false)} />
                   </div>
 
                   <div style={{ borderTop: '1px solid var(--color-border)', padding: '0.375rem 0' }}>
@@ -394,20 +405,20 @@ export default function Nav() {
                       onMouseOver={(e) => e.currentTarget.style.background = 'var(--color-cream)'}
                       onMouseOut={(e) => e.currentTarget.style.background = 'none'}
                     >
-                      Sign out
+                      {t('signOut')}
                     </button>
                   </div>
                 </div>
               )}
             </div>
           ) : (
-            <Link
+            <LocalizedLink
               href="/login"
               className="hover:text-[var(--color-ink)] transition-colors"
               style={linkStyle}
             >
-              Sign In
-            </Link>
+              {t('signIn')}
+            </LocalizedLink>
           )}
         </div>
       </div>
@@ -422,8 +433,11 @@ export default function Nav() {
             padding: '0.5rem 0',
           }}
         >
+          <div style={{ padding: '0.375rem 1.5rem 0.625rem' }}>
+            <LanguageSwitcher />
+          </div>
           {navLinks.map(link => (
-            <Link
+            <LocalizedLink
               key={link.href}
               href={link.href}
               onClick={() => setMobileMenuOpen(false)}
@@ -438,10 +452,10 @@ export default function Nav() {
               }}
             >
               {link.label}
-            </Link>
+            </LocalizedLink>
           ))}
           {user && canManageListings && (
-            <Link
+            <LocalizedLink
               href="/dashboard"
               onClick={() => setMobileMenuOpen(false)}
               style={{
@@ -454,11 +468,11 @@ export default function Nav() {
                 textDecoration: 'none',
               }}
             >
-              Manage listings
-            </Link>
+              {t('manageListings')}
+            </LocalizedLink>
           )}
           {!user && (
-            <Link
+            <LocalizedLink
               href="/login"
               onClick={() => setMobileMenuOpen(false)}
               style={{
@@ -474,8 +488,8 @@ export default function Nav() {
                 paddingTop: '0.75rem',
               }}
             >
-              Sign In
-            </Link>
+              {t('signIn')}
+            </LocalizedLink>
           )}
         </div>
       )}
@@ -485,13 +499,13 @@ export default function Nav() {
 
 function DropdownLink({ href, label, onClick, accent }) {
   return (
-    <Link
+    <LocalizedLink
       href={href}
       onClick={onClick}
       className="nav-dropdown-item"
       style={accent ? { color: 'var(--color-sage)', fontWeight: 600 } : undefined}
     >
       {label}
-    </Link>
+    </LocalizedLink>
   )
 }

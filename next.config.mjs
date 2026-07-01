@@ -1,5 +1,12 @@
 /** @type {import('next').NextConfig} */
 
+import createNextIntlPlugin from 'next-intl/plugin'
+
+// next-intl request config lives at ./i18n/request.js. We run next-intl in
+// "without i18n routing" mode — the locale is resolved from a header set by
+// middleware.js, so existing English URLs are never restructured.
+const withNextIntl = createNextIntlPlugin('./i18n/request.js')
+
 // Baseline security headers applied to every route. (No Content-Security-Policy
 // yet — a strict CSP needs testing against Mapbox/Stripe/inline styles and is
 // tracked as a follow-up.)
@@ -43,4 +50,4 @@ const nextConfig = {
   },
 };
 
-export default nextConfig;
+export default withNextIntl(nextConfig);

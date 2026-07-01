@@ -8,6 +8,9 @@ import { websiteJsonLd, organizationJsonLd } from "@/lib/jsonLd";
 import GlobalErrorReporter from "@/components/GlobalErrorReporter";
 import LocationWrapper from "@/components/LocationWrapper";
 import { createAuthServerClient } from "@/lib/supabase/auth-clients";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages } from "next-intl/server";
+import LocaleUrlGuardian from "@/components/LocaleUrlGuardian";
 
 const playfair = Playfair_Display({
   variable: "--font-display",
@@ -104,8 +107,13 @@ export default async function RootLayout({ children }) {
     try { return new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin } catch { return null }
   })()
 
+  // Locale resolved by next-intl from the middleware-set x-atlas-locale header.
+  // Drives <html lang> and the client-side message provider. Defaults to 'en'.
+  const locale = await getLocale()
+  const messages = await getMessages()
+
   return (
-    <html lang="en" className={`${playfair.variable} ${dmSans.variable}`}>
+    <html lang={locale} className={`${playfair.variable} ${dmSans.variable}`}>
       <body className="min-h-screen flex flex-col">
         <link rel="preconnect" href="https://api.mapbox.com" crossOrigin="anonymous" />
         {supabaseOrigin && <link rel="preconnect" href={supabaseOrigin} crossOrigin="anonymous" />}
@@ -121,14 +129,17 @@ export default async function RootLayout({ children }) {
         <script dangerouslySetInnerHTML={{ __html: `
           if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(reg){reg.unregister()})})}
         ` }} />
-        <LocationWrapper savedLocation={savedLocation}>
-          <Nav />
-          <main id="main-content" className="flex-1">{children}</main>
-          <Footer />
-        </LocationWrapper>
-        <AtlasAnalytics />
-        <PageTracker vertical="portal" />
-        <GlobalErrorReporter />
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          <LocaleUrlGuardian />
+          <LocationWrapper savedLocation={savedLocation}>
+            <Nav />
+            <main id="main-content" className="flex-1">{children}</main>
+            <Footer />
+          </LocationWrapper>
+          <AtlasAnalytics />
+          <PageTracker vertical="portal" />
+          <GlobalErrorReporter />
+        </NextIntlClientProvider>
       </body>
     </html>
   );

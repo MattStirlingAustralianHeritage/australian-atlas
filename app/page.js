@@ -1,4 +1,5 @@
-import Link from 'next/link'
+import LocalizedLink from '@/components/LocalizedLink'
+import { getTranslations } from 'next-intl/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import HomeSearchBar from '@/components/HomeSearchBar'
 import HomeMapSection from '@/components/HomeMapSection'
@@ -349,6 +350,7 @@ async function getUpcomingEvents() {
 }
 
 export default async function Home() {
+  const t = await getTranslations('home')
   const publicVerticals = getPublicVerticals()
   const verticalCount = publicVerticals.length
   const [stats, articlesRaw, clusters, featured, upcomingEvents] = await Promise.all([
@@ -382,7 +384,7 @@ export default async function Home() {
           fontSize: 'clamp(2.6rem, 6.2vw, 5.25rem)', lineHeight: 1.08,
           color: 'var(--color-ink)', maxWidth: '900px', textWrap: 'balance',
         }}>
-          Discover <em style={{ fontStyle: 'italic' }}>independent</em> Australia
+          {t.rich('heroTitle', { em: (chunks) => <em style={{ fontStyle: 'italic' }}>{chunks}</em> })}
         </h1>
 
         <p className="mt-6 hero-rise" style={{
@@ -390,7 +392,7 @@ export default async function Home() {
           lineHeight: 1.65, color: 'var(--color-muted)', maxWidth: '600px',
           animationDelay: '0.09s',
         }}>
-          The curated guide to Australia&apos;s best independent places — every one verified, mapped, and independently run.
+          {t('heroSubtitle')}
         </p>
 
         {/* Search — the front door of the site. The kicker names the tool, the
@@ -401,7 +403,7 @@ export default async function Home() {
           letterSpacing: '0.22em', textTransform: 'uppercase',
           color: GOLD, marginTop: '28px',
         }}>
-          Search the atlas
+          {t('searchKicker')}
         </p>
 
         <HomeSearchBar />
@@ -410,7 +412,7 @@ export default async function Home() {
           fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '13.5px',
           lineHeight: 1.6, color: 'var(--color-muted)', maxWidth: '560px',
         }}>
-          Ask in plain English — name a thing, a place, or a feeling, and we&apos;ll search every category at once.
+          {t('searchHelper')}
         </p>
 
         <div className="mt-4 flex items-center justify-center gap-x-2 gap-y-2 flex-wrap px-4" style={{ maxWidth: '680px' }}>
@@ -418,10 +420,10 @@ export default async function Home() {
             fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '12px',
             color: 'var(--color-muted)', letterSpacing: '0.02em',
           }}>
-            Try
+            {t('tryLabel')}
           </span>
           {EXAMPLE_SEARCHES.map((q) => (
-            <Link
+            <LocalizedLink
               key={q}
               href={`/search?q=${encodeURIComponent(q)}`}
               className="home-try-chip inline-flex items-center"
@@ -436,7 +438,7 @@ export default async function Home() {
                 <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
               {q}
-            </Link>
+            </LocalizedLink>
           ))}
         </div>
 
@@ -446,23 +448,23 @@ export default async function Home() {
           }}>
             <span>
               <span style={{ color: GOLD, fontWeight: 500 }}>{stats.listings.toLocaleString()}</span>
-              <span style={{ color: 'var(--color-muted)' }}> verified places</span>
+              <span style={{ color: 'var(--color-muted)' }}> {t('statPlaces')}</span>
             </span>
             <span aria-hidden="true" style={{ color: GOLD, fontSize: '5px' }}>●</span>
             <span>
               <span style={{ color: GOLD, fontWeight: 500 }}>{verticalCount}</span>
-              <span style={{ color: 'var(--color-muted)' }}> categories</span>
+              <span style={{ color: 'var(--color-muted)' }}> {t('statCategories')}</span>
             </span>
             <span aria-hidden="true" style={{ color: GOLD, fontSize: '5px' }}>●</span>
             <span>
               <span style={{ color: GOLD, fontWeight: 500 }}>{stats.regions || '71'}</span>
-              <span style={{ color: 'var(--color-muted)' }}> regions</span>
+              <span style={{ color: 'var(--color-muted)' }}> {t('statRegions')}</span>
             </span>
           </div>
         )}
 
         <div className="mt-6 flex items-center justify-center gap-4 flex-wrap">
-          <Link
+          <LocalizedLink
             href="/map"
             className="inline-flex items-center gap-2 px-7 py-3 rounded-full hover:opacity-90 transition-opacity"
             style={{
@@ -470,9 +472,9 @@ export default async function Home() {
               background: '#1A1A1A', color: '#FAF8F4',
             }}
           >
-            Explore the map
-          </Link>
-          <Link
+            {t('exploreMap')}
+          </LocalizedLink>
+          <LocalizedLink
             href="/near-me"
             className="inline-flex items-center gap-2 px-7 py-3 rounded-full transition-colors hover:border-[var(--color-ink)]"
             style={{
@@ -480,8 +482,8 @@ export default async function Home() {
               color: 'var(--color-ink)', border: '1px solid var(--color-border)',
             }}
           >
-            What&apos;s near me?
-          </Link>
+            {t('nearMe')}
+          </LocalizedLink>
         </div>
       </section>
 
@@ -496,7 +498,7 @@ export default async function Home() {
           const ground = (VERTICAL_CARD_COLORS[v.key] || {}).bg || '#333'
           const count = stats.verticalCounts[v.key]
           return (
-            <Link
+            <LocalizedLink
               key={v.key}
               href={`/search?vertical=${v.key}`}
               className="spectrum-seg"
@@ -506,7 +508,7 @@ export default async function Home() {
               <span className="spectrum-seg-label">
                 {v.name}{count ? `  ·  ${count.toLocaleString()}` : ''}
               </span>
-            </Link>
+            </LocalizedLink>
           )
         })}
       </nav>
@@ -556,7 +558,7 @@ export default async function Home() {
               return (
                 <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-6">
                   {/* LEAD */}
-                  <Link
+                  <LocalizedLink
                     key={lead.id}
                     href={`/place/${lead.slug}`}
                     className="reveal group listing-card block overflow-hidden"
@@ -606,7 +608,7 @@ export default async function Home() {
                         </p>
                       )}
                     </div>
-                  </Link>
+                  </LocalizedLink>
 
                   {/* RAIL */}
                   {rail.length > 0 && (
@@ -615,7 +617,7 @@ export default async function Home() {
                         const colors = VERTICAL_CARD_COLORS[listing.vertical] || { bg: '#333', text: '#FAF8F4' }
                         const r = getListingRegion(listing)
                         return (
-                          <Link
+                          <LocalizedLink
                             key={listing.id}
                             href={`/place/${listing.slug}`}
                             className="reveal group listing-card block overflow-hidden"
@@ -644,7 +646,7 @@ export default async function Home() {
                             }}>
                               {listing.name}
                             </h3>
-                          </Link>
+                          </LocalizedLink>
                         )
                       })}
                     </div>
@@ -809,7 +811,7 @@ export default async function Home() {
               <p className="section-dateline" style={{ marginBottom: '18px' }}>
                 Plan a trip
               </p>
-              <Link
+              <LocalizedLink
                 href="/on-this-road"
                 className="group listing-card block"
                 style={{
@@ -840,18 +842,18 @@ export default async function Home() {
                 }}>
                   Plan a road trip &rarr;
                 </span>
-              </Link>
+              </LocalizedLink>
             </div>
 
             {/* RIGHT — region mosaic */}
             <div className="reveal" data-reveal-index={2}>
               <div className="flex items-baseline justify-between" style={{ gap: '16px', marginBottom: '20px' }}>
                 <p className="section-dateline">By region</p>
-                <Link href="/regions" className="hover:opacity-80 transition-opacity" style={{
+                <LocalizedLink href="/regions" className="hover:opacity-80 transition-opacity" style={{
                   fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', color: GOLD,
                 }}>
                   Browse all &rarr;
-                </Link>
+                </LocalizedLink>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 {[
@@ -865,7 +867,7 @@ export default async function Home() {
                   const count = stats.regionCounts[r.name]
                   const gradient = STATE_CARD_GRADIENTS[r.state] || STATE_CARD_GRADIENTS.VIC
                   return (
-                    <Link
+                    <LocalizedLink
                       key={r.slug}
                       href={`/regions/${r.slug}`}
                       className="reveal group listing-card block overflow-hidden"
@@ -900,7 +902,7 @@ export default async function Home() {
                           </span>
                         )}
                       </div>
-                    </Link>
+                    </LocalizedLink>
                   )
                 })}
               </div>
@@ -975,13 +977,13 @@ export default async function Home() {
           }}>
             Coffee to start, a long lunch in the middle, and somewhere good to stay — a day-by-day trip drawn entirely from the independent places listed across the network.
           </p>
-          <Link href="/plan-a-stay-v2" className="inline-flex items-center gap-2 rounded-full hover:opacity-90 transition-opacity" style={{
+          <LocalizedLink href="/plan-a-stay-v2" className="inline-flex items-center gap-2 rounded-full hover:opacity-90 transition-opacity" style={{
             fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px',
             background: '#1A1A1A', color: '#FAF8F4',
             padding: '14px 32px',
           }}>
             Plan a stay &rarr;
-          </Link>
+          </LocalizedLink>
         </div>
       </section>
 
@@ -1013,7 +1015,7 @@ export default async function Home() {
               {eventStates.length > 1 && (
                 <div className="reveal flex flex-wrap items-center justify-center gap-2" style={{ marginBottom: '36px' }}>
                   {eventStates.map(s => (
-                    <Link
+                    <LocalizedLink
                       key={s}
                       href={`/events?state=${s}`}
                       className="hover:opacity-80 transition-opacity"
@@ -1026,14 +1028,14 @@ export default async function Home() {
                       }}
                     >
                       {s}
-                    </Link>
+                    </LocalizedLink>
                   ))}
                 </div>
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {eventCards.map((event, ei) => (
-                  <Link
+                  <LocalizedLink
                     key={event.id}
                     href={`/events/${event.slug}`}
                     className="reveal group listing-card block overflow-hidden"
@@ -1072,21 +1074,21 @@ export default async function Home() {
                         {[EVENT_CATEGORY_LABELS[event.category] || 'Event', [event.suburb, event.state].filter(Boolean).join(', ')].filter(Boolean).join(' · ')}
                       </p>
                     </div>
-                  </Link>
+                  </LocalizedLink>
                 ))}
               </div>
 
               <div className="mt-10 flex items-center justify-center gap-6 flex-wrap">
-                <Link href="/events" className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity" style={{
+                <LocalizedLink href="/events" className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity" style={{
                   fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', color: GOLD,
                 }}>
                   Browse all events &rarr;
-                </Link>
-                <Link href="/events/submit" className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity" style={{
+                </LocalizedLink>
+                <LocalizedLink href="/events/submit" className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity" style={{
                   fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', color: 'var(--color-muted)',
                 }}>
                   Submit an event
-                </Link>
+                </LocalizedLink>
               </div>
             </>
           ) : (
@@ -1107,12 +1109,12 @@ export default async function Home() {
               }}>
                 Markets, festivals, openings, and long-table dinners will appear here as they&apos;re announced.
               </p>
-              <Link href="/events/submit" className="inline-flex items-center gap-2 px-6 py-3 rounded-full hover:opacity-90 transition-opacity" style={{
+              <LocalizedLink href="/events/submit" className="inline-flex items-center gap-2 px-6 py-3 rounded-full hover:opacity-90 transition-opacity" style={{
                 fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
                 background: '#1A1A1A', color: '#FAF8F4',
               }}>
                 Submit an event
-              </Link>
+              </LocalizedLink>
             </div>
           )}
         </div>
@@ -1156,7 +1158,7 @@ export default async function Home() {
                   <div key={cluster.region} className="reveal" data-reveal-index={ci + 1}>
                     <div style={{ marginBottom: '16px', maxWidth: '520px' }}>
                       {regionSlug ? (
-                        <Link href={`/regions/${regionSlug}`} className="group inline-block">
+                        <LocalizedLink href={`/regions/${regionSlug}`} className="group inline-block">
                           <h3 style={{
                             fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 26,
                             color: 'var(--color-ink)', lineHeight: 1.25,
@@ -1164,7 +1166,7 @@ export default async function Home() {
                             {cluster.region}
                             <span className="inline-block ml-2 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: GOLD, fontSize: 18 }}>&rarr;</span>
                           </h3>
-                        </Link>
+                        </LocalizedLink>
                       ) : (
                         <h3 style={{
                           fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 26,
@@ -1185,7 +1187,7 @@ export default async function Home() {
                       {cluster.picks.map(pick => {
                         const colors = VERTICAL_CARD_COLORS[pick.vertical] || { bg: '#333', text: '#FAF8F4' }
                         return (
-                          <Link
+                          <LocalizedLink
                             key={pick.id}
                             href={`/place/${pick.slug}`}
                             className="listing-card block overflow-hidden"
@@ -1212,7 +1214,7 @@ export default async function Home() {
                             }}>
                               {pick.name}
                             </span>
-                          </Link>
+                          </LocalizedLink>
                         )
                       })}
                     </div>

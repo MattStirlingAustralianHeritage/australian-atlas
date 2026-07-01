@@ -1,0 +1,92 @@
+{
+  "nav": {
+    "explore": "Explore",
+    "map": "Map",
+    "regions": "Regions",
+    "journal": "Journal",
+    "search": "Search",
+    "discover": "Discover",
+    "nearMe": "Near Me",
+    "trails": "Trails",
+    "collections": "Collections",
+    "producerPicks": "Producer Picks",
+    "events": "Events",
+    "index": "Index",
+    "forCouncils": "For Councils",
+    "forTrade": "For Trade",
+    "forOperators": "For Operators",
+    "more": "More",
+    "manageListings": "Manage listings",
+    "myAccount": "My Account",
+    "savedPlaces": "Saved places",
+    "myTrails": "My trails",
+    "signOut": "Sign out",
+    "signIn": "Sign In",
+    "accountMenu": "Account menu",
+    "toggleMenu": "Toggle menu"
+  },
+  "footer": {
+    "tagline": "The complete guide to independent Australia. Ten atlases, one map.",
+    "network": "The Network",
+    "explore": "Explore",
+    "workWithUs": "Work with us",
+    "stayInLoop": "Stay in the loop",
+    "browseByVertical": "Browse by vertical",
+    "browseByRegion": "Browse by region",
+    "map": "Map",
+    "searchAll": "Search all listings",
+    "trails": "Trails",
+    "journal": "Journal",
+    "events": "Events",
+    "planTrip": "Plan a trip",
+    "listVenue": "List your venue",
+    "forCouncils": "For Councils",
+    "forOperators": "For Operators",
+    "suggestPlace": "Suggest a place",
+    "press": "Press",
+    "about": "About",
+    "partOf": "Part of",
+    "copyright": "© 2026 Australian Atlas"
+  },
+  "home": {
+    "heroTitle": "Discover <em>independent</em> Australia",
+    "heroSubtitle": "The curated guide to Australia's best independent places — every one verified, mapped, and independently run.",
+    "searchKicker": "Search the atlas",
+    "searchHelper": "Ask in plain English — name a thing, a place, or a feeling, and we'll search every category at once.",
+    "tryLabel": "Try",
+    "statPlaces": "verified places",
+    "statCategories": "categories",
+    "statRegions": "regions",
+    "exploreMap": "Explore the map",
+    "nearMe": "What's near me?"
+  },
+  "place": {
+    "home": "Home",
+    "nearby": "Nearby on Australian Atlas",
+    "upcomingEvents": "Upcoming events",
+    "visitWebsite": "Visit website",
+    "reportIssue": "Report an issue",
+    "save": "Save",
+    "openingHours": "Opening hours",
+    "aiDisclaimer": "Description auto-generated. Own this listing? Claim it to update.",
+    "inRegion": "in {region}"
+  },
+  "search": {
+    "title": "Search",
+    "placeholder": "Search every category at once…",
+    "resultsFor": "Results for “{query}”",
+    "noResults": "No results found.",
+    "searching": "Searching…"
+  },
+  "common": {
+    "loading": "Loading…",
+    "viewAll": "View all",
+    "readMore": "Read more",
+    "back": "Back"
+  },
+  "language": {
+    "label": "Language",
+    "english": "English",
+    "korean": "한국어"
+  }
+}

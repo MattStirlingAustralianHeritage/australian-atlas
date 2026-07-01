@@ -1,4 +1,5 @@
-import Link from 'next/link'
+import { getTranslations } from 'next-intl/server'
+import LocalizedLink from './LocalizedLink'
 import NewsletterSignup from './NewsletterSignup'
 import { isVerticalPublic } from '@/lib/verticalUrl'
 
@@ -16,24 +17,25 @@ const verticals = [
   { name: 'Table Atlas', url: 'https://tableatlas.com.au' },
 ]
 
+// Explore + partner links use translation keys resolved at render.
 const exploreLinks = [
-  { href: '/explore', label: 'Browse by vertical' },
-  { href: '/regions', label: 'Browse by region' },
-  { href: '/map', label: 'Map' },
-  { href: '/search', label: 'Search all listings' },
-  { href: '/trails', label: 'Trails' },
-  { href: '/journal', label: 'Journal' },
-  { href: '/events', label: 'Events' },
-  { href: '/plan', label: 'Plan a trip' },
+  { href: '/explore', key: 'browseByVertical' },
+  { href: '/regions', key: 'browseByRegion' },
+  { href: '/map', key: 'map' },
+  { href: '/search', key: 'searchAll' },
+  { href: '/trails', key: 'trails' },
+  { href: '/journal', key: 'journal' },
+  { href: '/events', key: 'events' },
+  { href: '/plan', key: 'planTrip' },
 ]
 
 const partnerLinks = [
-  { href: '/for-venues', label: 'List your venue' },
-  { href: '/for-councils', label: 'For Councils' },
-  { href: '/operators', label: 'For Operators' },
-  { href: '/suggest', label: 'Suggest a place' },
-  { href: '/press', label: 'Press' },
-  { href: '/about', label: 'About' },
+  { href: '/for-venues', key: 'listVenue' },
+  { href: '/for-councils', key: 'forCouncils' },
+  { href: '/operators', key: 'forOperators' },
+  { href: '/suggest', key: 'suggestPlace' },
+  { href: '/press', key: 'press' },
+  { href: '/about', key: 'about' },
 ]
 
 const headingStyle = {
@@ -51,7 +53,8 @@ const linkStyle = {
   color: 'rgba(250,248,244,0.55)',
 }
 
-export default function Footer() {
+export default async function Footer() {
+  const t = await getTranslations('footer')
   const networkVerticals = isVerticalPublic('way') ? [...verticals, WAY_NETWORK_LINK] : verticals
   return (
     <footer style={{ background: '#1A1A1A', borderTop: '1px solid rgba(250,248,244,0.08)' }}>
@@ -85,13 +88,13 @@ export default function Footer() {
                 color: 'rgba(250,248,244,0.5)',
               }}
             >
-              The complete guide to independent Australia. Ten atlases, one map.
+              {t('tagline')}
             </p>
           </div>
 
           {/* The Network */}
           <nav aria-label="The Atlas network">
-            <h4 className="mb-3 uppercase" style={headingStyle}>The Network</h4>
+            <h4 className="mb-3 uppercase" style={headingStyle}>{t('network')}</h4>
             <ul className="space-y-1.5">
               {networkVerticals.map(v => (
                 <li key={v.url}>
@@ -111,17 +114,17 @@ export default function Footer() {
 
           {/* Explore */}
           <nav aria-label="Explore">
-            <h4 className="mb-3 uppercase" style={headingStyle}>Explore</h4>
+            <h4 className="mb-3 uppercase" style={headingStyle}>{t('explore')}</h4>
             <ul className="space-y-1.5">
               {exploreLinks.map(link => (
                 <li key={link.href}>
-                  <Link
+                  <LocalizedLink
                     href={link.href}
                     className="hover:text-[#FAF8F4] transition-colors"
                     style={linkStyle}
                   >
-                    {link.label}
-                  </Link>
+                    {t(link.key)}
+                  </LocalizedLink>
                 </li>
               ))}
             </ul>
@@ -129,17 +132,17 @@ export default function Footer() {
 
           {/* Partners */}
           <nav aria-label="Partners and contact">
-            <h4 className="mb-3 uppercase" style={headingStyle}>Work with us</h4>
+            <h4 className="mb-3 uppercase" style={headingStyle}>{t('workWithUs')}</h4>
             <ul className="space-y-1.5">
               {partnerLinks.map(link => (
                 <li key={link.href}>
-                  <Link
+                  <LocalizedLink
                     href={link.href}
                     className="hover:text-[#FAF8F4] transition-colors"
                     style={linkStyle}
                   >
-                    {link.label}
-                  </Link>
+                    {t(link.key)}
+                  </LocalizedLink>
                 </li>
               ))}
             </ul>
@@ -151,7 +154,7 @@ export default function Footer() {
           className="mt-12 pt-6"
           style={{ borderTop: '1px solid rgba(250,248,244,0.08)' }}
         >
-          <h4 className="mb-1 uppercase" style={headingStyle}>Stay in the loop</h4>
+          <h4 className="mb-1 uppercase" style={headingStyle}>{t('stayInLoop')}</h4>
           <NewsletterSignup variant="footer" />
         </div>
 
@@ -160,7 +163,7 @@ export default function Footer() {
           style={{ borderTop: '1px solid rgba(250,248,244,0.08)' }}
         >
           <p style={{ fontSize: '12px', color: 'rgba(250,248,244,0.4)' }}>
-            Part of{' '}
+            {t('partOf')}{' '}
             <a
               href="https://australianheritage.au"
               target="_blank"
@@ -171,7 +174,7 @@ export default function Footer() {
               Australian Heritage
             </a>
           </p>
-          <p style={{ fontSize: '12px', color: 'rgba(250,248,244,0.4)' }}>&copy; 2026 Australian Atlas</p>
+          <p style={{ fontSize: '12px', color: 'rgba(250,248,244,0.4)' }}>{t('copyright')}</p>
         </div>
       </div>
     </footer>

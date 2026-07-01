@@ -1,0 +1,92 @@
+{
+  "nav": {
+    "explore": "둘러보기",
+    "map": "지도",
+    "regions": "지역",
+    "journal": "저널",
+    "search": "검색",
+    "discover": "발견",
+    "nearMe": "내 근처",
+    "trails": "트레일",
+    "collections": "컬렉션",
+    "producerPicks": "제작자 추천",
+    "events": "이벤트",
+    "index": "인덱스",
+    "forCouncils": "지자체용",
+    "forTrade": "업계용",
+    "forOperators": "운영자용",
+    "more": "더보기",
+    "manageListings": "목록 관리",
+    "myAccount": "내 계정",
+    "savedPlaces": "저장된 장소",
+    "myTrails": "내 트레일",
+    "signOut": "로그아웃",
+    "signIn": "로그인",
+    "accountMenu": "계정 메뉴",
+    "toggleMenu": "메뉴 전환"
+  },
+  "footer": {
+    "tagline": "독립적인 호주의 완벽한 가이드. 10개의 아틀라스, 하나의 지도.",
+    "network": "네트워크",
+    "explore": "둘러보기",
+    "workWithUs": "함께 일하기",
+    "stayInLoop": "최신 정보 받기",
+    "browseByVertical": "카테고리별 둘러보기",
+    "browseByRegion": "지역별 둘러보기",
+    "map": "지도",
+    "searchAll": "모든 목록 검색",
+    "trails": "트레일",
+    "journal": "저널",
+    "events": "이벤트",
+    "planTrip": "여행 계획",
+    "listVenue": "장소 등록",
+    "forCouncils": "지자체용",
+    "forOperators": "운영자용",
+    "suggestPlace": "장소 제안",
+    "press": "언론",
+    "about": "정보",
+    "partOf": "다음의 일부",
+    "copyright": "© 2026 Australian Atlas"
+  },
+  "home": {
+    "heroTitle": "<em>독립적인</em> 호주를 발견하세요",
+    "heroSubtitle": "호주의 최고 독립 장소들을 큐레이션한 가이드 — 모두 검증되고 지도에 표시되며 독립적으로 운영됩니다.",
+    "searchKicker": "아틀라스 검색",
+    "searchHelper": "일반적인 영어로 질문하세요 — 물건, 장소 또는 감정을 말씀하면 모든 카테고리를 한번에 검색합니다.",
+    "tryLabel": "시도",
+    "statPlaces": "검증된 장소",
+    "statCategories": "카테고리",
+    "statRegions": "지역",
+    "exploreMap": "지도 둘러보기",
+    "nearMe": "내 근처에 뭐가 있을까?"
+  },
+  "place": {
+    "home": "홈",
+    "nearby": "Australian Atlas 근처",
+    "upcomingEvents": "다가오는 이벤트",
+    "visitWebsite": "웹사이트 방문",
+    "reportIssue": "문제 신고",
+    "save": "저장",
+    "openingHours": "영업 시간",
+    "aiDisclaimer": "자동으로 생성된 설명입니다. 이 목록의 소유자신가요? 클레임하여 업데이트하세요.",
+    "inRegion": "{region}에 위치"
+  },
+  "search": {
+    "title": "검색",
+    "placeholder": "모든 카테고리에서 한번에 검색…",
+    "resultsFor": "\"{query}\"의 검색 결과",
+    "noResults": "결과를 찾을 수 없습니다.",
+    "searching": "검색 중…"
+  },
+  "common": {
+    "loading": "로딩 중…",
+    "viewAll": "모두 보기",
+    "readMore": "더 읽기",
+    "back": "뒤로"
+  },
+  "language": {
+    "label": "언어",
+    "english": "English",
+    "korean": "한국어"
+  }
+}
