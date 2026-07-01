@@ -23,7 +23,9 @@
     "signOut": "Sign out",
     "signIn": "Sign In",
     "accountMenu": "Account menu",
-    "toggleMenu": "Toggle menu"
+    "toggleMenu": "Toggle menu",
+    "groupExplore": "Explore",
+    "groupPartners": "Work with us"
   },
   "footer": {
     "tagline": "The complete guide to independent Australia. Ten atlases, one map.",

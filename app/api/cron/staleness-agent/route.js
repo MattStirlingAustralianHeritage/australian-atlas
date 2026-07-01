@@ -22,6 +22,12 @@ const BATCH_SIZE = 50
 const DELAY_MS = 500     // 500ms between requests — ~2 req/s
 const TIMEOUT_MS = 10000 // 10 second HEAD request timeout
 const FAILURE_THRESHOLD = 2 // consecutive failures before flagging dead
+// Stop dispatching checks with headroom before maxDuration: an unbounded
+// backlog used to run into the platform kill, which strands the agent_runs
+// row at status='running' (a platform timeout never reaches the catch).
+// The oldest-first ordering makes successive weekly runs work through the
+// backlog cursor-style.
+const TIME_BUDGET_MS = 270000
 
 export async function GET(request) {
   // ── Auth ────────────────────────────────────────────────────
@@ -37,23 +43,30 @@ export async function GET(request) {
     listings_checked: 0,
     flagged: 0,
     cleared: 0,
+    reinstated: 0,
     errors: 0,
   }
+  let timeCapped = false
 
   try {
     // ── Fetch stale listings in batches ───────────────────────
     // last_verified_at IS NULL OR last_verified_at < now() - 90 days
     // AND website IS NOT NULL
-    const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
+    // 'unverified' rows (flagged by a previous run) are included so a
+    // recovered website can clear the flag and restore the listing —
+    // filtering to 'active' only made a flag permanent.
+    const startTime = Date.now()
+    const deadlineMs = startTime + TIME_BUDGET_MS
+    const cutoff = new Date(startTime - 90 * 24 * 60 * 60 * 1000).toISOString()
 
     let offset = 0
     let hasMore = true
 
-    while (hasMore) {
+    while (hasMore && Date.now() < deadlineMs) {
       const { data: batch, error: fetchError } = await sb
         .from('listings')
         .select('id, name, website, staleness_flags, last_verified_at, status')
-        .eq('status', 'active')
+        .in('status', ['active', 'unverified'])
         .not('website', 'is', null)
         .or(`last_verified_at.is.null,last_verified_at.lt.${cutoff}`)
         .order('last_verified_at', { ascending: true, nullsFirst: true })
@@ -71,7 +84,17 @@ export async function GET(request) {
       }
 
       // ── Process each listing in the batch ──────────────────
+      // Rows leave the filtered set only when a successful check stamps
+      // last_verified_at; sub-threshold failures and dead-flagged rows stay,
+      // so the cursor must advance past them (offset += stayed) — advancing
+      // by the whole batch used to skip unprocessed rows.
+      let removedFromSet = 0
+
       for (const listing of batch) {
+        if (Date.now() >= deadlineMs) {
+          timeCapped = true
+          break
+        }
         counts.listings_checked++
 
         const result = await checkUrl(listing.website)
@@ -88,17 +111,29 @@ export async function GET(request) {
           const wasFlagged = listing.staleness_flags?.url_dead === true
           if (wasFlagged) counts.cleared++
 
+          const updates = {
+            last_verified_at: now,
+            staleness_flags: cleanFlags(flags),
+          }
+
+          // Restore listings this agent downgraded once the URL is
+          // reachable again — they are invisible to public surfaces
+          // while 'unverified'.
+          if (listing.status === 'unverified') {
+            updates.status = 'active'
+            counts.reinstated++
+          }
+
           const { error: updateError } = await sb
             .from('listings')
-            .update({
-              last_verified_at: now,
-              staleness_flags: cleanFlags(flags),
-            })
+            .update(updates)
             .eq('id', listing.id)
 
           if (updateError) {
             console.error(`[staleness-agent] Update error for "${listing.name}":`, updateError.message)
             counts.errors++
+          } else {
+            removedFromSet++
           }
         } else if (result.status === 404 || result.status === 410 || result.connectionFailure) {
           // ── Failure: 404, 410, or connection error ───────────
@@ -143,12 +178,18 @@ export async function GET(request) {
         await delay(DELAY_MS)
       }
 
+      if (timeCapped) break
+
       // Move to next batch
       if (batch.length < BATCH_SIZE) {
         hasMore = false
       } else {
-        offset += batch.length
+        offset += batch.length - removedFromSet
       }
+    }
+
+    if (timeCapped) {
+      console.log(`[staleness-agent] Time budget reached after ${counts.listings_checked} checks — remaining backlog picks up next run`)
     }
 
     // ── Log run completion ──────────────────────────────────────
@@ -157,7 +198,9 @@ export async function GET(request) {
         listings_checked: counts.listings_checked,
         flagged: counts.flagged,
         cleared: counts.cleared,
+        reinstated: counts.reinstated,
         errors: counts.errors,
+        time_capped: timeCapped ? 'yes' : null,
       },
     })
 

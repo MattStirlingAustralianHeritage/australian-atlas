@@ -8,7 +8,9 @@ export default function ReportIssueButton({ listingId, listingName, slug }) {
 
   return (
     <>
-      <div className="flex justify-end mb-2" style={{ marginTop: '-4px' }}>
+      {/* Quietly under the action rows, aligned with them — right-aligned it
+          floated in the middle of the page with nothing to hang off. */}
+      <div className="flex justify-start" style={{ marginTop: '14px' }}>
         <button
           onClick={() => setShowModal(true)}
           className="inline-flex items-center gap-1.5 hover:opacity-70 transition-opacity"

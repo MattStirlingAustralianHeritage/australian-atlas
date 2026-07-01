@@ -89,11 +89,7 @@ export default async function AboutPage() {
         padding: '8rem 1.5rem 5rem',
         textAlign: 'center',
       }}>
-        <p style={{
-          fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 600,
-          letterSpacing: '0.2em', textTransform: 'uppercase',
-          color: 'var(--color-muted)', marginBottom: 24,
-        }}>
+        <p className="section-dateline" style={{ marginBottom: 24 }}>
           About
         </p>
         <h1 style={{

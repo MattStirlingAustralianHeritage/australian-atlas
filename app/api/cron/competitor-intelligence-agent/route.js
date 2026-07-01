@@ -36,6 +36,27 @@ function extractJSON(text) {
   if (fenceMatch) {
     cleaned = fenceMatch[1].trim()
   }
+  // The model often follows the array with prose (e.g. "[]\n\nNote: ...").
+  // Parse just the array: from the first '[' to its balanced ']'.
+  const start = cleaned.indexOf('[')
+  if (start !== -1) {
+    let depth = 0
+    let inString = false
+    for (let i = start; i < cleaned.length; i++) {
+      const ch = cleaned[i]
+      if (inString) {
+        if (ch === '\\') i++
+        else if (ch === '"') inString = false
+      } else if (ch === '"') {
+        inString = true
+      } else if (ch === '[') {
+        depth++
+      } else if (ch === ']') {
+        depth--
+        if (depth === 0) return cleaned.slice(start, i + 1)
+      }
+    }
+  }
   return cleaned
 }
 
@@ -104,6 +125,10 @@ For each venue mentioned extract: name, suburb, state, category. Return JSON arr
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 4000,
+        // Without real web search the model cannot see these publications —
+        // it either returns [] with an explanation (breaking the JSON parse)
+        // or invents venues, which the no-hallucinated-content rule forbids.
+        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 8 }],
         messages: [{
           role: 'user',
           content: prompt
@@ -118,7 +143,13 @@ For each venue mentioned extract: name, suburb, state, category. Return JSON arr
 
     const data = await res.json()
     await reconcileAnthropicBudget(_resv, data.usage)
-    const rawText = data?.content?.[0]?.text || '[]'
+    // With web search enabled the response interleaves tool-use and text
+    // blocks — the venue JSON is in the final text, not content[0].
+    const rawText = (data?.content || [])
+      .filter(block => block.type === 'text' && block.text)
+      .map(block => block.text)
+      .join('\n')
+      .trim() || '[]'
     const jsonStr = extractJSON(rawText)
 
     try {

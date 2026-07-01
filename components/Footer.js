@@ -57,27 +57,29 @@ export default async function Footer() {
   const t = await getTranslations('footer')
   const networkVerticals = isVerticalPublic('way') ? [...verticals, WAY_NETWORK_LINK] : verticals
   return (
-    <footer style={{ background: '#1A1A1A', borderTop: '1px solid rgba(250,248,244,0.08)' }}>
+    <footer style={{ background: '#1A1A1A' }}>
+      {/* The ten grounds as a woven hairline — the network's signature thread. */}
+      <div className="spectrum-hairline" aria-hidden="true" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-14 pb-10">
         <div className="grid grid-cols-2 gap-x-8 gap-y-10 md:grid-cols-4">
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
             <h3
-              className="mb-2"
+              className="mb-2 flex items-center"
               style={{
                 fontFamily: 'var(--font-display)',
                 fontWeight: 400,
-                fontSize: '19px',
+                fontSize: '20px',
                 letterSpacing: '-0.01em',
                 color: '#FAF8F4',
+                gap: '9px',
               }}
             >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="var(--color-gold)" aria-hidden="true" style={{ flexShrink: 0, marginTop: '1px' }}>
+                <path d="M12 0l2.6 9.4L24 12l-9.4 2.6L12 24l-2.6-9.4L0 12l9.4-2.6L12 0z" />
+              </svg>
               Australian Atlas
             </h3>
-            <div
-              aria-hidden="true"
-              style={{ width: '28px', height: '2px', background: 'var(--color-gold)', marginBottom: '14px' }}
-            />
             <p
               className="leading-relaxed"
               style={{

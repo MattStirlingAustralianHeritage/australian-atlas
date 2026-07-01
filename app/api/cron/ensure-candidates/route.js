@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { replenishVertical, buildDedupSets, AUTO_VERTICALS, VERTICAL_NAMES } from '@/lib/prospector/replenish'
 import { dayOfYear } from '@/lib/prospector/regional-centers'
 import { probePlacesQuota } from '@/lib/prospector/google-places'
+import { startRun, completeRun } from '@/lib/agents/logRun'
 
 /**
  * GET /api/cron/ensure-candidates
@@ -49,6 +50,9 @@ export async function GET(request) {
   const startTime = Date.now()
   const deadlineMs = startTime + TIME_BUDGET_MS
   const rotationSeed = dayOfYear()
+  const runId = await startRun('ensure-candidates')
+
+  try {
 
   // Primary supply is OSM Overpass (free, no quota). Google Places is an optional
   // top-up — probe it once so we can skip it entirely when its quota is dead
@@ -129,6 +133,17 @@ export async function GET(request) {
 
   console.log(`[ensure-candidates] Done in ${duration}s — floor ${floor}, queued ${totalQueued}, below-floor: ${belowFloor.map(b => b.vertical).join(', ') || 'none'}`)
 
+  await completeRun(runId, {
+    status: 'success',
+    summary: {
+      floor,
+      queued: totalQueued,
+      below_floor: belowFloor.map(b => b.vertical).join(', ') || 'none',
+      vertical: onlyVertical || 'all',
+      dry_run: dryRun ? 'yes' : null,
+    },
+  })
+
   return NextResponse.json({
     success: true,
     floor,
@@ -141,4 +156,17 @@ export async function GET(request) {
     dry_run: dryRun,
     results,
   })
+
+  } catch (err) {
+    // replenishVertical and the pre-loop probes are unguarded here — without
+    // this catch a single vertical error 500s the route and strands the run
+    // at status='running'.
+    console.error('[ensure-candidates] Fatal error:', err.message)
+    await completeRun(runId, {
+      status: 'error',
+      error: err.message,
+      summary: { floor, vertical: onlyVertical || 'all' },
+    })
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 })
+  }
 }

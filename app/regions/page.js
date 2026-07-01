@@ -47,46 +47,13 @@ export default async function RegionsPage() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--color-bg)' }}>
-      {/* Page header — cream, contrasts with dark cards */}
-      <div style={{ maxWidth: '72rem', margin: '0 auto', padding: '3rem 1.5rem 0' }}>
-        <p
-          style={{
-            fontFamily: 'var(--font-body)',
-            fontWeight: 500,
-            fontSize: '11px',
-            letterSpacing: '0.14em',
-            textTransform: 'uppercase',
-            color: 'var(--color-muted)',
-            marginBottom: '0.5rem',
-          }}
-        >
-          Explore by region
-        </p>
-        <h1
-          style={{
-            fontFamily: 'var(--font-display)',
-            fontWeight: 400,
-            fontSize: 'clamp(1.75rem, 3.5vw, 2.5rem)',
-            color: 'var(--color-ink)',
-            lineHeight: 1.15,
-            margin: 0,
-          }}
-        >
-          Regions
-        </h1>
-        <p
-          style={{
-            fontFamily: 'var(--font-body)',
-            fontWeight: 300,
-            fontSize: '15px',
-            color: 'var(--color-muted)',
-            marginTop: '0.625rem',
-            maxWidth: '36rem',
-            lineHeight: 1.6,
-          }}
-        >
-          Independent places across Australia, mapped by region.
-        </p>
+      {/* Page masthead — cream, contrasts with dark cards */}
+      <div style={{ maxWidth: '72rem', margin: '0 auto', padding: '0 1.5rem' }}>
+        <div className="page-masthead" style={{ paddingBottom: 0 }}>
+          <p className="section-dateline">Explore by region</p>
+          <h1 className="masthead-title">Regions</h1>
+          <p className="masthead-sub">Independent places across Australia, mapped by region.</p>
+        </div>
       </div>
 
       {/* Region grid grouped by state */}

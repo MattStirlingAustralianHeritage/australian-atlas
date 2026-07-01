@@ -129,7 +129,14 @@ export default function LoginPage() {
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
           <Link href="/" style={{ textDecoration: 'none', color: 'var(--color-ink)' }}>
-            <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '2rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+            <h1 style={{
+              fontFamily: 'var(--font-serif)', fontSize: '2rem', fontWeight: 400,
+              letterSpacing: '-0.01em', marginBottom: '0.25rem',
+              display: 'inline-flex', alignItems: 'center', gap: '10px',
+            }}>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="var(--color-gold)" aria-hidden="true">
+                <path d="M12 0l2.6 9.4L24 12l-9.4 2.6L12 24l-2.6-9.4L0 12l9.4-2.6L12 0z" />
+              </svg>
               Australian Atlas
             </h1>
           </Link>

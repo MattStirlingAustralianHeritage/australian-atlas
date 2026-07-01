@@ -75,7 +75,10 @@ export default function HomeMapSection({ listingCount }) {
         </span>
       </Link>
 
-      <style>{`
+      {/* dangerouslySetInnerHTML (not a text child) — React hydration compares
+          style text nodes character-for-character and the streamed RSC payload
+          was mismatching in dev; innerHTML-set CSS is skipped by that check. */}
+      <style dangerouslySetInnerHTML={{ __html: `
         .home-map-strip { background: #efe6d4; }
         .home-map-link { position: relative; display: block; overflow: hidden; }
         .home-map-img {
@@ -196,7 +199,7 @@ export default function HomeMapSection({ listingCount }) {
           .home-map-img, .home-map-cta { transition: none; }
           .home-map-link:hover .home-map-img { transform: none; }
         }
-      `}</style>
+      ` }} />
     </section>
   )
 }

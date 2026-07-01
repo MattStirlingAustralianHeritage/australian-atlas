@@ -10,10 +10,18 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { reserveAnthropicBudget, reconcileAnthropicBudget } from '@/lib/ai/guardedAnthropic'
 import { estimateTokens } from '@/lib/budget/governor'
+import { startRun, completeRun } from '@/lib/agents/logRun'
 
 export const maxDuration = 15
 
-export async function GET() {
+export async function GET(request) {
+  // This endpoint is public (uptime monitors hit it). Only the scheduled cron
+  // invocation — identified by the CRON_SECRET bearer — records to agent_runs,
+  // so external pings don't flood the run log.
+  const authHeader = request.headers.get('authorization')
+  const isCron = authHeader === `Bearer ${process.env.CRON_SECRET}`
+  const runId = isCron ? await startRun('trail-builder-health') : null
+
   const checks = {
     anthropic_key: !!process.env.ANTHROPIC_API_KEY,
     supabase_url: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -77,6 +85,12 @@ export async function GET() {
   const allOk = Object.entries(checks)
     .filter(([key]) => key !== 'listing_count')
     .every(([, val]) => val === true)
+
+  await completeRun(runId, {
+    status: allOk ? 'success' : 'error',
+    error: allOk ? null : 'degraded',
+    summary: { ...checks },
+  })
 
   return Response.json(
     {

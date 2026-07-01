@@ -111,6 +111,14 @@
     {
       "path": "/api/cron/quarantine-alert",
       "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/geocoding-watchdog",
+      "schedule": "30 18 * * 2"
+    },
+    {
+      "path": "/api/cron/fleet-health",
+      "schedule": "30 10 * * *"
     }
   ]
 }

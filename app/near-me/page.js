@@ -10,16 +10,12 @@ export default function NearMePage() {
     <div style={{ minHeight: '100vh', background: 'var(--color-bg)' }}>
       <div style={{ maxWidth: '72rem', margin: '0 auto', padding: '3rem 1.5rem' }}>
         <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-          <p style={{
-            fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase',
-            color: 'var(--color-sage)', marginBottom: 8,
-            fontFamily: 'var(--font-body)', fontWeight: 600,
-          }}>
+          <p className="section-dateline" style={{ marginBottom: 12 }}>
             Discovery
           </p>
           <h1 style={{
-            fontFamily: 'var(--font-display)', fontWeight: 400,
-            fontSize: 'clamp(28px, 4vw, 42px)', color: 'var(--color-ink)',
+            fontFamily: 'var(--font-display)', fontWeight: 400, letterSpacing: '-0.015em',
+            fontSize: 'clamp(30px, 4.4vw, 46px)', color: 'var(--color-ink)',
           }}>
             What's near you
           </h1>
