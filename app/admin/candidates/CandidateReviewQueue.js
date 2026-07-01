@@ -31,6 +31,106 @@ const VERTICAL_FULL_NAMES = {
   corner: 'Corner Atlas', found: 'Found Atlas', table: 'Table Atlas', way: 'Way Atlas',
 }
 
+// Non-visitable presence sub-types — a maker can operate in several of these at
+// once (e.g. markets + online + by appointment). Listed in PRIORITY order:
+// the first selected value becomes the scalar `presence_type` (the single
+// authoritative value all downstream consumers read — search, place pages,
+// trail eligibility, embeddings). by_appointment ranks first so a maker who
+// also takes visits stays trail-eligible (`presence_type.eq.by_appointment`).
+const PRESENCE_SUBTYPE_OPTIONS = [
+  { value: 'by_appointment', label: 'By appointment' },
+  { value: 'markets', label: 'Markets' },
+  { value: 'online', label: 'Online only' },
+  { value: 'seasonal', label: 'Seasonal' },
+]
+
+// The scalar primary = first selected value in canonical PRESENCE_SUBTYPE_OPTIONS
+// order. Falls back to by_appointment so a non-visitable listing always carries
+// a valid non-permanent presence_type.
+function primaryPresenceType(types) {
+  const ordered = PRESENCE_SUBTYPE_OPTIONS.filter(o => (types || []).includes(o.value))
+  return ordered[0]?.value || 'by_appointment'
+}
+
+// Compact multi-select for the non-visitable presence sub-types. Renders like
+// the old <select> but opens a checkbox panel so several modes can be ticked.
+function PresenceMultiSelect({ value, onChange }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  useEffect(() => {
+    if (!open) return
+    const onDoc = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [open])
+
+  const toggle = v => {
+    const has = value.includes(v)
+    let next = has ? value.filter(x => x !== v) : [...value, v]
+    if (next.length === 0) next = [v] // never allow empty — a non-visitable listing needs at least one mode
+    // Preserve canonical priority order regardless of click sequence.
+    next = PRESENCE_SUBTYPE_OPTIONS.filter(o => next.includes(o.value)).map(o => o.value)
+    onChange(next)
+  }
+
+  const labelFor = v => PRESENCE_SUBTYPE_OPTIONS.find(o => o.value === v)?.label || v
+  const summary = value.length === 0
+    ? 'Select…'
+    : value.length === 1
+      ? labelFor(value[0])
+      : `${labelFor(value[0])} +${value.length - 1}`
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        title={value.map(labelFor).join(', ') || 'Choose one or more'}
+        style={{
+          fontFamily: 'var(--font-body)', fontSize: 10,
+          padding: '2px 6px', borderRadius: 4,
+          border: '1px solid var(--color-border)',
+          background: 'white', cursor: 'pointer',
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          color: 'var(--color-ink)',
+        }}
+      >
+        <span>{summary}</span>
+        <span aria-hidden style={{ opacity: 0.5, fontSize: 8 }}>▼</span>
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 30,
+          background: 'white', border: '1px solid var(--color-border)',
+          borderRadius: 6, boxShadow: '0 6px 18px rgba(0,0,0,0.14)',
+          padding: 4, minWidth: 150,
+        }}>
+          {PRESENCE_SUBTYPE_OPTIONS.map(o => {
+            const checked = value.includes(o.value)
+            return (
+              <label key={o.value} style={{
+                display: 'flex', alignItems: 'center', gap: 7,
+                padding: '5px 8px', borderRadius: 4, cursor: 'pointer',
+                fontFamily: 'var(--font-body)', fontSize: 11,
+                color: checked ? '#7C3AED' : 'var(--color-ink)',
+                fontWeight: checked ? 600 : 400, whiteSpace: 'nowrap',
+              }}>
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => toggle(o.value)}
+                  style={{ margin: 0, accentColor: '#7C3AED' }}
+                />
+                {o.label}
+              </label>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // Subcategory options per vertical — values must match DB CHECK constraints on meta tables
 const SUBCATEGORY_OPTIONS = {
   sba: [
@@ -666,6 +766,11 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
   const [addressOnRequest, setAddressOnRequest] = useState(false)
   const [visitable, setVisitable] = useState(true)
   const [presenceType, setPresenceType] = useState('permanent')
+  // For non-visitable listings the reviewer can select several presence modes
+  // at once (markets + online + by appointment …). `presenceType` above stays
+  // the scalar primary (derived from this array); `presenceTypes` is the full
+  // set persisted to listings.presence_types. Empty when visitable / mobile.
+  const [presenceTypes, setPresenceTypes] = useState([])
   const [offersClasses, setOffersClasses] = useState(false)
   // Mobile venues (food trucks, coffee carts, pop-ups): no fixed address, but
   // still visitable & discoverable. Distinct from "Non-visitable" (online-only).
@@ -965,6 +1070,9 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
           address_on_request: addressOnRequest,
           visitable,
           presence_type: presenceType,
+          // Full set of non-visitable modes (persisted to listings.presence_types).
+          // Only meaningful when non-visitable; scalar presence_type carries the primary.
+          presence_types: !visitable ? presenceTypes : undefined,
           service_area: isMobile ? (serviceArea || undefined) : undefined,
           offers_classes: offersClasses,
           wayClassification,
@@ -1105,11 +1213,16 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
               checked={!visitable}
               onChange={e => {
                 setVisitable(!e.target.checked)
-                // Checking → switch into a non-visitable presence type (so the
-                // dropdown has a valid value). Unchecking → back to permanent.
+                // Checking → seed the multi-select with a valid default and set
+                // the scalar primary accordingly. Unchecking → back to permanent
+                // and clear the selected modes.
                 if (e.target.checked) {
-                  if (presenceType === 'permanent' || presenceType === 'mobile') setPresenceType('by_appointment')
+                  if (presenceType === 'permanent' || presenceType === 'mobile') {
+                    setPresenceTypes(['by_appointment'])
+                    setPresenceType('by_appointment')
+                  }
                 } else {
+                  setPresenceTypes([])
                   setPresenceType('permanent')
                 }
               }}
@@ -1131,8 +1244,8 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
               type="checkbox"
               checked={isMobile}
               onChange={e => {
-                if (e.target.checked) { setPresenceType('mobile'); setVisitable(true) }
-                else { setPresenceType('permanent') }
+                if (e.target.checked) { setPresenceType('mobile'); setPresenceTypes([]); setVisitable(true) }
+                else { setPresenceType('permanent'); setPresenceTypes([]) }
               }}
               style={{ margin: 0, accentColor: '#C1603A' }}
             />
@@ -1155,21 +1268,13 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
             </label>
           )}
           {!visitable && (
-            <select
-              value={presenceType}
-              onChange={e => setPresenceType(e.target.value)}
-              style={{
-                fontFamily: 'var(--font-body)', fontSize: 10,
-                padding: '2px 4px', borderRadius: 4,
-                border: '1px solid var(--color-border)',
-                background: 'white',
+            <PresenceMultiSelect
+              value={presenceTypes}
+              onChange={next => {
+                setPresenceTypes(next)
+                setPresenceType(primaryPresenceType(next))
               }}
-            >
-              <option value="by_appointment">By appointment</option>
-              <option value="markets">Markets</option>
-              <option value="online">Online only</option>
-              <option value="seasonal">Seasonal</option>
-            </select>
+            />
           )}
         </div>
         <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>

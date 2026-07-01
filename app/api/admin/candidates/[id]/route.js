@@ -314,12 +314,20 @@ export async function POST(request, { params }) {
   }
 
   try {
-    const { action, subcategory, subcategory_secondary, address_on_request, visitable, presence_type, service_area, offers_classes, reviewerOverrides, wayClassification } = await request.json()
+    const { action, subcategory, subcategory_secondary, address_on_request, visitable, presence_type, presence_types, service_area, offers_classes, reviewerOverrides, wayClassification } = await request.json()
     // Mobile venues (food trucks, coffee carts, pop-ups) have no fixed street
     // address — they're discoverable & featured via their region, but their
     // exact location is never pinned. They stay visitable (you can find & visit
     // them) so they surface in search and region pages like a permanent venue.
     const isMobile = presence_type === 'mobile'
+    // Non-visitable listings may carry several presence modes at once (markets +
+    // online + by appointment …). presence_type stays the scalar primary that
+    // all downstream consumers read; presence_types (portal listings only) keeps
+    // the full set. Whitelist elements to the same values the CHECK allows.
+    const VALID_PRESENCE_SUBTYPES = ['by_appointment', 'markets', 'online', 'seasonal']
+    const presenceTypesArr = (visitable === false && Array.isArray(presence_types))
+      ? presence_types.filter((v, i, a) => VALID_PRESENCE_SUBTYPES.includes(v) && a.indexOf(v) === i)
+      : []
 
     if (!['approve', 'reject'].includes(action)) {
       return NextResponse.json({ error: 'Invalid action — must be approve or reject' }, { status: 400 })
@@ -651,6 +659,9 @@ export async function POST(request, { params }) {
         address_on_request: fullData.address_on_request,
         visitable: fullData.visitable,
         presence_type: fullData.presence_type,
+        // Portal-only: full set of non-visitable modes. Not sent to vertical DBs
+        // (they only have the scalar presence_type). Null when visitable/mobile.
+        presence_types: presenceTypesArr.length ? presenceTypesArr : null,
         service_area: fullData.service_area,
       }
 
@@ -713,6 +724,9 @@ export async function POST(request, { params }) {
           address_on_request: fullData.address_on_request,
           visitable: fullData.visitable,
           presence_type: fullData.presence_type,
+          // Portal-only full set of non-visitable modes; null when visitable/mobile
+          // so re-approving as visitable clears a previously stored array.
+          presence_types: presenceTypesArr.length ? presenceTypesArr : null,
           service_area: fullData.service_area,
         }
         // Never overwrite hero_image_url from scraping — owner uploads on claim
