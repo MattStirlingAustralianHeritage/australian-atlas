@@ -125,7 +125,15 @@ export async function POST(request) {
     const loggedQuery = query.slice(0, 200)
     const sb = getSupabaseAdmin()
 
-    const cached = cacheGet(cacheKey(query))
+    // Optional explicit refinements from the results-page filter pills. A pinned
+    // vertical / state narrows the concierge just like a plain search.
+    const reqVertical = body.vertical && isVerticalPublic(String(body.vertical)) ? String(body.vertical) : null
+    const reqState = body.state ? String(body.state).toUpperCase().slice(0, 3) : null
+
+    // Cache key includes the refinements so pinning a pill doesn't serve the
+    // unfiltered answer.
+    const ckey = cacheKey(`${query}|${reqVertical || ''}|${reqState || ''}`)
+    const cached = cacheGet(ckey)
     if (cached) return NextResponse.json({ ...cached, cached: true })
 
     // ── Location constraint (mirrors /api/search): a named region binds that
@@ -153,6 +161,8 @@ export async function POST(request) {
       }
     }
     cleaned = (cleaned || query).trim()
+    // An explicit state pill overrides whatever the query text implied.
+    if (reqState) { filterState = reqState; detectedState = reqState }
 
     // ── Optional Claude client (interpret + ground). No key → search still works.
     let anthropic = null
@@ -203,13 +213,13 @@ export async function POST(request) {
       const { data, error } = await sb.rpc('search_listings_hybrid', {
         query_embedding: queryEmbedding,
         query_text: queryText,
-        filter_vertical: null,
+        filter_vertical: reqVertical,
         filter_state: filterState,
         filter_region: filterRegion,
         filter_suburb: filterSuburb,
         match_count: POOL,
         similarity_floor: ASK_FLOOR,
-        include_way: isVerticalPublic('way'),
+        include_way: reqVertical === 'way' || isVerticalPublic('way'),
       })
       if (error) {
         console.error('[ask] hybrid RPC error:', error.message)
@@ -220,9 +230,9 @@ export async function POST(request) {
       // A suburb filter that stranded the search → retry state-only.
       if (filterSuburb && all.filter(isPublicListing).length === 0) {
         const { data: stateData } = await sb.rpc('search_listings_hybrid', {
-          query_embedding: queryEmbedding, query_text: queryText, filter_vertical: null,
+          query_embedding: queryEmbedding, query_text: queryText, filter_vertical: reqVertical,
           filter_state: filterState, filter_region: filterRegion, filter_suburb: null,
-          match_count: POOL, similarity_floor: ASK_FLOOR, include_way: isVerticalPublic('way'),
+          match_count: POOL, similarity_floor: ASK_FLOOR, include_way: reqVertical === 'way' || isVerticalPublic('way'),
         })
         if (stateData && stateData.length) { all = stateData; filterSuburb = null }
       }
@@ -291,7 +301,7 @@ export async function POST(request) {
       detectedState: detectedState || null, detectedRegion,
       atlas: leadVertical || null,
     }
-    cacheSet(cacheKey(query), payload)
+    cacheSet(ckey, payload)
 
     logSearchEvent(sb, { query_text: loggedQuery, surface: 'ask', result_count: listings.length, latency_ms: Date.now() - t0, vector_arm_fired: !!queryEmbedding, fell_back: !queryEmbedding, voyage_error: voyageError, zero_result: false })
     return NextResponse.json(payload)
