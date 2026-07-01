@@ -62,3 +62,6 @@ next-env.d.ts
 # Secret/reference docs — never commit (rotate + purge history for the council secret)
 Council_session_secret.rtf
 Stripe Price ids.rtf
+
+# Korean launch translation review artifact (generated)
+ko-review.html
