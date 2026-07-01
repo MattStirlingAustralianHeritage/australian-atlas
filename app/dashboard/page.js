@@ -1,10 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { getListingRegion } from '@/lib/regions'
-import { getDashboardToken } from '@/lib/dashboard-token'
 import { getVerticalUrl, getVerticalBadge } from '@/lib/verticalUrl'
+import { useAuth } from './layout'
 
 function getPublicUrl(vertical, slug) {
   return getVerticalUrl(vertical, slug)
@@ -14,32 +13,30 @@ function getEditUrl(listingId) {
   return `/dashboard/listings/${listingId}/edit`
 }
 
-function decodeJWT(token) {
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]))
-    return payload
-  } catch {
-    return null
+// "+40% vs prior 30 days" chip next to the views stat. Hidden until there is
+// something to compare (no prior-period traffic yet).
+function TrendChip({ current, previous }) {
+  if (!previous && !current) return null
+  if (!previous) {
+    return (
+      <span style={{
+        fontFamily: 'var(--font-body, system-ui)', fontSize: 9, fontWeight: 600,
+        color: 'var(--color-sage, #5f8a7e)',
+      }}>
+        New
+      </span>
+    )
   }
-}
-
-function ScoreBar({ score }) {
-  let color = '#A33A2A'
-  if (score >= 70) color = 'var(--color-sage, #5f8a7e)'
-  else if (score >= 40) color = 'var(--color-gold, #C4973B)'
-
+  const pct = Math.round(((current - previous) / previous) * 100)
+  if (pct === 0) return null
+  const up = pct > 0
   return (
-    <div style={{
-      width: '100%', height: 6, borderRadius: 3,
-      background: 'var(--color-border, #e5e5e5)',
-      overflow: 'hidden',
+    <span style={{
+      fontFamily: 'var(--font-body, system-ui)', fontSize: 9, fontWeight: 600,
+      color: up ? 'var(--color-sage, #5f8a7e)' : '#A33A2A',
     }}>
-      <div style={{
-        width: `${score}%`, height: '100%', borderRadius: 3,
-        background: color,
-        transition: 'width 0.4s ease',
-      }} />
-    </div>
+      {up ? '↑' : '↓'}{Math.abs(pct)}%
+    </span>
   )
 }
 
@@ -133,7 +130,7 @@ function CompletenessChecklist({ listing }) {
               flexShrink: 0,
               color: check.complete ? '#16a34a' : '#dc2626',
             }}>
-              {check.complete ? '\u2713' : '\u2717'}
+              {check.complete ? '✓' : '✗'}
             </span>
             <div style={{ flex: 1, minWidth: 0 }}>
               {check.complete ? (
@@ -178,7 +175,6 @@ function CompletenessChecklist({ listing }) {
 }
 
 function ListingCard({ listing, liveStats, isAdmin }) {
-  const score = listing.score
   const stats = listing.stats
   const live = liveStats || null
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''
@@ -250,64 +246,6 @@ function ListingCard({ listing, liveStats, isAdmin }) {
           {[getListingRegion(listing)?.name, listing.state].filter(Boolean).join(', ')}
         </p>
 
-        {/* Completeness score */}
-        {score && (
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <span style={{
-                fontFamily: 'var(--font-body, system-ui)',
-                fontSize: 11,
-                fontWeight: 600,
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-                color: 'var(--color-muted, #888)',
-              }}>
-                Completeness
-              </span>
-              <span style={{
-                fontFamily: 'var(--font-body, system-ui)',
-                fontSize: 13,
-                fontWeight: 600,
-                color: score.score >= 70 ? 'var(--color-sage, #5f8a7e)' : score.score >= 40 ? 'var(--color-gold, #C4973B)' : '#A33A2A',
-              }}>
-                {score.score}%
-              </span>
-            </div>
-            <ScoreBar score={score.score} />
-
-            {/* What's missing */}
-            {score.score < 70 && score.improvement_note && (
-              <p style={{
-                fontFamily: 'var(--font-body, system-ui)',
-                fontSize: 12,
-                color: 'var(--color-muted, #888)',
-                margin: '8px 0 0',
-                lineHeight: 1.4,
-                fontStyle: 'italic',
-              }}>
-                {score.improvement_note}
-              </p>
-            )}
-
-            {score.score < 70 && score.missing_fields && score.missing_fields.length > 0 && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
-                {score.missing_fields.map(f => (
-                  <span key={f} style={{
-                    fontFamily: 'var(--font-body, system-ui)',
-                    fontSize: 10,
-                    padding: '2px 8px',
-                    borderRadius: 100,
-                    background: '#fef3cd',
-                    color: '#856404',
-                  }}>
-                    {f.replace(/_/g, ' ')}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Stats row */}
         <div style={{
           display: 'grid',
@@ -325,8 +263,13 @@ function ListingCard({ listing, liveStats, isAdmin }) {
               fontWeight: 400,
               color: 'var(--color-ink, #2D2A26)',
               margin: 0,
+              display: 'flex',
+              alignItems: 'baseline',
+              justifyContent: 'center',
+              gap: 4,
             }}>
-              {live ? live.views_30d : (stats.views !== null ? stats.views : '--')}
+              {live ? live.views_30d : '--'}
+              {live && <TrendChip current={live.views_30d} previous={live.views_prev_30d} />}
             </p>
             <p style={{
               fontFamily: 'var(--font-body, system-ui)',
@@ -337,7 +280,7 @@ function ListingCard({ listing, liveStats, isAdmin }) {
               color: 'var(--color-muted, #888)',
               margin: '2px 0 0',
             }}>
-              {live ? 'Views (30d)' : (stats.views !== null ? 'Views' : 'Views (soon)')}
+              Views (30d)
             </p>
           </div>
           <div style={{ textAlign: 'center' }}>
@@ -490,67 +433,11 @@ function ListingCard({ listing, liveStats, isAdmin }) {
 }
 
 export default function DashboardPage() {
-  const [user, setUser] = useState(null)
-  const [listings, setListings] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [liveStats, setLiveStats] = useState({})
-
-  useEffect(() => {
-    getDashboardToken().then(token => {
-      if (!token) {
-        setLoading(false)
-        return
-      }
-
-      const payload = decodeJWT(token)
-      if (!payload) {
-        setLoading(false)
-        return
-      }
-
-      setUser({
-        id: payload.sub,
-        email: payload.email,
-        name: payload.name,
-        role: payload.role,
-        verticals: payload.verticals || {},
-      })
-
-      // Fetch dashboard data
-      fetch('/api/dashboard', {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-        .then(r => r.json())
-        .then(data => {
-          if (data.error) {
-            setError(data.error)
-          } else {
-            const fetchedListings = data.listings || []
-            setListings(fetchedListings)
-
-            // Fetch live stats for each listing
-            for (const listing of fetchedListings) {
-              fetch(`/api/dashboard/stats?listing_id=${listing.id}`, {
-                headers: { Authorization: `Bearer ${token}` },
-              })
-                .then(r => r.ok ? r.json() : null)
-                .then(stats => {
-                  if (stats && !stats.error) {
-                    setLiveStats(prev => ({ ...prev, [listing.id]: stats }))
-                  }
-                })
-                .catch(() => { /* stats fetch failed silently */ })
-            }
-          }
-          setLoading(false)
-        })
-        .catch(() => {
-          setError('Failed to load dashboard')
-          setLoading(false)
-        })
-    })
-  }, [])
+  // All data comes from the dashboard layout: it fetches the owned listings and
+  // their stats once per session and shares them, so landing here costs no
+  // extra API round-trips.
+  const { dashUser: user, listings, listingsLoading, listingsError, stats } = useAuth()
+  const loading = listingsLoading
 
   // Not authenticated
   if (!loading && !user) {
@@ -689,7 +576,7 @@ export default function DashboardPage() {
       )}
 
       {/* Error state */}
-      {error && !loading && (
+      {listingsError && !loading && (
         <section style={{ padding: '0 1.5rem 2rem', maxWidth: 720, margin: '0 auto' }}>
           <div style={{
             padding: '16px 20px',
@@ -701,25 +588,25 @@ export default function DashboardPage() {
               fontFamily: 'var(--font-body, system-ui)', fontSize: 14,
               color: '#991b1b', margin: 0,
             }}>
-              {error}
+              {listingsError}
             </p>
           </div>
         </section>
       )}
 
       {/* Listings */}
-      {!loading && !error && listings.length > 0 && (
+      {!loading && listings.length > 0 && (
         <section style={{ padding: '0 1.5rem 2rem', maxWidth: 720, margin: '0 auto' }}>
           <div style={{ display: 'grid', gap: '1rem' }}>
             {listings.map(listing => (
-              <ListingCard key={listing.id} listing={listing} liveStats={liveStats[listing.id]} isAdmin={user?.role === 'admin'} />
+              <ListingCard key={listing.id} listing={listing} liveStats={stats[listing.id]} isAdmin={user?.role === 'admin'} />
             ))}
           </div>
         </section>
       )}
 
       {/* Empty state for vendors with no listings */}
-      {!loading && !error && listings.length === 0 && user && (user.role === 'vendor' || user.role === 'admin') && (
+      {!loading && !listingsError && listings.length === 0 && user && (user.role === 'vendor' || user.role === 'admin') && (
         <section style={{ textAlign: 'center', padding: '2rem 1.5rem 4rem', maxWidth: 520, margin: '0 auto' }}>
           <p style={{
             fontFamily: 'var(--font-body, system-ui)', fontSize: 15,
@@ -753,7 +640,7 @@ export default function DashboardPage() {
           fontFamily: 'var(--font-body, system-ui)', fontWeight: 300, fontSize: 12,
           color: 'var(--color-muted, #888)', opacity: 0.6,
         }}>
-          Dashboard data refreshes daily. Search and trail stats reflect the last 30 days.
+          Views count real visitors to your public pages (bots excluded). Views and search stats reflect the last 30 days.
         </p>
       </section>
     </div>

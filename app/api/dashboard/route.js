@@ -121,31 +121,27 @@ export async function GET(request) {
     // migration-tolerant read for all listings, merged in below.
     const highlightsMap = await readHighlightsMap(sb, listings.map(l => l.id))
 
-    // Enrich each listing with scores and activity stats
+    // Enrich each listing with activity stats. All queries for a listing run
+    // in parallel; the listings themselves are already parallel via the map.
+    // (listing_scores used to be read here too — the table was never populated,
+    // so the query and the score it fed were dead weight on every load.)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
     const enriched = await Promise.all(listings.map(async (listing) => {
-      // Completeness score
-      const { data: scoreData } = await sb
-        .from('listing_scores')
-        .select('score, missing_fields, improvement_note, calculated_at')
-        .eq('listing_id', listing.id)
-        .single()
+      const [searchRes, trailRes, galleryEntries, paid] = await Promise.all([
+        sb
+          .from('listing_search_appearances')
+          .select('id', { count: 'exact', head: true })
+          .eq('listing_id', listing.id)
+          .gte('appeared_at', thirtyDaysAgo),
 
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-      const { count: searchCount } = await sb
-        .from('listing_search_appearances')
-        .select('id', { count: 'exact', head: true })
-        .eq('listing_id', listing.id)
-        .gte('appeared_at', thirtyDaysAgo)
+        // Trail appearances (count of trail_stops referencing this listing)
+        sb
+          .from('trail_stops')
+          .select('id', { count: 'exact', head: true })
+          .eq('listing_id', listing.id),
 
-      // Trail appearances (count of trail_stops referencing this listing)
-      const { count: trailCount } = await sb
-        .from('trail_stops')
-        .select('id', { count: 'exact', head: true })
-        .eq('listing_id', listing.id)
-
-      // Gallery (paid perk) + paid flag, so the editor can render/gate the
-      // photo manager. gallery_image_urls is a storage manifest, not a column.
-      const [galleryEntries, paid] = await Promise.all([
+        // Gallery (paid perk) + paid flag, so the editor can render/gate the
+        // photo manager. gallery_image_urls is a storage manifest, not a column.
         readGalleryEntries(sb, listing.id),
         isListingPaid(sb, listing.id),
       ])
@@ -159,11 +155,9 @@ export async function GET(request) {
         gallery_moderation: galleryEntries.map(e => ({ url: e.url, status: e.status, reason: e.reason })),
         operator_highlights: highlightsMap.get(listing.id) || null,
         paid,
-        score: scoreData || null,
         stats: {
-          search_appearances: searchCount || 0,
-          trail_inclusions: trailCount || 0,
-          views: null, // Coming soon — requires per-listing pageview tracking
+          search_appearances: searchRes.count || 0,
+          trail_inclusions: trailRes.count || 0,
         },
       }
     }))

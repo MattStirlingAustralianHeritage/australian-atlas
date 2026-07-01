@@ -74,6 +74,14 @@ export default function DashboardLayout({ children }) {
   // other surface all speak about the same listing instead of diverging.
   const [listings, setListings] = useState([])
   const [listingsLoading, setListingsLoading] = useState(true)
+  // Identity from the shared JWT (role, verticals) — decoded once here so pages
+  // don't each re-fetch and re-parse the token.
+  const [dashUser, setDashUser] = useState(null)
+  // Per-listing live stats ({ [listingId]: stats }) — fetched once for the whole
+  // dashboard session and shared, instead of every page re-requesting them.
+  const [stats, setStats] = useState({})
+  const [statsLoading, setStatsLoading] = useState(true)
+  const [listingsError, setListingsError] = useState(null)
   // Feature-guide state: which dashboard tools this operator has already opened
   // (so their "!" badges are cleared), whether we've read that from storage yet
   // (avoids a flash of every badge before localStorage loads), and the guide
@@ -92,16 +100,41 @@ export default function DashboardLayout({ children }) {
     })
 
     getDashboardToken().then(token => {
-      if (!token) { setListingsLoading(false); return }
+      if (!token) { setListingsLoading(false); setStatsLoading(false); return }
       try {
         const payload = JSON.parse(atob(token.split('.')[1]))
         setVendorVerticals(payload.verticals || {})
+        setDashUser({
+          id: payload.sub,
+          email: payload.email,
+          name: payload.name,
+          role: payload.role,
+          verticals: payload.verticals || {},
+        })
       } catch { /* silent */ }
 
       fetch('/api/dashboard', { headers: { Authorization: `Bearer ${token}` } })
-        .then(r => (r.ok ? r.json() : null))
-        .then(data => { setListings(data?.listings || []) })
-        .catch(() => { /* sidebar context is best-effort */ })
+        .then(r => (r.ok ? r.json() : Promise.reject(new Error('dashboard fetch failed'))))
+        .then(data => {
+          if (data?.error) throw new Error(data.error)
+          const fetched = data?.listings || []
+          setListings(fetched)
+          if (fetched.length === 0) { setStatsLoading(false); return }
+          // One stats fetch per listing for the whole dashboard session.
+          Promise.all(fetched.map(l =>
+            fetch(`/api/dashboard/stats?listing_id=${l.id}`, { headers: { Authorization: `Bearer ${token}` } })
+              .then(r => (r.ok ? r.json() : null))
+              .then(s => (s && !s.error ? [l.id, s] : null))
+              .catch(() => null)
+          )).then(pairs => {
+            setStats(Object.fromEntries(pairs.filter(Boolean)))
+            setStatsLoading(false)
+          })
+        })
+        .catch((err) => {
+          setListingsError(err?.message || 'Failed to load your listings')
+          setStatsLoading(false)
+        })
         .finally(() => setListingsLoading(false))
     })
 
@@ -319,7 +352,7 @@ export default function DashboardLayout({ children }) {
   )
 
   return (
-    <AuthContext.Provider value={{ user, supabase, listings, listingsLoading }}>
+    <AuthContext.Provider value={{ user, supabase, listings, listingsLoading, listingsError, dashUser, stats, statsLoading }}>
       <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--color-cream)' }}>
         {/* Desktop sidebar */}
         <div className="hidden md:block" style={{ position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 40 }}>
