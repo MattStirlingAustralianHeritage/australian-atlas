@@ -5,6 +5,7 @@ import { generateEmbeddings } from '../../../../lib/sync/syncEmbeddings.js'
 import { updateRegionCounts } from '../../../../lib/sync/updateRegionCounts.js'
 import { sendSyncAlert } from '../../../../lib/sync/alerts.js'
 import { getSupabaseAdmin } from '../../../../lib/supabase/clients.js'
+import { startRun, completeRun } from '../../../../lib/agents/logRun.js'
 
 // Give the full sync (incl. the paced, free-tier Voyage embedding drain) room to
 // run instead of timing out at the default and leaving the backlog stuck.
@@ -27,8 +28,11 @@ export async function GET(request) {
   }
 
   console.log('[cron] Starting full sync...')
+  const runId = await startRun('sync')
   const startTime = Date.now()
   const results = []
+
+  try {
 
   // 1. Sync all standard verticals
   for (const vertical of STANDARD_VERTICALS) {
@@ -155,6 +159,19 @@ export async function GET(request) {
 
   console.log(`[cron] Sync complete in ${duration}s: ${totalSynced} listings synced, ${totalDeactivated} deactivated, ${totalErrors} vertical errors, ${articleResult.synced} articles synced, ${hiddenCount} hidden (no website), ${reinstatedCount} reinstated`)
 
+  await completeRun(runId, {
+    status: totalErrors > 0 ? 'partial' : 'success',
+    summary: {
+      synced: totalSynced,
+      deactivated: totalDeactivated,
+      articles_synced: articleResult.synced,
+      hidden_no_website: hiddenCount,
+      reinstated: reinstatedCount,
+      vertical_errors: totalErrors,
+      duration_s: Number(duration),
+    },
+  })
+
   return NextResponse.json({
     ok: true,
     duration: `${duration}s`,
@@ -164,4 +181,10 @@ export async function GET(request) {
     verticals: results,
     errors: totalErrors,
   })
+
+  } catch (err) {
+    console.error('[cron] Sync fatal error:', err.message)
+    await completeRun(runId, { status: 'error', error: err.message })
+    return NextResponse.json({ ok: false, error: err.message }, { status: 500 })
+  }
 }

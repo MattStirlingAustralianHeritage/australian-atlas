@@ -9,10 +9,13 @@ import { sendAgentEmail } from '@/lib/agents/email'
  * Automated hero image health checker. Runs weekly (Tuesday 3am AEST).
  *
  * HEAD-checks every active listing with a hero_image_url.
- *   - Dead (404/410/403/connection failure): nulls hero_image_url,
- *     flags staleness_flags.hero_image_status = 'dead'
+ *   - Dead (404/410/403/connection failure) on FAILURE_THRESHOLD
+ *     consecutive runs: nulls hero_image_url, flags
+ *     staleness_flags.hero_image_status = 'dead'. A single failed check
+ *     only marks it 'suspect' — nulling on one blip permanently dropped
+ *     real hero images on transient 403s/timeouts.
  *   - Alive (2xx/3xx): flags hero_image_status = 'verified',
- *     sets hero_image_verified_at = now()
+ *     sets hero_image_verified_at = now(), resets the failure counter
  *
  * Auth: Bearer CRON_SECRET
  */
@@ -21,6 +24,10 @@ export const maxDuration = 300
 
 const BATCH_SIZE = 100
 const DELAY_MS = 300
+const FAILURE_THRESHOLD = 2 // consecutive failed runs before nulling the image
+// Stop with headroom before the platform kill so completeRun always lands
+// (a 300s timeout bypasses the catch and strands the run at 'running').
+const TIME_BUDGET_MS = 270000
 
 export async function GET(request) {
   // ── Auth ────────────────────────────────────────────────────
@@ -35,18 +42,21 @@ export async function GET(request) {
   const counts = {
     images_checked: 0,
     dead: 0,
+    suspect: 0,
     verified: 0,
     errors: 0,
   }
 
   const deadListings = []
+  const deadlineMs = Date.now() + TIME_BUDGET_MS
+  let timeCapped = false
 
   try {
     // ── Pass 1: Check existing hero images ────────────────────
     let offset = 0
     let hasMore = true
 
-    while (hasMore) {
+    while (hasMore && !timeCapped) {
       const { data: batch, error: fetchError } = await sb
         .from('listings')
         .select('id, name, vertical, hero_image_url, staleness_flags')
@@ -66,7 +76,15 @@ export async function GET(request) {
         break
       }
 
+      // Nulled images drop out of the filtered set; verified/suspect rows
+      // stay, so the cursor advances past them.
+      let removedFromSet = 0
+
       for (const listing of batch) {
+        if (Date.now() >= deadlineMs) {
+          timeCapped = true
+          break
+        }
         counts.images_checked++
         const result = await checkImageUrl(listing.hero_image_url)
         const now = new Date().toISOString()
@@ -75,6 +93,7 @@ export async function GET(request) {
         if (result.ok) {
           // ── Image is alive ──────────────────────────────────
           flags.hero_image_status = 'verified'
+          delete flags.hero_image_failures
 
           const { error: updateError } = await sb
             .from('listings')
@@ -96,24 +115,47 @@ export async function GET(request) {
           result.status === 403 ||
           result.status === 0
         ) {
-          // ── Image is dead ───────────────────────────────────
-          flags.hero_image_status = 'dead'
+          const failures = (flags.hero_image_failures || 0) + 1
 
-          const { error: updateError } = await sb
-            .from('listings')
-            .update({
-              hero_image_url: null,
-              staleness_flags: flags,
-            })
-            .eq('id', listing.id)
+          if (failures >= FAILURE_THRESHOLD) {
+            // ── Image is dead (consecutive failed runs) ───────
+            flags.hero_image_status = 'dead'
+            delete flags.hero_image_failures
 
-          if (updateError) {
-            console.error(`[dead-image-agent] Update error for "${listing.name}":`, updateError.message)
-            counts.errors++
+            const { error: updateError } = await sb
+              .from('listings')
+              .update({
+                hero_image_url: null,
+                staleness_flags: flags,
+              })
+              .eq('id', listing.id)
+
+            if (updateError) {
+              console.error(`[dead-image-agent] Update error for "${listing.name}":`, updateError.message)
+              counts.errors++
+            } else {
+              counts.dead++
+              removedFromSet++
+              deadListings.push({ name: listing.name, vertical: listing.vertical, status: result.status })
+              console.log(`[dead-image-agent] DEAD: "${listing.name}" (${listing.vertical}) — status ${result.status || 'connection failure'} (${failures} consecutive runs)`)
+            }
           } else {
-            counts.dead++
-            deadListings.push({ name: listing.name, vertical: listing.vertical, status: result.status })
-            console.log(`[dead-image-agent] DEAD: "${listing.name}" (${listing.vertical}) — status ${result.status || 'connection failure'}`)
+            // ── First strike — keep the image, re-check next run ─
+            flags.hero_image_status = 'suspect'
+            flags.hero_image_failures = failures
+
+            const { error: updateError } = await sb
+              .from('listings')
+              .update({ staleness_flags: flags })
+              .eq('id', listing.id)
+
+            if (updateError) {
+              console.error(`[dead-image-agent] Update error for "${listing.name}":`, updateError.message)
+              counts.errors++
+            } else {
+              counts.suspect++
+              console.log(`[dead-image-agent] SUSPECT: "${listing.name}" — status ${result.status || 'connection failure'} (failure ${failures}/${FAILURE_THRESHOLD})`)
+            }
           }
         } else {
           // ── Transient error (5xx, etc.) — skip ──────────────
@@ -126,7 +168,7 @@ export async function GET(request) {
       if (batch.length < BATCH_SIZE) {
         hasMore = false
       } else {
-        offset += batch.length
+        offset += batch.length - removedFromSet
       }
     }
 
@@ -135,8 +177,10 @@ export async function GET(request) {
       summary: {
         images_checked: counts.images_checked,
         dead: counts.dead,
+        suspect: counts.suspect,
         verified: counts.verified,
         errors: counts.errors,
+        time_capped: timeCapped ? 'yes' : null,
       },
     })
 

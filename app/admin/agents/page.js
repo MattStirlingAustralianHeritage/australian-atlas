@@ -31,9 +31,9 @@ const AGENTS = [
   {
     key: 'geocoding-watchdog',
     name: 'Geocoding Watchdog',
-    schedule: 'On candidate approval',
-    endpoint: null,
-    description: 'Validates listing coordinates against Mapbox reverse geocoding. Flags mismatches where coordinates are >5km from stated suburb.',
+    schedule: 'Wednesdays 4:30 AM AEST',
+    endpoint: '/api/cron/geocoding-watchdog',
+    description: 'Validates listing coordinates against Mapbox reverse geocoding, 100 per week. Flags mismatches where coordinates are >5km from stated suburb. Non-destructive — writes geocode_confidence/geocode_warning only.',
   },
   {
     key: 'monday-briefing',
@@ -125,6 +125,49 @@ const AGENTS = [
     endpoint: '/api/cron/prospect',
     description: 'Discovers venue candidates via Google Places API, deduplicates against master DB, and runs 5-gate quality verification pipeline.',
     reviewLink: '/admin/growth',
+  },
+  {
+    key: 'sync',
+    name: 'Vertical Sync',
+    schedule: 'Every 6 hours',
+    endpoint: '/api/cron/sync',
+    description: 'Pulls listings from all vertical source DBs into the master, syncs articles, updates region counts, and enforces the website requirement.',
+  },
+  {
+    key: 'embeddings',
+    name: 'Embedding Drain',
+    schedule: 'Hourly',
+    endpoint: '/api/cron/embeddings',
+    description: 'Generates Voyage embeddings for never-embedded and stale-vector listings and articles, paced for the free tier.',
+  },
+  {
+    key: 'ensure-candidates',
+    name: 'Candidate Floor',
+    schedule: 'Daily 6:30 AM AEST',
+    endpoint: '/api/cron/ensure-candidates',
+    description: 'Floor guarantee for the review queue — tops each vertical back up to 10 pending candidates, emptiest-first, via OSM Overpass.',
+    reviewLink: '/admin/candidates',
+  },
+  {
+    key: 'archive-events',
+    name: 'Event Archiver',
+    schedule: 'Daily 1 PM AEST',
+    endpoint: '/api/cron/archive-events',
+    description: 'Archives approved events whose end date has passed.',
+  },
+  {
+    key: 'trail-builder-health',
+    name: 'Trail Builder Health',
+    schedule: 'Every 6 hours',
+    endpoint: '/api/health/trail-builder',
+    description: 'Probes the trail-builder pipeline: Anthropic key, Claude reachability, Supabase connectivity, listing count. Only cron-authenticated probes are recorded here.',
+  },
+  {
+    key: 'fleet-health',
+    name: 'Fleet Health Monitor',
+    schedule: 'Daily 8:30 PM AEST',
+    endpoint: '/api/cron/fleet-health',
+    description: 'Watches every other agent for overdue, stranded, or failing runs and emails only when something is wrong. The watchdog for the watchdogs.',
   },
 ]
 

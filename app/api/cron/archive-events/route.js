@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { startRun, completeRun } from '@/lib/agents/logRun'
 
 export async function GET(request) {
   // Verify cron secret
@@ -7,6 +8,8 @@ export async function GET(request) {
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+
+  const runId = await startRun('archive-events')
 
   try {
     const sb = getSupabaseAdmin()
@@ -24,9 +27,12 @@ export async function GET(request) {
     const count = data?.length || 0
     console.log(`[cron/archive-events] Archived ${count} event(s)`)
 
+    await completeRun(runId, { summary: { archived: count } })
+
     return NextResponse.json({ success: true, archived: count })
   } catch (err) {
     console.error('[cron/archive-events] Error:', err.message)
+    await completeRun(runId, { status: 'error', error: err.message })
     return NextResponse.json({ error: 'Archive failed' }, { status: 500 })
   }
 }

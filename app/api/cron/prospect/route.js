@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { replenishVertical, buildDedupSets, AUTO_VERTICALS, VERTICAL_NAMES } from '@/lib/prospector/replenish'
 import { probePlacesQuota } from '@/lib/prospector/google-places'
+import { startRun, completeRun } from '@/lib/agents/logRun'
 
 /**
  * GET /api/cron/prospect
@@ -38,6 +39,9 @@ export async function GET(request) {
   const sb = getSupabaseAdmin()
   const startTime = Date.now()
   const deadlineMs = startTime + 270000
+  const runId = await startRun('prospect')
+
+  try {
 
   // OSM Overpass is the primary, quota-free supply; Google Places is an optional
   // top-up only when its quota is healthy. Probe once so a dead quota is skipped
@@ -92,6 +96,21 @@ export async function GET(request) {
   const duration = ((Date.now() - startTime) / 1000).toFixed(1)
   console.log(`[prospect] Done in ${duration}s — ${totalDiscovered} discovered, ${totalQueued} queued, ${totalGatesPassedButNotInserted} insert-failed, ${totalDisqualified} disqualified`)
 
+  const verticalErrors = results.filter(r => r.status === 'error').length
+  await completeRun(runId, {
+    status: verticalErrors > 0 ? 'partial' : 'success',
+    summary: {
+      vertical: onlyVertical || 'all',
+      discovered: totalDiscovered,
+      queued: totalQueued,
+      disqualified: totalDisqualified,
+      insert_failed: totalGatesPassedButNotInserted,
+      source: places.available ? 'osm+places' : 'osm_only',
+      vertical_errors: verticalErrors,
+      dry_run: dryRun ? 'yes' : null,
+    },
+  })
+
   return NextResponse.json({
     success: true,
     source: places.available ? 'osm_overpass+google_places' : 'osm_overpass',
@@ -112,4 +131,16 @@ export async function GET(request) {
     dry_run: dryRun,
     results,
   })
+
+  } catch (err) {
+    // Pre-loop failures (quota probe, dedup build) would otherwise strand the
+    // run at status='running' and 500 without a trace in agent_runs.
+    console.error('[prospect] Fatal error:', err.message)
+    await completeRun(runId, {
+      status: 'error',
+      error: err.message,
+      summary: { vertical: onlyVertical || 'all' },
+    })
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 })
+  }
 }

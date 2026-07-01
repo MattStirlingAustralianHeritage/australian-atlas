@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { generateEmbeddings } from '../../../../lib/sync/syncEmbeddings.js'
+import { startRun, completeRun } from '../../../../lib/agents/logRun.js'
 
 // Dedicated embedding drain — runs hourly so the never-embedded + stale-vector
 // backlog isn't starved by the 6-hourly full sync (which runs vertical/article
@@ -13,11 +14,14 @@ export async function GET(request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   const t0 = Date.now()
+  const runId = await startRun('embeddings')
   try {
     const result = await generateEmbeddings({ maxListings: 8000, maxArticles: 200 })
+    await completeRun(runId, { summary: { ...result, ms: Date.now() - t0 } })
     return NextResponse.json({ ok: true, ...result, ms: Date.now() - t0 })
   } catch (err) {
     console.error('[cron/embeddings] failed:', err.message)
+    await completeRun(runId, { status: 'error', error: err.message })
     return NextResponse.json({ ok: false, error: err.message }, { status: 500 })
   }
 }

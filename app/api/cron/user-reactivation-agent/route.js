@@ -66,7 +66,7 @@ export async function GET(request) {
     // Get users who haven't signed in for 30+ days
     const { data: inactiveProfiles } = await sb
       .from('profiles')
-      .select('id, email, display_name, home_state, last_sign_in_at, reactivation_email_sent_at')
+      .select('id, email, full_name, home_state, last_sign_in_at, reactivation_email_sent_at')
       .lt('last_sign_in_at', thirtyDaysAgo)
       .not('email', 'is', null)
       .limit(200)
