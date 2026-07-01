@@ -140,7 +140,7 @@ export async function POST(request) {
 
     // Cache key includes the refinements so pinning a pill doesn't serve the
     // unfiltered answer.
-    const ckey = cacheKey(`${query}|${reqVertical || ''}|${reqState || ''}`)
+    const ckey = cacheKey(`${answerLocale}|${query}|${reqVertical || ''}|${reqState || ''}`)
     const cached = cacheGet(ckey)
     if (cached) return NextResponse.json({ ...cached, cached: true })
 

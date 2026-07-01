@@ -50,17 +50,22 @@ export async function middleware(request, event) {
   // unprefixed path) so gating behaves identically under `/ko`.
   const { locale, basePath } = splitLocale(pathname)
   const isKo = locale !== defaultLocale
-  const requestHeaders = new Headers(request.headers)
-  requestHeaders.set(LOCALE_HEADER, locale)
   const rewriteUrl = isKo
     ? new URL(`${basePath}${request.nextUrl.search}`, request.url)
     : null
   // Build a passthrough response that carries the locale header and, for Korean,
-  // rewrites to the underlying route. Reused by Supabase's cookie setAll below.
-  const makeResponse = () =>
-    isKo
-      ? NextResponse.rewrite(rewriteUrl, { request: { headers: requestHeaders } })
-      : NextResponse.next({ request: { headers: requestHeaders } })
+  // rewrites to the underlying route. The forwarded request headers are rebuilt
+  // from request.headers at CALL time (not a one-time snapshot): when Supabase's
+  // setAll mutates the request cookies on a token-refresh boundary, that refresh
+  // must be forwarded to the same-request downstream render — matching the
+  // original `NextResponse.next({ request })` behaviour. Reused by setAll below.
+  const makeResponse = () => {
+    const headers = new Headers(request.headers)
+    headers.set(LOCALE_HEADER, locale)
+    return isKo
+      ? NextResponse.rewrite(rewriteUrl, { request: { headers } })
+      : NextResponse.next({ request: { headers } })
+  }
 
   // ── Admin routes: check FIRST, before Supabase touches cookies ──
   if (basePath.startsWith('/admin') && !basePath.startsWith('/admin/login')) {
@@ -76,8 +81,10 @@ export async function middleware(request, event) {
         process.env.ADMIN_SESSION_SECRET || process.env.ADMIN_PASSWORD
       )
       await jwtVerify(adminToken, secret)
-      // Valid JWT — let the request through
-      return NextResponse.next()
+      // Valid JWT — let the request through. makeResponse() (not a bare next())
+      // so a /ko/admin request is still rewritten to /admin and carries the
+      // locale header; a bare next() would serve the unmatched /ko/admin → 404.
+      return makeResponse()
     } catch (err) {
       // Invalid token — clear and redirect. Legacy raw-password cookies are no
       // longer accepted; re-login at /admin/login mints a fresh signed JWT.
@@ -132,9 +139,14 @@ export async function middleware(request, event) {
     return NextResponse.redirect(new URL(localizePath('/login', locale), request.url))
   }
 
-  // hreflang alternates on every HTML page (SEO). Cheap header append; the
-  // matcher already excludes static assets and cron.
-  response.headers.set('Link', hreflangLinkHeader(request.nextUrl.origin, basePath))
+  // hreflang alternates on HTML pages (SEO). Skip the non-document routes the
+  // matcher still lets through (API JSON, OG images, sitemap.xml, robots.txt) —
+  // language alternates are meaningless on those.
+  const nonDocument =
+    /^\/(api|og)\//.test(basePath) || basePath === '/sitemap.xml' || basePath === '/robots.txt'
+  if (!nonDocument) {
+    response.headers.set('Link', hreflangLinkHeader(request.nextUrl.origin, basePath))
+  }
 
   return response
 }

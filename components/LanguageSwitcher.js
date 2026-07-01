@@ -16,7 +16,12 @@ export default function LanguageSwitcher() {
   const locale = useLocale()
   const pathname = usePathname() || '/'
   const { basePath } = splitLocale(pathname)
-  const go = (loc) => { if (loc !== locale) window.location.assign(localizePath(basePath, loc)) }
+  const go = (loc) => {
+    if (loc === locale) return
+    // Preserve the current query string + hash across the switch (usePathname
+    // returns only the path), so /search?q=… and #anchors survive the toggle.
+    window.location.assign(localizePath(basePath, loc) + window.location.search + window.location.hash)
+  }
 
   return (
     <div

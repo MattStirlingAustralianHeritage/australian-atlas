@@ -1,5 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
-import { localizePath } from '@/lib/i18n/config'
+import { localizePath, splitLocale } from '@/lib/i18n/config'
 
 export const revalidate = 3600
 
@@ -10,12 +10,15 @@ const PAGE_SIZE = 1000
 // English URL gains a `/ko` sibling; the visible URL stays the English one.
 function withAlternates(entry) {
   const path = entry.url.startsWith(SITE_URL) ? entry.url.slice(SITE_URL.length) || '/' : entry.url
+  // Normalise any locale prefix back to the base path first, so an already-
+  // prefixed entry (e.g. the /ko home) isn't double-prefixed into /ko/ko.
+  const base = splitLocale(path).basePath
   return {
     ...entry,
     alternates: {
       languages: {
-        en: `${SITE_URL}${localizePath(path, 'en')}`,
-        ko: `${SITE_URL}${localizePath(path, 'ko')}`,
+        en: `${SITE_URL}${localizePath(base, 'en')}`,
+        ko: `${SITE_URL}${localizePath(base, 'ko')}`,
       },
     },
   }
