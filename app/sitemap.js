@@ -1,9 +1,25 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { localizePath } from '@/lib/i18n/config'
 
 export const revalidate = 3600
 
 const SITE_URL = 'https://australianatlas.com.au'
 const PAGE_SIZE = 1000
+
+// Attach en/ko hreflang alternates to a sitemap entry (Korean launch). Every
+// English URL gains a `/ko` sibling; the visible URL stays the English one.
+function withAlternates(entry) {
+  const path = entry.url.startsWith(SITE_URL) ? entry.url.slice(SITE_URL.length) || '/' : entry.url
+  return {
+    ...entry,
+    alternates: {
+      languages: {
+        en: `${SITE_URL}${localizePath(path, 'en')}`,
+        ko: `${SITE_URL}${localizePath(path, 'ko')}`,
+      },
+    },
+  }
+}
 
 /**
  * Fetch all rows from a table in batches to handle >1000 records.
@@ -138,13 +154,18 @@ export default async function sitemap() {
     priority: 0.7,
   }))
 
+  // Korean home as an explicit entry, plus en/ko alternates on every URL so
+  // search engines discover the /ko surface for the whole site.
+  const koHome = { url: `${SITE_URL}/ko`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.9 }
+
   return [
     ...staticPages,
+    koHome,
     ...listingPages,
     ...regionPages,
     ...trailPages,
     ...eventPages,
     ...articlePages,
     ...seoPageEntries,
-  ]
+  ].map(withAlternates)
 }
