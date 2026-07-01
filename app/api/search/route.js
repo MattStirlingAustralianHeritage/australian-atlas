@@ -15,6 +15,7 @@ import { detectVerticalIntent } from '@/lib/search/verticalIntent'
 import { relevanceFloorFor } from '@/lib/search/relevanceFloor'
 import { rerankSearchResults } from '@/lib/search/rerank'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { translateSearchQuery } from '@/lib/search/translateQuery'
 
 // Largest candidate pool the RPC ranks per request. Pagination/dedup/total are
 // computed over this fixed pool so `total` is stable across pages (it does NOT
@@ -211,7 +212,12 @@ export async function GET(request) {
   if (limited) return limited
 
   const { searchParams } = new URL(request.url)
-  const q = (searchParams.get('q') || '').trim()
+  // Korean launch: a Korean query is translated to English here, before any
+  // region/place/vertical resolution or embedding — the entire English search
+  // pipeline below then runs unchanged. English queries pass through untouched
+  // (no Hangul → no-op) and fail-open on any translation error.
+  const qRaw = (searchParams.get('q') || '').trim()
+  const q = await translateSearchQuery(qRaw, searchParams.get('lang'))
   const vertical = searchParams.get('vertical') || null
   const state = searchParams.get('state') || null
   const region = searchParams.get('region') || null
