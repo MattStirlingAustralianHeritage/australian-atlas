@@ -18,6 +18,12 @@ const MAX_RUN = 2
 // And cap any single vertical's SHARE of a batch, so even a strongly-concentrated
 // taste yields a genuine cross-section of verticals rather than a firehose of one.
 const MAX_DOMINANT_SHARE = 0.4
+// On the taste path the RPC returns a DETERMINISTIC nearest-neighbour order, so a
+// refresh would otherwise serve the identical lead card every time. Shuffle within
+// this many of the top-ranked cards so the lead varies between loads while staying
+// strongly on-taste (every card in the band is a close taste match). Mirrors the
+// cold-start path, which already shuffles "so the lead card varies between loads".
+const VARIETY_BAND = 12
 
 /** Fisher–Yates shuffle (returns a copy). */
 function shuffle(arr) {
@@ -290,15 +296,21 @@ async function rankedBatch(sb, taste, seen, limit, recentVerticals = []) {
     ranked.push(trimCard(l))
   }
 
+  // Vary the served order between loads so a refresh surfaces a different — still
+  // highly-ranked — lead card, rather than the identical nearest-neighbour every
+  // time. Shuffle only within the top relevance band, so taste relevance holds
+  // (a far-from-taste card is never promoted) while the lead genuinely rotates.
+  const varied = [...shuffle(ranked.slice(0, VARIETY_BAND)), ...ranked.slice(VARIETY_BAND)]
+
   // ALWAYS blend in a diverse pool from other verticals (not just as a fallback)
   // so the served feed is a cross-section. The dominant vertical is capped per
   // batch and never runs longer than MAX_RUN — counted across the served history.
-  const dominant = modeVertical(ranked)
+  const dominant = modeVertical(varied)
   const exclude = new Set(seen)
-  ranked.forEach((r) => exclude.add(String(r.id)))
+  varied.forEach((r) => exclude.add(String(r.id)))
   const explore = await explorationPool(sb, dominant, exclude, limit * 2)
 
-  return buildDiverseBatch(ranked, explore, limit, {
+  return buildDiverseBatch(varied, explore, limit, {
     maxRun: MAX_RUN,
     dominantV: dominant,
     recentVerticals,
