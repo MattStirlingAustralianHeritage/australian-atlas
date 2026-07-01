@@ -2,6 +2,9 @@ import { cache } from 'react'
 import { notFound } from 'next/navigation'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
+import { getLocale } from 'next-intl/server'
+import { localizeSubcategory, localizeVerticalCategory, localizeRegionName } from '@/lib/i18n/listingLabels'
+import { localizePath } from '@/lib/i18n/config'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getVerticalUrl, getVerticalLabel, getVerticalTagline, getVerticalBrandColour, getPublicVerticals } from '@/lib/verticalUrl'
 import { relationHasVerticals, listingVerticals } from '@/lib/listings/verticalFilter'
@@ -134,7 +137,7 @@ function formatSubcategory(value) {
 }
 
 
-const getListing = cache(async function getListing(slug) {
+const getListing = cache(async function getListing(slug, locale = 'en') {
   const sb = getSupabaseAdmin()
   // slug is NOT unique across verticals — use limit(1) instead of .single()
   // to avoid PGRST116 if two verticals share a slug
@@ -235,6 +238,24 @@ const getListing = cache(async function getListing(slug) {
   // Read resiliently (own query, migration-tolerant) so it can never break the
   // page if the column hasn't been added yet.
   data._highlights = await readHighlights(sb, data.id)
+
+  // ── Locale overlay (Korean) ──
+  // Overlay translated name/description from listing_translations, field by
+  // field, falling back to the English column on any missing row/field. Never
+  // blanks a field. Read is resilient: a missing table (pre-migration) or error
+  // simply leaves the English source in place.
+  if (locale && locale !== 'en') {
+    try {
+      const { data: tr } = await sb
+        .from('listing_translations')
+        .select('name, description')
+        .eq('listing_id', data.id)
+        .eq('locale', locale)
+        .maybeSingle()
+      if (tr?.name && tr.name.trim()) data.name = tr.name
+      if (tr?.description && tr.description.trim()) data.description = tr.description
+    } catch { /* keep English fallback */ }
+  }
 
   return data
 })
@@ -513,13 +534,19 @@ function cleanWebsite(url) {
 
 export async function generateMetadata({ params }) {
   const { slug } = await params
-  const listing = await getListing(slug)
+  const locale = await getLocale()
+  const listing = await getListing(slug, locale)
   if (!listing) return { title: 'Place not found' }
 
-  const metaSubcategory = formatSubcategory(listing._subcategory || listing.sub_type)
-  const vertLabel = metaSubcategory || VERTICAL_CATEGORY_LABELS[listing.vertical] || 'Place'
+  const rawSubcat = listing._subcategory || listing.sub_type
+  const metaSubcategory = localizeSubcategory(rawSubcat, formatSubcategory(rawSubcat), locale)
+  const vertLabel = metaSubcategory
+    || localizeVerticalCategory(listing.vertical, VERTICAL_CATEGORY_LABELS[listing.vertical], locale)
+    || 'Place'
   const region = getListingRegion(listing)
-  const location = [region?.name, listing.state].filter(Boolean).join(', ')
+  const location = [localizeRegionName(region?.name, locale), listing.state].filter(Boolean).join(', ')
+  const enUrl = `https://australianatlas.com.au/place/${slug}`
+  const koUrl = `https://australianatlas.com.au${localizePath(`/place/${slug}`, 'ko')}`
   const title = location
     ? `${listing.name} — ${vertLabel} in ${location}`
     : `${listing.name} — ${vertLabel}`
@@ -533,9 +560,9 @@ export async function generateMetadata({ params }) {
     openGraph: {
       title,
       description,
-      url: `https://australianatlas.com.au/place/${slug}`,
+      url: locale === 'ko' ? koUrl : enUrl,
       siteName: 'Australian Atlas',
-      locale: 'en_AU',
+      locale: locale === 'ko' ? 'ko_KR' : 'en_AU',
       type: 'website',
       images: [
         // Same moderation gate as the visible hero — a flagged/held image must
@@ -546,7 +573,12 @@ export async function generateMetadata({ params }) {
       ],
     },
     alternates: {
-      canonical: `https://australianatlas.com.au/place/${slug}`,
+      canonical: locale === 'ko' ? koUrl : enUrl,
+      languages: {
+        en: enUrl,
+        ko: koUrl,
+        'x-default': enUrl,
+      },
     },
   }
 }
@@ -555,7 +587,8 @@ export async function generateMetadata({ params }) {
 
 export default async function PlacePage({ params }) {
   const { slug } = await params
-  const listing = await getListing(slug)
+  const locale = await getLocale()
+  const listing = await getListing(slug, locale)
   if (!listing) notFound()
 
   // Server-side admin check — determines whether the inline editor renders at all.
@@ -617,14 +650,18 @@ export default async function PlacePage({ params }) {
   // from regions table, or null when both region_computed_id and region_override_id
   // are NULL (the ~917 quarantine listings). Per Decision 1, no fallback to legacy text.
   const region = getListingRegion(listing)
-  const cleanRegion = region?.name ?? null
+  const cleanRegion = region?.name ? localizeRegionName(region.name, locale) : null
   const regionData = region
 
   const vertLabel = getVerticalLabel(listing.vertical)
   const vertColor = getVerticalBrandColour(listing.vertical) || '#5F8A7E'
-  const specificSubcategory = formatSubcategory(listing._subcategory || listing.sub_type)
-  const categoryLabel = specificSubcategory || VERTICAL_CATEGORY_LABELS[listing.vertical] || 'Place'
-  const secondarySubcategories = (listing.sub_types || []).slice(1).map(formatSubcategory).filter(Boolean)
+  const rawSubcat = listing._subcategory || listing.sub_type
+  const specificSubcategory = localizeSubcategory(rawSubcat, formatSubcategory(rawSubcat), locale)
+  const categoryLabel = specificSubcategory
+    || localizeVerticalCategory(listing.vertical, VERTICAL_CATEGORY_LABELS[listing.vertical], locale)
+    || 'Place'
+  const secondarySubcategories = (listing.sub_types || []).slice(1)
+    .map(v => localizeSubcategory(v, formatSubcategory(v), locale)).filter(Boolean)
   // National parks are public land with no operator to claim — suppress the
   // claim CTA for any listing whose subcategory is "National Park" (matches the
   // raw `national_park` key or a stored "National Park" label, across verticals).
