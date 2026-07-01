@@ -48,21 +48,22 @@ export default async function EventsPage({ searchParams }) {
   const isLowCount = total > 0 && total <= LOW_COUNT
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12">
-      <h1 className="font-[family-name:var(--font-serif)] text-3xl sm:text-4xl font-bold">
-        Events
-      </h1>
-      <p className="mt-2 text-[var(--color-muted)] max-w-xl">
-        Upcoming events across the Australian Atlas network
-      </p>
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 pb-12">
+      <div className="page-masthead max-w-2xl">
+        <p className="section-dateline">On the calendar</p>
+        <h1 className="masthead-title">What&apos;s on</h1>
+        <p className="masthead-sub">
+          Festivals, markets, long-table dinners, exhibitions and workshops across the Australian Atlas network.
+        </p>
+      </div>
 
       {/* Filters — only once there are enough events to justify them */}
       {showFilters && (
-        <form className="mt-8 flex flex-wrap gap-3">
+        <form className="mt-2 flex flex-wrap gap-3">
           <select
             name="state"
             defaultValue={state}
-            className="px-3 py-2 rounded-lg border border-[var(--color-border)] bg-white text-sm text-[var(--color-ink)] font-[family-name:var(--font-sans)]"
+            className="atlas-select px-3 py-2 border border-[var(--color-border)] bg-white text-sm text-[var(--color-ink)] font-[family-name:var(--font-sans)]"
           >
             <option value="">All states</option>
             {STATES.map(s => (
@@ -74,7 +75,7 @@ export default async function EventsPage({ searchParams }) {
             <select
               name="category"
               defaultValue={category}
-              className="px-3 py-2 rounded-lg border border-[var(--color-border)] bg-white text-sm text-[var(--color-ink)] font-[family-name:var(--font-sans)] capitalize"
+              className="atlas-select px-3 py-2 border border-[var(--color-border)] bg-white text-sm text-[var(--color-ink)] font-[family-name:var(--font-sans)] capitalize"
             >
               <option value="">All types</option>
               {categories.map(c => (
@@ -96,10 +97,26 @@ export default async function EventsPage({ searchParams }) {
 
       {/* Events */}
       {total === 0 ? (
-        <div className="mt-16 text-center">
-          <p className="text-[var(--color-muted)] text-lg">No upcoming events</p>
-          <p className="mt-2 text-[var(--color-muted)] text-sm">
-            {(state || category) ? 'Try clearing your filters.' : 'Check back soon for events across the network.'}
+        <div
+          className="mt-12 text-center mx-auto"
+          style={{
+            maxWidth: '440px', border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-lg)', padding: '48px 32px', background: '#fff',
+          }}
+        >
+          <p style={{
+            fontFamily: 'var(--font-display)', fontStyle: 'italic',
+            fontSize: '20px', color: 'var(--color-ink)', marginBottom: '10px',
+          }}>
+            Nothing on the calendar just yet.
+          </p>
+          <p style={{
+            fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px',
+            lineHeight: 1.6, color: 'var(--color-muted)',
+          }}>
+            {(state || category)
+              ? 'Try clearing your filters.'
+              : 'Markets, festivals, openings, and long-table dinners will appear here as they’re announced.'}
           </p>
         </div>
       ) : isLowCount ? (

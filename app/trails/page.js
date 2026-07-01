@@ -47,8 +47,8 @@ export default async function TrailsPage() {
       {/* Hero with prompt */}
       <div style={{ background: 'var(--color-cream)', borderBottom: '1px solid var(--color-border)' }}>
         <div className="max-w-4xl mx-auto text-center" style={{ padding: '64px 24px 56px' }}>
-          <p style={{ fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--color-sage)', marginBottom: 12, fontFamily: 'var(--font-body)', fontWeight: 600 }}>Discovery Trails</p>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(28px, 4vw, 42px)', fontWeight: 400, color: 'var(--color-ink)', marginBottom: 12, lineHeight: 1.2 }}>
+          <p className="section-dateline" style={{ marginBottom: 14 }}>Discovery Trails</p>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(30px, 4.4vw, 46px)', fontWeight: 400, letterSpacing: '-0.015em', color: 'var(--color-ink)', marginBottom: 12, lineHeight: 1.12 }}>
             Plan a trip in plain English
           </h1>
           <p style={{ color: 'var(--color-muted)', fontSize: 15, lineHeight: 1.6, maxWidth: 520, margin: '0 auto', fontFamily: 'var(--font-body)' }}>

@@ -469,7 +469,7 @@ h1 { letter-spacing: -0.015em; font-feature-settings: 'liga' 1, 'kern' 1; }
    Dateline kicker above a large serif title above a muted body-sans standfirst.
    Left-anchored, generous air, no card chrome — a printed contents page. */
 .page-masthead { padding-top: clamp(40px, 7vh, 76px); padding-bottom: clamp(22px, 4vh, 40px); }
-.page-masthead .masthead-title {
+.masthead-title {
   font-family: var(--font-display);
   font-weight: 400;
   font-size: clamp(2.15rem, 4.6vw, 3.6rem);
@@ -479,7 +479,7 @@ h1 { letter-spacing: -0.015em; font-feature-settings: 'liga' 1, 'kern' 1; }
   margin: 14px 0 0;
   text-wrap: balance;
 }
-.page-masthead .masthead-sub {
+.masthead-sub {
   font-family: var(--font-body);
   font-weight: 300;
   font-size: 16px;
@@ -489,7 +489,7 @@ h1 { letter-spacing: -0.015em; font-feature-settings: 'liga' 1, 'kern' 1; }
   margin: 14px 0 0;
 }
 @media (max-width: 640px) {
-  .page-masthead .masthead-sub { font-size: 14.5px; }
+  .masthead-sub { font-size: 14.5px; }
 }
 
 /* Spectrum hairline — the ten saturated grounds as a slim woven band, in the

@@ -60,11 +60,7 @@ export default async function CollectionsPage() {
       {/* Hero */}
       <div className="section-gap" style={{ background: 'var(--color-cream)', borderBottom: '1px solid var(--color-border)' }}>
         <div className="max-w-4xl mx-auto text-center" style={{ padding: '0 24px' }}>
-          <p style={{
-            fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase',
-            color: 'var(--color-sage)', marginBottom: 16,
-            fontFamily: 'var(--font-body)', fontWeight: 600,
-          }}>
+          <p className="section-dateline" style={{ marginBottom: 16 }}>
             Collections
           </p>
           <h1 style={{

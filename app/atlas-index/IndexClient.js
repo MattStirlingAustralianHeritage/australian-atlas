@@ -481,12 +481,14 @@ export default function IndexClient({ listings, totalCount, publicVerticals = []
           padding: '3rem 1.5rem 0.5rem',
         }}
       >
+        <p className="section-dateline" style={{ marginBottom: '14px' }}>The Atlas Index</p>
         <h1
           style={{
             fontFamily: 'var(--font-display)',
             fontWeight: 400,
-            fontSize: '2.75rem',
-            lineHeight: 1.1,
+            fontSize: 'clamp(2.15rem, 4.6vw, 3.6rem)',
+            letterSpacing: '-0.015em',
+            lineHeight: 1.06,
             color: 'var(--color-ink)',
             margin: 0,
           }}

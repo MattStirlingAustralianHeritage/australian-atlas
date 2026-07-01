@@ -48,29 +48,13 @@ export default function JournalFeed({ articles, verticals, tags, verticalLabels,
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--color-cream, #F8F6F1)' }}>
-      {/* Header */}
-      <div className="px-4 sm:px-6 pt-20 pb-6 text-center max-w-3xl mx-auto">
-        <p style={{
-          fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase',
-          color: 'var(--color-sage, #7A8B6F)', marginBottom: 10,
-          fontFamily: 'var(--font-body)', fontWeight: 600,
-        }}>
-          The Journal
-        </p>
-        <h1 style={{
-          fontFamily: 'var(--font-display, Georgia)', fontWeight: 400,
-          fontSize: 'clamp(28px, 5vw, 42px)', color: 'var(--color-ink, #2D2A26)',
-          margin: '0 0 8px', lineHeight: 1.15,
-        }}>
-          From the Network
-        </h1>
-        <p style={{
-          fontFamily: 'var(--font-body, system-ui)', fontWeight: 300,
-          fontSize: 15, color: 'var(--color-muted, #8B8578)',
-          margin: 0, lineHeight: 1.5,
-        }}>
-          Stories, guides, and dispatches from across the Atlas.
-        </p>
+      {/* Masthead — left-anchored like every other index page, gold dateline. */}
+      <div className="px-4 sm:px-6 max-w-7xl mx-auto">
+        <div className="page-masthead max-w-2xl">
+          <p className="section-dateline">The Journal</p>
+          <h1 className="masthead-title">From the Network</h1>
+          <p className="masthead-sub">Stories, guides, and dispatches from across the Atlas.</p>
+        </div>
       </div>
 
       {/* Filter bar */}

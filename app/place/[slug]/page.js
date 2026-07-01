@@ -840,7 +840,7 @@ export default async function PlacePage({ params }) {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full text-sm font-medium text-white transition-opacity hover:opacity-90 w-full sm:w-auto"
-                    style={{ background: 'var(--color-accent)', fontFamily: 'var(--font-body)', minHeight: 44 }}
+                    style={{ background: 'var(--color-ink)', fontFamily: 'var(--font-body)', minHeight: 44 }}
                   >
                     Visit Website
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

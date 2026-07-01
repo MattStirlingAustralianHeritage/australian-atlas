@@ -122,18 +122,10 @@ export default async function ExplorePage() {
       {/* Hero */}
       <div style={{ background: 'var(--color-cream)', borderBottom: '1px solid var(--color-border)' }}>
         <div style={{ maxWidth: '72rem', margin: '0 auto', padding: '3.5rem 1.5rem 3rem' }}>
-          <p style={{
-            fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '11px',
-            letterSpacing: '0.14em', textTransform: 'uppercase',
-            color: 'var(--color-muted)', marginBottom: '0.5rem',
-          }}>
+          <p className="section-dateline" style={{ marginBottom: '14px' }}>
             Explore
           </p>
-          <h1 style={{
-            fontFamily: 'var(--font-display)', fontWeight: 400,
-            fontSize: 'clamp(1.75rem, 3.5vw, 2.5rem)',
-            color: 'var(--color-ink)', lineHeight: 1.15, margin: 0,
-          }}>
+          <h1 className="masthead-title" style={{ margin: 0 }}>
             Discover independent Australia
           </h1>
           <p style={{
