@@ -79,6 +79,10 @@ export default function SearchAutocomplete({ value, onChange, onSelect, placehol
   const inputRef = useRef(null)
   const abortRef = useRef(null)
   const debounceRef = useRef(null)
+  // Only a real interaction (typing/focus) may open the dropdown. Without this,
+  // landing on /search?q=… with a prefilled value auto-opened suggestions over
+  // the results the user came for.
+  const touchedRef = useRef(false)
 
   // The moment the typed text reads as a plain-language request rather than a
   // name/category lookup, the dropdown stops name-matching and offers to answer
@@ -114,7 +118,7 @@ export default function SearchAutocomplete({ value, onChange, onSelect, placehol
       .then(res => res.json())
       .then(data => {
         setResults(data.results || [])
-        setIsOpen((data.results || []).length > 0)
+        setIsOpen(touchedRef.current && (data.results || []).length > 0)
         setActiveIndex(-1)
         setLoading(false)
       })
@@ -136,7 +140,7 @@ export default function SearchAutocomplete({ value, onChange, onSelect, placehol
       setResults([])
       setLoading(false)
       setActiveIndex(-1)
-      setIsOpen(true)
+      setIsOpen(touchedRef.current)
       return
     }
     debounceRef.current = setTimeout(() => {
@@ -229,9 +233,10 @@ export default function SearchAutocomplete({ value, onChange, onSelect, placehol
         ref={inputRef}
         type="text"
         value={value}
-        onChange={e => onChange(e.target.value)}
+        onChange={e => { touchedRef.current = true; onChange(e.target.value) }}
         onKeyDown={handleKeyDown}
         onFocus={() => {
+          touchedRef.current = true
           if (inquiry || (results.length > 0 && value.trim().length >= 2)) {
             setIsOpen(true)
           }

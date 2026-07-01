@@ -227,16 +227,20 @@ function detectContextualHeader(query) {
   }
 }
 
+// Skeletons in the warm family — grey placeholder blocks read as dirt on the
+// stone ground, so the shimmer tints come from the kraft/cream ramp instead.
 function SkeletonCard() {
+  const tone = { background: '#F0EAE0' }
+  const toneSoft = { background: '#F6F1E9' }
   return (
     <div className="bg-[var(--color-card-bg)] rounded-xl overflow-hidden border border-[var(--color-border)] animate-pulse">
-      <div className="aspect-[16/10] bg-gray-100" />
+      <div className="aspect-[16/10]" style={tone} />
       <div className="p-4 space-y-3">
-        <div className="h-5 bg-gray-100 rounded w-3/4" />
-        <div className="h-3 bg-gray-50 rounded w-1/2" />
+        <div className="h-5 rounded w-3/4" style={tone} />
+        <div className="h-3 rounded w-1/2" style={toneSoft} />
         <div className="space-y-1.5">
-          <div className="h-3 bg-gray-50 rounded w-full" />
-          <div className="h-3 bg-gray-50 rounded w-2/3" />
+          <div className="h-3 rounded w-full" style={toneSoft} />
+          <div className="h-3 rounded w-2/3" style={toneSoft} />
         </div>
       </div>
     </div>
@@ -353,10 +357,18 @@ function FeaturedCard({ listing, query }) {
         )}
         <span style={{
           position: 'absolute', top: 12, left: 12, zIndex: 3,
+          display: 'inline-flex', alignItems: 'center', gap: 5,
           fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 600,
-          letterSpacing: '0.06em', textTransform: 'uppercase',
-          padding: '4px 10px', borderRadius: 100, color: '#fff', background: 'var(--color-accent)',
-        }}>Top result</span>
+          letterSpacing: '0.1em', textTransform: 'uppercase',
+          padding: '4px 11px', borderRadius: 100,
+          color: 'var(--color-gold)', background: 'rgba(26,24,21,0.88)',
+          backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
+        }}>
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 0l2.6 9.4L24 12l-9.4 2.6L12 24l-2.6-9.4L0 12l9.4-2.6L12 0z" />
+          </svg>
+          Top result
+        </span>
       </div>
 
       <div style={{ padding: '1.15rem 1.3rem 1.3rem' }}>
@@ -665,21 +677,33 @@ function SearchPageInner() {
   const hasActiveFilters = !!(vertical || state || region || subType || autoState || autoRegion || (detectedVertical && !noVerticalBind))
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-      {/* Search header */}
-      <div className="max-w-2xl">
-        <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 400 }} className="text-3xl sm:text-4xl text-[var(--color-ink)]">Search</h1>
-        <p className="mt-1" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px', color: 'var(--color-muted)' }}>Find places across all ten atlases</p>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-8">
+      {/* Search masthead — the shared publication opening block. */}
+      <div className="page-masthead max-w-2xl">
+        <p className="section-dateline">Search the Atlas</p>
+        <h1 className="masthead-title">Every place, one search</h1>
+        <p className="masthead-sub">Find places across all ten atlases — by name, by town, or just ask in plain English.</p>
       </div>
 
-      {/* Mode toggle: Search / Vibe */}
-      <div className="mt-4 flex items-center gap-1" style={{ maxWidth: '18rem' }}>
+      {/* Mode toggle: Search / Vibe — a proper segmented control. */}
+      <div
+        className="flex items-center"
+        style={{
+          maxWidth: '18rem',
+          padding: '3px',
+          background: '#fff',
+          border: '1px solid var(--color-border)',
+          borderRadius: '999px',
+          boxShadow: 'var(--shadow-xs)',
+        }}
+      >
         <button
           onClick={() => setMode('search')}
+          aria-pressed={mode === 'search'}
           style={{
             flex: 1,
             padding: '0.5rem 1rem',
-            borderRadius: '0.5rem',
+            borderRadius: '999px',
             border: 'none',
             cursor: 'pointer',
             fontFamily: 'var(--font-body)',
@@ -694,10 +718,11 @@ function SearchPageInner() {
         </button>
         <button
           onClick={() => setMode('vibe')}
+          aria-pressed={mode === 'vibe'}
           style={{
             flex: 1,
             padding: '0.5rem 1rem',
-            borderRadius: '0.5rem',
+            borderRadius: '999px',
             border: 'none',
             cursor: 'pointer',
             fontFamily: 'var(--font-body)',
@@ -719,12 +744,13 @@ function SearchPageInner() {
         </button>
       </div>
 
-      {/* One-line mode subtitle so Search vs Vibe is self-explaining. */}
-      <p className="mt-2" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '12.5px', color: 'var(--color-muted)' }}>
-        {mode === 'vibe'
-          ? 'Describe a mood or scenario — we match the feeling, not just the words.'
-          : 'Search by name, place, category, or style across all ten atlases.'}
-      </p>
+      {/* Vibe needs a one-line explainer; Search is already framed by the
+          masthead standfirst, so repeating it would just add noise. */}
+      {mode === 'vibe' && (
+        <p className="mt-2" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '12.5px', color: 'var(--color-muted)' }}>
+          Describe a mood or scenario — we match the feeling, not just the words.
+        </p>
+      )}
 
       {/* Vibe mode — seeded with the current query so toggling keeps your text. */}
       {mode === 'vibe' && <VibeSearch initialQuery={query} onQueryChange={setQuery} />}
@@ -1052,7 +1078,8 @@ function SearchPageInner() {
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
               aria-label="Sort results"
-              style={{ fontFamily: 'var(--font-body)', fontSize: '12px', padding: '6px 8px', borderRadius: 8, border: '1px solid var(--color-border)', background: '#fff', color: 'var(--color-ink)', cursor: 'pointer' }}
+              className="atlas-select"
+              style={{ fontFamily: 'var(--font-body)', fontSize: '12px', padding: '6px 12px', border: '1px solid var(--color-border)', background: '#fff', color: 'var(--color-ink)' }}
             >
               <option value="relevance">Relevance</option>
               <option value="az">A–Z</option>
@@ -1307,10 +1334,11 @@ function SearchPageInner() {
 export default function SearchPage() {
   return (
     <Suspense fallback={
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        <div className="max-w-2xl">
-          <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 400 }} className="text-3xl sm:text-4xl text-[var(--color-ink)]">Search</h1>
-          <p className="mt-1" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px', color: 'var(--color-muted)' }}>Find places across all ten atlases</p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-8">
+        <div className="page-masthead max-w-2xl">
+          <p className="section-dateline">Search the Atlas</p>
+          <h1 className="masthead-title">Every place, one search</h1>
+          <p className="masthead-sub">Find places across all ten atlases — by name, by town, or just ask in plain English.</p>
         </div>
         <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {Array.from({ length: 12 }).map((_, i) => (

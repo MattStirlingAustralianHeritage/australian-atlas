@@ -13,10 +13,12 @@
   width: 100%;
 }
 
-/* Full-screen surface: light ground, generous surrounding space. */
+/* Full-screen surface: light ground below the page masthead. The masthead
+   (~220px) now frames the deck, so the stage fills the REMAINING viewport
+   rather than forcing a full extra screen of empty ground. */
 .dd-stage--fullscreen {
-  min-height: calc(100vh - 52px); /* below the sticky 52px nav */
-  padding: 28px 20px 40px;
+  min-height: min(640px, calc(100vh - 280px));
+  padding: 12px 20px 48px;
   background:
     radial-gradient(120% 80% at 50% 0%, #FBF9F5 0%, #F3EEE6 60%, #EFE9DF 100%);
 }

@@ -1033,14 +1033,23 @@ export default async function Home() {
                 </div>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* With a thin calendar (1–2 events) a 3-col grid strands cards on
+                  the left; a centred flex row keeps the section composed. */}
+              <div
+                className={eventCards.length < 3
+                  ? 'flex flex-wrap justify-center gap-6'
+                  : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6'}
+              >
                 {eventCards.map((event, ei) => (
                   <LocalizedLink
                     key={event.id}
                     href={`/events/${event.slug}`}
                     className="reveal group listing-card block overflow-hidden"
                     data-reveal-index={ei + 1}
-                    style={{ background: '#fff', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-card)' }}
+                    style={{
+                      background: '#fff', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-card)',
+                      ...(eventCards.length < 3 ? { width: 'min(100%, 340px)' } : {}),
+                    }}
                   >
                     {event.image_url && (
                       <div className="overflow-hidden" style={{ height: '160px' }}>
