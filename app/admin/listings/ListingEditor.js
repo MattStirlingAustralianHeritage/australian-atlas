@@ -104,7 +104,8 @@ const VERTICAL_FIELDS = {
   corner: [
     { key: 'shop_type', label: 'Shop Type', type: 'select', options: [
       { value: 'bookshop', label: 'Bookshop' }, { value: 'records', label: 'Records' },
-      { value: 'homewares', label: 'Homewares' }, { value: 'stationery', label: 'Stationery' },
+      { value: 'homewares', label: 'Homewares' }, { value: 'design_store', label: 'Design Store' },
+      { value: 'stationery', label: 'Stationery' },
       { value: 'jewellery', label: 'Jewellery' }, { value: 'toys', label: 'Toys' },
       { value: 'general', label: 'General' }, { value: 'clothing', label: 'Clothing' },
       { value: 'food_drink', label: 'Food & Drink' }, { value: 'plants', label: 'Plants' },

@@ -101,6 +101,7 @@ const SUBCATEGORY_OPTIONS = {
     { value: 'bookshop', label: 'Bookshop' },
     { value: 'records', label: 'Records & Music' },
     { value: 'homewares', label: 'Homewares & Interiors' },
+    { value: 'design_store', label: 'Design Store' },
     { value: 'stationery', label: 'Stationery & Paper Goods' },
     { value: 'jewellery', label: 'Jewellery' },
     { value: 'toys', label: 'Toys & Children\'s' },
