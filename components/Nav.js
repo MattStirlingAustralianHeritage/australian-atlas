@@ -99,17 +99,22 @@ export default function Nav() {
     { href: '/discover', label: t('discover') },
   ]
 
-  const secondaryLinks = [
+  // The More menu is grouped: reader-facing discovery first, then the
+  // partner/trade surfaces under their own small-caps label.
+  const moreExploreLinks = [
     { href: '/near-me', label: t('nearMe') },
     { href: '/trails', label: t('trails') },
     { href: '/collections', label: t('collections') },
     { href: '/producer-picks', label: t('producerPicks') },
     { href: '/events', label: t('events') },
     { href: '/atlas-index', label: t('index') },
+  ]
+  const morePartnerLinks = [
     { href: '/for-councils', label: t('forCouncils') },
     { href: '/for-trade', label: t('forTrade') },
     { href: '/operators', label: t('forOperators') },
   ]
+  const secondaryLinks = [...moreExploreLinks, ...morePartnerLinks]
 
   const navLinks = [...primaryLinks, ...secondaryLinks]
 
@@ -144,17 +149,22 @@ export default function Nav() {
         WebkitBackdropFilter: 'saturate(180%) blur(12px)',
       }}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between" style={{ height: '52px' }}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between" style={{ height: '56px' }}>
         <LocalizedLink
           href="/"
-          className="tracking-tight"
+          className="tracking-tight inline-flex items-center"
           style={{
             fontFamily: 'var(--font-display)',
             fontWeight: 400,
-            fontSize: '17px',
+            fontSize: '18px',
             color: 'var(--color-ink)',
+            gap: '9px',
           }}
         >
+          {/* Compass-star mark — the wordmark's quiet emblem, in the brand gold. */}
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="var(--color-gold)" aria-hidden="true" style={{ flexShrink: 0, marginTop: '1px' }}>
+            <path d="M12 0l2.6 9.4L24 12l-9.4 2.6L12 24l-2.6-9.4L0 12l9.4-2.6L12 0z" />
+          </svg>
           Australian Atlas
         </LocalizedLink>
         <div className="flex items-center gap-6">
@@ -162,19 +172,8 @@ export default function Nav() {
             <LocalizedLink
               key={link.href}
               href={link.href}
-              className="hover:text-[var(--color-ink)] transition-colors hidden sm:inline"
+              className="nav-link hidden sm:inline"
               aria-current={isActive(link.href) ? 'page' : undefined}
-              style={{
-                ...linkStyle,
-                ...(isActive(link.href) && {
-                  color: 'var(--color-ink)',
-                  fontWeight: 500,
-                  textDecoration: 'underline',
-                  textDecorationColor: 'var(--color-gold)',
-                  textDecorationThickness: '2px',
-                  textUnderlineOffset: '6px',
-                }),
-              }}
             >
               {link.label}
             </LocalizedLink>
@@ -184,11 +183,10 @@ export default function Nav() {
           <div ref={moreRef} style={{ position: 'relative' }} className="hidden sm:block">
             <button
               onClick={() => setMoreOpen(!moreOpen)}
-              className="hover:text-[var(--color-ink)] transition-colors"
+              className="nav-link"
               aria-expanded={moreOpen}
               aria-haspopup="menu"
               style={{
-                ...linkStyle,
                 background: 'none',
                 border: 'none',
                 cursor: 'pointer',
@@ -209,16 +207,30 @@ export default function Nav() {
                 top: '100%',
                 right: 0,
                 marginTop: '0.625rem',
-                width: '180px',
+                width: '196px',
                 background: 'var(--color-card-bg)',
                 borderRadius: 'var(--radius-card)',
                 border: '1px solid var(--color-border)',
                 boxShadow: 'var(--shadow-md)',
                 overflow: 'hidden',
                 zIndex: 100,
-                padding: '0.375rem 0',
+                padding: '0.375rem 0 0.5rem',
               }}>
-                {secondaryLinks.map(link => (
+                <span className="nav-dropdown-label">{t('groupExplore')}</span>
+                {moreExploreLinks.map(link => (
+                  <LocalizedLink
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setMoreOpen(false)}
+                    className="nav-dropdown-item"
+                    role="menuitem"
+                  >
+                    {link.label}
+                  </LocalizedLink>
+                ))}
+                <div aria-hidden="true" style={{ borderTop: '1px solid var(--color-border)', margin: '0.4rem 0 0.15rem' }} />
+                <span className="nav-dropdown-label">{t('groupPartners')}</span>
+                {morePartnerLinks.map(link => (
                   <LocalizedLink
                     key={link.href}
                     href={link.href}
@@ -244,8 +256,11 @@ export default function Nav() {
           </div>
 
           {/* Mobile hamburger */}
+          {/* flex lives in the class list (not inline style) so sm:hidden can
+              actually hide it — an inline display beat the utility before,
+              leaving a phantom hamburger on desktop. */}
           <button
-            className="sm:hidden"
+            className="flex sm:hidden items-center justify-center"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             aria-label={t('toggleMenu')}
             style={{
@@ -255,9 +270,6 @@ export default function Nav() {
               padding: '12px',
               minWidth: '44px',
               minHeight: '44px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
               color: 'var(--color-ink)',
             }}
           >
@@ -414,8 +426,19 @@ export default function Nav() {
           ) : (
             <LocalizedLink
               href="/login"
-              className="hover:text-[var(--color-ink)] transition-colors"
-              style={linkStyle}
+              className="transition-colors"
+              style={{
+                ...linkStyle,
+                color: 'var(--color-ink)',
+                border: '1px solid var(--color-border)',
+                borderRadius: '999px',
+                padding: '7px 16px',
+                minHeight: 'unset',
+                whiteSpace: 'nowrap',
+                transition: 'border-color 0.15s ease, background 0.15s ease',
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.borderColor = 'var(--color-ink)' }}
+              onMouseOut={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)' }}
             >
               {t('signIn')}
             </LocalizedLink>
@@ -436,17 +459,18 @@ export default function Nav() {
           <div style={{ padding: '0.375rem 1.5rem 0.625rem' }}>
             <LanguageSwitcher />
           </div>
-          {navLinks.map(link => (
+          {primaryLinks.map(link => (
             <LocalizedLink
               key={link.href}
               href={link.href}
               onClick={() => setMobileMenuOpen(false)}
+              aria-current={isActive(link.href) ? 'page' : undefined}
               style={{
                 display: 'block',
                 padding: '0.625rem 1.5rem',
                 fontFamily: 'var(--font-body)',
-                fontWeight: 400,
-                fontSize: '14px',
+                fontWeight: isActive(link.href) ? 600 : 400,
+                fontSize: '15px',
                 color: 'var(--color-ink)',
                 textDecoration: 'none',
               }}
@@ -454,6 +478,27 @@ export default function Nav() {
               {link.label}
             </LocalizedLink>
           ))}
+          <div aria-hidden="true" style={{ borderTop: '1px solid var(--color-border)', margin: '0.5rem 1.5rem' }} />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr' }}>
+            {secondaryLinks.map(link => (
+              <LocalizedLink
+                key={link.href}
+                href={link.href}
+                onClick={() => setMobileMenuOpen(false)}
+                style={{
+                  display: 'block',
+                  padding: '0.55rem 1.5rem',
+                  fontFamily: 'var(--font-body)',
+                  fontWeight: 400,
+                  fontSize: '13.5px',
+                  color: 'var(--color-muted)',
+                  textDecoration: 'none',
+                }}
+              >
+                {link.label}
+              </LocalizedLink>
+            ))}
+          </div>
           {user && canManageListings && (
             <LocalizedLink
               href="/dashboard"

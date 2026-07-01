@@ -23,7 +23,9 @@
     "signOut": "로그아웃",
     "signIn": "로그인",
     "accountMenu": "계정 메뉴",
-    "toggleMenu": "메뉴 전환"
+    "toggleMenu": "메뉴 전환",
+    "groupExplore": "둘러보기",
+    "groupPartners": "파트너 안내"
   },
   "footer": {
     "tagline": "독립적인 호주의 완벽한 가이드. 10개의 아틀라스, 하나의 지도.",
