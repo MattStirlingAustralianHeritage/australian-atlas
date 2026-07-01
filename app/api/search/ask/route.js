@@ -8,6 +8,7 @@ import { parseQueryLocation } from '@/lib/search/parseQuery'
 import { resolveQueryRegion } from '@/lib/search/resolveQueryRegion'
 import { isPublicListing } from '@/lib/listings/publicFilter'
 import { guardedAnthropicMessage } from '@/lib/ai/guardedAnthropic'
+import { translateSearchQuery, hasHangul } from '@/lib/search/translateQuery'
 
 export const maxDuration = 60
 
@@ -118,10 +119,17 @@ export async function POST(request) {
   const t0 = Date.now()
   try {
     const body = await request.json().catch(() => ({}))
-    const query = (body.query || '').trim()
-    if (!query || query.length < 3) {
+    const rawQuery = (body.query || '').trim()
+    if (!rawQuery || rawQuery.length < 3) {
       return NextResponse.json({ error: 'Query is required' }, { status: 400 })
     }
+    // Korean launch: a Hangul inquiry is translated to English up front so
+    // location resolution, interpretation, and embedding all run against the
+    // English corpus unchanged; the grounded answer is then written back in
+    // Korean (see the ground step). Fully gated behind hasHangul — a non-Korean
+    // request is byte-for-byte unchanged. Fail-open (raw query) on any error.
+    const answerLocale = hasHangul(rawQuery) ? 'ko' : 'en'
+    const query = answerLocale === 'ko' ? await translateSearchQuery(rawQuery, 'ko') : rawQuery
     const loggedQuery = query.slice(0, 200)
     const sb = getSupabaseAdmin()
 
@@ -273,7 +281,7 @@ export async function POST(request) {
       const resp = await callClaude(anthropic, {
         model: MODEL,
         max_tokens: 700,
-        system: `You are the concierge for the Australian Atlas, a curated guide to independent Australian places. A visitor made a plain-language request and we retrieved REAL matching places (each numbered). Write a brief, warm, specific reply that helps them choose.\n\nHARD RULES:\n- Ground everything in the numbered places. NEVER invent a place, product, price, or detail. NEVER mention a place not in the list.\n- Each "why" must be about THAT exact numbered place, using only what its line says. If a place only partly fits, say what it is honestly — do not borrow another place's detail.\n- Voice: understated, place-literate, no marketing hype, no exclamation marks. Australian spelling.\n\nReturn ONLY minified JSON: {"answer": string, "picks": [{"n": number, "why": string}]}.\n- answer: 2-3 sentences framing what we found; you may name 1-2 of the places. Address the visitor directly.\n- picks: the 4-6 places that best fit, each with its number "n" and a "why" of max 14 words — no place name, no full stop. Only include a place if it genuinely fits.`,
+        system: `You are the concierge for the Australian Atlas, a curated guide to independent Australian places. A visitor made a plain-language request and we retrieved REAL matching places (each numbered). Write a brief, warm, specific reply that helps them choose.\n\nHARD RULES:\n- Ground everything in the numbered places. NEVER invent a place, product, price, or detail. NEVER mention a place not in the list.\n- Each "why" must be about THAT exact numbered place, using only what its line says. If a place only partly fits, say what it is honestly — do not borrow another place's detail.\n- Voice: understated, place-literate, no marketing hype, no exclamation marks. Australian spelling.\n\nReturn ONLY minified JSON: {"answer": string, "picks": [{"n": number, "why": string}]}.\n- answer: 2-3 sentences framing what we found; you may name 1-2 of the places. Address the visitor directly.\n- picks: the 4-6 places that best fit, each with its number "n" and a "why" of max 14 words — no place name, no full stop. Only include a place if it genuinely fits.${answerLocale === 'ko' ? '\n- Write the "answer" and every "why" in natural, fluent Korean (한국어). Keep place names in their original form.' : ''}`,
         messages: [{ role: 'user', content: `Request: "${query.slice(0, 400)}"\n\nMatching places:\n${menu}` }],
       })
       const out = firstJson(resp?.content?.[0]?.text, null)
