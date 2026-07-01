@@ -9,6 +9,7 @@ import { resolveQueryRegion } from '@/lib/search/resolveQueryRegion'
 import { isPublicListing } from '@/lib/listings/publicFilter'
 import { guardedAnthropicMessage } from '@/lib/ai/guardedAnthropic'
 import { translateSearchQuery, hasHangul } from '@/lib/search/translateQuery'
+import { rerankSearchResults } from '@/lib/search/rerank'
 
 export const maxDuration = 60
 
@@ -21,9 +22,10 @@ const MODEL = 'claude-haiku-4-5-20251001'
 // any one venue's description than a category term does, so we widen recall and
 // let the grounding step + rerank-by-relevance do the precision work.
 const ASK_FLOOR = parseFloat(process.env.SEARCH_ASK_FLOOR || '0.42')
-const POOL = 24          // candidate pool ranked by the RPC
+const POOL = 48          // candidate pool ranked by the RPC (rerank picks the best of these)
 const SHOWN = 12         // curated results returned to the UI
 const GROUNDED = 8       // how many real venues Claude sees when writing the answer
+const RERANK_TOP_N = parseInt(process.env.SEARCH_ASK_RERANK_TOPN || '48', 10)  // pool depth the cross-encoder rescored
 
 // The atlases, in the vocabulary Claude gets in the interpret prompt. Keeping the
 // human labels here (not just keys) helps the model map "a gift" → corner/craft.
@@ -209,12 +211,18 @@ export async function POST(request) {
     }
 
     // ── Step 2: retrieve real venues via the canonical hybrid RPC ─────────────
-    // OR-expand the lexical arm with the interpreted phrases; embed the core
-    // need for the semantic arm. Location filters stay hard.
-    const queryText = expansions.length
-      ? `${searchText} OR ${expansions.map((p) => `"${p.replace(/"/g, '')}"`).join(' OR ')}`
-      : searchText
-    const { lit: queryEmbedding, error: voyageError } = await embedQueryCached(sb, searchText)
+    // Retrieve on the USER'S ACTUAL WORDS. The interpretation only ADDS recall
+    // (OR-expansions) and feeds the written answer — it never REPLACES the raw
+    // signal. This is what stops a specific noun ("magnets") being lost to an
+    // abstraction ("gift shopping"), so the venue whose content truly matches
+    // wins. Location phrases were already stripped into `cleaned`.
+    const orTerms = [...new Set([searchText, ...expansions]
+      .map((s) => String(s || '').trim())
+      .filter((s) => s && s.toLowerCase() !== cleaned.toLowerCase()))]
+    const queryText = orTerms.length
+      ? `${cleaned} OR ${orTerms.map((p) => `"${p.replace(/"/g, '')}"`).join(' OR ')}`
+      : cleaned
+    const { lit: queryEmbedding, error: voyageError } = await embedQueryCached(sb, cleaned)
 
     let all = []
     {
@@ -249,12 +257,17 @@ export async function POST(request) {
     const publicVerticals = getPublicVerticals()
     let rows = dedupeBySlug(all.filter((r) => isPublicListing(r) && publicVerticals.includes(r.vertical)))
 
-    // Soft lead: float the interpreted best-fit atlas to the top (keep the rest).
-    if (leadVertical) {
-      const lead = [], rest = []
-      for (const r of rows) (r.vertical === leadVertical ? lead : rest).push(r)
-      rows = lead.concat(rest)
-    }
+    // Precision rerank on the USER'S words (cross-encoder reads query + document
+    // together). This is what makes the venue whose CONTENT actually answers the
+    // request win — "australian magnets" surfaces the maker whose listing lists
+    // magnets, not a generic homewares shop. Fail-open: any error/over-budget
+    // keeps the fused order. We deliberately no longer force the interpreted
+    // atlas to the top — that buried strong cross-atlas matches; relevance now
+    // decides, and `atlas` is kept only to frame the answer + the UI chip.
+    try {
+      const rr = await rerankSearchResults(sb, cleaned, rows, { topN: RERANK_TOP_N })
+      if (rr && Array.isArray(rr.listings)) rows = rr.listings
+    } catch { /* keep fused order */ }
 
     const shown = rows.slice(0, SHOWN)
 
