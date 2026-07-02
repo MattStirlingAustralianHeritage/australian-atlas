@@ -81,6 +81,7 @@ export default function DiscoveryPanel({
   visitedIds,
   filterQuery = '',
   onFilterQuery,
+  filterBusy = false,
   onHover,
   onSelect,
   onClose,
@@ -132,7 +133,14 @@ export default function DiscoveryPanel({
                 fontFamily: 'var(--font-sans)',
               }}
             />
-            {filterQuery && (
+            {filterBusy ? (
+              <span aria-label="Searching" title="Smart search running…" style={{
+                position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)',
+                width: 13, height: 13, borderRadius: '50%',
+                border: '2px solid rgba(95,138,126,0.28)', borderTopColor: '#5f8a7e',
+                animation: 'dp-spin 0.7s linear infinite',
+              }} />
+            ) : filterQuery ? (
               <button onClick={() => onFilterQuery('')} aria-label="Clear filter" style={{
                 position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)',
                 width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -140,14 +148,22 @@ export default function DiscoveryPanel({
               }}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
               </button>
-            )}
+            ) : null}
           </div>
         )}
+        {onFilterQuery && filterQuery && (
+          <div style={{ fontSize: 9.5, color: 'var(--color-muted)', marginTop: 5, letterSpacing: '0.02em' }}>
+            {filterBusy ? 'Searching meaning, not just words…' : 'Matches stay in colour · the rest fade back'}
+          </div>
+        )}
+        <style>{`@keyframes dp-spin { to { transform: translateY(-50%) rotate(360deg); } }`}</style>
       </div>
 
       {/* Rows */}
       <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, overscrollBehavior: 'contain' }}>
-        {!loading && items.length === 0 && (
+        {/* While the semantic pass is still in flight, don't flash a
+            "nothing matches" state — the results may be about to arrive. */}
+        {!loading && items.length === 0 && !filterBusy && (
           <div style={{ padding: '28px 18px', textAlign: 'center' }}>
             <div style={{ fontFamily: 'var(--font-serif)', fontSize: 15, color: 'var(--color-ink)', marginBottom: 6 }}>
               {filterQuery ? `Nothing here matches “${filterQuery}”` : 'Nothing in view'}
