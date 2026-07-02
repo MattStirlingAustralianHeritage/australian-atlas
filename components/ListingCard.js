@@ -237,6 +237,28 @@ export function TypographicCard({
       }} />
       {isField && <TopoLines color={tokens.text} />}
 
+      {/* Ghost initial — the venue's first letter at display scale, barely
+          above the ground (hero only). Same device as the discover cards and
+          the footer wordmark: quiet drama, zero information cost. */}
+      {isHero && name && (
+        <span aria-hidden="true" style={{
+          position: 'absolute',
+          right: 'clamp(-40px, -2vw, 0px)',
+          bottom: '-0.28em',
+          fontFamily: 'var(--font-display, Georgia)',
+          fontStyle: 'italic',
+          fontWeight: 380,
+          fontSize: 'clamp(260px, 38vw, 560px)',
+          lineHeight: 1,
+          color: tokens.text,
+          opacity: 0.05,
+          pointerEvents: 'none',
+          userSelect: 'none',
+        }}>
+          {name.trim().charAt(0).toUpperCase()}
+        </span>
+      )}
+
       <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: contentMaxWidth }}>
         {topLine && (
           <p style={{
