@@ -2,6 +2,7 @@
 
 import { useCouncil } from '../layout'
 import { useRef, useState } from 'react'
+import { Card, PageHeader, SectionTitle, Button } from '@/components/council/ui'
 
 export default function CouncilSettings() {
   const { council } = useCouncil()
@@ -55,33 +56,13 @@ export default function CouncilSettings() {
 
   return (
     <div style={{ maxWidth: 640 }}>
-      {/* Header */}
-      <div style={{ marginBottom: '1.5rem' }}>
-        <h1 style={{
-          fontFamily: 'var(--font-display)', fontSize: '1.75rem', fontWeight: 400,
-          color: 'var(--color-ink)', margin: '0 0 0.25rem',
-        }}>
-          Settings
-        </h1>
-        <p style={{
-          fontFamily: 'var(--font-body)', fontSize: '0.95rem', color: 'var(--color-muted)', margin: 0,
-        }}>
-          {council.name}
-        </p>
-      </div>
+      <PageHeader title="Settings" subtitle={council.name} />
 
       {/* Logo card */}
-      <section style={{
-        background: '#fff', borderRadius: 12, border: '1px solid var(--color-border)', padding: '1.75rem',
-      }}>
-        <h2 style={{
-          fontFamily: 'var(--font-display)', fontSize: '1.2rem', fontWeight: 400,
-          color: 'var(--color-ink)', margin: '0 0 0.4rem',
-        }}>
-          Your logo
-        </h2>
+      <Card style={{ marginBottom: '1.25rem' }}>
+        <SectionTitle>Your logo</SectionTitle>
         <p style={{
-          fontFamily: 'var(--font-body)', fontSize: '0.9rem', fontWeight: 300,
+          fontFamily: 'var(--font-body)', fontSize: '0.88rem',
           color: 'var(--color-muted)', lineHeight: 1.6, margin: '0 0 1.25rem',
         }}>
           Your logo appears on your white-label regional reports, in place of the Australian Atlas
@@ -92,7 +73,7 @@ export default function CouncilSettings() {
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           height: 96, padding: '0 1rem', marginBottom: '1.25rem',
-          background: 'var(--color-bg)', border: '1px dashed var(--color-border)', borderRadius: 8,
+          background: 'var(--color-bg)', border: '1px dashed var(--color-border)', borderRadius: 10,
         }}>
           {logoUrl ? (
             /* eslint-disable-next-line @next/next/no-img-element */
@@ -106,8 +87,8 @@ export default function CouncilSettings() {
 
         {error && (
           <div style={{
-            padding: '0.625rem 0.875rem', borderRadius: 8,
-            background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c',
+            padding: '0.625rem 0.875rem', borderRadius: 10,
+            background: 'rgba(196,96,58,0.08)', border: '1px solid rgba(196,96,58,0.3)', color: 'var(--color-accent)',
             fontFamily: 'var(--font-body)', fontSize: '0.85rem', marginBottom: '1rem',
           }}>
             {error}
@@ -115,8 +96,8 @@ export default function CouncilSettings() {
         )}
         {saved && !error && (
           <div style={{
-            padding: '0.625rem 0.875rem', borderRadius: 8,
-            background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534',
+            padding: '0.625rem 0.875rem', borderRadius: 10,
+            background: 'rgba(95,138,126,0.12)', border: '1px solid rgba(95,138,126,0.3)', color: 'var(--color-sage-dark)',
             fontFamily: 'var(--font-body)', fontSize: '0.85rem', marginBottom: '1rem',
           }}>
             Saved. Your reports now use this logo.
@@ -131,36 +112,35 @@ export default function CouncilSettings() {
           style={{ display: 'none' }}
         />
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => fileRef.current?.click()}
-            style={{
-              padding: '0.6rem 1.25rem', borderRadius: 8, border: 'none',
-              background: 'var(--color-sage)', color: '#fff',
-              fontFamily: 'var(--font-body)', fontSize: '0.9rem', fontWeight: 500,
-              cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.7 : 1,
-            }}
-          >
+          <Button variant="sage" disabled={busy} onClick={() => fileRef.current?.click()}>
             {busy ? 'Working…' : logoUrl ? 'Replace logo' : 'Upload logo'}
-          </button>
+          </Button>
           {logoUrl && (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={handleRemove}
-              style={{
-                padding: '0.6rem 1.25rem', borderRadius: 8,
-                border: '1px solid var(--color-border)', background: '#fff', color: 'var(--color-ink)',
-                fontFamily: 'var(--font-body)', fontSize: '0.9rem', fontWeight: 500,
-                cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.7 : 1,
-              }}
-            >
+            <Button variant="secondary" disabled={busy} onClick={handleRemove}>
               Remove
-            </button>
+            </Button>
           )}
         </div>
-      </section>
+      </Card>
+
+      {/* Monthly Region Pulse (informational — managed by the Atlas team) */}
+      <Card style={{ background: 'var(--color-cream)' }}>
+        <SectionTitle>Monthly Region Pulse</SectionTitle>
+        <p style={{
+          fontFamily: 'var(--font-body)', fontSize: '0.88rem',
+          color: 'var(--color-muted)', lineHeight: 1.6, margin: 0,
+        }}>
+          Your council receives a monthly email digest of your region&apos;s performance on the Atlas
+          network — page views, listing clicks and search interest — delivered on the 1st of each
+          month to your account contact email. To change recipients or opt out, email{' '}
+          <a
+            href="mailto:councils@australianatlas.com.au"
+            style={{ color: 'var(--color-sage-dark)', textDecoration: 'underline', textUnderlineOffset: 3 }}
+          >
+            councils@australianatlas.com.au
+          </a>.
+        </p>
+      </Card>
     </div>
   )
 }

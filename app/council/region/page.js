@@ -3,11 +3,23 @@
 import { useCouncil } from '../layout'
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { Card, PageHeader, SectionTitle, StatCard, EmptyState, Pill, Button, Skeleton, regionMapImage } from '@/components/council/ui'
+import CouncilRegionTools from '@/components/council/CouncilRegionTools'
 
 const VERTICAL_LABELS = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
   fine_grounds: 'Fine Grounds', rest: 'Rest', field: 'Field',
   corner: 'Corner', found: 'Found', table: 'Table', way: 'Way',
+}
+
+const TH_STYLE = {
+  textAlign: 'left',
+  padding: '0.75rem 1.25rem',
+  color: 'var(--color-muted)',
+  fontWeight: 600,
+  fontSize: '0.72rem',
+  textTransform: 'uppercase',
+  letterSpacing: '0.07em',
 }
 
 export default function CouncilRegion() {
@@ -35,54 +47,41 @@ export default function CouncilRegion() {
 
   if (!council) return null
 
+  const perPage = regionData?.perPage || 50
+  const totalPages = Math.ceil((regionData?.totalListings || 0) / perPage)
+
   return (
     <div>
-      <div style={{ marginBottom: '2rem' }}>
-        <h1 style={{
-          fontFamily: 'var(--font-display)',
-          fontSize: '1.75rem',
-          fontWeight: 400,
-          color: 'var(--color-ink)',
-          margin: '0 0 0.25rem',
-        }}>
-          {region?.name || 'Region'}
-        </h1>
-        <p style={{
-          fontFamily: 'var(--font-body)',
-          fontSize: '0.95rem',
-          color: 'var(--color-muted)',
-          margin: 0,
-        }}>
-          {region?.state} · {region?.description?.slice(0, 120)}...
-        </p>
-      </div>
+      <PageHeader
+        title={region?.name || 'Region'}
+        subtitle={region
+          ? `${region.state}${region.description ? ` · ${region.description.slice(0, 120)}…` : ''}`
+          : undefined}
+      />
+
+      {/* Region hero */}
+      {region && regionMapImage(region) && (
+        <Card style={{ padding: 0, overflow: 'hidden', marginBottom: '1.5rem' }}>
+          <div style={{ position: 'relative', height: 180, background: `url(${regionMapImage(region, { width: 1000, height: 200 })}) center/cover` }}>
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(28,26,23,0) 45%, rgba(28,26,23,0.62) 100%)' }} />
+            <p style={{
+              position: 'absolute', left: '1.35rem', bottom: '1rem', margin: 0,
+              fontFamily: 'var(--font-display)', fontSize: '1.55rem', fontWeight: 440,
+              color: '#fff', letterSpacing: '-0.01em', textShadow: '0 1px 10px rgba(28,26,23,0.4)',
+            }}>
+              {region.name}
+            </p>
+          </div>
+        </Card>
+      )}
 
       {/* Region selector if multiple */}
       {regions.length > 1 && (
-        <div style={{
-          display: 'flex',
-          gap: '0.5rem',
-          flexWrap: 'wrap',
-          marginBottom: '1.5rem',
-        }}>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
           {regions.map(r => (
-            <a
-              key={r.slug}
-              href={`/council/region?r=${r.slug}`}
-              style={{
-                padding: '0.4rem 0.8rem',
-                borderRadius: '999px',
-                fontSize: '0.8rem',
-                fontFamily: 'var(--font-body)',
-                fontWeight: 500,
-                textDecoration: 'none',
-                background: r.slug === region?.slug ? 'var(--color-ink)' : '#fff',
-                color: r.slug === region?.slug ? '#fff' : 'var(--color-ink)',
-                border: '1px solid var(--color-border)',
-              }}
-            >
+            <Pill key={r.slug} href={`/council/region?r=${r.slug}`} active={r.slug === region?.slug}>
               {r.name}
-            </a>
+            </Pill>
           ))}
         </div>
       )}
@@ -90,53 +89,26 @@ export default function CouncilRegion() {
       {/* Stats row */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
-        gap: '0.75rem',
-        marginBottom: '2rem',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+        gap: '1rem',
+        marginBottom: '1.75rem',
       }}>
-        <StatMini label="Listings" value={regionData?.totalListings || region?.listing_count || 0} />
-        <StatMini label="Articles" value={region?.article_count || 0} />
+        <StatCard label="Listings" value={regionData?.totalListings || region?.listing_count || 0} />
+        <StatCard label="Articles" value={region?.article_count || 0} />
       </div>
 
       {/* Listings table */}
-      <section>
-        <h2 style={{
-          fontFamily: 'var(--font-display)',
-          fontSize: '1.15rem',
-          fontWeight: 400,
-          color: 'var(--color-ink)',
-          margin: '0 0 1rem',
-        }}>
-          Listings in {region?.name}
-        </h2>
+      <section style={{ marginBottom: '2rem' }}>
+        <SectionTitle>Listings in {region?.name}</SectionTitle>
 
         {loading ? (
-          <div style={{
-            background: '#fff',
-            borderRadius: '12px',
-            border: '1px solid var(--color-border)',
-            padding: '2rem',
-            textAlign: 'center',
-          }}>
-            <p style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)' }}>Loading listings...</p>
-          </div>
+          <Skeleton height={280} />
         ) : !regionData?.listings?.length ? (
-          <div style={{
-            background: '#fff',
-            borderRadius: '12px',
-            border: '1px solid var(--color-border)',
-            padding: '2rem',
-            textAlign: 'center',
-          }}>
-            <p style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)' }}>No listings found in this region.</p>
-          </div>
+          <EmptyState title="No listings yet">
+            No listings found in this region.
+          </EmptyState>
         ) : (
-          <div style={{
-            background: '#fff',
-            borderRadius: '12px',
-            border: '1px solid var(--color-border)',
-            overflow: 'hidden',
-          }}>
+          <Card style={{ padding: 0, overflow: 'hidden' }}>
             <div style={{ overflowX: 'auto' }}>
               <table style={{
                 width: '100%',
@@ -146,27 +118,27 @@ export default function CouncilRegion() {
               }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                    <th style={{ textAlign: 'left', padding: '0.75rem 1rem', color: 'var(--color-muted)', fontWeight: 500, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Name</th>
-                    <th style={{ textAlign: 'left', padding: '0.75rem 1rem', color: 'var(--color-muted)', fontWeight: 500, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Vertical</th>
-                    <th style={{ textAlign: 'left', padding: '0.75rem 1rem', color: 'var(--color-muted)', fontWeight: 500, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Location</th>
-                    <th style={{ textAlign: 'left', padding: '0.75rem 1rem', color: 'var(--color-muted)', fontWeight: 500, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Website</th>
+                    <th style={TH_STYLE}>Name</th>
+                    <th style={TH_STYLE}>Vertical</th>
+                    <th style={TH_STYLE}>Location</th>
+                    <th style={TH_STYLE}>Website</th>
                   </tr>
                 </thead>
                 <tbody>
                   {regionData.listings.map(listing => (
                     <tr key={listing.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                      <td style={{ padding: '0.625rem 1rem', color: 'var(--color-ink)', fontWeight: 500 }}>
+                      <td style={{ padding: '0.65rem 1.25rem', color: 'var(--color-ink)', fontWeight: 500 }}>
                         {listing.name}
                       </td>
-                      <td style={{ padding: '0.625rem 1rem', color: 'var(--color-muted)' }}>
+                      <td style={{ padding: '0.65rem 1.25rem', color: 'var(--color-muted)' }}>
                         {VERTICAL_LABELS[listing.vertical] || listing.vertical}
                       </td>
-                      <td style={{ padding: '0.625rem 1rem', color: 'var(--color-muted)' }}>
+                      <td style={{ padding: '0.65rem 1.25rem', color: 'var(--color-muted)' }}>
                         {listing.suburb}{listing.state ? `, ${listing.state}` : ''}
                       </td>
-                      <td style={{ padding: '0.625rem 1rem' }}>
+                      <td style={{ padding: '0.65rem 1.25rem' }}>
                         {listing.website ? (
-                          <a href={listing.website} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-sage)', fontSize: '0.8rem' }}>
+                          <a href={listing.website} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-sage-dark)', fontSize: '0.8rem', fontWeight: 550, textDecoration: 'none' }}>
                             Visit →
                           </a>
                         ) : (
@@ -180,101 +152,53 @@ export default function CouncilRegion() {
             </div>
             {regionData.totalListings > regionData.perPage && (
               <div style={{
-                padding: '0.75rem 1rem',
+                padding: '0.75rem 1.25rem',
                 borderTop: '1px solid var(--color-border)',
                 fontFamily: 'var(--font-body)',
-                fontSize: '0.8rem',
+                fontSize: '0.78rem',
                 color: 'var(--color-muted)',
                 textAlign: 'center',
               }}>
-                Showing {regionData.listings.length} of {regionData.totalListings} listings
+                Showing {regionData.listings.length} of {regionData.totalListings.toLocaleString('en-AU')} listings
               </div>
             )}
-          </div>
+          </Card>
         )}
 
         {/* Pagination */}
-        {regionData?.totalListings > (regionData?.perPage || 50) && (
-          <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-            gap: '0.5rem',
-            marginTop: '2rem',
-          }}>
-            <button
+        {regionData?.totalListings > perPage && (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.6rem', marginTop: '1.5rem' }}>
+            <Button
+              variant="secondary"
+              small
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page === 1}
-              style={{
-                padding: '0.5rem 1rem',
-                borderRadius: '8px',
-                border: '1px solid var(--color-border)',
-                background: '#fff',
-                fontFamily: 'var(--font-body)',
-                fontSize: '0.85rem',
-                color: page === 1 ? 'var(--color-border)' : 'var(--color-ink)',
-                cursor: page === 1 ? 'not-allowed' : 'pointer',
-              }}
             >
-              Previous
-            </button>
+              ← Previous
+            </Button>
             <span style={{
               fontFamily: 'var(--font-body)',
-              fontSize: '0.85rem',
+              fontSize: '0.82rem',
               color: 'var(--color-muted)',
-              padding: '0.5rem 0.75rem',
+              padding: '0 0.35rem',
+              fontVariantNumeric: 'tabular-nums',
             }}>
-              Page {page} of {Math.ceil(regionData.totalListings / (regionData.perPage || 50))}
+              Page {page} of {totalPages}
             </span>
-            <button
+            <Button
+              variant="secondary"
+              small
               onClick={() => setPage(p => p + 1)}
-              disabled={page >= Math.ceil(regionData.totalListings / (regionData.perPage || 50))}
-              style={{
-                padding: '0.5rem 1rem',
-                borderRadius: '8px',
-                border: '1px solid var(--color-border)',
-                background: '#fff',
-                fontFamily: 'var(--font-body)',
-                fontSize: '0.85rem',
-                color: page >= Math.ceil(regionData.totalListings / (regionData.perPage || 50)) ? 'var(--color-border)' : 'var(--color-ink)',
-                cursor: page >= Math.ceil(regionData.totalListings / (regionData.perPage || 50)) ? 'not-allowed' : 'pointer',
-              }}
+              disabled={page >= totalPages}
             >
-              Next
-            </button>
+              Next →
+            </Button>
           </div>
         )}
       </section>
-    </div>
-  )
-}
 
-function StatMini({ label, value }) {
-  return (
-    <div style={{
-      background: '#fff',
-      borderRadius: '10px',
-      border: '1px solid var(--color-border)',
-      padding: '1rem',
-    }}>
-      <p style={{
-        fontFamily: 'var(--font-body)',
-        fontSize: '1.5rem',
-        fontWeight: 600,
-        color: 'var(--color-ink)',
-        margin: '0 0 0.125rem',
-      }}>
-        {value.toLocaleString()}
-      </p>
-      <p style={{
-        fontFamily: 'var(--font-body)',
-        fontSize: '0.7rem',
-        color: 'var(--color-muted)',
-        margin: 0,
-        textTransform: 'uppercase',
-        letterSpacing: '0.06em',
-      }}>
-        {label}
-      </p>
+      {/* Embed + report tools for the selected region */}
+      {region && <CouncilRegionTools regions={[region]} />}
     </div>
   )
 }

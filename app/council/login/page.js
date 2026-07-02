@@ -2,6 +2,54 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { Card, Button } from '@/components/council/ui'
+
+const INPUT_STYLE = {
+  width: '100%',
+  padding: '0.6rem 0.75rem',
+  borderRadius: 10,
+  border: '1px solid var(--color-border)',
+  fontFamily: 'var(--font-body)',
+  fontSize: '0.95rem',
+  color: 'var(--color-ink)',
+  background: 'var(--color-card-bg)',
+  outline: 'none',
+  boxSizing: 'border-box',
+}
+
+const LABEL_STYLE = {
+  display: 'block',
+  fontFamily: 'var(--font-body)',
+  fontSize: '0.82rem',
+  fontWeight: 550,
+  color: 'var(--color-muted)',
+  marginBottom: '0.375rem',
+}
+
+// Full-width primary submit: ui.js Button is inline-flex, so a flex-column
+// wrapper stretches it and the inner span centers the label.
+function BlockButton({ children, ...props }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <Button {...props}>
+        <span style={{ flex: 1, textAlign: 'center' }}>{children}</span>
+      </Button>
+    </div>
+  )
+}
+
+function ErrorNote({ children }) {
+  return (
+    <div style={{
+      padding: '0.625rem 0.875rem', borderRadius: 10,
+      background: 'rgba(196,96,58,0.08)', border: '1px solid rgba(196,96,58,0.3)',
+      color: 'var(--color-accent)',
+      fontFamily: 'var(--font-body)', fontSize: '0.85rem', marginBottom: '1rem',
+    }}>
+      {children}
+    </div>
+  )
+}
 
 export default function CouncilLoginPage() {
   const [step, setStep] = useState('email') // email | code
@@ -63,34 +111,6 @@ export default function CouncilLoginPage() {
     }
   }
 
-  const inputStyle = {
-    width: '100%',
-    padding: '0.75rem 1rem',
-    borderRadius: '8px',
-    border: '1px solid var(--color-border)',
-    fontFamily: 'var(--font-body)',
-    fontSize: '1rem',
-    color: 'var(--color-ink)',
-    background: '#fff',
-    outline: 'none',
-    boxSizing: 'border-box',
-  }
-
-  const buttonStyle = {
-    width: '100%',
-    padding: '0.8rem 1rem',
-    borderRadius: '8px',
-    border: 'none',
-    background: 'var(--color-sage)',
-    color: '#fff',
-    fontFamily: 'var(--font-body)',
-    fontSize: '0.95rem',
-    fontWeight: 500,
-    cursor: loading ? 'not-allowed' : 'pointer',
-    opacity: loading ? 0.7 : 1,
-    transition: 'background 0.15s',
-  }
-
   return (
     <div style={{
       minHeight: '100vh',
@@ -100,141 +120,117 @@ export default function CouncilLoginPage() {
       background: 'var(--color-bg)',
       padding: '2rem',
     }}>
-      <div style={{ width: '100%', maxWidth: '440px' }}>
-        {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-          <Link href="/" style={{ textDecoration: 'none', color: 'var(--color-ink)' }}>
-            <h1 style={{
+      <div style={{ width: '100%', maxWidth: 420 }}>
+        {/* Wordmark + headline */}
+        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+          <Link href="/" style={{ textDecoration: 'none' }}>
+            <p style={{
               fontFamily: 'var(--font-display)',
-              fontSize: '2rem',
-              fontWeight: 400,
-              marginBottom: '0.25rem',
+              fontVariant: 'small-caps',
+              fontSize: '1rem',
+              fontWeight: 480,
+              letterSpacing: '0.14em',
+              color: 'var(--color-ink)',
+              margin: '0 0 0.9rem',
             }}>
               Australian Atlas
-            </h1>
+            </p>
           </Link>
-          <p style={{
-            fontFamily: 'var(--font-body)',
-            fontSize: '0.75rem',
-            letterSpacing: '0.15em',
-            textTransform: 'uppercase',
-            color: 'var(--color-muted)',
-            marginBottom: '0.75rem',
+          <h1 style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: '2rem',
+            fontWeight: 420,
+            letterSpacing: '-0.01em',
+            lineHeight: 1.1,
+            color: 'var(--color-ink)',
+            margin: '0 0 0.6rem',
           }}>
-            Council & Tourism Portal
-          </p>
+            Council dashboard
+          </h1>
           <p style={{
             fontFamily: 'var(--font-body)',
-            fontSize: '0.95rem',
+            fontSize: '0.92rem',
             color: 'var(--color-muted)',
             lineHeight: 1.5,
+            margin: 0,
           }}>
-            Sign in to manage your region on the Australian Atlas network
+            Sign in to manage your region on the Australian Atlas network.
           </p>
         </div>
 
         {/* Card */}
-        <div style={{
-          background: '#fff',
-          borderRadius: '12px',
-          border: '1px solid var(--color-border)',
-          padding: '2rem',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-        }}>
+        <Card style={{ padding: '1.75rem' }}>
           {step === 'email' ? (
             <form onSubmit={handleSendCode}>
               <div style={{ marginBottom: '1.25rem' }}>
-                <label style={{
-                  display: 'block',
-                  fontFamily: 'var(--font-body)',
-                  fontSize: '0.85rem',
-                  color: 'var(--color-muted)',
-                  marginBottom: '0.375rem',
-                }}>
+                <label htmlFor="council-login-email" style={LABEL_STYLE}>
                   Email address
                 </label>
                 <input
+                  id="council-login-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   placeholder="you@council.gov.au"
-                  style={inputStyle}
+                  style={INPUT_STYLE}
                   onFocus={(e) => e.target.style.borderColor = 'var(--color-sage)'}
                   onBlur={(e) => e.target.style.borderColor = 'var(--color-border)'}
                 />
               </div>
 
-              {error && (
-                <div style={{
-                  padding: '0.625rem 0.875rem',
-                  borderRadius: '8px',
-                  background: '#fef2f2',
-                  border: '1px solid #fecaca',
-                  color: '#b91c1c',
-                  fontFamily: 'var(--font-body)',
-                  fontSize: '0.85rem',
-                  marginBottom: '1rem',
-                }}>
-                  {error}
-                </div>
-              )}
+              {error && <ErrorNote>{error}</ErrorNote>}
 
-              <button type="submit" disabled={loading} style={buttonStyle}>
-                {loading ? 'Sending...' : 'Send login code'}
-              </button>
+              <BlockButton type="submit" variant="primary" disabled={loading}>
+                {loading ? 'Sending…' : 'Send login code'}
+              </BlockButton>
 
               <p style={{
                 fontFamily: 'var(--font-body)',
-                fontSize: '0.8rem',
+                fontSize: '0.78rem',
                 color: 'var(--color-muted)',
                 textAlign: 'center',
                 marginTop: '1.25rem',
+                marginBottom: 0,
                 lineHeight: 1.5,
               }}>
-                We'll email you a 6-digit code to sign in. No password needed.
+                We&apos;ll email you a 6-digit code to sign in. No password needed.
               </p>
             </form>
           ) : (
             <form onSubmit={handleVerifyCode}>
               {message && (
                 <div style={{
-                  padding: '0.625rem 0.875rem',
-                  borderRadius: '8px',
-                  background: '#f0fdf4',
-                  border: '1px solid #bbf7d0',
-                  color: '#166534',
-                  fontFamily: 'var(--font-body)',
-                  fontSize: '0.85rem',
-                  marginBottom: '1.25rem',
+                  padding: '0.625rem 0.875rem', borderRadius: 10,
+                  background: 'rgba(95,138,126,0.12)', border: '1px solid rgba(95,138,126,0.3)',
+                  color: 'var(--color-sage-dark)',
+                  fontFamily: 'var(--font-body)', fontSize: '0.85rem', marginBottom: '1.25rem',
                 }}>
                   {message}
                 </div>
               )}
 
               <div style={{ marginBottom: '1.25rem' }}>
-                <label style={{
-                  display: 'block',
-                  fontFamily: 'var(--font-body)',
-                  fontSize: '0.85rem',
-                  color: 'var(--color-muted)',
-                  marginBottom: '0.375rem',
-                }}>
+                <label htmlFor="council-login-code" style={LABEL_STYLE}>
                   Enter your 6-digit code
                 </label>
                 <input
+                  id="council-login-code"
                   type="text"
+                  inputMode="numeric"
                   value={code}
                   onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   required
                   maxLength={6}
                   placeholder="000000"
                   style={{
-                    ...inputStyle,
+                    ...INPUT_STYLE,
                     textAlign: 'center',
-                    fontSize: '1.5rem',
+                    fontFamily: 'var(--font-display)',
+                    fontSize: '1.45rem',
                     letterSpacing: '0.3em',
-                    fontWeight: 600,
+                    fontWeight: 500,
+                    fontVariantNumeric: 'tabular-nums',
                   }}
                   onFocus={(e) => e.target.style.borderColor = 'var(--color-sage)'}
                   onBlur={(e) => e.target.style.borderColor = 'var(--color-border)'}
@@ -242,27 +238,11 @@ export default function CouncilLoginPage() {
                 />
               </div>
 
-              {error && (
-                <div style={{
-                  padding: '0.625rem 0.875rem',
-                  borderRadius: '8px',
-                  background: '#fef2f2',
-                  border: '1px solid #fecaca',
-                  color: '#b91c1c',
-                  fontFamily: 'var(--font-body)',
-                  fontSize: '0.85rem',
-                  marginBottom: '1rem',
-                }}>
-                  {error}
-                </div>
-              )}
+              {error && <ErrorNote>{error}</ErrorNote>}
 
-              <button type="submit" disabled={loading || code.length !== 6} style={{
-                ...buttonStyle,
-                opacity: (loading || code.length !== 6) ? 0.7 : 1,
-              }}>
-                {loading ? 'Verifying...' : 'Verify and sign in'}
-              </button>
+              <BlockButton type="submit" variant="primary" disabled={loading || code.length !== 6}>
+                {loading ? 'Verifying…' : 'Verify and sign in'}
+              </BlockButton>
 
               <div style={{ textAlign: 'center', marginTop: '1rem' }}>
                 <button
@@ -271,9 +251,11 @@ export default function CouncilLoginPage() {
                   style={{
                     background: 'none',
                     border: 'none',
+                    padding: 0,
                     fontFamily: 'var(--font-body)',
                     fontSize: '0.85rem',
-                    color: 'var(--color-sage)',
+                    fontWeight: 550,
+                    color: 'var(--color-sage-dark)',
                     cursor: 'pointer',
                   }}
                 >
@@ -282,7 +264,7 @@ export default function CouncilLoginPage() {
               </div>
             </form>
           )}
-        </div>
+        </Card>
 
         {/* Bottom link */}
         <div style={{ textAlign: 'center', marginTop: '2rem' }}>
@@ -290,9 +272,10 @@ export default function CouncilLoginPage() {
             fontFamily: 'var(--font-body)',
             fontSize: '0.85rem',
             color: 'var(--color-muted)',
+            margin: 0,
           }}>
-            Don't have an account?{' '}
-            <Link href="/council/enquire" style={{ color: 'var(--color-sage)', textDecoration: 'underline', textUnderlineOffset: '3px' }}>
+            Don&apos;t have an account?{' '}
+            <Link href="/council/enquire" style={{ color: 'var(--color-sage-dark)', textDecoration: 'underline', textUnderlineOffset: 3 }}>
               Contact us
             </Link>
           </p>
