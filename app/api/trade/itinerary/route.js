@@ -48,6 +48,8 @@ export async function POST(request) {
     const title = (body.title || '').toString().trim().slice(0, 200)
     const intentText = body.intent_text ? body.intent_text.toString().slice(0, 600) : null
     const region = body.region ? body.region.toString().slice(0, 120) : null
+    const clientName = body.client_name ? body.client_name.toString().trim().slice(0, 120) || null : null
+    const coverNote = body.cover_note ? body.cover_note.toString().trim().slice(0, 1200) || null : null
     const status = body.status === 'published' ? 'published' : 'draft'
     const stops = Array.isArray(body.stops) ? body.stops : []
 
@@ -62,7 +64,7 @@ export async function POST(request) {
       const slug = generateShareSlug(title)
       const { data, error } = await sb
         .from('trade_itineraries')
-        .insert({ slug, trade_account_id: account.id, title, intent_text: intentText, region, status })
+        .insert({ slug, trade_account_id: account.id, title, intent_text: intentText, region, status, client_name: clientName, cover_note: coverNote })
         .select('*')
         .single()
       if (!error) { itinerary = data; break }

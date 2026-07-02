@@ -6,6 +6,8 @@ import { isApprovedImageSource } from '@/lib/image-utils'
 import { readGalleryEntries, writeGalleryEntries, galleryModerationStatus, isListingPaid, MAX_GALLERY_PHOTOS } from '@/lib/listing-gallery'
 import { normalizeHighlights } from '@/lib/operator-highlights/normalize'
 import { normalizeSearchKeywords } from '@/lib/search-keywords/normalize'
+import { normalizeTradeReadiness, normalizeTradeProfile } from '@/lib/trade-readiness/normalize'
+import { upsertTradeProfile } from '@/lib/trade/profile'
 import { regenerateListingEmbedding } from '@/lib/embeddings/regenerateOne'
 import { moderateImageUrl } from '@/lib/moderation/imageModeration'
 
@@ -381,15 +383,65 @@ export async function PATCH(request) {
     savedKeywords = norm.value
   }
 
+  // ── trade_readiness → master-only write (Atlas Trade operator profile).
+  //    Never synced to a vertical (not in lib/sync/fieldMaps) and never search-
+  //    indexed — operator metadata only, sync-safe by omission like hours /
+  //    operator_highlights. trade_welcome gates inclusion via the
+  //    trade_buildable_listings view (migration 170); the sub-values are written
+  //    exactly as sent, so a master/group toggle-off in the UI preserves them. ──
+  let savedTrade
+  if ('trade_readiness' in body) {
+    const norm = normalizeTradeReadiness(body.trade_readiness)
+    if (!norm.ok) {
+      return NextResponse.json({ error: norm.error }, { status: 400 })
+    }
+    const { error: tErr } = await sb
+      .from('listings')
+      .update({ ...norm.value, updated_at: new Date().toISOString() })
+      .eq('id', listingId)
+    if (tErr) {
+      // Forward-compat: columns land with migration 170.
+      if (tErr.code === '42703') {
+        return NextResponse.json({ error: 'Trade readiness isn’t switched on yet — please try again shortly.' }, { status: 503 })
+      }
+      return NextResponse.json({ error: `Failed to save trade readiness: ${tErr.message}` }, { status: 400 })
+    }
+    savedTrade = norm.value
+  }
+
+  // ── trade_profile → listing_trade_profiles upsert (migration 204).
+  //    The fact-sheet depth: notice period, coach access, languages, dietary,
+  //    capacity, seasonality, insurance, famils + the TRADE-ONLY contact
+  //    channel. Separate table (service-role-only RLS) so the contact channel
+  //    never rides along on anon listings reads. ──
+  let savedProfile
+  if ('trade_profile' in body) {
+    const norm = normalizeTradeProfile(body.trade_profile)
+    if (!norm.ok) {
+      return NextResponse.json({ error: norm.error }, { status: 400 })
+    }
+    const result = await upsertTradeProfile(sb, listingId, norm.value)
+    if (!result.ok) {
+      // Forward-compat: the table lands with migration 204.
+      if (/listing_trade_profiles/.test(result.error || '') || /42P01/.test(result.error || '')) {
+        return NextResponse.json({ error: 'The trade profile isn’t switched on yet — please try again shortly.' }, { status: 503 })
+      }
+      return NextResponse.json({ error: `Failed to save trade profile: ${result.error}` }, { status: 400 })
+    }
+    savedProfile = norm.value
+  }
+
   const { data: fresh } = await sb
     .from('listings')
-    .select('id, name, slug, vertical, website, phone, hours, hero_image_url, description, is_claimed, status, search_keywords')
+    .select('id, name, slug, vertical, website, phone, hours, hero_image_url, description, is_claimed, status, search_keywords, trade_welcome, trade_bespoke, trade_group, trade_group_size_max, trade_contact_before_booking, trade_rates_available')
     .eq('id', listingId)
     .single()
 
   if (fresh && savedGallery !== undefined) fresh.gallery_image_urls = savedGallery
   if (fresh && savedHighlights !== undefined) fresh.operator_highlights = savedHighlights
   if (fresh && savedKeywords !== undefined) fresh.search_keywords = savedKeywords
+  if (fresh && savedTrade !== undefined) Object.assign(fresh, savedTrade)
+  if (fresh && savedProfile !== undefined) fresh.trade_profile = savedProfile
 
   return NextResponse.json({ success: true, listing: fresh, verticalSync, imageModeration, galleryModeration })
 }

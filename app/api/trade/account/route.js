@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 import { createAuthServerClient } from '@/lib/supabase/auth-clients'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
-import { createTradeAccount, getTradeAccountForUser, publicTradeAccount } from '@/lib/trade/account'
+import { createTradeAccount, getTradeAccountForUser, publicTradeAccount, updateTradeAccountSettings } from '@/lib/trade/account'
 import { TRADE_AUP_VERSION } from '@/lib/trade/config'
+import { getTradeContext } from '@/lib/trade/server-auth'
 
 export const runtime = 'nodejs'
 
@@ -61,5 +62,28 @@ export async function POST(request) {
   } catch (err) {
     console.error('[trade/account] POST error:', err)
     return NextResponse.json({ error: 'Failed to create trade account', detail: err.message }, { status: 500 })
+  }
+}
+
+/* PATCH → co-brand + focus settings (org_website, org_logo_url, focus_regions).
+   The consent log and founding fields are not editable here. */
+export async function PATCH(request) {
+  try {
+    const { user, account, sb } = await getTradeContext()
+    if (!user) return NextResponse.json({ error: 'Sign in required' }, { status: 401 })
+    if (!account) return NextResponse.json({ error: 'Trade beta account required' }, { status: 403 })
+
+    const body = await request.json().catch(() => ({}))
+    const result = await updateTradeAccountSettings(sb, account.id, {
+      orgWebsite: 'org_website' in body ? body.org_website : undefined,
+      orgLogoUrl: 'org_logo_url' in body ? body.org_logo_url : undefined,
+      focusRegions: 'focus_regions' in body ? body.focus_regions : undefined,
+    })
+    if (result.error) return NextResponse.json({ error: result.error }, { status: 400 })
+
+    return NextResponse.json({ account: publicTradeAccount(result.account) })
+  } catch (err) {
+    console.error('[trade/account] PATCH error:', err)
+    return NextResponse.json({ error: 'Failed to update trade account' }, { status: 500 })
   }
 }

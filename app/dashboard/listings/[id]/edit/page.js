@@ -9,6 +9,7 @@ import { getListingRegion } from '@/lib/regions'
 import { getVerticalLabel, getVerticalBrandColour } from '@/lib/verticalUrl'
 import HighlightsEditor from './HighlightsEditor'
 import KeywordsEditor from './KeywordsEditor'
+import TradeReadinessEditor from './TradeReadinessEditor'
 import EventsSection from './EventsSection'
 import PicksSection from './PicksSection'
 
@@ -1034,6 +1035,14 @@ export default function EditListingPage() {
             listingId={id}
             token={token}
             initialKeywords={listing.search_keywords}
+            accent={vertColor}
+          />
+
+          {/* ── Trade readiness — operator-authored Atlas Trade profile (not public) ── */}
+          <TradeReadinessEditor
+            listingId={id}
+            token={token}
+            initial={listing}
             accent={vertColor}
           />
 

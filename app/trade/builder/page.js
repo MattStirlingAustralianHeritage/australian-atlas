@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getTradeContext } from '@/lib/trade/server-auth'
 import { publicTradeAccount } from '@/lib/trade/account'
+import TradeNav from '@/components/trade/TradeNav'
 import TradeBuilderClient from './TradeBuilderClient'
 
 export const dynamic = 'force-dynamic'
@@ -18,5 +19,10 @@ export default async function TradeBuilderPage() {
   if (!user) redirect('/for-trade')
   if (!account) redirect('/for-trade/apply')
 
-  return <TradeBuilderClient account={publicTradeAccount(account)} />
+  return (
+    <>
+      <TradeNav active="builder" orgName={account.org_name} />
+      <TradeBuilderClient account={publicTradeAccount(account)} />
+    </>
+  )
 }

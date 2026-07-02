@@ -115,15 +115,15 @@ export default async function ForTradePage() {
         {[
           {
             title: 'A pre-vetted network',
-            desc: `${stats.listings.toLocaleString()} independent operators across ${ATLAS_COUNT} categories and ${stats.regions} regions — location-verified, contact-audited, no paid placement. A defensible set you can stand behind to a client.`,
+            desc: `${stats.listings.toLocaleString()} independent operators across ${ATLAS_COUNT} categories and ${stats.regions} regions — location-verified, contact-audited, no paid placement. Every stop in every itinerary links to a live, verified record: nothing here can be an AI's invention.`,
           },
           {
-            title: 'Build in plain language',
-            desc: 'Describe the tour — "a winery tour in the Yarra Valley" — and Atlas surfaces relevant operators from across the network. Add, swap, and reorder stops into an ordered itinerary.',
+            title: 'A working trade toolkit',
+            desc: 'A filterable product directory (region, state, group size, coach access, trade terms), one-page trade fact sheets with a PDF for every trade-ready venue, and tracked rates, availability and famil enquiries — the contracting groundwork, minus the phone tag.',
           },
           {
-            title: 'Attributed, shareable, exportable',
-            desc: 'Every itinerary carries a quiet "Curated via Atlas" line, shares on a private link, and exports to PDF. Present it to your client under your own trip — the curation stays credited.',
+            title: 'Day-planned, co-branded proposals',
+            desc: 'Describe the tour in plain language, assemble day-structured itineraries with drive estimates, add a cover note, and share under "Prepared by you · Curated via Atlas" — on a private link and a PDF. Drafts auto-save.',
           },
         ].map((item) => (
           <div key={item.title} style={{
@@ -208,10 +208,10 @@ export default async function ForTradePage() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 24 }}>
           {[
-            { n: '01', title: 'Describe the tour', desc: 'Plain language: a theme, a region, a feeling. No filters to wrangle.' },
-            { n: '02', title: 'Review the candidates', desc: 'Atlas retrieves relevant operators from the whole network, ranked for the brief.' },
-            { n: '03', title: 'Assemble the stops', desc: 'Add, swap, and reorder into an ordered itinerary. Search again for any gap.' },
-            { n: '04', title: 'Share or export', desc: 'A private link and a PDF, both carrying the Atlas attribution.' },
+            { n: '01', title: 'Find the product', desc: 'Describe the tour in plain language, or filter the directory the way a product manager works.' },
+            { n: '02', title: 'Check the fact sheet', desc: 'Capacity, notice, seasonality, insurance, languages, and a trade contact — one page, one PDF.' },
+            { n: '03', title: 'Assemble by day', desc: 'Day-structured stops with time hints, private notes and drive estimates. Drafts auto-save.' },
+            { n: '04', title: 'Share or enquire', desc: 'A co-branded link and PDF for the client; tracked rate and famil enquiries to the venues.' },
           ].map((step) => (
             <div key={step.n} style={{
               padding: '24px', borderRadius: 12,

@@ -57,6 +57,8 @@ export async function PATCH(request, { params }) {
     if (typeof body.title === 'string' && body.title.trim()) patch.title = body.title.trim().slice(0, 200)
     if (typeof body.intent_text === 'string') patch.intent_text = body.intent_text.slice(0, 600) || null
     if (typeof body.region === 'string') patch.region = body.region.slice(0, 120) || null
+    if (typeof body.client_name === 'string') patch.client_name = body.client_name.trim().slice(0, 120) || null
+    if (typeof body.cover_note === 'string') patch.cover_note = body.cover_note.trim().slice(0, 1200) || null
     if (body.status && ['draft', 'published', 'archived'].includes(body.status)) patch.status = body.status
 
     const { error: updErr } = await sb
