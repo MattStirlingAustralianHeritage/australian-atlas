@@ -1565,6 +1565,75 @@ export default function MapClient({
           </div>
         )}
 
+        {/* ── FLOATING SMART FILTER (desktop) — the hero filter, centred over
+            the map so it's reachable without hunting the sidebar. Its wrapper
+            spans the map area (right of the panel) and centres the pill; the
+            wrapper is click-through so the bottom-corner controls stay live. */}
+        {!isEmbedded && (
+          <div className="map-desktop-toolbar" style={{
+            position: 'absolute', bottom: 30, left: panelOpen ? PANEL_W : 0, right: 0, zIndex: 12,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7,
+            pointerEvents: 'none', transition: 'left 0.38s cubic-bezier(0.22, 1, 0.36, 1)',
+            padding: '0 88px',
+          }}>
+            {appliedPinQuery && (
+              <div style={{
+                pointerEvents: 'none', display: 'inline-flex', alignItems: 'center', gap: 7,
+                background: 'rgba(28,26,23,0.82)', color: 'var(--color-cream)', backdropFilter: 'blur(6px)',
+                padding: '4px 12px', borderRadius: 20, fontFamily: 'var(--font-sans)', fontSize: 11,
+                letterSpacing: '0.01em', boxShadow: '0 4px 14px rgba(28,26,23,0.18)',
+              }}>
+                {semanticLoading
+                  ? <><span className="map-spinner" style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff', width: 11, height: 11 }} />Searching meaning, not just words…</>
+                  : <>{count.toLocaleString()} {count === 1 ? 'match' : 'matches'} lit · the rest fade back</>}
+              </div>
+            )}
+            <div style={{
+              pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 9,
+              width: 'min(480px, 100%)', boxSizing: 'border-box',
+              background: 'rgba(251,249,244,0.94)', backdropFilter: 'blur(14px) saturate(1.2)',
+              border: `1px solid ${appliedPinQuery ? 'rgba(95,138,126,0.55)' : 'rgba(28,26,23,0.1)'}`,
+              borderRadius: 999, padding: '9px 12px 9px 16px',
+              boxShadow: appliedPinQuery
+                ? '0 12px 34px rgba(28,26,23,0.20), 0 0 0 4px rgba(95,138,126,0.10)'
+                : '0 12px 34px rgba(28,26,23,0.18)',
+              transition: 'border-color 0.2s, box-shadow 0.2s',
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={appliedPinQuery ? '#5f8a7e' : 'var(--color-muted)'} strokeWidth="2" strokeLinecap="round" style={{ flexShrink: 0, transition: 'stroke 0.2s' }} aria-hidden="true">
+                <path d="M4 6h16M7 12h10M10 18h4" />
+              </svg>
+              <input
+                type="text"
+                value={pinQuery}
+                onChange={e => setPinQuery(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Escape') setPinQuery('') }}
+                placeholder="Filter the map — try ‘rice lager’, ‘whisky’ or ‘homewares’"
+                aria-label="Filter the map by keyword"
+                style={{
+                  flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent',
+                  fontFamily: 'var(--font-sans)', fontSize: 14, color: 'var(--color-ink)', letterSpacing: '0.005em',
+                }}
+              />
+              {semanticLoading && (
+                <span aria-label="Searching" style={{
+                  width: 15, height: 15, borderRadius: '50%', flexShrink: 0,
+                  border: '2px solid rgba(95,138,126,0.28)', borderTopColor: '#5f8a7e',
+                  animation: 'map-spin 0.7s linear infinite',
+                }} />
+              )}
+              {pinQuery && !semanticLoading && (
+                <button onClick={() => setPinQuery('')} aria-label="Clear filter" style={{
+                  flexShrink: 0, width: 26, height: 26, borderRadius: '50%', border: 'none', cursor: 'pointer',
+                  background: 'rgba(28,26,23,0.06)', color: 'var(--color-muted)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Desktop legend — fullscreen mode only; slides with the panel */}
         {!isEmbedded && (
         <div className="map-desktop-toolbar" style={{ position: 'absolute', bottom: 40, left: panelOpen ? PANEL_W + 16 : 16, transition: 'left 0.38s cubic-bezier(0.22, 1, 0.36, 1)', background: 'rgba(250,248,245,0.97)', border: '1px solid var(--color-border)', borderRadius: 4, zIndex: 5, overflow: 'hidden' }}>

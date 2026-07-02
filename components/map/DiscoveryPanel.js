@@ -112,8 +112,10 @@ export default function DiscoveryPanel({
           )}
         </div>
 
-        {/* Smart filter — matches keep colour on the map, the rest grey out */}
-        {onFilterQuery && (
+        {/* Smart filter — matches keep colour on the map, the rest grey out.
+            Desktop renders this as a floating bar over the map instead (see
+            MapClient's MapFilterBar), so the in-panel field is sheet-only. */}
+        {onFilterQuery && mode === 'sheet' && (
           <div style={{ position: 'relative', marginTop: 9 }}>
             <span style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', display: 'flex', pointerEvents: 'none' }} aria-hidden="true">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-muted)" strokeWidth="2" strokeLinecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
@@ -151,7 +153,7 @@ export default function DiscoveryPanel({
             ) : null}
           </div>
         )}
-        {onFilterQuery && filterQuery && (
+        {onFilterQuery && mode === 'sheet' && filterQuery && (
           <div style={{ fontSize: 9.5, color: 'var(--color-muted)', marginTop: 5, letterSpacing: '0.02em' }}>
             {filterBusy ? 'Searching meaning, not just words…' : 'Matches stay in colour · the rest fade back'}
           </div>
