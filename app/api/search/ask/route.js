@@ -324,7 +324,9 @@ export async function POST(request) {
     }
     cacheSet(ckey, payload)
 
-    logSearchEvent(sb, { query_text: loggedQuery, surface: 'ask', result_count: listings.length, latency_ms: Date.now() - t0, vector_arm_fired: !!queryEmbedding, fell_back: !queryEmbedding, voyage_error: voyageError, zero_result: false })
+    // `impressions` also logs the returned listings (with positions) into
+    // search_result_impressions — fire-and-forget inside the helper.
+    logSearchEvent(sb, { query_text: loggedQuery, surface: 'ask', result_count: listings.length, latency_ms: Date.now() - t0, vector_arm_fired: !!queryEmbedding, fell_back: !queryEmbedding, voyage_error: voyageError, zero_result: false, impressions: listings })
     return NextResponse.json(payload)
   } catch (err) {
     console.error('[ask] Error:', err)

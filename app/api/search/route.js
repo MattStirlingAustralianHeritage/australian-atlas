@@ -479,6 +479,10 @@ export async function GET(request) {
         query_text: clampQuery(q), surface: 'front_door', result_count: total, latency_ms: Date.now() - t0,
         vector_arm_fired: !!queryEmbedding, fell_back: !queryEmbedding,
         voyage_error: voyageError, zero_result: total === 0, reranked,
+        // Result-impression log (search_result_impressions): the FINAL page of
+        // listings actually sent to the client, offset so positions are the
+        // global rank. Fire-and-forget inside the helper — never blocks search.
+        impressions: listings, impressions_offset: offset,
       })
 
       return NextResponse.json({
