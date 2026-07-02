@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useEffect, useCallback, Suspense } from 'react'
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import ListingCard, { TypographicCard, VERTICAL_TOKENS } from '@/components/ListingCard'
 import SearchAutocomplete from '@/components/SearchAutocomplete'
+import SearchResultCard, { queryTerms, buildSnippet, highlightTerms } from '@/components/SearchResultCard'
 import VibeSearch from './VibeSearch'
 import { getListingRegion } from '@/lib/regions'
 import { isApprovedImageSource } from '@/lib/image-utils'
@@ -14,6 +16,9 @@ import { VERTICAL_MUTED, isVerticalPublic } from '@/lib/verticalUrl'
 import { useLocation } from '@/components/LocationProvider'
 
 import { VERTICAL_STYLES } from '@/components/VerticalBadge'
+
+// Mapbox GL must never render on the server.
+const SearchResultsMap = dynamic(() => import('@/components/SearchResultsMap'), { ssr: false })
 
 // As-the-crow-flies distance (km) between two lat/lng points.
 function haversineKm(lat1, lng1, lat2, lng2) {
@@ -32,47 +37,6 @@ const POPULAR_CATEGORIES = ['Breweries', 'Wineries', 'Chocolatiers', 'Cafés', '
 // Humanise a sub_type key for the facet chips.
 function prettySubType(key) {
   return String(key || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-}
-
-// Significant query terms (drop short/stop-ish words) for snippet matching.
-function queryTerms(q) {
-  return [...new Set((q || '').toLowerCase().match(/[a-z0-9]{3,}/g) || [])]
-}
-
-// Build a description excerpt CENTRED on the first matching query term, so a
-// match in sentence 3 isn't hidden behind the opening 180 chars.
-function buildSnippet(desc, terms, maxLen = 180) {
-  const text = (desc || '').trim()
-  if (!text) return ''
-  let firstIdx = -1
-  if (terms.length) {
-    const lower = text.toLowerCase()
-    for (const t of terms) {
-      const i = lower.indexOf(t)
-      if (i >= 0 && (firstIdx < 0 || i < firstIdx)) firstIdx = i
-    }
-  }
-  if (firstIdx <= maxLen - 40) {
-    // Match is already near the start (or no match) → original head excerpt.
-    return text.length > maxLen ? text.slice(0, maxLen).replace(/\s+\S*$/, '') + '…' : text
-  }
-  let start = Math.max(0, firstIdx - 60)
-  const sp = text.indexOf(' ', start)
-  if (sp >= 0 && sp < start + 20) start = sp + 1
-  let out = text.slice(start, start + maxLen)
-  if (start + maxLen < text.length) out = out.replace(/\s+\S*$/, '') + '…'
-  return '…' + out
-}
-
-// Render a snippet with matched terms bolded (terms are [a-z0-9]+ → regex-safe).
-function highlightTerms(text, terms) {
-  if (!text || !terms.length) return text
-  const re = new RegExp('(' + terms.join('|') + ')', 'ig')
-  return text.split(re).map((part, i) =>
-    terms.includes(part.toLowerCase())
-      ? <strong key={i} style={{ fontWeight: 600, color: 'var(--color-ink)', opacity: 1 }}>{part}</strong>
-      : part
-  )
 }
 
 /**
@@ -111,11 +75,6 @@ function isItineraryIntent(query) {
   return false
 }
 
-// Use VerticalBadge text colors for pill accents
-const VERTICAL_ACCENT = Object.fromEntries(
-  Object.entries(VERTICAL_STYLES || {}).map(([k, v]) => [k, v.text])
-)
-
 const VERTICALS = [
   { key: '', label: 'All', atlas: '' },
   { key: 'sba', label: 'Small Batch', atlas: 'Drink' },
@@ -133,6 +92,12 @@ const VERTICALS = [
 const VERTICAL_LABEL_MAP = Object.fromEntries(VERTICALS.filter(v => v.key).map(v => [v.key, v.label]))
 
 const STATES = ['', 'VIC', 'NSW', 'QLD', 'SA', 'WA', 'TAS', 'ACT', 'NT']
+
+const VIEWS = [
+  { key: 'grid', label: 'Grid', icon: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></> },
+  { key: 'list', label: 'List', icon: <><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><circle cx="4" cy="6" r="0.8" /><circle cx="4" cy="12" r="0.8" /><circle cx="4" cy="18" r="0.8" /></> },
+  { key: 'map', label: 'Map', icon: <><path d="M9 20l-6-3V4l6 3 6-3 6 3v13l-6-3-6 3z" /><line x1="9" y1="7" x2="9" y2="20" /><line x1="15" y1="4" x2="15" y2="17" /></> },
+]
 
 // ── Contextual header mapping ────────────────────────────────
 // The query→atlas keyword detection lives in lib/search/verticalIntent.js so the
@@ -327,7 +292,7 @@ function SearchEventCard({ event }) {
 
 // Enlarged "top result" card — a taller visual header plus a detail panel with
 // category, location, the venue address, and a description excerpt.
-function FeaturedCard({ listing, query }) {
+function FeaturedCard({ listing, query, onClick, onHover, active }) {
   const region = getListingRegion(listing)
   const tokens = VERTICAL_TOKENS[listing.vertical] || VERTICAL_TOKENS.portal
   const hasImg = listing.hero_image_url && isApprovedImageSource(listing.hero_image_url)
@@ -342,8 +307,14 @@ function FeaturedCard({ listing, query }) {
   return (
     <a
       href={`/place/${listing.slug}`}
-      className="group block overflow-hidden"
-      style={{ borderRadius: 14, border: '0.5px solid var(--color-border)', background: '#fff' }}
+      {...(onClick ? { onClick } : {})}
+      {...(onHover ? { onMouseEnter: () => onHover(listing.id), onMouseLeave: () => onHover(null) } : {})}
+      className="group block overflow-hidden listing-card"
+      style={{
+        borderRadius: 14,
+        border: active ? '1px solid var(--color-gold)' : '0.5px solid var(--color-border)',
+        background: '#fff',
+      }}
     >
       <div style={{ position: 'relative' }}>
         {hasImg ? (
@@ -399,15 +370,20 @@ function SearchPageInner() {
   const [vertical, setVertical] = useState(searchParams.get('vertical') || '')
   const [state, setState] = useState(searchParams.get('state') || '')
   const [region, setRegion] = useState(searchParams.get('region') || '')
+  const initialView = ['grid', 'list', 'map'].includes(searchParams.get('view')) ? searchParams.get('view') : 'grid'
+  const [view, setView] = useState(initialView)          // grid | list | map
   const [autoState, setAutoState] = useState('')  // State detected from query text by API
   const [autoSuburb, setAutoSuburb] = useState('')  // Suburb detected from query text by API
   const [results, setResults] = useState([])
+  const [pins, setPins] = useState([])                 // full ranked pool as map pins
+  const [hoveredId, setHoveredId] = useState(null)     // card↔pin hover sync
   const [events, setEvents] = useState([])
   const [total, setTotal] = useState(0)
   const [capped, setCapped] = useState(false)
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [initialLoad, setInitialLoad] = useState(true)
   const [slowSearch, setSlowSearch] = useState(false)
   const [detectedVertical, setDetectedVertical] = useState(null)
@@ -415,15 +391,32 @@ function SearchPageInner() {
   const [detectedPlace, setDetectedPlace] = useState(null) // town/suburb resolved from query (gazetteer/geocoded)
   const [noBind, setNoBind] = useState(false)          // user dismissed the detected-region/place chip
   const [noVerticalBind, setNoVerticalBind] = useState(false) // user broadened past the detected atlas
-  const [didYouMean, setDidYouMean] = useState(null)   // fuzzy suggestion on zero results
-  const [facets, setFacets] = useState({ subTypes: [] })
+  const [didYouMean, setDidYouMean] = useState(null)   // fuzzy suggestion on zero/weak results
+  const [facets, setFacets] = useState({ subTypes: [], regions: [] })
   const [subType, setSubType] = useState('')           // sub_type facet refine
+  const [facetRegion, setFacetRegion] = useState('')   // region facet refine
   const [sortBy, setSortBy] = useState('relevance')    // relevance | az | nearest
   const [trending, setTrending] = useState([])         // popular recent queries (discovery)
   const [askAnswer, setAskAnswer] = useState(null)     // concierge reply for a plain-language inquiry
   const [forceExact, setForceExact] = useState(false)  // user opted out of the concierge for this query
 
   const { location } = useLocation()                   // { lat, lng, name } or null
+  const formRef = useRef(null)
+  const viewRef = useRef(view)
+  viewRef.current = view
+  const resultsAnchorRef = useRef(null)
+  const prevViewRef = useRef(view)
+
+  // Toggling INTO the map view scrolls the results into frame — otherwise the
+  // freshly-mounted map sits below the fold and the toggle looks like a no-op.
+  useEffect(() => {
+    if (prevViewRef.current === view) return
+    prevViewRef.current = view
+    if (view === 'map' && resultsAnchorRef.current) {
+      const y = resultsAnchorRef.current.getBoundingClientRect().top + window.scrollY - 175
+      window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' })
+    }
+  }, [view])
 
   // Trending searches — fetched once, used for the browse-mode discovery row and
   // as the zero-result recovery chips when we have real signal.
@@ -436,6 +429,21 @@ function SearchPageInner() {
     return () => { alive = false }
   }, [])
 
+  // "/" focuses the search field from anywhere on the page (never while the
+  // user is already typing in a field).
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return
+      const t = e.target
+      const tag = (t?.tagName || '').toLowerCase()
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || t?.isContentEditable) return
+      const input = formRef.current?.querySelector('input')
+      if (input) { e.preventDefault(); input.focus(); input.select?.() }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   // Sync URL when filters change (debounced alongside search)
   const updateUrl = useCallback((q, v, s, r) => {
     const params = new URLSearchParams()
@@ -443,19 +451,35 @@ function SearchPageInner() {
     if (v) params.set('vertical', v)
     if (s) params.set('state', s)
     if (r) params.set('region', r)
+    if (viewRef.current !== 'grid') params.set('view', viewRef.current)
     const qs = params.toString()
     router.replace(qs ? `/search?${qs}` : '/search', { scroll: false })
   }, [router])
 
-  const search = useCallback(async (p = 1) => {
-    setLoading(true)
-    setSlowSearch(false)
-    const slowTimer = setTimeout(() => setSlowSearch(true), 4000)
+  // A view change is client-side only (no refetch) but should survive
+  // reload/share — write it into the URL on its own.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (view === 'grid') params.delete('view')
+    else params.set('view', view)
+    const qs = params.toString()
+    router.replace(qs ? `/search?${qs}` : '/search', { scroll: false })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view])
+
+  const search = useCallback(async (p = 1, { append = false } = {}) => {
+    if (append) {
+      setLoadingMore(true)
+    } else {
+      setLoading(true)
+      setSlowSearch(false)
+    }
+    const slowTimer = append ? null : setTimeout(() => setSlowSearch(true), 4000)
 
     // A plain-language request (a gift, an occasion, "somewhere to take mum")
     // is answered by the concierge instead of ranked as a name/category lookup.
     // Itinerary-shaped queries are handled separately (redirect to /itinerary).
-    const useAsk = mode === 'search' && !!query && p === 1 && !forceExact &&
+    const useAsk = mode === 'search' && !!query && p === 1 && !append && !forceExact &&
       isInquiryQuery(query) && !isItineraryIntent(query)
 
     try {
@@ -477,7 +501,7 @@ function SearchPageInner() {
           setAskAnswer({ answer: data.answer || null, intent: data.intent || null, atlas: data.atlas || null })
           setTotal(data.total || data.listings.length)
           setEvents([]); setCapped(false); setPage(1); setTotalPages(0)
-          setFacets({ subTypes: [] }); setDidYouMean(null)
+          setFacets({ subTypes: [], regions: [] }); setDidYouMean(null); setPins([])
           setDetectedVertical(data.atlas || null)
           setAutoState(data.detectedState && !state ? data.detectedState : '')
           setAutoSuburb(''); setAutoRegion(data.detectedRegion || null); setDetectedPlace(null)
@@ -486,13 +510,13 @@ function SearchPageInner() {
       }
 
       // ── Standard search path ────────────────────────────────────────────
-      setAskAnswer(null)
       const params = new URLSearchParams()
       if (query) params.set('q', query)
       if (vertical) params.set('vertical', vertical)
       if (state) params.set('state', state)
       if (region) params.set('region', region)
       if (subType) params.set('sub_type', subType)
+      if (facetRegion) params.set('facet_region', facetRegion)
       if (noBind) params.set('bind', '0')
       if (noVerticalBind) params.set('vbind', '0')
       params.set('page', p.toString())
@@ -500,13 +524,28 @@ function SearchPageInner() {
 
       const res = await fetch(`/api/search?${params}`)
       const data = await res.json()
-      setResults(data.listings || [])
+      if (append) {
+        // Accumulate below the already-loaded results; merge pins by id (query
+        // mode returns the same pool each page, browse mode grows page-by-page).
+        setResults((prev) => {
+          const seen = new Set(prev.map((l) => l.id))
+          return [...prev, ...(data.listings || []).filter((l) => !seen.has(l.id))]
+        })
+        setPins((prev) => {
+          const seen = new Set(prev.map((pin) => pin.id))
+          return [...prev, ...(data.pins || []).filter((pin) => !seen.has(pin.id))]
+        })
+      } else {
+        setAskAnswer(null)
+        setResults(data.listings || [])
+        setPins(data.pins || [])
+      }
       setEvents(data.events || [])
       setTotal(data.total || 0)
       setCapped(!!data.capped)
       setPage(data.page || 1)
       setTotalPages(data.totalPages || 0)
-      setFacets(data.facets || { subTypes: [] })
+      setFacets(data.facets || { subTypes: [], regions: [] })
       setDidYouMean(data.didYouMean || null)
       // Sync auto-detected location from query text (for chip highlighting)
       if (data.detectedState && !state) {
@@ -522,17 +561,22 @@ function SearchPageInner() {
     } catch (e) {
       console.error('Search error:', e)
     } finally {
-      clearTimeout(slowTimer)
-      setLoading(false)
-      setSlowSearch(false)
-      setInitialLoad(false)
+      if (slowTimer) clearTimeout(slowTimer)
+      if (append) {
+        setLoadingMore(false)
+      } else {
+        setLoading(false)
+        setSlowSearch(false)
+        setInitialLoad(false)
+      }
     }
-  }, [query, vertical, state, region, subType, noBind, noVerticalBind, mode, forceExact])
+  }, [query, vertical, state, region, subType, facetRegion, noBind, noVerticalBind, mode, forceExact])
 
   // A fresh query re-enables atlas auto-detection: broadening ("All") applied to
   // one query shouldn't silently suppress the focus for the next, unrelated one.
-  // It also re-arms the concierge (a per-query opt-out shouldn't stick).
-  useEffect(() => { setNoVerticalBind(false); setForceExact(false) }, [query])
+  // It also re-arms the concierge and clears facet refines that belonged to the
+  // previous query's pool.
+  useEffect(() => { setNoVerticalBind(false); setForceExact(false); setSubType(''); setFacetRegion('') }, [query])
 
   // Check for itinerary intent on initial load (from homepage submission)
   useEffect(() => {
@@ -556,7 +600,7 @@ function SearchPageInner() {
       search(1)
     }, delay)
     return () => clearTimeout(timer)
-  }, [search, updateUrl, query, vertical, state, region, subType, noBind, noVerticalBind, mode, forceExact])
+  }, [search, updateUrl, query, vertical, state, region, subType, facetRegion, noBind, noVerticalBind, mode, forceExact])
 
   // Explicit submit (Enter / search button): force an immediate search, and
   // honour itinerary intent here (only on a deliberate action, not while typing).
@@ -593,7 +637,7 @@ function SearchPageInner() {
     const count = total.toLocaleString()
     const vertLabel = VERTICAL_LABEL_MAP[vertical]
     const stateLabel = state || autoState
-    const locationLabel = region || autoSuburb || stateLabel
+    const locationLabel = region || facetRegion || autoSuburb || stateLabel
     // Place-aware framing: the query resolved to a town/suburb and the results
     // are geographic (nearest-first), not a relevance ranking to "match".
     if (detectedPlace && detectedPlace.proximity) {
@@ -611,16 +655,16 @@ function SearchPageInner() {
     }
 
     if (query && vertical && locationLabel) {
-      return `${count} ${vertLabel} results for \u201c${query}\u201d in ${locationLabel}`
+      return `${count} ${vertLabel} results for “${query}” in ${locationLabel}`
     }
     if (query && vertical) {
-      return `${count} ${vertLabel} results for \u201c${query}\u201d`
+      return `${count} ${vertLabel} results for “${query}”`
     }
     if (query && locationLabel) {
-      return `${count} results for \u201c${query}\u201d in ${locationLabel}`
+      return `${count} results for “${query}” in ${locationLabel}`
     }
     if (query) {
-      return `${count} results for \u201c${query}\u201d`
+      return `${count} results for “${query}”`
     }
     if (vertical && locationLabel) {
       return `${count} ${vertLabel} listings in ${locationLabel}`
@@ -638,8 +682,8 @@ function SearchPageInner() {
   const contextualHeader = query ? detectContextualHeader(query) : null
 
   // Concierge (inquiry) mode: a plain-language request got a written answer +
-  // per-result reasons. Its render bypasses the featured/facet/pagination
-  // machinery in favour of the answer panel and reason-annotated cards.
+  // per-result reasons. Its render bypasses the featured/facet/view machinery
+  // in favour of the answer panel and reason-annotated cards.
   const askMode = !!askAnswer
 
   // Distance + client-side sort. When the query resolved to a place (town/
@@ -656,15 +700,16 @@ function SearchPageInner() {
   let displayResults = withDistance
   if (sortBy === 'az') {
     displayResults = [...withDistance].sort((a, b) => (a.name || '').localeCompare(b.name || ''))
-  } else if (sortBy === 'nearest' && hasLoc) {
+  } else if (sortBy === 'nearest' && distOrigin) {
     displayResults = [...withDistance].sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity))
   }
 
   // ── Relevance-floor gating: only results clearing their vertical's calibrated
   // floor earn the enlarged + badged "Top result" treatment (earned, not positional).
-  // Only in relevance sort — a re-sorted page has no "top relevance result".
+  // Only in relevance sort — a re-sorted page has no "top relevance result" —
+  // and only in the grid view (list is a straight ranked index; map is spatial).
   const anyStrong = displayResults.some(isStrongMatch)
-  const featured = (sortBy === 'relevance' && page === 1 && displayResults.length >= 3 && anyStrong)
+  const featured = (view === 'grid' && sortBy === 'relevance' && displayResults.length >= 3 && anyStrong)
     ? displayResults.filter(isStrongMatch).slice(0, 3)
     : []
   const featuredIds = new Set(featured.map(f => f.id))
@@ -674,10 +719,35 @@ function SearchPageInner() {
   // with the "no strong matches" banner; the place chip already frames them.
   const placeProximity = !!(detectedPlace && detectedPlace.proximity)
   const weakOnly = displayResults.length > 0 && !anyStrong && !placeProximity
-  const hasActiveFilters = !!(vertical || state || region || subType || autoState || autoRegion || (detectedVertical && !noVerticalBind))
+  const hasActiveFilters = !!(vertical || state || region || subType || facetRegion || autoState || autoRegion || (detectedVertical && !noVerticalBind))
+  const canLoadMore = !askMode && totalPages > 1 && page < totalPages
+  const remaining = Math.max(0, total - displayResults.length)
+
+  // Origin marker for the map (the place the query resolved to, or the visitor).
+  const mapOrigin = placeOrigin
+    ? { lat: placeOrigin.lat, lng: placeOrigin.lng, label: placeOrigin.label }
+    : (hasLoc ? { lat: location.lat, lng: location.lng, label: 'Your location' } : null)
+
+  // Shared props for every result card (hover sync + CTR logging).
+  const cardProps = (listing, idx) => ({
+    listing,
+    query,
+    distanceKm: listing.distanceKm,
+    active: hoveredId === listing.id,
+    onHover: setHoveredId,
+    onClick: query ? () => trackSearchClick(listing, idx + 1) : undefined,
+  })
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-8">
+      {/* Card entrance — a quiet rise, staggered per card by inline delay. */}
+      <style>{`
+        @keyframes search-card-in {
+          from { opacity: 0; transform: translateY(7px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+
       {/* Search masthead — the shared publication opening block. */}
       <div className="page-masthead max-w-2xl">
         <p className="section-dateline">Search the Atlas</p>
@@ -760,7 +830,7 @@ function SearchPageInner() {
 
       {/* Search input — a form so Enter submits (and only then redirects to the
           itinerary builder, instead of hijacking the query mid-typing). */}
-      <form onSubmit={handleSubmit} role="search" className="mt-6 flex items-center gap-3 bg-white rounded-2xl px-5 py-4 max-w-2xl shadow-sm focus-within:shadow-md transition-all" style={{ border: '0.5px solid var(--color-border)' }}>
+      <form ref={formRef} onSubmit={handleSubmit} role="search" className="mt-6 flex items-center gap-3 bg-white rounded-2xl px-5 py-4 max-w-2xl shadow-sm focus-within:shadow-md transition-all" style={{ border: '0.5px solid var(--color-border)' }}>
         <svg className="w-6 h-6 text-[var(--color-accent)] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
@@ -792,75 +862,127 @@ function SearchPageInner() {
         )}
       </form>
 
-      {/* Category filters -- horizontal scroll on mobile */}
-      <div className="mt-5 -mx-4 px-4 overflow-x-auto scrollbar-hide">
-        <div className="flex gap-2 min-w-max pb-1">
-          {VERTICALS.map(v => {
-            // An explicit pill wins; otherwise the atlas the query was auto-focused
-            // to lights up (unless the user broadened past it). Keeps the pills in
-            // sync with the actual ranking bias.
-            const activeVertical = vertical || (!noVerticalBind ? (detectedVertical || '') : '')
-            const isActive = activeVertical === v.key
-            const vs = v.key ? VERTICAL_STYLES[v.key] : null
+      {/* ── Sticky control deck: atlas pills, states, view toggle, sort ─────
+          Stays pinned under the site nav while results scroll, so refining a
+          long result set never means scrolling back to the top. */}
+      <div
+        className="-mx-4 px-4 sm:-mx-6 sm:px-6 mt-5"
+        style={{
+          position: 'sticky', top: 56, zIndex: 30,
+          background: 'rgba(239,231,216,0.94)',
+          backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+          paddingTop: 8, paddingBottom: 10,
+          borderBottom: '1px solid var(--color-border)',
+        }}
+      >
+        {/* Atlas pills */}
+        <div className="-mx-4 px-4 sm:-mx-6 sm:px-6 overflow-x-auto scrollbar-hide">
+          <div className="flex gap-2 min-w-max pb-1">
+            {VERTICALS.map(v => {
+              // An explicit pill wins; otherwise the atlas the query was auto-focused
+              // to lights up (unless the user broadened past it). Keeps the pills in
+              // sync with the actual ranking bias.
+              const activeVertical = vertical || (!noVerticalBind ? (detectedVertical || '') : '')
+              const isActive = activeVertical === v.key
+              const vs = v.key ? VERTICAL_STYLES[v.key] : null
 
-            return (
-              <button
-                key={v.key}
-                onClick={() => {
-                  if (!v.key) { setVertical(''); setNoVerticalBind(true) }   // "All" → broaden past any auto-focus
-                  else { setVertical(v.key); setNoVerticalBind(false) }
-                }}
-                className="px-4 py-2.5 rounded-full transition-all whitespace-nowrap"
-                style={{
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 500,
-                  fontSize: '13px',
-                  ...(isActive && vs ? {
-                    backgroundColor: vs.bg,
-                    border: `1px solid ${vs.text}40`,
-                    color: vs.text,
-                  } : isActive && !vs ? {
-                    backgroundColor: 'var(--color-ink)',
-                    border: '1px solid var(--color-ink)',
-                    color: '#fff',
-                  } : {
-                    backgroundColor: '#fff',
-                    border: '1px solid var(--color-border)',
-                    color: 'var(--color-muted)',
-                  }),
-                }}
-              >
-                {v.label}
-              </button>
-            )
-          })}
+              return (
+                <button
+                  key={v.key}
+                  onClick={() => {
+                    if (!v.key) { setVertical(''); setNoVerticalBind(true) }   // "All" → broaden past any auto-focus
+                    else { setVertical(v.key); setNoVerticalBind(false) }
+                  }}
+                  className="px-4 py-2 rounded-full transition-all whitespace-nowrap"
+                  style={{
+                    fontFamily: 'var(--font-body)',
+                    fontWeight: 500,
+                    fontSize: '13px',
+                    ...(isActive && vs ? {
+                      backgroundColor: vs.bg,
+                      border: `1px solid ${vs.text}40`,
+                      color: vs.text,
+                    } : isActive && !vs ? {
+                      backgroundColor: 'var(--color-ink)',
+                      border: '1px solid var(--color-ink)',
+                      color: '#fff',
+                    } : {
+                      backgroundColor: '#fff',
+                      border: '1px solid var(--color-border)',
+                      color: 'var(--color-muted)',
+                    }),
+                  }}
+                >
+                  {v.label}
+                </button>
+              )
+            })}
+          </div>
         </div>
-      </div>
 
-      {/* State filters */}
-      <div className="mt-3 -mx-4 px-4 overflow-x-auto scrollbar-hide">
-        <div className="flex gap-2 min-w-max pb-1">
-          {STATES.map(s => {
-            const effectiveState = state || autoState
-            const isActive = effectiveState === s || (!effectiveState && !s)
-            return (
-              <button
-                key={s || 'all'}
-                onClick={() => { setState(s); setAutoState('') }}
-                className="px-4 py-2.5 rounded-full transition-colors whitespace-nowrap"
-                style={{
-                  fontFamily: 'var(--font-body)',
-                  fontWeight: 400,
-                  fontSize: '12px',
-                  ...(isActive
-                    ? { backgroundColor: 'var(--color-ink)', color: '#fff', border: '1px solid var(--color-ink)' }
-                    : { backgroundColor: '#fff', color: 'var(--color-muted)', border: '1px solid var(--color-border)' }),
-                }}
-              >
-                {s || 'All states'}
-              </button>
-            )
-          })}
+        {/* States + view toggle + sort */}
+        <div className="mt-2 flex items-center gap-3">
+          <div className="overflow-x-auto scrollbar-hide" style={{ flex: 1, minWidth: 0 }}>
+            <div className="flex gap-2 min-w-max pb-0.5">
+              {STATES.map(s => {
+                const effectiveState = state || autoState
+                const isActive = effectiveState === s || (!effectiveState && !s)
+                return (
+                  <button
+                    key={s || 'all'}
+                    onClick={() => { setState(s); setAutoState('') }}
+                    className="px-3.5 py-1.5 rounded-full transition-colors whitespace-nowrap"
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      fontWeight: 400,
+                      fontSize: '12px',
+                      ...(isActive
+                        ? { backgroundColor: 'var(--color-ink)', color: '#fff', border: '1px solid var(--color-ink)' }
+                        : { backgroundColor: '#fff', color: 'var(--color-muted)', border: '1px solid var(--color-border)' }),
+                    }}
+                  >
+                    {s || 'All states'}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* View toggle — grid / list / map */}
+          {!askMode && (
+            <div
+              role="group"
+              aria-label="Results view"
+              className="flex items-center shrink-0"
+              style={{ padding: 2, background: '#fff', border: '1px solid var(--color-border)', borderRadius: 999, boxShadow: 'var(--shadow-xs)' }}
+            >
+              {VIEWS.map(vw => {
+                const active = view === vw.key
+                return (
+                  <button
+                    key={vw.key}
+                    type="button"
+                    onClick={() => setView(vw.key)}
+                    aria-pressed={active}
+                    title={`${vw.label} view`}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                      padding: '6px 11px', borderRadius: 999, border: 'none', cursor: 'pointer',
+                      fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12,
+                      transition: 'all 0.15s',
+                      background: active ? 'var(--color-ink)' : 'transparent',
+                      color: active ? '#fff' : 'var(--color-muted)',
+                    }}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      {vw.icon}
+                    </svg>
+                    <span className="hidden sm:inline">{vw.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
       </div>
 
@@ -947,7 +1069,7 @@ function SearchPageInner() {
         </div>
       )}
 
-      {/* Contextual header \u2014 shown only when the API actually focused results on
+      {/* Contextual header — shown only when the API actually focused results on
           this atlas (detectedVertical), so the banner never over-claims. The
           "Search all atlases" link broadens past the focus. */}
       {!askMode && contextualHeader && detectedVertical === contextualHeader.vertical && !loading && results.length > 0 && (
@@ -977,7 +1099,7 @@ function SearchPageInner() {
           >
             {contextualHeader.verticalName}
             <span style={{ color: 'var(--color-ink)', fontWeight: 400 }}>
-              {' \u2014 Independent '}
+              {' — Independent '}
               {contextualHeader.categoryLabel}
               {contextualHeader.location && ` in ${contextualHeader.location}`}
             </span>
@@ -1009,7 +1131,7 @@ function SearchPageInner() {
               <button
                 key={t}
                 type="button"
-                onClick={() => { setNoBind(false); setSubType(''); setQuery(t) }}
+                onClick={() => { setNoBind(false); setQuery(t) }}
                 className="px-3 py-1.5 rounded-full whitespace-nowrap"
                 style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', background: '#fff', color: 'var(--color-ink)', border: '1px solid var(--color-border)' }}
               >
@@ -1065,13 +1187,30 @@ function SearchPageInner() {
         </div>
       )}
 
+      {/* Did you mean — offered inline when the pool is weak (typo'd venue
+          names usually still return "related" soup; this is the way out). */}
+      {!askMode && !loading && didYouMean && results.length > 0 && (
+        <div className="mt-5">
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: '14px', color: 'var(--color-ink)', margin: 0 }}>
+            Did you mean{' '}
+            <button
+              type="button"
+              onClick={() => { setNoBind(false); setQuery(didYouMean) }}
+              style={{ color: 'var(--color-accent)', fontWeight: 600, textDecoration: 'underline', textUnderlineOffset: 3, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 'inherit', fontFamily: 'inherit' }}
+            >
+              {didYouMean}
+            </button>?
+          </p>
+        </div>
+      )}
+
       {/* Results count + sort. role=status/aria-live so screen readers hear the
           count change and the "Searching…" state. */}
-      <div className="mt-6 flex items-center justify-between gap-3 flex-wrap">
+      <div ref={resultsAnchorRef} className="mt-6 flex items-center justify-between gap-3 flex-wrap">
         <p role="status" aria-live="polite" style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '13px', color: 'var(--color-muted)' }}>
           {getResultsMessage()}{capped && !loading ? ' (showing top matches)' : ''}
         </p>
-        {!loading && displayResults.length > 1 && (
+        {!loading && displayResults.length > 1 && !askMode && (
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-muted)' }}>
             Sort:
             <select
@@ -1083,7 +1222,7 @@ function SearchPageInner() {
             >
               <option value="relevance">Relevance</option>
               <option value="az">A–Z</option>
-              {hasLoc && <option value="nearest">Nearest</option>}
+              {distOrigin && <option value="nearest">{placeOrigin ? `Nearest ${placeOrigin.label}` : 'Nearest me'}</option>}
             </select>
           </label>
         )}
@@ -1112,6 +1251,34 @@ function SearchPageInner() {
                   style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '12px', ...(active ? { background: 'var(--color-ink)', color: '#fff', border: '1px solid var(--color-ink)' } : { background: '#fff', color: 'var(--color-muted)', border: '1px solid var(--color-border)' }) }}
                 >
                   {prettySubType(f.key)} <span style={{ opacity: 0.55 }}>{f.count}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Region facet chips — geographic drill-down over the same pool. */}
+      {!askMode && !loading && facets.regions && facets.regions.length > 1 && (
+        <div className="mt-2 -mx-4 px-4 overflow-x-auto scrollbar-hide">
+          <div className="flex gap-2 min-w-max pb-1 items-center">
+            <span style={{ fontFamily: 'var(--font-body)', fontSize: 10.5, fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--color-muted)', marginRight: 2 }}>
+              Regions
+            </span>
+            {facets.regions.map(f => {
+              const active = facetRegion === f.key
+              return (
+                <button
+                  key={f.key}
+                  type="button"
+                  onClick={() => setFacetRegion(active ? '' : f.key)}
+                  className="px-3 py-1.5 rounded-full whitespace-nowrap inline-flex items-center gap-1.5"
+                  style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '12px', ...(active ? { background: 'var(--color-ink)', color: '#fff', border: '1px solid var(--color-ink)' } : { background: '#fff', color: 'var(--color-muted)', border: '1px solid var(--color-border)' }) }}
+                >
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" /><circle cx="12" cy="10" r="3" />
+                  </svg>
+                  {f.key} <span style={{ opacity: 0.55 }}>{f.count}</span>
                 </button>
               )
             })}
@@ -1158,7 +1325,7 @@ function SearchPageInner() {
         </div>
       )}
 
-      {/* Results grid */}
+      {/* Results */}
       {initialLoad ? (
         /* Skeleton loading state */
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -1175,15 +1342,15 @@ function SearchPageInner() {
           <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '20px' }} className="mb-2">No results found</h3>
           <p className="max-w-md mx-auto mb-5" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px', color: 'var(--color-muted)' }}>
             {query
-              ? `No results for \u201c${query}\u201d.`
+              ? `No results for “${query}”.`
               : 'Try adjusting your filters or searching for something specific.'}
           </p>
 
-          {/* Did you mean \u2014 fuzzy correction of the raw query */}
+          {/* Did you mean — fuzzy correction of the raw query */}
           {didYouMean && (
             <p className="mb-5" style={{ fontFamily: 'var(--font-body)', fontSize: '15px', color: 'var(--color-ink)' }}>
               Did you mean{' '}
-              <button type="button" onClick={() => { setNoBind(false); setSubType(''); setQuery(didYouMean) }} style={{ color: 'var(--color-accent)', fontWeight: 600, textDecoration: 'underline', textUnderlineOffset: 3 }}>
+              <button type="button" onClick={() => { setNoBind(false); setQuery(didYouMean) }} style={{ color: 'var(--color-accent)', fontWeight: 600, textDecoration: 'underline', textUnderlineOffset: 3 }}>
                 {didYouMean}
               </button>?
             </p>
@@ -1194,7 +1361,7 @@ function SearchPageInner() {
             <div className="mb-5">
               <button
                 type="button"
-                onClick={() => { setVertical(''); setState(''); setRegion(''); setSubType(''); setAutoState(''); setAutoRegion(null); setNoBind(true); setNoVerticalBind(true) }}
+                onClick={() => { setVertical(''); setState(''); setRegion(''); setSubType(''); setFacetRegion(''); setAutoState(''); setAutoRegion(null); setNoBind(true); setNoVerticalBind(true) }}
                 className="px-4 rounded-full"
                 style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', background: 'var(--color-ink)', color: '#fff', minHeight: 40 }}
               >
@@ -1211,7 +1378,7 @@ function SearchPageInner() {
                 <button
                   key={c}
                   type="button"
-                  onClick={() => { setNoBind(false); setSubType(''); setVertical(''); setState(''); setQuery(c) }}
+                  onClick={() => { setNoBind(false); setVertical(''); setState(''); setQuery(c) }}
                   className="px-3 py-1.5 rounded-full"
                   style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', background: '#fff', color: 'var(--color-ink)', border: '1px solid var(--color-border)' }}
                 >
@@ -1255,18 +1422,90 @@ function SearchPageInner() {
             </div>
           ))}
         </div>
+      ) : view === 'map' ? (
+        /* ── Map split view: every pooled match plotted, cards synced ── */
+        <div className="mt-5 grid grid-cols-1 lg:grid-cols-12 gap-5" style={{ opacity: loading ? 0.5 : 1, transition: 'opacity 0.15s', pointerEvents: loading ? 'none' : 'auto' }}>
+          <div className="order-1 lg:order-2 lg:col-span-7 xl:col-span-8">
+            <div
+              className="lg:sticky lg:top-[132px] h-[46vh] lg:h-[calc(100vh-160px)]"
+              style={{
+                minHeight: 340,
+                borderRadius: 'var(--radius-card)', overflow: 'hidden',
+                border: '1px solid var(--color-border)', boxShadow: 'var(--shadow-sm)',
+                background: '#F1EADB',
+              }}
+            >
+              <SearchResultsMap
+                pins={pins}
+                origin={mapOrigin}
+                activeId={hoveredId}
+                onPinHover={setHoveredId}
+              />
+            </div>
+            {pins.length > 0 && (
+              <p style={{ margin: '8px 2px 0', fontFamily: 'var(--font-body)', fontSize: 11.5, color: 'var(--color-muted)' }}>
+                {pins.length === total
+                  ? `All ${pins.length} matches on the map`
+                  : `${pins.length} of ${total.toLocaleString()} matches on the map`}
+                {' — click a pin for details.'}
+              </p>
+            )}
+          </div>
+          <div className="order-2 lg:order-1 lg:col-span-5 xl:col-span-4">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {displayResults.map((listing, idx) => (
+                <div key={listing.id} style={{ animation: 'search-card-in 0.3s ease both', animationDelay: `${Math.min(idx, 10) * 25}ms` }}>
+                  <SearchResultCard variant="compact" rank={idx + 1} {...cardProps(listing, idx)} />
+                </div>
+              ))}
+            </div>
+            {canLoadMore && (
+              <LoadMoreButton remaining={remaining} loading={loadingMore} onClick={() => search(page + 1, { append: true })} />
+            )}
+          </div>
+        </div>
+      ) : view === 'list' ? (
+        /* ── List view: the ranked editorial index ── */
+        <div className="mt-4" style={{ opacity: loading ? 0.5 : 1, transition: 'opacity 0.15s', pointerEvents: loading ? 'none' : 'auto' }}>
+          {/* Nothing cleared the floor (e.g. a nonsense query): no confident ranking claim */}
+          {weakOnly && (
+            <div className="mb-3" style={{ padding: '0.9rem 1.2rem', borderRadius: '0.75rem', border: '0.5px solid var(--color-border)', background: '#fff' }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px', color: 'var(--color-ink)', margin: 0 }}>
+                No strong matches for “{query}”. Closest related listings:
+              </p>
+            </div>
+          )}
+          <div style={{ background: '#fff', borderRadius: 'var(--radius-card)', border: '0.5px solid var(--color-border)', padding: '6px 8px' }}>
+            {displayResults.map((listing, idx) => (
+              <div key={listing.id} style={{ animation: 'search-card-in 0.3s ease both', animationDelay: `${Math.min(idx, 10) * 25}ms`, borderTop: idx > 0 ? '1px solid var(--color-border)' : 'none' }}>
+                <SearchResultCard variant="list" rank={idx + 1} {...cardProps(listing, idx)} />
+              </div>
+            ))}
+          </div>
+          {canLoadMore && (
+            <LoadMoreButton remaining={remaining} loading={loadingMore} onClick={() => search(page + 1, { append: true })} />
+          )}
+        </div>
       ) : (
+        /* ── Grid view (default) ── */
         <>
           {/* Enlarged top-3 — only results that clear the calibrated relevance floor earn it */}
           {featured.length > 0 && (
             <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-5" style={{ opacity: loading ? 0.5 : 1, transition: 'opacity 0.15s', pointerEvents: loading ? 'none' : 'auto' }}>
-              {featured.map(listing => (
-                <FeaturedCard key={listing.id} listing={listing} query={query} />
+              {featured.map((listing, idx) => (
+                <FeaturedCard
+                  key={listing.id}
+                  listing={listing}
+                  query={query}
+                  active={hoveredId === listing.id}
+                  onHover={setHoveredId}
+                  onClick={query ? () => trackSearchClick(listing, idx + 1) : undefined}
+                />
               ))}
             </div>
           )}
           {/* Nothing cleared the floor (e.g. a nonsense query): no confident top-3 */}
-          {page === 1 && weakOnly && (
+          {weakOnly && (
             <div className="mt-4" style={{ padding: '0.9rem 1.2rem', borderRadius: '0.75rem', border: '0.5px solid var(--color-border)', background: '#fff' }}>
               <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px', color: 'var(--color-ink)', margin: 0 }}>
                 No strong matches for “{query}”. Closest related listings:
@@ -1275,14 +1514,15 @@ function SearchPageInner() {
           )}
           <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5" style={{ opacity: loading ? 0.5 : 1, transition: 'opacity 0.15s', pointerEvents: loading ? 'none' : 'auto' }}>
             {gridListings.map((listing, idx) => (
-              <ListingCard
-                key={listing.id}
-                listing={listing}
-                distanceKm={listing.distanceKm}
-                onClick={query ? () => trackSearchClick(listing, featured.length + idx + 1) : undefined}
-              />
+              <div key={listing.id} style={{ animation: 'search-card-in 0.35s ease both', animationDelay: `${Math.min(idx % 24, 11) * 28}ms` }}>
+                <SearchResultCard variant="grid" {...cardProps(listing, featured.length + idx)} />
+              </div>
             ))}
           </div>
+
+          {canLoadMore && (
+            <LoadMoreButton remaining={remaining} loading={loadingMore} onClick={() => search(page + 1, { append: true })} />
+          )}
 
           {/* Sparse results suggestion */}
           {results.length > 0 && results.length < 6 && vertical && (
@@ -1301,32 +1541,36 @@ function SearchPageInner() {
         </>
       )}
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="mt-8 flex items-center justify-center gap-2">
-          <button
-            onClick={() => search(page - 1)}
-            disabled={page <= 1}
-            className="px-5 py-3 rounded-lg border border-[var(--color-border)] disabled:opacity-40 hover:bg-white transition-colors"
-            style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '13px', minHeight: 44 }}
-          >
-            Previous
-          </button>
-          <span style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '13px', color: 'var(--color-muted)' }}>
-            Page {page} of {totalPages}
-          </span>
-          <button
-            onClick={() => search(page + 1)}
-            disabled={page >= totalPages}
-            className="px-5 py-3 rounded-lg border border-[var(--color-border)] disabled:opacity-40 hover:bg-white transition-colors"
-            style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '13px', minHeight: 44 }}
-          >
-            Next
-          </button>
-        </div>
-      )}
-
       </>}
+    </div>
+  )
+}
+
+// "Show more" — appends the next page under the loaded results, so scanning a
+// long result set never round-trips through pagination.
+function LoadMoreButton({ remaining, loading, onClick }) {
+  return (
+    <div className="mt-7 flex justify-center">
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={loading}
+        className="listing-card"
+        style={{
+          fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13.5,
+          padding: '12px 26px', borderRadius: 999, cursor: loading ? 'default' : 'pointer',
+          background: '#fff', color: 'var(--color-ink)', border: '1px solid var(--color-border)',
+          display: 'inline-flex', alignItems: 'center', gap: 8, minHeight: 44,
+          opacity: loading ? 0.6 : 1,
+        }}
+      >
+        {loading ? 'Loading…' : `Show more${remaining > 0 ? ` · ${remaining.toLocaleString()} more` : ''}`}
+        {!loading && (
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M12 5v14M5 12l7 7 7-7" />
+          </svg>
+        )}
+      </button>
     </div>
   )
 }

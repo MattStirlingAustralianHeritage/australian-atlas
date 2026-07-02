@@ -123,7 +123,9 @@ function leadWithVertical(rows, vertical) {
 function buildFacets(rows, leadVertical) {
   const counts = new Map()
   const subTypeVertical = new Map()   // sub_type → owning vertical (prefer the lead)
+  const regionCounts = new Map()      // region name → count (geographic drill-down)
   for (const r of rows) {
+    if (r.region) regionCounts.set(r.region, (regionCounts.get(r.region) || 0) + 1)
     if (!r.sub_type) continue
     counts.set(r.sub_type, (counts.get(r.sub_type) || 0) + 1)
     if (!subTypeVertical.has(r.sub_type) || r.vertical === leadVertical) {
@@ -135,7 +137,30 @@ function buildFacets(rows, leadVertical) {
     .sort((a, b) => (Number(b.lead) - Number(a.lead)) || (b.count - a.count))
     .slice(0, 12)
     .map(({ key, count }) => ({ key, count }))
-  return { subTypes }
+  // Region facet only earns its row when it actually divides the pool.
+  const regions = regionCounts.size > 1
+    ? [...regionCounts.entries()]
+        .map(([key, count]) => ({ key, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 8)
+    : []
+  return { subTypes, regions }
+}
+
+/** Lightweight pin projection of the WHOLE ranked pool (not just the visible
+ *  page) — powers the search map view. No description/address; nothing here
+ *  that isn't already public on the cards. */
+function buildPins(rows) {
+  const pins = []
+  for (const r of rows) {
+    if (typeof r.lat !== 'number' || typeof r.lng !== 'number') continue
+    pins.push({
+      id: r.id, slug: r.slug, name: r.name, vertical: r.vertical,
+      sub_type: r.sub_type || null, suburb: r.suburb || null, state: r.state || null,
+      lat: r.lat, lng: r.lng, strong: isStrongRow(r),
+    })
+  }
+  return pins
 }
 
 /** On a zero-result query, fuzzy-match the raw text (no filters) to suggest a
@@ -155,7 +180,7 @@ async function fuzzySuggest(sb, q) {
 // NOTE: `address` is deliberately NOT selected — search must not leak street
 // addresses (esp. for address_on_request venues). The place page shows address
 // (gated on the privacy flag); search results never do.
-const SELECT_FIELDS = `id, vertical, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website, presence_type, ${LISTING_REGION_SELECT}`
+const SELECT_FIELDS = `id, vertical, name, slug, description, sub_type, suburb, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website, presence_type, ${LISTING_REGION_SELECT}`
 
 // Calibrated in Phase 7 (see report). Admits clearly-relevant semantic matches,
 // rejects off-topic queries. Overridable per request via ?floor=.
@@ -222,6 +247,7 @@ export async function GET(request) {
   const state = searchParams.get('state') || null
   const region = searchParams.get('region') || null
   const subType = searchParams.get('sub_type') || null   // facet refine
+  const facetRegion = searchParams.get('facet_region') || null // region facet refine (pool-level, matches facet counts)
   const noBind = searchParams.get('bind') === '0'         // ignore region/suburb auto-binding
   const noVerticalBind = searchParams.get('vbind') === '0' // ignore atlas (vertical) auto-detection
   const page = Math.max(parseInt(searchParams.get('page') || '1', 10), 1)
@@ -463,15 +489,24 @@ export async function GET(request) {
       // Facet counts over the full ranked pool (before the sub_type refine),
       // leading with the detected atlas's types when one was detected.
       const facets = buildFacets(all, detectedVertical)
-      // Optional sub_type facet refine.
-      const filtered = subType ? all.filter((l) => l.sub_type === subType) : all
+      // Optional facet refines (sub_type and/or region), applied over the pool
+      // so totals always agree with the facet counts the user clicked.
+      let filtered = subType ? all.filter((l) => l.sub_type === subType) : all
+      if (facetRegion) filtered = filtered.filter((l) => l.region === facetRegion)
       const total = filtered.length
       const offset = (page - 1) * limit
+      // Full ranked pool as map pins (post-refine, pre-pagination).
+      const pins = buildPins(filtered)
       // Strip internal scoring AND `address` — search must not leak street addresses.
       const listings = filtered.slice(offset, offset + limit).map(({ fused_score, address, ...rest }) => rest)
 
-      // Zero results → fuzzy "did you mean" against the raw query (no filters).
-      const didYouMean = total === 0 ? await fuzzySuggest(sb, q) : null
+      // Fuzzy "did you mean" against the raw query (no filters) — offered on
+      // zero results AND on weak-only pools (nothing cleared the relevance
+      // floor), which is where a typo'd venue name actually lands. Proximity
+      // results carry no similarity, so they never count as "weak".
+      const weakPool = !proximityResult && all.length > 0 && !all.some(isStrongRow)
+      let didYouMean = (total === 0 || weakPool) ? await fuzzySuggest(sb, q) : null
+      if (didYouMean && didYouMean.trim().toLowerCase() === q.trim().toLowerCase()) didYouMean = null
 
       trackSearchAppearances(listings)
       logSearch(request, { queryText: clampQuery(q), verticalFilter: vertical, resultCount: total })
@@ -482,7 +517,7 @@ export async function GET(request) {
       })
 
       return NextResponse.json({
-        listings, total, capped, facets, subType, didYouMean, page, limit, reranked,
+        listings, total, capped, facets, subType, facetRegion, didYouMean, page, limit, reranked, pins,
         totalPages: Math.ceil(total / limit),
         detectedVertical, detectedState: detectedState || null, detectedRegion, detectedSuburb,
         // Place-aware search: the resolved town/suburb the results are scoped to
@@ -535,6 +570,9 @@ export async function GET(request) {
     return NextResponse.json({
       listings: data || [], total: count || 0, page, limit,
       totalPages: Math.ceil((count || 0) / limit),
+      // Browse has no ranked pool — pins cover the loaded page (the client
+      // accumulates them across "show more" loads).
+      pins: buildPins(data || []),
       events: await withTimeout(eventsPromise, 1200, []),
     })
   } catch (err) {
