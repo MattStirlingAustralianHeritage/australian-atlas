@@ -12,6 +12,12 @@ import './discover.css'
 const BATCH_LIMIT = 10
 const SWIPE_THRESHOLD = 80
 const EXIT_MS = 280
+// Drag only becomes a drag after this much horizontal travel — anything less
+// is a click (the More tab and View listing link must stay tappable).
+const DRAG_SLOP = 8
+// A fast flick commits even before the distance threshold (px per ms).
+const FLICK_VELOCITY = 0.55
+const FLICK_MIN_DX = 30
 // Hard guarantee on the SERVED sequence: never show more than this many of one
 // vertical in a row. Enforced client-side (we know exactly what's been shown),
 // independent of server ranking — reorders the buffer to pull up a different
@@ -70,8 +76,11 @@ function capConsecutive(queue, servedVerticals, maxRun) {
  *                       picks persist immediately.
  *  §4 taste-reflection — the server returns a true, specific sentence once the
  *                       threshold is met; shown as the sign-in copy.
- *  §1 redesign         — renders the floating vertical-tinted <DiscoverCard>
- *                       with gestures + button fallback.
+ *  §1 redesign         — renders the floating <DiscoverCard> (photographic
+ *                       when the hero passes the image gates, tinted
+ *                       typographic otherwise) with unified pointer-drag
+ *                       physics (mouse + touch), keyboard arrows, verdict
+ *                       stamps, undo, and button fallback.
  *
  * variant: 'fullscreen' (the /discover page) | 'band' (homepage taster)
  *          | 'onboarding' (inside the planner popup — the surrounding
@@ -104,6 +113,8 @@ export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hi
   const [animating, setAnimating] = useState(false)
   const [direction, setDirection] = useState(null)
   const [justKept, setJustKept] = useState(false)
+  // The last committed swipe, restorable with one tap. Cleared on undo.
+  const [lastAction, setLastAction] = useState(null)
 
   // Refs to read latest values inside async callbacks without stale closures.
   const queueRef = useRef([])
@@ -118,23 +129,33 @@ export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hi
   // just within one batch (otherwise re-rank-on-pick walls up one category).
   const servedRef = useRef([])
   const lastServedId = useRef(null)
+  // Monotonic fetch sequence — an older response must never clobber the queue
+  // a newer one built (rapid swipes can race rerank/append responses).
+  const fetchSeq = useRef(0)
+  const reducedMotion = useRef(false)
   useEffect(() => { queueRef.current = queue }, [queue])
   useEffect(() => { locRef.current = location }, [location])
   useEffect(() => { localeRef.current = locale }, [locale])
+  useEffect(() => {
+    reducedMotion.current = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches ?? false
+  }, [])
 
   // Mirror the live pick set out to a host (the planner onboarding gate), which
   // carries it into the trip the visitor is about to build.
   useEffect(() => { onPicksChange?.(pickedIds) }, [pickedIds, onPicksChange])
 
   const cardWrapRef = useRef(null)
-  const touchStartX = useRef(null)
-  const touchStartY = useRef(null)
-  const touchDeltaX = useRef(0)
+  const stampPickRef = useRef(null)
+  const stampSkipRef = useRef(null)
+  // Pointer-drag state machine (mouse + touch unified). Lives in a ref and
+  // mutates DOM styles directly so a 120Hz drag never re-renders React.
+  const drag = useRef({ pointerId: null, startX: 0, startY: 0, dx: 0, active: false, lastX: 0, lastT: 0, vx: 0 })
+  const suppressClick = useRef(false)
 
   const current = queue[0] || null
   const nextHint = queue[1] || null
+  const deepHint = queue[2] || null
   const pickCount = pickedIds.length
-  const swipeCount = pickedIds.length + skippedIds.length
 
   // Record each card the user is shown (its vertical) for the run cap.
   useEffect(() => {
@@ -143,6 +164,10 @@ export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hi
       if (current.vertical) servedRef.current.push(current.vertical)
     }
   }, [current])
+
+  // No manual hero preloading: the two hint cards render (and therefore load)
+  // the next heroes through the same optimizer pipeline the active card uses —
+  // a raw-URL warmup here would fetch multi-MB originals and bypass it.
 
   // ── Feed fetch ──────────────────────────────────────────────────────
   const loadFeed = useCallback(async ({ picked, skipped, mode }) => {
@@ -155,6 +180,7 @@ export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hi
     const seenIds = uniq([...picked, ...skipped, ...queuedIds])
     const loc = locRef.current
 
+    const seq = ++fetchSeq.current
     setLoading(true)
     try {
       const res = await fetch('/api/discover/feed', {
@@ -173,6 +199,8 @@ export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hi
         }),
       })
       const data = await res.json().catch(() => ({}))
+      // Superseded by a newer request — its response owns the queue now.
+      if (seq !== fetchSeq.current) return
       if (!res.ok) {
         setError(data.error || t('errFeed'))
         return
@@ -199,10 +227,10 @@ export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hi
         return capConsecutive(next, servedRef.current, CLIENT_MAX_RUN)
       })
     } catch {
-      setError(t('errFeedRetry'))
+      if (seq === fetchSeq.current) setError(t('errFeedRetry'))
     } finally {
       hasFetched.current = true
-      setLoading(false)
+      if (seq === fetchSeq.current) setLoading(false)
     }
   }, [t])
 
@@ -238,14 +266,33 @@ export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hi
     }
   }, [t])
 
+  // ── Direct-DOM helpers for the drag (no re-render per pointermove) ──
+  const setCardTransform = useCallback((dx, transition = 'none') => {
+    const el = cardWrapRef.current
+    if (!el) return
+    el.style.transition = transition
+    el.style.transform = dx === 0 ? '' : `translateX(${dx}px) rotate(${dx * 0.045}deg)`
+  }, [])
+
+  const setStamps = useCallback((dx) => {
+    const opacity = Math.min(Math.abs(dx) / 110, 1)
+    if (stampPickRef.current) stampPickRef.current.style.opacity = dx > 0 ? String(opacity) : '0'
+    if (stampSkipRef.current) stampSkipRef.current.style.opacity = dx < 0 ? String(opacity) : '0'
+  }, [])
+
   // ── Swipe (pick / skip) ─────────────────────────────────────────────
   const swipe = useCallback((kind) => {
     if (!current || animating) return
     const card = current
     const id = String(card.id)
+    const exitMs = reducedMotion.current ? 0 : EXIT_MS
 
     setDirection(kind === 'pick' ? 'right' : 'left')
     setAnimating(true)
+    // Full-strength verdict stamp during the exit (button and keyboard paths
+    // get the same feedback a drag builds up gradually).
+    setStamps(kind === 'pick' ? 200 : -200)
+    if (kind === 'pick') { try { navigator.vibrate?.(12) } catch { /* no haptics */ } }
 
     const newPicked = kind === 'pick' ? uniq([...pickedIds, id]) : pickedIds
     const newSkipped = kind === 'skip' ? uniq([...skippedIds, id]) : skippedIds
@@ -258,47 +305,137 @@ export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hi
     window.setTimeout(() => {
       setAnimating(false)
       setDirection(null)
+      setStamps(0)
+      setLastAction({ card, kind })
       setQueue((prev) => capConsecutive(prev.slice(1), servedRef.current, CLIENT_MAX_RUN)) // advance + cap runs
       loadFeed({ picked: newPicked, skipped: newSkipped, mode: kind === 'pick' ? 'rerank' : 'append' })
-    }, EXIT_MS)
-  }, [current, animating, pickedIds, skippedIds, authed, persistOne, loadFeed])
+    }, exitMs)
+  }, [current, animating, pickedIds, skippedIds, authed, persistOne, loadFeed, setStamps])
 
   const handlePick = useCallback(() => swipe('pick'), [swipe])
   const handleSkip = useCallback(() => swipe('skip'), [swipe])
 
-  // ── Touch gestures (buttons remain the authoritative fallback) ──────
-  const onTouchStart = useCallback((e) => {
-    touchStartX.current = e.touches[0].clientX
-    touchStartY.current = e.touches[0].clientY
-    touchDeltaX.current = 0
-  }, [])
-
-  const onTouchMove = useCallback((e) => {
-    if (touchStartX.current == null) return
-    const dx = e.touches[0].clientX - touchStartX.current
-    const dy = e.touches[0].clientY - touchStartY.current
-    if (Math.abs(dx) > Math.abs(dy)) {
-      touchDeltaX.current = dx
-      if (cardWrapRef.current) {
-        cardWrapRef.current.style.transform = `translateX(${dx * 0.5}px) rotate(${dx * 0.02}deg)`
-        cardWrapRef.current.style.transition = 'none'
+  // ── Undo — restore the last swiped card to the top of the deck ──────
+  const undo = useCallback(() => {
+    if (!lastAction || animating) return
+    const { card, kind } = lastAction
+    const id = String(card.id)
+    setLastAction(null)
+    if (kind === 'pick') {
+      setPickedIds((ids) => ids.filter((x) => x !== id))
+      // A logged-in pick already persisted — un-persist it.
+      if (authed) {
+        fetch('/api/user/saves', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ listing_id: id }),
+        }).catch(() => { /* the save simply stays; harmless */ })
       }
+    } else {
+      setSkippedIds((ids) => ids.filter((x) => x !== id))
+    }
+    // Roll back the served-history entry for the card about to re-show, so the
+    // run cap doesn't count it twice (the record effect re-adds it on render).
+    if (servedRef.current[servedRef.current.length - 1] === card.vertical) servedRef.current.pop()
+    lastServedId.current = null
+    setQueue((prev) => [card, ...prev.filter((c) => String(c.id) !== id)])
+    setExhausted(false)
+  }, [lastAction, animating, authed])
+
+  // ── Pointer drag (mouse + touch unified; buttons remain the fallback) ─
+  const onPointerDown = useCallback((e) => {
+    if (animating || drag.current.pointerId !== null) return
+    if (e.button != null && e.button !== 0) return
+    // Reading the info panel is not a drag surface (its text scrolls).
+    if (e.target.closest?.('.dd-info-panel')) return
+    drag.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      dx: 0,
+      active: false,
+      lastX: e.clientX,
+      lastT: e.timeStamp,
+      vx: 0,
+    }
+    suppressClick.current = false
+    try { cardWrapRef.current?.setPointerCapture(e.pointerId) } catch { /* already released */ }
+  }, [animating])
+
+  const onPointerMove = useCallback((e) => {
+    const d = drag.current
+    if (d.pointerId !== e.pointerId) return
+    const dx = e.clientX - d.startX
+    const dy = e.clientY - d.startY
+    if (!d.active) {
+      // Vertical intent → let the page scroll (touch-action: pan-y).
+      if (Math.abs(dy) > 14 && Math.abs(dy) > Math.abs(dx) * 1.2) {
+        d.pointerId = null
+        return
+      }
+      if (Math.abs(dx) < DRAG_SLOP || Math.abs(dx) <= Math.abs(dy)) return
+      d.active = true
+    }
+    const dt = Math.max(1, e.timeStamp - d.lastT)
+    d.vx = 0.7 * ((e.clientX - d.lastX) / dt) + 0.3 * d.vx
+    d.lastX = e.clientX
+    d.lastT = e.timeStamp
+    d.dx = dx
+    setCardTransform(dx)
+    setStamps(dx)
+  }, [setCardTransform, setStamps])
+
+  const endDrag = useCallback((e, cancelled) => {
+    const d = drag.current
+    if (d.pointerId !== e.pointerId) return
+    const { dx, vx, active } = d
+    d.pointerId = null
+    try { cardWrapRef.current?.releasePointerCapture(e.pointerId) } catch { /* fine */ }
+    if (!active) return
+    // A real drag happened — the trailing click must not follow the link.
+    suppressClick.current = true
+    const commit = !cancelled && (
+      Math.abs(dx) > SWIPE_THRESHOLD ||
+      (Math.abs(vx) > FLICK_VELOCITY && Math.abs(dx) > FLICK_MIN_DX)
+    )
+    if (commit) {
+      // swipe() takes over: React applies the exit transform, transitioning
+      // from wherever the card currently sits.
+      swipe(dx > 0 ? 'pick' : 'skip')
+    } else {
+      // Spring back.
+      setCardTransform(0, reducedMotion.current ? 'none' : 'transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.2)')
+      setStamps(0)
+    }
+  }, [swipe, setCardTransform, setStamps])
+
+  const onPointerUp = useCallback((e) => endDrag(e, false), [endDrag])
+  const onPointerCancel = useCallback((e) => endDrag(e, true), [endDrag])
+
+  const onClickCapture = useCallback((e) => {
+    if (suppressClick.current) {
+      suppressClick.current = false
+      e.preventDefault()
+      e.stopPropagation()
     }
   }, [])
 
-  const onTouchEnd = useCallback(() => {
-    if (touchStartX.current == null) return
-    const dx = touchDeltaX.current
-    if (cardWrapRef.current) {
-      cardWrapRef.current.style.transform = ''
-      cardWrapRef.current.style.transition = 'transform 0.25s ease'
-    }
-    if (dx > SWIPE_THRESHOLD) handlePick()
-    else if (dx < -SWIPE_THRESHOLD) handleSkip()
-    touchStartX.current = null
-    touchStartY.current = null
-    touchDeltaX.current = 0
-  }, [handlePick, handleSkip])
+  // ── Keyboard: ← skip · → pick (global on the dedicated page; focused
+  //    deck elsewhere) ──────────────────────────────────────────────────
+  const onDeckKeyDown = useCallback((e) => {
+    if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return
+    const t = e.target
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
+    if (authModalOpen) return
+    if (e.key === 'ArrowRight') { e.preventDefault(); handlePick() }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); handleSkip() }
+  }, [handlePick, handleSkip, authModalOpen])
+
+  useEffect(() => {
+    if (variant !== 'fullscreen') return
+    window.addEventListener('keydown', onDeckKeyDown)
+    return () => window.removeEventListener('keydown', onDeckKeyDown)
+  }, [variant, onDeckKeyDown])
 
   // ── Sign-in flush (synchronous email/password path) ─────────────────
   const handleAuthSuccess = useCallback(async () => {
@@ -323,11 +460,15 @@ export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hi
     }
   }, [pickedIds, t])
 
-  // returnTo for Google OAuth. NOTE: OAuth reloads the page, so in-memory
-  // picks made before sign-in are intentionally not carried across (the spec
-  // forbids any anonymous state surviving a reload). The synchronous
-  // email/password path above is the durable flush.
-  const returnTo = typeof window !== 'undefined' ? window.location.href : undefined
+  // returnTo for Google OAuth — a PATH, not the full URL: the auth callback
+  // runs it through safeNextPath, which rejects absolute URLs and would
+  // strand the visitor on /account. NOTE: OAuth reloads the page, so
+  // in-memory picks made before sign-in are intentionally not carried across
+  // (the spec forbids any anonymous state surviving a reload). The
+  // synchronous email/password path above is the durable flush.
+  const returnTo = typeof window !== 'undefined'
+    ? window.location.pathname + window.location.search
+    : undefined
 
   // ── Render helpers ──────────────────────────────────────────────────
   const isBand = variant === 'band'
@@ -411,16 +552,22 @@ export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hi
 
   if (!current) return null
 
+  const exitMs = reducedMotion.current ? 0 : EXIT_MS
   const cardExitStyle = animating
     ? {
         transform: direction === 'right' ? 'translateX(120%) rotate(8deg)' : 'translateX(-120%) rotate(-8deg)',
         opacity: 0,
-        transition: `transform ${EXIT_MS}ms ease, opacity ${EXIT_MS}ms ease`,
+        transition: `transform ${exitMs}ms ease, opacity ${exitMs}ms ease`,
       }
-    : { transform: 'translateX(0) rotate(0)', opacity: 1, transition: `transform ${EXIT_MS}ms ease, opacity ${EXIT_MS}ms ease` }
+    : { transform: 'translateX(0) rotate(0)', opacity: 1, transition: `transform ${exitMs}ms ease, opacity ${exitMs}ms ease` }
 
   return (
-    <div className={`dd-stage dd-stage--${variant}`}>
+    <div
+      className={`dd-stage dd-stage--${variant}`}
+      tabIndex={0}
+      aria-label={t('deckAria')}
+      onKeyDown={variant === 'fullscreen' ? undefined : onDeckKeyDown}
+    >
       <div style={{ width: '100%' }}>
         {isBand && !hideHead && (
           <div className="dd-band-head">
@@ -431,24 +578,38 @@ export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hi
         )}
 
         <div className={`dd-deck${isBand ? ' dd-deck--band' : ''}`}>
+          {deepHint && (
+            <div className="dd-hint dd-hint--2">
+              <DiscoverCard key={deepHint.id} listing={deepHint} variant={variant} hint />
+            </div>
+          )}
           {nextHint && (
             <div className="dd-hint">
-              <DiscoverCard listing={nextHint} variant={variant} hint />
+              <DiscoverCard key={nextHint.id} listing={nextHint} variant={variant} hint />
             </div>
           )}
           <div
             ref={cardWrapRef}
             className="dd-card-wrap"
             style={cardExitStyle}
-            onTouchStart={onTouchStart}
-            onTouchMove={onTouchMove}
-            onTouchEnd={onTouchEnd}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerCancel}
+            onClickCapture={onClickCapture}
           >
             <DiscoverCard key={current.id} listing={current} variant={variant} />
+            <span ref={stampSkipRef} className="dd-stamp dd-stamp--skip" aria-hidden="true">{t('stampSkip')}</span>
+            <span ref={stampPickRef} className="dd-stamp dd-stamp--pick" aria-hidden="true">{t('stampPick')}</span>
           </div>
         </div>
 
-        {/* Action row — authoritative on desktop. */}
+        {/* What the deck is showing, for assistive tech. */}
+        <p className="dd-sr-only" aria-live="polite">
+          {current.name}{current.suburb ? `, ${current.suburb}` : current.region ? `, ${current.region}` : ''}
+        </p>
+
+        {/* Action row — authoritative fallback on every device. */}
         <div className={`dd-actions${isBand ? ' dd-actions--band' : ''}`}>
           <button className="dd-btn dd-btn-skip" onClick={handleSkip} disabled={animating || loading}>
             {t('next')}
@@ -463,7 +624,17 @@ export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hi
           </button>
         </div>
 
-        <p className="dd-swipe-hint">{t('swipeHint')}</p>
+        {lastAction && !animating && (
+          <button type="button" className="dd-undo" onClick={undo}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 14L4 9l5-5" /><path d="M4 9h10a6 6 0 0 1 0 12h-3" />
+            </svg>
+            {lastAction.kind === 'pick' ? t('undoPick') : t('undoSkip')}
+          </button>
+        )}
+
+        <p className="dd-swipe-hint dd-swipe-hint--touch">{t('swipeHint')}</p>
+        <p className="dd-swipe-hint dd-swipe-hint--pointer">{t('dragHint')}</p>
 
         {counterEl}
 

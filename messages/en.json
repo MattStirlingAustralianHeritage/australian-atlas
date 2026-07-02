@@ -674,7 +674,13 @@
     "errFeed": "Could not load the feed.",
     "errFeedRetry": "Could not load the feed. Check your connection and try again.",
     "errSave": "Could not save that one. Your connection may have dropped.",
-    "errFlush": "Signed in, but could not keep your picks. They are still selected — try the counter again."
+    "errFlush": "Signed in, but could not keep your picks. They are still selected — try the counter again.",
+    "dragHint": "Drag the card, or use the ← → keys",
+    "stampSkip": "Skip",
+    "stampPick": "I'd visit",
+    "undoPick": "Undo pick",
+    "undoSkip": "Undo skip",
+    "deckAria": "Discover deck. Press the right arrow to pick, left arrow to skip."
   },
   "map": {
     "loadingMap": "Loading map…",

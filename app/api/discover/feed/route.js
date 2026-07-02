@@ -9,7 +9,9 @@ import { overlayListingTranslations } from '@/lib/i18n/overlayListings'
 
 // Card payload: everything the floating card renders. presence_type is NOT
 // here — reflection is derived server-side (below) where we can read it.
-const CARD_FIELDS = 'id, name, slug, vertical, sub_type, description, region, state, suburb, hero_image_url, presence_type'
+// image_moderation_status rides along so the client can apply the standard
+// isHeroDisplayable veto before rendering the photographic card.
+const CARD_FIELDS = 'id, name, slug, vertical, sub_type, description, region, state, suburb, hero_image_url, image_moderation_status, presence_type'
 
 const DEFAULT_LIMIT = 10
 const MAX_MATCH = 100
@@ -156,6 +158,7 @@ function trimCard(l) {
     state: l.state,
     suburb: l.suburb,
     hero_image_url: l.hero_image_url,
+    image_moderation_status: l.image_moderation_status,
     presence_type: l.presence_type,
   }
 }
@@ -262,6 +265,7 @@ export async function POST(request) {
     listings = taste
       ? await rankedBatch(sb, taste, seen, limit, recentVerticals)
       : await coldStartBatch(sb, seen, limit, lat, lng, recentVerticals)
+    listings = await hydrateCards(sb, listings)
   } catch (err) {
     return NextResponse.json({ error: `Feed query failed: ${err.message}` }, { status: 500 })
   }
@@ -276,6 +280,24 @@ export async function POST(request) {
     coldStart,
     exhausted: listings.length === 0,
   })
+}
+
+/**
+ * Ensure every served card carries the FULL card payload. The taste-path rows
+ * come from the hybrid RPC, whose return table is slimmer than a direct
+ * listings select — notably missing presence_type and image_moderation_status
+ * (the photographic card's moderation veto). One indexed read for the whole
+ * batch; fail-open to the un-hydrated cards on error.
+ */
+async function hydrateCards(sb, cards) {
+  if (!cards?.length) return cards
+  const { data, error } = await sb
+    .from('listings')
+    .select(CARD_FIELDS)
+    .in('id', cards.map((c) => c.id))
+  if (error) return cards
+  const byId = new Map((data || []).map((l) => [String(l.id), trimCard(l)]))
+  return cards.map((c) => byId.get(String(c.id)) || c)
 }
 
 /**

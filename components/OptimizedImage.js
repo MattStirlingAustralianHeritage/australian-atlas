@@ -21,13 +21,23 @@ function isOptimizable(src) {
   return typeof src === 'string' && /\/\/[^/]*\.supabase\.co\//.test(src)
 }
 
-export default function OptimizedImage({ src, alt = '', className, sizes = '100vw', priority = false }) {
+export default function OptimizedImage({ src, alt = '', className, sizes = '100vw', priority = false, draggable, onFinalError }) {
   const [failed, setFailed] = useState(false)
   if (!src) return null
 
   if (failed || !isOptimizable(src)) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={src} alt={alt} className={className} loading={priority ? 'eager' : 'lazy'} decoding="async" />
+    return (
+      <img
+        src={src}
+        alt={alt}
+        className={className}
+        loading={priority ? 'eager' : 'lazy'}
+        decoding="async"
+        draggable={draggable}
+        onError={onFinalError}
+      />
+    )
   }
 
   return (
@@ -38,6 +48,7 @@ export default function OptimizedImage({ src, alt = '', className, sizes = '100v
       sizes={sizes}
       className={className}
       priority={priority}
+      draggable={draggable}
       onError={() => setFailed(true)}
     />
   )
