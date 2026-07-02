@@ -83,6 +83,74 @@ const SLUG_BY_KEY = {
 const esc = (s) => String(s ?? '')
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
+// Fast flat-earth distance — fine at duplicate-detection ranges.
+function approxMeters(aLat, aLng, bLat, bLng) {
+  const dLat = (aLat - bLat) * 111320
+  const dLng = (aLng - bLng) * 111320 * Math.cos(aLat * Math.PI / 180)
+  return Math.hypot(dLat, dLng)
+}
+
+/**
+ * Display-geometry pass over the listing set, run once per data load.
+ * Returns annotated copies; originals are untouched.
+ *
+ * 1. Pin fan-out (`_dlng`/`_dlat`): listings sharing an ~11m coordinate cell
+ *    (usually duplicate rows or two businesses at one address) are spread
+ *    onto a ~15m ring so each renders as its own visible, clickable dot —
+ *    sub-pixel at national zoom, clearly separate at street zoom.
+ * 2. Label ownership (`_labelShow`): only ONE name label per (normalised
+ *    name × ~150m). Without this, duplicate venues get the same text placed
+ *    at two different anchors — stacked "Sawtooth ARI / Sawtooth ARI".
+ */
+function annotateDisplayGeometry(listings) {
+  const out = listings.map(l => ({ ...l }))
+
+  const cells = new Map()
+  for (const l of out) {
+    if (l.lat == null || l.lng == null) continue
+    const key = (+l.lat).toFixed(4) + ',' + (+l.lng).toFixed(4)
+    if (!cells.has(key)) cells.set(key, [])
+    cells.get(key).push(l)
+  }
+  for (const group of cells.values()) {
+    if (group.length === 1) {
+      const l = group[0]
+      l._dlng = parseFloat(l.lng); l._dlat = parseFloat(l.lat)
+      continue
+    }
+    const R = 0.00014 // ≈ 15m of latitude
+    group.forEach((l, i) => {
+      const lat = parseFloat(l.lat), lng = parseFloat(l.lng)
+      const angle = (2 * Math.PI * i) / group.length
+      l._dlat = lat + R * Math.sin(angle)
+      l._dlng = lng + (R * Math.cos(angle)) / Math.max(0.2, Math.cos(lat * Math.PI / 180))
+    })
+  }
+
+  const byName = new Map()
+  for (const l of out) {
+    if (l.lat == null || l.lng == null) continue
+    const key = String(l.name || '').toLowerCase().replace(/\s+/g, ' ').trim()
+    if (!byName.has(key)) byName.set(key, [])
+    byName.get(key).push(l)
+  }
+  for (const group of byName.values()) {
+    const shown = []
+    for (const l of group) {
+      const isNearShown = shown.some(s => approxMeters(+s.lat, +s.lng, +l.lat, +l.lng) < 150)
+      l._labelShow = !isNearShown
+      if (!isNearShown) shown.push(l)
+    }
+  }
+  return out
+}
+
+// Display coordinates for a listing — fan-out-adjusted when present.
+const displayCoords = (l) => [
+  l._dlng != null ? l._dlng : parseFloat(l.lng),
+  l._dlat != null ? l._dlat : parseFloat(l.lat),
+]
+
 const placesLabel = (n) => `${n.toLocaleString()} ${n === 1 ? 'place' : 'places'}`
 
 // Human label for a Mapbox geocoding result's primary type, so a town reads as
@@ -322,7 +390,7 @@ export default function MapClient({
     if (fly && map.current) {
       const target = Math.max(map.current.getZoom(), 12.5)
       map.current.flyTo({
-        center: [parseFloat(l.lng), parseFloat(l.lat)],
+        center: displayCoords(l),
         zoom: target,
         padding: cameraPadding(),
         speed: 1.4,
@@ -404,7 +472,7 @@ export default function MapClient({
   // mode fetches the full network listing set from /api/map.
   useEffect(() => {
     if (prefilteredListings) {
-      setAllListings(prefilteredListings)
+      setAllListings(annotateDisplayGeometry(prefilteredListings))
       setCount(prefilteredListings.length)
       setLoading(false)
       return
@@ -414,7 +482,7 @@ export default function MapClient({
         const res = await fetch('/api/map')
         if (!res.ok) throw new Error('fetch failed')
         const { listings: data } = await res.json()
-        setAllListings(data || [])
+        setAllListings(annotateDisplayGeometry(data || []))
         setCount(data?.length || 0)
       } catch (err) {
         console.error('[map] Fetch error:', err)
@@ -709,15 +777,20 @@ export default function MapClient({
           m.addLayer({
             id: 'pin-labels', type: 'symbol', source: 'listings-clustered',
             minzoom: 11,
-            filter: ['!', ['has', 'point_count']],
+            // labelShow: one label per (name × ~150m) — duplicate venue rows
+            // otherwise print the same name twice at different anchors.
+            filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'labelShow'], true]],
             layout: {
               'text-field': ['get', 'name'],
               'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
               'text-size': ['interpolate', ['linear'], ['zoom'], 11, 10.5, 14, 12],
               'text-variable-anchor': ['top', 'bottom', 'left', 'right'],
-              'text-radial-offset': 0.9,
+              'text-radial-offset': 1.05,
               'text-justify': 'auto',
-              'text-max-width': 9,
+              'text-max-width': 10,
+              // Breathing room in the collision index — in dense CBDs fewer,
+              // clearly-separated labels beat an interleaved jumble.
+              'text-padding': 6,
               'symbol-sort-key': ['case', ['==', ['get', 'featured'], true], 0, 1],
             },
             paint: {
@@ -876,7 +949,7 @@ export default function MapClient({
       const el = document.createElement('div')
       el.className = 'map-card-anchor'
       cardMarker.current = new mapboxgl.default.Marker({ element: el, anchor: 'bottom', offset: [0, -22] })
-        .setLngLat([parseFloat(selected.lng), parseFloat(selected.lat)])
+        .setLngLat(displayCoords(selected))
         .addTo(map.current)
       setCardPortalEl(el)
     })
@@ -903,7 +976,7 @@ export default function MapClient({
     const l = listingsRef.current.find(x => x.id === focusListingId)
     if (!l || l.lat == null || l.lng == null) { setFocusFilter(null); return }
     setFocusFilter(l.id)
-    const coords = [parseFloat(l.lng), parseFloat(l.lat)]
+    const coords = displayCoords(l)
     const isCurrent = highlightListingId && l.id === highlightListingId
     popup.current.setLngLat(coords).setHTML(buildPopupHTML(listingToProps(l), { isCurrent })).addTo(m)
   }, [focusListingId, mapReady, highlightListingId, isEmbedded])
@@ -1654,6 +1727,7 @@ function listingToProps(l) {
     subTypeLabel: subTypes[l.sub_type] || null,
     color: verticalColor(l.vertical),
     featured: l.is_featured || false,
+    labelShow: l._labelShow !== false,
     location: [l.region, l.state].filter(Boolean).join(', '),
     description: l.description || '',
     image: isApprovedImageSource(l.hero_image_url) ? l.hero_image_url : '',
@@ -1722,7 +1796,7 @@ function buildGeoJSON(listings) {
     type: 'FeatureCollection',
     features: listings.filter(l => l.lat && l.lng && !l.address_on_request).map(l => ({
       type: 'Feature',
-      geometry: { type: 'Point', coordinates: [parseFloat(l.lng), parseFloat(l.lat)] },
+      geometry: { type: 'Point', coordinates: displayCoords(l) },
       properties: listingToProps(l),
     })),
   }
