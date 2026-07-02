@@ -161,8 +161,9 @@ export default function Nav() {
             gap: '9px',
           }}
         >
-          {/* Compass-star mark — the wordmark's quiet emblem, in the brand gold. */}
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="var(--color-gold)" aria-hidden="true" style={{ flexShrink: 0, marginTop: '1px' }}>
+          {/* Compass-star mark — the wordmark's quiet emblem, in the brand gold.
+              A quarter-turn on hover: the compass swings, the name holds. */}
+          <svg className="wordmark-star" width="15" height="15" viewBox="0 0 24 24" fill="var(--color-gold)" aria-hidden="true" style={{ flexShrink: 0, marginTop: '1px' }}>
             <path d="M12 0l2.6 9.4L24 12l-9.4 2.6L12 24l-2.6-9.4L0 12l9.4-2.6L12 0z" />
           </svg>
           Australian Atlas

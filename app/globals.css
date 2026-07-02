@@ -18,7 +18,7 @@
   --color-gold: #C4973B;
   --color-border: rgba(28,26,23,0.12);
   --color-card-bg: #ffffff;
-  --font-display: 'Fraunces', Georgia, serif;
+  --font-display: 'Newsreader', Georgia, serif;
   --font-body: 'DM Sans', system-ui, sans-serif;
   /* Legacy aliases — resolve to the actually-loaded next/font families (which
      register under hashed names, so a literal family string here would silently
@@ -700,6 +700,18 @@ h1 { letter-spacing: -0.015em; font-feature-settings: 'liga' 1, 'kern' 1; }
 .nav-link[aria-current="page"]::after { right: 0; }
 @media (prefers-reduced-motion: reduce) {
   .nav-link::after { transition: none; }
+}
+
+/* Wordmark compass — swings a quarter turn when the wordmark is hovered. */
+.wordmark-star {
+  transition: transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+a:hover > .wordmark-star {
+  transform: rotate(90deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .wordmark-star { transition: none; }
+  a:hover > .wordmark-star { transform: none; }
 }
 
 /* Dropdown group label — small-caps section heading inside nav dropdowns. */

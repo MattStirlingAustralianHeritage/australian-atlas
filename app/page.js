@@ -29,17 +29,6 @@ const CLUSTER_REGION_SLUGS = {
   'Melbourne': null,
 }
 
-const STATE_CARD_GRADIENTS = {
-  VIC: 'linear-gradient(135deg, #F0EBE3 0%, #E8E0D4 100%)',
-  NSW: 'linear-gradient(135deg, #EDE8E0 0%, #E0D8CC 100%)',
-  QLD: 'linear-gradient(135deg, #F0ECE4 0%, #E4DDD2 100%)',
-  SA:  'linear-gradient(135deg, #EEE8DF 0%, #E2DAD0 100%)',
-  WA:  'linear-gradient(135deg, #F0EAE2 0%, #E6DED4 100%)',
-  TAS: 'linear-gradient(135deg, #ECE8E2 0%, #DED8D0 100%)',
-  ACT: 'linear-gradient(135deg, #EEEAE4 0%, #E0DCD4 100%)',
-  NT:  'linear-gradient(135deg, #F0ECE6 0%, #E4DED6 100%)',
-}
-
 const REGION_GEO = {
   'Barossa Valley':        { lat: -34.56, lng: 138.95, r: 0.35 },
   'Mornington Peninsula':  { lat: -38.37, lng: 145.03, r: 0.30 },
@@ -774,6 +763,9 @@ export default async function Home() {
             </div>
             {articlesWithImages.length >= 2 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {/* Cover-story treatment: the title sits ON the photograph under
+                    an ink scrim, magazine-cover style; the standfirst and CTA
+                    stay below on the dark band. */}
                 {articlesWithImages.map((article, ai) => (
                   <a
                     key={article.id || ai}
@@ -783,31 +775,36 @@ export default async function Home() {
                     className="reveal group block"
                     data-reveal-index={ai}
                   >
-                    <div className="overflow-hidden rounded-lg" style={{
-                      height: '220px',
+                    <div className="overflow-hidden rounded-lg relative" style={{
+                      height: '300px',
                     }}>
                       <img
                         src={article.hero_image_url}
                         alt=""
-                        className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700"
+                        className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
                       />
+                      <div aria-hidden="true" className="absolute inset-0" style={{
+                        background: 'linear-gradient(to top, rgba(16,14,11,0.82) 0%, rgba(16,14,11,0.28) 45%, rgba(16,14,11,0.05) 70%, transparent 100%)',
+                      }} />
+                      <div className="absolute left-0 right-0 bottom-0" style={{ padding: '22px 24px' }}>
+                        <p style={{
+                          fontFamily: 'var(--font-body)', fontSize: '10.5px', fontWeight: 600,
+                          letterSpacing: '0.16em', textTransform: 'uppercase',
+                          color: GOLD, marginBottom: '8px',
+                        }}>
+                          {VERTICAL_LABELS[article.vertical] || 'Journal'}
+                          {article.category && ` · ${article.category}`}
+                        </p>
+                        <h2 style={{
+                          fontFamily: 'var(--font-display)', fontWeight: 400,
+                          fontSize: 'clamp(22px, 2.4vw, 30px)', lineHeight: 1.16,
+                          color: '#FAF8F4', margin: 0, textWrap: 'balance',
+                        }}>
+                          {article.title}
+                        </h2>
+                      </div>
                     </div>
-                    <div style={{ paddingTop: '16px' }}>
-                      <p style={{
-                        fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
-                        letterSpacing: '0.15em', textTransform: 'uppercase',
-                        color: GOLD, marginBottom: '6px',
-                      }}>
-                        {VERTICAL_LABELS[article.vertical] || 'Journal'}
-                        {article.category && ` · ${article.category}`}
-                      </p>
-                      <h2 style={{
-                        fontFamily: 'var(--font-display)', fontWeight: 400,
-                        fontSize: '22px', lineHeight: 1.25,
-                        color: '#FAF8F4', margin: '0 0 8px',
-                      }}>
-                        {article.title}
-                      </h2>
+                    <div style={{ paddingTop: '14px' }}>
                       {article.excerpt && (
                         <p style={{
                           fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px',
@@ -945,6 +942,10 @@ export default async function Home() {
                 </LocalizedLink>
               </div>
               <div className="grid grid-cols-2 gap-4">
+                {/* Dark cartographic cards — the /regions index identity
+                    (ink ground, serif italic name, warm small-caps state,
+                    amber count) brought home, so the region language is ONE
+                    language wherever regions appear. */}
                 {[
                   { name: 'Barossa Valley', slug: 'barossa-valley', state: 'SA' },
                   { name: 'Mornington Peninsula', slug: 'mornington-peninsula', state: 'VIC' },
@@ -954,7 +955,6 @@ export default async function Home() {
                   { name: 'Adelaide Hills', slug: 'adelaide-hills', state: 'SA' },
                 ].map((r, ri) => {
                   const count = stats.regionCounts[r.name]
-                  const gradient = STATE_CARD_GRADIENTS[r.state] || STATE_CARD_GRADIENTS.VIC
                   return (
                     <LocalizedLink
                       key={r.slug}
@@ -962,32 +962,39 @@ export default async function Home() {
                       className="reveal group listing-card block overflow-hidden"
                       data-reveal-index={(ri % 3) + 1}
                       style={{
-                        background: gradient,
-                        border: '1px solid #E2D8C6',
+                        background: 'radial-gradient(120% 120% at 20% 0%, #33302A 0%, #2D2A24 55%, #262420 100%)',
+                        border: '1px solid rgba(184, 134, 43, 0.16)',
                         borderRadius: 'var(--radius-card)',
+                        position: 'relative',
                       }}
                     >
-                      <div className="flex flex-col" style={{ padding: '18px', minHeight: 116 }}>
+                      {/* faint survey-grid texture in the cartographic amber */}
+                      <div aria-hidden="true" style={{
+                        position: 'absolute', inset: 0, pointerEvents: 'none', opacity: 0.16,
+                        backgroundImage: 'linear-gradient(rgba(184,134,43,0.35) 0.5px, transparent 0.5px), linear-gradient(90deg, rgba(184,134,43,0.35) 0.5px, transparent 0.5px)',
+                        backgroundSize: '28px 28px',
+                      }} />
+                      <div className="flex flex-col" style={{ padding: '18px', minHeight: 116, position: 'relative' }}>
                         <h3 style={{
-                          fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 19,
-                          color: 'var(--color-ink)', lineHeight: 1.2, marginBottom: 4,
+                          fontFamily: 'var(--font-display)', fontWeight: 400, fontStyle: 'italic',
+                          fontSize: 20, color: '#F3EDE1', lineHeight: 1.2, marginBottom: 5,
                         }}>
                           {r.name}
                         </h3>
                         <p style={{
                           fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '10px',
-                          letterSpacing: '0.15em', textTransform: 'uppercase',
-                          color: GOLD, marginBottom: 0,
+                          letterSpacing: '0.16em', textTransform: 'uppercase',
+                          color: '#8a7a5a', marginBottom: 0,
                         }}>
                           {r.state}
                         </p>
                         <div style={{ flex: 1, minHeight: 14 }} />
                         {count > 0 && (
                           <span style={{
-                            fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 12.5,
-                            color: 'var(--color-muted)',
+                            fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12,
+                            color: '#C9973F',
                           }}>
-                            {count} listings
+                            {count} places
                           </span>
                         )}
                       </div>
