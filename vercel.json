@@ -119,6 +119,10 @@
     {
       "path": "/api/cron/fleet-health",
       "schedule": "30 10 * * *"
+    },
+    {
+      "path": "/api/cron/council-digest",
+      "schedule": "0 21 1 * *"
     }
   ]
 }

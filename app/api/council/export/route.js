@@ -15,7 +15,10 @@ function csvCell(v) {
  * data as CSV (the "custom data export" / data-access capability). Session-gated;
  * FK region attribution via listings_with_region; public, non-test rows only.
  * Optional ?region=<slug> (must be a managed region) and ?vertical=<key>.
+ * Optional ?type=no-website|dead-website narrows to the digital-presence
+ * hit-lists (venues missing a website / whose website fails link checks).
  */
+const EXPORT_TYPES = new Set(['no-website', 'dead-website'])
 export async function GET(req) {
   const cookie = req.cookies.get('council_session')
   const session = validateCouncilSession(cookie?.value)
@@ -27,6 +30,7 @@ export async function GET(req) {
   const { searchParams } = new URL(req.url)
   const regionParam = searchParams.get('region')
   const verticalParam = searchParams.get('vertical')
+  const typeParam = EXPORT_TYPES.has(searchParams.get('type')) ? searchParams.get('type') : null
 
   // Managed regions for this council (server-side scoping — a council can only
   // ever export its own regions).
@@ -52,11 +56,13 @@ export async function GET(req) {
   for (let from = 0; ; from += pageSize) {
     let query = excludeNeedsReview(excludeTestListings(
       sb.from('listings_with_region')
-        .select('name, vertical, suburb, state, website, status, region_id')
+        .select('name, vertical, suburb, state, website, website_status, is_claimed, status, region_id')
         .eq('status', 'active')
         .in('region_id', regionIds),
     ))
     if (verticalParam) query = filterByVertical(query, verticalParam, hasVerticals)
+    if (typeParam === 'no-website') query = query.is('website', null)
+    if (typeParam === 'dead-website') query = query.not('website', 'is', null).in('website_status', ['down', 'error'])
     const { data, error } = await query.order('name', { ascending: true }).range(from, from + pageSize - 1)
     if (error) {
       console.error('Council export error:', error.message)
@@ -66,7 +72,7 @@ export async function GET(req) {
     if (!data || data.length < pageSize) break
   }
 
-  const header = ['Name', 'Category', 'Suburb', 'State', 'Website', 'Status', 'Region']
+  const header = ['Name', 'Category', 'Suburb', 'State', 'Website', 'Website status', 'Operator claimed', 'Status', 'Region']
   const lines = [header.join(',')]
   for (const r of rows) {
     lines.push([
@@ -75,6 +81,8 @@ export async function GET(req) {
       csvCell(r.suburb),
       csvCell(r.state),
       csvCell(r.website),
+      csvCell(r.website_status),
+      csvCell(r.is_claimed ? 'yes' : 'no'),
       csvCell(r.status),
       csvCell(regionNameById[r.region_id] || ''),
     ].join(','))
@@ -84,7 +92,7 @@ export async function GET(req) {
 
   const stamp = new Date().toISOString().slice(0, 10)
   const scope = regionParam ? regions[0].slug : 'all-regions'
-  const filename = `australian-atlas-${scope}-listings-${stamp}.csv`
+  const filename = `australian-atlas-${scope}-${typeParam || 'listings'}-${stamp}.csv`
 
   return new NextResponse(csv, {
     status: 200,

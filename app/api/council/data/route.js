@@ -4,6 +4,16 @@ import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalF
 import { excludeTestListings, excludeNeedsReview } from '@/lib/listings/publicFilter'
 import { validateCouncilSession } from '@/lib/council-session'
 import { computeRegionMetricsBatch } from '@/lib/analytics/regionMetrics'
+import {
+  computeWeeklyTrends,
+  computeSearchInsights,
+  computePresenceAudit,
+  computeBenchmarks,
+} from '@/lib/council/insights'
+
+// The trends/benchmarks views walk two windows of pageviews; give them room
+// beyond the default serverless budget.
+export const maxDuration = 60
 
 // Council reporting window. The pageviews dataset is young; 90 days captures the
 // full history and matches a quarterly council reporting cadence.
@@ -179,11 +189,49 @@ export async function GET(req) {
       })
     }
 
+    if (view === 'trends') {
+      const range = searchParams.get('range') || '90d'
+      const rangeDays = RANGE_DAYS[range] || 90
+      if (regionIds.length === 0) {
+        return NextResponse.json({ council, regions, trends: null })
+      }
+      const trends = await computeWeeklyTrends(sb, regions, { rangeDays })
+      return NextResponse.json({ council, regions, range, trends })
+    }
+
+    if (view === 'insights') {
+      const range = searchParams.get('range') || '90d'
+      const rangeDays = RANGE_DAYS[range] || 90
+      if (regionIds.length === 0) {
+        return NextResponse.json({ council, regions, insights: null })
+      }
+      const insights = await computeSearchInsights(sb, regions, { rangeDays })
+      return NextResponse.json({ council, regions, range, insights })
+    }
+
+    if (view === 'presence') {
+      if (regionIds.length === 0) {
+        return NextResponse.json({ council, regions, presence: null })
+      }
+      const presence = await computePresenceAudit(sb, regions)
+      return NextResponse.json({ council, regions, presence })
+    }
+
+    if (view === 'benchmarks') {
+      const range = searchParams.get('range') || '90d'
+      const rangeDays = RANGE_DAYS[range] || 90
+      if (regionIds.length === 0) {
+        return NextResponse.json({ council, regions, benchmarks: null })
+      }
+      const benchmarks = await computeBenchmarks(sb, regions, { rangeDays })
+      return NextResponse.json({ council, regions, range, benchmarks })
+    }
+
     if (view === 'content') {
       // Single founding-partner tier — full access, no tier gating.
       const { data: content } = await sb
         .from('council_content')
-        .select('id, council_id, title, body, content_type, status, created_at, updated_at')
+        .select('id, council_id, region_id, title, body, content_type, status, metadata, created_at, updated_at')
         .eq('council_id', council.id)
         .order('updated_at', { ascending: false })
 

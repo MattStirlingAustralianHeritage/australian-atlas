@@ -47,6 +47,7 @@ const EXPECTED = {
   'backlink-builder': 800,       // monthly
   'user-reactivation': 800,      // monthly
   'listing-velocity': 800,       // monthly
+  'council-digest': 800,         // monthly (Region Pulse, 1st of month)
 }
 
 const STRANDED_HOURS = 6

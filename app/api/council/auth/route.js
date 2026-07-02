@@ -108,11 +108,14 @@ export async function POST(req) {
         })
         .eq('id', council.id)
 
-      // Send email via Resend
+      // Send email via Resend. The SDK resolves { data, error } rather than
+      // throwing on API errors, so the error field must be checked explicitly —
+      // otherwise a rejected send is silently swallowed and the council just
+      // never receives a code.
       try {
         const { Resend } = require('resend')
         const resend = new Resend(process.env.RESEND_API_KEY)
-        await resend.emails.send({
+        const { error: sendError } = await resend.emails.send({
           from: 'Australian Atlas <verify@australianatlas.com.au>',
           to: council.contact_email,
           subject: 'Your Australian Atlas login code',
@@ -129,6 +132,12 @@ export async function POST(req) {
             </div>
           `,
         })
+        if (sendError) {
+          console.error('OTP email rejected by Resend (council login):', JSON.stringify(sendError))
+          if (process.env.NODE_ENV !== 'production') {
+            console.log(`[DEV] Magic link code for ${email}: ${magicToken}`)
+          }
+        }
       } catch (emailErr) {
         console.error('Failed to send magic link email:', emailErr)
         // Only ever log the live OTP in non-production (never to prod logs).
