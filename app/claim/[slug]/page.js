@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getVerticalLabel, VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 import VerticalBadge from '@/components/VerticalBadge'
 import ClaimForm from './ClaimForm'
+import PreClaimEvidence from './PreClaimEvidence'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 import { getCurrentLegalDocuments, CLAIM_REQUIRED_DOC_TYPES } from '@/lib/legal/documents'
 
@@ -35,13 +36,17 @@ async function getListing(slug) {
 export async function generateMetadata({ params }) {
   const { slug } = await params
   const listing = await getListing(slug)
-  if (!listing) return { title: 'Listing not found' }
+  // Claim pages are private decision surfaces — never index them, even the
+  // not-found variant. Mirrors the /claim/ Disallow in app/robots.js.
+  const robots = { index: false, follow: false }
+  if (!listing) return { title: 'Listing not found', robots }
 
   const title = `Claim ${listing.name} | Australian Atlas`
   const description = `Claim your listing for ${listing.name} on Australian Atlas. Update your details, add images, and connect with visitors.`
   return {
     title,
     description,
+    robots,
     openGraph: { title, description, url: `https://australianatlas.com.au/claim/${listing.slug}` },
     twitter: { card: 'summary', title, description },
   }
@@ -132,6 +137,11 @@ export default async function ClaimPage({ params }) {
             </p>
           )}
         </div>
+
+        {/* Pre-claim evidence — this listing's OWN organic activity over the
+            last 30 days, shown at the decision moment. Renders nothing when
+            there is no traction to show. */}
+        <PreClaimEvidence listingId={listing.id} listingName={listing.name} slug={listing.slug} />
 
         {/* Claim form (client component) */}
         {listing.vertical === 'field' ? (

@@ -45,6 +45,7 @@ const EXPECTED = {
   'seo-content': 192,            // weekly
   'geocoding-watchdog': 192,     // weekly
   'revenue-signal': 192,         // weekly
+  'claim-recovery': 30,          // daily
   'backlink-builder': 800,       // monthly
   'user-reactivation': 800,      // monthly
   'listing-velocity': 800,       // monthly

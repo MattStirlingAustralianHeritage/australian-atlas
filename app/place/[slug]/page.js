@@ -9,7 +9,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getVerticalUrl, getVerticalLabel, getVerticalTagline, getVerticalBrandColour, getPublicVerticals } from '@/lib/verticalUrl'
 import { relationHasVerticals, listingVerticals } from '@/lib/listings/verticalFilter'
 import { isPublicListing } from '@/lib/listings/publicFilter'
-import { listingJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
+import { listingJsonLd, breadcrumbJsonLd, faqPageJsonLd } from '@/lib/jsonLd'
 import { checkAdmin } from '@/lib/admin-auth'
 import { isApprovedImageSource, isHeroDisplayable } from '@/lib/image-utils'
 import OptimizedImage from '@/components/OptimizedImage'
@@ -577,6 +577,46 @@ async function getListingAwards(sb, listingId) {
   }
 }
 
+// Published Q&A (migration 209), operator-authored. Rendered as an
+// operator-attributed block and also fed into this venue's own embedding +
+// concierge grounding (see lib/embeddings/sourceText.js). Resilient: any error
+// (e.g. a pre-migration DB) returns [] so the block can never break the page.
+async function getListingQna(sb, listingId) {
+  try {
+    const { data, error } = await sb
+      .from('listing_qna')
+      .select('id, question, answer, position')
+      .eq('listing_id', listingId)
+      .eq('published', true)
+      .order('position', { ascending: true })
+      .order('created_at', { ascending: true })
+      .limit(8)
+    if (error) throw error
+    return data || []
+  } catch {
+    return []
+  }
+}
+
+// The operator's approved story (migration 210), written by the Atlas from
+// their guided-interview answers. Only a 'live' row surfaces. Distinct from
+// the editorial description/ai_description. Resilient: returns null on any
+// error (e.g. pre-migration DB) so it can never break the page.
+async function getOperatorStory(sb, listingId) {
+  try {
+    const { data, error } = await sb
+      .from('operator_stories')
+      .select('draft, status')
+      .eq('listing_id', listingId)
+      .eq('status', 'live')
+      .maybeSingle()
+    if (error) throw error
+    return data?.draft || null
+  } catch {
+    return null
+  }
+}
+
 // ── Helper: clean website for display ─────────────────────────
 
 function cleanWebsite(url) {
@@ -685,13 +725,15 @@ export default async function PlacePage({ params }) {
   //   picksGiven    = venues this place vouches for (outgoing)
   //   picksReceived = venues that have vouched for this place ("picked by")
   // Both are filtered to active venues so a pick never links to a hidden listing.
-  const [picksGivenRaw, picksReceivedRaw, paidCuratorSet, upcomingEvents, offersRaw, awardsRaw] = await Promise.all([
+  const [picksGivenRaw, picksReceivedRaw, paidCuratorSet, upcomingEvents, offersRaw, awardsRaw, qnaRaw, operatorStoryRaw] = await Promise.all([
     listOutgoing(sbMem, [listing.id]),
     listIncoming(sbMem, [listing.id]),
     filterPaidListingIds(sbMem, [listing.id]),
     listEventsForListing(sbMem, listing.id, { includeUnpublished: false }),
     getListingOffers(sbMem, listing.id),
     getListingAwards(sbMem, listing.id),
+    getListingQna(sbMem, listing.id),
+    getOperatorStory(sbMem, listing.id),
   ])
   const picksGiven = picksGivenRaw.filter(p => p.pickedStatus === 'active')
   const picksReceived = picksReceivedRaw.filter(p => p.curatorStatus === 'active')
@@ -712,6 +754,13 @@ export default async function PlacePage({ params }) {
   // fails safe: stale offers vanish rather than lingering on the page.
   const currentOffers = paidCuratorSet.has(listing.id) ? offersRaw : []
   const recognition = paidCuratorSet.has(listing.id) ? awardsRaw : []
+  // Published Q&A (migration 209) — operator-attributed, paid-gated like the
+  // blocks above. Also emitted as FAQPage JSON-LD below.
+  const qna = paidCuratorSet.has(listing.id) ? qnaRaw : []
+  // Approved operator story (migration 210) — paid-gated; a 'live' row only
+  // exists after the operator approved it, but gate on paid too so it fails
+  // safe if a subscription lapses.
+  const operatorStory = paidCuratorSet.has(listing.id) ? operatorStoryRaw : null
 
   // Effective region via the FK helper. Returns canonical { id, slug, name, state }
   // from regions table, or null when both region_computed_id and region_override_id
@@ -781,9 +830,10 @@ export default async function PlacePage({ params }) {
     <div className="min-h-screen" style={{ background: 'var(--color-bg)' }}>
 
       {/* ── Structured data ───────────────────────────────── */}
+      {/* LocalBusiness enriched with live operator offers (makesOffer). */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(listingJsonLd(listing)) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(listingJsonLd(listing, { offers: currentOffers })) }}
       />
       <script
         type="application/ld+json"
@@ -793,6 +843,14 @@ export default async function PlacePage({ params }) {
           { name: listing.name },
         ])) }}
       />
+      {/* FAQPage from published operator Q&A — lets AI assistants answer
+          questions about this venue in the operator's own words. */}
+      {faqPageJsonLd(qna) && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqPageJsonLd(qna)) }}
+        />
+      )}
 
       {/* ── Hero ────────────────────────────────────────── */}
       {/* Visible breadcrumb intentionally removed; SEO breadcrumbs are emitted via JSON-LD above. */}
@@ -1136,6 +1194,25 @@ export default async function PlacePage({ params }) {
           </section>
         )}
 
+        {/* ── The story — the operator's own account, drafted by the Atlas from
+            their guided-interview answers and approved by them (a paid perk,
+            migration 210). Distinct from the editorial description above. ── */}
+        {operatorStory && (
+          <section className="mb-10" aria-labelledby="operator-story-heading">
+            <h2 id="operator-story-heading" className="mb-4" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)' }}>
+              The story
+            </h2>
+            <div className="rounded-xl p-6" style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: '16px', lineHeight: 1.75, color: 'var(--color-ink)', whiteSpace: 'pre-wrap' }}>
+                {operatorStory}
+              </div>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-muted)', margin: '16px 0 0', paddingTop: '12px', borderTop: '1px solid var(--color-border)', lineHeight: 1.5 }}>
+                In {listing.name}&rsquo;s own words, edited by the Atlas.
+              </p>
+            </div>
+          </section>
+        )}
+
         {/* ── Current offers — operator-authored, time-boxed promotions (a paid
             perk, migration 208). Fenced in the same warm operator-attributed
             panel as the From-the-Maker block so a reader can see at a glance
@@ -1223,6 +1300,31 @@ export default async function PlacePage({ params }) {
               </ul>
               <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-muted)', margin: '14px 0 0', paddingTop: '12px', borderTop: '1px solid var(--color-border)', lineHeight: 1.5 }}>
                 Supplied by the operator.
+              </p>
+            </div>
+          </section>
+        )}
+
+        {/* ── Questions, answered by the operator (a paid perk, migration 209).
+            Operator-authored Q&A, clearly attributed. Also feeds this venue's
+            own embedding + concierge grounding and is emitted as FAQPage
+            JSON-LD below. NO ranking effect. ── */}
+        {qna.length > 0 && (
+          <section className="mb-10" aria-labelledby="qna-heading">
+            <h2 id="qna-heading" className="mb-4" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)' }}>
+              Questions, answered by {listing.name}
+            </h2>
+            <div className="p-5 rounded-lg" style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}>
+              <dl className="flex flex-col gap-4" style={{ margin: 0 }}>
+                {qna.map(item => (
+                  <div key={item.id}>
+                    <dt className="text-sm font-medium mb-1" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-ink)' }}>{item.question}</dt>
+                    <dd className="text-sm" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{item.answer}</dd>
+                  </div>
+                ))}
+              </dl>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-muted)', margin: '14px 0 0', paddingTop: '12px', borderTop: '1px solid var(--color-border)', lineHeight: 1.5 }}>
+                Answered by the operator.
               </p>
             </div>
           </section>

@@ -12,6 +12,7 @@ import KeywordsEditor from './KeywordsEditor'
 import EventsSection from './EventsSection'
 import OffersSection from './OffersSection'
 import AwardsSection from './AwardsSection'
+import QnaSection from './QnaSection'
 import PicksSection from './PicksSection'
 
 /**
@@ -1123,6 +1124,7 @@ export default function EditListingPage() {
           {/* ── Offers & Recognition (paid perks, migration 208) ── */}
           <OffersSection listingId={id} token={token} isPaid={isPaid} />
           <AwardsSection listingId={id} token={token} isPaid={isPaid} />
+          <QnaSection listingId={id} token={token} isPaid={isPaid} />
           <PicksSection listingId={id} token={token} isPaid={isPaid} listing={listing} />
         </div>
       </div>

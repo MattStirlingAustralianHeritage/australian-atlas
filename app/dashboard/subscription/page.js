@@ -38,6 +38,7 @@ function SubscriptionCard({ vertical, data, referralCode }) {
   const [kitSending, setKitSending] = useState(false)
   const [kitMessage, setKitMessage] = useState(null)
   const [codeCopied, setCodeCopied] = useState(false)
+  const [snippetCopied, setSnippetCopied] = useState(false)
 
   async function handleResendKit() {
     if (!listingId) {
@@ -97,6 +98,39 @@ function SubscriptionCard({ vertical, data, referralCode }) {
       setCodeCopied(true)
       setTimeout(() => setCodeCopied(false), 2000)
     } catch { /* clipboard unavailable — the code is visible to copy by hand */ }
+  }
+
+  // A copyable JSON-LD LocalBusiness snippet the operator can paste into their
+  // OWN website's <head>. Built only from verified listing fields; sameAs points
+  // back at their Atlas listing so search engines + AI connect the two.
+  const jsonLdSnippet = (() => {
+    const ml = data.masterListing
+    if (!ml?.slug) return null
+    const placeUrl = `https://www.australianatlas.com.au/place/${ml.slug}`
+    const obj = {
+      '@context': 'https://schema.org',
+      '@type': 'LocalBusiness',
+      name: ml.name,
+      ...(ml.region || ml.state ? {
+        address: {
+          '@type': 'PostalAddress',
+          ...(ml.region ? { addressLocality: ml.region } : {}),
+          ...(ml.state ? { addressRegion: ml.state } : {}),
+          addressCountry: 'AU',
+        },
+      } : {}),
+      sameAs: [placeUrl],
+    }
+    return `<script type="application/ld+json">\n${JSON.stringify(obj, null, 2)}\n</script>`
+  })()
+
+  async function handleCopySnippet() {
+    if (!jsonLdSnippet) return
+    try {
+      await navigator.clipboard.writeText(jsonLdSnippet)
+      setSnippetCopied(true)
+      setTimeout(() => setSnippetCopied(false), 2000)
+    } catch { /* clipboard unavailable — the snippet is visible to copy by hand */ }
   }
 
   async function handleUpgrade() {
@@ -294,6 +328,29 @@ function SubscriptionCard({ vertical, data, referralCode }) {
               {codeCopied ? 'Copied' : 'Copy'}
             </button>
           </div>
+        </div>
+      )}
+
+      {/* AI-ready data — a copyable JSON-LD snippet for the operator's own site */}
+      {tier === 'standard' && jsonLdSnippet && (
+        <div style={{ padding: '0.75rem', borderRadius: '8px', background: '#f8f6f0', border: '1px solid #e8e4da' }}>
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '0.75rem', color: 'var(--color-muted)', margin: '0 0 0.5rem', lineHeight: 1.4 }}>
+            AI-ready data — paste this into your own website&rsquo;s <code>&lt;head&gt;</code> so search engines and AI assistants connect your site to your verified Atlas listing.
+          </p>
+          <textarea
+            readOnly
+            value={jsonLdSnippet}
+            onFocus={e => e.target.select()}
+            rows={9}
+            style={{ width: '100%', fontFamily: 'ui-monospace, Menlo, monospace', fontSize: '0.72rem', lineHeight: 1.45, color: 'var(--color-ink)', background: '#fff', border: '1px solid var(--color-border)', borderRadius: '6px', padding: '0.5rem', resize: 'vertical' }}
+          />
+          <button
+            type="button"
+            onClick={handleCopySnippet}
+            style={{ ...TOOL_BUTTON_STYLE, padding: '0.35rem 0.7rem', fontSize: '0.75rem', marginTop: '0.5rem' }}
+          >
+            {snippetCopied ? 'Copied' : 'Copy snippet'}
+          </button>
         </div>
       )}
 
