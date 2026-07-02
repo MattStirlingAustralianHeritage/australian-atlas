@@ -11,6 +11,9 @@ import HighlightsEditor from './HighlightsEditor'
 import KeywordsEditor from './KeywordsEditor'
 import TradeReadinessEditor from './TradeReadinessEditor'
 import EventsSection from './EventsSection'
+import OffersSection from './OffersSection'
+import AwardsSection from './AwardsSection'
+import QnaSection from './QnaSection'
 import PicksSection from './PicksSection'
 
 /**
@@ -21,6 +24,12 @@ import PicksSection from './PicksSection'
  * four owner-controllable fields inline: hero image, website, phone and
  * opening hours. Everything else (name, category, location, description) is a
  * read-only preview so the operator sees their page as it will appear.
+ *
+ * Tiering ("keeper of the facts"): a FREE claim keeps the facts editable —
+ * website, phone and opening hours only. Photos, highlights, keywords, events
+ * and picks render in their locked/upgrade presentation until the claim is
+ * Standard (the PATCH route enforces the same field set server-side). Paid
+ * claims and admins get the full editor.
  *
  * Saves through PATCH /api/dashboard/listing (master write + vertical
  * sync-back), the same contract as the previous form-based editor. A floating
@@ -282,8 +291,9 @@ export default function EditListingPage() {
   const [error, setError] = useState(null)
   const [mounted, setMounted] = useState(false)
 
-  // Paid-tier gate: editing is unlocked by an active standard claim (listing.paid)
-  // or for admins. Unpaid operators get a "complete payment" challenge instead.
+  // Paid-tier gate: the FULL editor is unlocked by an active standard claim
+  // (listing.paid) or for admins. Free-tier operators keep the facts editable
+  // (website, phone, hours) and see an upgrade banner + locked sections instead.
   const [upgrading, setUpgrading] = useState(false)
   const [upgradeError, setUpgradeError] = useState(null)
   const [justUpgraded, setJustUpgraded] = useState(false)
@@ -540,17 +550,23 @@ export default function EditListingPage() {
     setSaveError(null)
     setImageNotice(null)
     try {
+      // Free tier is "keeper of the facts": send ONLY website/phone/hours. The
+      // PATCH route 403s any other key on a free claim, so including the (locked,
+      // unchanged) hero/gallery would fail the whole save.
+      const payload = {
+        listing_id: id,
+        website: website.trim() || null,
+        phone: phone.trim() || null,
+        hours: daysToHours(days),
+      }
+      if (listing?.paid || isAdmin) {
+        payload.hero_image_url = heroImageUrl || null
+        payload.gallery_image_urls = gallery
+      }
       const res = await fetch('/api/dashboard/listing', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          listing_id: id,
-          website: website.trim() || null,
-          phone: phone.trim() || null,
-          hours: daysToHours(days),
-          hero_image_url: heroImageUrl || null,
-          gallery_image_urls: gallery,
-        }),
+        body: JSON.stringify(payload),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -628,124 +644,13 @@ export default function EditListingPage() {
   const websiteUrl = website?.trim() ? (website.startsWith('http') ? website : `https://${website}`) : null
 
   const isPaid = !!listing.paid
-  const canEdit = isPaid || isAdmin
-
-  // ── Paid-tier gate ──────────────────────────────────────────
-  // A free-tier claim verifies ownership and keeps the listing live, but managing
-  // it is a Standard-plan feature. Unpaid operators get a payment challenge here
-  // instead of the editor; the PATCH route enforces the same gate server-side.
-  if (!canEdit) {
-    const standardPerks = [
-      'Edit your website, phone & opening hours',
-      'Add a cover photo and a photo gallery',
-      'Publish operator highlights & what’s on',
-      'Listing Insights — views, searches & trails',
-      'Producer’s Picks',
-    ]
-    return (
-      <>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, maxWidth: 900, margin: '0 auto 16px', flexWrap: 'wrap' }}>
-          <Link href="/dashboard/listings" style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', textDecoration: 'none' }}>← Back to my listings</Link>
-          {listing.slug && (
-            <a href={`/place/${listing.slug}`} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500, color: 'var(--color-muted)', textDecoration: 'none' }}>
-              View public page {ICONS.external}
-            </a>
-          )}
-        </div>
-
-        <div style={{ maxWidth: 900, margin: '0 auto', background: '#fff', border: '1px solid var(--color-border)', borderRadius: 16, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 10px 34px rgba(0,0,0,0.06)' }}>
-          {/* Listing header band (read-only) */}
-          <div style={{ position: 'relative', padding: 'clamp(24px, 4vw, 40px)', background: listing.hero_image_url ? '#1C1A17' : 'linear-gradient(135deg, #2b2823, #3c352c)', overflow: 'hidden' }}>
-            {listing.hero_image_url && (
-              <>
-                <img src={listing.hero_image_url} alt={listing.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.45 }} />
-                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(28,26,23,0.86), rgba(28,26,23,0.5))' }} />
-              </>
-            )}
-            <div style={{ position: 'relative' }}>
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 500, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)', margin: '0 0 10px' }}>
-                {getVerticalLabel(listing.vertical)} &middot; {categoryLabel}
-              </p>
-              <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 'clamp(1.6rem, 3.5vw, 2.4rem)', lineHeight: 1.12, color: '#fff', margin: 0 }}>{listing.name}</h1>
-              {location && <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 300, color: 'rgba(255,255,255,0.72)', margin: '8px 0 0' }}>{location}</p>}
-            </div>
-          </div>
-
-          {/* Challenge body */}
-          <div style={{ padding: 'clamp(24px, 4vw, 40px)' }}>
-            {justUpgraded && !isPaid ? (
-              pollTimedOut ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 14, padding: '20px 0' }}>
-                  <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)', margin: 0 }}>Payment confirmed — still finalising</h2>
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--color-muted)', margin: 0, maxWidth: 460, lineHeight: 1.55 }}>
-                    Stripe has your payment, but our system is taking longer than usual to unlock the
-                    editor. This resolves itself within a few minutes — you won’t be charged twice.
-                  </p>
-                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-sm"
-                      onClick={() => { setPollTimedOut(false); setPollNonce(n => n + 1) }}
-                    >
-                      Check again
-                    </button>
-                    <a className="btn btn-secondary btn-sm" href="mailto:listings@australianatlas.com.au?subject=Upgrade%20not%20unlocking">
-                      Email support
-                    </a>
-                  </div>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 14, padding: '20px 0' }}>
-                  <div style={{ width: 38, height: 38, borderRadius: '50%', border: '3px solid var(--color-border)', borderTopColor: 'var(--color-sage)', animation: 'aa-spin 0.8s linear infinite' }} />
-                  <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)', margin: 0 }}>Payment received — finalising your upgrade</h2>
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--color-muted)', margin: 0, maxWidth: 440, lineHeight: 1.55 }}>
-                    This usually takes a few seconds — your editor will unlock automatically. If it doesn’t, refresh this page in a moment.
-                  </p>
-                  <style>{`@keyframes aa-spin { to { transform: rotate(360deg) } }`}</style>
-                </div>
-              )
-            ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-5" style={{ gap: 28 }}>
-                <div className="lg:col-span-3">
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 12px', borderRadius: 100, background: 'var(--color-cream)', border: '1px solid var(--color-border)', fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--color-muted)' }}>
-                    <span style={{ display: 'inline-flex' }}>{ICONS.lock}</span> Editing locked
-                  </span>
-                  <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 'clamp(1.4rem, 3vw, 1.9rem)', color: 'var(--color-ink)', margin: '14px 0 10px', lineHeight: 1.2 }}>
-                    Unlock editing for {listing.name}
-                  </h2>
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 15, color: 'var(--color-muted)', margin: 0, lineHeight: 1.6, maxWidth: 460 }}>
-                    Your claim is verified and your listing is live across the Atlas network. To manage its details, activate your <strong style={{ color: 'var(--color-ink)' }}>Standard</strong> subscription — <strong style={{ color: 'var(--color-ink)' }}>$295/year</strong>.
-                  </p>
-                  {upgradeError && (
-                    <div style={{ marginTop: 16, padding: '10px 14px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', fontFamily: 'var(--font-body)', fontSize: 13 }}>{upgradeError}</div>
-                  )}
-                  <div style={{ marginTop: 22, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
-                    <button type="button" onClick={handleUpgrade} disabled={upgrading} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'var(--color-ink)', color: '#fff', border: 'none', borderRadius: 100, padding: '13px 26px', fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600, cursor: upgrading ? 'wait' : 'pointer', opacity: upgrading ? 0.7 : 1 }}>
-                      {upgrading ? 'Starting secure checkout…' : 'Complete payment — $295/yr'}
-                    </button>
-                    <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-muted)' }}>Secure payment via Stripe &middot; cancel anytime</span>
-                  </div>
-                </div>
-                <div className="lg:col-span-2">
-                  <div style={{ borderRadius: 12, border: '1px solid var(--color-border)', background: 'var(--color-card-bg)', padding: 20 }}>
-                    <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-muted)', margin: '0 0 12px' }}>What you unlock</p>
-                    <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {standardPerks.map(perk => (
-                        <li key={perk} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', fontFamily: 'var(--font-body)', fontSize: 13.5, color: 'var(--color-ink)', lineHeight: 1.4 }}>
-                          <span style={{ color: 'var(--color-sage)', flexShrink: 0, marginTop: 1 }}>{ICONS.check}</span>
-                          {perk}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </>
-    )
-  }
+  // ── Tier flag ("keeper of the facts") ───────────────────────
+  // A free claim keeps the FACTS editable — website, phone and opening hours
+  // (the PATCH route enforces the same field set server-side). canEditAll
+  // unlocks the rest: photos, highlights, keywords, events and picks. Free
+  // operators see those sections in their locked/upgrade presentation, plus an
+  // upgrade banner (which also hosts the post-checkout finalising states).
+  const canEditAll = isPaid || isAdmin
 
   const dirty =
     website !== baselineRef.current.website ||
@@ -809,24 +714,28 @@ export default function EditListingPage() {
               <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.72)' }}>
                 <span style={{ display: 'inline-flex' }}>{ICONS.camera}</span>
                 <div style={{ marginTop: 8, fontSize: 13, fontFamily: 'var(--font-body)' }}>
-                  {uploadWarrantyAccepted
-                    ? 'Add a cover photo to bring your listing to life'
-                    : 'Tick the image-rights box below, then add a cover photo'}
+                  {!canEditAll
+                    ? 'A cover photo is part of the Standard plan'
+                    : uploadWarrantyAccepted
+                      ? 'Add a cover photo to bring your listing to life'
+                      : 'Tick the image-rights box below, then add a cover photo'}
                 </div>
               </div>
             </div>
           )}
 
-          {/* Image controls */}
-          <div style={{ position: 'absolute', top: 14, right: 14, display: 'flex', gap: 8, zIndex: 3 }}>
-            <label className="aa-hero-btn" style={heroBtn}>
-              {uploading ? 'Uploading…' : (heroImageUrl ? 'Replace photo' : 'Add cover photo')}
-              <input type="file" accept="image/*" onChange={handlePhotoChange} disabled={uploading} style={{ display: 'none' }} />
-            </label>
-            {heroImageUrl && (
-              <button type="button" className="aa-hero-btn" onClick={() => setHeroImageUrl('')} style={heroBtn}>Remove</button>
-            )}
-          </div>
+          {/* Image controls — photos are a Standard-plan feature */}
+          {canEditAll && (
+            <div style={{ position: 'absolute', top: 14, right: 14, display: 'flex', gap: 8, zIndex: 3 }}>
+              <label className="aa-hero-btn" style={heroBtn}>
+                {uploading ? 'Uploading…' : (heroImageUrl ? 'Replace photo' : 'Add cover photo')}
+                <input type="file" accept="image/*" onChange={handlePhotoChange} disabled={uploading} style={{ display: 'none' }} />
+              </label>
+              {heroImageUrl && (
+                <button type="button" className="aa-hero-btn" onClick={() => setHeroImageUrl('')} style={heroBtn}>Remove</button>
+              )}
+            </div>
+          )}
 
           {/* Overlay title */}
           <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: 'clamp(20px, 4vw, 36px)', zIndex: 2 }}>
@@ -844,6 +753,74 @@ export default function EditListingPage() {
 
         {/* Body */}
         <div style={{ padding: 'clamp(20px, 4vw, 40px)' }}>
+          {/* ── Free-tier upgrade banner ──
+              Facts (website, phone, hours) stay editable below; this banner
+              carries the upgrade CTA and, after checkout, the finalising poll
+              states. It disappears once listing.paid flips true. */}
+          {!canEditAll && (
+            <div style={{ marginBottom: 24, padding: '16px 18px', borderRadius: 12, border: '1px solid var(--color-border)', background: 'var(--color-cream)' }}>
+              {justUpgraded ? (
+                pollTimedOut ? (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14, justifyContent: 'space-between' }}>
+                    <div style={{ flex: 1, minWidth: 260 }}>
+                      <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600, color: 'var(--color-ink)', margin: 0 }}>Payment confirmed — still finalising</p>
+                      <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '4px 0 0', lineHeight: 1.55 }}>
+                        Stripe has your payment, but our system is taking longer than usual to unlock the
+                        full editor. This resolves itself within a few minutes — you won’t be charged twice.
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        onClick={() => { setPollTimedOut(false); setPollNonce(n => n + 1) }}
+                      >
+                        Check again
+                      </button>
+                      <a className="btn btn-secondary btn-sm" href="mailto:listings@australianatlas.com.au?subject=Upgrade%20not%20unlocking">
+                        Email support
+                      </a>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div style={{ width: 26, height: 26, flexShrink: 0, borderRadius: '50%', border: '3px solid var(--color-border)', borderTopColor: 'var(--color-sage)', animation: 'aa-spin 0.8s linear infinite' }} />
+                    <div>
+                      <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600, color: 'var(--color-ink)', margin: 0 }}>Payment received — finalising your upgrade</p>
+                      <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '4px 0 0', lineHeight: 1.55 }}>
+                        This usually takes a few seconds — your full editor will unlock automatically. If it doesn’t, refresh this page in a moment.
+                      </p>
+                    </div>
+                    <style>{`@keyframes aa-spin { to { transform: rotate(360deg) } }`}</style>
+                  </div>
+                )
+              ) : (
+                <>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14, justifyContent: 'space-between' }}>
+                    <div style={{ flex: 1, minWidth: 260 }}>
+                      <p style={{ display: 'flex', alignItems: 'center', gap: 7, fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600, color: 'var(--color-ink)', margin: 0 }}>
+                        <span style={{ display: 'inline-flex', color: 'var(--color-sage)' }}>{ICONS.check}</span>
+                        Facts are free to keep current.
+                      </p>
+                      <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '4px 0 0', lineHeight: 1.55 }}>
+                        Update your opening hours, phone and website below, any time. Standard unlocks your story, photos, events and insights.
+                      </p>
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
+                      <button type="button" onClick={handleUpgrade} disabled={upgrading} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'var(--color-ink)', color: '#fff', border: 'none', borderRadius: 100, padding: '11px 22px', fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600, cursor: upgrading ? 'wait' : 'pointer', opacity: upgrading ? 0.7 : 1 }}>
+                        {upgrading ? 'Starting secure checkout…' : 'Upgrade to Standard — $295/yr'}
+                      </button>
+                      <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-muted)' }}>Secure payment via Stripe &middot; cancel anytime</span>
+                    </div>
+                  </div>
+                  {upgradeError && (
+                    <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', fontFamily: 'var(--font-body)', fontSize: 13 }}>{upgradeError}</div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
           {uploadError && (
             <div style={{ marginBottom: 16, padding: '10px 14px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', fontFamily: 'var(--font-body)', fontSize: 13 }}>{uploadError}</div>
           )}
@@ -861,11 +838,12 @@ export default function EditListingPage() {
             </div>
           )}
 
-          {/* Image-rights gate — governs hero + gallery uploads. Wording from
+          {/* Image-rights gate — governs hero + gallery uploads, so it only
+              renders for the full-edit (Standard/admin) tier. Wording from
               legal_documents (upload_terms, is_current); INTERIM pending review.
               Lives below the hero, but the hero's upload button scrolls here and
               flashes it (nudgeUploadGate) so the consent box is never "missing". */}
-          {uploadWarrantyAccepted ? (
+          {canEditAll && (uploadWarrantyAccepted ? (
             /* Confirmed — the challenge collapses to a slim acknowledgement. The
                full terms, checkbox and credit field return only if the operator
                taps "Change", so the page isn't crowded by a settled step. */
@@ -955,7 +933,7 @@ export default function EditListingPage() {
                 />
               </div>
             </div>
-          )}
+          ))}
 
           <div className="grid grid-cols-1 lg:grid-cols-5" style={{ gap: 40 }}>
             {/* Editorial column (read-only preview) */}
@@ -1015,28 +993,62 @@ export default function EditListingPage() {
               </div>
 
               <p style={{ marginTop: 12, fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-muted)', lineHeight: 1.5 }}>
-                Click any underlined detail to edit it. Changes appear across the Atlas network once saved.
+                {canEditAll
+                  ? 'Click any underlined detail to edit it. Changes appear across the Atlas network once saved.'
+                  : 'Facts are free to keep current. Standard unlocks your story, photos, events and insights.'}
               </p>
             </div>
           </div>
 
-          {/* ── Highlights — operator-authored "right now" + hiring ── */}
-          <HighlightsEditor
-            listingId={id}
-            vertical={listing.vertical}
-            subType={listing.sub_type || (Array.isArray(listing.sub_types) && listing.sub_types[0]) || null}
-            token={token}
-            initialHighlights={listing.operator_highlights}
-            accent={vertColor}
-          />
+          {/* ── Highlights — operator-authored "right now" + hiring (paid perk) ── */}
+          {canEditAll ? (
+            <HighlightsEditor
+              listingId={id}
+              vertical={listing.vertical}
+              subType={listing.sub_type || (Array.isArray(listing.sub_types) && listing.sub_types[0]) || null}
+              token={token}
+              initialHighlights={listing.operator_highlights}
+              accent={vertColor}
+            />
+          ) : (
+            <div style={{ marginTop: 36, paddingTop: 28, borderTop: '1px solid var(--color-border)' }}>
+              <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)', margin: '0 0 16px' }}>Highlights</h2>
+              <div style={galleryLockCard}>
+                <span style={{ display: 'inline-flex', color: 'var(--color-sage)', flexShrink: 0 }}>{ICONS.pencil}</span>
+                <div>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600, color: 'var(--color-ink)', margin: 0 }}>Tell visitors what’s happening right now</p>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '4px 0 0', lineHeight: 1.5 }}>
+                    Highlights are part of a paid listing. Share what’s new — in your own words, shown on your public page.
+                  </p>
+                  <Link href="/dashboard/subscription" style={{ display: 'inline-block', marginTop: 10, fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600, color: 'var(--color-sage)', textDecoration: 'none' }}>View subscription options →</Link>
+                </div>
+              </div>
+            </div>
+          )}
 
-          {/* ── Search keywords — operator-authored, search-only (never public) ── */}
-          <KeywordsEditor
-            listingId={id}
-            token={token}
-            initialKeywords={listing.search_keywords}
-            accent={vertColor}
-          />
+          {/* ── Search keywords — operator-authored, search-only, never public (paid perk) ── */}
+          {canEditAll ? (
+            <KeywordsEditor
+              listingId={id}
+              token={token}
+              initialKeywords={listing.search_keywords}
+              accent={vertColor}
+            />
+          ) : (
+            <div style={{ marginTop: 36, paddingTop: 28, borderTop: '1px solid var(--color-border)' }}>
+              <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)', margin: '0 0 16px' }}>Search keywords</h2>
+              <div style={galleryLockCard}>
+                <span style={{ display: 'inline-flex', color: 'var(--color-sage)', flexShrink: 0 }}>{ICONS.lock}</span>
+                <div>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600, color: 'var(--color-ink)', margin: 0 }}>Help the right visitors find you</p>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '4px 0 0', lineHeight: 1.5 }}>
+                    Search keywords are part of a paid listing. Add the terms your visitors search for — they’re never shown publicly.
+                  </p>
+                  <Link href="/dashboard/subscription" style={{ display: 'inline-block', marginTop: 10, fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600, color: 'var(--color-sage)', textDecoration: 'none' }}>View subscription options →</Link>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ── Trade readiness — operator-authored Atlas Trade profile (not public) ── */}
           <TradeReadinessEditor
@@ -1118,6 +1130,10 @@ export default function EditListingPage() {
           </div>
 
           <EventsSection listingId={id} token={token} isPaid={isPaid} listingSlug={listing.slug} />
+          {/* ── Offers & Recognition (paid perks, migration 208) ── */}
+          <OffersSection listingId={id} token={token} isPaid={isPaid} />
+          <AwardsSection listingId={id} token={token} isPaid={isPaid} />
+          <QnaSection listingId={id} token={token} isPaid={isPaid} />
           <PicksSection listingId={id} token={token} isPaid={isPaid} listing={listing} />
         </div>
       </div>

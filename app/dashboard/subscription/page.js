@@ -10,7 +10,21 @@ const VERTICAL_COLORS = VERTICAL_ACCENTS
 
 const FREE_FEATURES = ['Basic listing', 'Map pin', 'Appear in search & trails']
 
-function SubscriptionCard({ vertical, data }) {
+const TOOL_BUTTON_STYLE = {
+  display: 'inline-block',
+  padding: '0.5rem 0.9rem',
+  borderRadius: '8px',
+  border: '1px solid var(--color-border)',
+  background: '#fff',
+  fontFamily: 'var(--font-sans)',
+  fontSize: '0.8rem',
+  fontWeight: 500,
+  color: 'var(--color-ink)',
+  cursor: 'pointer',
+  transition: 'opacity 0.15s',
+}
+
+function SubscriptionCard({ vertical, data, referralCode }) {
   const color = VERTICAL_COLORS[vertical]
   const vf = getVerticalFeatures(vertical)
   const label = vf.label
@@ -21,6 +35,103 @@ function SubscriptionCard({ vertical, data }) {
 
   const [upgrading, setUpgrading] = useState(false)
   const [upgradeError, setUpgradeError] = useState(null)
+  const [kitSending, setKitSending] = useState(false)
+  const [kitMessage, setKitMessage] = useState(null)
+  const [codeCopied, setCodeCopied] = useState(false)
+  const [snippetCopied, setSnippetCopied] = useState(false)
+
+  async function handleResendKit() {
+    if (!listingId) {
+      setKitMessage({ tone: 'error', text: 'We couldn’t find this listing. Please refresh and try again.' })
+      return
+    }
+    setKitSending(true)
+    setKitMessage(null)
+    try {
+      const token = await getDashboardToken()
+      if (!token) {
+        setKitMessage({ tone: 'error', text: 'Please sign in again to resend your share kit.' })
+        return
+      }
+      const res = await fetch('/api/dashboard/share-kit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ listing_id: listingId }),
+      })
+      let d = {}
+      try { d = await res.json() } catch { /* non-JSON error body */ }
+      if (res.ok && d.ok) {
+        setKitMessage({ tone: 'ok', text: 'Share kit sent — check your inbox.' })
+      } else if (res.status === 429) {
+        setKitMessage({ tone: 'error', text: d.error || 'Your share kit was sent within the last day. Try again tomorrow.' })
+      } else {
+        setKitMessage({ tone: 'error', text: d.error || 'We couldn’t send your share kit. Please try again, or email listings@australianatlas.com.au.' })
+      }
+    } catch {
+      setKitMessage({ tone: 'error', text: 'We couldn’t send your share kit. Please check your connection and try again.' })
+    } finally {
+      setKitSending(false)
+    }
+  }
+
+  async function handlePrintCard() {
+    if (!listingId) {
+      setKitMessage({ tone: 'error', text: 'We couldn’t find this listing. Please refresh and try again.' })
+      return
+    }
+    const token = await getDashboardToken()
+    if (!token) {
+      setKitMessage({ tone: 'error', text: 'Please sign in again to download your print card.' })
+      return
+    }
+    window.open(
+      `/api/dashboard/share-kit/qr?listing_id=${encodeURIComponent(listingId)}&token=${encodeURIComponent(token)}`,
+      '_blank',
+      'noopener'
+    )
+  }
+
+  async function handleCopyCode() {
+    if (!referralCode) return
+    try {
+      await navigator.clipboard.writeText(referralCode)
+      setCodeCopied(true)
+      setTimeout(() => setCodeCopied(false), 2000)
+    } catch { /* clipboard unavailable — the code is visible to copy by hand */ }
+  }
+
+  // A copyable JSON-LD LocalBusiness snippet the operator can paste into their
+  // OWN website's <head>. Built only from verified listing fields; sameAs points
+  // back at their Atlas listing so search engines + AI connect the two.
+  const jsonLdSnippet = (() => {
+    const ml = data.masterListing
+    if (!ml?.slug) return null
+    const placeUrl = `https://www.australianatlas.com.au/place/${ml.slug}`
+    const obj = {
+      '@context': 'https://schema.org',
+      '@type': 'LocalBusiness',
+      name: ml.name,
+      ...(ml.region || ml.state ? {
+        address: {
+          '@type': 'PostalAddress',
+          ...(ml.region ? { addressLocality: ml.region } : {}),
+          ...(ml.state ? { addressRegion: ml.state } : {}),
+          addressCountry: 'AU',
+        },
+      } : {}),
+      sameAs: [placeUrl],
+    }
+    return `<script type="application/ld+json">\n${JSON.stringify(obj, null, 2)}\n</script>`
+  })()
+
+  async function handleCopySnippet() {
+    if (!jsonLdSnippet) return
+    try {
+      await navigator.clipboard.writeText(jsonLdSnippet)
+      setSnippetCopied(true)
+      setTimeout(() => setSnippetCopied(false), 2000)
+    } catch { /* clipboard unavailable — the snippet is visible to copy by hand */ }
+  }
 
   async function handleUpgrade() {
     if (!listingId) {
@@ -146,6 +257,103 @@ function SubscriptionCard({ vertical, data }) {
         </ul>
       </div>
 
+      {/* Operator toolkit — share kit resend (paid) + printable QR card */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
+        {tier === 'standard' && (
+          <button
+            type="button"
+            onClick={handleResendKit}
+            disabled={kitSending}
+            style={{
+              ...TOOL_BUTTON_STYLE,
+              cursor: kitSending ? 'wait' : 'pointer',
+              opacity: kitSending ? 0.7 : 1,
+            }}
+          >
+            {kitSending ? 'Sending…' : 'Resend my share kit'}
+          </button>
+        )}
+        <button type="button" onClick={handlePrintCard} style={TOOL_BUTTON_STYLE}>
+          Download print card
+        </button>
+      </div>
+      {kitMessage && (
+        <p style={{
+          fontFamily: 'var(--font-sans)',
+          fontSize: '0.75rem',
+          color: kitMessage.tone === 'ok' ? '#166534' : '#b91c1c',
+          margin: 0,
+          maxWidth: 360,
+          lineHeight: 1.4,
+        }}>
+          {kitMessage.text}
+        </p>
+      )}
+
+      {/* Referral code — paid perk */}
+      {tier === 'standard' && referralCode && (
+        <div style={{
+          padding: '0.75rem',
+          borderRadius: '8px',
+          background: '#f8f6f0',
+          border: '1px solid #e8e4da',
+        }}>
+          <p style={{
+            fontFamily: 'var(--font-sans)',
+            fontSize: '0.75rem',
+            color: 'var(--color-muted)',
+            margin: '0 0 0.5rem',
+            lineHeight: 1.4,
+          }}>
+            Give 20% off a first year — you&rsquo;ll be credited when it&rsquo;s used
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <code style={{
+              fontSize: '0.85rem',
+              fontWeight: 600,
+              letterSpacing: '0.04em',
+              color: 'var(--color-ink)',
+              background: '#fff',
+              border: '1px solid var(--color-border)',
+              borderRadius: '6px',
+              padding: '0.3rem 0.6rem',
+            }}>
+              {referralCode}
+            </code>
+            <button
+              type="button"
+              onClick={handleCopyCode}
+              style={{ ...TOOL_BUTTON_STYLE, padding: '0.35rem 0.7rem', fontSize: '0.75rem' }}
+            >
+              {codeCopied ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* AI-ready data — a copyable JSON-LD snippet for the operator's own site */}
+      {tier === 'standard' && jsonLdSnippet && (
+        <div style={{ padding: '0.75rem', borderRadius: '8px', background: '#f8f6f0', border: '1px solid #e8e4da' }}>
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '0.75rem', color: 'var(--color-muted)', margin: '0 0 0.5rem', lineHeight: 1.4 }}>
+            AI-ready data — paste this into your own website&rsquo;s <code>&lt;head&gt;</code> so search engines and AI assistants connect your site to your verified Atlas listing.
+          </p>
+          <textarea
+            readOnly
+            value={jsonLdSnippet}
+            onFocus={e => e.target.select()}
+            rows={9}
+            style={{ width: '100%', fontFamily: 'ui-monospace, Menlo, monospace', fontSize: '0.72rem', lineHeight: 1.45, color: 'var(--color-ink)', background: '#fff', border: '1px solid var(--color-border)', borderRadius: '6px', padding: '0.5rem', resize: 'vertical' }}
+          />
+          <button
+            type="button"
+            onClick={handleCopySnippet}
+            style={{ ...TOOL_BUTTON_STYLE, padding: '0.35rem 0.7rem', fontSize: '0.75rem', marginTop: '0.5rem' }}
+          >
+            {snippetCopied ? 'Copied' : 'Copy snippet'}
+          </button>
+        </div>
+      )}
+
       {tier === 'free' && (
         <div style={{ alignSelf: 'flex-start' }}>
           <button
@@ -186,6 +394,7 @@ export default function DashboardSubscription() {
   const [loading, setLoading] = useState(true)
   const [portalLoading, setPortalLoading] = useState(false)
   const [portalMessage, setPortalMessage] = useState(null)
+  const [referralCodes, setReferralCodes] = useState({})
 
   async function openBillingPortal() {
     setPortalLoading(true)
@@ -217,6 +426,31 @@ export default function DashboardSubscription() {
         setLoading(false)
       })
       .catch(() => setLoading(false))
+  }, [])
+
+  // Referral codes for paid claims — lazily minted server-side on first ask.
+  // Failure just leaves the referral block hidden.
+  useEffect(() => {
+    let cancelled = false
+    async function loadReferrals() {
+      try {
+        const token = await getDashboardToken()
+        if (!token) return
+        const res = await fetch('/api/dashboard/referral', {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!res.ok) return
+        const d = await res.json().catch(() => ({}))
+        if (cancelled) return
+        const map = {}
+        for (const r of d.referrals || []) {
+          if (r.listing_id && r.code) map[r.listing_id] = r.code
+        }
+        setReferralCodes(map)
+      } catch { /* referral block simply stays hidden */ }
+    }
+    loadReferrals()
+    return () => { cancelled = true }
   }, [])
 
   const claimedVerticals = network
@@ -288,7 +522,12 @@ export default function DashboardSubscription() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {claimedVerticals.map(([v, data]) => (
-            <SubscriptionCard key={v} vertical={v} data={data} />
+            <SubscriptionCard
+              key={v}
+              vertical={v}
+              data={data}
+              referralCode={data.masterListing?.id ? referralCodes[data.masterListing.id] || null : null}
+            />
           ))}
 
           {/* Manage Billing — opens the Stripe customer portal */}

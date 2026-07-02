@@ -1,4 +1,5 @@
 {
+  "regions": ["syd1"],
   "crons": [
     {
       "path": "/api/cron/sync",
@@ -119,6 +120,18 @@
     {
       "path": "/api/cron/fleet-health",
       "schedule": "30 10 * * *"
+    },
+    {
+      "path": "/api/cron/operator-digest",
+      "schedule": "0 22 * * 0"
+    },
+    {
+      "path": "/api/cron/regional-letter",
+      "schedule": "0 23 1 * *"
+    },
+    {
+      "path": "/api/cron/claim-recovery",
+      "schedule": "30 23 * * *"
     },
     {
       "path": "/api/cron/council-digest",

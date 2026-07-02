@@ -9,7 +9,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getVerticalUrl, getVerticalLabel, getVerticalTagline, getVerticalBrandColour, getPublicVerticals } from '@/lib/verticalUrl'
 import { relationHasVerticals, listingVerticals } from '@/lib/listings/verticalFilter'
 import { isPublicListing } from '@/lib/listings/publicFilter'
-import { listingJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
+import { listingJsonLd, breadcrumbJsonLd, faqPageJsonLd } from '@/lib/jsonLd'
 import { checkAdmin } from '@/lib/admin-auth'
 import { isApprovedImageSource, isHeroDisplayable } from '@/lib/image-utils'
 import OptimizedImage from '@/components/OptimizedImage'
@@ -518,6 +518,105 @@ async function getCrossListedSiblings(listing) {
   return siblings
 }
 
+// ── Current offers + Recognition (operator-authored paid perks) ──
+// Tables from migration 208. Public read = live offers that haven't passed
+// their end date (the same predicate as the anon RLS policy) and the compact
+// awards list. Both are resilient: any error (e.g. a pre-migration DB) returns
+// [] so these blocks can never break the page. Rendering is additionally
+// gated on the listing being paid (paidCuratorSet) — same stance as the
+// gallery perk. NO ranking effects: these render as operator-attributed
+// blocks on this page only.
+
+// Today as a local YYYY-MM-DD — valid_to is a DATE column, and an offer
+// ending today still counts as current (mirrors lib/events.js todayYMD).
+function localTodayYMD() {
+  const d = new Date()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${m}-${day}`
+}
+
+// 'YYYY-MM-DD' → '15 Aug 2026', parsed by parts so a DATE string never
+// drifts a day across timezones.
+function formatOfferDate(ymd) {
+  if (!ymd || !/^\d{4}-\d{2}-\d{2}$/.test(ymd)) return ''
+  const [y, m, d] = ymd.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
+}
+
+async function getListingOffers(sb, listingId) {
+  try {
+    const { data, error } = await sb
+      .from('listing_offers')
+      .select('id, title, details, url, valid_from, valid_to')
+      .eq('listing_id', listingId)
+      .eq('status', 'live')
+      .gte('valid_to', localTodayYMD())
+      .order('valid_to', { ascending: true })
+      .limit(3)
+    if (error) throw error
+    return data || []
+  } catch {
+    return []
+  }
+}
+
+async function getListingAwards(sb, listingId) {
+  try {
+    const { data, error } = await sb
+      .from('listing_awards')
+      .select('id, title, awarded_by, year, source_url')
+      .eq('listing_id', listingId)
+      .order('year', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false })
+      .limit(10)
+    if (error) throw error
+    return data || []
+  } catch {
+    return []
+  }
+}
+
+// Published Q&A (migration 209), operator-authored. Rendered as an
+// operator-attributed block and also fed into this venue's own embedding +
+// concierge grounding (see lib/embeddings/sourceText.js). Resilient: any error
+// (e.g. a pre-migration DB) returns [] so the block can never break the page.
+async function getListingQna(sb, listingId) {
+  try {
+    const { data, error } = await sb
+      .from('listing_qna')
+      .select('id, question, answer, position')
+      .eq('listing_id', listingId)
+      .eq('published', true)
+      .order('position', { ascending: true })
+      .order('created_at', { ascending: true })
+      .limit(8)
+    if (error) throw error
+    return data || []
+  } catch {
+    return []
+  }
+}
+
+// The operator's approved story (migration 210), written by the Atlas from
+// their guided-interview answers. Only a 'live' row surfaces. Distinct from
+// the editorial description/ai_description. Resilient: returns null on any
+// error (e.g. pre-migration DB) so it can never break the page.
+async function getOperatorStory(sb, listingId) {
+  try {
+    const { data, error } = await sb
+      .from('operator_stories')
+      .select('draft, status')
+      .eq('listing_id', listingId)
+      .eq('status', 'live')
+      .maybeSingle()
+    if (error) throw error
+    return data?.draft || null
+  } catch {
+    return null
+  }
+}
+
 // ── Helper: clean website for display ─────────────────────────
 
 function cleanWebsite(url) {
@@ -626,11 +725,15 @@ export default async function PlacePage({ params }) {
   //   picksGiven    = venues this place vouches for (outgoing)
   //   picksReceived = venues that have vouched for this place ("picked by")
   // Both are filtered to active venues so a pick never links to a hidden listing.
-  const [picksGivenRaw, picksReceivedRaw, paidCuratorSet, upcomingEvents] = await Promise.all([
+  const [picksGivenRaw, picksReceivedRaw, paidCuratorSet, upcomingEvents, offersRaw, awardsRaw, qnaRaw, operatorStoryRaw] = await Promise.all([
     listOutgoing(sbMem, [listing.id]),
     listIncoming(sbMem, [listing.id]),
     filterPaidListingIds(sbMem, [listing.id]),
     listEventsForListing(sbMem, listing.id, { includeUnpublished: false }),
+    getListingOffers(sbMem, listing.id),
+    getListingAwards(sbMem, listing.id),
+    getListingQna(sbMem, listing.id),
+    getOperatorStory(sbMem, listing.id),
   ])
   const picksGiven = picksGivenRaw.filter(p => p.pickedStatus === 'active')
   const picksReceived = picksReceivedRaw.filter(p => p.curatorStatus === 'active')
@@ -645,6 +748,19 @@ export default async function PlacePage({ params }) {
   const galleryUrls = paidCuratorSet.has(listing.id)
     ? (await readGallery(sbMem, listing.id)).filter(isApprovedImageSource)
     : []
+
+  // Current offers + Recognition — operator-authored paid perks (migration
+  // 208). Rendered only while the listing is paid, so a lapsed subscription
+  // fails safe: stale offers vanish rather than lingering on the page.
+  const currentOffers = paidCuratorSet.has(listing.id) ? offersRaw : []
+  const recognition = paidCuratorSet.has(listing.id) ? awardsRaw : []
+  // Published Q&A (migration 209) — operator-attributed, paid-gated like the
+  // blocks above. Also emitted as FAQPage JSON-LD below.
+  const qna = paidCuratorSet.has(listing.id) ? qnaRaw : []
+  // Approved operator story (migration 210) — paid-gated; a 'live' row only
+  // exists after the operator approved it, but gate on paid too so it fails
+  // safe if a subscription lapses.
+  const operatorStory = paidCuratorSet.has(listing.id) ? operatorStoryRaw : null
 
   // Effective region via the FK helper. Returns canonical { id, slug, name, state }
   // from regions table, or null when both region_computed_id and region_override_id
@@ -714,9 +830,10 @@ export default async function PlacePage({ params }) {
     <div className="min-h-screen" style={{ background: 'var(--color-bg)' }}>
 
       {/* ── Structured data ───────────────────────────────── */}
+      {/* LocalBusiness enriched with live operator offers (makesOffer). */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(listingJsonLd(listing)) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(listingJsonLd(listing, { offers: currentOffers })) }}
       />
       <script
         type="application/ld+json"
@@ -726,6 +843,14 @@ export default async function PlacePage({ params }) {
           { name: listing.name },
         ])) }}
       />
+      {/* FAQPage from published operator Q&A — lets AI assistants answer
+          questions about this venue in the operator's own words. */}
+      {faqPageJsonLd(qna) && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqPageJsonLd(qna)) }}
+        />
+      )}
 
       {/* ── Hero ────────────────────────────────────────── */}
       {/* Visible breadcrumb intentionally removed; SEO breadcrumbs are emitted via JSON-LD above. */}
@@ -1065,6 +1190,142 @@ export default async function PlacePage({ params }) {
                   View open roles &rarr;
                 </a>
               )}
+            </div>
+          </section>
+        )}
+
+        {/* ── The story — the operator's own account, drafted by the Atlas from
+            their guided-interview answers and approved by them (a paid perk,
+            migration 210). Distinct from the editorial description above. ── */}
+        {operatorStory && (
+          <section className="mb-10" aria-labelledby="operator-story-heading">
+            <h2 id="operator-story-heading" className="mb-4" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)' }}>
+              The story
+            </h2>
+            <div className="rounded-xl p-6" style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: '16px', lineHeight: 1.75, color: 'var(--color-ink)', whiteSpace: 'pre-wrap' }}>
+                {operatorStory}
+              </div>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-muted)', margin: '16px 0 0', paddingTop: '12px', borderTop: '1px solid var(--color-border)', lineHeight: 1.5 }}>
+                In {listing.name}&rsquo;s own words, edited by the Atlas.
+              </p>
+            </div>
+          </section>
+        )}
+
+        {/* ── Current offers — operator-authored, time-boxed promotions (a paid
+            perk, migration 208). Fenced in the same warm operator-attributed
+            panel as the From-the-Maker block so a reader can see at a glance
+            these are the operator's own offers, not Atlas editorial. Only
+            live, unexpired offers are fetched; each shows its end date and an
+            optional redemption link. NO ranking effects anywhere. ── */}
+        {currentOffers.length > 0 && (
+          <section className="mb-10" aria-labelledby="current-offers-heading">
+            <div className="rounded-xl p-6 flex flex-col gap-4" style={{ background: 'rgba(196, 151, 59, 0.12)', border: '1px solid var(--color-border)' }}>
+              <div>
+                <h2 id="current-offers-heading" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)', margin: 0 }}>
+                  Current offers
+                </h2>
+                <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: '15px', color: 'var(--color-muted)', margin: '4px 0 0' }}>
+                  From the operator
+                </p>
+              </div>
+              {currentOffers.map(offer => (
+                <div key={offer.id} className="flex flex-col gap-1.5">
+                  <div className="flex items-baseline justify-between gap-3 flex-wrap">
+                    <span style={{ fontFamily: 'var(--font-display)', fontSize: '17px', color: 'var(--color-ink)' }}>{offer.title}</span>
+                    <span style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-muted)', whiteSpace: 'nowrap' }}>
+                      Ends {formatOfferDate(offer.valid_to)}
+                    </span>
+                  </div>
+                  {offer.details && (
+                    <p className="text-sm" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-ink)', margin: 0, lineHeight: 1.65 }}>
+                      {offer.details}
+                    </p>
+                  )}
+                  {offer.url && (
+                    <a
+                      href={offer.url} target="_blank" rel="noopener noreferrer nofollow"
+                      className="inline-flex items-center self-start text-xs font-bold uppercase px-3 py-1.5 rounded text-white"
+                      style={{ background: vertColor, letterSpacing: '0.04em', textDecoration: 'none', marginTop: 2 }}
+                    >
+                      View offer &rarr;
+                    </a>
+                  )}
+                </div>
+              ))}
+              {/* Provenance — fences the voice: the offers and their conditions
+                  are the operator's, supplied by them. */}
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-muted)', margin: 0, paddingTop: '12px', borderTop: '1px solid var(--color-border)', lineHeight: 1.5 }}>
+                {listing.name && (
+                  <><span style={{ fontWeight: 600, color: 'var(--color-ink)' }}>{listing.name}</span>{' · '}</>
+                )}
+                Offers supplied by the operator — conditions are theirs; check before you travel.
+              </p>
+            </div>
+          </section>
+        )}
+
+        {/* ── Recognition — operator-supplied awards and honours (a paid perk,
+            migration 208). A compact factual list, clearly attributed to the
+            operator, with a source link where one was given. ── */}
+        {recognition.length > 0 && (
+          <section className="mb-10" aria-labelledby="recognition-heading">
+            <h2 id="recognition-heading" className="mb-4" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)' }}>
+              Recognition
+            </h2>
+            <div className="p-5 rounded-lg" style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}>
+              <ul className="flex flex-col gap-3" style={{ margin: 0, padding: 0, listStyle: 'none' }}>
+                {recognition.map(award => (
+                  <li key={award.id} className="flex items-baseline gap-3">
+                    <span aria-hidden="true" style={{ width: 5, height: 5, borderRadius: '50%', background: vertColor, flexShrink: 0, alignSelf: 'center' }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <span className="text-sm font-medium" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-ink)' }}>{award.title}</span>
+                      {(award.awarded_by || award.year || award.source_url) && (
+                        <span className="text-xs" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)', marginLeft: 8 }}>
+                          {[award.awarded_by, award.year].filter(Boolean).join(', ')}
+                          {award.source_url && (
+                            <>
+                              {(award.awarded_by || award.year) && ' · '}
+                              <a href={award.source_url} target="_blank" rel="noopener noreferrer nofollow" className="hover:underline" style={{ color: vertColor }}>
+                                Source
+                              </a>
+                            </>
+                          )}
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-muted)', margin: '14px 0 0', paddingTop: '12px', borderTop: '1px solid var(--color-border)', lineHeight: 1.5 }}>
+                Supplied by the operator.
+              </p>
+            </div>
+          </section>
+        )}
+
+        {/* ── Questions, answered by the operator (a paid perk, migration 209).
+            Operator-authored Q&A, clearly attributed. Also feeds this venue's
+            own embedding + concierge grounding and is emitted as FAQPage
+            JSON-LD below. NO ranking effect. ── */}
+        {qna.length > 0 && (
+          <section className="mb-10" aria-labelledby="qna-heading">
+            <h2 id="qna-heading" className="mb-4" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)' }}>
+              Questions, answered by {listing.name}
+            </h2>
+            <div className="p-5 rounded-lg" style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}>
+              <dl className="flex flex-col gap-4" style={{ margin: 0 }}>
+                {qna.map(item => (
+                  <div key={item.id}>
+                    <dt className="text-sm font-medium mb-1" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-ink)' }}>{item.question}</dt>
+                    <dd className="text-sm" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{item.answer}</dd>
+                  </div>
+                ))}
+              </dl>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-muted)', margin: '14px 0 0', paddingTop: '12px', borderTop: '1px solid var(--color-border)', lineHeight: 1.5 }}>
+                Answered by the operator.
+              </p>
             </div>
           </section>
         )}

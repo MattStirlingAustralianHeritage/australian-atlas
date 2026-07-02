@@ -52,3 +52,14 @@ Creates pitch_sources, pitch_characters, pitch_character_attributes, and
 pitch_signals tables, plus pitch_source_type, pitch_attribute_confidence,
 and pitch_signal_type enums. Schema documented in
 docs/pitch-system-phase3-design.md.
+
+## 2026-07-03
+
+Migrations 034 (opening_hours JSONB on corner/found/table/fine_grounds/sba
+_meta) and 088 (field_meta trail_* columns) applied to prod via
+scripts/run-migration.mjs + NOTIFY pgrst — both files existed in the repo
+but had never been applied. The gap made every meta upsert for those
+verticals fail ("Could not find the 'opening_hours' column ... in the
+schema cache"), which the chunked sync surfaced as ~120s per-row fallback
+storms per sba chunk. First post-fix /api/cron/sync: 230.8s, 7,060 synced,
+0 vertical errors.

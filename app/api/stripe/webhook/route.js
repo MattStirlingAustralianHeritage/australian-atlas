@@ -137,22 +137,26 @@ export async function POST(request) {
         // Commercial state lives in listing_claims (never on listings), so we
         // resolve the ownership row by Stripe subscription id, deactivate it,
         // and clear the display flag via updateListing. No phantom listings
-        // columns.
+        // columns. 'past_due' is included: that's the dunning grace state
+        // (invoice.payment_failed below) and Stripe fires this event when the
+        // retries exhaust — the grace must end here too.
         const { data: claimRow } = await sb
           .from('listing_claims')
           .select('id, listing_id')
           .eq('stripe_subscription_id', subscription.id)
-          .eq('status', 'active')
+          .in('status', ['active', 'past_due'])
+          .order('status', { ascending: true }) // prefer the 'active' row if both exist
+          .limit(1)
           .maybeSingle()
 
         if (!claimRow) {
-          console.log(`[stripe-webhook] No active claim for cancelled subscription ${subscription.id}`)
+          console.log(`[stripe-webhook] No live claim for cancelled subscription ${subscription.id}`)
           break
         }
 
         await sb
           .from('listing_claims')
-          .update({ status: 'inactive', updated_at: new Date().toISOString() })
+          .update({ status: 'inactive', past_due_since: null, updated_at: new Date().toISOString() })
           .eq('id', claimRow.id)
 
         try {
@@ -211,11 +215,38 @@ export async function POST(request) {
           break
         }
 
-        // Listing subscription renewal
-        const listingId = subscription.metadata?.listing_id
-        if (listingId) {
-          console.log(`[stripe-webhook] Listing ${listingId} subscription renewed`)
+        // Listing (vendor claim) subscription renewal — mirror the council /
+        // operator handlers above. Commercial state lives in listing_claims
+        // (resolved by Stripe subscription id, same as the cancellation
+        // handler): refresh the paid year and clear any dunning state left by
+        // a failed attempt earlier in the cycle.
+        const { data: renewedClaim } = await sb
+          .from('listing_claims')
+          .select('id, listing_id')
+          .eq('stripe_subscription_id', subscriptionId)
+          .in('status', ['active', 'past_due'])
+          .order('status', { ascending: true }) // prefer the 'active' row if both exist
+          .limit(1)
+          .maybeSingle()
+
+        if (!renewedClaim) {
+          console.log(`[stripe-webhook] No live claim for renewed subscription ${subscriptionId}`)
+          break
         }
+
+        const listingBillingEnd = new Date()
+        listingBillingEnd.setFullYear(listingBillingEnd.getFullYear() + 1)
+        await sb
+          .from('listing_claims')
+          .update({
+            status: 'active',
+            past_due_since: null,
+            billing_cycle_end: listingBillingEnd.toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', renewedClaim.id)
+
+        console.log(`[stripe-webhook] Listing claim ${renewedClaim.id} (listing ${renewedClaim.listing_id}) subscription renewed`)
         break
       }
 
@@ -316,11 +347,75 @@ export async function POST(request) {
           break
         }
 
-        // Listing payment failed
-        const listingId = subscription.metadata?.listing_id
-        if (listingId) {
-          console.log(`[stripe-webhook] Payment failed for listing ${listingId}`)
+        // Listing (vendor claim) payment failed → GRACE PERIOD, not a cut-off.
+        // Mirror the council/operator dunning above: mark the claim past_due
+        // (keeping the FIRST failure time across Stripe's retry attempts),
+        // tell the operator their Standard benefits stay live while they fix
+        // the card, and give admin a heads-up. Paid perks keep working during
+        // grace (lib/listing-gallery.js counts 'past_due' as paid); the grace
+        // ends when customer.subscription.deleted fires (retries exhausted).
+        const { data: failedClaim } = await sb
+          .from('listing_claims')
+          .select('id, listing_id, vertical, claimant_email, past_due_since, listings(name)')
+          .eq('stripe_subscription_id', subscriptionId)
+          .in('status', ['active', 'past_due'])
+          .order('status', { ascending: true }) // prefer the 'active' row if both exist
+          .limit(1)
+          .maybeSingle()
+
+        if (!failedClaim) {
+          console.log(`[stripe-webhook] Payment failed for subscription ${subscriptionId} — no live listing claim found`)
+          break
         }
+
+        const failedAt = new Date().toISOString()
+        await sb
+          .from('listing_claims')
+          .update({
+            status: 'past_due',
+            // Stripe retries several times per cycle — keep the FIRST failure time.
+            past_due_since: failedClaim.past_due_since || failedAt,
+            updated_at: failedAt,
+          })
+          .eq('id', failedClaim.id)
+
+        const failedListingName = failedClaim.listings?.name || subscription.metadata?.listing_name || null
+        const failedVerticalName = VERTICAL_NAMES[failedClaim.vertical] || failedClaim.vertical || 'Australian Atlas'
+
+        // Operator email — branded (lib/email/billingEmails.js), graceful
+        // no-op without RESEND_API_KEY, never throws.
+        try {
+          const { paymentFailedEmail, sendBillingEmail } = await import('@/lib/email/billingEmails')
+          await sendBillingEmail(
+            failedClaim.claimant_email,
+            paymentFailedEmail({ listingName: failedListingName, verticalName: failedVerticalName })
+          )
+        } catch (emailErr) {
+          console.error('[stripe-webhook] Failed to send listing payment failure email:', emailErr.message)
+        }
+
+        // Admin heads-up (matt@australianatlas.com.au via lib/agents/email.js).
+        try {
+          const { sendAgentEmail } = await import('@/lib/agents/email')
+          await sendAgentEmail({
+            subject: `[Atlas] Listing payment failed — ${failedListingName || failedClaim.listing_id}`,
+            html: `
+              <p>Stripe reported a failed renewal payment for a paid listing claim.</p>
+              <ul>
+                <li><strong>Listing:</strong> ${failedListingName || '(name unavailable)'} (${failedClaim.listing_id})</li>
+                <li><strong>Vertical:</strong> ${failedVerticalName}</li>
+                <li><strong>Claimant:</strong> ${failedClaim.claimant_email}</li>
+                <li><strong>Subscription:</strong> ${subscriptionId}</li>
+                <li><strong>Past due since:</strong> ${failedClaim.past_due_since || failedAt}</li>
+              </ul>
+              <p>The claim is now <strong>past_due</strong> — a grace period, so Standard benefits stay live while Stripe retries. If retries exhaust, customer.subscription.deleted deactivates it. See <a href="https://www.australianatlas.com.au/admin/claims">/admin/claims</a>.</p>
+            `,
+          })
+        } catch (adminErr) {
+          console.error('[stripe-webhook] Failed to send admin payment-failed notice:', adminErr.message)
+        }
+
+        console.log(`[stripe-webhook] Listing claim ${failedClaim.id} (listing ${failedClaim.listing_id}) marked past_due`)
         break
       }
 
@@ -443,6 +538,19 @@ async function handlePaidClaimAutoApprove(sb, {
     console.log(`[stripe-webhook] Auto-approved + granted claim ${resolvedClaimId} for listing ${effectiveListingId}`)
   } else {
     console.error(`[stripe-webhook] grantClaim failed for claim ${resolvedClaimId}:`, grant.error)
+    // A customer has PAID and holds no grant. Alert, then throw so the event is
+    // NOT recorded as processed and Stripe retries — grantClaim is idempotent.
+    try {
+      const { sendAgentEmail } = await import('@/lib/agents/email')
+      await sendAgentEmail({
+        subject: `[Atlas] URGENT — paid claim grant FAILED for ${listingName || effectiveListingId}`,
+        html: `<p>checkout.session.completed succeeded but grantClaim failed — the operator has paid and has no access yet. Stripe will retry this webhook.</p>
+          <ul><li><strong>Claim:</strong> ${resolvedClaimId}</li><li><strong>Listing:</strong> ${effectiveListingId}</li><li><strong>Email:</strong> ${effectiveEmail}</li><li><strong>Subscription:</strong> ${subscriptionId}</li><li><strong>Error:</strong> ${grant.error}</li></ul>`,
+      })
+    } catch (alertErr) {
+      console.error('[stripe-webhook] Failed to send grant-failure alert:', alertErr.message)
+    }
+    throw new Error(`grantClaim failed for paid claim ${resolvedClaimId}: ${grant.error}`)
   }
 
   // ── 6. Send approval email ─────────────────────────────────────────────────
@@ -547,6 +655,18 @@ async function handleUpgradeCheckout(sb, {
     console.log(`[stripe-webhook] Upgraded listing ${listingId} to standard (subscription ${subscriptionId})`)
   } else {
     console.error(`[stripe-webhook] Upgrade grant failed for listing ${listingId}:`, grant.error)
+    // Paid upgrade with no grant — alert, then throw so Stripe retries (grantClaim is idempotent).
+    try {
+      const { sendAgentEmail } = await import('@/lib/agents/email')
+      await sendAgentEmail({
+        subject: `[Atlas] URGENT — paid upgrade grant FAILED for listing ${listingId}`,
+        html: `<p>atlas_upgrade_checkout completed but grantClaim failed — the operator has paid and editing is still locked. Stripe will retry this webhook.</p>
+          <ul><li><strong>Listing:</strong> ${listingId}</li><li><strong>Email:</strong> ${customerEmail}</li><li><strong>Subscription:</strong> ${subscriptionId}</li><li><strong>Error:</strong> ${grant.error}</li></ul>`,
+      })
+    } catch (alertErr) {
+      console.error('[stripe-webhook] Failed to send upgrade grant-failure alert:', alertErr.message)
+    }
+    throw new Error(`grantClaim upgrade failed for listing ${listingId}: ${grant.error}`)
   }
 
   // ── Confirmation email: editing is now unlocked ──

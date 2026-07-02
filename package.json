@@ -24,6 +24,7 @@
     "pg": "^8.20.0",
     "polygon-clipping": "^0.15.7",
     "postcss": "^8.5.8",
+    "qrcode": "^1.5.4",
     "react": "^18",
     "react-dom": "^18",
     "resend": "^6.10.0",

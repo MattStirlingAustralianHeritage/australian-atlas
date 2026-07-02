@@ -21,6 +21,12 @@ import { moderateImageUrl } from '@/lib/moderation/imageModeration'
  *
  * Body: { listing_id, website?, phone?, hours?, hero_image_url?, gallery_image_urls? }
  *
+ * Tiering ("keeper of the facts"): a FREE claim verifies ownership and lets the
+ * owner keep the facts current — ONLY website, phone and hours (the
+ * FREE_TIER_FIELDS set). Any other field on a free claim → 403. A paid claim
+ * (active or past_due standard — isListingPaid) unlocks everything. Admins
+ * bypass the tier gate entirely.
+ *
  * website / phone / hero_image_url flow through the canonical updateListing(),
  * which writes master AND pushes to the vertical source DB — so the next inbound
  * sync is a no-op diff and the edit survives. hours is written directly to
@@ -35,6 +41,10 @@ import { moderateImageUrl } from '@/lib/moderation/imageModeration'
 
 const DAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/ // 24h HH:MM — matches OpeningHours/jsonLd expectations
+
+// The facts a FREE claim may keep current. Everything else in the body is a
+// Standard-plan feature (photos, gallery, highlights, search keywords).
+const FREE_TIER_FIELDS = ['website', 'phone', 'hours']
 
 /**
  * Normalise an incoming hours object into the shape the public renderer expects:
@@ -118,22 +128,29 @@ export async function PATCH(request) {
     }
   }
 
-  // ── Paid gate: managing a listing's content is a Standard-plan feature. A
-  //    free-tier claim verifies ownership and keeps the listing live in search
-  //    and trails, but editing it (website, phone, hours, photos, highlights)
-  //    requires an active *standard* claim — the same signal the gallery and
-  //    Producer's Picks use. Admins bypass. This is the server-side backstop
-  //    behind the dashboard's "complete payment to edit" challenge: without it a
-  //    free operator could PATCH this route directly and bypass the paywall. ──
-  if (user.role !== 'admin' && !(await isListingPaid(sb, listingId))) {
-    return NextResponse.json(
-      {
-        error: 'Editing your listing is a Standard-plan feature. Complete your payment to unlock editing.',
-        code: 'payment_required',
-        upgrade: true,
-      },
-      { status: 402 }
-    )
+  // ── Tier gate: a free claim is "keeper of the facts". A free-tier claim
+  //    verifies ownership and keeps the listing live in search and trails, and
+  //    its owner may keep the FACTS current — opening hours, phone and website
+  //    (FREE_TIER_FIELDS) — through the same canonical write paths the paid
+  //    tier uses. Everything else (photos, gallery, highlights, search
+  //    keywords) requires a *standard* claim — the same isListingPaid signal
+  //    the gallery and Producer's Picks use. Admins bypass. This is the
+  //    server-side backstop behind the dashboard's locked sections: without it
+  //    a free operator could PATCH this route directly and bypass the paywall. ──
+  const paid = user.role === 'admin' || await isListingPaid(sb, listingId)
+  if (!paid) {
+    const lockedFields = Object.keys(body).filter(k => k !== 'listing_id' && !FREE_TIER_FIELDS.includes(k))
+    if (lockedFields.length > 0) {
+      return NextResponse.json(
+        {
+          error: 'On a free claim you can keep the facts current — opening hours, phone and website. Photos, highlights and keywords are Standard-plan features. Upgrade to unlock the rest of your listing.',
+          code: 'payment_required',
+          upgrade: true,
+          locked_fields: lockedFields,
+        },
+        { status: 403 }
+      )
+    }
   }
 
   // ── Base fields → canonical updateListing (master write + vertical sync-back) ──
@@ -273,8 +290,9 @@ export async function PATCH(request) {
     if (urls.length > MAX_GALLERY_PHOTOS) {
       return NextResponse.json({ error: `A gallery can hold at most ${MAX_GALLERY_PHOTOS} photos` }, { status: 400 })
     }
-    // Adding photos requires a paid listing; admins may stage on any listing.
-    if (urls.length > 0 && user.role !== 'admin' && !(await isListingPaid(sb, listingId))) {
+    // Adding photos requires a paid listing; admins may stage on any listing
+    // (paid above is true for admins, so this is belt-and-braces with the tier gate).
+    if (urls.length > 0 && !paid) {
       return NextResponse.json({ error: 'Photo galleries are a paid feature — upgrade this listing to add photos.' }, { status: 403 })
     }
 

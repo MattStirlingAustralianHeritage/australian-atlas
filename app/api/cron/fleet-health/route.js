@@ -38,15 +38,18 @@ const EXPECTED = {
   'staleness': 192,              // weekly
   'editorial-signals': 192,      // weekly
   'monday-briefing': 192,        // weekly
+  'operator-digest': 192,        // weekly
   'dead-image': 192,             // weekly
   'voice-consistency': 192,      // weekly
   'competitor-intelligence': 192,// weekly
   'seo-content': 192,            // weekly
   'geocoding-watchdog': 192,     // weekly
   'revenue-signal': 192,         // weekly
+  'claim-recovery': 30,          // daily
   'backlink-builder': 800,       // monthly
   'user-reactivation': 800,      // monthly
   'listing-velocity': 800,       // monthly
+  'regional-letter': 800,        // monthly heartbeat (self-skips off-quarter months)
   'council-digest': 800,         // monthly (Region Pulse, 1st of month)
 }
 

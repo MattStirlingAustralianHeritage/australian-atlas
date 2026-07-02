@@ -285,11 +285,30 @@ export async function POST(request) {
     const reasons = new Array(shown.length).fill(null)
     if (anthropic) {
       const grounded = shown.slice(0, GROUNDED)
+      // Operator-authored Q&A (migration 209) for the grounded venues, so the
+      // concierge answers plain-language questions in the operator's own words.
+      // Best-effort: any failure leaves the menu exactly as before.
+      const qnaByListing = new Map()
+      try {
+        const { data: qnaRows } = await sb
+          .from('listing_qna')
+          .select('listing_id, question, answer, position')
+          .in('listing_id', grounded.map((r) => r.id).filter(Boolean))
+          .eq('published', true)
+          .order('position', { ascending: true })
+        for (const q of qnaRows || []) {
+          const arr = qnaByListing.get(q.listing_id) || []
+          if (arr.length < 3) { arr.push(q); qnaByListing.set(q.listing_id, arr) }
+        }
+      } catch { /* best-effort — grounding proceeds without Q&A */ }
       const menu = grounded.map((r, i) => {
         const label = VERTICAL_LABELS[r.vertical] || r.vertical
         const where = [r.suburb, r.region, r.state].filter(Boolean)[0] || 'Australia'
         const desc = (r.description || '').replace(/\s+/g, ' ').slice(0, 160)
-        return `${i + 1}. ${r.name} — ${label}, ${where}${desc ? `: ${desc}` : ''}`
+        const qa = (qnaByListing.get(r.id) || [])
+          .map((q) => `${String(q.question).trim()} ${String(q.answer).trim()}`.replace(/\s+/g, ' ').slice(0, 160))
+          .join(' | ')
+        return `${i + 1}. ${r.name} — ${label}, ${where}${desc ? `: ${desc}` : ''}${qa ? ` [operator says: ${qa}]` : ''}`
       }).join('\n')
       const resp = await callClaude(anthropic, {
         model: MODEL,
@@ -324,7 +343,9 @@ export async function POST(request) {
     }
     cacheSet(ckey, payload)
 
-    logSearchEvent(sb, { query_text: loggedQuery, surface: 'ask', result_count: listings.length, latency_ms: Date.now() - t0, vector_arm_fired: !!queryEmbedding, fell_back: !queryEmbedding, voyage_error: voyageError, zero_result: false })
+    // `impressions` also logs the returned listings (with positions) into
+    // search_result_impressions — fire-and-forget inside the helper.
+    logSearchEvent(sb, { query_text: loggedQuery, surface: 'ask', result_count: listings.length, latency_ms: Date.now() - t0, vector_arm_fired: !!queryEmbedding, fell_back: !queryEmbedding, voyage_error: voyageError, zero_result: false, impressions: listings })
     return NextResponse.json(payload)
   } catch (err) {
     console.error('[ask] Error:', err)
