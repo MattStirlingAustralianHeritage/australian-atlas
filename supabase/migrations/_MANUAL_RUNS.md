@@ -63,3 +63,14 @@ verticals fail ("Could not find the 'opening_hours' column ... in the
 schema cache"), which the chunked sync surfaced as ~120s per-row fallback
 storms per sba chunk. First post-fix /api/cron/sync: 230.8s, 7,060 synced,
 0 vertical errors.
+
+## 2026-07-03 (continued)
+
+Migration 215 (found_meta_shop_type_check + vintage_store) applied to prod
+via scripts/run-migration.mjs + NOTIFY pgrst. The found vertical's canonical
+category list (VERTICAL_CATEGORIES.found) already included 'vintage_store'
+and the listing-level validator accepted it, but the found_meta CHECK still
+listed the older 7 values — so 11 vintage_store shops failed their meta
+upsert every sync ("violates check constraint found_meta_shop_type_check").
+Constraint re-created from the full canonical list; verified vintage_store
+now present.
