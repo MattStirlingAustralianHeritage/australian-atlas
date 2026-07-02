@@ -1,21 +1,38 @@
 'use client'
 import 'mapbox-gl/dist/mapbox-gl.css'
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { getVerticalUrl, getVerticalBadge, getVerticalLabel, getVerticalBrandColour, getPublicVerticals } from '@/lib/verticalUrl'
 import { listingVerticals } from '@/lib/listings/verticalFilter'
 import { SUB_TYPE_LABELS } from '@/lib/subTypeLabels'
 import { isApprovedImageSource } from '@/lib/image-utils'
+import { ATLAS_PAPER_STYLE, ATLAS_LABEL_ROOF } from '@/lib/map/atlasPaperStyle'
+import { attachDonutClusters } from '@/lib/map/donutClusters'
+import DiscoveryPanel from '@/components/map/DiscoveryPanel'
+import MapPreviewCard from '@/components/map/MapPreviewCard'
 
 const PRIMARY = '#5f8a7e'
 const PREMIUM_COLOR = '#c8943a'
+const PAPER = '#FBF9F4'
+
+// Dev-only: headless / hidden-tab preview environments never fire
+// requestAnimationFrame, which stalls mapbox-gl completely (its style parse
+// and render loop are rAF-driven). Shim with a timer so the map still builds
+// when the document starts hidden. Compiled out of production builds.
+if (process.env.NODE_ENV !== 'production' && typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+  const nativeRaf = typeof window !== 'undefined' ? window.requestAnimationFrame?.bind(window) : null
+  if (nativeRaf) {
+    let shimming = true
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') shimming = false })
+    window.requestAnimationFrame = (cb) => shimming ? setTimeout(() => cb(performance.now()), 33) : nativeRaf(cb)
+    window.cancelAnimationFrame = (id) => clearTimeout(id)
+  }
+}
 
 // Brand colour lookup — sourced from lib/verticalUrl.js so all surfaces stay
 // in sync. The vertical key list (legend + filter chips) is derived per-render
 // from the public-vertical registry passed down from the server (see below).
 const verticalColor = (key) => getVerticalBrandColour(key) || PRIMARY
-
-// SUB_TYPE_LABELS (secondary filter pills + popup category) is shared with the
-// place-page nearby list via lib/subTypeLabels.js so labels never diverge.
 
 const STATES = ['All States', 'NSW', 'VIC', 'QLD', 'SA', 'WA', 'TAS', 'ACT', 'NT']
 
@@ -42,14 +59,17 @@ const AUSTRALIA_BOUNDS = [[112.7, -43.9], [153.9, -10.4]]
 // resolves that conflict by force-zooming in and cropping the coasts.
 const MIN_ZOOM = 2
 
-function australiaFitPadding(isEmbedded) {
-  if (typeof window === 'undefined' || isEmbedded) return 40
-  const mobile = window.matchMedia('(max-width: 768px)').matches
-  // Desktop top padding clears the overlaid toolbar; mobile clears the tab toggle.
-  return mobile
-    ? { top: 84, bottom: 48, left: 28, right: 28 }
-    : { top: 132, bottom: 64, left: 80, right: 80 }
-}
+// Desktop discovery panel width. Every camera call passes explicit padding
+// (mapbox persists whatever padding a camera call carries — by passing it
+// everywhere we own that state instead of being surprised by it).
+const PANEL_W = 384
+
+// Cap on rendered gazetteer rows — the list is a scanning surface, not a
+// database dump; past this the answer is "zoom in".
+const PANEL_CAP = 60
+
+const VISITED_KEY = 'aa_map_visited_v1'
+const VISITED_CAP = 500
 
 // Reverse of the slug map in app/map/page.js — used to keep the URL in sync
 // with the active filters so map views are shareable / refresh-safe.
@@ -74,8 +94,8 @@ const PLACE_TYPE_LABEL = {
 }
 const placeTypeLabel = (f) => PLACE_TYPE_LABEL[f?.place_type?.[0]] || 'Place'
 
-// Small location-pin glyph — marks every row in the location dropdown so it's
-// visually distinct from the venue-name search results.
+// Small location-pin glyph — marks town/place rows in the search dropdown so
+// they read distinct from the venue-name results above them.
 function PlacePin() {
   return (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#5f8a7e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }} aria-hidden="true">
@@ -89,14 +109,15 @@ function PlacePin() {
  * MapClient
  *
  * mode='fullscreen' (default) — the network-wide /map page. Locks body scroll,
- *   hides nav/footer, fetches all listings, renders all chrome (filters,
- *   geocoding search, legend, mobile sheet, builder tab toggle).
+ *   hides nav/footer, fetches all listings, renders all chrome (discovery
+ *   panel, unified search, filters, legend, mobile sheet, builder tab toggle).
  *
  * mode='embedded' — for in-page sections (e.g. /place/[slug] "Nearby on
- *   Australian Atlas"). No body lock, no nav/footer hiding, no chrome.
- *   Caller must pass `prefilteredListings` (skips the /api/map fetch) and
- *   may pass `initialBounds` to constrain the view and `highlightListingId`
- *   to render the matching pin distinctly.
+ *   Australian Atlas"). No body lock, no nav/footer hiding, no chrome, and it
+ *   keeps the classic popup interaction (the fullscreen page uses the richer
+ *   selection card instead). Caller must pass `prefilteredListings` (skips
+ *   the /api/map fetch) and may pass `initialBounds` to constrain the view and
+ *   `highlightListingId` to render the matching pin distinctly.
  */
 export default function MapClient({
   initialVertical = '',
@@ -119,8 +140,9 @@ export default function MapClient({
   const verticalFilters = [{ key: 'all', label: 'All' }, ...verticalKeys.map(k => ({ key: k, label: getVerticalBadge(k) }))]
   const mapContainer = useRef(null)
   const map = useRef(null)
-  const popup = useRef(null)
+  const popup = useRef(null)      // embedded mode only
   const hoverTip = useRef(null)
+  const donuts = useRef(null)
 
   const [allListings, setAllListings] = useState([])
   // Multi-select vertical filter — empty Set = "all"
@@ -130,36 +152,80 @@ export default function MapClient({
   })
   const [subTypeFilter, setSubTypeFilter] = useState('all')
   const [stateFilter, setStateFilter] = useState(initialState || 'All States')
-  const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [count, setCount] = useState(0)
   const [mapReady, setMapReady] = useState(false)
-  const [legendCollapsed, setLegendCollapsed] = useState(false)
+  const [legendCollapsed, setLegendCollapsed] = useState(true)
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
   const [mobileLegendOpen, setMobileLegendOpen] = useState(false)
+  const [mobileListOpen, setMobileListOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('map') // 'map' | 'builder'
 
-  // Geocoding place search state
-  const [placeQuery, setPlaceQuery] = useState('')
-  const [placeResults, setPlaceResults] = useState([])
-  const [showPlaceDropdown, setShowPlaceDropdown] = useState(false)
-  const placeSearchRef = useRef(null)
-  // Mobile has its own always-visible location-search bar (the desktop toolbar
-  // is display:none on phones), so a second ref is needed to keep the dropdown
-  // open when the tap lands inside the mobile input rather than the hidden one.
-  const mobilePlaceSearchRef = useRef(null)
-  // Picking a result sets placeQuery to the full place name, which would
-  // otherwise re-fire the debounced geocoder and pop the dropdown back open.
-  // This flag swallows that one programmatic query change.
-  const suppressPlaceSearch = useRef(false)
+  // Discovery panel (desktop) — open by default: split view is the difference
+  // between a map people use and a map people bounce off.
+  const [panelOpen, setPanelOpen] = useState(true)
+  const panelOpenRef = useRef(true)
+  useEffect(() => { panelOpenRef.current = panelOpen }, [panelOpen])
 
-  // Name search dropdown state — typing filters the pins live (as before),
-  // and a results list lets the user jump straight to a venue.
-  const [showNameDropdown, setShowNameDropdown] = useState(false)
-  const nameSearchRef = useRef(null)
+  // The toolbar wraps at narrow widths, so the panel can't assume its height —
+  // measure it and hang the panel off its real bottom edge.
+  const toolbarRef = useRef(null)
+  const [toolbarH, setToolbarH] = useState(106)
+  useEffect(() => {
+    if (isEmbedded || !toolbarRef.current || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(entries => {
+      const h = entries[0]?.contentRect?.height
+      if (h) setToolbarH(Math.round(h))
+    })
+    ro.observe(toolbarRef.current)
+    return () => ro.disconnect()
+  }, [isEmbedded])
+
+  // What's in the current viewport (drives the panel + mobile list)
+  const [inView, setInView] = useState({ items: [], total: 0 })
+
+  // Selected venue — fullscreen replaces the old popup with a card (anchored
+  // marker portal on desktop, docked bottom card on mobile).
+  const [selected, setSelected] = useState(null)
+  const selectedRef = useRef(null)
+  useEffect(() => { selectedRef.current = selected }, [selected])
+  const [cardPortalEl, setCardPortalEl] = useState(null)
+  const cardMarker = useRef(null)
+
+  // Per-listing display extras (image / suburb / editors_pick), hydrated
+  // lazily for on-screen listings from /api/map/cards.
+  const [cardMeta, setCardMeta] = useState({})
+  const cardMetaRef = useRef({})
+  useEffect(() => { cardMetaRef.current = cardMeta }, [cardMeta])
+  const cardFetchInFlight = useRef(new Set())
+
+  // Visited listings (grey-out pins the reader has already opened — the
+  // Zillow/Airbnb long-browse courtesy). localStorage, capped FIFO.
+  const visitedRef = useRef(null)
+  const [visitedVersion, setVisitedVersion] = useState(0)
+  if (visitedRef.current === null) {
+    visitedRef.current = new Set()
+    if (typeof window !== 'undefined') {
+      try {
+        const raw = JSON.parse(window.localStorage.getItem(VISITED_KEY) || '[]')
+        if (Array.isArray(raw)) visitedRef.current = new Set(raw.slice(-VISITED_CAP))
+      } catch { /* ignore */ }
+    }
+  }
+
+  // Unified search (venues + towns in one field)
+  const [query, setQuery] = useState('')
+  const [placeResults, setPlaceResults] = useState([])
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false)
+  const searchRef = useRef(null)
+  const mobileSearchRef = useRef(null)
+  // Picking a result sets the query programmatically, which would otherwise
+  // re-fire the debounced geocoder and pop the dropdown back open.
+  const suppressSearch = useRef(false)
 
   const listingsRef = useRef([])
   useEffect(() => { listingsRef.current = allListings }, [allListings])
+  const filteredRef = useRef([])
 
   // Multi-select vertical toggle
   function toggleVertical(key) {
@@ -179,44 +245,121 @@ export default function MapClient({
   // Derived: single-selected vertical for sub-type pills
   const singleSelectedVertical = selectedVerticals.size === 1 ? [...selectedVerticals][0] : null
 
-  // Debounced geocoding search
+  // Debounced geocoding half of the unified search
   useEffect(() => {
-    if (suppressPlaceSearch.current) { suppressPlaceSearch.current = false; return }
-    if (!placeQuery || placeQuery.length < 2) { setPlaceResults([]); return }
+    if (suppressSearch.current) { suppressSearch.current = false; return }
+    if (!query || query.length < 2) { setPlaceResults([]); return }
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(placeQuery)}.json?country=AU&types=country,region,postcode,district,place,locality,neighborhood,address&access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`)
+        const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?country=AU&types=region,postcode,district,place,locality,neighborhood,address&access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`)
         const data = await res.json()
         setPlaceResults(data.features || [])
-        setShowPlaceDropdown(true)
       } catch (e) { console.error('Geocoding error:', e) }
-    }, 400)
+    }, 350)
     return () => clearTimeout(timer)
-  }, [placeQuery])
+  }, [query])
 
   useEffect(() => {
     function handleClickOutside(e) {
-      const inDesktopPlace = placeSearchRef.current && placeSearchRef.current.contains(e.target)
-      const inMobilePlace = mobilePlaceSearchRef.current && mobilePlaceSearchRef.current.contains(e.target)
-      if (!inDesktopPlace && !inMobilePlace) setShowPlaceDropdown(false)
-      if (nameSearchRef.current && !nameSearchRef.current.contains(e.target)) setShowNameDropdown(false)
+      const inDesktop = searchRef.current && searchRef.current.contains(e.target)
+      const inMobile = mobileSearchRef.current && mobileSearchRef.current.contains(e.target)
+      if (!inDesktop && !inMobile) setShowSearchDropdown(false)
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Jump to a venue picked from the name-search results: fly the camera in
-  // and open its full popup. The pin itself is guaranteed visible because the
-  // same search string is also the live pin filter.
-  function flyToListing(l) {
-    if (!map.current || l?.lat == null || l?.lng == null) return
-    const coords = [parseFloat(l.lng), parseFloat(l.lat)]
-    setShowNameDropdown(false)
-    setMobileSheetOpen(false)
-    map.current.flyTo({ center: coords, zoom: Math.max(map.current.getZoom(), 12.5), duration: 1400 })
-    if (popup.current) {
-      popup.current.setLngLat(coords).setHTML(buildPopupHTML(listingToProps(l))).addTo(map.current)
+  // ── Feature-state helpers (hover / selected / visited pins) ──
+  const hoverStateId = useRef(null)
+  const setHoverState = useCallback((id) => {
+    const m = map.current
+    if (!m || !m.getSource('listings-clustered')) return
+    if (hoverStateId.current && hoverStateId.current !== id) {
+      m.setFeatureState({ source: 'listings-clustered', id: hoverStateId.current }, { hover: false })
     }
+    if (id) m.setFeatureState({ source: 'listings-clustered', id }, { hover: true })
+    hoverStateId.current = id || null
+  }, [])
+
+  const selectStateId = useRef(null)
+  const setSelectedState = useCallback((id) => {
+    const m = map.current
+    if (!m || !m.getSource('listings-clustered')) return
+    if (selectStateId.current && selectStateId.current !== id) {
+      m.setFeatureState({ source: 'listings-clustered', id: selectStateId.current }, { selected: false })
+    }
+    if (id) m.setFeatureState({ source: 'listings-clustered', id }, { selected: true })
+    selectStateId.current = id || null
+  }, [])
+
+  const markVisited = useCallback((listing) => {
+    const id = listing?.id
+    if (!id || visitedRef.current.has(id)) return
+    visitedRef.current.add(id)
+    try {
+      window.localStorage.setItem(VISITED_KEY, JSON.stringify([...visitedRef.current].slice(-VISITED_CAP)))
+    } catch { /* storage full/blocked — the pin state is a courtesy */ }
+    if (map.current?.getSource('listings-clustered')) {
+      map.current.setFeatureState({ source: 'listings-clustered', id }, { visited: true })
+    }
+    setVisitedVersion(v => v + 1)
+  }, [])
+
+  // Explicit camera padding for every camera call — panel-aware on desktop.
+  const cameraPadding = useCallback((panelIsOpen = panelOpenRef.current) => {
+    if (typeof window === 'undefined' || isEmbedded) return 40
+    const mobile = window.matchMedia('(max-width: 768px)').matches
+    if (mobile) return { top: 116, bottom: 96, left: 28, right: 28 }
+    return { top: 138, bottom: 48, left: (panelIsOpen ? PANEL_W : 0) + 56, right: 56 }
+  }, [isEmbedded])
+
+  // ── Selection ──
+  const selectListing = useCallback((l, { fly = false } = {}) => {
+    if (!l || l.lat == null || l.lng == null) return
+    setSelected(l)
+    setSelectedState(l.id)
+    hoverTip.current?.remove()
+    if (fly && map.current) {
+      const target = Math.max(map.current.getZoom(), 12.5)
+      map.current.flyTo({
+        center: [parseFloat(l.lng), parseFloat(l.lat)],
+        zoom: target,
+        padding: cameraPadding(),
+        speed: 1.4,
+        curve: 1.42,
+        maxDuration: 2600,
+      })
+    }
+  }, [cameraPadding, setSelectedState])
+
+  const clearSelected = useCallback(() => {
+    setSelected(null)
+    setSelectedState(null)
+  }, [setSelectedState])
+
+  // ESC closes the selection card / list sheet
+  useEffect(() => {
+    if (isEmbedded) return
+    function onKey(e) {
+      if (e.key === 'Escape') {
+        clearSelected()
+        setMobileListOpen(false)
+        setShowSearchDropdown(false)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [isEmbedded, clearSelected])
+
+  // Jump straight to a venue picked from the unified search.
+  function jumpToVenue(l) {
+    setShowSearchDropdown(false)
+    setMobileSheetOpen(false)
+    setMobileListOpen(false)
+    suppressSearch.current = true
+    setQuery(l.name)
+    if (typeof document !== 'undefined' && document.activeElement?.blur) document.activeElement.blur()
+    selectListing(l, { fly: true })
   }
 
   function getZoomForPlaceType(placeType) {
@@ -227,27 +370,15 @@ export default function MapClient({
   function handlePlaceSelect(feature) {
     const [lng, lat] = feature.center
     const placeType = feature.place_type?.[0] || 'place'
-    map.current?.flyTo({ center: [lng, lat], zoom: getZoomForPlaceType(placeType), duration: 1500 })
-    suppressPlaceSearch.current = true
-    setPlaceQuery(feature.place_name)
+    map.current?.flyTo({ center: [lng, lat], zoom: getZoomForPlaceType(placeType), padding: cameraPadding(), duration: 1500 })
+    suppressSearch.current = true
+    setQuery(feature.place_name)
     setPlaceResults([])
-    setShowPlaceDropdown(false)
+    setShowSearchDropdown(false)
+    setMobileListOpen(false)
     // Drop the soft keyboard on mobile so the fly-to is unobstructed.
     if (typeof document !== 'undefined' && document.activeElement?.blur) document.activeElement.blur()
   }
-
-  // Shared dropdown row for a geocoded location — pin + name + what-it-is label,
-  // so "Newcastle" reads as a selectable Town / City. Used by desktop + mobile.
-  const renderPlaceRow = (f) => (
-    <button key={f.id} onClick={() => handlePlaceSelect(f)} style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '9px 11px', minHeight: 44, background: 'none', border: 'none', borderBottom: '1px solid var(--color-border)', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-sans)' }}>
-      <PlacePin />
-      <span style={{ minWidth: 0, flex: 1 }}>
-        <span style={{ display: 'block', fontSize: 13, color: 'var(--color-ink)', fontWeight: 500, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.text}</span>
-        <span style={{ display: 'block', fontSize: 10.5, color: 'var(--color-muted)', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.place_name.replace(f.text + ', ', '')}</span>
-      </span>
-      <span style={{ flexShrink: 0, fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#5f8a7e', background: 'rgba(95,138,126,0.1)', borderRadius: 3, padding: '2px 6px' }}>{placeTypeLabel(f)}</span>
-    </button>
-  )
 
   // Lock body scroll and hide footer + nav so the map takes full viewport.
   // Skipped for embedded mode — the map is just a section in a normal page.
@@ -293,7 +424,71 @@ export default function MapClient({
     fetchData()
   }, [prefilteredListings])
 
-  // Sub-type reset is handled inside toggleVertical()
+  // ── Viewport → gazetteer sync ──
+  const updateInView = useCallback(() => {
+    const m = map.current
+    if (!m || isEmbedded) return
+    const b = m.getBounds()
+    const west = b.getWest(), east = b.getEast(), south = b.getSouth(), north = b.getNorth()
+    const within = []
+    for (const l of filteredRef.current) {
+      const lng = parseFloat(l.lng), lat = parseFloat(l.lat)
+      if (lng >= west && lng <= east && lat >= south && lat <= north) within.push(l)
+    }
+    // Featured venues lead; the rest read as an index. (On a map, selection
+    // beats ordering — the list is a scan surface, so stable A–Z after the
+    // featured tier keeps it calm while the user pans.)
+    within.sort((a, b2) => {
+      if (!!a.is_featured !== !!b2.is_featured) return a.is_featured ? -1 : 1
+      return String(a.name).localeCompare(String(b2.name))
+    })
+    setInView({ items: within.slice(0, PANEL_CAP), total: within.length })
+  }, [isEmbedded])
+
+  // Hydrate card extras (image/suburb/editors_pick) for what's on screen.
+  useEffect(() => {
+    if (isEmbedded || !inView.items.length) return
+    const missing = inView.items
+      .map(l => l.id)
+      .filter(id => !(id in cardMetaRef.current) && !cardFetchInFlight.current.has(id))
+      .slice(0, 60)
+    if (!missing.length) return
+    missing.forEach(id => cardFetchInFlight.current.add(id))
+    const idsParam = [...missing].sort().join(',')
+    fetch(`/api/map/cards?ids=${idsParam}`)
+      .then(r => r.json())
+      .then(({ cards }) => {
+        setCardMeta(prev => {
+          const next = { ...prev }
+          for (const id of missing) next[id] = cards?.[id] || { image: null, suburb: null, editors_pick: false }
+          return next
+        })
+      })
+      .catch(() => { /* cosmetic hydration — silently degrade to typographic rows */ })
+      .finally(() => missing.forEach(id => cardFetchInFlight.current.delete(id)))
+  }, [inView, isEmbedded])
+
+  // ── URL state: filters + camera, all shareable ──
+  const urlTimer = useRef(null)
+  const writeUrl = useCallback(() => {
+    if (isEmbedded || typeof window === 'undefined') return
+    const m = map.current
+    const url = new URL(window.location.href)
+    const single = selectedVerticals.size === 1 ? [...selectedVerticals][0] : null
+    if (single && SLUG_BY_KEY[single]) url.searchParams.set('vertical', SLUG_BY_KEY[single])
+    else url.searchParams.delete('vertical')
+    if (stateFilter && stateFilter !== 'All States') url.searchParams.set('state', stateFilter)
+    else url.searchParams.delete('state')
+    if (m) {
+      const c = m.getCenter()
+      url.searchParams.set('lng', c.lng.toFixed(4))
+      url.searchParams.set('lat', c.lat.toFixed(4))
+      url.searchParams.set('zoom', m.getZoom().toFixed(2))
+    }
+    window.history.replaceState(null, '', url.pathname + (url.searchParams.toString() ? `?${url.searchParams.toString()}` : ''))
+  }, [isEmbedded, selectedVerticals, stateFilter])
+  const writeUrlRef = useRef(writeUrl)
+  useEffect(() => { writeUrlRef.current = writeUrl }, [writeUrl])
 
   // Build map once listings are loaded
   useEffect(() => {
@@ -312,12 +507,15 @@ export default function MapClient({
 
       const m = new mapboxgl.default.Map({
         container: mapContainer.current,
-        style: 'mapbox://styles/mattstirlingaustralianheritage/cmn32b0iz003401swccb7d21k',
+        // "Atlas Paper" — the code-defined editorial basemap (see
+        // lib/map/atlasPaperStyle.js). Not a Studio style: the palette lives
+        // in the repo beside the design tokens it mirrors.
+        style: ATLAS_PAPER_STYLE,
         // Default camera fits the whole country to the actual viewport.
         // An explicit centre/zoom (from a "View on full map →" link) wins.
         ...(initialCenter
           ? { center: initialCenter, zoom: initialZoom != null ? initialZoom : 3.8 }
-          : { bounds: AUSTRALIA_BOUNDS, fitBoundsOptions: { padding: australiaFitPadding(isEmbedded) } }),
+          : { bounds: AUSTRALIA_BOUNDS, fitBoundsOptions: { padding: cameraPadding() } }),
         // Flat utility map: no globe-with-stars at low zoom, no accidental
         // rotation/pitch. The globe treatment stays on the homepage section.
         projection: 'mercator',
@@ -331,6 +529,11 @@ export default function MapClient({
         scrollZoom: !isEmbedded,
       })
       map.current = m
+
+      // Surface style/source/tile problems — a silently-blank map is the
+      // worst failure mode this page has.
+      m.on('error', (e) => console.error('[map error]', e?.error?.message || e))
+      if (process.env.NODE_ENV !== 'production' && typeof window !== 'undefined') window.__atlasMap = m
 
       m.addControl(new mapboxgl.default.AttributionControl({ compact: true }), 'bottom-left')
       m.addControl(new mapboxgl.default.NavigationControl({ showCompass: false }), 'bottom-right')
@@ -347,17 +550,17 @@ export default function MapClient({
         m.fitBounds(initialBounds, { padding: 60, animate: false })
       }
 
-      popup.current = new mapboxgl.default.Popup({
-        closeButton: true,
-        closeOnClick: false,
-        maxWidth: '280px',
-        // Embedded (nearby) popups get a visible tip + a larger offset so the
-        // card sits clear of its pin and the tip points unambiguously back to
-        // the place it describes. The fullscreen /map keeps the tip-less
-        // floating-card look.
-        offset: isEmbedded ? 18 : 12,
-        className: isEmbedded ? 'nbx-popup' : '',
-      })
+      // Popup machinery is embedded-only now — the fullscreen map renders a
+      // React selection card instead (anchored marker portal / docked sheet).
+      if (isEmbedded) {
+        popup.current = new mapboxgl.default.Popup({
+          closeButton: true,
+          closeOnClick: false,
+          maxWidth: '280px',
+          offset: 18,
+          className: 'nbx-popup',
+        })
+      }
 
       // Lightweight name tooltip for desktop hover — saves a click per pin
       // when scanning an area. pointer-events: none (see CSS) so it can
@@ -373,36 +576,52 @@ export default function MapClient({
 
       m.on('load', () => {
         if (cancelled) return
-        const filtered = getFiltered(allListings, selectedVerticals, subTypeFilter, stateFilter, search)
+        const filtered = getFiltered(allListings, selectedVerticals, subTypeFilter, stateFilter)
+        filteredRef.current = filtered
 
-        m.addSource('listings-clustered', {
-          type: 'geojson',
-          // Embedded (nearby) maps hold a small, already-near set — clustering
-          // would roll close neighbours into a count bubble and hide the very
-          // places the section exists to surface. Keep every pin individual.
-          cluster: !isEmbedded,
+        // Per-vertical accumulators feed the donut cluster charts.
+        const clusterProperties = {}
+        for (const k of verticalKeys) {
+          clusterProperties[k] = ['+', ['case', ['==', ['get', 'vertical'], k], 1, 0]]
+        }
+
+        // Embedded (nearby) maps hold a small, already-near set — clustering
+        // would roll close neighbours into a count bubble and hide the very
+        // places the section exists to surface. Keep every pin individual.
+        // (The cluster keys must be absent, not undefined — the source
+        // validator rejects explicit undefineds.)
+        const clusterOptions = isEmbedded ? { cluster: false } : {
+          cluster: true,
           clusterMaxZoom: 10,
           clusterMinPoints: 10,
           clusterRadius: 50,
+          clusterProperties,
+        }
+        m.addSource('listings-clustered', {
+          type: 'geojson',
+          ...clusterOptions,
+          // Stable feature ids (the listing uuid) so hover/selected/visited
+          // live in feature-state — no setData/filter churn per interaction.
+          promoteId: 'id',
           data: buildGeoJSON(filtered),
         })
 
-        // Clusters
+        // ── Pins (inserted below the label roof so town names float above) ──
+        const roof = m.getLayer(ATLAS_LABEL_ROOF) ? ATLAS_LABEL_ROOF : undefined
+
+        // Hover / selected halo — invisible until feature-state flips.
         m.addLayer({
-          id: 'clusters', type: 'circle', source: 'listings-clustered',
-          filter: ['has', 'point_count'],
+          id: 'pins-halo', type: 'circle', source: 'listings-clustered',
+          filter: ['!', ['has', 'point_count']],
           paint: {
-            'circle-color': ['step', ['get', 'point_count'], '#8AAFA5', 50, PRIMARY, 200, '#3D6B60'],
-            'circle-radius': ['step', ['get', 'point_count'], 18, 50, 24, 200, 32],
-            'circle-stroke-width': 2, 'circle-stroke-color': '#ffffff', 'circle-opacity': 0.9,
+            'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 11, 6, 13, 10, 14, 14, 17],
+            'circle-color': ['get', 'color'],
+            'circle-opacity': ['case',
+              ['boolean', ['feature-state', 'selected'], false], 0.28,
+              ['boolean', ['feature-state', 'hover'], false], 0.20,
+              0],
           },
-        })
-        m.addLayer({
-          id: 'cluster-count', type: 'symbol', source: 'listings-clustered',
-          filter: ['has', 'point_count'],
-          layout: { 'text-field': '{point_count_abbreviated}', 'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'], 'text-size': 13 },
-          paint: { 'text-color': '#ffffff' },
-        })
+        }, roof)
 
         // Standard pins — radius scales with zoom so dots stay visible at the
         // national view and grow into comfortable tap targets up close.
@@ -411,11 +630,17 @@ export default function MapClient({
           filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'featured'], true]],
           paint: {
             'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 4.5, 6, 6, 10, 7, 14, 9],
-            'circle-color': ['get', 'color'], 'circle-stroke-width': 2, 'circle-stroke-color': '#ffffff', 'circle-opacity': 1,
+            'circle-color': ['get', 'color'],
+            'circle-stroke-width': 1.75,
+            'circle-stroke-color': PAPER,
+            // Visited pins sit back — a long browse shouldn't re-sell the
+            // places the reader has already opened.
+            'circle-opacity': ['case', ['boolean', ['feature-state', 'visited'], false], 0.45, 1],
+            'circle-stroke-opacity': ['case', ['boolean', ['feature-state', 'visited'], false], 0.6, 1],
           },
-        })
+        }, roof)
 
-        // Featured pins — larger with glow
+        // Featured pins — larger, gold, with a standing glow ring.
         m.addLayer({
           id: 'pins-featured-glow', type: 'circle', source: 'listings-clustered',
           filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'featured'], true]],
@@ -423,15 +648,28 @@ export default function MapClient({
             'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 11, 6, 14, 10, 15, 14, 17],
             'circle-color': 'transparent', 'circle-stroke-width': 1.5, 'circle-stroke-color': PREMIUM_COLOR, 'circle-stroke-opacity': 0.5, 'circle-opacity': 0,
           },
-        })
+        }, roof)
         m.addLayer({
           id: 'pins-featured', type: 'circle', source: 'listings-clustered',
           filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'featured'], true]],
           paint: {
             'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 7, 6, 9, 10, 10, 14, 12],
-            'circle-color': PREMIUM_COLOR, 'circle-stroke-width': 2.5, 'circle-stroke-color': '#ffffff', 'circle-opacity': 1,
+            'circle-color': PREMIUM_COLOR, 'circle-stroke-width': 2.25, 'circle-stroke-color': PAPER, 'circle-opacity': 1,
           },
-        })
+        }, roof)
+
+        // Selected ring — crisp outline on the active pin.
+        m.addLayer({
+          id: 'pins-selected-ring', type: 'circle', source: 'listings-clustered',
+          filter: ['!', ['has', 'point_count']],
+          paint: {
+            'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 9, 6, 11, 10, 12, 14, 15],
+            'circle-color': 'transparent',
+            'circle-stroke-width': 2.5,
+            'circle-stroke-color': ['get', 'color'],
+            'circle-stroke-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 0.95, 0],
+          },
+        }, roof)
 
         // Highlight pin — only used in embedded mode to mark the current
         // listing on the page. Larger ring + dot, on top of standard pins.
@@ -451,28 +689,77 @@ export default function MapClient({
         // Focus halo + ring — emphasise the pin whose card is hovered/open in
         // the nearby list so it's unmistakable which place the popup describes.
         // Filters start matching nothing and are set from the focus effect.
-        // Drawn above every other pin layer (added last in the load handler).
-        m.addLayer({
-          id: 'pin-focus-halo', type: 'circle', source: 'listings-clustered',
-          filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'id'], '__none__']],
-          paint: { 'circle-radius': 22, 'circle-color': ['get', 'color'], 'circle-opacity': 0.14 },
-        })
-        m.addLayer({
-          id: 'pin-focus-ring', type: 'circle', source: 'listings-clustered',
-          filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'id'], '__none__']],
-          paint: { 'circle-radius': 13, 'circle-color': 'transparent', 'circle-stroke-width': 3, 'circle-stroke-color': ['get', 'color'], 'circle-stroke-opacity': 0.95 },
-        })
+        if (isEmbedded) {
+          m.addLayer({
+            id: 'pin-focus-halo', type: 'circle', source: 'listings-clustered',
+            filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'id'], '__none__']],
+            paint: { 'circle-radius': 22, 'circle-color': ['get', 'color'], 'circle-opacity': 0.14 },
+          })
+          m.addLayer({
+            id: 'pin-focus-ring', type: 'circle', source: 'listings-clustered',
+            filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'id'], '__none__']],
+            paint: { 'circle-radius': 13, 'circle-color': 'transparent', 'circle-stroke-width': 3, 'circle-stroke-color': ['get', 'color'], 'circle-stroke-opacity': 0.95 },
+          })
+        }
+
+        // Venue name labels at town zoom — the map answers "what's here"
+        // without a hover. text-only symbols: collisions simply hide the
+        // clutter, and featured venues win placement via symbol-sort-key.
+        if (!isEmbedded) {
+          m.addLayer({
+            id: 'pin-labels', type: 'symbol', source: 'listings-clustered',
+            minzoom: 11,
+            filter: ['!', ['has', 'point_count']],
+            layout: {
+              'text-field': ['get', 'name'],
+              'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+              'text-size': ['interpolate', ['linear'], ['zoom'], 11, 10.5, 14, 12],
+              'text-variable-anchor': ['top', 'bottom', 'left', 'right'],
+              'text-radial-offset': 0.9,
+              'text-justify': 'auto',
+              'text-max-width': 9,
+              'symbol-sort-key': ['case', ['==', ['get', 'featured'], true], 0, 1],
+            },
+            paint: {
+              'text-color': '#4A443B',
+              'text-halo-color': 'rgba(251,249,244,0.92)',
+              'text-halo-width': 1.4,
+            },
+          })
+        }
+
+        // Donut cluster markers — the cluster tells you what's inside, not
+        // just how many. (Fullscreen only; embedded maps never cluster.)
+        if (!isEmbedded) {
+          donuts.current = attachDonutClusters(mapboxgl.default, m, 'listings-clustered', {
+            segments: verticalKeys.map(k => ({ key: k, color: verticalColor(k) })),
+            onClusterClick: (clusterId, coords) => {
+              m.getSource('listings-clustered').getClusterExpansionZoom(clusterId, (err, zoom) => {
+                if (err) return
+                m.easeTo({ center: coords, zoom: zoom + 0.5, padding: cameraPadding(), duration: 650 })
+              })
+            },
+          })
+        }
 
         // Click + hover handlers
         const pinLayers = ['pins-basic', 'pins-featured-glow', 'pins-featured']
         if (highlightListingId) pinLayers.push('pin-highlight-ring', 'pin-highlight')
         pinLayers.forEach(layer => {
-          m.on('mouseenter', layer, (e) => {
+          m.on('mousemove', layer, (e) => {
             m.getCanvas().style.cursor = 'pointer'
-            if (!hoverEnabled || !e.features?.length) return
-            const p = e.features[0].properties
+            if (!e.features?.length) return
+            const f = e.features[0]
+            if (hoverStateId.current !== f.id) {
+              if (hoverStateId.current) m.setFeatureState({ source: 'listings-clustered', id: hoverStateId.current }, { hover: false })
+              if (f.id) m.setFeatureState({ source: 'listings-clustered', id: f.id }, { hover: true })
+              hoverStateId.current = f.id || null
+            }
+            if (!hoverEnabled) return
+            if (selectedRef.current && f.properties.id === selectedRef.current.id) { hoverTip.current?.remove(); return }
+            const p = f.properties
             const sub = p.subTypeLabel && p.subTypeLabel !== 'null' ? p.subTypeLabel : p.verticalLabel
-            hoverTip.current.setLngLat(e.features[0].geometry.coordinates.slice()).setHTML(
+            hoverTip.current.setLngLat(f.geometry.coordinates.slice()).setHTML(
               `<div style="font-family:system-ui,-apple-system,sans-serif;padding:1px 2px;">
                 <div style="font-family:Georgia,serif;font-size:13px;color:#1a1614;line-height:1.25;">${esc(p.name)}</div>
                 <div style="font-size:10px;color:#9a8878;margin-top:2px;">${esc(sub)}${p.location && p.location !== 'null' ? ` · ${esc(p.location)}` : ''}</div>
@@ -481,38 +768,60 @@ export default function MapClient({
           })
           m.on('mouseleave', layer, () => {
             m.getCanvas().style.cursor = ''
+            if (hoverStateId.current) {
+              m.setFeatureState({ source: 'listings-clustered', id: hoverStateId.current }, { hover: false })
+              hoverStateId.current = null
+            }
             hoverTip.current?.remove()
           })
           m.on('click', layer, (e) => {
             const props = e.features[0].properties
             const coords = e.features[0].geometry.coordinates.slice()
             hoverTip.current?.remove()
-            // The pin for the current listing (when highlightListingId is
-            // set) shows a "You are here" badge instead of a self-linking
-            // "View listing →" button — clicking the page you're already on
-            // would be a dead end.
-            const isCurrent = highlightListingId && props.id === highlightListingId
-            popup.current.setLngLat(coords).setHTML(buildPopupHTML(props, { isCurrent })).addTo(m)
+            if (isEmbedded) {
+              // The pin for the current listing (when highlightListingId is
+              // set) shows a "You are here" badge instead of a self-linking
+              // "View listing →" button — clicking the page you're already on
+              // would be a dead end.
+              const isCurrent = highlightListingId && props.id === highlightListingId
+              popup.current.setLngLat(coords).setHTML(buildPopupHTML(props, { isCurrent })).addTo(m)
+            } else {
+              const l = listingsRef.current.find(x => x.id === props.id)
+              if (l) selectListing(l)
+            }
           })
         })
 
-        // Dismiss popup on empty click
+        // Dismiss card/popup on empty click
         m.on('click', (e) => {
-          const features = m.queryRenderedFeatures(e.point, { layers: pinLayers })
-          if (!features.length && popup.current) popup.current.remove()
+          const features = m.queryRenderedFeatures(e.point, { layers: pinLayers.filter(l2 => m.getLayer(l2)) })
+          if (features.length) return
+          if (isEmbedded) popup.current?.remove()
+          else clearSelected()
         })
 
-        // Cluster click → zoom in
-        m.on('click', 'clusters', (e) => {
-          const features = m.queryRenderedFeatures(e.point, { layers: ['clusters'] })
-          const clusterId = features[0].properties.cluster_id
-          m.getSource('listings-clustered').getClusterExpansionZoom(clusterId, (err, zoom) => {
-            if (err) return
-            m.easeTo({ center: features[0].geometry.coordinates, zoom: zoom + 1 })
+        // Apply remembered visited states so pins the reader has already
+        // opened arrive pre-dimmed.
+        if (!isEmbedded) {
+          for (const id of visitedRef.current) {
+            m.setFeatureState({ source: 'listings-clustered', id }, { visited: true })
+          }
+        }
+
+        // Viewport sync — the gazetteer follows the map (debounced; data is
+        // fully client-side so a pan costs nothing).
+        if (!isEmbedded) {
+          let t = null
+          m.on('moveend', () => {
+            clearTimeout(t)
+            t = setTimeout(() => {
+              updateInView()
+              clearTimeout(urlTimer.current)
+              urlTimer.current = setTimeout(() => writeUrlRef.current(), 250)
+            }, 160)
           })
-        })
-        m.on('mouseenter', 'clusters', () => { m.getCanvas().style.cursor = 'pointer' })
-        m.on('mouseleave', 'clusters', () => { m.getCanvas().style.cursor = '' })
+          updateInView()
+        }
 
         setMapReady(true)
       })
@@ -520,6 +829,8 @@ export default function MapClient({
 
     return () => {
       cancelled = true
+      if (donuts.current) { donuts.current.detach(); donuts.current = null }
+      if (cardMarker.current) { try { cardMarker.current.remove() } catch (e) {} cardMarker.current = null }
       if (popup.current) popup.current.remove()
       if (hoverTip.current) hoverTip.current.remove()
       if (map.current) { try { map.current.remove() } catch (e) {} map.current = null }
@@ -530,23 +841,58 @@ export default function MapClient({
   const prevFilterKey = useRef(null)
   useEffect(() => {
     if (!mapReady || !map.current) return
-    const filtered = getFiltered(allListings, selectedVerticals, subTypeFilter, stateFilter, search)
+    const filtered = getFiltered(allListings, selectedVerticals, subTypeFilter, stateFilter)
+    filteredRef.current = filtered
     setCount(filtered.length)
     const source = map.current.getSource('listings-clustered')
-    if (source) source.setData(buildGeoJSON(filtered))
-    // Close an open popup when the filters actually change — its pin may have
-    // just been filtered away, leaving an orphaned card floating on the map.
+    if (source) {
+      source.setData(buildGeoJSON(filtered))
+      // Cluster ids and mixes change with the data — stale donuts must go.
+      donuts.current?.invalidate()
+    }
     const key = [...selectedVerticals].sort().join(',') + '|' + subTypeFilter + '|' + stateFilter
-    if (prevFilterKey.current !== null && prevFilterKey.current !== key) popup.current?.remove()
+    if (prevFilterKey.current !== null && prevFilterKey.current !== key) {
+      // Close an open selection when the filters actually change — its pin
+      // may have just been filtered away, leaving an orphaned card.
+      if (selectedRef.current && !filtered.some(l => l.id === selectedRef.current.id)) clearSelected()
+      popup.current?.remove()
+      writeUrlRef.current()
+    }
     prevFilterKey.current = key
-  }, [allListings, selectedVerticals, subTypeFilter, stateFilter, search, mapReady])
+    updateInView()
+  }, [allListings, selectedVerticals, subTypeFilter, stateFilter, mapReady])
+
+  // ── Anchored selection card (desktop): one marker as a React portal, so
+  // the map engine keeps the card glued to its pin through pan/zoom. ──
+  useEffect(() => {
+    if (isEmbedded || !mapReady || !map.current) return
+    if (cardMarker.current) { try { cardMarker.current.remove() } catch (e) {} cardMarker.current = null; setCardPortalEl(null) }
+    if (!selected) return
+    const mobile = typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches
+    if (mobile) return // mobile renders the docked card instead
+    let alive = true
+    import('mapbox-gl').then(mapboxgl => {
+      if (!alive || !map.current || selectedRef.current?.id !== selected.id) return
+      const el = document.createElement('div')
+      el.className = 'map-card-anchor'
+      cardMarker.current = new mapboxgl.default.Marker({ element: el, anchor: 'bottom', offset: [0, -22] })
+        .setLngLat([parseFloat(selected.lng), parseFloat(selected.lat)])
+        .addTo(map.current)
+      setCardPortalEl(el)
+    })
+    return () => {
+      alive = false
+      if (cardMarker.current) { try { cardMarker.current.remove() } catch (e) {} cardMarker.current = null }
+      setCardPortalEl(null)
+    }
+  }, [selected, mapReady, isEmbedded])
 
   // Embedded list ↔ map sync: when a nearby-list row is hovered/focused, open
   // that listing's popup on the map so the reader can see where it sits. No
   // camera move — the map is already fit to the radius, so every pin is in
   // view and panning on hover would feel twitchy. A null focus closes it.
   useEffect(() => {
-    if (!mapReady || !map.current || !popup.current) return
+    if (!isEmbedded || !mapReady || !map.current || !popup.current) return
     const m = map.current
     const setFocusFilter = (id) => {
       const f = ['all', ['!', ['has', 'point_count']], ['==', ['get', 'id'], id || '__none__']]
@@ -560,21 +906,7 @@ export default function MapClient({
     const coords = [parseFloat(l.lng), parseFloat(l.lat)]
     const isCurrent = highlightListingId && l.id === highlightListingId
     popup.current.setLngLat(coords).setHTML(buildPopupHTML(listingToProps(l), { isCurrent })).addTo(m)
-  }, [focusListingId, mapReady, highlightListingId])
-
-  // Keep vertical/state in the URL so a filtered view survives refresh and
-  // can be shared. Only a single-vertical selection maps onto the ?vertical=
-  // param (the server only parses one); multi-select just drops it.
-  useEffect(() => {
-    if (isEmbedded || typeof window === 'undefined') return
-    const url = new URL(window.location.href)
-    const single = selectedVerticals.size === 1 ? [...selectedVerticals][0] : null
-    if (single && SLUG_BY_KEY[single]) url.searchParams.set('vertical', SLUG_BY_KEY[single])
-    else url.searchParams.delete('vertical')
-    if (stateFilter && stateFilter !== 'All States') url.searchParams.set('state', stateFilter)
-    else url.searchParams.delete('state')
-    window.history.replaceState(null, '', url.pathname + (url.searchParams.toString() ? `?${url.searchParams.toString()}` : ''))
-  }, [selectedVerticals, stateFilter, isEmbedded])
+  }, [focusListingId, mapReady, highlightListingId, isEmbedded])
 
   // Mapbox canvases don't track size while display:none — recalc when the
   // user switches back from the Build-a-trail tab.
@@ -595,15 +927,22 @@ export default function MapClient({
     }
     hasUserChangedState.current = true
     if (stateFilter === 'All States') {
-      map.current.fitBounds(AUSTRALIA_BOUNDS, { padding: australiaFitPadding(isEmbedded), duration: 800 })
+      map.current.fitBounds(AUSTRALIA_BOUNDS, { padding: cameraPadding(), duration: 800 })
     } else {
       const bounds = STATE_BOUNDS[stateFilter]
-      if (bounds) map.current.fitBounds([[bounds[0], bounds[1]], [bounds[2], bounds[3]]], { padding: 40, duration: 800 })
+      if (bounds) map.current.fitBounds([[bounds[0], bounds[1]], [bounds[2], bounds[3]]], { padding: cameraPadding(), duration: 800 })
     }
   }, [stateFilter, mapReady, isEmbedded, initialCenter])
 
+  // Panel toggle — the camera re-centres into the uncovered area.
+  function togglePanel() {
+    const next = !panelOpen
+    setPanelOpen(next)
+    if (map.current) map.current.easeTo({ padding: cameraPadding(next), duration: 380 })
+  }
+
   const isAllVerticals = selectedVerticals.size === 0
-  const activeFilterCount = (!isAllVerticals ? 1 : 0) + (subTypeFilter !== 'all' ? 1 : 0) + (stateFilter !== 'All States' ? 1 : 0) + (search ? 1 : 0)
+  const activeFilterCount = (!isAllVerticals ? 1 : 0) + (subTypeFilter !== 'all' ? 1 : 0) + (stateFilter !== 'All States' ? 1 : 0)
 
   // Embedded legend — the nearby map ships no chrome, so coloured dots are
   // otherwise unexplained. Build a compact key from the verticals actually
@@ -619,22 +958,23 @@ export default function MapClient({
     setSelectedVerticals(new Set())
     setSubTypeFilter('all')
     setStateFilter('All States')
-    setSearch('')
   }
 
-  // Top name-search matches for the jump-to-venue dropdown. Prefix matches
-  // rank above substring matches; capped at 8 rows.
-  const nameMatches = (() => {
-    const q = search.trim().toLowerCase()
+  // Venue half of the unified search — prefix matches rank above substring
+  // matches; capped at 5 rows (the towns section sits beneath).
+  const venueMatches = (() => {
+    const q = query.trim().toLowerCase()
     if (q.length < 2) return []
     const starts = [], contains = []
     for (const l of allListings) {
       const n = l.name ? l.name.toLowerCase() : ''
-      if (n.startsWith(q)) { starts.push(l); if (starts.length >= 8) break }
-      else if (n.includes(q) && contains.length < 8) contains.push(l)
+      if (n.startsWith(q)) { starts.push(l); if (starts.length >= 5) break }
+      else if (n.includes(q) && contains.length < 5) contains.push(l)
     }
-    return [...starts, ...contains].slice(0, 8)
+    return [...starts, ...contains].slice(0, 5)
   })()
+
+  const hasSearchResults = venueMatches.length > 0 || placeResults.length > 0
 
   // Sub-type pills only shown when exactly one vertical is selected
   const currentSubTypes = singleSelectedVertical ? SUB_TYPE_LABELS[singleSelectedVertical] || {} : {}
@@ -642,7 +982,7 @@ export default function MapClient({
 
   const rootStyle = isEmbedded
     ? { position: 'relative', width: '100%', height: '100%', background: '#faf8f5' }
-    : { position: 'fixed', inset: 0, zIndex: 50, background: '#faf8f5' }
+    : { position: 'fixed', inset: 0, zIndex: 50, background: '#F1EADB' }
 
   // Map / Build-a-trail switch. 'inline' sits flush on the desktop toolbar's
   // own top row (no shadow, transparent — it IS the bar). 'floating' is the
@@ -680,6 +1020,59 @@ export default function MapClient({
     </div>
   )
 
+  // Unified search dropdown — venues first, then towns/places.
+  const renderSearchDropdown = (widthStyle) => (
+    <div style={{
+      position: 'absolute', top: '100%', left: 0, marginTop: 4, background: '#fff',
+      border: '1px solid var(--color-border)', borderRadius: 8,
+      boxShadow: '0 8px 28px rgba(28,26,23,0.16)', zIndex: 1000, maxHeight: 340, overflowY: 'auto',
+      ...widthStyle,
+    }}>
+      {venueMatches.length > 0 && (
+        <div style={{ padding: '7px 11px 3px', fontSize: 8.5, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-muted)' }}>Venues</div>
+      )}
+      {venueMatches.map(l => (
+        <button key={l.id} onClick={() => jumpToVenue(l)} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 11px', minHeight: 40, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-sans)' }}>
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: verticalColor(l.vertical), flexShrink: 0 }} />
+          <span style={{ minWidth: 0 }}>
+            <span style={{ display: 'block', fontSize: 12.5, color: 'var(--color-ink)', fontWeight: 500, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.name}</span>
+            <span style={{ display: 'block', fontSize: 10, color: 'var(--color-muted)', marginTop: 1 }}>{[getVerticalBadge(l.vertical), l.region, l.state].filter(Boolean).join(' · ')}</span>
+          </span>
+        </button>
+      ))}
+      {placeResults.length > 0 && (
+        <div style={{ padding: '7px 11px 3px', fontSize: 8.5, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-muted)', borderTop: venueMatches.length ? '1px solid var(--color-border)' : 'none' }}>Towns &amp; places</div>
+      )}
+      {placeResults.slice(0, 5).map(f => (
+        <button key={f.id} onClick={() => handlePlaceSelect(f)} style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 11px', minHeight: 40, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-sans)' }}>
+          <PlacePin />
+          <span style={{ minWidth: 0, flex: 1 }}>
+            <span style={{ display: 'block', fontSize: 12.5, color: 'var(--color-ink)', fontWeight: 500, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.text}</span>
+            <span style={{ display: 'block', fontSize: 10, color: 'var(--color-muted)', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.place_name.replace(f.text + ', ', '')}</span>
+          </span>
+          <span style={{ flexShrink: 0, fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#5f8a7e', background: 'rgba(95,138,126,0.1)', borderRadius: 3, padding: '2px 6px' }}>{placeTypeLabel(f)}</span>
+        </button>
+      ))}
+    </div>
+  )
+
+  const searchInputProps = {
+    value: query,
+    onChange: e => { setQuery(e.target.value); setShowSearchDropdown(!!e.target.value) },
+    onFocus: () => { if (hasSearchResults) setShowSearchDropdown(true) },
+    onKeyDown: e => {
+      if (e.key === 'Enter') {
+        if (venueMatches.length) jumpToVenue(venueMatches[0])
+        else if (placeResults.length) handlePlaceSelect(placeResults[0])
+      }
+      if (e.key === 'Escape') setShowSearchDropdown(false)
+    },
+    placeholder: 'Search venues, towns, places…',
+    'aria-label': 'Search venues, towns and places',
+  }
+
+  const selectedMeta = selected ? cardMeta[selected.id] : null
+
   return (
     <div style={rootStyle}>
       {/* ── TAB TOGGLE: Map / Build a trail (floating copy) ──
@@ -715,75 +1108,56 @@ export default function MapClient({
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden', display: !isEmbedded && activeTab === 'builder' ? 'none' : 'block' }}>
         {/* ── DESKTOP TOOLBAR (overlays map) — fullscreen mode only ── */}
         {!isEmbedded && (
-        <div className="map-desktop-toolbar" style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
-          {/* Row 0: Map / Build a trail — the toggle is the toolbar's own top
-              row here, so it reads as part of the bar rather than a pill
-              floating above it. (Mobile/builder use the floating copy above.) */}
-          <div style={{ display: 'flex', alignItems: 'center', padding: '10px 20px 0', background: 'rgba(250,248,245,0.97)', backdropFilter: 'blur(8px)' }}>
+        <div ref={toolbarRef} className="map-desktop-toolbar" style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
+          {/* Row 0: Map / Build a trail + a way back to the site. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 20px 0', background: 'rgba(250,248,245,0.97)', backdropFilter: 'blur(8px)' }}>
             {renderTabToggle('inline')}
+            <a href="/" style={{ marginLeft: 'auto', fontFamily: 'var(--font-serif)', fontSize: 13, color: 'var(--color-muted)', textDecoration: 'none', letterSpacing: '0.01em' }}>
+              ✳ Australian Atlas
+            </a>
           </div>
-          {/* Row 1: name + location search, vertical + state filters */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px 8px', borderBottom: hasSubTypes ? 'none' : '1px solid var(--color-border)', background: 'rgba(250,248,245,0.97)', backdropFilter: 'blur(8px)', flexWrap: 'wrap' }}>
-            <div ref={nameSearchRef} style={{ position: 'relative' }}>
-              <input
-                value={search}
-                onChange={e => { setSearch(e.target.value); setShowNameDropdown(!!e.target.value) }}
-                onFocus={() => { if (nameMatches.length) setShowNameDropdown(true) }}
-                onKeyDown={e => { if (e.key === 'Enter' && nameMatches.length) flyToListing(nameMatches[0]); if (e.key === 'Escape') setShowNameDropdown(false) }}
-                placeholder="Search by name…"
-                aria-label="Search venues by name"
-                style={{ padding: '6px 12px', background: '#fff', border: '1px solid var(--color-border)', color: 'var(--color-ink)', fontSize: 12, outline: 'none', borderRadius: 2, width: 170, fontFamily: 'var(--font-sans)' }}
+          {/* Row 1: unified search, vertical chips, state select, count */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px 9px', borderBottom: hasSubTypes ? 'none' : '1px solid var(--color-border)', background: 'rgba(250,248,245,0.97)', backdropFilter: 'blur(8px)', flexWrap: 'wrap' }}>
+            <div ref={searchRef} style={{ position: 'relative', width: 250 }}>
+              <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', display: 'flex', pointerEvents: 'none' }} aria-hidden="true">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-muted)" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              </span>
+              <input {...searchInputProps}
+                style={{ padding: '7px 12px 7px 30px', background: '#fff', border: '1px solid var(--color-border)', color: 'var(--color-ink)', fontSize: 12, outline: 'none', borderRadius: 6, width: '100%', fontFamily: 'var(--font-sans)', boxSizing: 'border-box' }}
               />
-              {showNameDropdown && nameMatches.length > 0 && (
-                <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: 2, width: 280, background: '#fff', border: '1px solid var(--color-border)', borderRadius: 4, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', zIndex: 1000, maxHeight: 300, overflowY: 'auto' }}>
-                  {nameMatches.map(l => (
-                    <button key={l.id} onClick={() => flyToListing(l)} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 10px', background: 'none', border: 'none', borderBottom: '1px solid var(--color-border)', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-sans)' }}>
-                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: verticalColor(l.vertical), flexShrink: 0 }} />
-                      <span style={{ minWidth: 0 }}>
-                        <span style={{ display: 'block', fontSize: 12, color: 'var(--color-ink)', fontWeight: 500, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.name}</span>
-                        <span style={{ display: 'block', fontSize: 10, color: 'var(--color-muted)', marginTop: 1 }}>{[getVerticalBadge(l.vertical), l.region, l.state].filter(Boolean).join(' · ')}</span>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            {/* Geocoding place / town search — type a town, pick it, fly there */}
-            <div ref={placeSearchRef} style={{ position: 'relative', minWidth: 170, maxWidth: 220 }}>
-              <span style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', display: 'flex', pointerEvents: 'none' }}><PlacePin /></span>
-              <input type="text" placeholder="Find a town or place…" value={placeQuery}
-                onChange={e => { setPlaceQuery(e.target.value); if (!e.target.value) setShowPlaceDropdown(false) }}
-                onFocus={() => { if (placeResults.length) setShowPlaceDropdown(true) }}
-                onKeyDown={e => { if (e.key === 'Enter' && placeResults.length) handlePlaceSelect(placeResults[0]); if (e.key === 'Escape') setShowPlaceDropdown(false) }}
-                aria-label="Find a town or place"
-                style={{ padding: '6px 12px 6px 28px', background: '#fff', border: '1px solid var(--color-border)', color: 'var(--color-ink)', fontSize: 12, outline: 'none', borderRadius: 2, width: '100%', fontFamily: 'var(--font-sans)', boxSizing: 'border-box' }} />
-              {showPlaceDropdown && placeResults.length > 0 && (
-                <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: 2, width: 320, maxWidth: '80vw', background: '#fff', border: '1px solid var(--color-border)', borderRadius: 4, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', zIndex: 1000, maxHeight: 300, overflowY: 'auto' }}>
-                  {placeResults.map(renderPlaceRow)}
-                </div>
-              )}
+              {showSearchDropdown && hasSearchResults && renderSearchDropdown({ width: 330 })}
             </div>
             <div style={{ width: 1, height: 18, background: 'var(--color-border)' }} />
             {verticalFilters.map(v => {
               const active = v.key === 'all' ? isAllVerticals : selectedVerticals.has(v.key)
+              const c = v.key === 'all' ? PRIMARY : verticalColor(v.key)
               return (
                 <button key={v.key} onClick={() => toggleVertical(v.key)} aria-pressed={active} style={{
-                  padding: '5px 12px', borderRadius: 2, border: 'none', cursor: 'pointer',
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '5px 11px', borderRadius: 14, cursor: 'pointer',
                   fontSize: 11, fontWeight: active ? 600 : 500, fontFamily: 'var(--font-sans)',
-                  background: active ? verticalColor(v.key) : 'rgba(95,138,126,0.1)',
+                  border: `1px solid ${active ? c : 'var(--color-border)'}`,
+                  background: active ? c : 'transparent',
                   color: active ? '#fff' : 'var(--color-muted)', transition: 'all 0.15s',
-                }}>{v.label}</button>
+                }}>
+                  {v.key !== 'all' && <span style={{ width: 6, height: 6, borderRadius: '50%', background: active ? '#fff' : c, flexShrink: 0 }} />}
+                  {v.label}
+                </button>
               )
             })}
             <div style={{ width: 1, height: 18, background: 'var(--color-border)' }} />
-            {STATES.map(s => (
-              <button key={s} onClick={() => setStateFilter(s)} aria-pressed={stateFilter === s} style={{
-                padding: '5px 9px', borderRadius: 2, border: 'none', cursor: 'pointer',
-                fontSize: 11, fontWeight: 500, fontFamily: 'var(--font-sans)',
-                background: stateFilter === s ? 'rgba(95,138,126,0.15)' : 'transparent',
-                color: stateFilter === s ? 'var(--color-ink)' : 'var(--color-muted)', transition: 'all 0.15s',
-              }}>{s}</button>
-            ))}
+            <select
+              value={stateFilter}
+              onChange={e => setStateFilter(e.target.value)}
+              aria-label="Filter by state"
+              style={{
+                padding: '6px 10px', borderRadius: 6, border: '1px solid var(--color-border)',
+                background: stateFilter !== 'All States' ? 'rgba(95,138,126,0.12)' : '#fff',
+                color: 'var(--color-ink)', fontSize: 11.5, fontWeight: 500, fontFamily: 'var(--font-sans)', cursor: 'pointer', outline: 'none',
+              }}
+            >
+              {STATES.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
             <div role="status" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, color: 'var(--color-muted)' }}>
               <span>{loading ? 'Loading…' : placesLabel(count)}</span>
               {activeFilterCount > 0 && (
@@ -818,6 +1192,66 @@ export default function MapClient({
         )}
         {/* Map canvas */}
         <div ref={mapContainer} style={{ position: 'absolute', inset: 0 }} />
+
+        {/* ── DESKTOP DISCOVERY PANEL — the gazetteer ── */}
+        {!isEmbedded && (
+          <div className="map-desktop-toolbar" style={{
+            position: 'absolute', top: toolbarH, bottom: 0, left: 0, zIndex: 9,
+            width: PANEL_W,
+            transform: panelOpen ? 'translateX(0)' : `translateX(-${PANEL_W}px)`,
+            transition: 'transform 0.38s cubic-bezier(0.22, 1, 0.36, 1)',
+          }}>
+            <div style={{
+              position: 'absolute', inset: 0, background: 'rgba(251,249,244,0.98)',
+              borderRight: '1px solid var(--color-border)', boxShadow: '4px 0 24px rgba(28,26,23,0.07)',
+            }}>
+              {mapReady && (
+                <DiscoveryPanel
+                  mode="panel"
+                  items={inView.items}
+                  totalInView={inView.total}
+                  totalAll={count}
+                  loading={loading}
+                  cardMeta={cardMeta}
+                  selectedId={selected?.id || null}
+                  visitedIds={visitedRef.current}
+                  onHover={setHoverState}
+                  onSelect={(l) => selectListing(l, { fly: map.current ? map.current.getZoom() < 11 : false })}
+                />
+              )}
+            </div>
+            {/* Collapse handle */}
+            <button
+              onClick={togglePanel}
+              aria-label={panelOpen ? 'Hide list' : 'Show list'}
+              aria-expanded={panelOpen}
+              style={{
+                position: 'absolute', top: '50%', right: -22, transform: 'translateY(-50%)',
+                width: 22, height: 56, borderRadius: '0 8px 8px 0',
+                background: 'rgba(251,249,244,0.98)', border: '1px solid var(--color-border)', borderLeft: 'none',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '3px 0 10px rgba(28,26,23,0.08)',
+              }}
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--color-muted)" strokeWidth="2.5" strokeLinecap="round"
+                style={{ transform: panelOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.3s' }}>
+                <path d="M9 18l6-6-6-6" />
+              </svg>
+            </button>
+          </div>
+        )}
+
+        {/* Anchored selection card — portalled into a Mapbox marker */}
+        {!isEmbedded && selected && cardPortalEl && createPortal(
+          <MapPreviewCard
+            listing={selected}
+            meta={selectedMeta}
+            variant="anchored"
+            onClose={clearSelected}
+            onVisit={markVisited}
+          />,
+          cardPortalEl
+        )}
 
         {/* Embedded legend — compact colour key for the nearby pins */}
         {isEmbedded && mapReady && (embeddedLegend.length > 0 || highlightListing) && (
@@ -858,7 +1292,7 @@ export default function MapClient({
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 6, pointerEvents: 'none' }}>
             <div style={{ pointerEvents: 'auto', textAlign: 'center', background: 'rgba(250,248,245,0.97)', border: '1px solid var(--color-border)', borderRadius: 6, padding: '20px 26px', boxShadow: '0 4px 20px rgba(0,0,0,0.10)', maxWidth: 300 }}>
               <div style={{ fontFamily: 'Georgia, serif', fontSize: 16, color: 'var(--color-ink)', marginBottom: 6 }}>No places match these filters</div>
-              <div style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--color-muted)', lineHeight: 1.5, marginBottom: 14 }}>Try a different spelling, or widen the category and state filters.</div>
+              <div style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--color-muted)', lineHeight: 1.5, marginBottom: 14 }}>Try widening the category and state filters.</div>
               <button onClick={clearAllFilters} style={{ padding: '8px 18px', background: PRIMARY, color: '#fff', border: 'none', borderRadius: 2, cursor: 'pointer', fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)' }}>
                 Clear all filters
               </button>
@@ -866,40 +1300,35 @@ export default function MapClient({
           </div>
         )}
 
-        {/* ── MOBILE LOCATION SEARCH — always-visible town / place finder ──
-            Type a town (e.g. "Newcastle"), pick it from the dropdown, fly there.
-            Mirrors the desktop toolbar's location field, which is display:none on
-            phones — without this, mobile had no way to jump to a place at all. */}
+        {/* ── MOBILE SEARCH — unified venues + towns finder ── */}
         {!isEmbedded && (
-          <div ref={mobilePlaceSearchRef} className="map-mobile-only" style={{
+          <div ref={mobileSearchRef} className="map-mobile-only" style={{
             position: 'absolute', top: 54, left: 12, right: 12, zIndex: 12, flexDirection: 'column',
           }}>
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%' }}>
-              <span style={{ position: 'absolute', left: 12, display: 'flex', pointerEvents: 'none' }}><PlacePin /></span>
-              <input type="text" inputMode="search" placeholder="Find a town or place…" value={placeQuery}
-                onChange={e => { setPlaceQuery(e.target.value); if (!e.target.value) setShowPlaceDropdown(false) }}
-                onFocus={() => { if (placeResults.length) setShowPlaceDropdown(true) }}
-                onKeyDown={e => { if (e.key === 'Enter' && placeResults.length) handlePlaceSelect(placeResults[0]); if (e.key === 'Escape') setShowPlaceDropdown(false) }}
-                aria-label="Find a town or place"
+              <span style={{ position: 'absolute', left: 12, display: 'flex', pointerEvents: 'none' }} aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-muted)" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              </span>
+              <input type="text" inputMode="search" {...searchInputProps}
                 style={{ width: '100%', padding: '11px 38px 11px 34px', background: 'rgba(255,255,255,0.98)', border: '1px solid var(--color-border)', color: 'var(--color-ink)', fontSize: 14, outline: 'none', borderRadius: 10, fontFamily: 'var(--font-sans)', boxSizing: 'border-box', boxShadow: '0 2px 10px rgba(0,0,0,0.12)' }} />
-              {placeQuery && (
-                <button onClick={() => { setPlaceQuery(''); setPlaceResults([]); setShowPlaceDropdown(false) }} aria-label="Clear location search" style={{ position: 'absolute', right: 6, width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-muted)' }}>
+              {query && (
+                <button onClick={() => { setQuery(''); setPlaceResults([]); setShowSearchDropdown(false) }} aria-label="Clear search" style={{ position: 'absolute', right: 6, width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-muted)' }}>
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
                 </button>
               )}
             </div>
-            {showPlaceDropdown && placeResults.length > 0 && (
-              <div style={{ marginTop: 6, background: '#fff', border: '1px solid var(--color-border)', borderRadius: 10, boxShadow: '0 6px 24px rgba(0,0,0,0.16)', overflow: 'hidden', maxHeight: '50vh', overflowY: 'auto' }}>
-                {placeResults.map(renderPlaceRow)}
+            {showSearchDropdown && hasSearchResults && (
+              <div style={{ position: 'relative' }}>
+                {renderSearchDropdown({ width: '100%', maxHeight: '50vh' })}
               </div>
             )}
           </div>
         )}
 
         {/* Mobile count chip — the toolbar (and its count) is desktop-only.
-            Sits just under the location-search bar; hidden while its dropdown
-            is open so the two never collide. */}
-        {!isEmbedded && !mobileSheetOpen && !(showPlaceDropdown && placeResults.length > 0) && (
+            Sits just under the search bar; hidden while its dropdown is open
+            so the two never collide. */}
+        {!isEmbedded && !mobileSheetOpen && !(showSearchDropdown && hasSearchResults) && (
           <div className="map-mobile-only" role="status" style={{
             position: 'absolute', top: 104, left: '50%', transform: 'translateX(-50%)', zIndex: 8,
             background: 'rgba(250,248,245,0.95)', border: '1px solid var(--color-border)', borderRadius: 12,
@@ -911,9 +1340,9 @@ export default function MapClient({
           </div>
         )}
 
-        {/* Desktop legend — fullscreen mode only */}
+        {/* Desktop legend — fullscreen mode only; slides with the panel */}
         {!isEmbedded && (
-        <div className="map-desktop-toolbar" style={{ position: 'absolute', bottom: 40, left: 16, background: 'rgba(250,248,245,0.97)', border: '1px solid var(--color-border)', borderRadius: 4, zIndex: 5, overflow: 'hidden' }}>
+        <div className="map-desktop-toolbar" style={{ position: 'absolute', bottom: 40, left: panelOpen ? PANEL_W + 16 : 16, transition: 'left 0.38s cubic-bezier(0.22, 1, 0.36, 1)', background: 'rgba(250,248,245,0.97)', border: '1px solid var(--color-border)', borderRadius: 4, zIndex: 5, overflow: 'hidden' }}>
           <button onClick={() => setLegendCollapsed(c => !c)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', gap: 24 }}>
             <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', fontFamily: 'var(--font-sans)' }}>Legend</span>
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--color-muted)" strokeWidth="2.5" style={{ transform: legendCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}><path d="M6 9l6 6 6-6"/></svg>
@@ -944,7 +1373,7 @@ export default function MapClient({
         {/* ── MOBILE FABs — fullscreen mode only ── */}
         {!isEmbedded && (
         <>
-        <button className="map-mobile-only" onClick={() => setMobileSheetOpen(o => !o)} style={{
+        <button className="map-mobile-only" onClick={() => setMobileSheetOpen(o => !o)} aria-label="Filters" style={{
           position: 'absolute', bottom: 100, right: 16, zIndex: 10,
           width: 48, height: 48, borderRadius: '50%',
           background: mobileSheetOpen ? PRIMARY : 'rgba(250,248,245,0.97)',
@@ -954,7 +1383,7 @@ export default function MapClient({
         }}>
           {mobileSheetOpen
             ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
-            : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={activeFilterCount > 0 ? PRIMARY : 'var(--color-muted)'} strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={activeFilterCount > 0 ? PRIMARY : 'var(--color-muted)'} strokeWidth="2" strokeLinecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
           }
           {activeFilterCount > 0 && !mobileSheetOpen && (
             <span style={{ position: 'absolute', top: 8, right: 8, width: 8, height: 8, borderRadius: '50%', background: PRIMARY, border: '1.5px solid white' }} />
@@ -965,7 +1394,7 @@ export default function MapClient({
           if (!navigator.geolocation) return
           navigator.geolocation.getCurrentPosition(
             (pos) => {
-              map.current?.flyTo({ center: [pos.coords.longitude, pos.coords.latitude], zoom: 12, duration: 1200 })
+              map.current?.flyTo({ center: [pos.coords.longitude, pos.coords.latitude], zoom: 12, padding: cameraPadding(), duration: 1200 })
             },
             () => {},
             { enableHighAccuracy: true, timeout: 8000 }
@@ -984,7 +1413,7 @@ export default function MapClient({
           </svg>
         </button>
 
-        <button className="map-mobile-only" onClick={() => setMobileLegendOpen(o => !o)} style={{
+        <button className="map-mobile-only" onClick={() => setMobileLegendOpen(o => !o)} aria-label="Legend" style={{
           position: 'absolute', bottom: 220, right: 16, zIndex: 10,
           width: 48, height: 48, borderRadius: '50%',
           background: 'rgba(250,248,245,0.97)', border: '1px solid var(--color-border)',
@@ -1013,7 +1442,60 @@ export default function MapClient({
           </div>
         )}
 
-        {/* ── MOBILE BOTTOM SHEET ── */}
+        {/* Mobile "List" pill — persistent, labelled (a hidden toggle is a
+            dead toggle), opens the gazetteer as a full sheet. */}
+        {!mobileSheetOpen && !mobileListOpen && (
+          <button className="map-mobile-only" onClick={() => { clearSelected(); setMobileListOpen(true) }} style={{
+            position: 'absolute', bottom: 28, left: '50%', transform: 'translateX(-50%)', zIndex: 11,
+            alignItems: 'center', gap: 7, padding: '11px 20px', borderRadius: 24,
+            background: 'var(--color-ink)', color: 'var(--color-cream)', border: 'none',
+            boxShadow: '0 4px 16px rgba(28,26,23,0.3)', cursor: 'pointer',
+            fontFamily: 'var(--font-sans)', fontSize: 12.5, fontWeight: 600, letterSpacing: '0.03em',
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+            List{mapReady && !loading ? ` · ${inView.total.toLocaleString()}` : ''}
+          </button>
+        )}
+
+        {/* Mobile list sheet — the gazetteer, full height */}
+        {mobileListOpen && (
+          <div className="map-mobile-only" style={{
+            position: 'absolute', inset: 0, top: 44, zIndex: 22, flexDirection: 'column',
+            background: 'rgba(251,249,244,0.99)', borderRadius: '16px 16px 0 0',
+            boxShadow: '0 -4px 24px rgba(0,0,0,0.14)', overflow: 'hidden',
+          }}>
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--color-border)', margin: '8px auto 6px', flexShrink: 0 }} />
+            <DiscoveryPanel
+              mode="sheet"
+              items={inView.items}
+              totalInView={inView.total}
+              totalAll={count}
+              loading={loading}
+              cardMeta={cardMeta}
+              selectedId={selected?.id || null}
+              visitedIds={visitedRef.current}
+              onHover={() => {}}
+              onSelect={(l) => { setMobileListOpen(false); selectListing(l, { fly: true }) }}
+              onClose={() => setMobileListOpen(false)}
+            />
+          </div>
+        )}
+
+        {/* Mobile docked selection card — Google Maps pattern: the map stays
+            pannable behind it; explicit X to dismiss. */}
+        {selected && !mobileListOpen && (
+          <div className="map-mobile-only" style={{ position: 'absolute', left: 10, right: 10, bottom: 84, zIndex: 21, flexDirection: 'column' }}>
+            <MapPreviewCard
+              listing={selected}
+              meta={selectedMeta}
+              variant="docked"
+              onClose={clearSelected}
+              onVisit={markVisited}
+            />
+          </div>
+        )}
+
+        {/* ── MOBILE FILTER SHEET ── */}
         {mobileSheetOpen && (
           <div className="map-mobile-only" style={{
             position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 20,
@@ -1026,29 +1508,8 @@ export default function MapClient({
           }}>
             <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--color-border)', margin: '4px auto 16px' }} />
 
-            {/* Search */}
-            <div style={{ padding: '0 20px 16px', borderBottom: '1px solid var(--color-border)' }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', marginBottom: 8, fontFamily: 'var(--font-sans)' }}>Search by name</div>
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="e.g. venue name…"
-                aria-label="Search venues by name"
-                style={{ width: '100%', padding: '9px 12px', background: '#fff', border: '1px solid var(--color-border)', color: 'var(--color-ink)', fontSize: 13, outline: 'none', borderRadius: 4, fontFamily: 'var(--font-sans)', boxSizing: 'border-box' }} />
-              {nameMatches.length > 0 && (
-                <div style={{ marginTop: 8, border: '1px solid var(--color-border)', borderRadius: 4, overflow: 'hidden' }}>
-                  {nameMatches.slice(0, 5).map(l => (
-                    <button key={l.id} onClick={() => flyToListing(l)} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 12px', minHeight: 44, background: '#fff', border: 'none', borderBottom: '1px solid var(--color-border)', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-sans)' }}>
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: verticalColor(l.vertical), flexShrink: 0 }} />
-                      <span style={{ minWidth: 0 }}>
-                        <span style={{ display: 'block', fontSize: 13, color: 'var(--color-ink)', fontWeight: 500, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.name}</span>
-                        <span style={{ display: 'block', fontSize: 10, color: 'var(--color-muted)', marginTop: 1 }}>{[getVerticalBadge(l.vertical), l.region, l.state].filter(Boolean).join(' · ')}</span>
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
             {/* Vertical filters */}
-            <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--color-border)' }}>
+            <div style={{ padding: '0 20px 14px', borderBottom: '1px solid var(--color-border)' }}>
               <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', marginBottom: 10, fontFamily: 'var(--font-sans)' }}>Category</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {verticalFilters.map(v => {
@@ -1142,9 +1603,17 @@ export default function MapClient({
         .nbx-popup.mapboxgl-popup-anchor-right .mapboxgl-popup-tip { border-left-color: #faf8f5 !important; }
         .mapboxgl-popup-close-button { font-size: 18px !important; padding: 4px 8px !important; color: #9a8878 !important; }
         .map-hover-tip { pointer-events: none !important; }
-        .map-hover-tip .mapboxgl-popup-content { padding: 8px 11px !important; box-shadow: 0 2px 10px rgba(0,0,0,0.10) !important; }
+        .map-hover-tip .mapboxgl-popup-content { padding: 8px 11px !important; box-shadow: 0 2px 10px rgba(0,0,0,0.10) !important; border-radius: 7px !important; }
         .map-spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(95,138,126,0.25); border-top-color: #5f8a7e; animation: map-spin 0.8s linear infinite; display: inline-block; flex-shrink: 0; }
         @keyframes map-spin { to { transform: rotate(360deg); } }
+        .atlas-donut { cursor: pointer; filter: drop-shadow(0 2px 6px rgba(28,26,23,0.22)); transition: transform 0.16s ease; }
+        .atlas-donut:hover { transform: scale(1.08); }
+        @media (prefers-reduced-motion: reduce) {
+          .atlas-donut, .atlas-donut:hover { transition: none; transform: none; }
+        }
+        .map-card-anchor { z-index: 30; }
+        .map-panel-row:hover { background: rgba(95,138,126,0.06) !important; }
+        .map-panel-row:focus-visible { outline: 2px solid #5f8a7e; outline-offset: -2px; }
         .map-mobile-only { display: none !important; }
         @media (max-width: 768px) {
           .map-desktop-toolbar { display: none !important; }
@@ -1159,18 +1628,17 @@ export default function MapClient({
 
 // ── Helpers ──
 
-function getFiltered(listings, selectedVerticals, subTypeFilter, stateFilter, search) {
+function getFiltered(listings, selectedVerticals, subTypeFilter, stateFilter) {
   return listings.filter(l => {
     const matchVertical = selectedVerticals.size === 0 || listingVerticals(l).some(v => selectedVerticals.has(v))
     const matchSubType = subTypeFilter === 'all' || l.sub_type === subTypeFilter
     const matchState = stateFilter === 'All States' || l.state === stateFilter
-    const matchSearch = !search || l.name.toLowerCase().includes(search.toLowerCase())
-    return matchVertical && matchSubType && matchState && matchSearch
+    return matchVertical && matchSubType && matchState
   })
 }
 
-// Shared between the GeoJSON pin source and the search-result fly-to popup,
-// so a popup opened either way renders identically.
+// Shared between the GeoJSON pin source and the embedded popup path, so a
+// popup opened from a pin or from the nearby list renders identically.
 function listingToProps(l) {
   const subTypes = SUB_TYPE_LABELS[l.vertical] || {}
   // _dist (place-page nearby set) or distance_km (RPC rows) — either is the
@@ -1196,6 +1664,7 @@ function listingToProps(l) {
 
 // `props` is either listingToProps() output or mapbox feature.properties —
 // the latter stringifies values, hence the 'null'/'true' string checks.
+// (Embedded mode only — the fullscreen map renders <MapPreviewCard/> instead.)
 function buildPopupHTML(props, { isCurrent = false } = {}) {
   const desc = props.description && props.description !== 'null'
     ? (props.description.length > 120 ? props.description.slice(0, 120).trimEnd() + '…' : props.description)
