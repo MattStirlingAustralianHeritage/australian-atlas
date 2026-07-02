@@ -6,7 +6,11 @@ import { sendSyncAlert } from '../../../../lib/sync/alerts.js'
 import { getSupabaseAdmin } from '../../../../lib/supabase/clients.js'
 import { startRun, completeRun } from '../../../../lib/agents/logRun.js'
 
-export const maxDuration = 300
+// The vertical sync is ~7k listings × 2 sequential PostgREST round trips
+// (listing + meta upsert per row) — that alone exceeds 300s at current
+// network size, and the platform kill strands the run mid-work. 800 is the
+// Fluid-compute ceiling; the durable fix is batching those upserts.
+export const maxDuration = 800
 
 // Standard verticals (single source table)
 const STANDARD_VERTICALS = [

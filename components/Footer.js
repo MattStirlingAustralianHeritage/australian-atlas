@@ -60,7 +60,29 @@ export default async function Footer() {
     <footer style={{ background: '#1A1A1A' }}>
       {/* The ten grounds as a woven hairline — the network's signature thread. */}
       <div className="spectrum-hairline" aria-hidden="true" />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-14 pb-10">
+      {/* Ghost wordmark — the site signs off at full display scale, barely
+          above the ink. Decorative only. */}
+      <p
+        aria-hidden="true"
+        style={{
+          fontFamily: 'var(--font-display)',
+          fontStyle: 'italic',
+          fontWeight: 380,
+          fontSize: 'clamp(64px, 11vw, 168px)',
+          lineHeight: 0.95,
+          letterSpacing: '-0.02em',
+          color: 'rgba(250, 248, 244, 0.055)',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          userSelect: 'none',
+          textAlign: 'center',
+          margin: 0,
+          padding: '30px 8px 0',
+        }}
+      >
+        Australian Atlas
+      </p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-10 pb-10">
         <div className="grid grid-cols-2 gap-x-8 gap-y-10 md:grid-cols-4">
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">

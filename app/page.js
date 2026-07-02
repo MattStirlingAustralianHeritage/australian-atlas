@@ -2,7 +2,6 @@ import LocalizedLink from '@/components/LocalizedLink'
 import { getTranslations } from 'next-intl/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import HomeSearchBar from '@/components/HomeSearchBar'
-import HomeMapSection from '@/components/HomeMapSection'
 import NewsletterSignup from '@/components/NewsletterSignup'
 import ScrollReveal from '@/components/ScrollReveal'
 import NearbySection from '@/components/NearbySection'
@@ -332,6 +331,25 @@ async function getFeaturedListings() {
   }
 }
 
+// Latest additions across the network — the ticker's feed. Real names from the
+// live index, newest first; anything short of a full row means no ticker.
+async function getRecentListings() {
+  try {
+    const sb = getSupabaseAdmin()
+    const { data } = await sb
+      .from('listings')
+      .select('id, name, slug, region, state, vertical')
+      .eq('status', 'active')
+      .not('name', 'ilike', '\\_%')
+      .not('slug', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(20)
+    return data || []
+  } catch {
+    return []
+  }
+}
+
 async function getUpcomingEvents() {
   try {
     const sb = getSupabaseAdmin()
@@ -353,8 +371,8 @@ export default async function Home() {
   const t = await getTranslations('home')
   const publicVerticals = getPublicVerticals()
   const verticalCount = publicVerticals.length
-  const [stats, articlesRaw, clusters, featured, upcomingEvents] = await Promise.all([
-    getStats(publicVerticals), getLatestArticles(), getDiscoverClusters(), getFeaturedListings(), getUpcomingEvents(),
+  const [stats, articlesRaw, clusters, featured, upcomingEvents, recentListings] = await Promise.all([
+    getStats(publicVerticals), getLatestArticles(), getDiscoverClusters(), getFeaturedListings(), getUpcomingEvents(), getRecentListings(),
   ])
   // States that actually have upcoming events become the "browse by state"
   // chips (in fixed geographic order); the soonest six show as cards.
@@ -376,7 +394,7 @@ export default async function Home() {
         style={{
           minHeight: 'clamp(360px, 60vh, 640px)',
           paddingTop: '3rem',
-          paddingBottom: '2.5rem',
+          paddingBottom: 0,
           background: 'linear-gradient(180deg, #FAF8F4 0%, #F0EBE3 100%)',
         }}
       >
@@ -493,6 +511,34 @@ export default async function Home() {
             {t('nearMe')}
           </LocalizedLink>
         </div>
+
+        {/* The living atlas, IN the masthead — every verified place as a dot in
+            its vertical's colour, rising out of the hero ground. One image, one
+            link, zero client JS; the former standalone map strip is absorbed
+            here so the first viewport IS the atlas. */}
+        <LocalizedLink
+          href="/map"
+          aria-label="Open the full interactive map of Australia — every verified place, mapped"
+          className="hero-map"
+        >
+          <picture>
+            <source srcSet="/maps/home-map-atlas.webp" type="image/webp" />
+            <img
+              src="/maps/home-map-atlas.jpg"
+              alt=""
+              width={2560}
+              height={680}
+              loading="eager"
+              decoding="async"
+            />
+          </picture>
+          <span className="hero-map-cta">
+            Open the full map
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M9 5l7 7-7 7" />
+            </svg>
+          </span>
+        </LocalizedLink>
       </section>
 
       {/* ── 1b. Living spectrum spine — full-bleed colour masthead ── */}
@@ -521,8 +567,43 @@ export default async function Home() {
         })}
       </nav>
 
-      {/* ── 2. Map Strip ────────────────────────────────── */}
-      <HomeMapSection listingCount={stats.listings} />
+      {/* ── 2. The living index ticker ──────────────────── */}
+      {/* Real, newest places drifting past — proof the atlas is alive, and a
+          serendipity surface (every name is a link). Duplicated track = seamless
+          loop; the copy row is aria-hidden and untabbable. Pauses on hover;
+          reduced-motion collapses it to a static scrollable row. */}
+      {recentListings.length >= 8 && (
+        <section className="atlas-ticker" aria-label="Recently added to the Atlas">
+          <span className="atlas-ticker-label">
+            Recently added
+          </span>
+          <div className="atlas-ticker-viewport">
+            <div className="atlas-ticker-track">
+              {[0, 1].map(copy => (
+                <span key={copy} aria-hidden={copy === 1 ? 'true' : undefined} style={{ display: 'inline-flex' }}>
+                  {recentListings.map(l => (
+                    <LocalizedLink
+                      key={`${copy}-${l.id}`}
+                      href={`/place/${l.slug}`}
+                      className="atlas-ticker-item"
+                      tabIndex={copy === 1 ? -1 : undefined}
+                    >
+                      <svg width="9" height="9" viewBox="0 0 24 24" aria-hidden="true"
+                        fill={(VERTICAL_CARD_COLORS[l.vertical] || {}).bg || 'var(--color-gold)'}>
+                        <path d="M12 0l2.6 9.4L24 12l-9.4 2.6L12 24l-2.6-9.4L0 12l9.4-2.6L12 0z" />
+                      </svg>
+                      {l.name}
+                      {(l.region || l.state) && (
+                        <span className="atlas-ticker-meta">{l.region || l.state}</span>
+                      )}
+                    </LocalizedLink>
+                  ))}
+                </span>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ── 3. Worth Finding This Week ──────────────────── */}
       {/* On its own pale cream band (with hairline edges) so it reads as a
