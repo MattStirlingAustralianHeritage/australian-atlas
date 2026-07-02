@@ -37,6 +37,37 @@ function fieldsToForm(defFields, stored) {
 
 const limitFor = (f) => f.type === 'textarea' ? LIMITS.textarea : f.type === 'url' ? LIMITS.url : LIMITS.text
 
+// ── Staleness ────────────────────────────────────────────────
+// Highlights present as "right now" on the public page, so we surface their
+// age and nudge past 90 days — the same threshold the weekly operator digest
+// uses for its stale-highlights suggested action.
+const DAY_MS = 24 * 60 * 60 * 1000
+const STALE_MS = 90 * DAY_MS
+
+// Does a stored highlights object actually say anything? Mirrors the digest
+// cron's hasHighlights check — an all-blank save still stamps updated_at, and
+// there is nothing to nudge about refreshing.
+function highlightsHaveContent(h) {
+  if (!h || typeof h !== 'object') return false
+  const hi = h.hiring && typeof h.hiring === 'object' ? h.hiring : {}
+  if (hi.open === true || (hi.note || '').trim() || (hi.url || '').trim()) return true
+  const values = h.fields && typeof h.fields === 'object' ? Object.values(h.fields) : []
+  return values.some(v => Array.isArray(v) ? v.length > 0 : v != null && String(v).trim() !== '')
+}
+
+// Coarse relative label for a past timestamp: "today", "yesterday",
+// "12 days ago", "5 weeks ago", "4 months ago", "2 years ago".
+function relativeTime(ms) {
+  const days = Math.floor((Date.now() - ms) / DAY_MS)
+  if (days <= 0) return 'today'
+  if (days === 1) return 'yesterday'
+  if (days < 14) return `${days} days ago`
+  if (days < 61) return `${Math.floor(days / 7)} weeks ago`
+  if (days < 365) return `${Math.max(2, Math.floor(days / 30.44))} months ago`
+  const years = Math.floor(days / 365.25)
+  return years <= 1 ? 'a year ago' : `${years} years ago`
+}
+
 export default function HighlightsEditor({ listingId, vertical, subType, token, initialHighlights, accent }) {
   const def = useMemo(() => getHighlightDef(vertical, subType), [vertical, subType])
   const vertColor = accent || 'var(--color-sage)'
@@ -48,6 +79,12 @@ export default function HighlightsEditor({ listingId, vertical, subType, token, 
   const [hiringUrl, setHiringUrl] = useState(initHiring.url || '')
   const [hiringNote, setHiringNote] = useState(initHiring.note || '')
   const [fields, setFields] = useState(() => fieldsToForm(def.fields, init.fields))
+  // Stamped server-side on every save (lib/operator-highlights/normalize.js);
+  // absent until the operator has saved highlights at least once. The content
+  // flag tracks the last SAVED state (not the live form) so the stale nudge
+  // never fires over an all-blank save.
+  const [updatedAt, setUpdatedAt] = useState(typeof init.updated_at === 'string' ? init.updated_at : null)
+  const [savedHasContent, setSavedHasContent] = useState(() => highlightsHaveContent(init))
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -67,6 +104,12 @@ export default function HighlightsEditor({ listingId, vertical, subType, token, 
   const current = snapshot(hiringOpen, hiringUrl, hiringNote, fields)
   const dirty = current !== baselineRef.current
 
+  // Staleness: highlights read as "right now", so anything older than 90 days
+  // gets an amber nudge. Same threshold as the operator-digest suggested action.
+  const updatedMs = updatedAt ? Date.parse(updatedAt) : NaN
+  const hasUpdated = Number.isFinite(updatedMs)
+  const isStale = hasUpdated && savedHasContent && Date.now() - updatedMs > STALE_MS
+
   const hydrate = (h) => {
     const hi = (h && h.hiring) || {}
     setHiringOpen(hi.open === true)
@@ -75,6 +118,10 @@ export default function HighlightsEditor({ listingId, vertical, subType, token, 
     const form = fieldsToForm(def.fields, (h && h.fields) || {})
     setFields(form)
     baselineRef.current = snapshot(hi.open === true, hi.url || '', hi.note || '', form)
+    // The save response carries the fresh server stamp; if it's ever missing
+    // we still just saved, so "now" is the honest fallback.
+    setUpdatedAt(typeof h?.updated_at === 'string' ? h.updated_at : new Date().toISOString())
+    setSavedHasContent(highlightsHaveContent(h))
   }
 
   async function handleSave() {
@@ -114,15 +161,42 @@ export default function HighlightsEditor({ listingId, vertical, subType, token, 
         .aa-hl-save:not(:disabled):hover { opacity: 0.9; }
       `}</style>
 
-      <div style={{ marginBottom: 4 }}>
+      <div style={{ marginBottom: 4, display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)', margin: 0 }}>
           Highlights
         </h2>
+        {hasUpdated && (
+          <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: isStale ? '#b45309' : 'var(--color-muted)' }}>
+            Last updated {relativeTime(updatedMs)}
+          </span>
+        )}
       </div>
-      <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '0 0 20px', lineHeight: 1.5, maxWidth: 560 }}>
+      <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: isStale ? '0 0 12px' : '0 0 20px', lineHeight: 1.5, maxWidth: 560 }}>
         Tell visitors what you’re doing right now — it shows on your public page. Keep it plain and specific;
         leave anything blank that doesn’t apply.
       </p>
+
+      {/* ── Stale nudge — highlights older than 90 days ────── */}
+      {isStale && (
+        <div
+          role="status"
+          style={{
+            display: 'flex', alignItems: 'flex-start', gap: 10, maxWidth: 560,
+            margin: '0 0 20px', padding: '10px 14px', borderRadius: 8,
+            border: '1px solid #f0d9a8', background: '#fdf6e7', boxSizing: 'border-box',
+          }}
+        >
+          <span aria-hidden="true" style={{
+            flexShrink: 0, width: 18, height: 18, borderRadius: '50%', marginTop: 1,
+            background: '#b45309', color: '#fff', display: 'inline-flex',
+            alignItems: 'center', justifyContent: 'center',
+            fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 700, lineHeight: 1,
+          }}>!</span>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: 12.5, color: '#92400e', margin: 0, lineHeight: 1.5 }}>
+            Travellers see this as current — refresh it for the season.
+          </p>
+        </div>
+      )}
 
       {/* ── Hiring ─────────────────────────────────────────── */}
       <div style={cardStyle}>

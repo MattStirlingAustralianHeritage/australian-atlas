@@ -48,6 +48,7 @@ const EXPECTED = {
   'backlink-builder': 800,       // monthly
   'user-reactivation': 800,      // monthly
   'listing-velocity': 800,       // monthly
+  'regional-letter': 800,        // monthly heartbeat (self-skips off-quarter months)
 }
 
 const STRANDED_HOURS = 6

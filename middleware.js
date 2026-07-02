@@ -67,6 +67,20 @@ export async function middleware(request, event) {
       : NextResponse.next({ request: { headers } })
   }
 
+  // ── /embed/*: publicly iframeable surfaces (operator Atlas card) ──
+  // next.config.mjs sets X-Frame-Options: SAMEORIGIN globally, which would
+  // block operators from iframing their Atlas card on their own websites. Per
+  // the CSP spec, a `frame-ancestors` directive overrides X-Frame-Options
+  // wherever both are present (all modern browsers honour this), so setting it
+  // here exempts ONLY these routes without loosening the global header. Embeds
+  // are anonymous, cache-friendly documents — return before any auth/session
+  // work so no Supabase cookies are ever set on an embed response.
+  if (basePath.startsWith('/embed/')) {
+    const embedResponse = makeResponse()
+    embedResponse.headers.set('Content-Security-Policy', 'frame-ancestors *')
+    return embedResponse
+  }
+
   // ── Admin routes: check FIRST, before Supabase touches cookies ──
   if (basePath.startsWith('/admin') && !basePath.startsWith('/admin/login')) {
     const adminToken = request.cookies.get('atlas_admin')?.value

@@ -2,6 +2,8 @@
 
 import { useAuth } from '../layout'
 import AiVisibilitySection from '@/components/dashboard/AiVisibilitySection'
+import BenchmarksSection from '@/components/dashboard/BenchmarksSection'
+import DemandSection from '@/components/dashboard/DemandSection'
 
 const VERTICAL_LABELS = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
@@ -511,6 +513,16 @@ export default function DashboardAnalytics() {
           </div>
         </div>
       )}
+
+      {/* Anonymised peer benchmarks — how each listing compares with active
+          venues of the same vertical + state (self-fetching; handles its own
+          loading / locked / hidden states, paid-gated by the API) */}
+      {listings.length > 0 && <BenchmarksSection listings={listings} />}
+
+      {/* Search demand — what travellers searched: queries you appeared for,
+          network-wide unmet searches, keyword hints (self-fetching; handles
+          its own loading / locked / hidden states, paid-gated by the API) */}
+      {listings.length > 0 && <DemandSection listings={listings} />}
 
       {/* Empty state */}
       {!loading && !error && listings.length === 0 && (

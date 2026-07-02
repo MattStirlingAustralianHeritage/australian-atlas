@@ -538,6 +538,19 @@ async function handlePaidClaimAutoApprove(sb, {
     console.log(`[stripe-webhook] Auto-approved + granted claim ${resolvedClaimId} for listing ${effectiveListingId}`)
   } else {
     console.error(`[stripe-webhook] grantClaim failed for claim ${resolvedClaimId}:`, grant.error)
+    // A customer has PAID and holds no grant. Alert, then throw so the event is
+    // NOT recorded as processed and Stripe retries — grantClaim is idempotent.
+    try {
+      const { sendAgentEmail } = await import('@/lib/agents/email')
+      await sendAgentEmail({
+        subject: `[Atlas] URGENT — paid claim grant FAILED for ${listingName || effectiveListingId}`,
+        html: `<p>checkout.session.completed succeeded but grantClaim failed — the operator has paid and has no access yet. Stripe will retry this webhook.</p>
+          <ul><li><strong>Claim:</strong> ${resolvedClaimId}</li><li><strong>Listing:</strong> ${effectiveListingId}</li><li><strong>Email:</strong> ${effectiveEmail}</li><li><strong>Subscription:</strong> ${subscriptionId}</li><li><strong>Error:</strong> ${grant.error}</li></ul>`,
+      })
+    } catch (alertErr) {
+      console.error('[stripe-webhook] Failed to send grant-failure alert:', alertErr.message)
+    }
+    throw new Error(`grantClaim failed for paid claim ${resolvedClaimId}: ${grant.error}`)
   }
 
   // ── 6. Send approval email ─────────────────────────────────────────────────
@@ -642,6 +655,18 @@ async function handleUpgradeCheckout(sb, {
     console.log(`[stripe-webhook] Upgraded listing ${listingId} to standard (subscription ${subscriptionId})`)
   } else {
     console.error(`[stripe-webhook] Upgrade grant failed for listing ${listingId}:`, grant.error)
+    // Paid upgrade with no grant — alert, then throw so Stripe retries (grantClaim is idempotent).
+    try {
+      const { sendAgentEmail } = await import('@/lib/agents/email')
+      await sendAgentEmail({
+        subject: `[Atlas] URGENT — paid upgrade grant FAILED for listing ${listingId}`,
+        html: `<p>atlas_upgrade_checkout completed but grantClaim failed — the operator has paid and editing is still locked. Stripe will retry this webhook.</p>
+          <ul><li><strong>Listing:</strong> ${listingId}</li><li><strong>Email:</strong> ${customerEmail}</li><li><strong>Subscription:</strong> ${subscriptionId}</li><li><strong>Error:</strong> ${grant.error}</li></ul>`,
+      })
+    } catch (alertErr) {
+      console.error('[stripe-webhook] Failed to send upgrade grant-failure alert:', alertErr.message)
+    }
+    throw new Error(`grantClaim upgrade failed for listing ${listingId}: ${grant.error}`)
   }
 
   // ── Confirmation email: editing is now unlocked ──
