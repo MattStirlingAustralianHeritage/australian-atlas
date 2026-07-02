@@ -268,6 +268,63 @@ export default function MapClient({
     const t = setTimeout(() => setAppliedPinQuery(pinQuery.trim()), 220)
     return () => clearTimeout(t)
   }, [pinQuery])
+
+  // Semantic half of the filter: the same hybrid pipeline as /search
+  // (embeddings + RRF + synonym enrichment + cross-encoder rerank). The
+  // response's `pins` array is the WHOLE ranked pool with the portal listing
+  // ids the map already uses, plus a per-vertical relevance-floor `strong`
+  // flag. Local token matching answers instantly; these results union in
+  // ~a second later and re-rank the gazetteer. Fails open to local-only.
+  const [semantic, setSemantic] = useState(null) // { query, ids:Set, rank:Map }
+  const [semanticLoading, setSemanticLoading] = useState(false)
+  const semanticCache = useRef(new Map())
+  const semanticAbort = useRef(null)
+  useEffect(() => {
+    if (isEmbedded) return
+    const q = appliedPinQuery
+    if (!q || q.length < 3) { setSemantic(null); setSemanticLoading(false); return }
+    const cached = semanticCache.current.get(q)
+    if (cached) { setSemantic(cached); setSemanticLoading(false); return }
+    const ctrl = new AbortController()
+    semanticAbort.current?.abort()
+    semanticAbort.current = ctrl
+    setSemanticLoading(true)
+    // Extra pause on top of the applied-query debounce — the search route
+    // embeds the query (rate-limited 60/min), so only fire on a real pause.
+    const t = setTimeout(async () => {
+      try {
+        // bind=0: the filter answers WHAT, the map handles WHERE — don't let
+        // a place-looking query pivot to geographic search. limit=1 keeps the
+        // paged listings payload minimal; `pins` is always the full pool.
+        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&bind=0&limit=1`, { signal: ctrl.signal })
+        if (!res.ok) throw new Error(`search ${res.status}`)
+        const data = await res.json()
+        const pins = Array.isArray(data.pins) ? data.pins : []
+        // Strong rows cleared the calibrated relevance floor — that's the
+        // filter's quality bar. Weak-only pools are better than nothing.
+        const usable = pins.some(p => p.strong) ? pins.filter(p => p.strong) : pins
+        const entry = {
+          query: q,
+          ids: new Set(usable.map(p => p.id)),
+          rank: new Map(usable.map((p, i) => [p.id, i])),
+        }
+        semanticCache.current.set(q, entry)
+        if (semanticCache.current.size > 40) semanticCache.current.delete(semanticCache.current.keys().next().value)
+        setSemantic(entry)
+      } catch (e) {
+        if (e.name !== 'AbortError') setSemantic(null) // fail open: local matching still applies
+      } finally {
+        if (!ctrl.signal.aborted) setSemanticLoading(false)
+      }
+    }, 450)
+    return () => { clearTimeout(t); ctrl.abort() }
+  }, [appliedPinQuery, isEmbedded])
+
+  // Rank map for the gazetteer sort — only when it belongs to the live query.
+  const semanticRankRef = useRef(null)
+  useEffect(() => {
+    semanticRankRef.current = semantic && semantic.query === appliedPinQuery ? semantic.rank : null
+  }, [semantic, appliedPinQuery])
   const [loading, setLoading] = useState(true)
   const [count, setCount] = useState(0)
   const [mapReady, setMapReady] = useState(false)
@@ -551,10 +608,16 @@ export default function MapClient({
       const lng = parseFloat(l.lng), lat = parseFloat(l.lat)
       if (lng >= west && lng <= east && lat >= south && lat <= north) within.push(l)
     }
-    // Featured venues lead; the rest read as an index. (On a map, selection
-    // beats ordering — the list is a scan surface, so stable A–Z after the
-    // featured tier keeps it calm while the user pans.)
+    // With an active semantic filter, relevance order wins. Otherwise:
+    // featured venues lead; the rest read as an index (on a map, selection
+    // beats ordering — stable A–Z keeps the list calm while the user pans).
+    const rank = semanticRankRef.current
     within.sort((a, b2) => {
+      if (rank) {
+        const ra = rank.has(a.id) ? rank.get(a.id) : Infinity
+        const rb = rank.has(b2.id) ? rank.get(b2.id) : Infinity
+        if (ra !== rb) return ra - rb
+      }
       if (!!a.is_featured !== !!b2.is_featured) return a.is_featured ? -1 : 1
       return String(a.name).localeCompare(String(b2.name))
     })
@@ -989,10 +1052,15 @@ export default function MapClient({
     if (!mapReady || !map.current) return
     const base = getFiltered(allListings, selectedVerticals, subTypeFilter, stateFilter)
     // The smart query splits the base set: matches keep colour, clustering,
-    // labels and counts; the rest grey out underneath as context.
+    // labels and counts; the rest grey out underneath as context. A listing
+    // matches on local tokens (instant, complete for category words) OR on
+    // the semantic result set from the /search pipeline (rice-lager-grade
+    // recall, landing a beat later).
     const tokens = tokenizeQuery(appliedPinQuery)
-    const matches = tokens.length ? base.filter(l => matchesPinQuery(l, tokens)) : base
-    const rest = tokens.length ? base.filter(l => !matchesPinQuery(l, tokens)) : []
+    const sem = semantic && semantic.query === appliedPinQuery ? semantic : null
+    const isMatch = (l) => matchesPinQuery(l, tokens) || (sem !== null && sem.ids.has(l.id))
+    const matches = tokens.length ? base.filter(isMatch) : base
+    const rest = tokens.length ? base.filter(l => !isMatch(l)) : []
     filteredRef.current = matches
     setCount(matches.length)
     const source = map.current.getSource('listings-clustered')
@@ -1013,7 +1081,7 @@ export default function MapClient({
     }
     prevFilterKey.current = key
     updateInView()
-  }, [allListings, selectedVerticals, subTypeFilter, stateFilter, appliedPinQuery, mapReady])
+  }, [allListings, selectedVerticals, subTypeFilter, stateFilter, appliedPinQuery, semantic, mapReady])
 
   // ── Anchored selection card (desktop): one marker as a React portal, so
   // the map engine keeps the card glued to its pin through pan/zoom. ──
@@ -1371,6 +1439,7 @@ export default function MapClient({
                   visitedIds={visitedRef.current}
                   filterQuery={pinQuery}
                   onFilterQuery={setPinQuery}
+                  filterBusy={semanticLoading}
                   onHover={setHoverState}
                   onSelect={(l) => selectListing(l, { fly: true })}
                 />
@@ -1632,6 +1701,7 @@ export default function MapClient({
               visitedIds={visitedRef.current}
               filterQuery={pinQuery}
               onFilterQuery={setPinQuery}
+              filterBusy={semanticLoading}
               onHover={() => {}}
               onSelect={(l) => { setMobileListOpen(false); selectListing(l, { fly: true }) }}
               onClose={() => setMobileListOpen(false)}

@@ -23,7 +23,19 @@ export async function GET(_request, { params }) {
       return NextResponse.json({ error: 'Itinerary not found' }, { status: 404 })
     }
 
-    const pdf = buildItineraryPdf(loaded.itinerary, loaded.stops)
+    // Co-brand the header with the authoring account (beside the Atlas
+    // attribution, never instead of it).
+    let account = null
+    if (loaded.itinerary.trade_account_id) {
+      const { data } = await sb
+        .from('trade_accounts')
+        .select('org_name, org_website')
+        .eq('id', loaded.itinerary.trade_account_id)
+        .maybeSingle()
+      account = data || null
+    }
+
+    const pdf = buildItineraryPdf(loaded.itinerary, loaded.stops, account)
     return new NextResponse(pdf, {
       status: 200,
       headers: {

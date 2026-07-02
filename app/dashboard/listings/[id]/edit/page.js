@@ -9,6 +9,7 @@ import { getListingRegion } from '@/lib/regions'
 import { getVerticalLabel, getVerticalBrandColour } from '@/lib/verticalUrl'
 import HighlightsEditor from './HighlightsEditor'
 import KeywordsEditor from './KeywordsEditor'
+import TradeReadinessEditor from './TradeReadinessEditor'
 import EventsSection from './EventsSection'
 import OffersSection from './OffersSection'
 import AwardsSection from './AwardsSection'
@@ -1048,6 +1049,14 @@ export default function EditListingPage() {
               </div>
             </div>
           )}
+
+          {/* ── Trade readiness — operator-authored Atlas Trade profile (not public) ── */}
+          <TradeReadinessEditor
+            listingId={id}
+            token={token}
+            initial={listing}
+            accent={vertColor}
+          />
 
           {/* ── Photo gallery (paid perk) ── */}
           <div style={{ marginTop: 36, paddingTop: 28, borderTop: '1px solid var(--color-border)' }}>

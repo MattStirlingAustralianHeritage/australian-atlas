@@ -50,6 +50,7 @@ const EXPECTED = {
   'user-reactivation': 800,      // monthly
   'listing-velocity': 800,       // monthly
   'regional-letter': 800,        // monthly heartbeat (self-skips off-quarter months)
+  'council-digest': 800,         // monthly (Region Pulse, 1st of month)
 }
 
 const STRANDED_HOURS = 6

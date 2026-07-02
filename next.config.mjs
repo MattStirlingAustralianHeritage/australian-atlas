@@ -46,7 +46,19 @@ const nextConfig = {
     ]
   },
   async headers() {
-    return [{ source: '/:path*', headers: SECURITY_HEADERS }]
+    // /embed/* is intentionally embeddable in third-party sites (council region
+    // widgets). It drops X-Frame-Options and sets a permissive CSP frame-ancestors
+    // so councils can iframe it from any origin. This is the ONLY route family
+    // exempt from the site-wide frame lock — everything else stays SAMEORIGIN.
+    const embedHeaders = [
+      ...SECURITY_HEADERS.filter((h) => h.key !== 'X-Frame-Options'),
+      { key: 'Content-Security-Policy', value: 'frame-ancestors *' },
+    ]
+    return [
+      { source: '/embed/:path*', headers: embedHeaders },
+      // Negative lookahead excludes /embed so this rule never re-adds the frame lock there.
+      { source: '/((?!embed/).*)', headers: SECURITY_HEADERS },
+    ]
   },
 };
 

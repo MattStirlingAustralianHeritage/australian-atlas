@@ -16,8 +16,9 @@ export default function AtlasAnalytics() {
   useEffect(() => {
     // Don't track in development
     if (process.env.NODE_ENV === 'development') return
-    // Don't track admin/vendor pages
-    if (pathname.startsWith('/admin') || pathname.startsWith('/vendor')) return
+    // Don't track admin/vendor pages, or /embed (runs in third-party iframes —
+    // counting those loads would inflate the region pageviews the council product reads).
+    if (pathname.startsWith('/admin') || pathname.startsWith('/vendor') || pathname.startsWith('/embed')) return
 
     const deviceType = /Mobi|Android/i.test(navigator.userAgent)
       ? 'mobile'

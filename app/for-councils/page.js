@@ -429,7 +429,7 @@ export default async function ForCouncilsPage() {
             },
             {
               title: 'Analytics & reporting',
-              desc: 'From the day you join, your region builds a performance baseline: page views, listing clicks, visitor origin, and search interest across the network, bot-filtered and exportable. Early in a region\'s life these numbers are small and honest. Their value is the trend line you own as coverage and traffic grow.',
+              desc: 'From the day you join, your region builds a performance baseline: weekly trend lines for page views and clicks, visitor origin, search interest — including the searches that found nothing (your demand gaps) — and how your region ranks against every other Atlas region. Bot-filtered, exportable, and delivered to your inbox monthly as the Region Pulse.',
               icon: (
                 <svg width="24" height="24" fill="none" stroke="var(--color-sage)" strokeWidth="1.5" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6a7.5 7.5 0 107.5 7.5h-7.5V6z" />
@@ -545,10 +545,14 @@ export default async function ForCouncilsPage() {
                 'Your region’s complete verified listing data, with performance (views & clicks)',
                 'A live region dashboard, kept current automatically',
                 'Multiple regions in a single dashboard',
-                'Analytics & reporting — views, clicks, visitor origin and search interest (bot-filtered)',
+                'Weekly trend analytics — views, clicks, visitor origin and unique visitors, with period-on-period change',
+                'Search-demand insights — what visitors looked for, and the demand gaps no spend data can see',
+                'A digital presence audit of your local operators, with exportable hit-lists for capability programs',
+                'Benchmarking against every other published Atlas region',
+                'The monthly Region Pulse — your region’s numbers in your inbox on the 1st',
                 'Regional content co-creation — trails, editorials, picks and seasonal guides',
-                'An embeddable region map for your own website',
-                'A white-label regional report (your branding) to share or print',
+                'An embeddable live region map for your own website',
+                'A councillor-ready white-label report (your branding) to share or print',
                 'Export your region’s full listing data (CSV)',
                 'A direct line to the team for support and feedback',
               ].map((f, i) => (

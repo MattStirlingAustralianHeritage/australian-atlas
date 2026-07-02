@@ -2,6 +2,7 @@
 
 import { useCouncil } from '../layout'
 import { useState, useEffect } from 'react'
+import { Card, PageHeader, EmptyState, Pill, Button, Skeleton } from '@/components/council/ui'
 
 const VERTICAL_LABELS = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
@@ -17,6 +18,7 @@ export default function CouncilListings() {
   const [selectedRegion, setSelectedRegion] = useState('')
   const [selectedVertical, setSelectedVertical] = useState('')
   const [page, setPage] = useState(1)
+  const [nameFilter, setNameFilter] = useState('')
 
   useEffect(() => {
     if (regions.length > 0 && !selectedRegion) {
@@ -53,207 +55,176 @@ export default function CouncilListings() {
   ].filter(Boolean).join('&')
   const exportHref = `/api/council/export${exportQuery ? `?${exportQuery}` : ''}`
 
-  const pillStyle = (active) => ({
-    padding: '0.35rem 0.75rem',
-    borderRadius: '999px',
-    fontSize: '0.8rem',
-    fontFamily: 'var(--font-body)',
-    fontWeight: 500,
-    background: active ? 'var(--color-ink)' : '#fff',
-    color: active ? '#fff' : 'var(--color-muted)',
-    border: '1px solid var(--color-border)',
-    cursor: 'pointer',
-  })
+  // Client-side name search over the currently loaded page only — no API changes.
+  const query = nameFilter.trim().toLowerCase()
+  const visibleListings = query
+    ? listings.filter(l => (l.name || '').toLowerCase().includes(query))
+    : listings
+
+  const totalPages = Math.ceil(totalListings / 50)
 
   return (
     <div>
-      <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '1rem' }}>
-        <div>
-          <h1 style={{
-            fontFamily: 'var(--font-display)',
-            fontSize: '1.75rem',
-            fontWeight: 400,
-            color: 'var(--color-ink)',
-            margin: '0 0 0.25rem',
-          }}>
-            Listings
-          </h1>
-          <p style={{
-            fontFamily: 'var(--font-body)',
-            fontSize: '0.95rem',
-            color: 'var(--color-muted)',
-            margin: 0,
-          }}>
-            Browse all listings in your managed regions
-          </p>
-        </div>
-        <a
-          href={exportHref}
-          style={{
-            fontFamily: 'var(--font-body)', fontSize: '0.85rem', fontWeight: 500,
-            color: '#fff', background: 'var(--color-sage)', textDecoration: 'none',
-            padding: '0.5rem 1rem', borderRadius: 8, whiteSpace: 'nowrap',
-          }}
-        >
-          Export CSV
-        </a>
-      </div>
+      <PageHeader title="Listings" subtitle="Browse all listings in your managed regions.">
+        <Button href={exportHref} variant="secondary" small>Export CSV</Button>
+      </PageHeader>
 
-      {/* Filters */}
-      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
+      {/* Region filter */}
+      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
         {regions.map(r => (
-          <button
+          <Pill
             key={r.slug}
+            active={selectedRegion === r.slug}
             onClick={() => { setSelectedRegion(r.slug); setPage(1) }}
-            style={pillStyle(selectedRegion === r.slug)}
           >
             {r.name}
-          </button>
+          </Pill>
         ))}
       </div>
 
-      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
-        <button onClick={() => { setSelectedVertical(''); setPage(1) }} style={pillStyle(!selectedVertical)}>
+      {/* Vertical filter */}
+      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
+        <Pill active={!selectedVertical} onClick={() => { setSelectedVertical(''); setPage(1) }}>
           All verticals
-        </button>
+        </Pill>
         {Object.entries(VERTICAL_LABELS).map(([key, label]) => (
-          <button
+          <Pill
             key={key}
+            active={selectedVertical === key}
             onClick={() => { setSelectedVertical(key); setPage(1) }}
-            style={pillStyle(selectedVertical === key)}
           >
             {label}
-          </button>
+          </Pill>
         ))}
       </div>
 
-      {/* Count */}
-      <p style={{
-        fontFamily: 'var(--font-body)',
-        fontSize: '0.85rem',
-        color: 'var(--color-muted)',
-        marginBottom: '1rem',
-      }}>
-        {totalListings} listing{totalListings !== 1 ? 's' : ''} found
-      </p>
+      {/* Name search (this page only) + count */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
+        <label htmlFor="listing-name-search" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }}>
+          Search listings by name
+        </label>
+        <input
+          id="listing-name-search"
+          type="search"
+          value={nameFilter}
+          onChange={(e) => setNameFilter(e.target.value)}
+          placeholder="Search by name…"
+          style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: '0.85rem',
+            color: 'var(--color-ink)',
+            padding: '0.6rem 0.75rem',
+            borderRadius: 10,
+            border: '1px solid var(--color-border)',
+            background: 'var(--color-card-bg)',
+            outline: 'none',
+            width: 240,
+            maxWidth: '100%',
+            boxSizing: 'border-box',
+          }}
+        />
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.82rem', color: 'var(--color-muted)', margin: 0 }}>
+          {totalListings.toLocaleString('en-AU')} listing{totalListings !== 1 ? 's' : ''} found
+          {query && (
+            <span style={{ color: 'var(--color-accent)', fontWeight: 550 }}>
+              {' '}· {visibleListings.length} of {listings.length} on this page match &ldquo;{nameFilter.trim()}&rdquo;
+            </span>
+          )}
+        </p>
+      </div>
 
       {/* Listings grid */}
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '3rem' }}>
-          <p style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)' }}>Loading...</p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+          <Skeleton height={220} /><Skeleton height={220} /><Skeleton height={220} />
         </div>
       ) : listings.length === 0 ? (
-        <div style={{
-          background: '#fff',
-          borderRadius: '12px',
-          border: '1px solid var(--color-border)',
-          padding: '3rem',
-          textAlign: 'center',
-        }}>
-          <p style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)' }}>No listings match your filters.</p>
-        </div>
+        <EmptyState title="Nothing here yet">
+          No listings match your filters.
+        </EmptyState>
+      ) : visibleListings.length === 0 ? (
+        <EmptyState title="No matches on this page">
+          No listings on this page match &ldquo;{nameFilter.trim()}&rdquo;. Try another page or clear the search.
+        </EmptyState>
       ) : (
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
           gap: '1rem',
         }}>
-          {listings.map(listing => (
-            <div key={listing.id} style={{
-              background: '#fff',
-              borderRadius: '12px',
-              border: '1px solid var(--color-border)',
-              overflow: 'hidden',
-            }}>
+          {visibleListings.map(listing => (
+            <Card key={listing.id} hover style={{ padding: 0, overflow: 'hidden' }}>
               {listing.hero_image_url && (
                 <div style={{
-                  height: '140px',
+                  height: 140,
                   background: `url(${listing.hero_image_url}) center/cover`,
+                  borderBottom: '1px solid var(--color-border)',
                 }} />
               )}
-              <div style={{ padding: '1rem' }}>
+              <div style={{ padding: '1rem 1.25rem' }}>
                 <p style={{
                   fontFamily: 'var(--font-body)',
-                  fontSize: '0.7rem',
-                  fontWeight: 500,
+                  fontSize: '0.68rem',
+                  fontWeight: 600,
                   textTransform: 'uppercase',
-                  letterSpacing: '0.06em',
-                  color: 'var(--color-sage)',
-                  margin: '0 0 0.25rem',
+                  letterSpacing: '0.07em',
+                  color: 'var(--color-sage-dark)',
+                  margin: '0 0 0.3rem',
                 }}>
                   {VERTICAL_LABELS[listing.vertical] || listing.vertical}
                 </p>
                 <p style={{
-                  fontFamily: 'var(--font-body)',
-                  fontSize: '0.95rem',
-                  fontWeight: 500,
+                  fontFamily: 'var(--font-display)',
+                  fontSize: '1.05rem',
+                  fontWeight: 450,
                   color: 'var(--color-ink)',
-                  margin: '0 0 0.25rem',
+                  margin: '0 0 0.2rem',
+                  lineHeight: 1.25,
                 }}>
                   {listing.name}
                 </p>
                 <p style={{
                   fontFamily: 'var(--font-body)',
-                  fontSize: '0.8rem',
+                  fontSize: '0.78rem',
                   color: 'var(--color-muted)',
                   margin: 0,
                 }}>
                   {listing.suburb}{listing.state ? `, ${listing.state}` : ''}
                 </p>
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}
 
       {/* Pagination */}
       {totalListings > 50 && (
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          gap: '0.5rem',
-          marginTop: '2rem',
-        }}>
-          <button
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.6rem', marginTop: '1.75rem' }}>
+          <Button
+            variant="secondary"
+            small
             onClick={() => setPage(p => Math.max(1, p - 1))}
             disabled={page === 1}
-            style={{
-              padding: '0.5rem 1rem',
-              borderRadius: '8px',
-              border: '1px solid var(--color-border)',
-              background: '#fff',
-              fontFamily: 'var(--font-body)',
-              fontSize: '0.85rem',
-              color: page === 1 ? 'var(--color-border)' : 'var(--color-ink)',
-              cursor: page === 1 ? 'not-allowed' : 'pointer',
-            }}
           >
-            Previous
-          </button>
+            ← Previous
+          </Button>
           <span style={{
             fontFamily: 'var(--font-body)',
-            fontSize: '0.85rem',
+            fontSize: '0.82rem',
             color: 'var(--color-muted)',
-            padding: '0.5rem 0.75rem',
+            padding: '0 0.35rem',
+            fontVariantNumeric: 'tabular-nums',
           }}>
-            Page {page} of {Math.ceil(totalListings / 50)}
+            Page {page} of {totalPages}
           </span>
-          <button
+          <Button
+            variant="secondary"
+            small
             onClick={() => setPage(p => p + 1)}
-            disabled={page >= Math.ceil(totalListings / 50)}
-            style={{
-              padding: '0.5rem 1rem',
-              borderRadius: '8px',
-              border: '1px solid var(--color-border)',
-              background: '#fff',
-              fontFamily: 'var(--font-body)',
-              fontSize: '0.85rem',
-              color: page >= Math.ceil(totalListings / 50) ? 'var(--color-border)' : 'var(--color-ink)',
-              cursor: page >= Math.ceil(totalListings / 50) ? 'not-allowed' : 'pointer',
-            }}
+            disabled={page >= totalPages}
           >
-            Next
-          </button>
+            Next →
+          </Button>
         </div>
       )}
     </div>

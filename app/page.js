@@ -5,7 +5,7 @@ import HomeSearchBar from '@/components/HomeSearchBar'
 import NewsletterSignup from '@/components/NewsletterSignup'
 import ScrollReveal from '@/components/ScrollReveal'
 import NearbySection from '@/components/NearbySection'
-import DiscoverHomeBand from '@/components/discover/DiscoverHomeBand'
+import DiscoverDeck from '@/components/discover/DiscoverDeck'
 import CategoryGuideSection from '@/components/CategoryGuideSection'
 import { getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
 import { getListingRegion, LISTING_REGION_SELECT, resolveRegionParam } from '@/lib/regions'
@@ -367,6 +367,9 @@ export default async function Home() {
   // chips (in fixed geographic order); the soonest six show as cards.
   const eventStates = EVENT_STATE_ORDER.filter(s => upcomingEvents.some(e => e.state === s))
   const eventCards = upcomingEvents.slice(0, 6)
+  // Edition stamp for the weekly picks — refreshed with the page's revalidate
+  // window, so the dateline always carries today's date ("This week · 2 July").
+  const editionDate = new Intl.DateTimeFormat('en-AU', { day: 'numeric', month: 'long' }).format(new Date())
   const articles = articlesRaw.length > 0 ? articlesRaw : []
   const articlesWithImages = articles.filter(a => a.hero_image_url).slice(0, 2)
   const featuredArticle = articlesWithImages[0] || articles[0]
@@ -608,7 +611,7 @@ export default async function Home() {
           <div className="max-w-5xl mx-auto px-6 sm:px-12">
             <div className="reveal" style={{ marginBottom: '36px', maxWidth: '560px' }}>
               <p className="section-dateline" style={{ marginBottom: '16px' }}>
-                This week
+                This week &middot; {editionDate}
               </p>
               <h2 style={{
                 fontFamily: 'var(--font-display)', fontWeight: 400,
@@ -735,12 +738,6 @@ export default async function Home() {
           </div>
         </ScrollReveal>
       )}
-
-      {/* ── 3b. Worth Finding Nearby ─────────────────── */}
-      <NearbySection />
-
-      {/* ── 3c. Discover band — live swipeable taster (mid-page) ───── */}
-      <DiscoverHomeBand />
 
       {/* ── 4. Journal Feature ──────────────────────────── */}
       {featuredArticle && (
@@ -885,6 +882,48 @@ export default async function Home() {
         </ScrollReveal>
       )}
 
+      {/* ── 5. Make it yours — the two personal tools, one band ── */}
+      {/* Nearby (where you are) and Discover (what you like) both answer
+          "find something for ME"; as adjacent solo bands they read as filler.
+          Composed under one masthead they become the page's personalisation
+          moment — and the page loses a whole band of length. */}
+      <section style={{
+        paddingBlock: '88px',
+        background: 'var(--color-kraft)',
+        borderTop: '1px solid rgba(28,26,23,0.05)',
+        borderBottom: '1px solid rgba(28,26,23,0.05)',
+      }}>
+        <div className="max-w-6xl mx-auto px-6 sm:px-12">
+          <div style={{ marginBottom: '40px', maxWidth: '620px' }}>
+            <p className="section-dateline" style={{ marginBottom: '16px' }}>Make it yours</p>
+            <h2 style={{
+              fontFamily: 'var(--font-display)', fontWeight: 400,
+              fontSize: 'clamp(30px, 4vw, 50px)', color: 'var(--color-ink)', lineHeight: 1.1,
+            }}>
+              An atlas that learns your taste
+            </h2>
+            <p className="mt-3" style={{
+              fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
+              color: 'var(--color-muted)', margin: '12px 0 0',
+            }}>
+              Two ways in: see what&apos;s within reach of where you&apos;re standing, or flick
+              through places one at a time — every pick tunes the Atlas to you.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_400px] gap-10 lg:gap-14 items-start">
+            <NearbySection variant="embedded" />
+            <div>
+              <DiscoverDeck variant="band" hideHead />
+              <p className="text-center" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', marginTop: '14px' }}>
+                <LocalizedLink href="/discover" className="link-quiet" style={{ color: GOLD, textDecoration: 'none' }}>
+                  Open Discover &rarr;
+                </LocalizedLink>
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ── 6 + 7. Plan a trip + Explore by region — paired columns ── */}
       {/* Two formerly-stacked centered blocks become one alternating two-column
           editorial row: a tall dark "Plan a trip" feature beside an offset
@@ -1007,48 +1046,6 @@ export default async function Home() {
         </div>
       </ScrollReveal>
 
-      {/* ── 8. Newsletter ─────────────────────────────── */}
-      <section style={{
-        background: 'linear-gradient(180deg, #211B15 0%, #1A1510 100%)',
-        paddingBlock: '88px',
-      }}>
-        <div className="max-w-xl mx-auto px-6 sm:px-12 text-center">
-          <div aria-hidden="true" style={{
-            width: '40px', height: '1px', background: GOLD,
-            margin: '0 auto 26px', opacity: 0.85,
-          }} />
-          <p style={{
-            fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
-            letterSpacing: '0.22em', textTransform: 'uppercase',
-            color: GOLD, marginBottom: '18px',
-          }}>
-            The Newsletter
-          </p>
-          <h2 style={{
-            fontFamily: 'var(--font-display)', fontWeight: 400,
-            fontSize: 'clamp(26px, 3.4vw, 34px)', lineHeight: 1.18,
-            color: '#FAF8F4', marginBottom: '14px', textWrap: 'balance',
-          }}>
-            One independent place, every week.
-          </h2>
-          <p style={{
-            fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
-            lineHeight: 1.65, color: 'rgba(250,248,244,0.6)',
-            maxWidth: '460px', margin: '0 auto 28px',
-          }}>
-            New openings, the occasional essay, and the quiet finds worth a detour — one considered email a week. No noise, no algorithms.
-          </p>
-          <NewsletterSignup variant="homepage" />
-          <p style={{
-            fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '12px',
-            letterSpacing: '0.02em', color: 'rgba(250,248,244,0.4)',
-            marginTop: '16px',
-          }}>
-            Free. Unsubscribe anytime.
-          </p>
-        </div>
-      </section>
-
       {/* ── 8.5 Plan a stay ───────────────────────────── */}
       <section style={{
         background: 'linear-gradient(180deg, #F2ECE0 0%, #ECE3D3 100%)',
@@ -1082,6 +1079,112 @@ export default async function Home() {
           </LocalizedLink>
         </div>
       </section>
+
+      {/* ── 5. Cross-Vertical Cluster ──────────────────── */}
+      {/* The intermediate kraft band — one oatmeal third surface between the
+          binary cream/near-black rhythm. It breaks the long cream run that
+          follows the dark Journal and lets the now-saturated vertical cards
+          (dark-on-kraft) read at their strongest. */}
+      {clusters.length > 0 && (
+        <ScrollReveal as="section" style={{
+          paddingBlock: '96px',
+          background: 'var(--color-kraft)',
+          borderTop: '1px solid rgba(28,26,23,0.05)',
+          borderBottom: '1px solid rgba(28,26,23,0.05)',
+        }}>
+          <div className="max-w-5xl mx-auto px-6 sm:px-12">
+            <div className="reveal mb-14" style={{ maxWidth: '560px' }}>
+              <p className="section-dateline" style={{ marginBottom: '16px' }}>
+                Where it overlaps
+              </p>
+              <h2 style={{
+                fontFamily: 'var(--font-display)', fontWeight: 400,
+                fontSize: 'clamp(30px, 4vw, 50px)', color: 'var(--color-ink)', lineHeight: 1.1,
+              }}>
+                Discover a cluster
+              </h2>
+              <p className="mt-3" style={{
+                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
+                color: 'var(--color-muted)', margin: '12px 0 0',
+              }}>
+                Regions where makers, stays, culture, and food overlap. One place, many reasons to go.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '56px' }}>
+              {clusters.map((cluster, ci) => {
+                const regionSlug = CLUSTER_REGION_SLUGS[cluster.region]
+                return (
+                  <div key={cluster.region} className="reveal" data-reveal-index={ci + 1}>
+                    <div style={{ marginBottom: '16px', maxWidth: '520px' }}>
+                      {regionSlug ? (
+                        <LocalizedLink href={`/regions/${regionSlug}`} className="group inline-block">
+                          <h3 style={{
+                            fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 26,
+                            color: 'var(--color-ink)', lineHeight: 1.25,
+                          }}>
+                            {cluster.region}
+                            <span className="inline-block ml-2 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: GOLD, fontSize: 18 }}>&rarr;</span>
+                          </h3>
+                        </LocalizedLink>
+                      ) : (
+                        <h3 style={{
+                          fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 26,
+                          color: 'var(--color-ink)', lineHeight: 1.25,
+                        }}>
+                          {cluster.region}
+                        </h3>
+                      )}
+                      <p style={{
+                        fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13,
+                        color: 'var(--color-muted)', marginTop: 4,
+                      }}>
+                        {cluster.total} places across {cluster.verticalCount} categories
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {cluster.picks.map(pick => {
+                        const colors = VERTICAL_CARD_COLORS[pick.vertical] || { bg: '#333', text: '#FAF8F4' }
+                        return (
+                          <LocalizedLink
+                            key={pick.id}
+                            href={`/place/${pick.slug}`}
+                            className="listing-card block overflow-hidden"
+                            style={{
+                              background: colors.bg,
+                              borderRadius: 'var(--radius-card)',
+                              padding: '20px 16px',
+                              minHeight: '140px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              justifyContent: 'space-between',
+                            }}
+                          >
+                            <span style={{
+                              fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 600,
+                              letterSpacing: '0.12em', textTransform: 'uppercase',
+                              color: 'rgba(250,248,244,0.45)',
+                            }}>
+                              {VERTICAL_LABELS[pick.vertical] || pick.vertical}
+                            </span>
+                            <span style={{
+                              fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 400,
+                              color: colors.text, lineHeight: 1.3, marginTop: 'auto',
+                            }}>
+                              {pick.name}
+                            </span>
+                          </LocalizedLink>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </ScrollReveal>
+      )}
 
       {/* ── 9. What's on (Events) ─────────────────────── */}
       {/* Hairline top edge so the soft tonal step from the warm "Plan a stay"
@@ -1225,111 +1328,50 @@ export default async function Home() {
         </div>
       </ScrollReveal>
 
-      {/* ── 5. Cross-Vertical Cluster ──────────────────── */}
-      {/* The intermediate kraft band — one oatmeal third surface between the
-          binary cream/near-black rhythm. It breaks the long cream run that
-          follows the dark Journal and lets the now-saturated vertical cards
-          (dark-on-kraft) read at their strongest. */}
-      {clusters.length > 0 && (
-        <ScrollReveal as="section" style={{
-          paddingBlock: '96px',
-          background: 'var(--color-kraft)',
-          borderTop: '1px solid rgba(28,26,23,0.05)',
-          borderBottom: '1px solid rgba(28,26,23,0.05)',
-        }}>
-          <div className="max-w-5xl mx-auto px-6 sm:px-12">
-            <div className="reveal mb-14" style={{ maxWidth: '560px' }}>
-              <p className="section-dateline" style={{ marginBottom: '16px' }}>
-                Where it overlaps
-              </p>
-              <h2 style={{
-                fontFamily: 'var(--font-display)', fontWeight: 400,
-                fontSize: 'clamp(30px, 4vw, 50px)', color: 'var(--color-ink)', lineHeight: 1.1,
-              }}>
-                Discover a cluster
-              </h2>
-              <p className="mt-3" style={{
-                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
-                color: 'var(--color-muted)', margin: '12px 0 0',
-              }}>
-                Regions where makers, stays, culture, and food overlap. One place, many reasons to go.
-              </p>
-            </div>
+      {/* The ten grounds thread the close, as they do the footer. */}
+      <div className="spectrum-hairline" aria-hidden="true" />
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '56px' }}>
-              {clusters.map((cluster, ci) => {
-                const regionSlug = CLUSTER_REGION_SLUGS[cluster.region]
-                return (
-                  <div key={cluster.region} className="reveal" data-reveal-index={ci + 1}>
-                    <div style={{ marginBottom: '16px', maxWidth: '520px' }}>
-                      {regionSlug ? (
-                        <LocalizedLink href={`/regions/${regionSlug}`} className="group inline-block">
-                          <h3 style={{
-                            fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 26,
-                            color: 'var(--color-ink)', lineHeight: 1.25,
-                          }}>
-                            {cluster.region}
-                            <span className="inline-block ml-2 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: GOLD, fontSize: 18 }}>&rarr;</span>
-                          </h3>
-                        </LocalizedLink>
-                      ) : (
-                        <h3 style={{
-                          fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 26,
-                          color: 'var(--color-ink)', lineHeight: 1.25,
-                        }}>
-                          {cluster.region}
-                        </h3>
-                      )}
-                      <p style={{
-                        fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13,
-                        color: 'var(--color-muted)', marginTop: 4,
-                      }}>
-                        {cluster.total} places across {cluster.verticalCount} categories
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {cluster.picks.map(pick => {
-                        const colors = VERTICAL_CARD_COLORS[pick.vertical] || { bg: '#333', text: '#FAF8F4' }
-                        return (
-                          <LocalizedLink
-                            key={pick.id}
-                            href={`/place/${pick.slug}`}
-                            className="listing-card block overflow-hidden"
-                            style={{
-                              background: colors.bg,
-                              borderRadius: 'var(--radius-card)',
-                              padding: '20px 16px',
-                              minHeight: '140px',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              justifyContent: 'space-between',
-                            }}
-                          >
-                            <span style={{
-                              fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 600,
-                              letterSpacing: '0.12em', textTransform: 'uppercase',
-                              color: 'rgba(250,248,244,0.45)',
-                            }}>
-                              {VERTICAL_LABELS[pick.vertical] || pick.vertical}
-                            </span>
-                            <span style={{
-                              fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 400,
-                              color: colors.text, lineHeight: 1.3, marginTop: 'auto',
-                            }}>
-                              {pick.name}
-                            </span>
-                          </LocalizedLink>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </ScrollReveal>
-      )}
+      {/* ── 8. Newsletter ─────────────────────────────── */}
+      <section style={{
+        background: 'linear-gradient(180deg, #211B15 0%, #1A1510 100%)',
+        paddingBlock: '88px',
+      }}>
+        <div className="max-w-xl mx-auto px-6 sm:px-12 text-center">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="var(--color-gold)" aria-hidden="true"
+            style={{ margin: '0 auto 24px', display: 'block', opacity: 0.9 }}>
+            <path d="M12 0l2.6 9.4L24 12l-9.4 2.6L12 24l-2.6-9.4L0 12l9.4-2.6L12 0z" />
+          </svg>
+          <p style={{
+            fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
+            letterSpacing: '0.22em', textTransform: 'uppercase',
+            color: GOLD, marginBottom: '18px',
+          }}>
+            The Newsletter
+          </p>
+          <h2 style={{
+            fontFamily: 'var(--font-display)', fontWeight: 400,
+            fontSize: 'clamp(26px, 3.4vw, 34px)', lineHeight: 1.18,
+            color: '#FAF8F4', marginBottom: '14px', textWrap: 'balance',
+          }}>
+            One independent place, every week.
+          </h2>
+          <p style={{
+            fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
+            lineHeight: 1.65, color: 'rgba(250,248,244,0.6)',
+            maxWidth: '460px', margin: '0 auto 28px',
+          }}>
+            New openings, the occasional essay, and the quiet finds worth a detour — one considered email a week. No noise, no algorithms.
+          </p>
+          <NewsletterSignup variant="homepage" />
+          <p style={{
+            fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '12px',
+            letterSpacing: '0.02em', color: 'rgba(250,248,244,0.4)',
+            marginTop: '16px',
+          }}>
+            Free. Unsubscribe anytime.
+          </p>
+        </div>
+      </section>
 
       <CategoryGuideSection
         publicVerticals={publicVerticals}

@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getTradeContext } from '@/lib/trade/server-auth'
+import TradeNav from '@/components/trade/TradeNav'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,6 +30,7 @@ export default async function TradeItinerariesPage() {
 
   return (
     <div style={{ background: 'var(--color-bg)', minHeight: '100vh' }}>
+      <TradeNav active="itineraries" orgName={account.org_name} />
       <div style={{ maxWidth: 760, margin: '0 auto', padding: '3rem 1.5rem 5rem' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
           <div>
@@ -58,13 +60,16 @@ export default async function TradeItinerariesPage() {
                     {[i.region, `${counts.get(i.id) || 0} stops`, i.status].filter(Boolean).join('  ·  ')}
                   </p>
                 </div>
-                {i.status === 'published' ? (
-                  <Link href={`/trade/itinerary/${i.slug}`} style={{ flexShrink: 0, fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 600, color: 'var(--color-gold)', textDecoration: 'underline', textUnderlineOffset: 3 }}>
-                    View
+                <div style={{ flexShrink: 0, display: 'flex', gap: 14, alignItems: 'baseline' }}>
+                  {i.status === 'published' && (
+                    <Link href={`/trade/itinerary/${i.slug}`} style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 600, color: 'var(--color-gold)', textDecoration: 'underline', textUnderlineOffset: 3 }}>
+                      View
+                    </Link>
+                  )}
+                  <Link href={`/trade/builder?id=${i.id}`} style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 600, color: 'var(--color-muted)', textDecoration: 'underline', textUnderlineOffset: 3 }}>
+                    Edit
                   </Link>
-                ) : (
-                  <span style={{ flexShrink: 0, fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-muted)' }}>Draft</span>
-                )}
+                </div>
               </li>
             ))}
           </ul>

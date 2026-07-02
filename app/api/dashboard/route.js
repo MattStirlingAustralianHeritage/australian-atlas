@@ -4,6 +4,7 @@ import { verifySharedToken } from '@/lib/shared-auth'
 import { LISTING_REGION_SELECT } from '@/lib/regions'
 import { readGalleryEntries, isListingPaid } from '@/lib/listing-gallery'
 import { readHighlightsMap } from '@/lib/operator-highlights/read'
+import { getTradeProfiles } from '@/lib/trade/profile'
 
 /**
  * GET /api/dashboard — Fetch dashboard data for the operator's OWNED listings.
@@ -19,7 +20,7 @@ import { readHighlightsMap } from '@/lib/operator-highlights/read'
  */
 
 // Columns the dashboard renders per listing (+ resolved region fields).
-const LISTING_SELECT = `id, name, slug, vertical, sub_type, sub_types, region, state, lat, lng, website, phone, address, hero_image_url, is_claimed, is_featured, status, description, hours, search_keywords, created_at, updated_at, ${LISTING_REGION_SELECT}`
+const LISTING_SELECT = `id, name, slug, vertical, sub_type, sub_types, region, state, lat, lng, website, phone, address, hero_image_url, is_claimed, is_featured, status, description, hours, search_keywords, trade_welcome, trade_bespoke, trade_group, trade_group_size_max, trade_contact_before_booking, trade_rates_available, created_at, updated_at, ${LISTING_REGION_SELECT}`
 
 // True if `userId` holds an active ownership claim on `listingId`.
 async function ownsListing(sb, listingId, userId) {
@@ -121,6 +122,10 @@ export async function GET(request) {
     // migration-tolerant read for all listings, merged in below.
     const highlightsMap = await readHighlightsMap(sb, listings.map(l => l.id))
 
+    // Extended trade profile (migration 204) — batched, fail-soft (empty map
+    // until the table lands). Feeds the Trade readiness editor's initial state.
+    const tradeProfiles = await getTradeProfiles(sb, listings.map(l => l.id))
+
     // Enrich each listing with activity stats. All queries for a listing run
     // in parallel; the listings themselves are already parallel via the map.
     // (listing_scores used to be read here too — the table was never populated,
@@ -154,6 +159,7 @@ export async function GET(request) {
         gallery_image_urls: galleryEntries.map(e => e.url),
         gallery_moderation: galleryEntries.map(e => ({ url: e.url, status: e.status, reason: e.reason })),
         operator_highlights: highlightsMap.get(listing.id) || null,
+        trade_profile: tradeProfiles.get(listing.id) || null,
         paid,
         stats: {
           search_appearances: searchRes.count || 0,
