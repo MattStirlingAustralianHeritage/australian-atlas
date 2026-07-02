@@ -82,7 +82,9 @@ function capConsecutive(queue, servedVerticals, maxRun) {
  *          changes, so a host (the planner gate) can mirror the picks out to
  *          the trip it is about to build.
  */
-export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange }) {
+// hideHead: suppress the band's own kicker/title block when a parent section
+// (e.g. the homepage "Make it yours" band) provides the masthead instead.
+export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hideHead = false }) {
   const supabase = getAuthSupabase()
   const { location } = useLocation()
   const isOnboarding = variant === 'onboarding'
@@ -411,7 +413,7 @@ export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange }) 
   return (
     <div className={`dd-stage dd-stage--${variant}`}>
       <div style={{ width: '100%' }}>
-        {isBand && (
+        {isBand && !hideHead && (
           <div className="dd-band-head">
             <p className="dd-band-kicker">Discover</p>
             <h2 className="dd-band-title">One place at a time</h2>
