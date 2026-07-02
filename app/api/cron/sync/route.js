@@ -6,10 +6,11 @@ import { sendSyncAlert } from '../../../../lib/sync/alerts.js'
 import { getSupabaseAdmin } from '../../../../lib/supabase/clients.js'
 import { startRun, completeRun } from '../../../../lib/agents/logRun.js'
 
-// The vertical sync is ~7k listings × 2 sequential PostgREST round trips
-// (listing + meta upsert per row) — that alone exceeds 300s at current
-// network size, and the platform kill strands the run mid-work. 800 is the
-// Fluid-compute ceiling; the durable fix is batching those upserts.
+// The vertical sync batches listing + meta upserts in 500-row chunks
+// (lib/sync/syncVertical.js), so the run no longer scales with per-row
+// round trips. 800 (the Fluid-compute ceiling) stays as headroom: a
+// chunk-level failure falls back to per-row writes for that chunk, and a
+// platform kill mid-run strands the sync worse than a slow finish does.
 export const maxDuration = 800
 
 // Standard verticals (single source table)
