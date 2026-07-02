@@ -44,17 +44,26 @@ export default async function ClaimsPage() {
 
   // Attach the GRANTED ownership state. claims_review.tier is only what was
   // requested at intake — the commercial truth (what the paid gates read) is
-  // the active listing_claims row. Drives the tier badge and the admin
-  // upgrade/downgrade controls on approved rows.
+  // the live listing_claims row. 'past_due' rows (renewal payment failing —
+  // dunning grace period, migration 203) are included so they surface with an
+  // amber badge. Drives the tier badge and the admin upgrade/downgrade
+  // controls on approved rows.
   if (usingPortalTable && claims.length > 0) {
     const listingIds = [...new Set(claims.map(c => c.listing_id).filter(Boolean))]
     if (listingIds.length > 0) {
       const { data: grantedRows } = await sb
         .from('listing_claims')
-        .select('listing_id, tier, stripe_subscription_id')
+        .select('listing_id, tier, status, past_due_since, stripe_subscription_id')
         .in('listing_id', listingIds)
-        .eq('status', 'active')
-      const grantedByListing = new Map((grantedRows || []).map(r => [r.listing_id, r]))
+        .in('status', ['active', 'past_due'])
+      // Prefer the 'active' row if a listing somehow carries both.
+      const grantedByListing = new Map()
+      for (const r of grantedRows || []) {
+        const existing = grantedByListing.get(r.listing_id)
+        if (!existing || (existing.status !== 'active' && r.status === 'active')) {
+          grantedByListing.set(r.listing_id, r)
+        }
+      }
       claims = claims.map(c => ({ ...c, granted: grantedByListing.get(c.listing_id) || null }))
     }
   }
@@ -272,6 +281,27 @@ function ClaimCard({ claim, showActions, usingPortalTable }) {
           }}>
             {claim.status}
           </span>
+          {granted?.status === 'past_due' && (
+            <span
+              title={granted.past_due_since
+                ? `Renewal payment failing since ${new Date(granted.past_due_since).toLocaleDateString()} — Stripe is retrying; Standard benefits stay live (grace period)`
+                : 'Renewal payment failing — Stripe is retrying; Standard benefits stay live (grace period)'}
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 600,
+                fontSize: 10,
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                color: '#8a6520',
+                background: '#FCE4B8',
+                border: '1px solid #d4a843',
+                padding: '2px 8px',
+                borderRadius: 100,
+              }}
+            >
+              past due
+            </span>
+          )}
         </div>
         <span style={{
           fontFamily: 'var(--font-body)',

@@ -1,6 +1,7 @@
 'use client'
 
 import { useAuth } from '../layout'
+import AiVisibilitySection from '@/components/dashboard/AiVisibilitySection'
 
 const VERTICAL_LABELS = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
@@ -418,6 +419,10 @@ export default function DashboardAnalytics() {
 
       {/* Audience: locations + devices */}
       {!loading && hasStats && <AudiencePanels locations={topLocations} devices={devices} />}
+
+      {/* AI Visibility — how AI assistants read your pages (self-fetching; handles
+          its own loading / locked / hidden states, paid-gated by the API) */}
+      {listings.length > 0 && <AiVisibilitySection listings={listings} />}
 
       {/* All-time views */}
       {hasStats && !loading && (

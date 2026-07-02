@@ -38,6 +38,7 @@ const EXPECTED = {
   'staleness': 192,              // weekly
   'editorial-signals': 192,      // weekly
   'monday-briefing': 192,        // weekly
+  'operator-digest': 192,        // weekly
   'dead-image': 192,             // weekly
   'voice-consistency': 192,      // weekly
   'competitor-intelligence': 192,// weekly
