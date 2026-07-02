@@ -103,7 +103,7 @@ function approxMeters(aLat, aLng, bLat, bLng) {
  *    at two different anchors — stacked "Sawtooth ARI / Sawtooth ARI".
  */
 function annotateDisplayGeometry(listings) {
-  const out = listings.map(l => ({ ...l }))
+  const out = listings.map(l => ({ ...l, _hay: buildHaystack(l) }))
 
   const cells = new Map()
   for (const l of out) {
@@ -151,6 +151,45 @@ const displayCoords = (l) => [
   l._dlat != null ? l._dlat : parseFloat(l.lat),
 ]
 
+// ── Smart pin filter ──
+// Intent words that don't literally appear in a listing's category labels —
+// "whisky" should light up distilleries even when the description doesn't
+// say so. Keys and values are matched against the same haystack.
+const QUERY_SYNONYMS = {
+  whisky: 'distillery', whiskey: 'distillery', gin: 'distillery', vodka: 'distillery', rum: 'distillery',
+  beer: 'brewery', ale: 'brewery', cider: 'cidery', mead: 'meadery',
+  wine: 'winery', vineyard: 'winery',
+  coffee: 'roaster cafe', espresso: 'cafe',
+  homeware: 'homewares', clothes: 'clothing', fashion: 'clothing',
+  book: 'bookshop', books: 'bookshop', vinyl: 'records',
+  pottery: 'ceramics', ceramic: 'ceramics', jewelry: 'jewellery',
+  antique: 'antiques', secondhand: 'vintage', hike: 'walk', hiking: 'walk',
+  hotel: 'boutique hotel guesthouse', motel: 'boutique hotel', camping: 'glamping',
+}
+
+// Lowercased searchable text per listing, built once per data load: name,
+// vertical + sub-type vocabulary, locality, and the (160-char) description.
+function buildHaystack(l) {
+  const subTypes = SUB_TYPE_LABELS[l.vertical] || {}
+  return [
+    l.name,
+    getVerticalBadge(l.vertical), getVerticalLabel(l.vertical),
+    l.sub_type ? String(l.sub_type).replace(/_/g, ' ') : '',
+    subTypes[l.sub_type] || '',
+    l.region, l.state,
+    l.description,
+  ].filter(Boolean).join(' ').toLowerCase()
+}
+
+// Every query token must hit the haystack, either literally or through its
+// synonym expansion.
+function matchesPinQuery(l, tokens) {
+  const hay = l._hay || ''
+  return tokens.every(t => hay.includes(t) || (QUERY_SYNONYMS[t] && QUERY_SYNONYMS[t].split(' ').some(s => hay.includes(s))))
+}
+
+const tokenizeQuery = (q) => String(q || '').toLowerCase().split(/\s+/).map(t => t.trim()).filter(t => t.length >= 2)
+
 const placesLabel = (n) => `${n.toLocaleString()} ${n === 1 ? 'place' : 'places'}`
 
 // Human label for a Mapbox geocoding result's primary type, so a town reads as
@@ -192,6 +231,7 @@ export default function MapClient({
   initialState = '',
   initialCenter = null,  // [lng, lat] — overrides the Australia-overview default
   initialZoom = null,    // number — used with initialCenter
+  initialQuery = '',     // smart pin filter, restored from ?q=
   mode = 'fullscreen',
   prefilteredListings = null,
   initialBounds = null,
@@ -220,6 +260,14 @@ export default function MapClient({
   })
   const [subTypeFilter, setSubTypeFilter] = useState('all')
   const [stateFilter, setStateFilter] = useState(initialState || 'All States')
+  // Smart pin filter — pinQuery follows the keystroke, appliedPinQuery is the
+  // debounced value the (re-clustering) map pipeline actually runs on.
+  const [pinQuery, setPinQuery] = useState(initialQuery)
+  const [appliedPinQuery, setAppliedPinQuery] = useState(initialQuery)
+  useEffect(() => {
+    const t = setTimeout(() => setAppliedPinQuery(pinQuery.trim()), 220)
+    return () => clearTimeout(t)
+  }, [pinQuery])
   const [loading, setLoading] = useState(true)
   const [count, setCount] = useState(0)
   const [mapReady, setMapReady] = useState(false)
@@ -547,6 +595,8 @@ export default function MapClient({
     else url.searchParams.delete('vertical')
     if (stateFilter && stateFilter !== 'All States') url.searchParams.set('state', stateFilter)
     else url.searchParams.delete('state')
+    if (appliedPinQuery) url.searchParams.set('q', appliedPinQuery)
+    else url.searchParams.delete('q')
     if (m) {
       const c = m.getCenter()
       url.searchParams.set('lng', c.lng.toFixed(4))
@@ -554,7 +604,7 @@ export default function MapClient({
       url.searchParams.set('zoom', m.getZoom().toFixed(2))
     }
     window.history.replaceState(null, '', url.pathname + (url.searchParams.toString() ? `?${url.searchParams.toString()}` : ''))
-  }, [isEmbedded, selectedVerticals, stateFilter])
+  }, [isEmbedded, selectedVerticals, stateFilter, appliedPinQuery])
   const writeUrlRef = useRef(writeUrl)
   useEffect(() => { writeUrlRef.current = writeUrl }, [writeUrl])
 
@@ -676,6 +726,29 @@ export default function MapClient({
 
         // ── Pins (inserted below the label roof so town names float above) ──
         const roof = m.getLayer(ATLAS_LABEL_ROOF) ? ATLAS_LABEL_ROOF : undefined
+
+        // Grey underlay for the smart filter: listings that DON'T match the
+        // active query stay visible as quiet grey dots (context, not noise),
+        // while matches keep colour, clustering, labels and counts.
+        if (!isEmbedded) {
+          m.addSource('listings-dimmed', {
+            type: 'geojson',
+            cluster: false,
+            promoteId: 'id',
+            data: { type: 'FeatureCollection', features: [] },
+          })
+          m.addLayer({
+            id: 'pins-dimmed', type: 'circle', source: 'listings-dimmed',
+            paint: {
+              'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 3, 6, 4, 10, 5, 14, 6.5],
+              'circle-color': '#BAB2A2',
+              'circle-opacity': 0.45,
+              'circle-stroke-width': 1,
+              'circle-stroke-color': PAPER,
+              'circle-stroke-opacity': 0.5,
+            },
+          }, roof)
+        }
 
         // Hover / selected halo — invisible until feature-state flips.
         m.addLayer({
@@ -910,30 +983,37 @@ export default function MapClient({
     }
   }, [allListings])
 
-  // Update map source when filters change
+  // Update map sources when filters or the smart query change
   const prevFilterKey = useRef(null)
   useEffect(() => {
     if (!mapReady || !map.current) return
-    const filtered = getFiltered(allListings, selectedVerticals, subTypeFilter, stateFilter)
-    filteredRef.current = filtered
-    setCount(filtered.length)
+    const base = getFiltered(allListings, selectedVerticals, subTypeFilter, stateFilter)
+    // The smart query splits the base set: matches keep colour, clustering,
+    // labels and counts; the rest grey out underneath as context.
+    const tokens = tokenizeQuery(appliedPinQuery)
+    const matches = tokens.length ? base.filter(l => matchesPinQuery(l, tokens)) : base
+    const rest = tokens.length ? base.filter(l => !matchesPinQuery(l, tokens)) : []
+    filteredRef.current = matches
+    setCount(matches.length)
     const source = map.current.getSource('listings-clustered')
     if (source) {
-      source.setData(buildGeoJSON(filtered))
+      source.setData(buildGeoJSON(matches))
       // Cluster ids and mixes change with the data — stale donuts must go.
       donuts.current?.invalidate()
     }
-    const key = [...selectedVerticals].sort().join(',') + '|' + subTypeFilter + '|' + stateFilter
+    const dimmedSource = map.current.getSource('listings-dimmed')
+    if (dimmedSource) dimmedSource.setData(buildGeoJSON(rest))
+    const key = [...selectedVerticals].sort().join(',') + '|' + subTypeFilter + '|' + stateFilter + '|' + appliedPinQuery
     if (prevFilterKey.current !== null && prevFilterKey.current !== key) {
       // Close an open selection when the filters actually change — its pin
       // may have just been filtered away, leaving an orphaned card.
-      if (selectedRef.current && !filtered.some(l => l.id === selectedRef.current.id)) clearSelected()
+      if (selectedRef.current && !matches.some(l => l.id === selectedRef.current.id)) clearSelected()
       popup.current?.remove()
       writeUrlRef.current()
     }
     prevFilterKey.current = key
     updateInView()
-  }, [allListings, selectedVerticals, subTypeFilter, stateFilter, mapReady])
+  }, [allListings, selectedVerticals, subTypeFilter, stateFilter, appliedPinQuery, mapReady])
 
   // ── Anchored selection card (desktop): one marker as a React portal, so
   // the map engine keeps the card glued to its pin through pan/zoom. ──
@@ -987,18 +1067,18 @@ export default function MapClient({
     if (activeTab === 'map' && map.current) map.current.resize()
   }, [activeTab])
 
-  // Zoom to state — only relevant when the state filter is in play.
-  // Skipped on the initial render when initialCenter was supplied, so a
-  // "View on full map →" link stays centred on the listing rather than
-  // snapping back to the Australia overview.
-  const hasUserChangedState = useRef(false)
+  // Zoom to state — but ONLY on a real stateFilter change. The effect can
+  // re-fire without one (dep identity churn in dev, prop re-renders), and an
+  // unconditional fit here yanks the camera back to the country/state view
+  // mid-browse. First run after load fits a ?state= deep link only when no
+  // explicit camera (?lng/lat/zoom or "View on full map") was supplied.
+  const prevStateFilter = useRef(null)
   useEffect(() => {
     if (!mapReady || !map.current || isEmbedded) return
-    if (initialCenter && !hasUserChangedState.current) {
-      hasUserChangedState.current = true
-      return
-    }
-    hasUserChangedState.current = true
+    const prev = prevStateFilter.current
+    prevStateFilter.current = stateFilter
+    if (prev === stateFilter) return
+    if (prev === null && (initialCenter || stateFilter === 'All States')) return
     if (stateFilter === 'All States') {
       map.current.fitBounds(AUSTRALIA_BOUNDS, { padding: cameraPadding(), duration: 800 })
     } else {
@@ -1015,7 +1095,7 @@ export default function MapClient({
   }
 
   const isAllVerticals = selectedVerticals.size === 0
-  const activeFilterCount = (!isAllVerticals ? 1 : 0) + (subTypeFilter !== 'all' ? 1 : 0) + (stateFilter !== 'All States' ? 1 : 0)
+  const activeFilterCount = (!isAllVerticals ? 1 : 0) + (subTypeFilter !== 'all' ? 1 : 0) + (stateFilter !== 'All States' ? 1 : 0) + (appliedPinQuery ? 1 : 0)
 
   // Embedded legend — the nearby map ships no chrome, so coloured dots are
   // otherwise unexplained. Build a compact key from the verticals actually
@@ -1031,6 +1111,7 @@ export default function MapClient({
     setSelectedVerticals(new Set())
     setSubTypeFilter('all')
     setStateFilter('All States')
+    setPinQuery('')
   }
 
   // Venue half of the unified search — prefix matches rank above substring
@@ -1288,8 +1369,10 @@ export default function MapClient({
                   cardMeta={cardMeta}
                   selectedId={selected?.id || null}
                   visitedIds={visitedRef.current}
+                  filterQuery={pinQuery}
+                  onFilterQuery={setPinQuery}
                   onHover={setHoverState}
-                  onSelect={(l) => selectListing(l, { fly: map.current ? map.current.getZoom() < 11 : false })}
+                  onSelect={(l) => selectListing(l, { fly: true })}
                 />
               )}
             </div>
@@ -1547,6 +1630,8 @@ export default function MapClient({
               cardMeta={cardMeta}
               selectedId={selected?.id || null}
               visitedIds={visitedRef.current}
+              filterQuery={pinQuery}
+              onFilterQuery={setPinQuery}
               onHover={() => {}}
               onSelect={(l) => { setMobileListOpen(false); selectListing(l, { fly: true }) }}
               onClose={() => setMobileListOpen(false)}
