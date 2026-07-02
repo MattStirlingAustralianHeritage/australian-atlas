@@ -143,7 +143,7 @@ async function runPickReciprocity(admin, pick) {
   }
 
   // Claim state of the PICKED listing — active preferred over past_due grace
-  // (migration 204: past_due keeps benefits live while Stripe retries).
+  // (migration 214: past_due keeps benefits live while Stripe retries).
   const { data: claims, error: claimErr } = await admin
     .from('listing_claims')
     .select('status, claimant_email')
