@@ -113,7 +113,7 @@ async function syncVertical(vertical) {
   let from = 0
   const pageSize = 1000
   while (true) {
-    let query = source.from(config.table).select('*').range(from, from + pageSize - 1)
+    let query = source.from(config.table).select('*').order('id', { ascending: true }).range(from, from + pageSize - 1)
     if (config.statusField === 'published') {
       query = query.eq('published', config.statusValue)
     } else if (config.statusField === 'status') {
@@ -123,8 +123,9 @@ async function syncVertical(vertical) {
     if (error) { console.error(`  [${vertical}] fetch error:`, error.message); break }
     if (!data || data.length === 0) break
     allRows = allRows.concat(data)
-    if (data.length < pageSize) break
-    from += pageSize
+    // Stop only on an empty page — a max-rows cap below pageSize
+    // returns short pages before the table is exhausted.
+    from += data.length
   }
 
   console.log(`  [${vertical}] fetched ${allRows.length} rows`)
@@ -172,9 +173,29 @@ async function syncFineGrounds() {
   const source = createClient(url, key)
   let synced = 0
 
+  // Paginate past PostgREST max-rows, same as the syncVertical fetch above
+  async function fetchAll(table) {
+    let allRows = []
+    let from = 0
+    const pageSize = 1000
+    while (true) {
+      const { data, error } = await source
+        .from(table).select('*').eq('status', 'published')
+        .order('id', { ascending: true })
+        .range(from, from + pageSize - 1)
+      if (error) { console.error(`  [fine_grounds] ${table} fetch error:`, error.message); break }
+      if (!data || data.length === 0) break
+      allRows = allRows.concat(data)
+      // Stop only on an empty page — a max-rows cap below pageSize
+      // returns short pages before the table is exhausted.
+      from += data.length
+    }
+    return allRows
+  }
+
   // Roasters
-  const { data: roasters } = await source.from('roasters').select('*').eq('status', 'published')
-  if (roasters) {
+  const roasters = await fetchAll('roasters')
+  if (roasters.length > 0) {
     const listings = roasters.map(row => ({
       vertical: 'fine_grounds',
       source_id: `roaster_${row.id}`,
@@ -204,8 +225,8 @@ async function syncFineGrounds() {
   }
 
   // Cafes
-  const { data: cafes } = await source.from('cafes').select('*').eq('status', 'published')
-  if (cafes) {
+  const cafes = await fetchAll('cafes')
+  if (cafes.length > 0) {
     const listings = cafes.map(row => ({
       vertical: 'fine_grounds',
       source_id: `cafe_${row.id}`,
