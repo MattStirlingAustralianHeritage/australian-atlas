@@ -367,24 +367,32 @@ export default async function Home() {
   return (
     <>
       {/* ── 1. Hero — centred masthead ──────────────────────── */}
-      {/* Reverted to the centred treatment (the asymmetric masthead + stat box
-          didn't land); the front-door search stays the focal point. The new
-          warm-stone palette and the spectrum spine below carry the freshness. */}
+      {/* Centred (the asymmetric masthead + stat box didn't land), but no longer
+          quiet: the compass-star mark opens the page, Fraunces at display optical
+          size carries the headline near 7rem, and the emphasised word gets a
+          hand-set gold underline. The search stays the focal point below. */}
       <section
         className="relative text-center flex flex-col items-center justify-center px-6 sm:px-12"
         style={{
-          minHeight: 'clamp(340px, 56vh, 580px)',
-          paddingTop: '2.5rem',
-          paddingBottom: '2.25rem',
+          minHeight: 'clamp(360px, 60vh, 640px)',
+          paddingTop: '3rem',
+          paddingBottom: '2.5rem',
           background: 'linear-gradient(180deg, #FAF8F4 0%, #F0EBE3 100%)',
         }}
       >
+        <svg
+          className="hero-rise"
+          width="26" height="26" viewBox="0 0 24 24" fill="var(--color-gold)" aria-hidden="true"
+          style={{ marginBottom: '22px', opacity: 0.92 }}
+        >
+          <path d="M12 0l2.6 9.4L24 12l-9.4 2.6L12 24l-2.6-9.4L0 12l9.4-2.6L12 0z" />
+        </svg>
         <h1 className="hero-rise" style={{
-          fontFamily: 'var(--font-display)', fontWeight: 400, letterSpacing: '-0.012em',
-          fontSize: 'clamp(2.6rem, 6.2vw, 5.25rem)', lineHeight: 1.08,
-          color: 'var(--color-ink)', maxWidth: '900px', textWrap: 'balance',
+          fontFamily: 'var(--font-display)', fontWeight: 380, letterSpacing: '-0.022em',
+          fontSize: 'clamp(2.8rem, 7.2vw, 6.6rem)', lineHeight: 1.03,
+          color: 'var(--color-ink)', maxWidth: '1020px', textWrap: 'balance',
         }}>
-          {t.rich('heroTitle', { em: (chunks) => <em style={{ fontStyle: 'italic' }}>{chunks}</em> })}
+          {t.rich('heroTitle', { em: (chunks) => <em className="hero-em">{chunks}</em> })}
         </h1>
 
         <p className="mt-6 hero-rise" style={{
@@ -534,7 +542,7 @@ export default async function Home() {
               </p>
               <h2 style={{
                 fontFamily: 'var(--font-display)', fontWeight: 400,
-                fontSize: 'clamp(26px, 3.2vw, 40px)', color: 'var(--color-ink)',
+                fontSize: 'clamp(30px, 4vw, 50px)', color: 'var(--color-ink)',
                 lineHeight: 1.1, marginBottom: '12px',
               }}>
                 Worth finding this week
@@ -678,7 +686,7 @@ export default async function Home() {
               </p>
               <h2 style={{
                 fontFamily: 'var(--font-display)', fontWeight: 400,
-                fontSize: 'clamp(24px, 3vw, 34px)', color: '#FAF8F4', lineHeight: 1.12,
+                fontSize: 'clamp(28px, 3.6vw, 44px)', color: '#FAF8F4', lineHeight: 1.12,
               }}>
                 Stories from the network
               </h2>
@@ -998,7 +1006,7 @@ export default async function Home() {
             </p>
             <h2 style={{
               fontFamily: 'var(--font-display)', fontWeight: 400,
-              fontSize: 'clamp(26px, 3.2vw, 40px)', color: 'var(--color-ink)', lineHeight: 1.1,
+              fontSize: 'clamp(30px, 4vw, 50px)', color: 'var(--color-ink)', lineHeight: 1.1,
             }}>
               What&apos;s on
             </h2>
@@ -1148,7 +1156,7 @@ export default async function Home() {
               </p>
               <h2 style={{
                 fontFamily: 'var(--font-display)', fontWeight: 400,
-                fontSize: 'clamp(26px, 3.2vw, 40px)', color: 'var(--color-ink)', lineHeight: 1.1,
+                fontSize: 'clamp(30px, 4vw, 50px)', color: 'var(--color-ink)', lineHeight: 1.1,
               }}>
                 Discover a cluster
               </h2>

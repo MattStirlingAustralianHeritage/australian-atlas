@@ -1,14 +1,11 @@
 import { NextResponse } from 'next/server'
 import { syncVertical, syncFineGrounds } from '../../../../lib/sync/syncVertical.js'
 import { syncArticles } from '../../../../lib/sync/syncArticles.js'
-import { generateEmbeddings } from '../../../../lib/sync/syncEmbeddings.js'
 import { updateRegionCounts } from '../../../../lib/sync/updateRegionCounts.js'
 import { sendSyncAlert } from '../../../../lib/sync/alerts.js'
 import { getSupabaseAdmin } from '../../../../lib/supabase/clients.js'
 import { startRun, completeRun } from '../../../../lib/agents/logRun.js'
 
-// Give the full sync (incl. the paced, free-tier Voyage embedding drain) room to
-// run instead of timing out at the default and leaving the backlog stuck.
 export const maxDuration = 300
 
 // Standard verticals (single source table)
@@ -31,10 +28,14 @@ export async function GET(request) {
   const runId = await startRun('sync')
   const startTime = Date.now()
   const results = []
+  const stageMs = {}
+  const stamp = (stage, t0) => { stageMs[stage] = Date.now() - t0 }
+  let t0
 
   try {
 
   // 1. Sync all standard verticals
+  t0 = Date.now()
   for (const vertical of STANDARD_VERTICALS) {
     try {
       const result = await syncVertical(vertical)
@@ -53,8 +54,10 @@ export async function GET(request) {
     console.error('[cron] fine_grounds sync crashed:', err.message)
     results.push({ vertical: 'fine_grounds', synced: 0, deactivated: 0, error: err.message })
   }
+  stamp('verticals', t0)
 
   // 3. Sync articles from CMS
+  t0 = Date.now()
   let articleResult = { synced: 0, error: null }
   try {
     articleResult = await syncArticles()
@@ -62,24 +65,26 @@ export async function GET(request) {
     console.error('[cron] Article sync crashed:', err.message)
     articleResult = { synced: 0, error: err.message }
   }
+  stamp('articles', t0)
 
-  // 4. Generate embeddings for new listings/articles
-  try {
-    await generateEmbeddings()
-  } catch (err) {
-    console.error('[cron] Embedding generation error:', err.message)
-  }
+  // Embeddings are NOT generated here — the dedicated hourly
+  // /api/cron/embeddings drain owns that backlog. Running the paced
+  // (free-tier Voyage) drain inline pushed this route past its 300s
+  // budget and the platform kill stranded the run mid-work.
 
-  // 5. Update region listing counts
+  // 4. Update region listing counts
+  t0 = Date.now()
   try {
     await updateRegionCounts()
   } catch (err) {
     console.error('[cron] Region count update error:', err.message)
   }
+  stamp('regions', t0)
 
-  // 6. Post-sync website enforcement
+  // 5. Post-sync website enforcement
   // Hide newly synced listings without a website (for non-exempt verticals)
   // Also reinstate listings that gained a website via sync
+  t0 = Date.now()
   let hiddenCount = 0
   let reinstatedCount = 0
   try {
@@ -144,8 +149,9 @@ export async function GET(request) {
   } catch (err) {
     console.error('[cron] Website enforcement error:', err.message)
   }
+  stamp('enforcement', t0)
 
-  // 7. Send alert if any failures
+  // 6. Send alert if any failures
   try {
     await sendSyncAlert(results)
   } catch (err) {
@@ -169,6 +175,10 @@ export async function GET(request) {
       reinstated: reinstatedCount,
       vertical_errors: totalErrors,
       duration_s: Number(duration),
+      verticals_s: Math.round((stageMs.verticals || 0) / 1000),
+      articles_s: Math.round((stageMs.articles || 0) / 1000),
+      regions_s: Math.round((stageMs.regions || 0) / 1000),
+      enforcement_s: Math.round((stageMs.enforcement || 0) / 1000),
     },
   })
 
