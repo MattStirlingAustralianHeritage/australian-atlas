@@ -1,4 +1,4 @@
-import { Fraunces, DM_Sans } from "next/font/google";
+import { Newsreader, DM_Sans } from "next/font/google";
 import "./globals.css";
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
@@ -12,15 +12,16 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import LocaleUrlGuardian from "@/components/LocaleUrlGuardian";
 
-// Fraunces — a contemporary editorial serif with true optical sizing (opsz
-// 9–144): masthead sizes render with high-contrast display cuts, small sizes
-// stay readable. Replaces Playfair Display as the network's display voice —
-// same serif sensibility, far more distinctive at hero scale.
-const fraunces = Fraunces({
+// Newsreader — an editorial serif with true optical sizing (opsz 6–72):
+// classical letterforms (a proper two-part f — Fraunces' curled f didn't
+// land), beautiful true italics, and a full variable weight range. Chosen
+// against Fraunces / Instrument Serif / Libre Caslon / Cormorant on a live
+// specimen of the site's own headlines.
+const newsreader = Newsreader({
   variable: "--font-display",
   subsets: ["latin"],
   style: ["normal", "italic"],
-  axes: ["opsz", "SOFT", "WONK"],
+  axes: ["opsz"],
   display: "swap",
 });
 
@@ -117,7 +118,7 @@ export default async function RootLayout({ children }) {
   const messages = await getMessages()
 
   return (
-    <html lang={locale} className={`${fraunces.variable} ${dmSans.variable}`}>
+    <html lang={locale} className={`${newsreader.variable} ${dmSans.variable}`}>
       <body className="min-h-screen flex flex-col">
         <link rel="preconnect" href="https://api.mapbox.com" crossOrigin="anonymous" />
         {supabaseOrigin && <link rel="preconnect" href={supabaseOrigin} crossOrigin="anonymous" />}
