@@ -26,7 +26,15 @@ export default function ScrollReveal({ children, className = '', stagger = 80, t
 
     targets.forEach((target, i) => {
       if (!target.dataset.revealIndex) target.dataset.revealIndex = i
-      observer.observe(target)
+      // Anything at or above the fold when we mount (anchor jump, restored
+      // scroll position, back-navigation) reveals immediately — an observer
+      // registered after the element has already scrolled past never fires,
+      // which left those sections permanently invisible.
+      if (target.getBoundingClientRect().top < window.innerHeight) {
+        target.classList.add('revealed')
+      } else {
+        observer.observe(target)
+      }
     })
 
     return () => observer.disconnect()

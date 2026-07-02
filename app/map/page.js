@@ -44,6 +44,10 @@ export default async function MapPage({ searchParams }) {
   const initialCenter = Number.isFinite(lng) && Number.isFinite(lat) ? [lng, lat] : null
   const initialZoom = Number.isFinite(zoom) ? zoom : null
 
+  // Smart pin filter ("whisky", "homewares", …) — kept in the URL so a
+  // filtered map view is shareable like every other map state.
+  const initialQuery = typeof params?.q === 'string' ? params.q.slice(0, 60) : ''
+
   return (
     <Suspense fallback={
       <div style={{ height: '100svh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-sans)', color: 'var(--color-muted)' }}>
@@ -55,6 +59,7 @@ export default async function MapPage({ searchParams }) {
         initialState={initialState}
         initialCenter={initialCenter}
         initialZoom={initialZoom}
+        initialQuery={initialQuery}
         publicVerticals={getPublicVerticals()}
       />
     </Suspense>

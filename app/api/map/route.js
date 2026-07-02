@@ -29,6 +29,9 @@ async function fetchPinsFallback(sb) {
     q => q.not('lat', 'is', null),
     q => q.not('lng', 'is', null),
     q => q.or('address_on_request.eq.false,address_on_request.is.null'),
+    // Online-only / markets-only makers have no street address — their pin is a
+    // bare locality centroid, so a city's worth of them stacks on one point.
+    q => q.or('visitable.eq.true,visitable.is.null'),
     // Stable sort — without it, PostgREST .range() pages can overlap/skip rows,
     // duplicating some pins and dropping others.
     q => q.order('id', { ascending: true }),
@@ -57,10 +60,11 @@ export async function GET() {
     const publicVerticals = getPublicVerticals()
 
     // Fast path: one round trip. map_pins() applies the identical public filter
-    // (status/vertical/needs_review/test-slug/lat-lng/address-on-request), trims
+    // (status/vertical/needs_review/test-slug/lat-lng/address-on-request/visitable), trims
     // description to 160 chars IN SQL so full editorial bodies never leave the
     // DB, and returns every matching listing exactly once (no pagination = no
-    // duplicated or dropped pins). See supabase/migrations/199_map_pins_rpc.sql.
+    // duplicated or dropped pins). See supabase/migrations/199_map_pins_rpc.sql
+    // and 203_map_pins_visitable.sql.
     let listings = null
     const { data, error } = await sb.rpc('map_pins', {
       p_verticals: publicVerticals,
