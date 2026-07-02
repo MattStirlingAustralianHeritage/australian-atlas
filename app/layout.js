@@ -1,4 +1,4 @@
-import { Playfair_Display, DM_Sans } from "next/font/google";
+import { Fraunces, DM_Sans } from "next/font/google";
 import "./globals.css";
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
@@ -12,11 +12,15 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import LocaleUrlGuardian from "@/components/LocaleUrlGuardian";
 
-const playfair = Playfair_Display({
+// Fraunces — a contemporary editorial serif with true optical sizing (opsz
+// 9–144): masthead sizes render with high-contrast display cuts, small sizes
+// stay readable. Replaces Playfair Display as the network's display voice —
+// same serif sensibility, far more distinctive at hero scale.
+const fraunces = Fraunces({
   variable: "--font-display",
   subsets: ["latin"],
-  weight: ["400", "700"],
   style: ["normal", "italic"],
+  axes: ["opsz", "SOFT", "WONK"],
   display: "swap",
 });
 
@@ -113,7 +117,7 @@ export default async function RootLayout({ children }) {
   const messages = await getMessages()
 
   return (
-    <html lang={locale} className={`${playfair.variable} ${dmSans.variable}`}>
+    <html lang={locale} className={`${fraunces.variable} ${dmSans.variable}`}>
       <body className="min-h-screen flex flex-col">
         <link rel="preconnect" href="https://api.mapbox.com" crossOrigin="anonymous" />
         {supabaseOrigin && <link rel="preconnect" href={supabaseOrigin} crossOrigin="anonymous" />}

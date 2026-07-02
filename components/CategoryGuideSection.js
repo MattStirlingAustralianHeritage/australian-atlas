@@ -58,7 +58,7 @@ export default function CategoryGuideSection({ publicVerticals = [], verticalCou
           </p>
           <h2 style={{
             fontFamily: 'var(--font-display)', fontWeight: 400,
-            fontSize: 'clamp(26px, 3.4vw, 40px)', color: 'var(--color-ink)',
+            fontSize: 'clamp(30px, 4vw, 50px)', color: 'var(--color-ink)',
             lineHeight: 1.15, marginBottom: '14px', textWrap: 'balance',
           }}>
             {word} kinds of independent place
