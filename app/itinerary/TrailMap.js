@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useCallback } from 'react'
+import { useTranslations } from 'next-intl'
 import {
   stopsToGeoJSON,
   allStopLayers,
@@ -27,11 +28,19 @@ const ANIMATION_MS = 1500
  * When toggle state changes, routes are re-fetched and redrawn.
  */
 export default function TrailMap({ stops, days, onToggle }) {
+  const t = useTranslations('itinerary')
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const initializedRef = useRef(false)
   // Track current route fetch generation to discard stale responses
   const routeGenRef = useRef(0)
+  // Translated popup labels, read inside buildLayers (a plain async fn outside
+  // React) via ref so the "runs once" map-creation effect keeps empty deps.
+  const popupLabelsRef = useRef(null)
+  popupLabelsRef.current = {
+    clickToRemove: t('mapClickToRemove'),
+    clickToAdd: t('mapClickToAdd'),
+  }
 
   // ── Initial map creation (runs once) ──
   useEffect(() => {
@@ -64,7 +73,7 @@ export default function TrailMap({ stops, days, onToggle }) {
 
       map.on('load', () => {
         map.resize()
-        buildLayers(map, mapboxgl, stops, days)
+        buildLayers(map, mapboxgl, stops, days, popupLabelsRef)
         initializedRef.current = true
       })
     })
@@ -143,7 +152,7 @@ export default function TrailMap({ stops, days, onToggle }) {
 
 // ── Layer construction + initial animation ──────────────────
 
-async function buildLayers(map, mapboxgl, stops, days) {
+async function buildLayers(map, mapboxgl, stops, days, popupLabelsRef) {
   const validStops = stops.filter(s => s.lat && s.lng && !isNaN(s.lat) && !isNaN(s.lng))
   if (validStops.length === 0) return
 
@@ -217,7 +226,7 @@ async function buildLayers(map, mapboxgl, stops, days) {
           ? `<div style="font-size:10px;color:${vertColor};font-weight:600;margin-top:2px;">${props.isAccom === true || props.isAccom === 'true' ? '🛏 ' : ''}${vertLabel}</div>`
           : '') +
         (!pinned
-          ? `<div style="font-size:10px;color:#888;margin-top:3px;">${included ? 'Click to remove from route' : 'Click to add to route'}</div>`
+          ? `<div style="font-size:10px;color:#888;margin-top:3px;">${included ? (popupLabelsRef?.current?.clickToRemove || '') : (popupLabelsRef?.current?.clickToAdd || '')}</div>`
           : '') +
         `</div>`
       )

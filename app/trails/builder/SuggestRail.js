@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { getVerticalBadge, VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 
 const VERTICAL_COLORS = VERTICAL_ACCENTS
@@ -19,6 +20,7 @@ export default function SuggestRail({
   onAdd, onHover,
   templates, templateLoading, onUseTemplate,
 }) {
+  const t = useTranslations('trailsBuilder')
   const visibleGroups = (groups || [])
     .map(g => ({ ...g, items: g.items.filter(it => !stopIds.has(String(it.id))) }))
     .filter(g => g.items.length > 0)
@@ -31,7 +33,7 @@ export default function SuggestRail({
     <div style={{ borderBottom: '1px solid var(--color-border)', paddingBottom: 4 }}>
       {loading && !visibleGroups.length && (
         <div style={{ padding: '12px 20px 4px', fontSize: 11, color: 'var(--color-muted)', fontFamily: 'var(--font-body)' }}>
-          Finding suggestions…
+          {t('findingSuggestions')}
         </div>
       )}
 
@@ -65,17 +67,17 @@ export default function SuggestRail({
         <div style={{ padding: '12px 0 8px' }}>
           <div style={{ padding: '0 20px', marginBottom: 8 }}>
             <div style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-ink)', fontFamily: 'var(--font-body)', fontWeight: 700 }}>
-              Or start from a curated trail
+              {t('curatedTrailHeading')}
             </div>
             <div style={{ fontSize: 11, color: 'var(--color-muted)', fontFamily: 'var(--font-body)', marginTop: 1 }}>
-              Loads the stops — make it your own from there
+              {t('curatedTrailSub')}
             </div>
           </div>
           <div className="suggest-row" style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '0 20px 10px' }}>
-            {templates.map(t => (
+            {templates.map(tpl => (
               <button
-                key={t.id}
-                onClick={() => onUseTemplate(t)}
+                key={tpl.id}
+                onClick={() => onUseTemplate(tpl)}
                 disabled={!!templateLoading}
                 style={{
                   flexShrink: 0, width: 168, textAlign: 'left', cursor: templateLoading ? 'wait' : 'pointer',
@@ -84,13 +86,13 @@ export default function SuggestRail({
                 }}
               >
                 <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--color-ink)', lineHeight: 1.35, marginBottom: 4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                  {t.title}
+                  {tpl.title}
                 </div>
                 <div style={{ fontSize: 10.5, color: 'var(--color-muted)' }}>
-                  {[t.stop_count ? `${t.stop_count} stops` : null, t.region].filter(Boolean).join(' · ')}
+                  {[tpl.stop_count ? t('templateStopCount', { count: tpl.stop_count }) : null, tpl.region].filter(Boolean).join(' · ')}
                 </div>
                 <div style={{ marginTop: 7, fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#5F8A7E' }}>
-                  {templateLoading === t.slug ? 'Loading…' : 'Use as start →'}
+                  {templateLoading === tpl.slug ? t('loadingShort') : t('useAsStart')}
                 </div>
               </button>
             ))}
@@ -108,6 +110,7 @@ export default function SuggestRail({
 }
 
 function SuggestCard({ item, onAdd, onHover }) {
+  const t = useTranslations('trailsBuilder')
   const color = VERTICAL_COLORS[item.vertical] || '#5F8A7E'
   return (
     <button
@@ -116,7 +119,7 @@ function SuggestCard({ item, onAdd, onHover }) {
       onMouseLeave={() => onHover?.(null)}
       onFocus={() => onHover?.(item.id)}
       onBlur={() => onHover?.(null)}
-      title={`Add ${item.name} to your trail`}
+      title={t('addToTrailAria', { name: item.name })}
       style={{
         flexShrink: 0, width: 156, textAlign: 'left', cursor: 'pointer',
         background: '#fff', border: '1px solid var(--color-border)', borderRadius: 6,
@@ -141,7 +144,7 @@ function SuggestCard({ item, onAdd, onHover }) {
             fontSize: 9, fontWeight: 600,
             background: 'rgba(26,22,20,0.72)', color: '#fff', padding: '2px 6px', borderRadius: 2,
           }}>
-            {item.distance_km < 1 ? '<1' : Math.round(item.distance_km)} km away
+            {t('distanceAway', { km: item.distance_km < 1 ? '<1' : Math.round(item.distance_km) })}
           </span>
         )}
       </div>
@@ -153,7 +156,7 @@ function SuggestCard({ item, onAdd, onHover }) {
           {[item.region, item.state].filter(Boolean).join(', ') || ' '}
         </div>
         <div style={{ marginTop: 6, fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', color: '#5F8A7E' }}>
-          + Add to trail
+          {t('addToTrail')}
         </div>
       </div>
     </button>

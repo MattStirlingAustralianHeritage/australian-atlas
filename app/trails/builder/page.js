@@ -1,8 +1,12 @@
 import BuilderClient from './BuilderClient'
+import { getTranslations } from 'next-intl/server'
 
-export const metadata = {
-  title: 'Trail Builder — Australian Atlas',
-  description: 'Build your own trail of independent venues across Australia — wineries, galleries, cafes, nature stops and more, with live route times and smart suggestions.',
+export async function generateMetadata() {
+  const t = await getTranslations('trailsBuilder')
+  return {
+    title: t('metaTitle'),
+    description: t('metaDescription'),
+  }
 }
 
 export default function TrailBuilderPage() {

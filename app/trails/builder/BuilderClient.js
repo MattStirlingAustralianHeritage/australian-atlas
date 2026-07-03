@@ -1,6 +1,7 @@
 'use client'
 
 import React, { Suspense, useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useTranslations } from 'next-intl'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { getAuthSupabase } from '@/lib/supabase/auth-clients'
@@ -14,7 +15,7 @@ import SuggestRail from './SuggestRail'
 const VERTICAL_COLORS = VERTICAL_ACCENTS
 
 const VERTICAL_FILTERS = [
-  { key: 'all', label: 'All' },
+  { key: 'all', labelKey: 'filterAll' },
   { key: 'sba', label: 'Small Batch' },
   { key: 'collection', label: 'Culture' },
   { key: 'craft', label: 'Craft' },
@@ -147,6 +148,7 @@ function normaliseStop(v) {
 }
 
 function TrailBuilderInner() {
+  const t = useTranslations('trailsBuilder')
   const router = useRouter()
   const searchParams = useSearchParams()
   const editId = searchParams.get('id')
@@ -279,7 +281,7 @@ function TrailBuilderInner() {
         }
         setStopNotes(notes)
       })
-      .catch(() => { if (!cancelled) setEditLoadError('Could not load that trail.') })
+      .catch(() => { if (!cancelled) setEditLoadError(t('editLoadError')) })
     return () => { cancelled = true }
   }, [editId])
 
@@ -337,11 +339,11 @@ function TrailBuilderInner() {
   // ── Route (geometry + legs + totals) ──
   useEffect(() => {
     let cancelled = false
-    const t = setTimeout(async () => {
+    const routeTimer = setTimeout(async () => {
       const r = await fetchRoute(stops, transportMode)
       if (!cancelled) setRoute(r)
     }, 350)
-    return () => { cancelled = true; clearTimeout(t) }
+    return () => { cancelled = true; clearTimeout(routeTimer) }
   }, [stops, transportMode])
 
   // ── Recommendations (debounced on stop changes) ──
@@ -453,10 +455,10 @@ function TrailBuilderInner() {
     return saving > Math.max(5, current * 0.12) ? Math.round(saving) : 0
   }, [stops])
 
-  const loadTemplate = useCallback(async (t) => {
-    setTemplateLoading(t.slug)
+  const loadTemplate = useCallback(async (tpl) => {
+    setTemplateLoading(tpl.slug)
     try {
-      const res = await fetch(`/api/trails/${t.slug}`)
+      const res = await fetch(`/api/trails/${tpl.slug}`)
       if (!res.ok) throw new Error()
       const { trail } = await res.json()
       const tStops = (trail.stops || [])
@@ -549,7 +551,7 @@ function TrailBuilderInner() {
       if (!editId) clearDraft()
     } catch (err) {
       console.error(err)
-      setSaveError('Something went wrong saving your trail. Please try again.')
+      setSaveError(t('saveError'))
     } finally {
       setSaving(false)
     }
@@ -623,7 +625,7 @@ function TrailBuilderInner() {
           const trail = data.trail || data
           setSavedTrail({ id: trail.id, slug: trail.slug, short_code: trail.short_code, title: trail.title, visibility: trail.visibility || visibility, copied: false })
         } catch (err) {
-          setSaveError('Something went wrong saving your trail. Please try again.')
+          setSaveError(t('saveError'))
         } finally {
           setSaving(false)
         }
@@ -677,7 +679,7 @@ function TrailBuilderInner() {
               cursor: 'pointer', transition: 'all 0.15s',
             }}
           >
-            {tab === 'builder' ? 'Builder' : 'Map'}
+            {tab === 'builder' ? t('mobileTabBuilder') : t('mobileTabMap')}
           </button>
         ))}
       </div>
@@ -704,16 +706,16 @@ function TrailBuilderInner() {
                 {!isEmbed && (
                   <>
                     <Link href="/map" style={{ fontSize: 11, color: 'var(--color-muted)', fontFamily: 'var(--font-body)', textDecoration: 'none', letterSpacing: '0.06em' }}>
-                      &larr; Map
+                      &larr; {t('backToMap')}
                     </Link>
                     <span style={{ margin: '0 8px', color: 'var(--color-border)' }}>|</span>
                   </>
                 )}
-                {effectiveEditId ? 'Editing trail' : 'Trail Builder'}
+                {effectiveEditId ? t('headerEditing') : t('headerTitle')}
               </span>
               {(stops.length > 0 || trailName) && (
                 <button onClick={startFresh} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 10, color: 'var(--color-muted)', fontFamily: 'var(--font-body)', letterSpacing: '0.06em', textTransform: 'uppercase', padding: 0 }}>
-                  Start fresh
+                  {t('startFresh')}
                 </button>
               )}
             </div>
@@ -726,7 +728,7 @@ function TrailBuilderInner() {
 
             {draftRestored && stops.length > 0 && !savedTrail && (
               <div style={{ marginBottom: 10, padding: '7px 12px', background: 'rgba(95,138,126,0.08)', border: '1px solid rgba(95,138,126,0.25)', borderRadius: 4, fontSize: 11.5, color: 'var(--color-ink)', fontFamily: 'var(--font-body)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                <span>Picked up where you left off.</span>
+                <span>{t('draftRestored')}</span>
                 <button onClick={() => setDraftRestored(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-muted)', fontSize: 13, padding: 0, lineHeight: 1 }}>×</button>
               </div>
             )}
@@ -737,34 +739,34 @@ function TrailBuilderInner() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                   <span style={{ width: 20, height: 20, borderRadius: '50%', background: '#5F8A7E', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, flexShrink: 0 }}>✓</span>
                   <span style={{ fontFamily: 'var(--font-display)', fontSize: 16, color: 'var(--color-ink)' }}>
-                    {savedTrail.copied ? 'Saved as your copy' : 'Trail saved'}
+                    {savedTrail.copied ? t('savedAsCopy') : t('savedTitle')}
                   </span>
                 </div>
                 {shareUrl && (
                   <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
                     <input readOnly value={shareUrl} onFocus={e => e.target.select()} style={{ flex: 1, minWidth: 0, padding: '7px 10px', fontSize: 11.5, fontFamily: 'var(--font-body)', color: 'var(--color-muted)', background: 'var(--color-cream)', border: '1px solid var(--color-border)', borderRadius: 4, outline: 'none' }} />
                     <button onClick={copyShare} style={{ flexShrink: 0, padding: '7px 12px', background: shareCopied ? '#3D6B60' : '#5F8A7E', color: '#fff', border: 'none', borderRadius: 4, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-body)', letterSpacing: '0.04em' }}>
-                      {shareCopied ? 'Copied ✓' : 'Copy link'}
+                      {shareCopied ? t('copiedConfirm') : t('copyLink')}
                     </button>
                   </div>
                 )}
                 {savedIsPrivate && (
                   <div style={{ marginBottom: 10, fontSize: 11.5, color: 'var(--color-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
-                    Saved privately to your account. Switch visibility to “Link only” and save again if you want a shareable link.
+                    {t('savedPrivateNote')}
                   </div>
                 )}
                 <div style={{ display: 'flex', gap: 6 }}>
                   {viewUrl ? (
                     <a href={viewUrl} target={isEmbed ? '_blank' : undefined} rel="noreferrer" style={{ flex: 1, textAlign: 'center', padding: '8px 0', background: '#5F8A7E', color: '#fff', borderRadius: 4, fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', textDecoration: 'none', fontFamily: 'var(--font-body)' }}>
-                      View trail
+                      {t('viewTrail')}
                     </a>
                   ) : (
                     <a href="/account/trails" target={isEmbed ? '_blank' : undefined} rel="noreferrer" style={{ flex: 1, textAlign: 'center', padding: '8px 0', background: '#5F8A7E', color: '#fff', borderRadius: 4, fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', textDecoration: 'none', fontFamily: 'var(--font-body)' }}>
-                      My trails
+                      {t('myTrails')}
                     </a>
                   )}
                   <button onClick={keepEditingSaved} style={{ flex: 1, padding: '8px 0', background: 'transparent', color: '#5F8A7E', border: '1px solid #5F8A7E', borderRadius: 4, fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
-                    Keep editing
+                    {t('keepEditing')}
                   </button>
                 </div>
               </div>
@@ -773,8 +775,8 @@ function TrailBuilderInner() {
                 <input
                   value={trailName}
                   onChange={e => setTrailName(e.target.value)}
-                  placeholder="Name your trail..."
-                  aria-label="Trail name"
+                  placeholder={t('trailNamePlaceholder')}
+                  aria-label={t('trailNameAria')}
                   style={{
                     width: '100%', fontFamily: 'var(--font-display)', fontSize: 20,
                     color: 'var(--color-ink)', background: 'transparent', border: 'none',
@@ -785,7 +787,7 @@ function TrailBuilderInner() {
                 <textarea
                   value={trailDesc}
                   onChange={e => setTrailDesc(e.target.value)}
-                  placeholder="Add a description (optional)..."
+                  placeholder={t('trailDescPlaceholder')}
                   rows={1}
                   style={{
                     width: '100%', padding: '4px 0 8px', fontFamily: 'var(--font-body)', fontSize: 13,
@@ -798,7 +800,7 @@ function TrailBuilderInner() {
                 {/* Transport + visibility + save in one compact row set */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
                   <div style={{ display: 'inline-flex', border: '1px solid var(--color-border)', borderRadius: 4, overflow: 'hidden' }}>
-                    {[{ key: 'drive', label: 'Drive' }, { key: 'nocar', label: 'No car' }].map(m => {
+                    {[{ key: 'drive', label: t('modeDrive') }, { key: 'nocar', label: t('modeNoCar') }].map(m => {
                       const active = m.key === 'drive' ? transportMode === 'drive' : transportMode !== 'drive'
                       return (
                         <button
@@ -823,7 +825,7 @@ function TrailBuilderInner() {
 
                   {transportMode !== 'drive' && (
                     <div style={{ display: 'inline-flex', border: '1px solid var(--color-border)', borderRadius: 4, overflow: 'hidden' }}>
-                      {[{ key: 'transit', label: 'Transit + walk' }, { key: 'neighbourhood', label: 'One neighbourhood' }].map(m => (
+                      {[{ key: 'transit', label: t('modeTransitWalk') }, { key: 'neighbourhood', label: t('modeOneNeighbourhood') }].map(m => (
                         <button
                           key={m.key}
                           onClick={() => setTransportMode(m.key)}
@@ -846,7 +848,7 @@ function TrailBuilderInner() {
                   <input
                     value={neighbourhoodLabel}
                     onChange={e => setNeighbourhoodLabel(e.target.value)}
-                    placeholder="Neighbourhood name (e.g. Fitzroy & Collingwood)..."
+                    placeholder={t('neighbourhoodPlaceholder', { example: 'Fitzroy & Collingwood' })}
                     style={{
                       width: '100%', padding: '6px 0', fontFamily: 'var(--font-body)', fontSize: 13,
                       color: 'var(--color-ink)', background: 'transparent', border: 'none',
@@ -860,16 +862,16 @@ function TrailBuilderInner() {
                   <select
                     value={visibility}
                     onChange={e => setVisibility(e.target.value)}
-                    aria-label="Trail visibility"
+                    aria-label={t('visibilityAria')}
                     style={{
                       fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-ink)',
                       background: '#fff', border: '1px solid var(--color-border)', borderRadius: 4,
                       padding: '8px 10px', cursor: 'pointer', flexShrink: 0, outline: 'none',
                     }}
                   >
-                    <option value="private">Private</option>
-                    <option value="link">Link only</option>
-                    <option value="public">Public</option>
+                    <option value="private">{t('visibilityPrivate')}</option>
+                    <option value="link">{t('visibilityLink')}</option>
+                    <option value="public">{t('visibilityPublic')}</option>
                   </select>
 
                   <button
@@ -886,15 +888,15 @@ function TrailBuilderInner() {
                       transition: 'all 0.15s',
                     }}
                   >
-                    {saving ? 'Saving...' : effectiveEditId ? 'Save changes' : 'Save trail'}
+                    {saving ? t('saving') : effectiveEditId ? t('saveChanges') : t('saveTrail')}
                   </button>
                 </div>
 
                 {!canSave && !saveError && (
                   <div style={{ marginTop: 7, fontSize: 11, color: 'var(--color-muted)', fontFamily: 'var(--font-body)' }}>
                     {!trailName.trim() && stops.length < 2
-                      ? 'Add a name and at least 2 stops to save'
-                      : !trailName.trim() ? 'Add a name to save' : 'Add at least 2 stops to save'}
+                      ? t('hintNameAndStops')
+                      : !trailName.trim() ? t('hintName') : t('hintStops')}
                   </div>
                 )}
                 {saveError && (
@@ -902,7 +904,7 @@ function TrailBuilderInner() {
                 )}
                 {!user && authChecked && canSave && (
                   <div style={{ marginTop: 8, fontSize: 11.5, color: 'var(--color-muted)', fontFamily: 'var(--font-body)' }}>
-                    You'll be asked to sign in — your trail is kept safe either way.
+                    {t('signInNote')}
                   </div>
                 )}
               </>
@@ -915,8 +917,8 @@ function TrailBuilderInner() {
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Search venues across all verticals..."
-                aria-label="Search venues"
+                placeholder={t('searchPlaceholder')}
+                aria-label={t('searchAria')}
                 style={{
                   width: '100%', padding: '9px 12px 9px 32px', fontFamily: 'var(--font-body)',
                   fontSize: 13, color: 'var(--color-ink)', background: '#fff',
@@ -928,7 +930,7 @@ function TrailBuilderInner() {
                 <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
               </svg>
               {search && (
-                <button onClick={() => setSearch('')} aria-label="Clear search" style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-muted)', fontSize: 14, padding: 4 }}>×</button>
+                <button onClick={() => setSearch('')} aria-label={t('clearSearch')} style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-muted)', fontSize: 14, padding: 4 }}>×</button>
               )}
             </div>
 
@@ -951,14 +953,14 @@ function TrailBuilderInner() {
                       transition: 'all 0.1s',
                     }}
                   >
-                    {v.label}
+                    {v.labelKey ? t(v.labelKey) : v.label}
                   </button>
                 )
               })}
             </div>
 
             {searchLoading && (
-              <div style={{ marginTop: 8, fontSize: 11, color: 'var(--color-muted)', fontFamily: 'var(--font-body)' }}>Searching…</div>
+              <div style={{ marginTop: 8, fontSize: 11, color: 'var(--color-muted)', fontFamily: 'var(--font-body)' }}>{t('searching')}</div>
             )}
           </div>
 
@@ -989,7 +991,7 @@ function TrailBuilderInner() {
                       </div>
                     </div>
                     {isAdded ? (
-                      <span style={{ flexShrink: 0, marginLeft: 8, fontSize: 11, color: '#5F8A7E', fontFamily: 'var(--font-body)', fontWeight: 600 }}>Added ✓</span>
+                      <span style={{ flexShrink: 0, marginLeft: 8, fontSize: 11, color: '#5F8A7E', fontFamily: 'var(--font-body)', fontWeight: 600 }}>{t('added')}</span>
                     ) : (
                       <button
                         onClick={() => addStop(r)}
@@ -1000,7 +1002,7 @@ function TrailBuilderInner() {
                           fontFamily: 'var(--font-body)', fontWeight: 600,
                         }}
                       >
-                        + Add
+                        {t('addShort')}
                       </button>
                     )}
                   </div>
@@ -1117,10 +1119,11 @@ function TrailBuilderInner() {
 }
 
 export default function BuilderClient() {
+  const t = useTranslations('trailsBuilder')
   return (
     <Suspense fallback={
       <div style={{ background: 'var(--color-cream)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)' }}>Loading…</div>
+        <div style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)' }}>{t('loading')}</div>
       </div>
     }>
       <TrailBuilderInner />

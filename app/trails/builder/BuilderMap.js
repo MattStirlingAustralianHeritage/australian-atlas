@@ -2,6 +2,7 @@
 
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { useRef, useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { getVerticalBadge, getVerticalBrandColour, VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 
 const VERTICAL_COLORS = VERTICAL_ACCENTS
@@ -46,6 +47,7 @@ export default function BuilderMap({
   onViewportChange,
   active = true,
 }) {
+  const t = useTranslations('trailsBuilder')
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const readyRef = useRef(false)
@@ -174,7 +176,7 @@ export default function BuilderMap({
           hoverTipRef.current.setLngLat(e.features[0].geometry.coordinates.slice()).setHTML(
             `<div style="font-family:system-ui,-apple-system,sans-serif;padding:1px 2px;">
               <div style="font-family:Georgia,serif;font-size:13px;color:#1a1614;line-height:1.25;">${esc(p.name)}</div>
-              <div style="font-size:10px;color:#9a8878;margin-top:2px;">${esc(p.badge)}${p.region && p.region !== 'null' ? ` · ${esc(p.region)}` : ''}${p.added === 'true' || p.added === true ? ' · On your trail' : ''}</div>
+              <div style="font-size:10px;color:#9a8878;margin-top:2px;">${esc(p.badge)}${p.region && p.region !== 'null' ? ` · ${esc(p.region)}` : ''}${p.added === 'true' || p.added === true ? ` · ${esc(t('onYourTrail'))}` : ''}</div>
             </div>`
           ).addTo(m)
         })
@@ -247,8 +249,8 @@ export default function BuilderMap({
           <div style="font-family:Georgia,serif;font-size:16px;color:#1a1614;margin-bottom:3px;line-height:1.3;">${esc(l.name)}</div>
           ${l.region ? `<div style="font-size:11px;color:#9a8878;margin-bottom:${desc ? 6 : 10}px;">${esc([l.region, l.state].filter(Boolean).join(', '))}</div>` : ''}
           ${desc ? `<div style="font-size:11.5px;color:#5a4e45;line-height:1.45;margin-bottom:10px;">${esc(desc)}</div>` : ''}
-          <button data-id="${esc(String(l.id))}" data-action="${added ? 'remove' : 'add'}" style="width:100%;padding:7px 0;background:${added ? 'transparent' : '#5F8A7E'};border:1px solid #5F8A7E;color:${added ? '#5F8A7E' : '#fff'};border-radius:3px;font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;">${added ? 'Remove from trail' : '+ Add to trail'}</button>
-          ${l.slug ? `<a href="/place/${esc(l.slug)}" target="_blank" rel="noreferrer" style="display:block;margin-top:6px;text-align:center;font-size:10px;color:#9a8878;text-decoration:underline;">View listing</a>` : ''}
+          <button data-id="${esc(String(l.id))}" data-action="${added ? 'remove' : 'add'}" style="width:100%;padding:7px 0;background:${added ? 'transparent' : '#5F8A7E'};border:1px solid #5F8A7E;color:${added ? '#5F8A7E' : '#fff'};border-radius:3px;font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;">${esc(added ? t('removeFromTrail') : t('addToTrailPopup'))}</button>
+          ${l.slug ? `<a href="/place/${esc(l.slug)}" target="_blank" rel="noreferrer" style="display:block;margin-top:6px;text-align:center;font-size:10px;color:#9a8878;text-decoration:underline;">${esc(t('viewListing'))}</a>` : ''}
         </div>`
       )
       .addTo(m)
@@ -389,7 +391,7 @@ export default function BuilderMap({
         `<div style="font-family:system-ui,-apple-system,sans-serif;padding:2px 0;max-width:250px;">
           <div style="font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:${color};margin-bottom:6px;">${esc(getVerticalBadge(stop.vertical))}</div>
           <div style="font-family:Georgia,serif;font-size:16px;color:#1a1614;margin-bottom:8px;line-height:1.3;">${esc(stop.name)}</div>
-          <button data-stop-remove="${esc(id)}" style="width:100%;padding:7px 0;background:transparent;border:1px solid #5F8A7E;color:#5F8A7E;border-radius:3px;font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;">Remove from trail</button>
+          <button data-stop-remove="${esc(id)}" style="width:100%;padding:7px 0;background:transparent;border:1px solid #5F8A7E;color:#5F8A7E;border-radius:3px;font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;cursor:pointer;">${esc(t('removeFromTrail'))}</button>
         </div>`
       )
       .addTo(m)
@@ -433,9 +435,9 @@ export default function BuilderMap({
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 7 }}>
             <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', fontFamily: 'var(--font-body)' }}>
-              Tap a pin to add it
+              {t('legendTapPin')}
             </span>
-            <button onClick={() => setLegendOpen(false)} aria-label="Hide legend" className="builder-legend-close" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-muted)', fontSize: 15, lineHeight: 1, padding: 0, display: 'none' }}>×</button>
+            <button onClick={() => setLegendOpen(false)} aria-label={t('legendHide')} className="builder-legend-close" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-muted)', fontSize: 15, lineHeight: 1, padding: 0, display: 'none' }}>×</button>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px 12px' }}>
             {Object.entries(VERTICAL_COLORS).map(([key, color]) => (
@@ -449,7 +451,7 @@ export default function BuilderMap({
             <svg width="22" height="8" style={{ flexShrink: 0 }}>
               <line x1="0" y1="4" x2="22" y2="4" stroke="#5F8A7E" strokeWidth="2.5" strokeDasharray="4 3" />
             </svg>
-            <span style={{ fontSize: 9.5, color: 'var(--color-ink)', fontFamily: 'var(--font-body)' }}>Your route</span>
+            <span style={{ fontSize: 9.5, color: 'var(--color-ink)', fontFamily: 'var(--font-body)' }}>{t('legendYourRoute')}</span>
           </div>
         </div>
       ) : (
@@ -467,7 +469,7 @@ export default function BuilderMap({
               <span key={c} style={{ width: 7, height: 7, borderRadius: '50%', background: c }} />
             ))}
           </span>
-          Key
+          {t('legendKey')}
         </button>
       )}
       {/* Show the close affordance only on touch/small screens */}

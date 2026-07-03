@@ -5,7 +5,10 @@
  * even if the page module fails to load/hydrate.
  */
 
-export default function ItineraryLoading() {
+import { getTranslations } from 'next-intl/server'
+
+export default async function ItineraryLoading() {
+  const t = await getTranslations('itinerary')
   return (
     <div style={{
       position: 'fixed',
@@ -34,7 +37,7 @@ export default function ItineraryLoading() {
         fontSize: 22,
         color: '#1C1A17',
       }}>
-        Building your trail...
+        {t('buildingYourTrail')}
       </h2>
       <p style={{
         fontSize: 12,
@@ -42,7 +45,7 @@ export default function ItineraryLoading() {
         fontFamily: "'DM Sans', system-ui, sans-serif",
         letterSpacing: '0.02em',
       }}>
-        Building from verified venues only
+        {t('buildingFromVerifiedOnly')}
       </p>
       {/* Progress bar shimmer */}
       <div style={{

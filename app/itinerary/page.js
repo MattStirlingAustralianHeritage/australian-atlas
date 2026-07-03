@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
+import { useTranslations, useLocale } from 'next-intl'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { VERTICAL_STYLES } from '@/components/VerticalBadge'
@@ -21,11 +22,12 @@ const VERTICAL_LABELS = {
 // Brand colours per vertical — used for card borders and map markers
 const VERTICAL_COLORS = VERTICAL_ACCENTS
 
-const FLOW_LABELS = {
-  accommodation: { need: 'Accommodation included', sorted: 'Own accommodation', daytrip: 'Day trip' },
-  transport: { driving: 'Driving', public: 'Public transport', walking: 'Walking / cycling' },
-  group: { solo: 'Solo', couple: 'Couple', friends: 'Small group', family: 'Family with kids' },
-  pace: { relaxed: 'Relaxed', balanced: 'Balanced', packed: 'Packed' },
+// Flow chip labels resolved via t() at render — maps flow param values to keys.
+const FLOW_LABEL_KEYS = {
+  accommodation: { need: 'flowAccommodationNeed', sorted: 'flowAccommodationSorted', daytrip: 'flowAccommodationDaytrip' },
+  transport: { driving: 'flowTransportDriving', public: 'flowTransportPublic', walking: 'flowTransportWalking' },
+  group: { solo: 'flowGroupSolo', couple: 'flowGroupCouple', friends: 'flowGroupFriends', family: 'flowGroupFamily' },
+  pace: { relaxed: 'flowPaceRelaxed', balanced: 'flowPaceBalanced', packed: 'flowPacePacked' },
 }
 
 // --- Small components ---
@@ -44,6 +46,7 @@ function MetadataChip({ children }) {
 }
 
 function StopCard({ stop, index, isOvernight, included = true, pinned = false, onToggle }) {
+  const t = useTranslations('itinerary')
   if (!stop) return null
   const style = VERTICAL_STYLES[stop?.vertical]
   const label = VERTICAL_LABELS[stop?.vertical] || stop?.vertical || ''
@@ -80,7 +83,7 @@ function StopCard({ stop, index, isOvernight, included = true, pinned = false, o
             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
             <circle cx="12" cy="10" r="3" />
           </svg>
-        ) : isAccom ? 'STAY' : index}
+        ) : isAccom ? t('stayBadge') : index}
       </div>
 
       {/* Content */}
@@ -124,7 +127,7 @@ function StopCard({ stop, index, isOvernight, included = true, pinned = false, o
               fontWeight: 600, fontFamily: 'var(--font-body)', letterSpacing: '0.02em',
               border: '1px solid var(--color-sage, #5F8A7E)30',
             }}>
-              Starting point
+              {t('startingPoint')}
             </span>
           )}
           {stop.multi_night && (
@@ -134,7 +137,7 @@ function StopCard({ stop, index, isOvernight, included = true, pinned = false, o
               fontWeight: 600, fontFamily: 'var(--font-body)', letterSpacing: '0.02em',
               border: `1px solid ${brandColor}30`,
             }}>
-              2-night stay
+              {t('twoNightStay')}
             </span>
           )}
           {!included && (
@@ -144,7 +147,7 @@ function StopCard({ stop, index, isOvernight, included = true, pinned = false, o
               fontWeight: 600, fontFamily: 'var(--font-body)', letterSpacing: '0.02em',
               border: '1px dashed #ccc',
             }}>
-              Optional detour
+              {t('optionalDetour')}
             </span>
           )}
         </div>
@@ -162,7 +165,7 @@ function StopCard({ stop, index, isOvernight, included = true, pinned = false, o
             fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11,
             color: 'var(--color-sage)', textDecoration: 'none', opacity: 0.8,
           }} className="hover:opacity-100">
-            View listing
+            {t('viewListing')}
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/>
             </svg>
@@ -174,7 +177,7 @@ function StopCard({ stop, index, isOvernight, included = true, pinned = false, o
       {canToggle && (
         <button
           onClick={() => onToggle(stop.id)}
-          title={included ? 'Remove from route' : 'Add to route'}
+          title={included ? t('removeFromRoute') : t('addToRoute')}
           style={{
             flexShrink: 0, width: 44, height: 44, borderRadius: '50%',
             border: `1.5px solid ${included ? '#ccc' : 'var(--color-sage)'}`,
@@ -195,6 +198,7 @@ function StopCard({ stop, index, isOvernight, included = true, pinned = false, o
 }
 
 function RecommendationCard({ rec, onAdd, added }) {
+  const t = useTranslations('itinerary')
   if (!rec) return null
   const label = VERTICAL_LABELS[rec?.vertical] || rec?.vertical || ''
   const isAccom = rec?.vertical === 'rest'
@@ -235,7 +239,7 @@ function RecommendationCard({ rec, onAdd, added }) {
           </p>
         )}
       </div>
-      <button onClick={() => onAdd(rec)} disabled={added} title={added ? 'Added' : 'Add to itinerary'}
+      <button onClick={() => onAdd(rec)} disabled={added} title={added ? t('added') : t('addToItinerary')}
         style={{
           flexShrink: 0, width: 32, height: 32, borderRadius: '50%',
           border: added ? 'none' : '1.5px solid var(--color-sage)',
@@ -254,6 +258,7 @@ function RecommendationCard({ rec, onAdd, added }) {
 // --- Main page ---
 
 function ItineraryPageInner() {
+  const t = useTranslations('itinerary')
   const searchParams = useSearchParams()
   const router = useRouter()
   const q = searchParams.get('q') || ''
@@ -309,14 +314,14 @@ function ItineraryPageInner() {
         if (data.error === 'no_region' || data.error === 'insufficient_venues') {
           setError(data)
         } else if (data.error === 'generation_failed') {
-          setError({ error: 'generation_failed', message: data.message || 'Something went wrong building your trail. Please try again.' })
+          setError({ error: 'generation_failed', message: data.message || t('errorGenerationFailed') })
         } else if (data.error) {
           setError({ error: data.error, message: data.message || data.error })
         } else {
           setItinerary(data)
         }
       } catch {
-        if (!cancelled) setError({ error: 'network', message: 'Something went wrong. Please try again.' })
+        if (!cancelled) setError({ error: 'network', message: t('errorNetwork') })
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -358,13 +363,13 @@ function ItineraryPageInner() {
           fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 20,
           color: 'var(--color-ink)',
         }}>
-          Building your trail...
+          {t('buildingYourTrail')}
         </p>
         <p style={{
           fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 13,
           color: 'var(--color-muted)',
         }}>
-          Finding verified venues across ten atlases
+          {t('findingVenuesAcrossAtlases')}
         </p>
         <style>{`@keyframes trailSpin { to { transform: rotate(360deg) } }`}</style>
       </div>
@@ -382,15 +387,15 @@ function ItineraryPageInner() {
           fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22,
           color: 'var(--color-ink)', marginBottom: 8,
         }}>
-          {isNoRegion ? 'Which region did you have in mind?'
-            : isInsufficient ? 'Not enough listings in this area yet'
-            : 'Could not build this itinerary'}
+          {isNoRegion ? t('errorNoRegionTitle')
+            : isInsufficient ? t('errorInsufficientTitle')
+            : t('errorGenericTitle')}
         </h2>
         <p style={{
           fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 14,
           color: 'var(--color-muted)', maxWidth: 440, margin: '0 auto 24px', lineHeight: 1.6,
         }}>
-          {error.message || 'Something went wrong. Please try again.'}
+          {error.message || t('errorNetwork')}
         </p>
 
         {/* Suggested trails for no_region */}
@@ -419,7 +424,7 @@ function ItineraryPageInner() {
                 padding: '6px 14px', borderRadius: 99, textDecoration: 'none',
                 border: '1px solid var(--color-border)',
               }}>
-                {alt.region} ({alt.count} listings)
+                {alt.region} ({t('listingsCount', { count: alt.count })})
               </Link>
             ))}
           </div>
@@ -431,14 +436,14 @@ function ItineraryPageInner() {
             color: '#fff', background: 'var(--color-ink)',
             padding: '10px 24px', borderRadius: 8, textDecoration: 'none',
           }}>
-            Try again
+            {t('tryAgain')}
           </Link>
           <Link href="/regions" style={{
             fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13,
             color: 'var(--color-sage)', border: '1px solid var(--color-border)',
             padding: '10px 24px', borderRadius: 8, textDecoration: 'none',
           }}>
-            Browse regions
+            {t('browseRegions')}
           </Link>
         </div>
       </div>
@@ -453,17 +458,17 @@ function ItineraryPageInner() {
     return (
       <div className="max-w-xl mx-auto px-4 py-16 text-center">
         <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)', marginBottom: 8 }}>
-          We couldn&apos;t build a full itinerary for this destination
+          {t('emptyDaysTitle')}
         </h2>
         <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 14, color: 'var(--color-muted)', maxWidth: 440, margin: '0 auto 24px', lineHeight: 1.6 }}>
-          This region may not have enough verified listings yet. Browse the region directly to see what&apos;s available.
+          {t('emptyDaysBody')}
         </p>
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
           <Link href="/itinerary" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: '#fff', background: 'var(--color-ink)', padding: '10px 24px', borderRadius: 8, textDecoration: 'none' }}>
-            Try again
+            {t('tryAgain')}
           </Link>
           <Link href="/regions" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--color-sage)', border: '1px solid var(--color-border)', padding: '10px 24px', borderRadius: 8, textDecoration: 'none' }}>
-            Browse regions
+            {t('browseRegions')}
           </Link>
         </div>
       </div>
@@ -496,7 +501,7 @@ function ItineraryPageInner() {
             slug: rec.slug || null,
             hero_image_url: rec.hero_image_url || null,
             region: rec.region || null,
-            note: rec.description ? rec.description.slice(0, 120) : 'Added from recommendations.',
+            note: rec.description ? rec.description.slice(0, 120) : t('addedFromRecommendations'),
           })
           // Remove from recommendations
           const newRecs = (prev.recommendations || []).filter(r => r.id !== rec.id)
@@ -511,6 +516,7 @@ function ItineraryPageInner() {
 // --- TrailPromptInput ---
 
 function TrailPromptInput() {
+  const t = useTranslations('itinerary')
   const router = useRouter()
   const [value, setValue] = useState('')
 
@@ -527,13 +533,13 @@ function TrailPromptInput() {
         fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 32,
         color: 'var(--color-ink)', marginBottom: 8,
       }}>
-        Trail Builder
+        {t('promptTitle')}
       </h1>
       <p style={{
         fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 15,
         color: 'var(--color-muted)', marginBottom: 32, lineHeight: 1.6,
       }}>
-        Build a personalised itinerary from verified venues across ten atlases.
+        {t('promptSubtitle')}
       </p>
 
       <form onSubmit={handleSubmit} style={{
@@ -543,7 +549,7 @@ function TrailPromptInput() {
           type="text"
           value={value}
           onChange={e => setValue(e.target.value)}
-          placeholder="Where do you want to go? What do you want to do?"
+          placeholder={t('promptPlaceholder')}
           style={{
             flex: 1, fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14,
             color: 'var(--color-ink)', background: 'var(--color-card-bg)',
@@ -558,7 +564,7 @@ function TrailPromptInput() {
           border: 'none', borderRadius: 8, padding: '14px 24px',
           cursor: 'pointer', whiteSpace: 'nowrap',
         }}>
-          Build trail
+          {t('buildTrail')}
         </button>
       </form>
 
@@ -582,6 +588,7 @@ function TrailPromptInput() {
 // --- TrailResult (split layout) ---
 
 function TrailResult({ itinerary, totalStops, flow, addedRecs, onAddRec, query }) {
+  const t = useTranslations('itinerary')
   const scrollRef = useRef(null)
 
   // Flatten days → flat stop list for route editor
@@ -662,7 +669,7 @@ function TrailResult({ itinerary, totalStops, flow, addedRecs, onAddRec, query }
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M19 12H5M12 19l-7-7 7-7"/>
           </svg>
-          Back to search
+          {t('backToSearch')}
         </Link>
 
         {/* Title */}
@@ -689,25 +696,25 @@ function TrailResult({ itinerary, totalStops, flow, addedRecs, onAddRec, query }
             border: '1px solid var(--color-border)', borderRadius: 8,
             padding: '10px 14px', marginBottom: 20, lineHeight: 1.5,
           }}>
-            This is a simplified itinerary. For a fully curated trail with editorial notes, try again in a few minutes.
+            {t('fallbackNotice')}
           </div>
         )}
 
         {/* Metadata chips */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-          <MetadataChip>{itinerary?.duration?.days || itinerary?.days?.length || 0} {(itinerary?.duration?.days || itinerary?.days?.length || 0) === 1 ? 'day' : 'days'}</MetadataChip>
-          <MetadataChip>{totalStops} stops</MetadataChip>
-          {flow.accommodation && FLOW_LABELS.accommodation[flow.accommodation] && (
-            <MetadataChip>{FLOW_LABELS.accommodation[flow.accommodation]}</MetadataChip>
+          <MetadataChip>{t('daysCount', { count: itinerary?.duration?.days || itinerary?.days?.length || 0 })}</MetadataChip>
+          <MetadataChip>{t('stopsCount', { count: totalStops })}</MetadataChip>
+          {flow.accommodation && FLOW_LABEL_KEYS.accommodation[flow.accommodation] && (
+            <MetadataChip>{t(FLOW_LABEL_KEYS.accommodation[flow.accommodation])}</MetadataChip>
           )}
-          {flow.transport && FLOW_LABELS.transport[flow.transport] && (
-            <MetadataChip>{FLOW_LABELS.transport[flow.transport]}</MetadataChip>
+          {flow.transport && FLOW_LABEL_KEYS.transport[flow.transport] && (
+            <MetadataChip>{t(FLOW_LABEL_KEYS.transport[flow.transport])}</MetadataChip>
           )}
-          {flow.group && FLOW_LABELS.group[flow.group] && (
-            <MetadataChip>{FLOW_LABELS.group[flow.group]}</MetadataChip>
+          {flow.group && FLOW_LABEL_KEYS.group[flow.group] && (
+            <MetadataChip>{t(FLOW_LABEL_KEYS.group[flow.group])}</MetadataChip>
           )}
-          {flow.pace && FLOW_LABELS.pace[flow.pace] && (
-            <MetadataChip>{FLOW_LABELS.pace[flow.pace]}</MetadataChip>
+          {flow.pace && FLOW_LABEL_KEYS.pace[flow.pace] && (
+            <MetadataChip>{t(FLOW_LABEL_KEYS.pace[flow.pace])}</MetadataChip>
           )}
           {itinerary.personalised && (
             <span style={{
@@ -716,7 +723,7 @@ function TrailResult({ itinerary, totalStops, flow, addedRecs, onAddRec, query }
               border: '1px solid #5f8a7e30', borderRadius: 99,
               padding: '4px 12px', whiteSpace: 'nowrap',
             }}>
-              Personalised
+              {t('personalised')}
             </span>
           )}
         </div>
@@ -727,7 +734,7 @@ function TrailResult({ itinerary, totalStops, flow, addedRecs, onAddRec, query }
             fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 12,
             color: 'var(--color-sage)', marginBottom: 20,
           }}>
-            Personalised for: {itinerary.preference_labels.join(' \u00B7 ')}
+            {t('personalisedFor', { labels: itinerary.preference_labels.join(' \u00B7 ') })}
           </p>
         )}
 
@@ -764,7 +771,7 @@ function TrailResult({ itinerary, totalStops, flow, addedRecs, onAddRec, query }
                     padding: '4px 12px', borderRadius: 99,
                     letterSpacing: '0.08em', textTransform: 'uppercase',
                   }}>
-                    Day {di + 1}
+                    {t('dayLabel', { n: di + 1 })}
                   </span>
                   {day.label && (
                     <span style={{
@@ -808,7 +815,7 @@ function TrailResult({ itinerary, totalStops, flow, addedRecs, onAddRec, query }
                     fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 400,
                     color: '#744210', lineHeight: 1.5,
                   }}>
-                    No Rest Atlas listings available in this area — book direct for tonight.
+                    {t('noRestListings')}
                   </div>
                 )}
               </div>
@@ -824,7 +831,7 @@ function TrailResult({ itinerary, totalStops, flow, addedRecs, onAddRec, query }
               color: 'var(--color-muted)', textTransform: 'uppercase',
               letterSpacing: '0.1em', marginBottom: 12,
             }}>
-              You might also add
+              {t('youMightAlsoAdd')}
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {itinerary.recommendations.map(rec => (
@@ -884,6 +891,7 @@ function TrailResult({ itinerary, totalStops, flow, addedRecs, onAddRec, query }
 // --- Save & Share buttons ---
 
 function SaveTrailButton({ itinerary, query, augmentedStops, flush }) {
+  const t = useTranslations('itinerary')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
@@ -939,12 +947,13 @@ function SaveTrailButton({ itinerary, query, augmentedStops, flush }) {
       padding: '10px 20px', cursor: saving || saved ? 'default' : 'pointer',
       display: 'flex', alignItems: 'center', gap: 6,
     }}>
-      {saved ? '\u2713 Saved' : saving ? 'Saving...' : 'Save trail'}
+      {saved ? `\u2713 ${t('saved')}` : saving ? t('saving') : t('saveTrail')}
     </button>
   )
 }
 
 function ShareButton({ itinerary, augmentedStops, flush }) {
+  const t = useTranslations('itinerary')
   const [sharing, setSharing] = useState(false)
   const [copied, setCopied] = useState(false)
 
@@ -1024,7 +1033,7 @@ function ShareButton({ itinerary, augmentedStops, flush }) {
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
         <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/>
       </svg>
-      {copied ? 'Link copied' : sharing ? 'Sharing...' : 'Share'}
+      {copied ? t('linkCopied') : sharing ? t('sharing') : t('share')}
     </button>
   )
 }

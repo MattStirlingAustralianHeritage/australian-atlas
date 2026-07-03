@@ -1,21 +1,22 @@
 'use client'
 
 import React, { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import { getVerticalBadge, VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 
 const VERTICAL_COLORS = VERTICAL_ACCENTS
 
-function fmtDuration(min) {
+function fmtDuration(min, t) {
   if (min == null) return ''
-  if (min < 60) return `${min} min`
+  if (min < 60) return t('durationMinutes', { min })
   const h = Math.floor(min / 60)
   const m = min % 60
-  return m ? `${h} h ${m} min` : `${h} h`
+  return m ? t('durationHoursMinutes', { h, min: m }) : t('durationHours', { h })
 }
 
-function fmtKm(km) {
+function fmtKm(km, t) {
   if (km == null) return ''
-  return km >= 10 ? `${Math.round(km)} km` : `${km} km`
+  return t('distanceKm', { km: km >= 10 ? Math.round(km) : km })
 }
 
 /**
@@ -28,12 +29,12 @@ function fmtKm(km) {
  */
 // Per-stop note hints, Alpaca-style narrative micro-actions — rotated so the
 // list teaches by example ("pick up croissants", "book ahead").
-const NOTE_HINTS = [
-  'Add a note — e.g. "pick up coffee for the drive"',
-  'Add a note — e.g. "book a table ahead"',
-  'Add a note — e.g. "best light in the morning"',
-  'Add a note — e.g. "ask for the cellar tasting"',
-  'Add a note — e.g. "good leg-stretch walk here"',
+const NOTE_HINT_KEYS = [
+  'noteHintCoffee',
+  'noteHintBook',
+  'noteHintLight',
+  'noteHintCellar',
+  'noteHintWalk',
 ]
 
 export default function StopsPanel({
@@ -43,10 +44,11 @@ export default function StopsPanel({
   lastRemoved, onUndoRemove, onDismissUndo,
   maxStops,
 }) {
+  const t = useTranslations('trailsBuilder')
   const [dragIndex, setDragIndex] = useState(null)
   const [overIndex, setOverIndex] = useState(null)
 
-  const modeLabel = transportMode === 'drive' ? 'drive' : 'walk'
+  const modeLabel = transportMode === 'drive' ? t('modeLabelDrive') : t('modeLabelWalk')
 
   return (
     <div style={{ padding: '12px 20px 16px' }}>
@@ -59,13 +61,16 @@ export default function StopsPanel({
           fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-muted)',
         }}>
           <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            Removed <strong style={{ color: 'var(--color-ink)', fontWeight: 600 }}>{lastRemoved.stop.name}</strong>
+            {t.rich('removedStop', {
+              name: lastRemoved.stop.name,
+              strong: (chunks) => <strong style={{ color: 'var(--color-ink)', fontWeight: 600 }}>{chunks}</strong>,
+            })}
           </span>
           <span style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
             <button onClick={onUndoRemove} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#5F8A7E', fontWeight: 700, fontSize: 12, fontFamily: 'var(--font-body)', padding: 0 }}>
-              Undo
+              {t('undo')}
             </button>
-            <button onClick={onDismissUndo} aria-label="Dismiss" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-muted)', fontSize: 13, padding: 0, lineHeight: 1 }}>
+            <button onClick={onDismissUndo} aria-label={t('dismiss')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-muted)', fontSize: 13, padding: 0, lineHeight: 1 }}>
               ×
             </button>
           </span>
@@ -78,9 +83,9 @@ export default function StopsPanel({
           fontFamily: 'var(--font-body)', fontSize: 13, lineHeight: 1.8,
         }}>
           <div style={{ fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 600, marginBottom: 8 }}>
-            No stops yet
+            {t('noStopsTitle')}
           </div>
-          Tap a pin on the map, search above, or start from a suggestion.
+          {t('noStopsHint')}
         </div>
       ) : (
         <>
@@ -90,18 +95,18 @@ export default function StopsPanel({
             marginBottom: 8, gap: 8, flexWrap: 'wrap',
           }}>
             <div style={{ fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-muted)', fontFamily: 'var(--font-body)', fontWeight: 600 }}>
-              {stops.length} stop{stops.length !== 1 ? 's' : ''}
-              {stops.length >= maxStops && <span style={{ color: '#b0492f' }}> · max reached</span>}
+              {t('stopCount', { count: stops.length })}
+              {stops.length >= maxStops && <span style={{ color: '#b0492f' }}> {t('maxReached')}</span>}
             </div>
             {stops.length >= 4 && (
-              <button onClick={onOptimise} title="Reorder stops into the shortest run from your first stop" style={{
+              <button onClick={onOptimise} title={t('optimiseTitle')} style={{
                 background: optimiseSavingsKm > 0 ? 'rgba(95,138,126,0.12)' : 'none',
                 border: `1px solid ${optimiseSavingsKm > 0 ? 'rgba(95,138,126,0.5)' : 'var(--color-border)'}`,
                 borderRadius: 4,
                 padding: '4px 9px', cursor: 'pointer', fontSize: 10, fontWeight: 600,
                 letterSpacing: '0.05em', color: optimiseSavingsKm > 0 ? '#3D6B60' : 'var(--color-muted)', fontFamily: 'var(--font-body)',
               }}>
-                ⇄ Shortest order{optimiseSavingsKm > 0 ? ` · save ~${optimiseSavingsKm} km` : ''}
+                {optimiseSavingsKm > 0 ? t('shortestOrderSaving', { km: optimiseSavingsKm }) : t('shortestOrder')}
               </button>
             )}
           </div>
@@ -113,11 +118,11 @@ export default function StopsPanel({
               background: 'rgba(95,138,126,0.07)', border: '1px solid rgba(95,138,126,0.18)', borderRadius: 4,
               fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-ink)',
             }}>
-              <span style={{ fontWeight: 600 }}>{fmtKm(totalKm)}</span>
+              <span style={{ fontWeight: 600 }}>{fmtKm(totalKm, t)}</span>
               <span style={{ color: 'var(--color-border)' }}>·</span>
-              <span style={{ fontWeight: 600 }}>{fmtDuration(totalMin)}</span>
+              <span style={{ fontWeight: 600 }}>{fmtDuration(totalMin, t)}</span>
               <span style={{ color: 'var(--color-muted)', fontSize: 11 }}>
-                total {modeLabel}{approx ? ' (approx.)' : ''}
+                {approx ? t('totalApprox', { mode: modeLabel }) : t('total', { mode: modeLabel })}
               </span>
               {transportMode === 'neighbourhood' && neighbourhoodLabel && (
                 <span style={{ marginLeft: 'auto', fontSize: 10, color: '#5A8A9A', fontWeight: 600, letterSpacing: '0.05em' }}>
@@ -140,7 +145,7 @@ export default function StopsPanel({
                       <div style={{ width: 2, height: 14, background: 'var(--color-border)', marginLeft: 1 }} />
                       {legs[i - 1] && (
                         <span style={{ fontSize: 10.5, color: 'var(--color-muted)', fontFamily: 'var(--font-body)', letterSpacing: '0.02em' }}>
-                          {fmtDuration(legs[i - 1].min)} · {fmtKm(legs[i - 1].km)} {modeLabel}
+                          {t('legChip', { duration: fmtDuration(legs[i - 1].min, t), distance: fmtKm(legs[i - 1].km, t), mode: modeLabel })}
                         </span>
                       )}
                     </div>
@@ -204,16 +209,16 @@ export default function StopsPanel({
                       </div>
 
                       <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
-                        <IconBtn label="Move up" disabled={i === 0} onClick={() => onReorder(i, i - 1)}>↑</IconBtn>
-                        <IconBtn label="Move down" disabled={i === stops.length - 1} onClick={() => onReorder(i, i + 1)}>↓</IconBtn>
-                        <IconBtn label={`Remove ${stop.name}`} onClick={() => onRemove(stop.id)}>×</IconBtn>
+                        <IconBtn label={t('moveUp')} disabled={i === 0} onClick={() => onReorder(i, i - 1)}>↑</IconBtn>
+                        <IconBtn label={t('moveDown')} disabled={i === stops.length - 1} onClick={() => onReorder(i, i + 1)}>↓</IconBtn>
+                        <IconBtn label={t('removeStopAria', { name: stop.name })} onClick={() => onRemove(stop.id)}>×</IconBtn>
                       </div>
                     </div>
 
                     <input
                       value={notes[stop.id] || ''}
                       onChange={e => onNoteChange(stop.id, e.target.value)}
-                      placeholder={NOTE_HINTS[i % NOTE_HINTS.length]}
+                      placeholder={t(NOTE_HINT_KEYS[i % NOTE_HINT_KEYS.length])}
                       style={{
                         width: '100%', marginTop: 5, padding: '4px 0',
                         fontFamily: 'var(--font-body)', fontSize: 12,
