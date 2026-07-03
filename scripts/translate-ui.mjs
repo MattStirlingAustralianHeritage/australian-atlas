@@ -3,14 +3,18 @@
 /**
  * Generate messages/<locale>.json from messages/en.json using Claude Haiku.
  *
- * Interface (chrome) strings only — small and cheap. ICU placeholders like
- * {region} and rich-text tags like <em></em> are preserved verbatim.
+ * Translates ONE NAMESPACE PER CALL so the full (large) catalogue never exceeds
+ * a single response's token budget, then merges. ICU placeholders like {town}
+ * and rich-text tags like <em></em> are preserved verbatim. Existing values in
+ * the target file are reused for namespaces whose English is unchanged (unless
+ * --force), so re-runs are cheap.
  *
- * Usage: node scripts/translate-ui.mjs --locale ko
+ * Usage: node scripts/translate-ui.mjs --locale ko [--force] [--only ns1,ns2]
  */
 
 import fs from 'fs'
 import path from 'path'
+import crypto from 'crypto'
 import dotenv from 'dotenv'
 
 dotenv.config({ path: '.env.local', override: true })
@@ -19,6 +23,9 @@ const { default: Anthropic } = await import('@anthropic-ai/sdk')
 const argv = process.argv.slice(2)
 const li = argv.indexOf('--locale')
 const LOCALE = li !== -1 && argv[li + 1] ? argv[li + 1] : 'ko'
+const FORCE = argv.includes('--force')
+const onlyI = argv.indexOf('--only')
+const ONLY = onlyI !== -1 && argv[onlyI + 1] ? argv[onlyI + 1].split(',') : null
 const LOCALE_NAMES = { ko: 'Korean (한국어)' }
 const LOCALE_LABEL = LOCALE_NAMES[LOCALE] || LOCALE
 const MODEL = 'claude-haiku-4-5-20251001'
@@ -26,33 +33,30 @@ const MODEL = 'claude-haiku-4-5-20251001'
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
 const en = JSON.parse(fs.readFileSync(path.resolve('messages/en.json'), 'utf-8'))
+const outPath = path.resolve(`messages/${LOCALE}.json`)
+const prev = fs.existsSync(outPath) ? JSON.parse(fs.readFileSync(outPath, 'utf-8')) : {}
+// Sidecar of source hashes so we only re-translate a namespace whose English changed.
+const hashPath = path.resolve(`messages/.${LOCALE}.hash.json`)
+const prevHash = fs.existsSync(hashPath) ? JSON.parse(fs.readFileSync(hashPath, 'utf-8')) : {}
+const nsHash = (obj) => crypto.createHash('sha256').update(JSON.stringify(obj)).digest('hex')
 
 const SYSTEM = `You localize UI strings for a web app into ${LOCALE_LABEL}.
 Rules:
-- Return a JSON object with EXACTLY the same keys and nesting as the input. Translate only the string VALUES.
-- Preserve ICU placeholders in braces verbatim, e.g. {region}, {query}, {count}.
-- Preserve any HTML-like tags verbatim, e.g. <em>...</em>. Translate the text between tags but keep the tags.
-- Keep the proper noun "Australian Atlas" as-is. Keep "Atlas" as-is in product names.
-- Translate concisely and naturally, as UI chrome (buttons, nav, labels).
-- For the "language" namespace: keep "korean" as "한국어" and render "english" appropriately for a ${LOCALE_LABEL} reader.
+- Return a JSON object with EXACTLY the same keys as the input. Translate only the string VALUES.
+- Preserve ICU placeholders in braces verbatim, e.g. {town}, {count}, {query}.
+- Preserve any HTML-like tags verbatim, e.g. <em>...</em> (translate the text between, keep the tags).
+- Keep the proper noun "Australian Atlas" as-is, and keep "Atlas" in product names.
+- Translate concisely and naturally, as UI chrome (nav, buttons, labels, headings, empty states). Use natural Korean, not literal word-for-word.
+- Keep "korean" as "한국어" if present.
 - Output ONLY the JSON object.`
 
-const resp = await anthropic.messages.create({
-  model: MODEL,
-  max_tokens: 4096,
-  system: SYSTEM,
-  messages: [{ role: 'user', content: `Translate these UI strings to ${LOCALE_LABEL}:\n\n${JSON.stringify(en, null, 2)}` }],
-})
+function extractJson(text) {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/)
+  const body = fenced ? fenced[1] : text
+  const s = body.indexOf('{'); const e = body.lastIndexOf('}')
+  return JSON.parse(body.slice(s, e + 1))
+}
 
-const text = resp.content.map(b => (b.type === 'text' ? b.text : '')).join('')
-const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/)
-const body = fenced ? fenced[1] : text
-const start = body.indexOf('{')
-const end = body.lastIndexOf('}')
-const ko = JSON.parse(body.slice(start, end + 1))
-
-// Deep-merge safety: ensure every en key exists in ko, falling back to English
-// so the UI never renders a missing key.
 function fill(src, dst) {
   const out = {}
   for (const k of Object.keys(src)) {
@@ -61,7 +65,36 @@ function fill(src, dst) {
   }
   return out
 }
-const merged = fill(en, ko)
 
-fs.writeFileSync(`messages/${LOCALE}.json`, JSON.stringify(merged, null, 2) + '\n')
-console.log(`Wrote messages/${LOCALE}.json (${Object.keys(merged).length} namespaces). Tokens in=${resp.usage?.input_tokens} out=${resp.usage?.output_tokens}.`)
+const result = {}
+const newHash = {}
+let inTok = 0, outTok = 0, translated = 0, skipped = 0
+
+for (const ns of Object.keys(en)) {
+  const h = nsHash(en[ns])
+  newHash[ns] = h
+  const unchanged = !FORCE && prevHash[ns] === h && prev[ns]
+  const included = !ONLY || ONLY.includes(ns)
+  if (unchanged || !included) {
+    // Reuse prior translation; fill any missing keys with English.
+    result[ns] = fill(en[ns], prev[ns] || {})
+    skipped++
+    continue
+  }
+  const resp = await anthropic.messages.create({
+    model: MODEL, max_tokens: 8000, system: SYSTEM,
+    messages: [{ role: 'user', content: `Translate this "${ns}" namespace to ${LOCALE_LABEL}:\n\n${JSON.stringify(en[ns], null, 2)}` }],
+  })
+  inTok += resp.usage?.input_tokens || 0
+  outTok += resp.usage?.output_tokens || 0
+  let parsed
+  try { parsed = extractJson(resp.content.map(b => b.type === 'text' ? b.text : '').join('')) }
+  catch (e) { console.warn(`  ns "${ns}" parse failed (${e.message}) — falling back to English`); parsed = {} }
+  result[ns] = fill(en[ns], parsed)
+  translated++
+  process.stdout.write(`\r  translated ${translated} namespaces…   `)
+}
+
+fs.writeFileSync(outPath, JSON.stringify(result, null, 2) + '\n')
+fs.writeFileSync(hashPath, JSON.stringify(newHash, null, 2) + '\n')
+console.log(`\nWrote messages/${LOCALE}.json — ${Object.keys(result).length} namespaces (${translated} translated, ${skipped} reused). Tokens in=${inTok} out=${outTok}.`)
