@@ -68,6 +68,28 @@ const PANEL_W = 384
 // database dump; past this the answer is "zoom in".
 const PANEL_CAP = 60
 
+// Base (unfiltered) standard-pin radius by zoom, as [zoom, r] stop pairs. The
+// filter-emphasis scaler multiplies the OUTPUT stops (not the whole
+// expression) so `zoom` stays the top-level interpolate input — mapbox forbids
+// wrapping a zoom interpolate in `['*', …]`.
+const PIN_RADIUS_STOPS = [3, 4.5, 6, 6, 10, 7, 14, 9]
+function pinRadius(mult = 1) {
+  const out = ['interpolate', ['linear'], ['zoom']]
+  for (let i = 0; i < PIN_RADIUS_STOPS.length; i += 2) out.push(PIN_RADIUS_STOPS[i], PIN_RADIUS_STOPS[i + 1] * mult)
+  return out
+}
+const PIN_RADIUS = pinRadius(1)
+
+// As a filter narrows the field, the survivors should grow and pop off the
+// greyed-out rest. `matchEmphasis` maps the live match COUNT to 0..1 — near 1
+// when only a handful survive, a gentle floor when a broad filter is active,
+// 0 when no filter is on. Everything prominence-related scales off this.
+function matchEmphasis(count, active) {
+  if (!active || count <= 0) return 0
+  const e = 1 - Math.min(1, Math.max(0, (count - 6) / (250 - 6))) // 1 at ≤6, 0 at ≥250
+  return Math.max(0.14, e) // always a touch more prominent while filtering
+}
+
 const VISITED_KEY = 'aa_map_visited_v1'
 const VISITED_CAP = 500
 
@@ -883,6 +905,7 @@ export default function MapClient({
               'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 3, 6, 4, 10, 5, 14, 6.5],
               'circle-color': '#BAB2A2',
               'circle-opacity': 0.45,
+              'circle-opacity-transition': { duration: 420 },
               'circle-stroke-width': 1,
               'circle-stroke-color': PAPER,
               'circle-stroke-opacity': 0.5,
@@ -904,13 +927,34 @@ export default function MapClient({
           },
         }, roof)
 
+        // Filter-emphasis glow — a soft vertical-colour halo behind matched
+        // pins that swells as the filter narrows (driven by setPaintProperty
+        // from the filter effect). Invisible when no filter is active.
+        if (!isEmbedded) {
+          m.addLayer({
+            id: 'pins-match-glow', type: 'circle', source: 'listings-clustered',
+            filter: ['!', ['has', 'point_count']],
+            paint: {
+              'circle-radius': PIN_RADIUS,
+              'circle-color': ['get', 'color'],
+              'circle-opacity': 0,
+              'circle-blur': 0.35,
+              // The emphasis swells in, rather than snapping, as you narrow.
+              'circle-radius-transition': { duration: 420 },
+              'circle-opacity-transition': { duration: 420 },
+            },
+          }, roof)
+        }
+
         // Standard pins — radius scales with zoom so dots stay visible at the
         // national view and grow into comfortable tap targets up close.
         m.addLayer({
           id: 'pins-basic', type: 'circle', source: 'listings-clustered',
           filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'featured'], true]],
           paint: {
-            'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 4.5, 6, 6, 10, 7, 14, 9],
+            'circle-radius': PIN_RADIUS,
+            'circle-radius-transition': { duration: 420 },
+            'circle-stroke-width-transition': { duration: 420 },
             'circle-color': ['get', 'color'],
             'circle-stroke-width': 1.75,
             'circle-stroke-color': PAPER,
@@ -1153,6 +1197,24 @@ export default function MapClient({
     }
     const dimmedSource = map.current.getSource('listings-dimmed')
     if (dimmedSource) dimmedSource.setData(buildGeoJSON(rest))
+
+    // Prominence scales with how far the filter has narrowed the field: as the
+    // survivors get fewer, they grow, gain a swelling colour glow and a bolder
+    // rim, while the greyed-out rest fades further back so the matches pop.
+    const m = map.current
+    const e = matchEmphasis(matches.length, tokens.length > 0)
+    if (m.getLayer('pins-basic')) {
+      m.setPaintProperty('pins-basic', 'circle-radius', pinRadius(1 + 0.95 * e))
+      m.setPaintProperty('pins-basic', 'circle-stroke-width', 1.75 + 1.35 * e)
+    }
+    if (m.getLayer('pins-match-glow')) {
+      m.setPaintProperty('pins-match-glow', 'circle-radius', pinRadius(1 + 2.4 * e))
+      m.setPaintProperty('pins-match-glow', 'circle-opacity', 0.34 * e)
+    }
+    if (m.getLayer('pins-dimmed')) {
+      m.setPaintProperty('pins-dimmed', 'circle-opacity', 0.45 - 0.24 * e)
+    }
+
     const key = [...selectedVerticals].sort().join(',') + '|' + subTypeFilter + '|' + stateFilter + '|' + appliedPinQuery
     if (prevFilterKey.current !== null && prevFilterKey.current !== key) {
       // Close an open selection when the filters actually change — its pin
