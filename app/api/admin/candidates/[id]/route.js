@@ -320,6 +320,13 @@ export async function POST(request, { params }) {
     // exact location is never pinned. They stay visitable (you can find & visit
     // them) so they surface in search and region pages like a permanent venue.
     const isMobile = presence_type === 'mobile'
+    // A maker whose primary presence is online-only or markets-only has no fixed
+    // public venue — its geocode is a bare locality centroid, so it must never
+    // get a precise map dot. When the reviewer didn't explicitly set
+    // visitability, default such makers to non-visitable (permanent venues,
+    // by-appointment makers and seasonal venues stay visitable).
+    const NON_VISITABLE_PRESENCE = ['online', 'markets']
+    const resolvedVisitable = visitable ?? (NON_VISITABLE_PRESENCE.includes(presence_type) ? false : true)
     // Non-visitable listings may carry several presence modes at once (markets +
     // online + by appointment …). presence_type stays the scalar primary that
     // all downstream consumers read; presence_types (portal listings only) keeps
@@ -536,7 +543,7 @@ export async function POST(request, { params }) {
         formLng = null
       }
 
-      const effectiveVisitable = visitable ?? true
+      const effectiveVisitable = resolvedVisitable
       console.log(`[approve] state resolved`, {
         candidate_id: candidate.id,
         name: candidate.name,
@@ -617,7 +624,7 @@ export async function POST(request, { params }) {
         category: effectiveCategory,
         hero_image_url: null,
         address_on_request: !!address_on_request,
-        visitable: visitable ?? true,
+        visitable: resolvedVisitable,
         presence_type: presence_type || 'permanent',
         service_area: serviceArea,
         offers_classes: !!offers_classes,

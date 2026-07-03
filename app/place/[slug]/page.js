@@ -14,7 +14,7 @@ import { checkAdmin } from '@/lib/admin-auth'
 import { isApprovedImageSource, isHeroDisplayable } from '@/lib/image-utils'
 import OptimizedImage from '@/components/OptimizedImage'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
-import { isMobileListing, mobileLocationLine, MOBILE_LABEL } from '@/lib/listings/presence'
+import { isMobileListing, hasPreciseLocation, mobileLocationLine, MOBILE_LABEL } from '@/lib/listings/presence'
 import { stripTrackingParams } from '@/lib/urlHygiene'
 import { listOutgoing, listIncoming } from '@/lib/picks/producerPicks'
 import { readGallery, filterPaidListingIds } from '@/lib/listing-gallery'
@@ -144,7 +144,7 @@ const getListing = cache(async function getListing(slug, locale = 'en') {
   const hasVerticals = await relationHasVerticals(sb, 'listings')
   const { data, error } = await sb
     .from('listings')
-    .select(`id, vertical, name, slug, description, region, state, suburb, lat, lng, website, phone, address, address_on_request, presence_type, service_area, data_source, hero_image_url, is_featured, is_claimed, editors_pick, status, hours, verified, sub_type, sub_types, ${hasVerticals ? 'verticals, ' : ''}${LISTING_REGION_SELECT}`)
+    .select(`id, vertical, name, slug, description, region, state, suburb, lat, lng, website, phone, address, address_on_request, visitable, presence_type, service_area, data_source, hero_image_url, is_featured, is_claimed, editors_pick, status, hours, verified, sub_type, sub_types, ${hasVerticals ? 'verticals, ' : ''}${LISTING_REGION_SELECT}`)
     .eq('slug', slug)
     .eq('status', 'active')
     // CLAUDE.md hard rule: needs_review=true venues 404 (never render publicly).
@@ -699,7 +699,14 @@ export default async function PlacePage({ params }) {
   } catch { /* auth check failure = not admin */ }
 
   // Nearby pins for the in-page map. Density-aware radius (2/10/25 km).
-  const { listings: mapNearby, radiusKm: mapRadiusKm } = await getMapNearbyListings(listing)
+  // Skip entirely when this listing has no precise location — a locality-only
+  // maker (visitable=false, or a bare "Sydney" centroid) must not anchor a map
+  // or plant a misleading "This place" dot. hasPreciseLocation is the same gate
+  // the map section renders on below (showExactLocation).
+  const canShowMap = hasPreciseLocation(listing)
+  const { listings: mapNearby, radiusKm: mapRadiusKm } = canShowMap
+    ? await getMapNearbyListings(listing)
+    : { listings: [], radiusKm: null }
   const mapNearbyIds = mapNearby.map(n => n.id)
 
   // The single surviving related row: "More in [region]", an arrow-navigable
@@ -790,7 +797,11 @@ export default async function PlacePage({ params }) {
   // never show a precise pin, street address, or "Get Directions" — their
   // region + service-area line carry where to find them instead.
   const isMobile = isMobileListing(listing)
-  const showExactLocation = hasCoords && !isMobile
+  // A precise pin, the map, and "Get Directions" only show when the listing has
+  // a real mappable point: coordinates, visitable !== false, and not
+  // address-on-request/mobile. Locality-only makers (a jeweller whose only
+  // "address" is "Sydney") are visitable=false, so no false-precision dot.
+  const showExactLocation = hasPreciseLocation(listing)
   const mobileWhereToFind = isMobile ? mobileLocationLine(listing, cleanRegion) : null
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''
   const websiteUrl = listing.website?.startsWith('http') ? listing.website : listing.website ? `https://${listing.website}` : null

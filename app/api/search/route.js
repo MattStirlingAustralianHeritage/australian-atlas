@@ -6,6 +6,7 @@ import { LISTING_REGION_SELECT, resolveRegionParam } from '@/lib/regions'
 import { getPublicVerticals, isVerticalPublic } from '@/lib/verticalUrl'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
 import { excludeTestListings, excludeNeedsReview, isPublicListing } from '@/lib/listings/publicFilter'
+import { hasPreciseLocation } from '@/lib/listings/presence'
 import { embedQueryCached } from '@/lib/embeddings/queryCache'
 import { logSearchEvent } from '@/lib/search/log'
 import { parseQueryLocation } from '@/lib/search/parseQuery'
@@ -154,6 +155,10 @@ function buildPins(rows) {
   const pins = []
   for (const r of rows) {
     if (typeof r.lat !== 'number' || typeof r.lng !== 'number') continue
+    // No dot for locality-only / non-visitable / address-on-request venues —
+    // their coordinate is a bare centroid, not a place you can walk to. They
+    // still appear in the result LIST, just not as a misleading map pin.
+    if (!hasPreciseLocation(r)) continue
     pins.push({
       id: r.id, slug: r.slug, name: r.name, vertical: r.vertical,
       sub_type: r.sub_type || null, suburb: r.suburb || null, state: r.state || null,
@@ -180,7 +185,7 @@ async function fuzzySuggest(sb, q) {
 // NOTE: `address` is deliberately NOT selected — search must not leak street
 // addresses (esp. for address_on_request venues). The place page shows address
 // (gated on the privacy flag); search results never do.
-const SELECT_FIELDS = `id, vertical, name, slug, description, sub_type, suburb, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website, presence_type, ${LISTING_REGION_SELECT}`
+const SELECT_FIELDS = `id, vertical, name, slug, description, sub_type, suburb, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website, presence_type, visitable, address_on_request, ${LISTING_REGION_SELECT}`
 
 // Calibrated in Phase 7 (see report). Admits clearly-relevant semantic matches,
 // rejects off-topic queries. Overridable per request via ?floor=.
