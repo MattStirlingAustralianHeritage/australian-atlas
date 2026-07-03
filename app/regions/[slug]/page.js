@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { regionJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
 import RegionMapHero from '@/components/RegionMapHero'
+import { hasPreciseLocation } from '@/lib/listings/presence'
 import RegionTrailCTA from '@/components/RegionTrailCTA'
 import { RelatedCollections, RelatedArticles } from '@/components/RelatedContent'
 import { LISTING_REGION_SELECT } from '@/lib/regions'
@@ -94,7 +95,7 @@ async function getRegionNarrative(regionId) {
 async function getRegionListings(region, venueVerticals) {
   const sb = getSupabaseAdmin()
   const hasVerticals = await relationHasVerticals(sb, 'listings_with_region')
-  const select = `id, vertical, source_id, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website, presence_type, ${hasVerticals ? 'verticals, ' : ''}${LISTING_REGION_SELECT}`
+  const select = `id, vertical, source_id, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website, presence_type, visitable, address_on_request, ${hasVerticals ? 'verticals, ' : ''}${LISTING_REGION_SELECT}`
 
   // Override-wins resolution per docs/regions.md, via the
   // listings_with_region view (migration 125). region_id is
@@ -290,9 +291,11 @@ export default async function RegionPage({ params }) {
 
   const activeVerticals = VERTICAL_ORDER.filter(v => grouped[v]?.length > 0)
 
-  // Map points — include slug for popup links
+  // Map points — include slug for popup links. Only precise, visitable places
+  // get a dot: locality-only makers (visitable=false) and address-on-request
+  // venues carry a bare-centroid pin that would mislead on the region map.
   const mapPoints = listings
-    .filter(l => l.lat && l.lng)
+    .filter(l => hasPreciseLocation(l))
     .map(l => ({ lat: l.lat, lng: l.lng, name: l.name, vertical: l.vertical, slug: l.slug }))
 
   const rawEditorial = region.long_description || region.generated_intro
