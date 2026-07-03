@@ -275,7 +275,7 @@ export default function MapClient({
   // ids the map already uses, plus a per-vertical relevance-floor `strong`
   // flag. Local token matching answers instantly; these results union in
   // ~a second later and re-rank the gazetteer. Fails open to local-only.
-  const [semantic, setSemantic] = useState(null) // { query, ids:Set, rank:Map }
+  const [semantic, setSemantic] = useState(null) // { query, ids:Set, rank:Map, placeDetected }
   const [semanticLoading, setSemanticLoading] = useState(false)
   const semanticCache = useRef(new Map())
   const semanticAbort = useRef(null)
@@ -293,10 +293,12 @@ export default function MapClient({
     // embeds the query (rate-limited 60/min), so only fire on a real pause.
     const t = setTimeout(async () => {
       try {
-        // bind=0: the filter answers WHAT, the map handles WHERE — don't let
-        // a place-looking query pivot to geographic search. limit=1 keeps the
-        // paged listings payload minimal; `pins` is always the full pool.
-        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&bind=0&limit=1`, { signal: ctrl.signal })
+        // Full pipeline WITH place binding: "breweries in Mornington Peninsula"
+        // must resolve the place and return only breweries there, not breweries
+        // everywhere. The response exposes detectedPlace/Region/Suburb so the
+        // camera can fly to the answer. limit=1 keeps the paged payload minimal;
+        // `pins` is always the whole ranked pool.
+        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&limit=1`, { signal: ctrl.signal })
         if (!res.ok) throw new Error(`search ${res.status}`)
         const data = await res.json()
         const pins = Array.isArray(data.pins) ? data.pins : []
@@ -307,6 +309,9 @@ export default function MapClient({
           query: q,
           ids: new Set(usable.map(p => p.id)),
           rank: new Map(usable.map((p, i) => [p.id, i])),
+          // A resolved place/region/suburb means the query was geographic —
+          // the camera should fly to the matches so they're actually in view.
+          placeDetected: !!(data.detectedPlace || data.detectedRegion || data.detectedSuburb),
         }
         semanticCache.current.set(q, entry)
         if (semanticCache.current.size > 40) semanticCache.current.delete(semanticCache.current.keys().next().value)
@@ -1048,6 +1053,7 @@ export default function MapClient({
 
   // Update map sources when filters or the smart query change
   const prevFilterKey = useRef(null)
+  const flownForQuery = useRef(null)
   useEffect(() => {
     if (!mapReady || !map.current) return
     const base = getFiltered(allListings, selectedVerticals, subTypeFilter, stateFilter)
@@ -1080,6 +1086,27 @@ export default function MapClient({
       writeUrlRef.current()
     }
     prevFilterKey.current = key
+
+    // When a geographic query resolves ("breweries in Mornington Peninsula"),
+    // fly the camera to the matches so they're actually in view — otherwise
+    // the accurate, place-scoped results sit off-screen and the map reads as
+    // empty. Fires once per resolved query (flownForQuery guard), never on pan.
+    if (sem && sem.placeDetected && flownForQuery.current !== sem.query) {
+      flownForQuery.current = sem.query
+      const pts = matches.filter(l => sem.ids.has(l.id)).map(displayCoords)
+      if (pts.length) {
+        let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity
+        for (const [lng, lat] of pts) {
+          if (lng < minLng) minLng = lng
+          if (lat < minLat) minLat = lat
+          if (lng > maxLng) maxLng = lng
+          if (lat > maxLat) maxLat = lat
+        }
+        map.current.fitBounds([[minLng, minLat], [maxLng, maxLat]], { padding: cameraPadding(), maxZoom: 12.5, duration: 900 })
+      }
+    }
+    if (!appliedPinQuery) flownForQuery.current = null
+
     updateInView()
   }, [allListings, selectedVerticals, subTypeFilter, stateFilter, appliedPinQuery, semantic, mapReady])
 
@@ -1164,6 +1191,13 @@ export default function MapClient({
 
   const isAllVerticals = selectedVerticals.size === 0
   const activeFilterCount = (!isAllVerticals ? 1 : 0) + (subTypeFilter !== 'all' ? 1 : 0) + (stateFilter !== 'All States' ? 1 : 0) + (appliedPinQuery ? 1 : 0)
+
+  // Smart-filter lifecycle flags. `filterBusy` is the crucial one: the map's
+  // "no matches" empty states must be suppressed while a query is still
+  // settling (debounce) or its semantic request is in flight — during that
+  // window count===0 means "not answered yet", NOT "nothing matches".
+  const filterActive = appliedPinQuery.length > 0
+  const filterBusy = filterActive && (pinQuery.trim() !== appliedPinQuery || semanticLoading)
 
   // Embedded legend — the nearby map ships no chrome, so coloured dots are
   // otherwise unexplained. Build a compact key from the verticals actually
@@ -1381,7 +1415,7 @@ export default function MapClient({
               {STATES.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
             <div role="status" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, color: 'var(--color-muted)' }}>
-              <span>{loading ? 'Loading…' : placesLabel(count)}</span>
+              <span>{loading ? 'Loading…' : filterBusy ? 'Searching…' : placesLabel(count)}</span>
               {activeFilterCount > 0 && (
                 <button onClick={clearAllFilters} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 11, fontWeight: 600, color: PRIMARY, fontFamily: 'var(--font-sans)' }}>
                   Clear filters
@@ -1439,7 +1473,7 @@ export default function MapClient({
                   visitedIds={visitedRef.current}
                   filterQuery={pinQuery}
                   onFilterQuery={setPinQuery}
-                  filterBusy={semanticLoading}
+                  filterBusy={filterBusy}
                   onHover={setHoverState}
                   onSelect={(l) => selectListing(l, { fly: true })}
                 />
@@ -1512,12 +1546,18 @@ export default function MapClient({
           </div>
         )}
 
-        {/* Empty state — every pin filtered away */}
-        {!isEmbedded && !loading && mapReady && count === 0 && (
+        {/* Empty state — every pin filtered away. Suppressed while the smart
+            filter is still resolving (filterBusy): count===0 then means "not
+            answered yet", not "nothing matches", so the card must not flash. */}
+        {!isEmbedded && !loading && mapReady && count === 0 && !filterBusy && (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 6, pointerEvents: 'none' }}>
-            <div style={{ pointerEvents: 'auto', textAlign: 'center', background: 'rgba(250,248,245,0.97)', border: '1px solid var(--color-border)', borderRadius: 6, padding: '20px 26px', boxShadow: '0 4px 20px rgba(0,0,0,0.10)', maxWidth: 300 }}>
-              <div style={{ fontFamily: 'Georgia, serif', fontSize: 16, color: 'var(--color-ink)', marginBottom: 6 }}>No places match these filters</div>
-              <div style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--color-muted)', lineHeight: 1.5, marginBottom: 14 }}>Try widening the category and state filters.</div>
+            <div style={{ pointerEvents: 'auto', textAlign: 'center', background: 'rgba(250,248,245,0.97)', border: '1px solid var(--color-border)', borderRadius: 6, padding: '20px 26px', boxShadow: '0 4px 20px rgba(0,0,0,0.10)', maxWidth: 320 }}>
+              <div style={{ fontFamily: 'Georgia, serif', fontSize: 16, color: 'var(--color-ink)', marginBottom: 6 }}>
+                {filterActive ? `Nothing matches “${appliedPinQuery}”` : 'No places match these filters'}
+              </div>
+              <div style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--color-muted)', lineHeight: 1.5, marginBottom: 14 }}>
+                {filterActive ? 'Try fewer words, a different phrasing, or clear the filter.' : 'Try widening the category and state filters.'}
+              </div>
               <button onClick={clearAllFilters} style={{ padding: '8px 18px', background: PRIMARY, color: '#fff', border: 'none', borderRadius: 2, cursor: 'pointer', fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)' }}>
                 Clear all filters
               </button>
@@ -1561,45 +1601,35 @@ export default function MapClient({
             fontFamily: 'var(--font-sans)', fontSize: 10, fontWeight: 600, letterSpacing: '0.04em', color: 'var(--color-muted)',
             boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
           }}>
-            {loading ? 'Loading…' : placesLabel(count)}
+            {loading ? 'Loading…' : filterBusy ? 'Searching…' : placesLabel(count)}
           </div>
         )}
 
         {/* ── FLOATING SMART FILTER (desktop) — the hero filter, centred over
             the map so it's reachable without hunting the sidebar. Its wrapper
             spans the map area (right of the panel) and centres the pill; the
-            wrapper is click-through so the bottom-corner controls stay live. */}
+            wrapper is click-through so the bottom-corner controls stay live.
+            The live match count and status live INSIDE the bar (a quiet sage
+            chip / spinner) — no separate floating caption. */}
         {!isEmbedded && (
           <div className="map-desktop-toolbar" style={{
             position: 'absolute', bottom: 30, left: panelOpen ? PANEL_W : 0, right: 0, zIndex: 12,
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7,
+            display: 'flex', justifyContent: 'center',
             pointerEvents: 'none', transition: 'left 0.38s cubic-bezier(0.22, 1, 0.36, 1)',
             padding: '0 88px',
           }}>
-            {appliedPinQuery && (
-              <div style={{
-                pointerEvents: 'none', display: 'inline-flex', alignItems: 'center', gap: 7,
-                background: 'rgba(28,26,23,0.82)', color: 'var(--color-cream)', backdropFilter: 'blur(6px)',
-                padding: '4px 12px', borderRadius: 20, fontFamily: 'var(--font-sans)', fontSize: 11,
-                letterSpacing: '0.01em', boxShadow: '0 4px 14px rgba(28,26,23,0.18)',
-              }}>
-                {semanticLoading
-                  ? <><span className="map-spinner" style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff', width: 11, height: 11 }} />Searching meaning, not just words…</>
-                  : <>{count.toLocaleString()} {count === 1 ? 'match' : 'matches'} lit · the rest fade back</>}
-              </div>
-            )}
             <div style={{
               pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 9,
-              width: 'min(480px, 100%)', boxSizing: 'border-box',
+              width: 'min(520px, 100%)', boxSizing: 'border-box',
               background: 'rgba(251,249,244,0.94)', backdropFilter: 'blur(14px) saturate(1.2)',
-              border: `1px solid ${appliedPinQuery ? 'rgba(95,138,126,0.55)' : 'rgba(28,26,23,0.1)'}`,
-              borderRadius: 999, padding: '9px 12px 9px 16px',
-              boxShadow: appliedPinQuery
-                ? '0 12px 34px rgba(28,26,23,0.20), 0 0 0 4px rgba(95,138,126,0.10)'
-                : '0 12px 34px rgba(28,26,23,0.18)',
-              transition: 'border-color 0.2s, box-shadow 0.2s',
+              border: `1px solid ${filterActive ? 'rgba(95,138,126,0.5)' : 'rgba(28,26,23,0.1)'}`,
+              borderRadius: 999, padding: '8px 10px 8px 16px',
+              boxShadow: filterActive
+                ? '0 12px 34px rgba(28,26,23,0.18), 0 0 0 4px rgba(95,138,126,0.09)'
+                : '0 12px 34px rgba(28,26,23,0.16)',
+              transition: 'border-color 0.25s, box-shadow 0.25s',
             }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={appliedPinQuery ? '#5f8a7e' : 'var(--color-muted)'} strokeWidth="2" strokeLinecap="round" style={{ flexShrink: 0, transition: 'stroke 0.2s' }} aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={filterActive ? '#5f8a7e' : 'var(--color-muted)'} strokeWidth="2" strokeLinecap="round" style={{ flexShrink: 0, transition: 'stroke 0.2s' }} aria-hidden="true">
                 <path d="M4 6h16M7 12h10M10 18h4" />
               </svg>
               <input
@@ -1607,21 +1637,35 @@ export default function MapClient({
                 value={pinQuery}
                 onChange={e => setPinQuery(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Escape') setPinQuery('') }}
-                placeholder="Filter the map — try ‘rice lager’, ‘whisky’ or ‘homewares’"
+                placeholder="Filter the map — try ‘breweries in the Mornington Peninsula’"
                 aria-label="Filter the map by keyword"
                 style={{
                   flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent',
                   fontFamily: 'var(--font-sans)', fontSize: 14, color: 'var(--color-ink)', letterSpacing: '0.005em',
                 }}
               />
-              {semanticLoading && (
-                <span aria-label="Searching" style={{
-                  width: 15, height: 15, borderRadius: '50%', flexShrink: 0,
+              {/* Status cluster: spinner while resolving; a sage count chip once
+                  matches are known; a clear button always available with a query. */}
+              {filterBusy && (
+                <span aria-label="Searching" title="Searching the atlas…" style={{
+                  width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
                   border: '2px solid rgba(95,138,126,0.28)', borderTopColor: '#5f8a7e',
                   animation: 'map-spin 0.7s linear infinite',
                 }} />
               )}
-              {pinQuery && !semanticLoading && (
+              {filterActive && !filterBusy && (
+                <span style={{
+                  flexShrink: 0, display: 'inline-flex', alignItems: 'center',
+                  height: 24, padding: '0 10px', borderRadius: 999,
+                  background: count > 0 ? 'rgba(95,138,126,0.14)' : 'rgba(196,96,58,0.12)',
+                  color: count > 0 ? 'var(--color-sage-dark)' : 'var(--color-accent)',
+                  fontFamily: 'var(--font-sans)', fontSize: 11.5, fontWeight: 600, letterSpacing: '0.01em',
+                  whiteSpace: 'nowrap',
+                }}>
+                  {count > 0 ? `${count.toLocaleString()} ${count === 1 ? 'match' : 'matches'}` : 'No matches'}
+                </span>
+              )}
+              {pinQuery && (
                 <button onClick={() => setPinQuery('')} aria-label="Clear filter" style={{
                   flexShrink: 0, width: 26, height: 26, borderRadius: '50%', border: 'none', cursor: 'pointer',
                   background: 'rgba(28,26,23,0.06)', color: 'var(--color-muted)',
@@ -1770,7 +1814,7 @@ export default function MapClient({
               visitedIds={visitedRef.current}
               filterQuery={pinQuery}
               onFilterQuery={setPinQuery}
-              filterBusy={semanticLoading}
+              filterBusy={filterBusy}
               onHover={() => {}}
               onSelect={(l) => { setMobileListOpen(false); selectListing(l, { fly: true }) }}
               onClose={() => setMobileListOpen(false)}

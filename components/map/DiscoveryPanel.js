@@ -96,10 +96,10 @@ export default function DiscoveryPanel({
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
           <div role="status">
             <div style={{ fontFamily: 'var(--font-serif)', fontSize: 15.5, color: 'var(--color-ink)' }}>
-              {loading ? 'Reading the atlas…' : `${totalInView.toLocaleString()} ${totalInView === 1 ? 'place' : 'places'} in view`}
+              {loading ? 'Reading the atlas…' : filterBusy ? 'Searching the atlas…' : `${totalInView.toLocaleString()} ${totalInView === 1 ? 'place' : 'places'} in view`}
             </div>
             <div style={{ fontSize: 10.5, color: 'var(--color-muted)', marginTop: 1 }}>
-              {loading ? '' : `of ${totalAll.toLocaleString()} across Australia — move the map to explore`}
+              {loading || filterBusy ? '' : `of ${totalAll.toLocaleString()} across Australia — move the map to explore`}
             </div>
           </div>
           {mode === 'sheet' && (
