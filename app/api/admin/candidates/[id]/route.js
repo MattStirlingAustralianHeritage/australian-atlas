@@ -467,10 +467,36 @@ export async function POST(request, { params }) {
       let formLat = ro.lat ?? candidate.lat ?? coords?.lat ?? null
       let formLng = ro.lng ?? candidate.lng ?? coords?.lng ?? null
 
+      // State resolution. A candidate's stored `state` is unreliable: market
+      // seeders inherit the MARKET's state onto interstate makers (a Sydney
+      // jeweller sold at Handmade Market Canberra was stamped ACT), and
+      // discovery rows can carry a stale state. The maker's REGION is the
+      // researched source of truth for WHERE they are, so a resolved region
+      // outranks the stamped candidate/enriched state. Order:
+      //   reviewer > region (chosen override, else the state token in region
+      //   text) > candidate.state > enriched.state > geocoded pin > box test
       let formState = null
       let stateSource = 'null'
       const roState = (ro.state || '').trim()
+
+      // Region-derived state: the reviewer's chosen region (authoritative in the
+      // regions table), else the state trailing the candidate's region text
+      // ("Sydney, NSW" → NSW). Null when the region carries no parseable state.
+      let regionState = null
+      if (ro.region_override_id) {
+        const { data: regionStateRow } = await sb
+          .from('regions')
+          .select('state')
+          .eq('id', ro.region_override_id)
+          .maybeSingle()
+        regionState = regionStateRow?.state || null
+      }
+      if (!regionState && candidate.region) {
+        regionState = extractStateFromPlaceName(candidate.region)
+      }
+
       if (roState) { formState = roState; stateSource = 'reviewer' }
+      else if (regionState) { formState = regionState; stateSource = 'region' }
       else if (candidate.state) { formState = candidate.state; stateSource = 'candidate' }
       else if (enriched.state) { formState = enriched.state; stateSource = 'enriched' }
       else {
@@ -479,17 +505,25 @@ export async function POST(request, { params }) {
         else {
           const fromCoords = deriveStateFromCoords(formLat, formLng)
           if (fromCoords) { formState = fromCoords; stateSource = 'coords' }
-          else if (ro.region_override_id) {
-            // Region-only listings (mobile venues, by-appointment makers) carry
-            // no address to geocode, so derive state from the reviewer's chosen
-            // region. regions.state is the editorial source of truth.
-            const { data: regionStateRow } = await sb
-              .from('regions')
-              .select('state')
-              .eq('id', ro.region_override_id)
-              .maybeSingle()
-            if (regionStateRow?.state) { formState = regionStateRow.state; stateSource = 'region' }
-          }
+        }
+      }
+
+      // Pin/state consistency. A market-seeded maker can carry a pin at the
+      // MARKET's city (e.g. a Ballarat VIC maker dropped at Handmade Market
+      // Canberra) even when the state is right. When the candidate's own pin
+      // sits in a different state than the resolved state, and a fresh region
+      // geocode positively agrees with that state, the pin follows the region
+      // instead of the market. Only fires when the region geocode lands in the
+      // resolved state, so a correct near-border pin is never moved; skipped
+      // when the reviewer placed the pin themselves.
+      if (ro.lat == null && ro.lng == null && formLat != null && formLng != null &&
+          VALID_STATES.includes(formState) && coords) {
+        const pinState = deriveStateFromCoords(formLat, formLng)
+        if (pinState && pinState !== formState &&
+            deriveStateFromCoords(coords.lat, coords.lng) === formState) {
+          console.warn(`[approve] pin/state mismatch for "${candidate.name}": pin in ${pinState} but state resolved to ${formState} (${stateSource}) — moving pin to region geocode ${coords.lat},${coords.lng}`)
+          formLat = coords.lat
+          formLng = coords.lng
         }
       }
 
