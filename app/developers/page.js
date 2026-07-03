@@ -1,45 +1,51 @@
 import Link from 'next/link'
+import { getTranslations } from 'next-intl/server'
 
-export const metadata = {
-  title: 'API for Developers — Australian Atlas',
-  description: 'Access verified independent listing data across ten curated directories via the Australian Atlas API.',
+export async function generateMetadata() {
+  const t = await getTranslations('developers')
+  return {
+    title: t('metaTitle'),
+    description: t('metaDescription'),
+  }
 }
 
-const ENDPOINTS = [
-  {
-    method: 'GET',
-    path: '/api/v1/venues',
-    desc: 'List all verified venues. Filter by vertical, region, state.',
-    params: ['vertical', 'region', 'state', 'limit (max 200)', 'offset'],
-  },
-  {
-    method: 'GET',
-    path: '/api/v1/venues/{id}',
-    desc: 'Get a single venue by ID.',
-    params: [],
-  },
-  {
-    method: 'GET',
-    path: '/api/v1/regions',
-    desc: 'List all mapped regions. Filter by state.',
-    params: ['state'],
-  },
-  {
-    method: 'GET',
-    path: '/api/v1/regions/{slug}/venues',
-    desc: 'List all venues in a specific region. Filter by vertical.',
-    params: ['vertical', 'limit (max 500)', 'offset'],
-  },
-]
+export default async function DevelopersPage() {
+  const t = await getTranslations('developers')
 
-const USE_CASES = [
-  { title: 'Tourism app developers', desc: 'Integrate verified independent venue data into your travel or discovery app.' },
-  { title: 'Regional council GIS', desc: 'Pull independent business data for spatial analysis and regional planning.' },
-  { title: 'Travel writers', desc: 'Build custom itineraries from verified listing data across ten categories.' },
-  { title: 'Researchers', desc: 'Study independent business distribution, regional economic patterns, and cultural geography across Australia.' },
-]
+  const ENDPOINTS = [
+    {
+      method: 'GET',
+      path: '/api/v1/venues',
+      desc: t('endpointVenuesDesc'),
+      params: ['vertical', 'region', 'state', 'limit (max 200)', 'offset'],
+    },
+    {
+      method: 'GET',
+      path: '/api/v1/venues/{id}',
+      desc: t('endpointVenueByIdDesc'),
+      params: [],
+    },
+    {
+      method: 'GET',
+      path: '/api/v1/regions',
+      desc: t('endpointRegionsDesc'),
+      params: ['state'],
+    },
+    {
+      method: 'GET',
+      path: '/api/v1/regions/{slug}/venues',
+      desc: t('endpointRegionVenuesDesc'),
+      params: ['vertical', 'limit (max 500)', 'offset'],
+    },
+  ]
 
-export default function DevelopersPage() {
+  const USE_CASES = [
+    { title: t('useCaseTourismTitle'), desc: t('useCaseTourismDesc') },
+    { title: t('useCaseCouncilTitle'), desc: t('useCaseCouncilDesc') },
+    { title: t('useCaseWritersTitle'), desc: t('useCaseWritersDesc') },
+    { title: t('useCaseResearchersTitle'), desc: t('useCaseResearchersDesc') },
+  ]
+
   return (
     <div style={{ background: 'var(--color-bg)', minHeight: '100vh' }}>
       {/* Hero */}
@@ -49,7 +55,7 @@ export default function DevelopersPage() {
           letterSpacing: '0.18em', textTransform: 'uppercase',
           color: 'var(--color-sage)', marginBottom: 12,
         }}>
-          For Developers
+          {t('eyebrow')}
         </p>
         <h1 style={{
           fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '2.5rem',
@@ -61,7 +67,7 @@ export default function DevelopersPage() {
           fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 16,
           color: 'var(--color-muted)', lineHeight: 1.65, maxWidth: 560,
         }}>
-          Read-only access to verified, curated data on independent businesses across Australia. Ten verticals, 80+ regions, updated continuously.
+          {t('heroSubhead')}
         </p>
       </section>
 
@@ -74,12 +80,15 @@ export default function DevelopersPage() {
           <h2 style={{
             fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 14,
             color: 'var(--color-ink)', marginBottom: 8,
-          }}>Authentication</h2>
+          }}>{t('authHeading')}</h2>
           <p style={{
             fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 14,
             color: 'var(--color-muted)', lineHeight: 1.55, marginBottom: 12,
           }}>
-            All requests require an API key passed via the <code style={{ background: '#fff', padding: '2px 6px', borderRadius: 4, fontSize: 13 }}>x-api-key</code> header or <code style={{ background: '#fff', padding: '2px 6px', borderRadius: 4, fontSize: 13 }}>api_key</code> query parameter.
+            {t.rich('authDescription', {
+              header: () => <code style={{ background: '#fff', padding: '2px 6px', borderRadius: 4, fontSize: 13 }}>x-api-key</code>,
+              param: () => <code style={{ background: '#fff', padding: '2px 6px', borderRadius: 4, fontSize: 13 }}>api_key</code>,
+            })}
           </p>
           <div style={{
             background: '#1a1a1a', color: '#e0e0e0', padding: '14px 18px',
@@ -98,15 +107,15 @@ export default function DevelopersPage() {
           fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 10,
           letterSpacing: '0.16em', textTransform: 'uppercase',
           color: 'var(--color-sage)', marginBottom: 16,
-        }}>Rate Limits</h2>
+        }}>{t('rateLimitsHeading')}</h2>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div style={{ padding: '16px 20px', borderRadius: 8, border: '1px solid var(--color-border)', background: '#fff' }}>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 13, color: 'var(--color-ink)', marginBottom: 4 }}>Free</p>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 13, color: 'var(--color-muted)', margin: 0 }}>1,000 requests/day</p>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 13, color: 'var(--color-ink)', marginBottom: 4 }}>{t('tierFreeName')}</p>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 13, color: 'var(--color-muted)', margin: 0 }}>{t('requestsPerDay', { count: 1000 })}</p>
           </div>
           <div style={{ padding: '16px 20px', borderRadius: 8, border: '1px solid var(--color-border)', background: '#fff' }}>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 13, color: 'var(--color-ink)', marginBottom: 4 }}>Partner</p>
-            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 13, color: 'var(--color-muted)', margin: 0 }}>10,000 requests/day</p>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 13, color: 'var(--color-ink)', marginBottom: 4 }}>{t('tierPartnerName')}</p>
+            <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 13, color: 'var(--color-muted)', margin: 0 }}>{t('requestsPerDay', { count: 10000 })}</p>
           </div>
         </div>
       </section>
@@ -117,7 +126,7 @@ export default function DevelopersPage() {
           fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 10,
           letterSpacing: '0.16em', textTransform: 'uppercase',
           color: 'var(--color-sage)', marginBottom: 16,
-        }}>Endpoints</h2>
+        }}>{t('endpointsHeading')}</h2>
         <div style={{ display: 'grid', gap: 12 }}>
           {ENDPOINTS.map(ep => (
             <div key={ep.path} style={{
@@ -141,7 +150,7 @@ export default function DevelopersPage() {
                   fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 11,
                   color: 'var(--color-muted)', margin: 0,
                 }}>
-                  Params: {ep.params.map(p => <code key={p} style={{ background: 'var(--color-cream)', padding: '1px 5px', borderRadius: 3, fontSize: 11, marginRight: 4 }}>{p}</code>)}
+                  {t('paramsLabel')} {ep.params.map(p => <code key={p} style={{ background: 'var(--color-cream)', padding: '1px 5px', borderRadius: 3, fontSize: 11, marginRight: 4 }}>{p}</code>)}
                 </p>
               )}
             </div>
@@ -155,7 +164,7 @@ export default function DevelopersPage() {
           fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 10,
           letterSpacing: '0.16em', textTransform: 'uppercase',
           color: 'var(--color-sage)', marginBottom: 16,
-        }}>Response Format</h2>
+        }}>{t('responseFormatHeading')}</h2>
         <div style={{
           background: '#1a1a1a', color: '#e0e0e0', padding: '18px 22px',
           borderRadius: 8, fontFamily: 'monospace', fontSize: 12, lineHeight: 1.7,
@@ -195,7 +204,7 @@ export default function DevelopersPage() {
           fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 10,
           letterSpacing: '0.16em', textTransform: 'uppercase',
           color: 'var(--color-sage)', marginBottom: 16,
-        }}>Use Cases</h2>
+        }}>{t('useCasesHeading')}</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
           {USE_CASES.map(uc => (
             <div key={uc.title} style={{
@@ -215,13 +224,13 @@ export default function DevelopersPage() {
           fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 10,
           letterSpacing: '0.16em', textTransform: 'uppercase',
           color: 'var(--color-sage)', marginBottom: 16,
-        }}>Data Policy</h2>
+        }}>{t('dataPolicyHeading')}</h2>
         <div style={{
           fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 14,
           color: 'var(--color-muted)', lineHeight: 1.6,
         }}>
-          <p>The API does not expose PII, contact details of unclaimed venues, or internal scoring data. All data returned is already publicly visible on the Atlas Network websites.</p>
-          <p style={{ marginTop: 12 }}>Attribution is required: include "Data from Australian Atlas" with a link to australianatlas.com.au in any public-facing use of the data.</p>
+          <p>{t('dataPolicyPrivacy')}</p>
+          <p style={{ marginTop: 12 }}>{t('dataPolicyAttribution', { attribution: '"Data from Australian Atlas"', url: 'australianatlas.com.au' })}</p>
         </div>
       </section>
 
@@ -234,13 +243,13 @@ export default function DevelopersPage() {
           <h2 style={{
             fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '1.5rem',
             color: '#fff', marginBottom: 8,
-          }}>Get an API key</h2>
+          }}>{t('ctaHeading')}</h2>
           <p style={{
             fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 14,
             color: 'rgba(255,255,255,0.7)', lineHeight: 1.5, marginBottom: 20,
             maxWidth: 400, marginLeft: 'auto', marginRight: 'auto',
           }}>
-            API keys are issued on request. Tell us what you are building and we will get you set up.
+            {t('ctaBody')}
           </p>
           <a
             href="mailto:api@australianatlas.com.au?subject=Atlas API key request"
@@ -251,7 +260,7 @@ export default function DevelopersPage() {
               textDecoration: 'none',
             }}
           >
-            Request API access
+            {t('ctaButton')}
           </a>
         </div>
       </section>

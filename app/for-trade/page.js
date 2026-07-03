@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { getTranslations } from 'next-intl/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getAtlasCount } from '@/lib/networkStats'
 
@@ -6,10 +7,12 @@ export const revalidate = 86400
 
 const ATLAS_COUNT = getAtlasCount()
 
-export const metadata = {
-  title: 'Atlas Trade — for tour operators, DMCs & trip designers | Australian Atlas',
-  description:
-    'A pre-vetted set of independent Australian operators and an attributed itinerary builder, for the travel trade. Free founding beta.',
+export async function generateMetadata() {
+  const t = await getTranslations('forTrade')
+  return {
+    title: t('metaTitle'),
+    description: t('metaDescription'),
+  }
 }
 
 async function getNetworkStats() {
@@ -25,35 +28,18 @@ async function getNetworkStats() {
   }
 }
 
-const FAQ = [
-  {
-    q: 'What exactly is Atlas Trade?',
-    a: 'A working tool, not a directory. You describe the kind of tour you are building in plain language, Atlas surfaces relevant independent operators from across its vetted network, and you assemble an ordered, attributed itinerary you can share or export. It is the same curated network behind the consumer Atlas — pointed at the people who build trips for a living.',
-  },
-  {
-    q: 'Where do the operators come from?',
-    a: 'The full Australian Atlas network: small-batch wineries and distillers, makers and studios, roasters, boutique stays, natural places, farm gates. Every listing is location-verified and contact-audited. The value to you is a defensible, pre-vetted set you can stand behind to a client — the independent layer the large platforms miss.',
-  },
-  {
-    q: 'Is every operator bookable through Atlas?',
-    a: 'No, and that is deliberate. Atlas is non-transactional. Some operators have told us they welcome trade enquiries and offer trade rates — where that is the case, the builder surfaces it so you can contact them directly. The rest show standard listing information. You always book direct with the operator.',
-  },
-  {
-    q: 'Can I white-label the itineraries?',
-    a: 'No. Itineraries carry a quiet "Curated via Atlas" line — it is a condition of use, not removable. You are welcome to present them to clients under your own trip; the attribution simply stays on the artefact.',
-  },
-  {
-    q: 'What does it cost?',
-    a: 'Nothing during the founding beta. Founding-cohort members lock in a founding rate at signup, with the first invoice aligned to the new financial year on 1 July — there is no charge while we are in beta, and you can step away at any time.',
-  },
-  {
-    q: 'Who runs Australian Atlas?',
-    a: 'Australian Atlas is independently operated and Australian-owned, part of the Australian Heritage editorial network. It is built and maintained by a small team focused on documenting independent Australia.',
-  },
-]
-
 export default async function ForTradePage() {
   const stats = await getNetworkStats()
+  const t = await getTranslations('forTrade')
+
+  const FAQ = [
+    { q: t('faqWhatIsQ'), a: t('faqWhatIsA') },
+    { q: t('faqOperatorsQ'), a: t('faqOperatorsA') },
+    { q: t('faqBookableQ'), a: t('faqBookableA') },
+    { q: t('faqWhiteLabelQ'), a: t('faqWhiteLabelA') },
+    { q: t('faqCostQ'), a: t('faqCostA') },
+    { q: t('faqWhoRunsQ'), a: t('faqWhoRunsA') },
+  ]
 
   return (
     <div style={{ background: 'var(--color-bg)', minHeight: '100vh' }}>
@@ -72,13 +58,13 @@ export default async function ForTradePage() {
             color: 'var(--color-ink)', background: 'var(--color-gold)',
             padding: '3px 10px', borderRadius: 99,
           }}>
-            Free founding beta
+            {t('betaBadge')}
           </span>
           <p style={{
             fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 300,
             color: 'rgba(255,255,255,0.78)', lineHeight: 1.55, margin: 0,
           }}>
-            Atlas Trade is in free founding beta. A capped founding cohort gets full access at no cost while the product matures.
+            {t('betaBannerText')}
           </p>
         </div>
       </div>
@@ -90,20 +76,19 @@ export default async function ForTradePage() {
           letterSpacing: '0.15em', textTransform: 'uppercase',
           color: 'var(--color-gold)', marginBottom: 12,
         }}>
-          For the Travel Trade
+          {t('heroEyebrow')}
         </p>
         <h1 style={{
           fontFamily: 'var(--font-display)', fontSize: 'clamp(28px, 4vw, 44px)',
           fontWeight: 400, color: 'var(--color-ink)', lineHeight: 1.15, marginBottom: 16,
         }}>
-          A vetted set of independent operators,<br />and a way to build with it
+          {t('heroTitleLine1')}<br />{t('heroTitleLine2')}
         </h1>
         <p style={{
           fontFamily: 'var(--font-body)', fontSize: 16, fontWeight: 300,
           color: 'var(--color-muted)', lineHeight: 1.65, maxWidth: 580, margin: '0 auto',
         }}>
-          Atlas Trade gives tour operators, DMCs, and trip designers a pre-vetted network of {stats.listings.toLocaleString()} independent
-          Australian places — and a plain-language builder to assemble attributed itineraries from it.
+          {t('heroSubhead', { count: stats.listings.toLocaleString() })}
         </p>
       </section>
 
@@ -114,16 +99,20 @@ export default async function ForTradePage() {
       }}>
         {[
           {
-            title: 'A pre-vetted network',
-            desc: `${stats.listings.toLocaleString()} independent operators across ${ATLAS_COUNT} categories and ${stats.regions} regions — location-verified, contact-audited, no paid placement. Every stop in every itinerary links to a live, verified record: nothing here can be an AI's invention.`,
+            title: t('cardNetworkTitle'),
+            desc: t('cardNetworkDesc', {
+              listings: stats.listings.toLocaleString(),
+              categories: ATLAS_COUNT,
+              regions: stats.regions,
+            }),
           },
           {
-            title: 'A working trade toolkit',
-            desc: 'A filterable product directory (region, state, group size, coach access, trade terms), one-page trade fact sheets with a PDF for every trade-ready venue, and tracked rates, availability and famil enquiries — the contracting groundwork, minus the phone tag.',
+            title: t('cardToolkitTitle'),
+            desc: t('cardToolkitDesc'),
           },
           {
-            title: 'Day-planned, co-branded proposals',
-            desc: 'Describe the tour in plain language, assemble day-structured itineraries with drive estimates, add a cover note, and share under "Prepared by you · Curated via Atlas" — on a private link and a PDF. Drafts auto-save.',
+            title: t('cardProposalsTitle'),
+            desc: t('cardProposalsDesc'),
           },
         ].map((item) => (
           <div key={item.title} style={{
@@ -157,32 +146,24 @@ export default async function ForTradePage() {
             letterSpacing: '0.15em', textTransform: 'uppercase',
             color: 'var(--color-gold)', marginBottom: 12,
           }}>
-            Why it holds up
+            {t('independenceEyebrow')}
           </p>
           <h2 style={{
             fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 400,
             color: 'var(--color-ink)', lineHeight: 1.25, marginBottom: 24,
           }}>
-            The independent layer is the reason people travel
+            {t('independenceTitle')}
           </h2>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <p style={{ fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 300, color: 'var(--color-muted)', lineHeight: 1.7, margin: 0 }}>
-              The cellar door that opened last year, the ceramicist working from a converted dairy, the
-              roaster a town will drive an hour for — these are what an experienced traveller remembers, and
-              what a good itinerary is built around. They are also the hardest to find reliably, because they
-              rarely sit on the accredited registers.
+              {t('independencePara1')}
             </p>
             <p style={{ fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 300, color: 'var(--color-muted)', lineHeight: 1.7, margin: 0 }}>
-              Atlas maps that layer systematically — verified, categorised, and placed within a real geography
-              rather than a marketing label. For the trade, that is the value: a curated, defensible set you can
-              assemble from quickly and stand behind to an international client, without vouching for places you
-              have not checked yourself.
+              {t('independencePara2')}
             </p>
             <p style={{ fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 300, color: 'var(--color-muted)', lineHeight: 1.7, margin: 0 }}>
-              Atlas stays non-transactional. You book direct with each operator. Where an operator has told us they
-              welcome the trade, the builder surfaces that — trade rates, group ceilings, a note to contact them
-              first — so the people who want your business are easy to reach, and the rest are simply good listings.
+              {t('independencePara3')}
             </p>
           </div>
         </div>
@@ -196,22 +177,22 @@ export default async function ForTradePage() {
             letterSpacing: '0.15em', textTransform: 'uppercase',
             color: 'var(--color-gold)', marginBottom: 12,
           }}>
-            The builder
+            {t('builderEyebrow')}
           </p>
           <h2 style={{
             fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 400,
             color: 'var(--color-ink)', lineHeight: 1.25,
           }}>
-            From a sentence to a shareable itinerary
+            {t('builderTitle')}
           </h2>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 24 }}>
           {[
-            { n: '01', title: 'Find the product', desc: 'Describe the tour in plain language, or filter the directory the way a product manager works.' },
-            { n: '02', title: 'Check the fact sheet', desc: 'Capacity, notice, seasonality, insurance, languages, and a trade contact — one page, one PDF.' },
-            { n: '03', title: 'Assemble by day', desc: 'Day-structured stops with time hints, private notes and drive estimates. Drafts auto-save.' },
-            { n: '04', title: 'Share or enquire', desc: 'A co-branded link and PDF for the client; tracked rate and famil enquiries to the venues.' },
+            { n: '01', title: t('step1Title'), desc: t('step1Desc') },
+            { n: '02', title: t('step2Title'), desc: t('step2Desc') },
+            { n: '03', title: t('step3Title'), desc: t('step3Desc') },
+            { n: '04', title: t('step4Title'), desc: t('step4Desc') },
           ].map((step) => (
             <div key={step.n} style={{
               padding: '24px', borderRadius: 12,
@@ -241,15 +222,13 @@ export default async function ForTradePage() {
               letterSpacing: '0.15em', textTransform: 'uppercase',
               color: 'var(--color-gold)', marginBottom: 12,
             }}>
-              Founding beta
+              {t('foundingBetaEyebrow')}
             </p>
             <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 400, color: 'var(--color-ink)', lineHeight: 1.25, marginBottom: 12 }}>
-              Free while we&apos;re in beta
+              {t('foundingBetaTitle')}
             </h2>
             <p style={{ fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 300, color: 'var(--color-muted)', lineHeight: 1.6, maxWidth: 600, margin: '0 auto' }}>
-              The founding cohort is capped. Members get full access to the builder at no cost during beta, lock in a
-              founding rate at signup, and would see their first invoice aligned to the financial year on 1 July. No card,
-              no commitment — accepting the terms is the only step.
+              {t('foundingBetaSubhead')}
             </p>
           </div>
 
@@ -261,10 +240,10 @@ export default async function ForTradePage() {
                 color: 'var(--color-ink)', background: 'var(--color-gold)',
                 padding: '4px 12px', borderRadius: 99,
               }}>
-                Free during beta
+                {t('freeDuringBetaBadge')}
               </span>
               <h3 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 400, color: 'var(--color-ink)', margin: 0 }}>
-                What founding members get
+                {t('foundingMembersGetTitle')}
               </h3>
             </div>
             <ul style={{
@@ -272,12 +251,12 @@ export default async function ForTradePage() {
               display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '10px 24px',
             }}>
               {[
-                'The full natural-language itinerary builder',
-                'The complete, verified independent-operator network',
-                'Attributed, shareable itinerary links',
-                'PDF export carrying the Atlas attribution',
-                'Trade-welcome signals where operators have opted in',
-                'A founding rate locked at signup',
+                t('benefitBuilder'),
+                t('benefitNetwork'),
+                t('benefitAttributedLinks'),
+                t('benefitPdfExport'),
+                t('benefitTradeSignals'),
+                t('benefitFoundingRate'),
               ].map((f, i) => (
                 <li key={i} style={{
                   display: 'flex', alignItems: 'flex-start', gap: 8,
@@ -297,17 +276,17 @@ export default async function ForTradePage() {
               color: 'var(--color-ink)', background: 'var(--color-gold)', padding: '14px 32px', borderRadius: 99,
               textDecoration: 'none',
             }}>
-              Join the founding beta
+              {t('joinFoundingBetaCta')}
             </Link>
             <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '12px 0 0' }}>
-              You&apos;ll sign in, tell us who you are, and accept the terms. That&apos;s the gate.
+              {t('joinGateNote')}
             </p>
           </div>
 
           <p style={{ textAlign: 'center', marginTop: 20, fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)' }}>
-            Already a member?{' '}
+            {t('alreadyMember')}{' '}
             <Link href="/trade/builder" style={{ color: 'var(--color-gold)', textDecoration: 'underline', textUnderlineOffset: 3 }}>
-              Open the builder
+              {t('openBuilderLink')}
             </Link>
           </p>
         </div>
@@ -317,7 +296,7 @@ export default async function ForTradePage() {
       <section style={{ maxWidth: 720, margin: '0 auto', padding: '4rem 1.5rem' }}>
         <div style={{ textAlign: 'center', marginBottom: 36 }}>
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 400, color: 'var(--color-ink)', lineHeight: 1.25 }}>
-            Common questions
+            {t('faqHeading')}
           </h2>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
@@ -338,11 +317,10 @@ export default async function ForTradePage() {
       <section style={{ background: 'var(--color-ink)', padding: '4rem 1.5rem' }}>
         <div style={{ maxWidth: 600, margin: '0 auto', textAlign: 'center' }}>
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 400, color: 'white', lineHeight: 1.25, marginBottom: 16 }}>
-            Talk to us first if you&apos;d rather
+            {t('contactHeading')}
           </h2>
           <p style={{ fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 300, color: 'rgba(255,255,255,0.7)', lineHeight: 1.65, marginBottom: 28 }}>
-            I&apos;m Matt, the founder of Australian Atlas. If you build trips for a living and want to understand
-            whether the network fits the way you work, I&apos;d like to hear from you.
+            {t('contactBody')}
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
             <a href="mailto:trade@australianatlas.com.au" style={{ fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 500, color: 'white', textDecoration: 'underline', textUnderlineOffset: 4 }}>
@@ -353,7 +331,7 @@ export default async function ForTradePage() {
               color: 'var(--color-ink)', background: 'var(--color-gold)',
               padding: '10px 24px', borderRadius: 99, textDecoration: 'none',
             }}>
-              Join the founding beta
+              {t('joinFoundingBetaCta')}
             </Link>
           </div>
         </div>

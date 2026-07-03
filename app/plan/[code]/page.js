@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { getTranslations, getLocale } from 'next-intl/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 
@@ -18,12 +19,15 @@ export async function generateMetadata({ params }) {
 
   if (!data) return {}
 
+  const t = await getTranslations('sharePlan')
+  const metaDescription = t('metaDescription')
+
   return {
-    title: `${data.title} — Australian Atlas`,
-    description: 'A trip plan built with the Australian Atlas AI concierge.',
+    title: t('metaTitle', { title: data.title }),
+    description: metaDescription,
     openGraph: {
       title: data.title,
-      description: 'A trip plan built with the Australian Atlas AI concierge.',
+      description: metaDescription,
       url: `${SITE_URL}/plan/${code}`,
       siteName: 'Australian Atlas',
     },
@@ -33,6 +37,8 @@ export async function generateMetadata({ params }) {
 export default async function SharedPlanPage({ params }) {
   const { code } = await params
   const sb = getSupabaseAdmin()
+  const t = await getTranslations('sharePlan')
+  const locale = await getLocale()
 
   const { data: plan } = await sb
     .from('plan_conversations')
@@ -53,7 +59,7 @@ export default async function SharedPlanPage({ params }) {
             fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase',
             color: 'var(--color-muted)', fontFamily: 'var(--font-body)', marginBottom: 8,
           }}>
-            Shared Plan
+            {t('eyebrow')}
           </div>
           <h1 style={{
             fontFamily: 'var(--font-display)', fontWeight: 400,
@@ -66,7 +72,7 @@ export default async function SharedPlanPage({ params }) {
             display: 'flex', gap: 12, alignItems: 'center',
             fontSize: 12, color: 'var(--color-muted)', fontFamily: 'var(--font-body)',
           }}>
-            <span>{new Date(plan.created_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+            <span>{new Date(plan.created_at).toLocaleDateString(locale === 'ko' ? 'ko-KR' : 'en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
             {plan.regions && plan.regions.length > 0 && (
               <>
                 <span>&middot;</span>
@@ -137,7 +143,7 @@ export default async function SharedPlanPage({ params }) {
             fontFamily: 'var(--font-body)', fontSize: 14,
             color: 'var(--color-muted)', marginBottom: 16,
           }}>
-            Want to plan your own trip?
+            {t('ctaPrompt')}
           </p>
           <Link href="/plan" style={{
             display: 'inline-block', padding: '11px 24px',
@@ -145,7 +151,7 @@ export default async function SharedPlanPage({ params }) {
             textDecoration: 'none', borderRadius: 6,
             fontSize: 13, fontWeight: 600, fontFamily: 'var(--font-body)',
           }}>
-            Start Planning
+            {t('ctaButton')}
           </Link>
         </div>
       </div>
