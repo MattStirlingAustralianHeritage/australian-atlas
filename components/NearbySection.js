@@ -394,14 +394,15 @@ export default function NearbySection({ variant = 'standalone' }) {
   }
 
   return (
-    <section style={{ paddingBlock: '64px' }}>
-      <div className="max-w-5xl mx-auto px-6 sm:px-12">
+    <section style={{ paddingBlock: '72px' }}>
+      <div className="max-w-6xl mx-auto px-6 sm:px-12">
         {/* Header */}
         <div style={{ marginBottom: '32px' }}>
+          <p className="section-dateline" style={{ marginBottom: '14px' }}>Near you</p>
           <h2 style={{
             fontFamily: 'var(--font-display)', fontWeight: 400,
-            fontSize: 'clamp(24px, 3vw, 36px)', color: 'var(--color-ink)',
-            marginBottom: '8px',
+            fontSize: 'clamp(26px, 3.2vw, 40px)', color: 'var(--color-ink)',
+            marginBottom: '8px', lineHeight: 1.1,
           }}>
             {headerText}
           </h2>

@@ -287,23 +287,55 @@ async function getDiscoverClusters() {
 async function getFeaturedListings() {
   try {
     const sb = getSupabaseAdmin()
-    const { data } = await sb
+    const seed = getWeeklySeed()
+    const SELECT = 'id, name, slug, description, hero_image_url, vertical, region'
+    const strong = (rows) => (rows || []).filter(l => (l.description || '').split(/\s+/).length >= 15)
+
+    // Primary pool: editorially featured venues with a real description.
+    const { data: featuredRows } = await sb
       .from('listings')
-      .select('id, name, slug, description, hero_image_url, vertical, region')
+      .select(SELECT)
       .eq('status', 'active')
       .eq('is_featured', true)
       .not('description', 'is', null)
-      .limit(50)
+      .not('name', 'ilike', '\\_%')
+      .limit(80)
 
-    if (!data || data.length === 0) return []
+    const pool = strong(featuredRows)
 
-    const withDesc = data.filter(l => (l.description || '').split(/\s+/).length >= 15)
-    const seed = getWeeklySeed()
-    const shuffled = seededShuffle(withDesc, seed)
+    // Backfill so the cover story is ALWAYS a lead + a 3-card rail — even in the
+    // weeks the featured flag is thin (it dropped to a single venue once, which
+    // stranded a lone card). Editors' picks first, then any recent well-written
+    // venue, deduped and kept cross-vertical.
+    if (pool.length < 4) {
+      const have = new Set(pool.map(l => l.id))
+      const { data: backfill } = await sb
+        .from('listings')
+        .select(SELECT)
+        .eq('status', 'active')
+        .not('description', 'is', null)
+        .not('name', 'ilike', '\\_%')
+        .order('editors_pick', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(160)
+      for (const l of strong(backfill)) {
+        if (!have.has(l.id)) { pool.push(l); have.add(l.id) }
+        if (pool.length >= 24) break
+      }
+    }
 
-    const picks = []
-    const usedVerticals = new Set()
+    if (pool.length === 0) return []
+
+    const shuffled = seededShuffle(pool, seed)
+
+    // Lead first: a photographed venue whenever the pool has one, so the cover
+    // card is a photograph and not a colour block. Rail then fills one-per-
+    // vertical for variety, topping up to four.
+    const lead = shuffled.find(l => l.hero_image_url) || shuffled[0]
+    const picks = [lead]
+    const usedVerticals = new Set([lead.vertical])
     for (const l of shuffled) {
+      if (l.id === lead.id) continue
       if (!usedVerticals.has(l.vertical) && picks.length < 4) {
         picks.push(l)
         usedVerticals.add(l.vertical)
@@ -332,8 +364,18 @@ async function getRecentListings() {
       .not('name', 'ilike', '\\_%')
       .not('slug', 'is', null)
       .order('created_at', { ascending: false })
-      .limit(20)
-    return data || []
+      .limit(32)
+    // Guard against address fragments leaking into the marquee as "names"
+    // (e.g. "…STON, FLINDERS RD, TYABB VIC 3913"): a comma next to a number, a
+    // trailing postcode, or a state-code+postcode all read as an address, never
+    // a venue name.
+    const looksLikeAddress = (n) => {
+      const s = String(n || '')
+      return (/,/.test(s) && /\d{3,4}/.test(s)) ||
+             /\b\d{4}\s*$/.test(s) ||
+             /\b(VIC|NSW|QLD|SA|WA|TAS|ACT|NT)\b\s*\d{3,4}\b/i.test(s)
+    }
+    return (data || []).filter(l => !looksLikeAddress(l.name)).slice(0, 20)
   } catch {
     return []
   }
@@ -882,11 +924,15 @@ export default async function Home() {
         </ScrollReveal>
       )}
 
-      {/* ── 5. Make it yours — the two personal tools, one band ── */}
-      {/* Nearby (where you are) and Discover (what you like) both answer
-          "find something for ME"; as adjacent solo bands they read as filler.
-          Composed under one masthead they become the page's personalisation
-          moment — and the page loses a whole band of length. */}
+      {/* ── 5. Worth finding nearby — full-width "where you are" band ── */}
+      {/* Its horizontal strip of real nearby places needs the full measure; a
+          narrow discovery-band column crushed the names. Own band, dateline
+          masthead, left-anchored — the standalone variant it was built for. */}
+      <NearbySection />
+
+      {/* ── 6. Make it yours — the Discover taste engine ── */}
+      {/* Masthead left, the live swipeable deck right. A stranger can flick a
+          real card in place — they're inside the feature, not reading about it. */}
       <section style={{
         paddingBlock: '88px',
         background: 'var(--color-kraft)',
@@ -894,31 +940,31 @@ export default async function Home() {
         borderBottom: '1px solid rgba(28,26,23,0.05)',
       }}>
         <div className="max-w-6xl mx-auto px-6 sm:px-12">
-          <div style={{ marginBottom: '40px', maxWidth: '620px' }}>
-            <p className="section-dateline" style={{ marginBottom: '16px' }}>Make it yours</p>
-            <h2 style={{
-              fontFamily: 'var(--font-display)', fontWeight: 400,
-              fontSize: 'clamp(30px, 4vw, 50px)', color: 'var(--color-ink)', lineHeight: 1.1,
-            }}>
-              An atlas that learns your taste
-            </h2>
-            <p className="mt-3" style={{
-              fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
-              color: 'var(--color-muted)', margin: '12px 0 0',
-            }}>
-              Two ways in: see what&apos;s within reach of where you&apos;re standing, or flick
-              through places one at a time — every pick tunes the Atlas to you.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_400px] gap-10 lg:gap-14 items-start">
-            <NearbySection variant="embedded" />
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_400px] gap-10 lg:gap-16 items-center">
+            <div>
+              <p className="section-dateline" style={{ marginBottom: '16px' }}>Make it yours</p>
+              <h2 style={{
+                fontFamily: 'var(--font-display)', fontWeight: 400,
+                fontSize: 'clamp(30px, 4vw, 50px)', color: 'var(--color-ink)', lineHeight: 1.08,
+              }}>
+                An atlas that learns your taste
+              </h2>
+              <p className="mt-3" style={{
+                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
+                lineHeight: 1.65, color: 'var(--color-muted)', margin: '14px 0 26px', maxWidth: '44ch',
+              }}>
+                Flick through independent Australia one place at a time. Keep the ones
+                that catch your eye — every pick quietly tunes what the Atlas shows you next.
+              </p>
+              <LocalizedLink href="/discover" className="link-quiet" style={{
+                fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px',
+                color: GOLD, textDecoration: 'none',
+              }}>
+                Open Discover &rarr;
+              </LocalizedLink>
+            </div>
             <div>
               <DiscoverDeck variant="band" hideHead />
-              <p className="text-center" style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', marginTop: '14px' }}>
-                <LocalizedLink href="/discover" className="link-quiet" style={{ color: GOLD, textDecoration: 'none' }}>
-                  Open Discover &rarr;
-                </LocalizedLink>
-              </p>
             </div>
           </div>
         </div>
