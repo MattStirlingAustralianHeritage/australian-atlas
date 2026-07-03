@@ -1,6 +1,7 @@
 'use client'
 
 import { useReducer, useEffect, useRef, useCallback, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import {
   VERTICAL_LABELS,
   StopCard,
@@ -44,33 +45,33 @@ const RESUME_QUERY = 'save'
 
 /* ─── Question definitions ───────────────────────────────────────────── */
 const INTENT_OPTIONS = [
-  { id: 'food-and-producers', label: 'Food and producers', sub: 'Farm gates, long lunches, the people who make what you eat.' },
-  { id: 'landscape-and-walking', label: 'Landscape and walking', sub: 'Coast, ranges, gorges, the slow kind of day outside.' },
-  { id: 'makers-and-craft', label: 'Makers and craft', sub: 'Studios, kilns, looms, the things being made by hand.' },
-  { id: 'quiet-and-slow', label: 'Quiet and slow', sub: 'Less moving, more sitting. A book, a view, a meal.' },
-  { id: 'a-bit-of-everything', label: 'A bit of everything', sub: 'Mixed days. Trust us.' },
+  { id: 'food-and-producers', labelKey: 'intentFoodLabel', subKey: 'intentFoodSub' },
+  { id: 'landscape-and-walking', labelKey: 'intentLandscapeLabel', subKey: 'intentLandscapeSub' },
+  { id: 'makers-and-craft', labelKey: 'intentMakersLabel', subKey: 'intentMakersSub' },
+  { id: 'quiet-and-slow', labelKey: 'intentQuietLabel', subKey: 'intentQuietSub' },
+  { id: 'a-bit-of-everything', labelKey: 'intentEverythingLabel', subKey: 'intentEverythingSub' },
 ]
 
 const PACING_OPTIONS = [
-  { id: 'out-early-back-late', label: 'Out early, back late', sub: 'Big walks, long drives, full days.' },
-  { id: 'steady', label: 'Steady', sub: 'Moderate days, time to linger.' },
-  { id: 'as-little-driving', label: 'As little driving as we can manage', sub: 'Anchored close, mostly local.' },
-  { id: 'surprise-us', label: 'Surprise us', sub: "Whatever fits the rest of what you've said." },
+  { id: 'out-early-back-late', labelKey: 'pacingEarlyLateLabel', subKey: 'pacingEarlyLateSub' },
+  { id: 'steady', labelKey: 'pacingSteadyLabel', subKey: 'pacingSteadySub' },
+  { id: 'as-little-driving', labelKey: 'pacingLittleDrivingLabel', subKey: 'pacingLittleDrivingSub' },
+  { id: 'surprise-us', labelKey: 'pacingSurpriseLabel', subKey: 'pacingSurpriseSub' },
 ]
 
 const DURATION_OPTIONS = [
-  { id: 2, label: '2' },
-  { id: 3, label: '3' },
-  { id: 4, label: '4' },
-  { id: 5, label: '5' },
-  { id: 6, label: 'Longer' },
+  { id: 2, labelKey: 'durationTwo' },
+  { id: 3, labelKey: 'durationThree' },
+  { id: 4, labelKey: 'durationFour' },
+  { id: 5, labelKey: 'durationFive' },
+  { id: 6, labelKey: 'durationLonger' },
 ]
 
 const SEASON_OPTIONS = [
-  { id: 'this-month', label: 'This month' },
-  { id: 'next-month', label: 'Next month' },
-  { id: 'a-few-months-out', label: 'A few months out' },
-  { id: 'just-exploring', label: 'Just exploring' },
+  { id: 'this-month', labelKey: 'seasonThisMonth' },
+  { id: 'next-month', labelKey: 'seasonNextMonth' },
+  { id: 'a-few-months-out', labelKey: 'seasonFewMonths' },
+  { id: 'just-exploring', labelKey: 'seasonJustExploring' },
 ]
 
 /* ─── Steps in order ─────────────────────────────────────────────────── */
@@ -142,26 +143,31 @@ function reducer(state, action) {
 }
 
 /* ─── Summary text helpers ───────────────────────────────────────────── */
-function intentSummary(ids) {
-  return ids.map(id => INTENT_OPTIONS.find(o => o.id === id)?.label).filter(Boolean).join(', ')
+function intentSummary(ids, t) {
+  return ids.map(id => {
+    const opt = INTENT_OPTIONS.find(o => o.id === id)
+    return opt ? t(opt.labelKey) : null
+  }).filter(Boolean).join(', ')
 }
 
-function pacingSummary(id) {
-  return PACING_OPTIONS.find(o => o.id === id)?.label || ''
+function pacingSummary(id, t) {
+  const opt = PACING_OPTIONS.find(o => o.id === id)
+  return opt ? t(opt.labelKey) : ''
 }
 
-function durationSummary(val) {
-  if (val === 6) return 'Longer'
-  return val ? `${val} days` : ''
+function durationSummary(val, t) {
+  if (val === 6) return t('durationLonger')
+  return val ? t('durationSummaryDays', { count: val }) : ''
 }
 
-function regionSummary(val) {
-  if (val === '__not_sure') return 'Not sure yet'
+function regionSummary(val, t) {
+  if (val === '__not_sure') return t('regionNotSureYet')
   return val || ''
 }
 
-function seasonSummary(id) {
-  return SEASON_OPTIONS.find(o => o.id === id)?.label || ''
+function seasonSummary(id, t) {
+  const opt = SEASON_OPTIONS.find(o => o.id === id)
+  return opt ? t(opt.labelKey) : ''
 }
 
 /* ─── Progress dots ──────────────────────────────────────────────────── */
@@ -206,7 +212,8 @@ function ProgressDots({ currentStep, needsSeason }) {
 
 /* ─── Answer summary line (tappable to go back) ──────────────────────── */
 function SummaryLine({ text, onClick, visible }) {
-  if (!visible || !text) return null
+  const t = useTranslations('planStay')
+  if (!visible || !text) return null // eslint-disable-line
   return (
     <button
       onClick={onClick}
@@ -225,7 +232,7 @@ function SummaryLine({ text, onClick, visible }) {
         letterSpacing: '0.01em',
       }}
     >
-      <span style={{ opacity: 0.55 }}>You said:</span>{' '}
+      <span style={{ opacity: 0.55 }}>{t('youSaid')}</span>{' '}
       <span style={{ opacity: 0.8 }}>{text}</span>
     </button>
   )
@@ -658,6 +665,7 @@ function SeasonCard({ label, selected, onClick, index }) {
 
 /* ─── Continue button ────────────────────────────────────────────────── */
 function ContinueButton({ onClick, visible }) {
+  const t = useTranslations('planStay')
   const ref = useRef(null)
 
   useEffect(() => {
@@ -697,7 +705,7 @@ function ContinueButton({ onClick, visible }) {
         onMouseEnter={e => { e.currentTarget.style.opacity = '0.85' }}
         onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
       >
-        Continue
+        {t('continue')}
       </button>
     </div>
   )
@@ -705,10 +713,11 @@ function ContinueButton({ onClick, visible }) {
 
 /* ─── Loading screen ─────────────────────────────────────────────────── */
 function LoadingScreen({ state, onComplete, onError }) {
+  const t = useTranslations('planStay')
   const lines = [
-    `Looking at what's listed within range…`,
-    'Sequencing the days…',
-    'Writing the trip…',
+    t('loadingLookingAtListed'),
+    t('loadingSequencingDays'),
+    t('loadingWritingTrip'),
   ]
 
   const [visibleCount, setVisibleCount] = useReducer(
@@ -812,6 +821,7 @@ function LoadingScreen({ state, onComplete, onError }) {
 
 /* ─── Output screen — real trip rendering ────────────────────────────── */
 function OutputScreen({ tripData, error, onReset, resumePayload }) {
+  const t = useTranslations('planStay')
   const [shareState, setShareState] = useState('idle') // idle | sharing | shared | error
   const [shareUrl, setShareUrl] = useState(null)
   // Accommodation the visitor picks per day (day_number → stay), lifted here
@@ -830,7 +840,7 @@ function OutputScreen({ tripData, error, onReset, resumePayload }) {
           lineHeight: 1.25,
           marginBottom: 12,
         }}>
-          Something went wrong.
+          {t('somethingWentWrong')}
         </h2>
         <p style={{
           fontFamily: 'var(--font-body)',
@@ -856,7 +866,7 @@ function OutputScreen({ tripData, error, onReset, resumePayload }) {
             cursor: 'pointer',
           }}
         >
-          Start over
+          {t('startOver')}
         </button>
       </div>
     )
@@ -874,7 +884,7 @@ function OutputScreen({ tripData, error, onReset, resumePayload }) {
           lineHeight: 1.25,
           marginBottom: 12,
         }}>
-          {"We couldn't build a trip."}
+          {t('couldntBuildTrip')}
         </h2>
         <p style={{
           fontFamily: 'var(--font-body)',
@@ -900,7 +910,7 @@ function OutputScreen({ tripData, error, onReset, resumePayload }) {
             cursor: 'pointer',
           }}
         >
-          Try again
+          {t('tryAgain')}
         </button>
       </div>
     )
@@ -947,6 +957,7 @@ function OutputScreen({ tripData, error, onReset, resumePayload }) {
 
 /* ─── Action buttons (Share / Save / Start over) ─────────────────────── */
 function ActionButtons({ tripData, accommodationByDay, onReset, shareState, setShareState, shareUrl, setShareUrl, resumePayload }) {
+  const t = useTranslations('planStay')
   const [saveState, setSaveState] = useState('idle') // idle | saving | saved | error
   const [savedUrl, setSavedUrl] = useState(null)
   const [authOpen, setAuthOpen] = useState(false)
@@ -1045,16 +1056,16 @@ function ActionButtons({ tripData, accommodationByDay, onReset, shareState, setS
     : undefined
 
   const shareLabel =
-    shareState === 'sharing' ? 'Sharing…' :
-    shareState === 'shared' ? 'Link copied' :
-    shareState === 'error' ? 'Failed — try again' :
-    'Share'
+    shareState === 'sharing' ? t('sharing') :
+    shareState === 'shared' ? t('linkCopied') :
+    shareState === 'error' ? t('failedTryAgain') :
+    t('share')
 
   const saveLabel =
-    saveState === 'saving' ? 'Saving…' :
-    saveState === 'saved' ? 'Saved' :
-    saveState === 'error' ? 'Failed — try again' :
-    'Save to account'
+    saveState === 'saving' ? t('saving') :
+    saveState === 'saved' ? t('saved') :
+    saveState === 'error' ? t('failedTryAgain') :
+    t('saveToAccount')
 
   return (
     <div style={{
@@ -1125,7 +1136,7 @@ function ActionButtons({ tripData, accommodationByDay, onReset, shareState, setS
             onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(28,26,23,0.3)' }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-border, rgba(28,26,23,0.12))' }}
           >
-            Start over
+            {t('startOver')}
           </button>
         </div>
 
@@ -1150,13 +1161,16 @@ function ActionButtons({ tripData, accommodationByDay, onReset, shareState, setS
             color: 'var(--color-muted, #6B6760)',
             margin: '4px 0 0',
           }}>
-            Saved to your account —{' '}
-            <a
-              href="/account/trails"
-              style={{ color: '#5a7c5a', textDecoration: 'underline' }}
-            >
-              view in My Trails
-            </a>
+            {t.rich('savedToAccount', {
+              link: (chunks) => (
+                <a
+                  href="/account/trails"
+                  style={{ color: '#5a7c5a', textDecoration: 'underline' }}
+                >
+                  {chunks}
+                </a>
+              ),
+            })}
           </p>
         )}
       </div>
@@ -1175,6 +1189,7 @@ function ActionButtons({ tripData, accommodationByDay, onReset, shareState, setS
    Main component
    ═════════════════════════════════════════════════════════════════════════ */
 export default function PlanAStayV2Client({ regions = [] }) {
+  const t = useTranslations('planStay')
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE)
   const [tripData, setTripData] = useState(null)
   const [tripError, setTripError] = useState(null)
@@ -1249,23 +1264,23 @@ export default function PlanAStayV2Client({ regions = [] }) {
   const summaries = [
     {
       step: 'intent',
-      text: state.intent.length > 0 ? intentSummary(state.intent) : null,
+      text: state.intent.length > 0 ? intentSummary(state.intent, t) : null,
     },
     {
       step: 'pacing',
-      text: state.pacing ? pacingSummary(state.pacing) : null,
+      text: state.pacing ? pacingSummary(state.pacing, t) : null,
     },
     {
       step: 'duration',
-      text: state.duration ? durationSummary(state.duration) : null,
+      text: state.duration ? durationSummary(state.duration, t) : null,
     },
     {
       step: 'region',
-      text: state.region ? regionSummary(state.region) : null,
+      text: state.region ? regionSummary(state.region, t) : null,
     },
     ...(state.needsSeason ? [{
       step: 'season',
-      text: state.season ? seasonSummary(state.season) : null,
+      text: state.season ? seasonSummary(state.season, t) : null,
     }] : []),
   ]
 
@@ -1306,7 +1321,7 @@ export default function PlanAStayV2Client({ regions = [] }) {
             marginBottom: 8,
             maxWidth: 440,
           }}>
-            What kind of trip is this?
+            {t('intentTitle')}
           </h1>
           <p style={{
             fontFamily: 'var(--font-body)',
@@ -1315,14 +1330,14 @@ export default function PlanAStayV2Client({ regions = [] }) {
             lineHeight: 1.5,
             marginBottom: 28,
           }}>
-            Pick one or two. We{"'"}ll build from there.
+            {t('intentSubhead')}
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
             {INTENT_OPTIONS.map((opt, i) => (
               <OptionCard
                 key={opt.id}
-                label={opt.label}
-                sub={opt.sub}
+                label={t(opt.labelKey)}
+                sub={t(opt.subKey)}
                 selected={state.intent.includes(opt.id)}
                 onClick={() => dispatch({ type: 'SET_INTENT', value: opt.id })}
                 index={i}
@@ -1346,14 +1361,14 @@ export default function PlanAStayV2Client({ regions = [] }) {
             marginBottom: 28,
             maxWidth: 440,
           }}>
-            How are you wanting to spend the days?
+            {t('pacingTitle')}
           </h1>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
             {PACING_OPTIONS.map((opt, i) => (
               <OptionCard
                 key={opt.id}
-                label={opt.label}
-                sub={opt.sub}
+                label={t(opt.labelKey)}
+                sub={t(opt.subKey)}
                 selected={state.pacing === opt.id}
                 onClick={() => {
                   dispatch({ type: 'SET_PACING', value: opt.id })
@@ -1376,7 +1391,7 @@ export default function PlanAStayV2Client({ regions = [] }) {
             marginBottom: 28,
             maxWidth: 440,
           }}>
-            How many days?
+            {t('durationTitle')}
           </h1>
           <div style={{
             display: 'flex',
@@ -1386,7 +1401,7 @@ export default function PlanAStayV2Client({ regions = [] }) {
             {DURATION_OPTIONS.map((opt, i) => (
               <DurationPill
                 key={opt.id}
-                label={opt.label}
+                label={t(opt.labelKey)}
                 selected={state.duration === opt.id}
                 onClick={() => {
                   dispatch({ type: 'SET_DURATION', value: opt.id })
@@ -1409,7 +1424,7 @@ export default function PlanAStayV2Client({ regions = [] }) {
             marginBottom: 8,
             maxWidth: 440,
           }}>
-            Where in Australia?
+            {t('regionTitle')}
           </h1>
           <p style={{
             fontFamily: 'var(--font-body)',
@@ -1418,7 +1433,7 @@ export default function PlanAStayV2Client({ regions = [] }) {
             lineHeight: 1.5,
             marginBottom: 24,
           }}>
-            We{"'"}re well-covered in some regions and still building others. These are the ones with enough to plan a trip through.
+            {t('regionSubhead')}
           </p>
           <RegionMapSelect
             regions={regions}
@@ -1441,13 +1456,13 @@ export default function PlanAStayV2Client({ regions = [] }) {
             marginBottom: 28,
             maxWidth: 440,
           }}>
-            When are you thinking?
+            {t('seasonTitle')}
           </h1>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
             {SEASON_OPTIONS.map((opt, i) => (
               <SeasonCard
                 key={opt.id}
-                label={opt.label}
+                label={t(opt.labelKey)}
                 selected={state.season === opt.id}
                 onClick={() => {
                   dispatch({ type: 'SET_SEASON', value: opt.id })

@@ -38,16 +38,17 @@ const MEAL_SLOT_KEYS = {
 
 const REST_ACCENT = '#8a5a6b'
 
-const SUBTYPE_LABELS = {
-  boutique_hotel: 'Boutique hotel',
-  cottage: 'Cottage',
-  glamping: 'Glamping',
-  farm_stay: 'Farm stay',
+const SUBTYPE_KEYS = {
+  boutique_hotel: 'subtypeBoutiqueHotel',
+  cottage: 'subtypeCottage',
+  glamping: 'subtypeGlamping',
+  farm_stay: 'subtypeFarmStay',
 }
 
-function prettySubtype(s) {
+function prettySubtype(s, t) {
   if (!s) return ''
-  return SUBTYPE_LABELS[s] || s.replace(/_/g, ' ')
+  const key = SUBTYPE_KEYS[s]
+  return key && t ? t(key) : s.replace(/_/g, ' ')
 }
 
 
@@ -162,6 +163,7 @@ export function StopCard({ stop, index, prevStop }) {
 
 /* ─── Stays-only render ──────────────────────────────────────────────── */
 export function StaysOnlyRender({ staysOnly }) {
+  const t = useTranslations('plan')
   const so = staysOnly
   return (
     <div style={{ padding: '48px 0 96px', maxWidth: 520, margin: '0 auto' }}>
@@ -204,7 +206,7 @@ export function StaysOnlyRender({ staysOnly }) {
                 fontSize: 13,
                 color: 'var(--color-muted, #6B6760)',
               }}>
-                {[SUBTYPE_LABELS[stay.sub_type], stay.suburb].filter(Boolean).join(' · ')}
+                {[prettySubtype(stay.sub_type, t), stay.suburb].filter(Boolean).join(' · ')}
               </span>
             )}
           </a>
@@ -299,7 +301,7 @@ function DayAccommodation({ day, chosen, keepForAll, onChoose, onClear, onToggle
                   fontFamily: 'var(--font-body)', fontSize: 12.5,
                   color: 'var(--color-muted, #6B6760)', marginTop: 3,
                 }}>
-                  {[prettySubtype(chosen.sub_type), chosen.suburb].filter(Boolean).join(' · ')}
+                  {[prettySubtype(chosen.sub_type, t), chosen.suburb].filter(Boolean).join(' · ')}
                 </div>
               )}
             </div>
@@ -417,7 +419,7 @@ function DayAccommodation({ day, chosen, keepForAll, onChoose, onClear, onToggle
                       fontFamily: 'var(--font-body)', fontSize: 12,
                       color: 'var(--color-muted, #6B6760)', marginTop: 1,
                     }}>
-                      {[prettySubtype(opt.sub_type), opt.suburb].filter(Boolean).join(' · ')}
+                      {[prettySubtype(opt.sub_type, t), opt.suburb].filter(Boolean).join(' · ')}
                     </span>
                   )}
                 </span>

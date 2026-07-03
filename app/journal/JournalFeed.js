@@ -1,11 +1,14 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useTranslations, useLocale } from 'next-intl'
 
 const INITIAL_COUNT = 12
 const LOAD_MORE_COUNT = 12
 
 export default function JournalFeed({ articles, verticals, tags, verticalLabels, verticalColors }) {
+  const t = useTranslations('journal')
+  const locale = useLocale()
   const [activeVerticals, setActiveVerticals] = useState(new Set())
   const [activeTag, setActiveTag] = useState(null)
   const [visibleCount, setVisibleCount] = useState(INITIAL_COUNT)
@@ -51,9 +54,9 @@ export default function JournalFeed({ articles, verticals, tags, verticalLabels,
       {/* Masthead — left-anchored like every other index page, gold dateline. */}
       <div className="px-4 sm:px-6 max-w-7xl mx-auto">
         <div className="page-masthead max-w-2xl">
-          <p className="section-dateline">The Journal</p>
-          <h1 className="masthead-title">From the Network</h1>
-          <p className="masthead-sub">Stories, guides, and dispatches from across the Atlas.</p>
+          <p className="section-dateline">{t('kicker')}</p>
+          <h1 className="masthead-title">{t('title')}</h1>
+          <p className="masthead-sub">{t('sub')}</p>
         </div>
       </div>
 
@@ -71,7 +74,7 @@ export default function JournalFeed({ articles, verticals, tags, verticalLabels,
               letterSpacing: '0.1em', textTransform: 'uppercase',
               color: 'var(--color-muted, #8B8578)', marginRight: 4, whiteSpace: 'nowrap',
             }}>
-              Filter
+              {t('filter')}
             </span>
             {verticals.map(v => {
               const isActive = activeVerticals.has(v.key)
@@ -105,7 +108,7 @@ export default function JournalFeed({ articles, verticals, tags, verticalLabels,
                   padding: '4px 6px',
                 }}
               >
-                Clear
+                {t('clear')}
               </button>
             )}
           </div>
@@ -122,7 +125,7 @@ export default function JournalFeed({ articles, verticals, tags, verticalLabels,
                 letterSpacing: '0.1em', textTransform: 'uppercase',
                 color: 'var(--color-muted, #8B8578)', marginRight: 4, whiteSpace: 'nowrap',
               }}>
-                Tags
+                {t('tags')}
               </span>
               {tags.slice(0, 20).map(tag => (
                 <button
@@ -155,7 +158,7 @@ export default function JournalFeed({ articles, verticals, tags, verticalLabels,
             color: 'var(--color-muted, #8B8578)',
             fontFamily: 'var(--font-body)', fontSize: 14,
           }}>
-            No articles match your filters.
+            {t('empty')}
           </div>
         ) : (
           <>
@@ -170,6 +173,7 @@ export default function JournalFeed({ articles, verticals, tags, verticalLabels,
                   article={article}
                   verticalLabels={verticalLabels}
                   verticalColors={verticalColors}
+                  locale={locale}
                 />
               ))}
             </div>
@@ -187,7 +191,7 @@ export default function JournalFeed({ articles, verticals, tags, verticalLabels,
                     transition: 'border-color 0.15s',
                   }}
                 >
-                  Load more
+                  {t('loadMore')}
                 </button>
               </div>
             )}
@@ -200,8 +204,8 @@ export default function JournalFeed({ articles, verticals, tags, verticalLabels,
           fontFamily: 'var(--font-body)', fontSize: 11,
           color: 'var(--color-muted, #8B8578)',
         }}>
-          {filtered.length} article{filtered.length !== 1 ? 's' : ''}
-          {activeVerticals.size > 0 || activeTag ? ' (filtered)' : ''}
+          {t('count', { count: filtered.length })}
+          {activeVerticals.size > 0 || activeTag ? ` ${t('filteredSuffix')}` : ''}
         </p>
       </div>
     </div>
@@ -210,11 +214,11 @@ export default function JournalFeed({ articles, verticals, tags, verticalLabels,
 
 // ── Article Card ───────────────────────────────────────────
 
-function ArticleCard({ article, verticalLabels, verticalColors }) {
+function ArticleCard({ article, verticalLabels, verticalColors, locale }) {
   const color = verticalColors[article.vertical] || '#888'
   const label = verticalLabels[article.vertical] || article.vertical
   const date = article.published_at
-    ? new Date(article.published_at).toLocaleDateString('en-AU', {
+    ? new Date(article.published_at).toLocaleDateString(locale === 'ko' ? 'ko-KR' : 'en-AU', {
         day: 'numeric', month: 'short', year: 'numeric',
       })
     : null

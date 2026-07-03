@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useCallback } from 'react'
+import { useTranslations } from 'next-intl'
 import { ATLAS_DARK_STYLE } from '@/lib/atlas-map-style'
 
 // Day ring colours — subtle shift per day, all warm-toned
@@ -35,6 +36,7 @@ export default function RouteMap({
   routeGeometry, stops, coverageGaps, startName, endName,
   activeDayNumber, highlightedStopIndex, onPinClick, compact,
 }) {
+  const t = useTranslations('onThisRoad')
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const markersRef = useRef([]) // HTML markers for overnights
@@ -148,7 +150,7 @@ export default function RouteMap({
         new mapboxgl.Marker({ element: startEl })
           .setLngLat(routeStart)
           .setPopup(new mapboxgl.Popup({ offset: 14, closeButton: false, className: 'otr-map-popup' }).setHTML(
-            `<strong>${startName || 'Start'}</strong>`
+            `<strong>${startName || t('mapStart')}</strong>`
           ))
           .addTo(map)
 
@@ -159,7 +161,7 @@ export default function RouteMap({
         new mapboxgl.Marker({ element: endEl })
           .setLngLat(routeEnd)
           .setPopup(new mapboxgl.Popup({ offset: 14, closeButton: false, className: 'otr-map-popup' }).setHTML(
-            `<strong>${endName || 'End'}</strong>`
+            `<strong>${endName || t('mapEnd')}</strong>`
           ))
           .addTo(map)
 
@@ -244,7 +246,7 @@ export default function RouteMap({
           const marker = new mapboxgl.Marker({ element: el })
             .setLngLat([stop.lng, stop.lat])
             .setPopup(new mapboxgl.Popup({ offset: 18, closeButton: false, className: 'otr-map-popup' }).setHTML(
-              `<strong>${stop.listing_name}</strong><br><span style="font-size:11px;opacity:0.7;">Tonight's stay</span>`
+              `<strong>${stop.listing_name}</strong><br><span style="font-size:11px;opacity:0.7;">${t('mapTonightsStay')}</span>`
             ))
             .addTo(map)
 
@@ -256,7 +258,7 @@ export default function RouteMap({
           const gapFeatures = coverageGaps.map((gap, i) => ({
             type: 'Feature',
             geometry: { type: 'Point', coordinates: [gap.midpoint.lng, gap.midpoint.lat] },
-            properties: { label: `${gap.lengthKm} km gap`, index: i },
+            properties: { label: t('mapCoverageGap', { km: gap.lengthKm }), index: i },
           }))
 
           map.addSource('coverage-gaps', {
@@ -316,7 +318,7 @@ export default function RouteMap({
         mapRef.current = null
       }
     })
-  }, [routeGeometry, stops, coverageGaps, startName, endName, compact, onPinClick, onUserInteraction])
+  }, [routeGeometry, stops, coverageGaps, startName, endName, compact, onPinClick, onUserInteraction, t])
 
   // ── Day-fly: when activeDayNumber changes, fly to that day's bounds ──
   useEffect(() => {
