@@ -18,6 +18,10 @@ export default function LanguageSwitcher() {
   const { basePath } = splitLocale(pathname)
   const go = (loc) => {
     if (loc === locale) return
+    // Persist the choice so it sticks across ALL later navigation (even plain
+    // next/link that doesn't carry the /ko prefix) — the middleware reads this
+    // cookie. Switching to EN clears the sticky-Korean state.
+    document.cookie = `atlas_locale=${loc}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`
     // Preserve the current query string + hash across the switch (usePathname
     // returns only the path), so /search?q=… and #anchors survive the toggle.
     window.location.assign(localizePath(basePath, loc) + window.location.search + window.location.hash)

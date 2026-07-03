@@ -254,7 +254,10 @@ const getListing = cache(async function getListing(slug, locale = 'en') {
         .eq('listing_id', data.id)
         .eq('locale', locale)
         .maybeSingle()
-      if (tr?.name && tr.name.trim()) data.name = tr.name
+      // Name: keep the English name as the clean source (used for the meta
+      // title, JSON-LD, aria) and expose the Korean rendering separately so the
+      // hero can show a split (English + Korean). Description is fully Korean.
+      if (tr?.name && tr.name.trim() && tr.name.trim() !== data.name) data.name_ko = tr.name.trim()
       if (tr?.description && tr.description.trim()) data.description = tr.description
     } catch { /* keep English fallback */ }
   }
@@ -910,6 +913,16 @@ export default async function PlacePage({ params }) {
               }}>
                 {listing.name}
               </h1>
+              {/* Korean rendering of the name (split display on /ko) */}
+              {listing.name_ko && (
+                <p lang="ko" style={{
+                  fontFamily: 'var(--font-display)', fontWeight: 400, fontStyle: 'italic',
+                  fontSize: 'clamp(1.05rem, 2.4vw, 1.6rem)', lineHeight: 1.2,
+                  color: 'rgba(255,255,255,0.82)', margin: '6px 0 0',
+                }}>
+                  {listing.name_ko}
+                </p>
+              )}
               {location && (
                 <p style={{
                   fontFamily: 'var(--font-body)', fontSize: '15px', fontWeight: 300,

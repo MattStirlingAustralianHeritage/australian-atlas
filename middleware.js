@@ -48,23 +48,34 @@ export async function middleware(request, event) {
   // underlying route with an `x-atlas-locale: ko` request header that
   // i18n/request.js reads. All auth checks below run against `basePath` (the
   // unprefixed path) so gating behaves identically under `/ko`.
-  const { locale, basePath } = splitLocale(pathname)
-  const isKo = locale !== defaultLocale
-  const rewriteUrl = isKo
+  // Sticky locale: an explicit `/ko` prefix always wins; otherwise a prior
+  // Korean choice (the `atlas_locale` cookie, set when the reader entered /ko or
+  // used the language switcher) keeps the reader in Korean across UNPREFIXED
+  // navigation too — so clicking any plain next/link no longer drops them back
+  // to English. Anonymous/crawler traffic (no cookie) still gets English on
+  // unprefixed URLs and Korean only under /ko, so SEO is unchanged.
+  const { locale: urlLocale, basePath } = splitLocale(pathname)
+  const cookieLocale = request.cookies.get('atlas_locale')?.value
+  const isPrefixed = urlLocale !== defaultLocale
+  const locale = isPrefixed ? urlLocale : (cookieLocale === 'ko' ? 'ko' : defaultLocale)
+  const rewriteUrl = isPrefixed
     ? new URL(`${basePath}${request.nextUrl.search}`, request.url)
     : null
-  // Build a passthrough response that carries the locale header and, for Korean,
-  // rewrites to the underlying route. The forwarded request headers are rebuilt
-  // from request.headers at CALL time (not a one-time snapshot): when Supabase's
-  // setAll mutates the request cookies on a token-refresh boundary, that refresh
-  // must be forwarded to the same-request downstream render — matching the
-  // original `NextResponse.next({ request })` behaviour. Reused by setAll below.
+  // Build a passthrough response that carries the locale header and, for a
+  // prefixed request, rewrites to the underlying route. Headers are rebuilt from
+  // request.headers at CALL time (not a snapshot) so a Supabase token-refresh
+  // cookie mutation still forwards to the same-request render. Also persists the
+  // resolved locale so unprefixed navigation stays sticky.
   const makeResponse = () => {
     const headers = new Headers(request.headers)
     headers.set(LOCALE_HEADER, locale)
-    return isKo
+    const res = isPrefixed
       ? NextResponse.rewrite(rewriteUrl, { request: { headers } })
       : NextResponse.next({ request: { headers } })
+    res.cookies.set('atlas_locale', locale, {
+      path: '/', maxAge: 60 * 60 * 24 * 365, sameSite: 'lax',
+    })
+    return res
   }
 
   // ── /embed/*: publicly iframeable surfaces (operator Atlas card) ──
