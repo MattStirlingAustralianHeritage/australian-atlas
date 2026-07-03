@@ -166,6 +166,7 @@ const SUBCATEGORY_OPTIONS = {
     { value: 'printmaking', label: 'Printmaking' },
     { value: 'leathermaker', label: 'Leatherwork' },
     { value: 'shoemaker', label: 'Shoemaking' },
+    { value: 'clothing', label: 'Clothing' },
   ],
   fine_grounds: [
     { value: 'roaster', label: 'Roaster' },
