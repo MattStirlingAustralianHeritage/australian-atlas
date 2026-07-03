@@ -190,6 +190,72 @@ function matchesPinQuery(l, tokens) {
 
 const tokenizeQuery = (q) => String(q || '').toLowerCase().split(/\s+/).map(t => t.trim()).filter(t => t.length >= 2)
 
+// ── Category → sub_type constraint ──
+// A query that names a category ("brewery") must NOT sweep in the other
+// sub_types that share its vertical — Mornington has 11 breweries but 35
+// wineries, all "Small Batch", and the semantic pool returns them together.
+// This maps every category word to the exact sub_type key(s) it names, built
+// from SUB_TYPE_LABELS (key + label words) plus everyday synonyms where the
+// spoken word differs from the stored label (beer→brewery, whisky→distillery…).
+const SUBTYPE_WORD_INDEX = (() => {
+  const idx = {}
+  const add = (word, key) => {
+    const w = String(word).toLowerCase()
+    if (w.length < 3) return
+    ;(idx[w] = idx[w] || new Set()).add(key)
+  }
+  for (const subs of Object.values(SUB_TYPE_LABELS)) {
+    for (const [key, label] of Object.entries(subs)) {
+      key.split('_').forEach(p => add(p, key))
+      String(label).toLowerCase().split(/[^a-z]+/).forEach(p => add(p, key))
+    }
+  }
+  // Everyday words → the label word already indexed above (space-delimited
+  // when a word legitimately spans two sub_types, e.g. coffee → roaster+cafe).
+  const SYN = {
+    beer: 'brewery', beers: 'brewery', ale: 'brewery', ales: 'brewery', lager: 'brewery',
+    lagers: 'brewery', pilsner: 'brewery', ipa: 'brewery', stout: 'brewery', brewing: 'brewery',
+    brewer: 'brewery', brewers: 'brewery', breweries: 'brewery', brewhouse: 'brewery', taproom: 'brewery',
+    wine: 'winery', wines: 'winery', vineyard: 'winery', vineyards: 'winery', wineries: 'winery', vino: 'winery',
+    whisky: 'distillery', whiskey: 'distillery', gin: 'distillery', vodka: 'distillery', rum: 'distillery',
+    spirits: 'distillery', distilling: 'distillery', distilleries: 'distillery',
+    cider: 'cidery', ciders: 'cidery', mead: 'meadery',
+    coffee: 'roaster cafe', roastery: 'roaster', roasters: 'roaster', espresso: 'cafe', cafes: 'cafe',
+    books: 'bookshop', bookshops: 'bookshop', bookstore: 'bookshop', bookstores: 'bookshop',
+    homeware: 'homewares', clothes: 'clothing', clothier: 'clothing', fashion: 'clothing', apparel: 'clothing',
+    vinyl: 'records', antique: 'antiques', pottery: 'ceramics', ceramic: 'ceramics',
+    jewelry: 'jewellery', hikes: 'walk', hiking: 'walk',
+  }
+  for (const [word, targets] of Object.entries(SYN)) {
+    for (const target of targets.split(' ')) {
+      const keys = idx[target]
+      if (keys) for (const k of keys) add(word, k)
+      else add(word, target)
+    }
+  }
+  return idx
+})()
+
+// The sub_type keys a query's tokens explicitly name (empty = no category
+// named, so no constraint applies).
+function requiredSubtypes(tokens) {
+  const req = new Set()
+  for (const t of tokens) {
+    const keys = SUBTYPE_WORD_INDEX[t]
+    if (keys) for (const k of keys) req.add(k)
+  }
+  return req
+}
+
+// A listing satisfies a named category if its sub_type is one named, or (as a
+// safety net for un-typed rows) its name literally contains a category token.
+function passesCategory(l, reqSub, catTokens) {
+  if (reqSub.size === 0) return true
+  if (l.sub_type && reqSub.has(l.sub_type)) return true
+  const n = (l.name || '').toLowerCase()
+  return catTokens.some(t => n.includes(t))
+}
+
 const placesLabel = (n) => `${n.toLocaleString()} ${n === 1 ? 'place' : 'places'}`
 
 // Human label for a Mapbox geocoding result's primary type, so a town reads as
@@ -613,11 +679,13 @@ export default function MapClient({
       const lng = parseFloat(l.lng), lat = parseFloat(l.lat)
       if (lng >= west && lng <= east && lat >= south && lat <= north) within.push(l)
     }
-    // With an active semantic filter, relevance order wins. Otherwise:
-    // featured venues lead; the rest read as an index (on a map, selection
-    // beats ordering — stable A–Z keeps the list calm while the user pans).
+    // Claimed listings ALWAYS lead the list — an operator who has claimed and
+    // is tending their listing earns the top slot. Then, with an active
+    // semantic filter, relevance order; otherwise featured tier; then A–Z
+    // (stable ordering keeps the list calm while the user pans).
     const rank = semanticRankRef.current
     within.sort((a, b2) => {
+      if (!!a.is_claimed !== !!b2.is_claimed) return a.is_claimed ? -1 : 1
       if (rank) {
         const ra = rank.has(a.id) ? rank.get(a.id) : Infinity
         const rb = rank.has(b2.id) ? rank.get(b2.id) : Infinity
@@ -1064,7 +1132,11 @@ export default function MapClient({
     // recall, landing a beat later).
     const tokens = tokenizeQuery(appliedPinQuery)
     const sem = semantic && semantic.query === appliedPinQuery ? semantic : null
-    const isMatch = (l) => matchesPinQuery(l, tokens) || (sem !== null && sem.ids.has(l.id))
+    // A named category ("brewery") hard-constrains the sub_type so the vertical's
+    // other members (wineries, distilleries) never sneak in via the semantic pool.
+    const reqSub = requiredSubtypes(tokens)
+    const catTokens = tokens.filter(t => SUBTYPE_WORD_INDEX[t])
+    const isMatch = (l) => passesCategory(l, reqSub, catTokens) && (matchesPinQuery(l, tokens) || (sem !== null && sem.ids.has(l.id)))
     const matches = tokens.length ? base.filter(isMatch) : base
     const rest = tokens.length ? base.filter(l => !isMatch(l)) : []
     filteredRef.current = matches
@@ -1093,7 +1165,10 @@ export default function MapClient({
     // empty. Fires once per resolved query (flownForQuery guard), never on pan.
     if (sem && sem.placeDetected && flownForQuery.current !== sem.query) {
       flownForQuery.current = sem.query
-      const pts = matches.filter(l => sem.ids.has(l.id)).map(displayCoords)
+      // Fit to the category-constrained matches, not the raw semantic pool —
+      // "breweries in Mornington" flies to the breweries, not the wineries too.
+      let pts = matches.filter(l => sem.ids.has(l.id)).map(displayCoords)
+      if (!pts.length) pts = matches.map(displayCoords)
       if (pts.length) {
         let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity
         for (const [lng, lat] of pts) {

@@ -20,7 +20,7 @@ const TEST_SLUG_PREFIX = 'admin'
 async function fetchPinsFallback(sb) {
   const hasVerticals = await relationHasVerticals(sb, 'listings')
   const PAGE_SIZE = 1000
-  const cols = `id, vertical, ${hasVerticals ? 'verticals, ' : ''}name, slug, description, region, state, lat, lng, is_featured, sub_type, trail_suitable`
+  const cols = `id, vertical, ${hasVerticals ? 'verticals, ' : ''}name, slug, description, region, state, lat, lng, is_featured, is_claimed, sub_type, trail_suitable`
   const filters = [
     q => q.eq('status', 'active'),
     q => q.in('vertical', getPublicVerticals()),
