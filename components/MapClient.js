@@ -278,6 +278,32 @@ function passesCategory(l, reqSub, catTokens) {
   return catTokens.some(t => n.includes(t))
 }
 
+// ── Cuisine / attribute HARD terms ──
+// The semantic pipeline fuzzes a cuisine word into "the neighbouring cuisines":
+// "Korean restaurant" pulled in Japanese ramen bars. A cuisine, nationality or
+// dietary/religious attribute is NOT interchangeable — it must appear LITERALLY
+// in the venue's own text (name/description) to count. This gates the semantic
+// pool (the local matcher already requires every token). It stays accurate as
+// listings are added because it reads each venue's text, never a fixed list.
+const HARD_TERMS = new Set([
+  // Cuisines / nationalities (adjective forms as venues advertise them)
+  'korean', 'japanese', 'chinese', 'cantonese', 'sichuan', 'szechuan', 'taiwanese',
+  'thai', 'vietnamese', 'malaysian', 'indonesian', 'singaporean', 'filipino', 'burmese',
+  'indian', 'nepalese', 'nepali', 'sri', 'lankan', 'pakistani', 'bangladeshi', 'tibetan',
+  'italian', 'french', 'spanish', 'portuguese', 'greek', 'turkish', 'lebanese', 'israeli',
+  'moroccan', 'ethiopian', 'egyptian', 'persian', 'iranian', 'afghan', 'syrian',
+  'mexican', 'peruvian', 'argentinian', 'argentine', 'brazilian', 'colombian', 'cuban',
+  'american', 'british', 'irish', 'german', 'polish', 'hungarian', 'russian', 'ukrainian',
+  'mongolian', 'hawaiian', 'caribbean', 'jamaican', 'cajun', 'creole', 'basque', 'sicilian',
+  // Dietary / religious attributes — accuracy here matters as much as cuisine
+  'vegan', 'vegetarian', 'halal', 'kosher', 'kasher',
+])
+
+// The HARD terms present in a query — each MUST appear in a listing's haystack.
+function hardTermsIn(tokens) {
+  return tokens.filter(t => HARD_TERMS.has(t))
+}
+
 const placesLabel = (n) => `${n.toLocaleString()} ${n === 1 ? 'place' : 'places'}`
 
 // Human label for a Mapbox geocoding result's primary type, so a town reads as
@@ -1184,7 +1210,11 @@ export default function MapClient({
     // other members (wineries, distilleries) never sneak in via the semantic pool.
     const reqSub = requiredSubtypes(tokens)
     const catTokens = tokens.filter(t => SUBTYPE_WORD_INDEX[t])
-    const isMatch = (l) => passesCategory(l, reqSub, catTokens) && (matchesPinQuery(l, tokens) || (sem !== null && sem.ids.has(l.id)))
+    // A cuisine/nationality/dietary word must appear literally in the venue's
+    // text — "Korean" must never fuzz into a Japanese ramen bar via semantics.
+    const hardTerms = hardTermsIn(tokens)
+    const passesHard = (l) => hardTerms.length === 0 || hardTerms.every(t => (l._hay || '').includes(t))
+    const isMatch = (l) => passesCategory(l, reqSub, catTokens) && passesHard(l) && (matchesPinQuery(l, tokens) || (sem !== null && sem.ids.has(l.id)))
     const matches = tokens.length ? base.filter(isMatch) : base
     const rest = tokens.length ? base.filter(l => !isMatch(l)) : []
     filteredRef.current = matches
