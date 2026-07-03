@@ -27,14 +27,20 @@ const getCollection = cache(async function getCollection(slug) {
 
 export async function generateMetadata({ params }) {
   const { slug } = await params
+  const locale = await getLocale()
+  const isKo = locale === 'ko'
   const collection = await getCollection(slug)
   if (!collection) return {}
 
   const description = collection.description
-    || `A curated collection of independent places — ${collection.title}.`
+    || (isKo
+      ? `독립 장소들을 엄선한 컬렉션 — ${collection.title}.`
+      : `A curated collection of independent places — ${collection.title}.`)
 
   return {
-    title: `${collection.title} | Collections | Australian Atlas`,
+    title: isKo
+      ? `${collection.title} | 컬렉션 | Australian Atlas`
+      : `${collection.title} | Collections | Australian Atlas`,
     description,
     openGraph: {
       title: collection.title,

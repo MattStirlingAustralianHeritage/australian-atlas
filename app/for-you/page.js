@@ -9,12 +9,18 @@ import { overlayListingTranslations } from '@/lib/i18n/overlayListings'
 export const dynamic = 'force-dynamic'
 
 export async function generateMetadata() {
+  const locale = await getLocale()
+  const isKo = locale === 'ko'
+  const title = isKo ? '맞춤 추천 — Australian Atlas' : 'For You — Australian Atlas'
+  const description = isKo
+    ? '호주 최고의 독립 명소, 메이커, 숙소, 경험을 아우르는 맞춤 추천.'
+    : 'Personalised recommendations across Australia\'s best independent venues, makers, stays, and experiences.'
   return {
-    title: 'For You — Australian Atlas',
-    description: 'Personalised recommendations across Australia\'s best independent venues, makers, stays, and experiences.',
+    title,
+    description,
     openGraph: {
-      title: 'For You — Australian Atlas',
-      description: 'Personalised recommendations across Australia\'s best independent venues, makers, stays, and experiences.',
+      title,
+      description,
     },
   }
 }

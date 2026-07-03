@@ -1,7 +1,7 @@
 import { cache } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { getTranslations } from 'next-intl/server'
+import { getTranslations, getLocale } from 'next-intl/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import DayTripCard from '@/components/DayTripCard'
 
@@ -76,9 +76,31 @@ export async function generateMetadata({ params }) {
   const trip = await getTrip(tripId)
   if (!trip) return {}
 
-  const baseName = trip.base?.name || 'your base'
+  const locale = await getLocale()
+  const isKo = locale === 'ko'
   const dayCount = trip.days.length
   const stopCount = trip.days.reduce((n, d) => n + d.stops.length, 0)
+
+  if (isKo) {
+    const baseNameKo = trip.base?.name || '베이스'
+    return {
+      title: `${baseNameKo}에서 떠나는 ${dayCount}일 여행 | Australian Atlas`,
+      description: `${dayCount}일의 당일 여행, ${stopCount}개의 방문지 — ${baseNameKo}을(를) 기점으로 Australian Atlas 네트워크를 둘러보세요.`,
+      openGraph: {
+        title: `${baseNameKo}에서 떠나는 ${dayCount}일 여행`,
+        description: `${dayCount}일의 당일 여행, ${stopCount}개의 방문지 — ${baseNameKo}을(를) 기점으로 둘러보세요.`,
+        url: `https://australianatlas.com.au/day-trip/${tripId}`,
+        siteName: 'Australian Atlas',
+        locale: 'en_AU',
+        type: 'article',
+      },
+      alternates: {
+        canonical: `https://australianatlas.com.au/day-trip/${tripId}`,
+      },
+    }
+  }
+
+  const baseName = trip.base?.name || 'your base'
 
   return {
     title: `${dayCount} days from ${baseName} | Australian Atlas`,

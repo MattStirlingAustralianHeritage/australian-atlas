@@ -6,9 +6,15 @@ import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 
 export const revalidate = 3600 // ISR: refresh every hour
 
-export const metadata = {
-  title: 'From the Network | Australian Atlas',
-  description: 'Stories, guides, and dispatches from across the Atlas — independent Australia told through ten lenses.',
+export async function generateMetadata() {
+  const locale = await getLocale()
+  const isKo = locale === 'ko'
+  return {
+    title: isKo ? '네트워크 이야기 | Australian Atlas' : 'From the Network | Australian Atlas',
+    description: isKo
+      ? '아틀라스 전역에서 전하는 이야기, 가이드, 소식 — 열 개의 렌즈로 담아낸 독립적인 호주.'
+      : 'Stories, guides, and dispatches from across the Atlas — independent Australia told through ten lenses.',
+  }
 }
 
 const VERTICAL_JOURNAL_URLS = {

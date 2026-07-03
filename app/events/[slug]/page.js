@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { getTranslations } from 'next-intl/server'
+import { getTranslations, getLocale } from 'next-intl/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getPublishedEventBySlug } from '@/lib/events'
 import { getVerticalBadge, getVerticalBrandColour } from '@/lib/verticalUrl'
@@ -42,20 +42,22 @@ function formatDateRange(startDate, endDate) {
 
 export async function generateMetadata({ params }) {
   const { slug } = await params
+  const locale = await getLocale()
+  const isKo = locale === 'ko'
   const sb = getSupabaseAdmin()
   const event = await getPublishedEventBySlug(sb, slug)
 
   if (!event) {
-    return { title: 'Event not found — Australian Atlas' }
+    return { title: isKo ? '이벤트를 찾을 수 없습니다 — Australian Atlas' : 'Event not found — Australian Atlas' }
   }
 
   const venue = event.listing
   const place = [venue?.suburb || venue?.region, event.state].filter(Boolean).join(', ')
   const description = event.description
     ? event.description.substring(0, 160)
-    : `${event.title}${place ? ` in ${place}` : ''}`
+    : `${event.title}${place ? (isKo ? ` · ${place}` : ` in ${place}`) : ''}`
   return {
-    title: `${event.title} — Australian Atlas Events`,
+    title: isKo ? `${event.title} — Australian Atlas 이벤트` : `${event.title} — Australian Atlas Events`,
     description,
     openGraph: {
       title: event.title,

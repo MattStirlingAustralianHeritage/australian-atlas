@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { getTranslations } from 'next-intl/server'
+import { getTranslations, getLocale } from 'next-intl/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { listUpcomingEvents, listEventCategories } from '@/lib/events'
 import EventCard, { EventListRow } from '@/components/EventCard'
@@ -17,20 +17,27 @@ const FILTER_THRESHOLD = 8
 const LOW_COUNT = 3
 
 const EVENTS_DESCRIPTION = 'Upcoming festivals, markets, dinners, tours, exhibitions and workshops across the Australian Atlas network.'
+const EVENTS_DESCRIPTION_KO = '오스트레일리안 아틀라스 네트워크 전역의 다가오는 축제, 마켓, 디너, 투어, 전시, 워크숍.'
 
-export const metadata = {
-  title: 'Events — Australian Atlas',
-  description: EVENTS_DESCRIPTION,
-  openGraph: {
-    title: 'Events — Australian Atlas',
-    description: EVENTS_DESCRIPTION,
-    url: 'https://australianatlas.com.au/events',
-  },
-  twitter: {
-    card: 'summary',
-    title: 'Events — Australian Atlas',
-    description: EVENTS_DESCRIPTION,
-  },
+export async function generateMetadata() {
+  const locale = await getLocale()
+  const isKo = locale === 'ko'
+  const title = isKo ? '이벤트 — Australian Atlas' : 'Events — Australian Atlas'
+  const description = isKo ? EVENTS_DESCRIPTION_KO : EVENTS_DESCRIPTION
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      url: 'https://australianatlas.com.au/events',
+    },
+    twitter: {
+      card: 'summary',
+      title,
+      description,
+    },
+  }
 }
 
 export default async function EventsPage({ searchParams }) {

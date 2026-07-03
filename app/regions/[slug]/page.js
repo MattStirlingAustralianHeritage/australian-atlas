@@ -81,6 +81,11 @@ const STATE_LABELS = {
   WA: 'Western Australia', TAS: 'Tasmania', ACT: 'Australian Capital Territory', NT: 'Northern Territory',
 }
 
+const STATE_LABELS_KO = {
+  VIC: '빅토리아', NSW: '뉴사우스웨일스', QLD: '퀸즐랜드', SA: '사우스오스트레일리아',
+  WA: '웨스턴오스트레일리아', TAS: '태즈메이니아', ACT: '오스트레일리아 수도 준주', NT: '노던 준주',
+}
+
 const MAX_EDITORIAL_WORDS = 250
 const MAX_PER_SECTION = 4
 
@@ -243,11 +248,17 @@ function WayExperienceCard({ listing, mode, t }) {
 
 export async function generateMetadata({ params }) {
   const { slug } = await params
+  const locale = await getLocale()
+  const isKo = locale === 'ko'
   let region = await getRegion(slug)
-  if (!region) return { title: 'Region not found' }
-  region = await overlayRegionTranslation(region, await getLocale())
-  const description = region.description || `Discover independent places in ${region.name}`
-  const title = `${region.name}, ${STATE_LABELS[region.state] || region.state} \u2014 Australian Atlas`
+  if (!region) return { title: isKo ? '\uc9c0\uc5ed\uc744 \ucc3e\uc744 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4' : 'Region not found' }
+  region = await overlayRegionTranslation(region, locale)
+  const description = region.description || (isKo
+    ? `${region.name}\uc758 \ub3c5\ub9bd \ub9e4\uc7a5\uacfc \uc7a5\uc18c\ub97c \ubc1c\uacac\ud558\uc138\uc694`
+    : `Discover independent places in ${region.name}`)
+  const title = isKo
+    ? `${region.name}, ${STATE_LABELS_KO[region.state] || region.state} \u2014 \uc624\uc2a4\ud2b8\ub808\uc77c\ub9ac\uc548 \uc544\ud2c0\ub77c\uc2a4`
+    : `${region.name}, ${STATE_LABELS[region.state] || region.state} \u2014 Australian Atlas`
   return {
     title,
     description,

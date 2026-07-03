@@ -1,14 +1,20 @@
 import Link from 'next/link'
-import { getTranslations } from 'next-intl/server'
+import { getTranslations, getLocale } from 'next-intl/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getVerticalBadge, VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 import TrailPromptInput from '@/components/TrailPromptInput'
 
 export const revalidate = 3600
 
-export const metadata = {
-  title: 'Discovery Trails | Australian Atlas',
-  description: 'Curated trails connecting the best independent places across Australia — crossing wineries, galleries, makers, stays, and more.',
+export async function generateMetadata() {
+  const locale = await getLocale()
+  const isKo = locale === 'ko'
+  return {
+    title: isKo ? '디스커버리 트레일 | Australian Atlas' : 'Discovery Trails | Australian Atlas',
+    description: isKo
+      ? '호주 전역의 가장 좋은 독립 장소들을 잇는 큐레이션 트레일 — 와이너리, 갤러리, 메이커, 숙소 등을 가로지릅니다.'
+      : 'Curated trails connecting the best independent places across Australia — crossing wineries, galleries, makers, stays, and more.',
+  }
 }
 
 const VERTICAL_COLORS = VERTICAL_ACCENTS

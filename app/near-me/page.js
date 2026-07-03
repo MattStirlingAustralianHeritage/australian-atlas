@@ -1,9 +1,15 @@
-import { getTranslations } from 'next-intl/server'
+import { getTranslations, getLocale } from 'next-intl/server'
 import NearMeClient from './NearMeClient'
 
-export const metadata = {
-  title: 'Near Me — Australian Atlas',
-  description: 'Discover independent places near your current location across the Atlas network.',
+export async function generateMetadata() {
+  const locale = await getLocale()
+  const isKo = locale === 'ko'
+  return {
+    title: isKo ? '내 주변 — Australian Atlas' : 'Near Me — Australian Atlas',
+    description: isKo
+      ? '아틀라스 네트워크에서 현재 위치 주변의 독립적인 장소들을 만나보세요.'
+      : 'Discover independent places near your current location across the Atlas network.',
+  }
 }
 
 export default async function NearMePage() {

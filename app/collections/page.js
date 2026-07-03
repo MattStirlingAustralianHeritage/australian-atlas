@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { getTranslations } from 'next-intl/server'
+import { getTranslations, getLocale } from 'next-intl/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import VerticalBadge, { VERTICAL_STYLES } from '@/components/VerticalBadge'
 
@@ -14,20 +14,28 @@ const VERTICAL_LABELS = {
 
 import { VERTICAL_CARD_BG } from '@/lib/verticalUrl'
 
-export const metadata = {
-  title: 'Collections | Australian Atlas',
-  description: 'Curated guides to independent Australia. Hand-picked collections of the best makers, producers, stays, and places across every state.',
-  openGraph: {
-    title: 'Collections | Australian Atlas',
-    description: 'Curated guides to independent Australia. Hand-picked collections of the best makers, producers, stays, and places across every state.',
-    url: `${SITE_URL}/collections`,
-    siteName: 'Australian Atlas',
-    locale: 'en_AU',
-    type: 'website',
-  },
-  alternates: {
-    canonical: `${SITE_URL}/collections`,
-  },
+export async function generateMetadata() {
+  const locale = await getLocale()
+  const isKo = locale === 'ko'
+  const title = isKo ? '컬렉션 | Australian Atlas' : 'Collections | Australian Atlas'
+  const description = isKo
+    ? '독립 호주를 위한 큐레이션 가이드. 모든 주에 걸쳐 최고의 메이커, 생산자, 숙소, 장소를 엄선한 컬렉션.'
+    : 'Curated guides to independent Australia. Hand-picked collections of the best makers, producers, stays, and places across every state.'
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      url: `${SITE_URL}/collections`,
+      siteName: 'Australian Atlas',
+      locale: 'en_AU',
+      type: 'website',
+    },
+    alternates: {
+      canonical: `${SITE_URL}/collections`,
+    },
+  }
 }
 
 export default async function CollectionsPage() {

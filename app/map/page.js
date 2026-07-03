@@ -1,13 +1,22 @@
 import { Suspense } from 'react'
-import { getTranslations } from 'next-intl/server'
+import { getTranslations, getLocale } from 'next-intl/server'
 import MapClient from '@/components/MapClient'
 import { getPublicVerticals, isVerticalPublic } from '@/lib/verticalUrl'
 
 export const dynamic = 'force-dynamic'
 
-export const metadata = {
-  title: 'Map — Australian Atlas',
-  description: 'Explore every independent business across Australia on an interactive map. Filter by category, state, or search by name.',
+export async function generateMetadata() {
+  const isKo = (await getLocale()) === 'ko'
+  if (isKo) {
+    return {
+      title: '지도 — 오스트레일리안 아틀라스',
+      description: '오스트레일리아 전역의 모든 독립 매장을 인터랙티브 지도에서 둘러보세요. 카테고리, 주로 필터링하거나 이름으로 검색하세요.',
+    }
+  }
+  return {
+    title: 'Map — Australian Atlas',
+    description: 'Explore every independent business across Australia on an interactive map. Filter by category, state, or search by name.',
+  }
 }
 
 // Map from URL-friendly slugs to internal vertical keys

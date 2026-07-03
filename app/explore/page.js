@@ -56,18 +56,38 @@ const STATE_LABELS = {
   WA: 'Western Australia', TAS: 'Tasmania', ACT: 'Australian Capital Territory', NT: 'Northern Territory',
 }
 
-export const metadata = {
-  title: 'Explore — Australian Atlas',
-  description: EXPLORE_DESCRIPTION,
-  openGraph: {
+const EXPLORE_DESCRIPTION_KO = `독립적인 오스트레일리아를 발견하세요. 지역, 큐레이션 컬렉션, 그리고 메이커·생산자·숙소·찾아갈 가치가 있는 장소들의 ${PUBLIC_VERTICAL_ORDER.length}개 디렉터리를 둘러보세요.`
+
+export async function generateMetadata() {
+  const isKo = (await getLocale()) === 'ko'
+  if (isKo) {
+    return {
+      title: '둘러보기 — 오스트레일리안 아틀라스',
+      description: EXPLORE_DESCRIPTION_KO,
+      openGraph: {
+        title: '둘러보기 — 오스트레일리안 아틀라스',
+        description: EXPLORE_DESCRIPTION_KO,
+        url: `${SITE_URL}/explore`,
+        siteName: 'Australian Atlas',
+        locale: 'ko_KR',
+        type: 'website',
+      },
+      alternates: { canonical: `${SITE_URL}/explore` },
+    }
+  }
+  return {
     title: 'Explore — Australian Atlas',
     description: EXPLORE_DESCRIPTION,
-    url: `${SITE_URL}/explore`,
-    siteName: 'Australian Atlas',
-    locale: 'en_AU',
-    type: 'website',
-  },
-  alternates: { canonical: `${SITE_URL}/explore` },
+    openGraph: {
+      title: 'Explore — Australian Atlas',
+      description: EXPLORE_DESCRIPTION,
+      url: `${SITE_URL}/explore`,
+      siteName: 'Australian Atlas',
+      locale: 'en_AU',
+      type: 'website',
+    },
+    alternates: { canonical: `${SITE_URL}/explore` },
+  }
 }
 
 export default async function ExplorePage() {

@@ -1,5 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
-import { getTranslations } from 'next-intl/server'
+import { getTranslations, getLocale } from 'next-intl/server'
 import RegionMapCard from '@/components/RegionMapCard'
 
 export const revalidate = 3600
@@ -17,9 +17,18 @@ const STATE_LABELS = {
   NT: 'Northern Territory',
 }
 
-export const metadata = {
-  title: 'Regions — Australian Atlas',
-  description: 'Explore Australian regions across every state — wineries, makers, galleries, stays, and independent places worth the drive.',
+export async function generateMetadata() {
+  const isKo = (await getLocale()) === 'ko'
+  if (isKo) {
+    return {
+      title: '지역 — 오스트레일리안 아틀라스',
+      description: '오스트레일리아 전역의 지역을 둘러보세요 — 와이너리, 메이커, 갤러리, 숙소, 그리고 찾아갈 가치가 있는 독립 장소들.',
+    }
+  }
+  return {
+    title: 'Regions — Australian Atlas',
+    description: 'Explore Australian regions across every state — wineries, makers, galleries, stays, and independent places worth the drive.',
+  }
 }
 
 async function getRegions() {

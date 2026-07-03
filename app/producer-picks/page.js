@@ -9,22 +9,28 @@ export const revalidate = 3600
 
 const SITE_URL = 'https://australianatlas.com.au'
 
-export const metadata = {
-  title: 'Producer Picks | Australian Atlas',
-  description:
-    'The independent places vouched for by their peers. Every venue here has been personally picked by another verified operator on the Australian Atlas network.',
-  openGraph: {
-    title: 'Producer Picks | Australian Atlas',
-    description:
-      'The independent places vouched for by their peers. Every venue here has been personally picked by another verified operator on the Australian Atlas network.',
-    url: `${SITE_URL}/producer-picks`,
-    siteName: 'Australian Atlas',
-    locale: 'en_AU',
-    type: 'website',
-  },
-  alternates: {
-    canonical: `${SITE_URL}/producer-picks`,
-  },
+export async function generateMetadata() {
+  const locale = await getLocale()
+  const isKo = locale === 'ko'
+  const title = isKo ? '프로듀서 픽 | Australian Atlas' : 'Producer Picks | Australian Atlas'
+  const description = isKo
+    ? '동료들이 보증하는 독립 장소들. 이곳의 모든 업체는 Australian Atlas 네트워크의 또 다른 검증된 운영자가 직접 추천했습니다.'
+    : 'The independent places vouched for by their peers. Every venue here has been personally picked by another verified operator on the Australian Atlas network.'
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      url: `${SITE_URL}/producer-picks`,
+      siteName: 'Australian Atlas',
+      locale: 'en_AU',
+      type: 'website',
+    },
+    alternates: {
+      canonical: `${SITE_URL}/producer-picks`,
+    },
+  }
 }
 
 export default async function ProducerPicksPage() {

@@ -11,6 +11,14 @@ const ATLAS_COUNT_WORDS = { 8: 'eight', 9: 'nine', 10: 'ten', 11: 'eleven', 12: 
 export async function generateMetadata() {
   const count = getPublicVerticals().length
   const word = ATLAS_COUNT_WORDS[count] || count
+  const locale = await getLocale()
+  const isKo = locale === 'ko'
+  if (isKo) {
+    return {
+      title: '네트워크 — Australian Atlas',
+      description: `${count}개 버티컬로 이루어진 Australian Atlas 네트워크의 실시간 등록 수, 최근 추가, 커버리지 데이터.`,
+    }
+  }
   return {
     title: 'The Network — Australian Atlas',
     description: `Live listing counts, recent additions, and coverage data across the ${word}-vertical Australian Atlas network.`,

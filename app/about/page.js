@@ -1,19 +1,27 @@
 import Link from 'next/link'
-import { getTranslations } from 'next-intl/server'
+import { getTranslations, getLocale } from 'next-intl/server'
 import ScrollReveal from '@/components/ScrollReveal'
 import { VERTICAL_CARD_BG as CARD_BG } from '@/lib/verticalUrl'
 import { getNetworkStats } from '@/lib/networkStats'
 
 export const revalidate = 86400
 
-export const metadata = {
-  title: 'About | Australian Atlas',
-  description: 'Australian Atlas is an independently operated guide to independent Australia — ten curated atlases mapping makers, producers, cultural spaces, and natural places across the country.',
-  openGraph: {
-    title: 'About | Australian Atlas',
-    description: 'Australian Atlas is an independently operated guide to independent Australia — ten curated atlases mapping makers, producers, cultural spaces, and natural places across the country.',
-    url: 'https://australianatlas.com.au/about',
-  },
+export async function generateMetadata() {
+  const locale = await getLocale()
+  const isKo = locale === 'ko'
+  const title = isKo ? '소개 | Australian Atlas' : 'About | Australian Atlas'
+  const description = isKo
+    ? 'Australian Atlas는 독립적인 호주를 안내하는 독립 운영 가이드입니다 — 전국의 메이커, 생산자, 문화 공간, 자연 명소를 담은 열 개의 큐레이션 아틀라스.'
+    : 'Australian Atlas is an independently operated guide to independent Australia — ten curated atlases mapping makers, producers, cultural spaces, and natural places across the country.'
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      url: 'https://australianatlas.com.au/about',
+    },
+  }
 }
 
 const aboutJsonLd = {

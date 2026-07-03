@@ -7,18 +7,26 @@ import { overlayListingTranslations } from '@/lib/i18n/overlayListings'
 
 export const revalidate = 1800
 
-export const metadata = {
-  title: 'Plan your stay — Australian Atlas',
-  description: 'Pick where you\u2019re staying and we\u2019ll build day trips into the surrounding area. Every day starts and ends at your base.',
-  alternates: { canonical: 'https://australianatlas.com.au/plan-my-stay' },
-  openGraph: {
-    title: 'Plan your stay — Australian Atlas',
-    description: 'Pick where you\u2019re staying and we\u2019ll build day trips into the surrounding area. Every day starts and ends at your base.',
-    url: 'https://australianatlas.com.au/plan-my-stay',
-    siteName: 'Australian Atlas',
-    locale: 'en_AU',
-    type: 'website',
-  },
+export async function generateMetadata() {
+  const locale = await getLocale()
+  const isKo = locale === 'ko'
+  const title = isKo ? '숙소 중심 여행 계획 — Australian Atlas' : 'Plan your stay — Australian Atlas'
+  const description = isKo
+    ? '머물 곳을 고르면 주변 지역을 도는 당일 여행을 만들어 드립니다. 매일의 여정이 숙소에서 시작해 숙소에서 끝납니다.'
+    : 'Pick where you\u2019re staying and we\u2019ll build day trips into the surrounding area. Every day starts and ends at your base.'
+  return {
+    title,
+    description,
+    alternates: { canonical: 'https://australianatlas.com.au/plan-my-stay' },
+    openGraph: {
+      title,
+      description,
+      url: 'https://australianatlas.com.au/plan-my-stay',
+      siteName: 'Australian Atlas',
+      locale: 'en_AU',
+      type: 'website',
+    },
+  }
 }
 
 const GOLD = 'var(--color-gold)'

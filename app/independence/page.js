@@ -1,14 +1,28 @@
 import Link from 'next/link'
-import { getTranslations } from 'next-intl/server'
+import { getTranslations, getLocale } from 'next-intl/server'
 import { breadcrumbJsonLd } from '@/lib/jsonLd'
 
-export const metadata = {
-  title: 'The Independence Pledge | Australian Atlas',
-  description: 'What "independent" means on Australian Atlas, why it matters, and how we verify every listing in the network.',
-  openGraph: {
+export async function generateMetadata() {
+  const locale = await getLocale()
+  const isKo = locale === 'ko'
+  if (isKo) {
+    return {
+      title: '독립성 서약 | Australian Atlas',
+      description: 'Australian Atlas에서 "독립"이 무엇을 의미하는지, 왜 중요한지, 그리고 네트워크의 모든 등록처를 어떻게 검증하는지 알아보세요.',
+      openGraph: {
+        title: '독립성 서약 | Australian Atlas',
+        description: 'Australian Atlas의 모든 장소는 독립적으로 소유되고 운영됩니다. 체인 없음. 프랜차이즈 없음. 기업 그룹 없음.',
+      },
+    }
+  }
+  return {
     title: 'The Independence Pledge | Australian Atlas',
-    description: 'Every place on Australian Atlas is independently owned and operated. No chains. No franchises. No corporate groups.',
-  },
+    description: 'What "independent" means on Australian Atlas, why it matters, and how we verify every listing in the network.',
+    openGraph: {
+      title: 'The Independence Pledge | Australian Atlas',
+      description: 'Every place on Australian Atlas is independently owned and operated. No chains. No franchises. No corporate groups.',
+    },
+  }
 }
 
 export default async function IndependencePage() {
