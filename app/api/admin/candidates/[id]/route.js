@@ -6,6 +6,7 @@ import { regenerateListingEmbedding } from '@/lib/embeddings/regenerateOne'
 import { pushToVerticalWithRetry, updateInVertical, getVerticalListingUrl, VERTICAL_DISPLAY_NAMES, VERTICAL_CATEGORIES, recordSyncAndRevalidate } from '@/lib/sync/pushToVertical'
 import { resolveRegionName } from '@/lib/regions'
 import { extractStateFromPlaceName, deriveStateFromCoords, VALID_STATES } from '@/lib/geo/stateDerivation'
+import { anchoredGeocode } from '@/lib/geo/anchoredGeocode'
 import { fetchSiteText } from '@/lib/scrape/fetchSiteText'
 import { reserveAnthropicBudget, reconcileAnthropicBudget } from '@/lib/ai/guardedAnthropic'
 import { estimateTokens } from '@/lib/budget/governor'
@@ -134,29 +135,19 @@ Return ONLY valid JSON, no markdown fences, no other text.`
   }
 }
 
-/** Geocode an address via Mapbox.
- *  @param {string} address - Street address
- *  @param {string} [state] - State code (e.g. 'SA')
- *  @param {string} [suburb] - City/suburb to improve accuracy
- *  @returns {{ lat: number, lng: number, place_name: string } | null}
+/** Split a legacy region text like "Sydney, NSW" into locality + state.
+ *  The trailing state token is stripped so the locality can anchor a geocode
+ *  without the doubled-state query ("Sydney, NSW, NSW") that tips Mapbox onto
+ *  a same-named street in the wrong town (e.g. "Sydney Street, New Berrima").
  */
-async function geocodeAddress(address, state, suburb) {
-  if (!address) return null
-  const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || process.env.MAPBOX_ACCESS_TOKEN
-  if (!token) return null
-  try {
-    const parts = [address, suburb, state, 'Australia'].filter(Boolean)
-    const query = parts.join(', ')
-    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?country=au&limit=1&access_token=${token}`
-    const res = await fetch(url)
-    if (!res.ok) return null
-    const data = await res.json()
-    const feature = data.features?.[0]
-    if (!feature) return null
-    return { lat: feature.center[1], lng: feature.center[0], place_name: feature.place_name || null }
-  } catch {
-    return null
-  }
+function splitRegionText(region) {
+  if (!region) return { locality: null, state: null }
+  const state = extractStateFromPlaceName(region)
+  const locality = region
+    .replace(/,?\s*(?:ACT|NSW|NT|QLD|SA|TAS|VIC|WA)\b\.?\s*$/i, '')
+    .replace(/[,\s]+$/, '')
+    .trim() || null
+  return { locality, state }
 }
 
 // ─── Description Generation (fallback when no website) ─────
@@ -421,27 +412,28 @@ export async function POST(request, { params }) {
         console.log(`[approve] Could not normalise website URL: "${candidate.website_url}"`)
       }
 
-      // 3. Geocode — try enriched address first, then fall back to name + region
-      let coords = null
-      if (enriched.address) {
-        coords = await geocodeAddress(enriched.address, enriched.state, enriched.suburb)
-        if (coords) {
-          console.log(`[approve] Geocoded from address: ${coords.lat}, ${coords.lng} (${coords.place_name})`)
-        }
-      }
-      // Fallback: geocode from business name + region (less precise but usually gets the right town)
-      if (!coords && candidate.region) {
-        coords = await geocodeAddress(`${candidate.name}, ${candidate.region}`, enriched.state || null)
-        if (coords) {
-          console.log(`[approve] Geocoded from name+region fallback: ${coords.lat}, ${coords.lng} (${coords.place_name})`)
-        }
-      }
-      // Last resort: geocode from just the region name
-      if (!coords && candidate.region) {
-        coords = await geocodeAddress(candidate.region, enriched.state || null)
-        if (coords) {
-          console.log(`[approve] Geocoded from region fallback: ${coords.lat}, ${coords.lng} (${coords.place_name})`)
-        }
+      // 3. Geocode with the ANCHORED geocoder (lib/geo/anchoredGeocode.js).
+      //    It resolves a reliable locality anchor (postcode → suburb → region
+      //    town) first and REJECTS any precise result that lands implausibly far
+      //    from it. This is the ONLY correct behaviour for an address-less
+      //    candidate: one carrying just "Sydney, NSW" now pins on the Sydney
+      //    locality centroid instead of fuzzy-matching "Sydney Street, New
+      //    Berrima NSW" — the Southern-Highlands junk-pin class of bug that a
+      //    naive unrestricted forward geocode (the old geocodeAddress) produced.
+      //    Same path the candidate-review geocode-on-blur already uses, so
+      //    approval no longer diverges onto a weaker geocode.
+      const { locality: geoLocality, state: geoRegionState } = splitRegionText(candidate.region)
+      const geo = await anchoredGeocode({
+        address: enriched.address || null,
+        suburb: (enriched.suburb || '').trim() || geoLocality || null,
+        state: enriched.state || candidate.state || geoRegionState || null,
+        postcode: enriched.postcode || null,
+      })
+      const coords = geo ? { lat: geo.lat, lng: geo.lng, place_name: geo.placeName } : null
+      if (coords) {
+        console.log(`[approve] anchoredGeocode → ${coords.lat}, ${coords.lng} (${geo.precision}, ${coords.place_name})`)
+      } else {
+        console.log(`[approve] anchoredGeocode: no result for "${candidate.name}" (region="${candidate.region}")`)
       }
 
       // 4. Merge data with correct priority
