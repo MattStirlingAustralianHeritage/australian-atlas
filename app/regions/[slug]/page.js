@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { regionJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
 import RegionMapHero from '@/components/RegionMapHero'
+import RegionSearchBar from '@/components/RegionSearchBar'
 import { hasPreciseLocation } from '@/lib/listings/presence'
 import RegionTrailCTA from '@/components/RegionTrailCTA'
 import { RelatedCollections, RelatedArticles } from '@/components/RelatedContent'
@@ -95,7 +96,7 @@ async function getRegionNarrative(regionId) {
 async function getRegionListings(region, venueVerticals) {
   const sb = getSupabaseAdmin()
   const hasVerticals = await relationHasVerticals(sb, 'listings_with_region')
-  const select = `id, vertical, source_id, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website, presence_type, visitable, address_on_request, ${hasVerticals ? 'verticals, ' : ''}${LISTING_REGION_SELECT}`
+  const select = `id, vertical, sub_type, source_id, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website, presence_type, visitable, address_on_request, ${hasVerticals ? 'verticals, ' : ''}${LISTING_REGION_SELECT}`
 
   // Override-wins resolution per docs/regions.md, via the
   // listings_with_region view (migration 125). region_id is
@@ -296,7 +297,21 @@ export default async function RegionPage({ params }) {
   // venues carry a bare-centroid pin that would mislead on the region map.
   const mapPoints = listings
     .filter(l => hasPreciseLocation(l))
-    .map(l => ({ lat: l.lat, lng: l.lng, name: l.name, vertical: l.vertical, slug: l.slug }))
+    .map(l => ({
+      id: l.id, lat: l.lat, lng: l.lng, name: l.name, vertical: l.vertical, slug: l.slug,
+      sub_type: l.sub_type, description: l.description, suburb: l.region, is_featured: l.is_featured,
+    }))
+
+  // Quick-search suggestion chips seeded from the region's own active verticals.
+  const SUGGESTION_TERMS = {
+    sba: 'wineries', fine_grounds: 'coffee roasters', collection: 'galleries',
+    craft: 'makers', rest: 'places to stay', field: 'walks',
+    corner: 'shops', found: 'vintage', table: 'restaurants', way: 'tours',
+  }
+  const searchSuggestions = [
+    ...activeVerticals.map(v => SUGGESTION_TERMS[v]).filter(Boolean),
+    ...(wayCount > 0 ? [SUGGESTION_TERMS.way] : []),
+  ].slice(0, 4)
 
   const rawEditorial = region.long_description || region.generated_intro
   const editorial = truncateEditorial(rawEditorial)
@@ -323,6 +338,7 @@ export default async function RegionPage({ params }) {
         points={mapPoints}
         regionName={region.name}
         stateName={STATE_LABELS[region.state] || region.state}
+        regionSlug={region.slug}
         centerLat={region.center_lat}
         centerLng={region.center_lng}
         zoom={region.map_zoom}
@@ -394,6 +410,14 @@ export default async function RegionPage({ params }) {
               </a>
             )}
           </div>
+        )}
+
+        {/* ── SEARCH ACROSS THE REGION (Search 3.0) ──────── */}
+        {listings.length > 0 && (
+          <RegionSearchBar
+            regionName={region.name}
+            suggestions={searchSuggestions}
+          />
         )}
 
         {/* ── 2. EDITORIAL NARRATIVE SECTION ─────────────── */}
@@ -736,7 +760,7 @@ export default async function RegionPage({ params }) {
                   {hasMore && (
                     <p style={{ marginTop: '0.875rem' }}>
                       <a
-                        href={`/map?vertical=${vertical}&region=${encodeURIComponent(region.name)}`}
+                        href={`/search?vertical=${vertical}&region=${encodeURIComponent(region.name)}`}
                         style={{
                           fontFamily: 'var(--font-body)',
                           fontSize: '13px',
