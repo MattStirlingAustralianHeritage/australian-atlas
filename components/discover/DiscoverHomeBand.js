@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import DiscoverDeck from './DiscoverDeck'
 
 /**
@@ -9,9 +10,10 @@ import DiscoverDeck from './DiscoverDeck'
  * identically for anonymous and logged-in users.
  */
 export default function DiscoverHomeBand() {
+  const t = useTranslations('discover')
   return (
     <section
-      aria-label="Discover independent places"
+      aria-label={t('bandAriaLabel')}
       style={{
         padding: 'clamp(1.75rem, 4vw, 3rem) 1.5rem',
         background: 'linear-gradient(180deg, #FFFFFF 0%, #FBF9F5 100%)',

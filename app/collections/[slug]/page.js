@@ -1,7 +1,9 @@
 import { cache } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { getTranslations, getLocale } from 'next-intl/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { overlayListingTranslations } from '@/lib/i18n/overlayListings'
 import { breadcrumbJsonLd, collectionJsonLd } from '@/lib/jsonLd'
 import ListingCard from '@/components/ListingCard'
 import VerticalBadge from '@/components/VerticalBadge'
@@ -51,6 +53,8 @@ export async function generateMetadata({ params }) {
 
 export default async function CollectionPage({ params }) {
   const { slug } = await params
+  const t = await getTranslations('discovery2')
+  const locale = await getLocale()
 
   const collection = await getCollection(slug)
   if (!collection) notFound()
@@ -73,6 +77,7 @@ export default async function CollectionPage({ params }) {
       listings = collection.listing_ids
         .map(id => listingMap.get(id))
         .filter(Boolean)
+      listings = await overlayListingTranslations(listings, locale)
     }
   }
 
@@ -130,9 +135,9 @@ export default async function CollectionPage({ params }) {
             fontFamily: 'var(--font-body)', marginBottom: 32,
             display: 'flex', alignItems: 'center', gap: 6,
           }}>
-            <Link href="/" style={{ color: 'rgba(255,255,255,0.35)', textDecoration: 'none' }}>Home</Link>
+            <Link href="/" style={{ color: 'rgba(255,255,255,0.35)', textDecoration: 'none' }}>{t('breadcrumbHome')}</Link>
             <span>/</span>
-            <Link href="/collections" style={{ color: 'rgba(255,255,255,0.35)', textDecoration: 'none' }}>Collections</Link>
+            <Link href="/collections" style={{ color: 'rgba(255,255,255,0.35)', textDecoration: 'none' }}>{t('breadcrumbCollections')}</Link>
             <span>/</span>
             <span style={{ color: 'rgba(255,255,255,0.55)' }}>{collection.title}</span>
           </nav>
@@ -142,7 +147,7 @@ export default async function CollectionPage({ params }) {
             color: 'rgba(255,255,255,0.35)', marginBottom: 16,
             fontFamily: 'var(--font-body)', fontWeight: 500,
           }}>
-            {locationLabel ? `${locationLabel} \u00B7 ` : ''}Collection
+            {locationLabel ? `${locationLabel} \u00B7 ` : ''}{t('collectionKicker')}
           </p>
 
           <div style={{
@@ -175,11 +180,11 @@ export default async function CollectionPage({ params }) {
             fontSize: 12, color: 'rgba(255,255,255,0.35)',
             fontFamily: 'var(--font-body)', flexWrap: 'wrap',
           }}>
-            <span>{listings.length} {listings.length === 1 ? 'place' : 'places'}</span>
+            <span>{t('countPlaces', { count: listings.length })}</span>
             {collection.author && (
               <>
                 <span>&middot;</span>
-                <span>Curated by {collection.author}</span>
+                <span>{t('curatedBy', { author: collection.author })}</span>
               </>
             )}
             {collection.vertical && (
@@ -212,7 +217,7 @@ export default async function CollectionPage({ params }) {
             textAlign: 'center', padding: '48px 0',
             color: 'var(--color-muted)', fontFamily: 'var(--font-body)', fontSize: 14,
           }}>
-            No listings in this collection yet.
+            {t('noListingsYet')}
           </div>
         ) : (
           <>
@@ -254,13 +259,13 @@ export default async function CollectionPage({ params }) {
               fontFamily: 'var(--font-display)', fontSize: 22,
               color: 'var(--color-ink)', marginBottom: 6,
             }}>
-              Explore more collections
+              {t('exploreMoreCollections')}
             </p>
             <p style={{
               fontSize: 14, color: 'var(--color-muted)',
               fontFamily: 'var(--font-body)', lineHeight: 1.6, margin: 0,
             }}>
-              Curated guides to independent Australia.
+              {t('exploreMoreBlurb')}
             </p>
           </div>
           <Link
@@ -275,7 +280,7 @@ export default async function CollectionPage({ params }) {
               transition: 'border-color 0.2s',
             }}
           >
-            All Collections &rarr;
+            {t('allCollections')} &rarr;
           </Link>
         </div>
       </div>

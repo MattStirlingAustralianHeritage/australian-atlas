@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import VerticalBadge from '@/components/VerticalBadge'
 import { isApprovedImageSource } from '@/lib/image-utils'
 import { VERTICAL_MUTED } from '@/lib/verticalUrl'
@@ -64,6 +65,7 @@ function SkeletonCard() {
 }
 
 export default function SameSpirit({ listingId, vertical, suburb }) {
+  const t = useTranslations('cards')
   const [results, setResults] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -114,7 +116,7 @@ export default function SameSpirit({ listingId, vertical, suburb }) {
           margin: 0,
           lineHeight: 1.3,
         }}>
-          In the same spirit
+          {t('inTheSameSpirit')}
         </h2>
         <p style={{
           fontFamily: 'var(--font-body)',
@@ -124,7 +126,7 @@ export default function SameSpirit({ listingId, vertical, suburb }) {
           margin: '4px 0 0',
           lineHeight: 1.5,
         }}>
-          Independent places with a similar character
+          {t('similarCharacter')}
         </p>
       </div>
 

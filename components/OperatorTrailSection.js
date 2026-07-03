@@ -1,3 +1,4 @@
+import { getTranslations } from 'next-intl/server'
 import { getVerticalBadge } from '@/lib/verticalUrl'
 
 /**
@@ -11,9 +12,10 @@ import { getVerticalBadge } from '@/lib/verticalUrl'
  *
  * Renders nothing if there's no trail or fewer than two stops.
  */
-export default function OperatorTrailSection({ trail, operatorName, placeUrlBase = '' }) {
+export default async function OperatorTrailSection({ trail, operatorName, placeUrlBase = '' }) {
   if (!trail || !Array.isArray(trail.stops) || trail.stops.length < 2) return null
 
+  const t = await getTranslations('placePanels')
   const regionName = trail.region || null
   const placeHref = (slug) => `${placeUrlBase}/place/${slug}`
 
@@ -28,7 +30,7 @@ export default function OperatorTrailSection({ trail, operatorName, placeUrlBase
       }}
     >
       <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.22em', color: 'var(--color-gold)', margin: '0 0 0.6rem' }}>
-        {regionName ? `A day out · ${regionName}` : 'A day out'}
+        {regionName ? t('aDayOutIn', { region: regionName }) : t('aDayOut')}
       </p>
 
       <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 26, lineHeight: 1.15, color: 'var(--color-ink)', margin: '0 0 0.5rem' }}>
@@ -42,7 +44,7 @@ export default function OperatorTrailSection({ trail, operatorName, placeUrlBase
       ) : null}
 
       <p style={{ fontFamily: 'var(--font-body)', fontSize: 12.5, color: 'var(--color-muted)', margin: '0 0 1.5rem' }}>
-        Suggested by {operatorName}
+        {t('suggestedBy', { operatorName })}
       </p>
 
       <ol style={{ listStyle: 'none', margin: 0, padding: 0 }}>

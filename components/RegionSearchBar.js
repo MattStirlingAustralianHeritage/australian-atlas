@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 
 /**
  * Region-scoped entry into Search 3.0. Submits to /search?q=…&region=<slug>,
@@ -15,6 +16,7 @@ import { useRouter } from 'next/navigation'
  */
 export default function RegionSearchBar({ regionName, suggestions = [] }) {
   const router = useRouter()
+  const t = useTranslations('regions')
   const [q, setQ] = useState('')
 
   const go = (query) => {
@@ -44,7 +46,7 @@ export default function RegionSearchBar({ regionName, suggestions = [] }) {
             color: 'var(--color-muted)', margin: '0 0 0.6rem',
           }}
         >
-          Search across {regionName}
+          {t('searchAcross', { region: regionName })}
         </p>
         <form
           onSubmit={(e) => { e.preventDefault(); go() }}
@@ -64,8 +66,8 @@ export default function RegionSearchBar({ regionName, suggestions = [] }) {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Wineries, coffee roasters, a quiet stay…"
-              aria-label={`Search across ${regionName}`}
+              placeholder={t('searchPlaceholder')}
+              aria-label={t('searchAcross', { region: regionName })}
               enterKeyHint="search"
               style={{
                 flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent',
@@ -82,7 +84,7 @@ export default function RegionSearchBar({ regionName, suggestions = [] }) {
               padding: '0 1.4rem',
             }}
           >
-            Search
+            {t('searchButton')}
           </button>
         </form>
 

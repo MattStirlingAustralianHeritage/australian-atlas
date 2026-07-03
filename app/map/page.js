@@ -1,4 +1,5 @@
 import { Suspense } from 'react'
+import { getTranslations } from 'next-intl/server'
 import MapClient from '@/components/MapClient'
 import { getPublicVerticals, isVerticalPublic } from '@/lib/verticalUrl'
 
@@ -24,6 +25,7 @@ const VERTICAL_SLUG_MAP = {
 }
 
 export default async function MapPage({ searchParams }) {
+  const t = await getTranslations('map')
   const params = await searchParams
   const verticalSlug = params?.vertical || ''
   const stateParam = params?.state || ''
@@ -51,7 +53,7 @@ export default async function MapPage({ searchParams }) {
   return (
     <Suspense fallback={
       <div style={{ height: '100svh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-sans)', color: 'var(--color-muted)' }}>
-        Loading map…
+        {t('loadingMap')}
       </div>
     }>
       <MapClient

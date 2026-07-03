@@ -1,8 +1,10 @@
 import Link from 'next/link'
+import { getTranslations, getLocale } from 'next-intl/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 import { getPublicVerticals } from '@/lib/verticalUrl'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
+import { overlayListingTranslations } from '@/lib/i18n/overlayListings'
 
 const ATLAS_COUNT_WORDS = { 8: 'eight', 9: 'nine', 10: 'ten', 11: 'eleven', 12: 'twelve' }
 
@@ -82,19 +84,22 @@ async function getNetworkData(publicVerticals) {
   }
 }
 
-function timeAgo(dateStr) {
+function timeAgo(dateStr, t) {
   const diff = Date.now() - new Date(dateStr).getTime()
   const hours = Math.floor(diff / (1000 * 60 * 60))
-  if (hours < 1) return 'just now'
-  if (hours < 24) return `${hours}h ago`
+  if (hours < 1) return t('justNow')
+  if (hours < 24) return t('hoursAgo', { count: hours })
   const days = Math.floor(hours / 24)
-  if (days === 1) return 'yesterday'
-  return `${days}d ago`
+  if (days === 1) return t('yesterday')
+  return t('daysAgo', { count: days })
 }
 
 export default async function NetworkPage() {
   const publicVerticals = getPublicVerticals()
+  const t = await getTranslations('explore')
+  const locale = await getLocale()
   const data = await getNetworkData(publicVerticals)
+  data.recent = await overlayListingTranslations(data.recent, locale)
   const atlasCount = publicVerticals.length
   const atlasCountWord = ATLAS_COUNT_WORDS[atlasCount] || atlasCount
 
@@ -107,19 +112,19 @@ export default async function NetworkPage() {
           letterSpacing: '0.18em', textTransform: 'uppercase',
           color: 'var(--color-sage)', marginBottom: 12,
         }}>
-          The Network
+          {t('networkKicker')}
         </p>
         <h1 style={{
           fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '2.5rem',
           color: 'var(--color-ink)', lineHeight: 1.15, marginBottom: '1rem',
         }}>
-          A living atlas of independent Australia
+          {t('networkTitle')}
         </h1>
         <p style={{
           fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 15,
           color: 'var(--color-muted)', lineHeight: 1.6, maxWidth: 500, margin: '0 auto',
         }}>
-          Every number on this page is live. The network grows daily as venues are verified, claimed, and added across {atlasCountWord} curated directories.
+          {t('networkSubtitle', { countWord: atlasCountWord })}
         </p>
       </section>
 
@@ -131,11 +136,11 @@ export default async function NetworkPage() {
           background: 'var(--color-ink)', color: '#fff',
         }}>
           {[
-            { n: data.total.toLocaleString(), label: 'Verified listings' },
-            { n: String(atlasCount), label: 'Curated atlases' },
-            { n: String(data.regionCount), label: 'Mapped regions' },
-            { n: data.claimed.toLocaleString(), label: 'Operator-claimed' },
-            { n: `+${data.addedThisWeek}`, label: 'Added this week' },
+            { n: data.total.toLocaleString(), label: t('statVerifiedListings') },
+            { n: String(atlasCount), label: t('statCuratedAtlases') },
+            { n: String(data.regionCount), label: t('statMappedRegions') },
+            { n: data.claimed.toLocaleString(), label: t('statOperatorClaimed') },
+            { n: `+${data.addedThisWeek}`, label: t('statAddedThisWeek') },
           ].map(s => (
             <div key={s.label} style={{ textAlign: 'center' }}>
               <p style={{
@@ -158,7 +163,7 @@ export default async function NetworkPage() {
           letterSpacing: '0.16em', textTransform: 'uppercase',
           color: 'var(--color-sage)', marginBottom: 16,
         }}>
-          By Atlas
+          {t('byAtlas')}
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10 }}>
           {Object.keys(VERTICAL_NAMES).filter(k => publicVerticals.includes(k)).map(key => (
@@ -167,7 +172,7 @@ export default async function NetworkPage() {
               border: '1px solid var(--color-border)', background: '#fff',
               display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
             }}>
-              <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--color-ink)' }}>{VERTICAL_NAMES[key] || key}</span>
+              <span style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, color: 'var(--color-ink)' }}>{VERTICAL_NAMES[key] ? t(`verticalName_${key}`) : key}</span>
               <span style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13, color: 'var(--color-muted)' }}>{(data.verticalCounts[key] || 0).toLocaleString()}</span>
             </div>
           ))}
@@ -181,7 +186,7 @@ export default async function NetworkPage() {
           letterSpacing: '0.16em', textTransform: 'uppercase',
           color: 'var(--color-sage)', marginBottom: 16,
         }}>
-          Just added to the network
+          {t('justAdded')}
         </p>
         <div style={{ display: 'grid', gap: 6 }}>
           {data.recent.map(r => (
@@ -196,7 +201,7 @@ export default async function NetworkPage() {
                   letterSpacing: '0.06em', textTransform: 'uppercase',
                   color: 'var(--color-sage)', minWidth: 80,
                 }}>
-                  {VERTICAL_NAMES[r.vertical] || r.vertical}
+                  {VERTICAL_NAMES[r.vertical] ? t(`verticalName_${r.vertical}`) : r.vertical}
                 </span>
                 <span style={{
                   fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 14,
@@ -220,7 +225,7 @@ export default async function NetworkPage() {
                 fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 11,
                 color: 'var(--color-muted)', whiteSpace: 'nowrap',
               }}>
-                {timeAgo(r.created_at)}
+                {timeAgo(r.created_at, t)}
               </span>
             </div>
           ))}
@@ -234,13 +239,13 @@ export default async function NetworkPage() {
           letterSpacing: '0.16em', textTransform: 'uppercase',
           color: 'var(--color-sage)', marginBottom: 8,
         }}>
-          Regional Coverage
+          {t('regionalCoverage')}
         </p>
         <p style={{
           fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 14,
           color: 'var(--color-muted)', marginBottom: 20, lineHeight: 1.5,
         }}>
-          Regions sorted by listing density. Lighter counts show where the network is still growing.
+          {t('regionalCoverageDesc')}
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8 }}>
           {data.regions.map(r => (
@@ -280,14 +285,14 @@ export default async function NetworkPage() {
             fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '1.5rem',
             color: 'var(--color-ink)', marginBottom: 8,
           }}>
-            Know a place we have missed?
+            {t('missedTitle')}
           </h2>
           <p style={{
             fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 14,
             color: 'var(--color-muted)', lineHeight: 1.5, marginBottom: 20,
             maxWidth: 440, marginLeft: 'auto', marginRight: 'auto',
           }}>
-            The Atlas grows best through word of mouth. If you know an independent venue, maker, or natural place that should be on the network, tell us.
+            {t('missedDesc')}
           </p>
           <a
             href="mailto:suggest@australianatlas.com.au?subject=Venue suggestion"
@@ -298,7 +303,7 @@ export default async function NetworkPage() {
               textDecoration: 'none',
             }}
           >
-            Suggest a venue
+            {t('suggestVenue')}
           </a>
         </div>
       </section>

@@ -1,7 +1,9 @@
 import Link from 'next/link'
+import { getTranslations, getLocale } from 'next-intl/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
+import { overlayListingTranslations } from '@/lib/i18n/overlayListings'
 
 export const revalidate = 1800
 
@@ -22,7 +24,7 @@ export const metadata = {
 const GOLD = 'var(--color-gold)'
 const PER_REGION = 4
 
-async function getStaysByRegion() {
+async function getStaysByRegion(locale) {
   const sb = getSupabaseAdmin()
 
   const hasVerticals = await relationHasVerticals(sb, 'listings')
@@ -38,10 +40,12 @@ async function getStaysByRegion() {
     .order('name', { ascending: true })
     .limit(500)
 
+  const translated = await overlayListingTranslations(data || [], locale)
+
   const byRegionId = new Map()
   const excluded = []
 
-  for (const l of data || []) {
+  for (const l of translated) {
     const region = getListingRegion(l)
     if (!region) {
       excluded.push(l)
@@ -70,7 +74,9 @@ async function getStaysByRegion() {
 }
 
 export default async function PlanMyStayPage() {
-  const regions = await getStaysByRegion()
+  const locale = await getLocale()
+  const t = await getTranslations('plan')
+  const regions = await getStaysByRegion(locale)
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--color-bg, #faf8f5)' }}>
@@ -88,7 +94,7 @@ export default async function PlanMyStayPage() {
           color: 'var(--color-muted, #8a8a8a)',
           marginBottom: 16,
         }}>
-          Stay-first trip planning
+          {t('stayFirstKicker')}
         </p>
         <h1 style={{
           fontFamily: 'var(--font-display)',
@@ -98,7 +104,7 @@ export default async function PlanMyStayPage() {
           lineHeight: 1.15,
           marginBottom: 16,
         }}>
-          Plan your stay
+          {t('planYourStayTitle')}
         </h1>
         <p style={{
           fontFamily: 'var(--font-body)',
@@ -108,7 +114,7 @@ export default async function PlanMyStayPage() {
           maxWidth: 560,
           margin: '0 auto',
         }}>
-          Pick where you&apos;re staying and we&apos;ll build day trips into the surrounding area. Every day starts and ends at your base.
+          {t('planYourStayIntro')}
         </p>
       </header>
 
@@ -134,7 +140,7 @@ export default async function PlanMyStayPage() {
               marginBottom: 12,
               margin: '0 0 12px',
             }}>
-              No regional coverage available yet.
+              {t('noCoverageTitle')}
             </p>
             <p style={{
               fontFamily: 'var(--font-body)',
@@ -143,7 +149,7 @@ export default async function PlanMyStayPage() {
               lineHeight: 1.6,
               margin: 0,
             }}>
-              Check back soon.
+              {t('checkBackSoon')}
             </p>
           </div>
         ) : (
@@ -229,7 +235,7 @@ export default async function PlanMyStayPage() {
                         color: GOLD,
                         marginTop: 12,
                       }}>
-                        Plan from here &rarr;
+                        {t('planFromHere')} &rarr;
                       </span>
                     </div>
                   </Link>

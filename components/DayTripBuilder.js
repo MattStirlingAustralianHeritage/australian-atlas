@@ -1,22 +1,19 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { useTranslations } from 'next-intl'
 import DayTripCard from './DayTripCard'
 
 const SAGE = '#5F8A7E'
 
-const DAY_OPTIONS = [
-  { value: 2, label: '2 days' },
-  { value: 3, label: '3 days' },
-  { value: 4, label: '4 days' },
-  { value: 5, label: '5 days' },
-]
+const DAY_VALUES = [2, 3, 4, 5]
 
 /**
  * "Stay here, explore from here" — day trip generator for Rest Atlas listings.
  * Rendered on listing detail pages when vertical === 'rest'.
  */
 export default function DayTripBuilder({ listing, mapboxToken }) {
+  const t = useTranslations('plan')
   const [numDays, setNumDays] = useState(3)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState(null)
@@ -46,7 +43,7 @@ export default function DayTripBuilder({ listing, mapboxToken }) {
       const data = await res.json()
 
       if (!res.ok || data.error) {
-        setError(data.message || data.error || 'Something went wrong. Please try again.')
+        setError(data.message || data.error || t('errorGeneric'))
         return
       }
 
@@ -57,7 +54,7 @@ export default function DayTripBuilder({ listing, mapboxToken }) {
         resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }, 100)
     } catch {
-      setError('Something went wrong. Please try again.')
+      setError(t('errorGeneric'))
     } finally {
       setLoading(false)
     }
@@ -109,7 +106,7 @@ export default function DayTripBuilder({ listing, mapboxToken }) {
       const url = `${window.location.origin}/day-trip/${tripId}`
       setShareUrl(url)
     } catch {
-      setError('Could not save this trip. Please try again.')
+      setError(t('errorSave'))
     } finally {
       setSaving(false)
     }
@@ -136,13 +133,13 @@ export default function DayTripBuilder({ listing, mapboxToken }) {
           fontSize: 'clamp(20px, 3vw, 26px)', color: 'var(--color-ink)',
           lineHeight: 1.3, margin: '0 0 8px',
         }}>
-          Plan your stay
+          {t('planYourStayTitle')}
         </h2>
         <p style={{
           fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 14,
           color: 'var(--color-muted)', lineHeight: 1.6, margin: 0,
         }}>
-          Use {listing.name} as your base and we&apos;ll plan day trips into the surrounding area.
+          {t('builderIntro', { name: listing.name })}
         </p>
       </div>
 
@@ -156,15 +153,15 @@ export default function DayTripBuilder({ listing, mapboxToken }) {
               letterSpacing: '0.14em', textTransform: 'uppercase',
               color: 'var(--color-muted)', marginBottom: 8,
             }}>
-              How many days?
+              {t('howManyDays')}
             </p>
             <div style={{ display: 'flex', gap: 8 }}>
-              {DAY_OPTIONS.map(opt => {
-                const active = numDays === opt.value
+              {DAY_VALUES.map(value => {
+                const active = numDays === value
                 return (
                   <button
-                    key={opt.value}
-                    onClick={() => setNumDays(opt.value)}
+                    key={value}
+                    onClick={() => setNumDays(value)}
                     style={{
                       fontFamily: 'var(--font-body)', fontWeight: active ? 500 : 400,
                       fontSize: 13, lineHeight: 1.4,
@@ -187,7 +184,7 @@ export default function DayTripBuilder({ listing, mapboxToken }) {
                       }
                     }}
                   >
-                    {opt.label}
+                    {t('nDays', { count: value })}
                   </button>
                 )
               })}
@@ -217,14 +214,14 @@ export default function DayTripBuilder({ listing, mapboxToken }) {
                   borderTopColor: '#fff', borderRadius: '50%',
                   animation: 'dtSpin 0.8s linear infinite',
                 }} />
-                Planning your days from {listing.name}...
+                {t('planningYourDays', { name: listing.name })}
               </>
             ) : (
               <>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z" />
                 </svg>
-                Plan my days
+                {t('planMyDays')}
               </>
             )}
           </button>
@@ -259,9 +256,9 @@ export default function DayTripBuilder({ listing, mapboxToken }) {
               fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 400,
               color: 'var(--color-muted)', margin: 0,
             }}>
-              {result.days.length} day{result.days.length !== 1 ? 's' : ''} &middot;{' '}
-              {result.days.reduce((n, d) => n + d.stops.length, 0)} stops &middot;{' '}
-              within {result.radius_used_km}km
+              {t('dayCount', { count: result.days.length })} &middot;{' '}
+              {t('stopCount', { count: result.days.reduce((n, d) => n + d.stops.length, 0) })} &middot;{' '}
+              {t('withinKm', { km: result.radius_used_km })}
             </p>
             <button
               onClick={() => { setResult(null); setError(null); setShareUrl(null) }}
@@ -272,7 +269,7 @@ export default function DayTripBuilder({ listing, mapboxToken }) {
                 textUnderlineOffset: 3,
               }}
             >
-              Rebuild
+              {t('rebuild')}
             </button>
 
             {/* Save & Share */}
@@ -290,12 +287,12 @@ export default function DayTripBuilder({ listing, mapboxToken }) {
                   display: 'inline-flex', alignItems: 'center', gap: 6,
                 }}
               >
-                {saving ? 'Saving...' : (
+                {saving ? t('saving') : (
                   <>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" y1="2" x2="12" y2="15" />
                     </svg>
-                    Save &amp; share
+                    {t('saveAndShare')}
                   </>
                 )}
               </button>
@@ -313,7 +310,7 @@ export default function DayTripBuilder({ listing, mapboxToken }) {
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
                 </svg>
-                {copied ? 'Copied!' : 'Copy link'}
+                {copied ? t('copied') : t('copyLink')}
               </button>
             )}
           </div>

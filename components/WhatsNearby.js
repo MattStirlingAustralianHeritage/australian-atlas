@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import { VERTICAL_STYLES } from './VerticalBadge'
 import { TypographicCard, VERTICAL_TOKENS } from './ListingCard'
 import { isApprovedImageSource } from '@/lib/image-utils'
@@ -18,6 +19,7 @@ export default function WhatsNearby({
   portalUrl = '',
   limitPerVertical = 3,
 }) {
+  const t = useTranslations('cards')
   const [verticals, setVerticals] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -65,13 +67,13 @@ export default function WhatsNearby({
         color: 'var(--text-3, #999)', marginBottom: 6,
         fontFamily: 'var(--font-sans, "DM Sans", sans-serif)',
       }}>
-        What&apos;s Nearby
+        {t('whatsNearby')}
       </div>
       <div style={{
         fontSize: 13, color: 'var(--text-3, #999)',
         fontFamily: 'var(--font-sans, "DM Sans", sans-serif)', marginBottom: 28,
       }}>
-        From across the Atlas network
+        {t('fromAcrossTheNetwork')}
       </div>
 
       {verticalKeys.map(vKey => {
@@ -142,7 +144,7 @@ export default function WhatsNearby({
                           fontFamily: 'var(--font-sans, "DM Sans", sans-serif)',
                           fontSize: 11, fontWeight: 300, color: 'var(--text-3, #999)',
                         }}>
-                          {item.distance_km < 1 ? '<1' : item.distance_km} km
+                          {t('km', { distance: item.distance_km < 1 ? '<1' : item.distance_km })}
                         </span>
                       </div>
                     </div>

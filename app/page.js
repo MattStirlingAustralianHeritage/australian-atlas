@@ -1,5 +1,7 @@
 import LocalizedLink from '@/components/LocalizedLink'
-import { getTranslations } from 'next-intl/server'
+import { getTranslations, getLocale } from 'next-intl/server'
+import { overlayListingTranslations } from '@/lib/i18n/overlayListings'
+import { localizeVerticalKicker } from '@/lib/i18n/listingLabels'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import HomeSearchBar from '@/components/HomeSearchBar'
 import NewsletterSignup from '@/components/NewsletterSignup'
@@ -400,11 +402,18 @@ async function getUpcomingEvents() {
 
 export default async function Home() {
   const t = await getTranslations('home')
+  const locale = await getLocale()
   const publicVerticals = getPublicVerticals()
   const verticalCount = publicVerticals.length
-  const [stats, articlesRaw, clusters, featured, upcomingEvents, recentListings] = await Promise.all([
+  const [stats, articlesRaw, clustersRaw, featuredRaw, upcomingEvents, recentListingsRaw] = await Promise.all([
     getStats(publicVerticals), getLatestArticles(), getDiscoverClusters(), getFeaturedListings(), getUpcomingEvents(), getRecentListings(),
   ])
+  // Render listing lists in the active locale (English falls through unchanged).
+  const featured = await overlayListingTranslations(featuredRaw, locale)
+  const recentListings = await overlayListingTranslations(recentListingsRaw, locale)
+  const clusters = await Promise.all(
+    clustersRaw.map(async (c) => ({ ...c, picks: await overlayListingTranslations(c.picks, locale) }))
+  )
   // States that actually have upcoming events become the "browse by state"
   // chips (in fixed geographic order); the soonest six show as cards.
   const eventStates = EVENT_STATE_ORDER.filter(s => upcomingEvents.some(e => e.state === s))
@@ -552,7 +561,7 @@ export default async function Home() {
             here so the first viewport IS the atlas. */}
         <LocalizedLink
           href="/map"
-          aria-label="Open the full interactive map of Australia — every verified place, mapped"
+          aria-label={t('heroMapAria')}
           className="hero-map"
         >
           <picture>
@@ -567,7 +576,7 @@ export default async function Home() {
             />
           </picture>
           <span className="hero-map-cta">
-            Open the full map
+            {t('openFullMap')}
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M9 5l7 7-7 7" />
             </svg>
@@ -581,20 +590,21 @@ export default async function Home() {
           pointer) to name itself. Masthead, legend, and quick-nav in one. The
           same ten links live labelled in the index ledger below, so the slim
           bar can be decorative-first without being a fragile mobile tap target. */}
-      <nav className="spectrum-spine" aria-label="Browse the ten kinds by colour">
+      <nav className="spectrum-spine" aria-label={t('spectrumNavAria')}>
         {VERTICAL_GUIDE.filter(v => publicVerticals.includes(v.key)).map((v, i) => {
           const ground = (VERTICAL_CARD_COLORS[v.key] || {}).bg || '#333'
           const count = stats.verticalCounts[v.key]
+          const vName = localizeVerticalKicker(v.key, v.name, locale)
           return (
             <LocalizedLink
               key={v.key}
               href={`/search?vertical=${v.key}`}
               className="spectrum-seg"
               style={{ background: ground, animationDelay: `${i * 40}ms` }}
-              aria-label={`${v.name}${count ? ` — ${count.toLocaleString()} places` : ''}`}
+              aria-label={`${vName}${count ? ` — ${t('countPlaces', { count: count.toLocaleString() })}` : ''}`}
             >
               <span className="spectrum-seg-label">
-                {v.name}{count ? `  ·  ${count.toLocaleString()}` : ''}
+                {vName}{count ? `  ·  ${count.toLocaleString()}` : ''}
               </span>
             </LocalizedLink>
           )
@@ -607,9 +617,9 @@ export default async function Home() {
           loop; the copy row is aria-hidden and untabbable. Pauses on hover;
           reduced-motion collapses it to a static scrollable row. */}
       {recentListings.length >= 8 && (
-        <section className="atlas-ticker" aria-label="Recently added to the Atlas">
+        <section className="atlas-ticker" aria-label={t('recentlyAddedAria')}>
           <span className="atlas-ticker-label">
-            Recently added
+            {t('recentlyAdded')}
           </span>
           <div className="atlas-ticker-viewport">
             <div className="atlas-ticker-track">
@@ -653,20 +663,20 @@ export default async function Home() {
           <div className="max-w-5xl mx-auto px-6 sm:px-12">
             <div className="reveal" style={{ marginBottom: '36px', maxWidth: '560px' }}>
               <p className="section-dateline" style={{ marginBottom: '16px' }}>
-                This week &middot; {editionDate}
+                {t('thisWeekDateline', { date: editionDate })}
               </p>
               <h2 style={{
                 fontFamily: 'var(--font-display)', fontWeight: 400,
                 fontSize: 'clamp(30px, 4vw, 50px)', color: 'var(--color-ink)',
                 lineHeight: 1.1, marginBottom: '12px',
               }}>
-                Worth finding this week
+                {t('worthFindingTitle')}
               </h2>
               <p style={{
                 fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
                 color: 'var(--color-muted)', margin: 0,
               }}>
-                A few of the independent places we think you should know about — one cover story, and a handful more.
+                {t('worthFindingIntro')}
               </p>
             </div>
 
@@ -710,7 +720,7 @@ export default async function Home() {
                         letterSpacing: '0.15em', textTransform: 'uppercase',
                         color: GOLD, marginBottom: '10px',
                       }}>
-                        {VERTICAL_LABELS[lead.vertical] || lead.vertical}
+                        {localizeVerticalKicker(lead.vertical, VERTICAL_LABELS[lead.vertical] || lead.vertical, locale)}
                         {leadRegion ? `  ·  ${leadRegion.name}` : ''}
                       </p>
                       {!lead.hero_image_url && <div style={{ flex: 1, minHeight: 20 }} />}
@@ -759,7 +769,7 @@ export default async function Home() {
                               letterSpacing: '0.15em', textTransform: 'uppercase',
                               color: 'rgba(250,248,244,0.5)', margin: 0,
                             }}>
-                              {VERTICAL_LABELS[listing.vertical] || listing.vertical}
+                              {localizeVerticalKicker(listing.vertical, VERTICAL_LABELS[listing.vertical] || listing.vertical, locale)}
                               {r ? `  ·  ${r.name}` : ''}
                             </p>
                             <h3 style={{
@@ -791,13 +801,13 @@ export default async function Home() {
           <div className="max-w-5xl mx-auto px-6 sm:px-12">
             <div className="reveal" style={{ marginBottom: '30px', maxWidth: '560px' }}>
               <p className="section-dateline" style={{ marginBottom: '14px' }}>
-                From the journal
+                {t('fromTheJournal')}
               </p>
               <h2 style={{
                 fontFamily: 'var(--font-display)', fontWeight: 400,
                 fontSize: 'clamp(28px, 3.6vw, 44px)', color: '#FAF8F4', lineHeight: 1.12,
               }}>
-                Stories from the network
+                {t('storiesFromNetwork')}
               </h2>
             </div>
             {articlesWithImages.length >= 2 ? (
@@ -831,7 +841,7 @@ export default async function Home() {
                           letterSpacing: '0.16em', textTransform: 'uppercase',
                           color: GOLD, marginBottom: '8px',
                         }}>
-                          {VERTICAL_LABELS[article.vertical] || 'Journal'}
+                          {localizeVerticalKicker(article.vertical, VERTICAL_LABELS[article.vertical] || t('journalFallback'), locale)}
                           {article.category && ` · ${article.category}`}
                         </p>
                         <h2 style={{
@@ -858,7 +868,7 @@ export default async function Home() {
                         fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
                         color: GOLD,
                       }}>
-                        Read the story &rarr;
+                        {t('readStory')} &rarr;
                       </span>
                     </div>
                   </a>
@@ -891,7 +901,7 @@ export default async function Home() {
                     letterSpacing: '0.15em', textTransform: 'uppercase',
                     color: GOLD, marginBottom: '6px',
                   }}>
-                    {VERTICAL_LABELS[featuredArticle.vertical] || 'Journal'}
+                    {localizeVerticalKicker(featuredArticle.vertical, VERTICAL_LABELS[featuredArticle.vertical] || t('journalFallback'), locale)}
                     {featuredArticle.category && ` · ${featuredArticle.category}`}
                   </p>
                   <h2 style={{
@@ -915,7 +925,7 @@ export default async function Home() {
                     fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
                     color: GOLD,
                   }}>
-                    Read the story &rarr;
+                    {t('readStory')} &rarr;
                   </span>
                 </div>
               </a>
@@ -942,25 +952,24 @@ export default async function Home() {
         <div className="max-w-6xl mx-auto px-6 sm:px-12">
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_400px] gap-10 lg:gap-16 items-center">
             <div>
-              <p className="section-dateline" style={{ marginBottom: '16px' }}>Make it yours</p>
+              <p className="section-dateline" style={{ marginBottom: '16px' }}>{t('makeItYours')}</p>
               <h2 style={{
                 fontFamily: 'var(--font-display)', fontWeight: 400,
                 fontSize: 'clamp(30px, 4vw, 50px)', color: 'var(--color-ink)', lineHeight: 1.08,
               }}>
-                An atlas that learns your taste
+                {t('learnsYourTaste')}
               </h2>
               <p className="mt-3" style={{
                 fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
                 lineHeight: 1.65, color: 'var(--color-muted)', margin: '14px 0 26px', maxWidth: '44ch',
               }}>
-                Flick through independent Australia one place at a time. Keep the ones
-                that catch your eye — every pick quietly tunes what the Atlas shows you next.
+                {t('discoverIntro')}
               </p>
               <LocalizedLink href="/discover" className="link-quiet" style={{
                 fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px',
                 color: GOLD, textDecoration: 'none',
               }}>
-                Open Discover &rarr;
+                {t('openDiscover')} &rarr;
               </LocalizedLink>
             </div>
             <div>
@@ -980,7 +989,7 @@ export default async function Home() {
             {/* LEFT — Plan a trip feature */}
             <div className="reveal" data-reveal-index={1}>
               <p className="section-dateline" style={{ marginBottom: '18px' }}>
-                Plan a trip
+                {t('planATrip')}
               </p>
               <LocalizedLink
                 href="/on-this-road"
@@ -999,19 +1008,19 @@ export default async function Home() {
                   fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 'clamp(26px, 3vw, 34px)',
                   color: '#FAF8F4', lineHeight: 1.18, marginBottom: 12,
                 }}>
-                  Road trip
+                  {t('roadTrip')}
                 </h3>
                 <p style={{
                   fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px',
                   color: 'rgba(250,248,244,0.62)', lineHeight: 1.6, maxWidth: '34ch',
                 }}>
-                  You know where you&apos;re going. We&apos;ll find the stops — the makers, the lunch, the detour worth taking.
+                  {t('roadTripIntro')}
                 </p>
                 <div style={{ flex: 1, minHeight: 24 }} />
                 <span style={{
                   fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', color: GOLD,
                 }}>
-                  Plan a road trip &rarr;
+                  {t('planRoadTrip')} &rarr;
                 </span>
               </LocalizedLink>
             </div>
@@ -1019,11 +1028,11 @@ export default async function Home() {
             {/* RIGHT — region mosaic */}
             <div className="reveal" data-reveal-index={2}>
               <div className="flex items-baseline justify-between" style={{ gap: '16px', marginBottom: '20px' }}>
-                <p className="section-dateline">By region</p>
+                <p className="section-dateline">{t('byRegion')}</p>
                 <LocalizedLink href="/regions" className="hover:opacity-80 transition-opacity" style={{
                   fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', color: GOLD,
                 }}>
-                  Browse all &rarr;
+                  {t('browseAll')} &rarr;
                 </LocalizedLink>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -1079,7 +1088,7 @@ export default async function Home() {
                             fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12,
                             color: '#C9973F',
                           }}>
-                            {count} places
+                            {t('countPlaces', { count })}
                           </span>
                         )}
                       </div>
@@ -1100,28 +1109,28 @@ export default async function Home() {
       }}>
         <div className="max-w-3xl mx-auto px-6 sm:px-12">
           <p className="section-dateline" style={{ marginBottom: '20px' }}>
-            Plan a stay
+            {t('planAStay')}
           </p>
           <h2 style={{
             fontFamily: 'var(--font-display)', fontWeight: 400,
             fontSize: 'clamp(30px, 4.2vw, 48px)', lineHeight: 1.08,
             color: 'var(--color-ink)', marginBottom: '18px', maxWidth: '640px',
           }}>
-            Tell us the kind of trip. We&apos;ll build the days.
+            {t('planAStayTitle')}
           </h2>
           <p style={{
             fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
             lineHeight: 1.65, color: 'var(--color-muted)',
             maxWidth: '520px', margin: '0 0 32px',
           }}>
-            Coffee to start, a long lunch in the middle, and somewhere good to stay — a day-by-day trip drawn entirely from the independent places listed across the network.
+            {t('planAStayIntro')}
           </p>
           <LocalizedLink href="/plan-a-stay-v2" className="inline-flex items-center gap-2 rounded-full hover:opacity-90 transition-opacity" style={{
             fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px',
             background: '#1A1A1A', color: '#FAF8F4',
             padding: '14px 32px',
           }}>
-            Plan a stay &rarr;
+            {t('planAStay')} &rarr;
           </LocalizedLink>
         </div>
       </section>
@@ -1141,19 +1150,19 @@ export default async function Home() {
           <div className="max-w-5xl mx-auto px-6 sm:px-12">
             <div className="reveal mb-14" style={{ maxWidth: '560px' }}>
               <p className="section-dateline" style={{ marginBottom: '16px' }}>
-                Where it overlaps
+                {t('whereItOverlaps')}
               </p>
               <h2 style={{
                 fontFamily: 'var(--font-display)', fontWeight: 400,
                 fontSize: 'clamp(30px, 4vw, 50px)', color: 'var(--color-ink)', lineHeight: 1.1,
               }}>
-                Discover a cluster
+                {t('discoverCluster')}
               </h2>
               <p className="mt-3" style={{
                 fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
                 color: 'var(--color-muted)', margin: '12px 0 0',
               }}>
-                Regions where makers, stays, culture, and food overlap. One place, many reasons to go.
+                {t('clusterIntro')}
               </p>
             </div>
 
@@ -1185,7 +1194,7 @@ export default async function Home() {
                         fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13,
                         color: 'var(--color-muted)', marginTop: 4,
                       }}>
-                        {cluster.total} places across {cluster.verticalCount} categories
+                        {t('clusterCounts', { total: cluster.total, categories: cluster.verticalCount })}
                       </p>
                     </div>
 
@@ -1212,7 +1221,7 @@ export default async function Home() {
                               letterSpacing: '0.12em', textTransform: 'uppercase',
                               color: 'rgba(250,248,244,0.45)',
                             }}>
-                              {VERTICAL_LABELS[pick.vertical] || pick.vertical}
+                              {localizeVerticalKicker(pick.vertical, VERTICAL_LABELS[pick.vertical] || pick.vertical, locale)}
                             </span>
                             <span style={{
                               fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 400,
@@ -1239,19 +1248,19 @@ export default async function Home() {
         <div className="max-w-5xl mx-auto px-6 sm:px-12">
           <div className="reveal" style={{ marginBottom: '36px', maxWidth: '560px' }}>
             <p className="section-dateline" style={{ marginBottom: '16px' }}>
-              On the calendar
+              {t('onTheCalendar')}
             </p>
             <h2 style={{
               fontFamily: 'var(--font-display)', fontWeight: 400,
               fontSize: 'clamp(30px, 4vw, 50px)', color: 'var(--color-ink)', lineHeight: 1.1,
             }}>
-              What&apos;s on
+              {t('whatsOn')}
             </h2>
             <p className="mt-3" style={{
               fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
               color: 'var(--color-muted)', margin: '12px 0 0',
             }}>
-              Festivals, markets, and long-table dinners across the network.
+              {t('whatsOnIntro')}
             </p>
           </div>
 
@@ -1325,7 +1334,7 @@ export default async function Home() {
                         fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '13px',
                         color: 'var(--color-muted)',
                       }}>
-                        {[EVENT_CATEGORY_LABELS[event.category] || 'Event', [event.suburb, event.state].filter(Boolean).join(', ')].filter(Boolean).join(' · ')}
+                        {[EVENT_CATEGORY_LABELS[event.category] || t('eventFallback'), [event.suburb, event.state].filter(Boolean).join(', ')].filter(Boolean).join(' · ')}
                       </p>
                     </div>
                   </LocalizedLink>
@@ -1336,12 +1345,12 @@ export default async function Home() {
                 <LocalizedLink href="/events" className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity" style={{
                   fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', color: GOLD,
                 }}>
-                  Browse all events &rarr;
+                  {t('browseAllEvents')} &rarr;
                 </LocalizedLink>
                 <LocalizedLink href="/events/submit" className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity" style={{
                   fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', color: 'var(--color-muted)',
                 }}>
-                  Submit an event
+                  {t('submitEvent')}
                 </LocalizedLink>
               </div>
             </>
@@ -1355,19 +1364,19 @@ export default async function Home() {
                 fontFamily: 'var(--font-display)', fontWeight: 400, fontStyle: 'italic',
                 fontSize: '20px', color: 'var(--color-ink)', marginBottom: '10px',
               }}>
-                Nothing on the calendar just yet.
+                {t('noEventsTitle')}
               </p>
               <p style={{
                 fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px',
                 lineHeight: 1.6, color: 'var(--color-muted)', marginBottom: '24px',
               }}>
-                Markets, festivals, openings, and long-table dinners will appear here as they&apos;re announced.
+                {t('noEventsIntro')}
               </p>
               <LocalizedLink href="/events/submit" className="inline-flex items-center gap-2 px-6 py-3 rounded-full hover:opacity-90 transition-opacity" style={{
                 fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
                 background: '#1A1A1A', color: '#FAF8F4',
               }}>
-                Submit an event
+                {t('submitEvent')}
               </LocalizedLink>
             </div>
           )}
@@ -1392,21 +1401,21 @@ export default async function Home() {
             letterSpacing: '0.22em', textTransform: 'uppercase',
             color: GOLD, marginBottom: '18px',
           }}>
-            The Newsletter
+            {t('newsletterKicker')}
           </p>
           <h2 style={{
             fontFamily: 'var(--font-display)', fontWeight: 400,
             fontSize: 'clamp(26px, 3.4vw, 34px)', lineHeight: 1.18,
             color: '#FAF8F4', marginBottom: '14px', textWrap: 'balance',
           }}>
-            One independent place, every week.
+            {t('newsletterTitle')}
           </h2>
           <p style={{
             fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
             lineHeight: 1.65, color: 'rgba(250,248,244,0.6)',
             maxWidth: '460px', margin: '0 auto 28px',
           }}>
-            New openings, the occasional essay, and the quiet finds worth a detour — one considered email a week. No noise, no algorithms.
+            {t('newsletterIntro')}
           </p>
           <NewsletterSignup variant="homepage" />
           <p style={{
@@ -1414,7 +1423,7 @@ export default async function Home() {
             letterSpacing: '0.02em', color: 'rgba(250,248,244,0.4)',
             marginTop: '16px',
           }}>
-            Free. Unsubscribe anytime.
+            {t('newsletterFinePrint')}
           </p>
         </div>
       </section>

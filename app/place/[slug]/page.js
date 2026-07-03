@@ -2,8 +2,9 @@ import { cache } from 'react'
 import { notFound } from 'next/navigation'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
-import { getLocale } from 'next-intl/server'
-import { localizeSubcategory, localizeVerticalCategory, localizeRegionName } from '@/lib/i18n/listingLabels'
+import { getLocale, getTranslations } from 'next-intl/server'
+import { overlayListingTranslations } from '@/lib/i18n/overlayListings'
+import { localizeSubcategory, localizeVerticalCategory, localizeRegionName, localizeVerticalKicker } from '@/lib/i18n/listingLabels'
 import { localizePath } from '@/lib/i18n/config'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getVerticalUrl, getVerticalLabel, getVerticalTagline, getVerticalBrandColour, getPublicVerticals } from '@/lib/verticalUrl'
@@ -634,24 +635,27 @@ function cleanWebsite(url) {
 export async function generateMetadata({ params }) {
   const { slug } = await params
   const locale = await getLocale()
+  const t = await getTranslations('place')
   const listing = await getListing(slug, locale)
-  if (!listing) return { title: 'Place not found' }
+  if (!listing) return { title: t('notFound') }
 
   const rawSubcat = listing._subcategory || listing.sub_type
   const metaSubcategory = localizeSubcategory(rawSubcat, formatSubcategory(rawSubcat), locale)
   const vertLabel = metaSubcategory
     || localizeVerticalCategory(listing.vertical, VERTICAL_CATEGORY_LABELS[listing.vertical], locale)
-    || 'Place'
+    || t('placeFallback')
   const region = getListingRegion(listing)
   const location = [localizeRegionName(region?.name, locale), listing.state].filter(Boolean).join(', ')
   const enUrl = `https://australianatlas.com.au/place/${slug}`
   const koUrl = `https://australianatlas.com.au${localizePath(`/place/${slug}`, 'ko')}`
   const title = location
-    ? `${listing.name} — ${vertLabel} in ${location}`
-    : `${listing.name} — ${vertLabel}`
+    ? t('metaTitleWithLocation', { name: listing.name, category: vertLabel, location })
+    : t('metaTitle', { name: listing.name, category: vertLabel })
   const description = listing.description
     ? listing.description.slice(0, 160)
-    : `Discover ${listing.name}${location ? ` in ${location}` : ''} on Australian Atlas.`
+    : (location
+      ? t('metaDescriptionWithLocation', { name: listing.name, location })
+      : t('metaDescription', { name: listing.name }))
 
   return {
     title: `${title} | Australian Atlas`,
@@ -687,6 +691,7 @@ export async function generateMetadata({ params }) {
 export default async function PlacePage({ params }) {
   const { slug } = await params
   const locale = await getLocale()
+  const t = await getTranslations('place')
   const listing = await getListing(slug, locale)
   if (!listing) notFound()
 
@@ -704,15 +709,19 @@ export default async function PlacePage({ params }) {
   // or plant a misleading "This place" dot. hasPreciseLocation is the same gate
   // the map section renders on below (showExactLocation).
   const canShowMap = hasPreciseLocation(listing)
-  const { listings: mapNearby, radiusKm: mapRadiusKm } = canShowMap
+  let { listings: mapNearby, radiusKm: mapRadiusKm } = canShowMap
     ? await getMapNearbyListings(listing)
     : { listings: [], radiusKm: null }
+  mapNearby = await overlayListingTranslations(mapNearby, locale)
   const mapNearbyIds = mapNearby.map(n => n.id)
 
   // The single surviving related row: "More in [region]", an arrow-navigable
   // carousel. Excludes anything already on the map so we don't show the same
   // card twice on one page; fetch a deeper pool so there's more to scroll to.
-  const regionListings = await getRegionListings(listing, mapNearbyIds, 16)
+  const regionListings = await overlayListingTranslations(
+    await getRegionListings(listing, mapNearbyIds, 16),
+    locale
+  )
 
   // Cross-listed siblings: same slug, different vertical (e.g. a winery+restaurant
   // on both Small Batch and Table). Used by the "Also listed on" meta section.
@@ -776,13 +785,19 @@ export default async function PlacePage({ params }) {
   const cleanRegion = region?.name ? localizeRegionName(region.name, locale) : null
   const regionData = region
 
-  const vertLabel = getVerticalLabel(listing.vertical)
+  // "Table Atlas" → localize the kicker stem ("Table") and re-append the Atlas
+  // word. English is unchanged (kicker falls back to the English stem + " Atlas").
+  const enVertLabel = getVerticalLabel(listing.vertical)
+  const enVertStem = enVertLabel.replace(/\s*Atlas$/i, '')
+  const vertLabel = locale === 'ko'
+    ? `${localizeVerticalKicker(listing.vertical, enVertStem, locale)} 아틀라스`
+    : enVertLabel
   const vertColor = getVerticalBrandColour(listing.vertical) || '#5F8A7E'
   const rawSubcat = listing._subcategory || listing.sub_type
   const specificSubcategory = localizeSubcategory(rawSubcat, formatSubcategory(rawSubcat), locale)
   const categoryLabel = specificSubcategory
     || localizeVerticalCategory(listing.vertical, VERTICAL_CATEGORY_LABELS[listing.vertical], locale)
-    || 'Place'
+    || t('placeFallback')
   const secondarySubcategories = (listing.sub_types || []).slice(1)
     .map(v => localizeSubcategory(v, formatSubcategory(v), locale)).filter(Boolean)
   // National parks are public land with no operator to claim — suppress the
@@ -914,6 +929,7 @@ export default async function PlacePage({ params }) {
           state={listing.state}
           size="hero"
           showVerticalTag
+          locale={locale}
         />
       )}
 
@@ -925,19 +941,19 @@ export default async function PlacePage({ params }) {
           <div className="flex items-center gap-2 mb-6">
             {listing.editors_pick && (
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-white" style={{ background: 'var(--color-ink)' }}>
-                Atlas Select
+                {t('atlasSelect')}
               </span>
             )}
             {listing.is_featured && listing.is_claimed && !listing.editors_pick && (
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-white" style={{ background: 'var(--color-accent)' }}>
-                Featured
+                {t('featured')}
               </span>
             )}
             {isMobile && (
               <span
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium"
                 style={{ background: 'var(--color-cream)', color: 'var(--color-ink)', border: '1px solid var(--color-border)' }}
-                title="No fixed address — location varies"
+                title={t('noFixedAddress')}
               >
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
                   <path d="M3 13h11V6H3v7zm11 0h4l3 3v-3M3 17a2 2 0 104 0M14 17a2 2 0 104 0" strokeLinecap="round" strokeLinejoin="round" />
@@ -978,7 +994,7 @@ export default async function PlacePage({ params }) {
                     className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full text-sm font-medium text-white transition-opacity hover:opacity-90 w-full sm:w-auto"
                     style={{ background: 'var(--color-ink)', fontFamily: 'var(--font-body)', minHeight: 44 }}
                   >
-                    Visit Website
+                    {t('visitWebsiteBtn')}
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                     </svg>
@@ -1003,7 +1019,7 @@ export default async function PlacePage({ params }) {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
-                    Get Directions
+                    {t('getDirections')}
                   </a>
                 )}
                 <SaveListingButton listingId={listing.id} listingName={listing.name} />
@@ -1020,26 +1036,26 @@ export default async function PlacePage({ params }) {
               <div className="p-5">
                 <div className="flex flex-col gap-4">
                   {isMobile ? (
-                    <DetailItem icon="pin" label="Where to find them" value={mobileWhereToFind} />
+                    <DetailItem icon="pin" label={t('whereToFind')} value={mobileWhereToFind} />
                   ) : listing.address && !listing.address_on_request ? (
-                    <DetailItem icon="pin" label="Address" value={listing.address} />
+                    <DetailItem icon="pin" label={t('address')} value={listing.address} />
                   ) : null}
                   {websiteUrl && (
-                    <DetailItem icon="globe" label="Website">
+                    <DetailItem icon="globe" label={t('website')}>
                       <a href={websiteUrl} target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: vertColor }}>
                         {cleanWebsite(listing.website)}
                       </a>
                     </DetailItem>
                   )}
                   {listing.phone && (
-                    <DetailItem icon="phone" label="Phone">
+                    <DetailItem icon="phone" label={t('phone')}>
                       <a href={`tel:${listing.phone}`} className="hover:underline" style={{ color: vertColor }}>
                         {listing.phone}
                       </a>
                     </DetailItem>
                   )}
                   {cleanRegion && (
-                    <DetailItem icon="map" label="Region">
+                    <DetailItem icon="map" label={t('regionLabel')}>
                       <Link
                         href={`/regions/${regionData.slug}`}
                         className="hover:underline"
@@ -1073,7 +1089,7 @@ export default async function PlacePage({ params }) {
                   fontWeight: 600, textTransform: 'uppercase',
                 }}
               >
-                Also listed on
+                {t('alsoListedOn')}
               </p>
               <ul style={{ display: 'flex', flexDirection: 'column', gap: '14px', margin: 0, padding: 0, listStyle: 'none' }}>
                 {crossListedSiblings.map(entry => {
@@ -1127,10 +1143,10 @@ export default async function PlacePage({ params }) {
             <div className="rounded-xl p-6 flex flex-col gap-4" style={{ background: 'rgba(196, 151, 59, 0.12)', border: '1px solid var(--color-border)' }}>
               <div>
                 <h2 id="from-the-maker-heading" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)', margin: 0 }}>
-                  {highlightDef.heading || 'From the operator'}
+                  {highlightDef.heading || t('fromTheOperator')}
                 </h2>
                 <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: '15px', color: 'var(--color-muted)', margin: '4px 0 0' }}>
-                  In their own words
+                  {t('inTheirOwnWords')}
                 </p>
               </div>
               {highlightTextFields.map(f => {
@@ -1172,7 +1188,7 @@ export default async function PlacePage({ params }) {
                 {listing.name && (
                   <><span style={{ fontWeight: 600, color: 'var(--color-ink)' }}>{listing.name}</span>{' · '}</>
                 )}
-                Words supplied by the operator.
+                {t('wordsSuppliedByOperator')}
               </p>
             </div>
           </section>
@@ -1187,7 +1203,7 @@ export default async function PlacePage({ params }) {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16" /></svg>
               </span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 600, color: 'var(--color-ink)', margin: 0 }}>Now hiring</p>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 600, color: 'var(--color-ink)', margin: 0 }}>{t('nowHiring')}</p>
                 {hiring.note && (
                   <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--color-muted)', margin: '2px 0 0', lineHeight: 1.5 }}>{hiring.note}</p>
                 )}
@@ -1198,7 +1214,7 @@ export default async function PlacePage({ params }) {
                   className="inline-flex items-center text-xs font-bold uppercase px-3 py-1.5 rounded text-white"
                   style={{ background: vertColor, letterSpacing: '0.04em', textDecoration: 'none', flexShrink: 0, alignSelf: 'center' }}
                 >
-                  View open roles &rarr;
+                  {t('viewOpenRoles')} &rarr;
                 </a>
               )}
             </div>
@@ -1211,14 +1227,14 @@ export default async function PlacePage({ params }) {
         {operatorStory && (
           <section className="mb-10" aria-labelledby="operator-story-heading">
             <h2 id="operator-story-heading" className="mb-4" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)' }}>
-              The story
+              {t('theStory')}
             </h2>
             <div className="rounded-xl p-6" style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}>
               <div style={{ fontFamily: 'var(--font-display)', fontSize: '16px', lineHeight: 1.75, color: 'var(--color-ink)', whiteSpace: 'pre-wrap' }}>
                 {operatorStory}
               </div>
               <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-muted)', margin: '16px 0 0', paddingTop: '12px', borderTop: '1px solid var(--color-border)', lineHeight: 1.5 }}>
-                In {listing.name}&rsquo;s own words, edited by the Atlas.
+                {t('storyProvenance', { name: listing.name })}
               </p>
             </div>
           </section>
@@ -1235,10 +1251,10 @@ export default async function PlacePage({ params }) {
             <div className="rounded-xl p-6 flex flex-col gap-4" style={{ background: 'rgba(196, 151, 59, 0.12)', border: '1px solid var(--color-border)' }}>
               <div>
                 <h2 id="current-offers-heading" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)', margin: 0 }}>
-                  Current offers
+                  {t('currentOffers')}
                 </h2>
                 <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: '15px', color: 'var(--color-muted)', margin: '4px 0 0' }}>
-                  From the operator
+                  {t('fromTheOperator')}
                 </p>
               </div>
               {currentOffers.map(offer => (
@@ -1246,7 +1262,7 @@ export default async function PlacePage({ params }) {
                   <div className="flex items-baseline justify-between gap-3 flex-wrap">
                     <span style={{ fontFamily: 'var(--font-display)', fontSize: '17px', color: 'var(--color-ink)' }}>{offer.title}</span>
                     <span style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-muted)', whiteSpace: 'nowrap' }}>
-                      Ends {formatOfferDate(offer.valid_to)}
+                      {t('endsDate', { date: formatOfferDate(offer.valid_to) })}
                     </span>
                   </div>
                   {offer.details && (
@@ -1260,7 +1276,7 @@ export default async function PlacePage({ params }) {
                       className="inline-flex items-center self-start text-xs font-bold uppercase px-3 py-1.5 rounded text-white"
                       style={{ background: vertColor, letterSpacing: '0.04em', textDecoration: 'none', marginTop: 2 }}
                     >
-                      View offer &rarr;
+                      {t('viewOffer')} &rarr;
                     </a>
                   )}
                 </div>
@@ -1271,7 +1287,7 @@ export default async function PlacePage({ params }) {
                 {listing.name && (
                   <><span style={{ fontWeight: 600, color: 'var(--color-ink)' }}>{listing.name}</span>{' · '}</>
                 )}
-                Offers supplied by the operator — conditions are theirs; check before you travel.
+                {t('offersSuppliedByOperator')}
               </p>
             </div>
           </section>
@@ -1283,7 +1299,7 @@ export default async function PlacePage({ params }) {
         {recognition.length > 0 && (
           <section className="mb-10" aria-labelledby="recognition-heading">
             <h2 id="recognition-heading" className="mb-4" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)' }}>
-              Recognition
+              {t('recognition')}
             </h2>
             <div className="p-5 rounded-lg" style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}>
               <ul className="flex flex-col gap-3" style={{ margin: 0, padding: 0, listStyle: 'none' }}>
@@ -1299,7 +1315,7 @@ export default async function PlacePage({ params }) {
                             <>
                               {(award.awarded_by || award.year) && ' · '}
                               <a href={award.source_url} target="_blank" rel="noopener noreferrer nofollow" className="hover:underline" style={{ color: vertColor }}>
-                                Source
+                                {t('source')}
                               </a>
                             </>
                           )}
@@ -1310,7 +1326,7 @@ export default async function PlacePage({ params }) {
                 ))}
               </ul>
               <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-muted)', margin: '14px 0 0', paddingTop: '12px', borderTop: '1px solid var(--color-border)', lineHeight: 1.5 }}>
-                Supplied by the operator.
+                {t('suppliedByOperator')}
               </p>
             </div>
           </section>
@@ -1323,7 +1339,7 @@ export default async function PlacePage({ params }) {
         {qna.length > 0 && (
           <section className="mb-10" aria-labelledby="qna-heading">
             <h2 id="qna-heading" className="mb-4" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)' }}>
-              Questions, answered by {listing.name}
+              {t('questionsAnsweredBy', { name: listing.name })}
             </h2>
             <div className="p-5 rounded-lg" style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}>
               <dl className="flex flex-col gap-4" style={{ margin: 0 }}>
@@ -1335,7 +1351,7 @@ export default async function PlacePage({ params }) {
                 ))}
               </dl>
               <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-muted)', margin: '14px 0 0', paddingTop: '12px', borderTop: '1px solid var(--color-border)', lineHeight: 1.5 }}>
-                Answered by the operator.
+                {t('answeredByOperator')}
               </p>
             </div>
           </section>
@@ -1346,7 +1362,7 @@ export default async function PlacePage({ params }) {
         {galleryUrls.length > 0 && (
           <section className="mb-12">
             <h2 className="mb-4" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)' }}>
-              Gallery
+              {t('gallery')}
             </h2>
             <GalleryLightbox images={galleryUrls} name={listing.name} />
           </section>
@@ -1358,7 +1374,7 @@ export default async function PlacePage({ params }) {
         {upcomingEvents.length > 0 && (
           <section className="mb-12">
             <h2 className="mb-4" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)' }}>
-              Upcoming events
+              {t('upcomingEvents')}
             </h2>
             <div className="flex flex-col gap-3">
               {upcomingEvents.map(event => (
@@ -1393,7 +1409,7 @@ export default async function PlacePage({ params }) {
                       )}
                       {event.is_free && (
                         <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(122,143,107,0.16)', color: '#3a7d44' }}>
-                          Free
+                          {t('free')}
                         </span>
                       )}
                     </div>
@@ -1429,16 +1445,16 @@ export default async function PlacePage({ params }) {
         {fgHasDetail && (
           <section className="mb-10">
             <h2 className="mb-4" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)' }}>
-              {fgMeta.entity_type === 'cafe' ? 'Coffee & menu' : 'Roasting & origins'}
+              {fgMeta.entity_type === 'cafe' ? t('coffeeAndMenu') : t('roastingAndOrigins')}
             </h2>
             <div className="p-5 rounded-lg flex flex-col gap-4" style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}>
-              <MetaPillGroup label="Roast Profile" items={fgRoastStyles} vertColor={vertColor} />
-              <MetaPillGroup label="Origins" items={fgOrigins} vertColor={vertColor} />
-              <MetaPillGroup label="Brewing Methods" items={fgBrewing} vertColor={vertColor} />
-              <MetaPillGroup label="Features" items={fgFeatures} vertColor={vertColor} muted />
+              <MetaPillGroup label={t('roastProfile')} items={fgRoastStyles} vertColor={vertColor} />
+              <MetaPillGroup label={t('origins')} items={fgOrigins} vertColor={vertColor} />
+              <MetaPillGroup label={t('brewingMethods')} items={fgBrewing} vertColor={vertColor} />
+              <MetaPillGroup label={t('features')} items={fgFeatures} vertColor={vertColor} muted />
               {fgMeta.has_tasting_room && (
                 <p className="text-sm" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-ink)', margin: 0 }}>
-                  Tasting room available
+                  {t('tastingRoomAvailable')}
                 </p>
               )}
             </div>
@@ -1452,11 +1468,11 @@ export default async function PlacePage({ params }) {
         {sbaHasDetail && (
           <section className="mb-10">
             <h2 className="mb-4" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)' }}>
-              Visiting
+              {t('visiting')}
             </h2>
             <div className="p-5 rounded-lg flex flex-col gap-4" style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}>
-              <MetaPillGroup label="Specialty" items={sbaSubtype ? [sbaSubtype] : []} vertColor={vertColor} />
-              <MetaPillGroup label="Features" items={sbaFeatures} vertColor={vertColor} />
+              <MetaPillGroup label={t('specialty')} items={sbaSubtype ? [sbaSubtype] : []} vertColor={vertColor} />
+              <MetaPillGroup label={t('features')} items={sbaFeatures} vertColor={vertColor} />
             </div>
           </section>
         )}
@@ -1465,13 +1481,13 @@ export default async function PlacePage({ params }) {
         {listing._offers_classes && listing._classes?.length > 0 && (
           <section className="mb-10">
             <h2 className="mb-4" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)' }}>
-              Classes & Workshops
+              {t('classesAndWorkshops')}
             </h2>
             <div className="flex flex-col gap-3">
               {listing._classes.map((cls, i) => {
                 const skillColors = { beginner: '#4a7c59', intermediate: '#b8860b', advanced: '#c04b4b', all_levels: '#4a6fa5' }
-                const skillLabels = { beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced', all_levels: 'All Levels' }
-                const typeLabels = { workshop: 'Workshop', course: 'Course', class: 'Class', masterclass: 'Masterclass', tasting: 'Tasting', tour: 'Tour' }
+                const skillLabels = { beginner: t('skillBeginner'), intermediate: t('skillIntermediate'), advanced: t('skillAdvanced'), all_levels: t('skillAllLevels') }
+                const typeLabels = { workshop: t('classWorkshop'), course: t('classCourse'), class: t('classClass'), masterclass: t('classMasterclass'), tasting: t('classTasting'), tour: t('classTour') }
                 return (
                   <div key={i} className="p-4 rounded-lg" style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}>
                     <div className="flex items-center gap-2 flex-wrap mb-2">
@@ -1491,7 +1507,7 @@ export default async function PlacePage({ params }) {
                       {cls.duration && <span>{cls.duration}</span>}
                       {cls.duration && cls.frequency && <span style={{ opacity: 0.4 }}>&middot;</span>}
                       {cls.frequency && <span>{cls.frequency}</span>}
-                      {cls.group_size && <><span style={{ opacity: 0.4 }}>&middot;</span><span>Max {cls.group_size}</span></>}
+                      {cls.group_size && <><span style={{ opacity: 0.4 }}>&middot;</span><span>{t('maxGroupSize', { size: cls.group_size })}</span></>}
                     </div>
                     {cls.price && <div className="text-sm font-semibold mb-2" style={{ color: 'var(--color-ink)', fontFamily: 'var(--font-body)' }}>{cls.price}</div>}
                     {cls.description && <p className="text-sm mb-3" style={{ color: 'var(--color-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.6 }}>{cls.description}</p>}
@@ -1499,7 +1515,7 @@ export default async function PlacePage({ params }) {
                       <a href={cls.booking_url} target="_blank" rel="noopener noreferrer"
                         className="inline-block text-xs font-bold uppercase px-3 py-1.5 rounded text-white"
                         style={{ background: vertColor, letterSpacing: '0.04em', textDecoration: 'none' }}>
-                        Book this class &rarr;
+                        {t('bookThisClass')} &rarr;
                       </a>
                     )}
                   </div>
@@ -1513,21 +1529,21 @@ export default async function PlacePage({ params }) {
         {listing._wayMeta && (
           <section className="mb-10">
             <h2 className="mb-4" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)' }}>
-              About this operator
+              {t('aboutThisOperator')}
             </h2>
             <div className="p-5 rounded-lg flex flex-col gap-4" style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}>
               {listing._wayMeta.operator_type && (
-                <WayDetailRow label="Operator">
+                <WayDetailRow label={t('wayOperator')}>
                   {WAY_OPERATOR_TYPE_LABELS[listing._wayMeta.operator_type] || formatSubcategory(listing._wayMeta.operator_type)}
                 </WayDetailRow>
               )}
               {listing._wayMeta.aboriginal_community && (
-                <WayDetailRow label="Community / Nation">
+                <WayDetailRow label={t('wayCommunityNation')}>
                   {listing._wayMeta.aboriginal_community}
                 </WayDetailRow>
               )}
               {listing._wayMeta._operatingRegions?.length > 0 && (
-                <WayDetailRow label="Operating regions">
+                <WayDetailRow label={t('wayOperatingRegions')}>
                   <div className="flex flex-wrap gap-1.5">
                     {listing._wayMeta._operatingRegions.map(r => (
                       <Link
@@ -1543,12 +1559,12 @@ export default async function PlacePage({ params }) {
                 </WayDetailRow>
               )}
               {listing._wayMeta.departure_point_name && (
-                <WayDetailRow label="Departing from">
+                <WayDetailRow label={t('wayDepartingFrom')}>
                   {listing._wayMeta.departure_point_name}
                 </WayDetailRow>
               )}
               {listing._wayMeta.accreditations?.length > 0 && (
-                <WayDetailRow label="Accreditations">
+                <WayDetailRow label={t('wayAccreditations')}>
                   <div className="flex flex-wrap gap-1.5">
                     {listing._wayMeta.accreditations.map(a => (
                       <span
@@ -1563,7 +1579,7 @@ export default async function PlacePage({ params }) {
                 </WayDetailRow>
               )}
               {listing._wayMeta.presence_type && listing._wayMeta.presence_type !== 'year_round' && (
-                <WayDetailRow label="Availability">
+                <WayDetailRow label={t('wayAvailability')}>
                   {WAY_PRESENCE_TYPE_LABELS[listing._wayMeta.presence_type] || formatSubcategory(listing._wayMeta.presence_type)}
                 </WayDetailRow>
               )}
@@ -1584,7 +1600,7 @@ export default async function PlacePage({ params }) {
                 fontFamily: 'var(--font-display)', fontWeight: 400,
                 fontSize: '22px', color: 'var(--color-ink)', margin: 0,
               }}>
-                Nearby on Australian Atlas
+                {t('nearby')}
               </h2>
               <Link
                 href={`/map?lng=${listing.lng}&lat=${listing.lat}&zoom=12`}
@@ -1594,7 +1610,7 @@ export default async function PlacePage({ params }) {
                   fontWeight: 500, color: vertColor,
                 }}
               >
-                View on full map &rarr;
+                {t('viewOnFullMap')} &rarr;
               </Link>
             </div>
             <NearbyExplorer
@@ -1621,6 +1637,7 @@ export default async function PlacePage({ params }) {
               <ListingCard
                 key={r.id}
                 listing={r}
+                locale={locale}
                 distanceKm={hasCoords && r.lat != null && r.lng != null
                   ? haversineKm(listing.lat, listing.lng, r.lat, r.lng)
                   : null}
@@ -1644,20 +1661,20 @@ export default async function PlacePage({ params }) {
               fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 400,
               color: 'var(--color-ink)', margin: '0 0 8px',
             }}>
-              Own {listing.name}?
+              {t('ownThisPlace', { name: listing.name })}
             </p>
             <p className="mb-5" style={{
               fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 300,
               color: 'var(--color-muted)', maxWidth: '400px', margin: '0 auto 20px',
             }}>
-              Claim your free listing to update your details and connect with visitors.
+              {t('claimFreeListing')}
             </p>
             <Link
               href={`/claim/${listing.slug}`}
               className="inline-flex items-center gap-2 px-6 py-3 rounded-full text-sm font-medium text-white transition-opacity hover:opacity-90"
               style={{ background: 'var(--color-accent)', fontFamily: 'var(--font-body)', minHeight: 44 }}
             >
-              Claim this listing
+              {t('claimThisListing')}
             </Link>
           </div>
         )}

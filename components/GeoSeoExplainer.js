@@ -9,10 +9,12 @@
  */
 
 import Link from 'next/link'
+import { getTranslations } from 'next-intl/server'
 
-export default function GeoSeoExplainer({ regionName, variant = 'light' }) {
+export default async function GeoSeoExplainer({ regionName, variant = 'light' }) {
+  const t = await getTranslations('placePanels')
   const bg = variant === 'cream' ? 'var(--color-cream)' : 'var(--color-bg)'
-  const regionLabel = regionName || 'your region'
+  const regionLabel = regionName || t('yourRegion')
 
   return (
     <div style={{
@@ -28,20 +30,19 @@ export default function GeoSeoExplainer({ regionName, variant = 'light' }) {
           letterSpacing: '0.12em', textTransform: 'uppercase',
           color: 'var(--color-sage)', marginBottom: 6,
         }}>
-          Discovery Infrastructure
+          {t('discoveryInfrastructure')}
         </p>
         <h3 style={{
           fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 400,
           color: 'var(--color-ink)', lineHeight: 1.3, margin: '0 0 4px',
         }}>
-          How this listing gets discovered
+          {t('howDiscovered')}
         </h3>
         <p style={{
           fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 300,
           color: 'var(--color-muted)', lineHeight: 1.5, margin: '0 0 16px',
         }}>
-          Every listing on Australian Atlas is structured for both traditional search and
-          the emerging AI-powered discovery layer.
+          {t('discoveryIntro')}
         </p>
       </div>
 
@@ -60,14 +61,13 @@ export default function GeoSeoExplainer({ regionName, variant = 'light' }) {
             letterSpacing: '0.08em', textTransform: 'uppercase',
             color: 'var(--color-muted)', marginBottom: 6,
           }}>
-            SEO
+            {t('seoLabel')}
           </p>
           <p style={{
             fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 300,
             color: 'var(--color-muted)', lineHeight: 1.5, margin: 0,
           }}>
-            Structured schema.org data, canonical URL, and regional page links help search
-            engines surface this listing for relevant queries about {regionLabel}.
+            {t('seoBody', { region: regionLabel })}
           </p>
         </div>
 
@@ -79,7 +79,7 @@ export default function GeoSeoExplainer({ regionName, variant = 'light' }) {
               letterSpacing: '0.08em', textTransform: 'uppercase',
               color: 'var(--color-sage)', margin: 0,
             }}>
-              GEO
+              {t('geoLabel')}
             </p>
             <span style={{
               fontFamily: 'var(--font-body)', fontSize: 9, fontWeight: 600,
@@ -87,15 +87,14 @@ export default function GeoSeoExplainer({ regionName, variant = 'light' }) {
               color: 'white', background: 'var(--color-sage)',
               padding: '1px 6px', borderRadius: 99,
             }}>
-              Emerging
+              {t('emerging')}
             </span>
           </div>
           <p style={{
             fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 300,
             color: 'var(--color-muted)', lineHeight: 1.5, margin: 0,
           }}>
-            Verified entity data and cross-vertical linking make this listing citable by AI
-            tools like ChatGPT and Google AI Overviews when answering travel questions.
+            {t('geoBody')}
           </p>
         </div>
       </div>
@@ -114,7 +113,7 @@ export default function GeoSeoExplainer({ regionName, variant = 'light' }) {
             textUnderlineOffset: 3,
           }}
         >
-          Learn more about discovery infrastructure for councils
+          {t('learnMoreCouncils')}
         </Link>
       </div>
     </div>

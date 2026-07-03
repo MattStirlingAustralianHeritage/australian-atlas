@@ -1,6 +1,7 @@
 'use client'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { useRef, useEffect, useState, useCallback } from 'react'
+import { useTranslations, useLocale } from 'next-intl'
 import { createPortal } from 'react-dom'
 import { getVerticalUrl, getVerticalBadge, getVerticalLabel, getVerticalBrandColour, getPublicVerticals } from '@/lib/verticalUrl'
 import { listingVerticals } from '@/lib/listings/verticalFilter'
@@ -304,16 +305,17 @@ function hardTermsIn(tokens) {
   return tokens.filter(t => HARD_TERMS.has(t))
 }
 
-const placesLabel = (n) => `${n.toLocaleString()} ${n === 1 ? 'place' : 'places'}`
+const placesLabel = (n, t) => t('placesCount', { count: n })
 
 // Human label for a Mapbox geocoding result's primary type, so a town reads as
 // a distinct, selectable thing in the location dropdown (vs a suburb/postcode).
-const PLACE_TYPE_LABEL = {
-  place: 'Town / City', locality: 'Locality', neighborhood: 'Suburb',
-  postcode: 'Postcode', region: 'State / Region', district: 'District',
-  address: 'Address', country: 'Country',
+// Maps to translation keys resolved in the component (t is locale-aware).
+const PLACE_TYPE_KEY = {
+  place: 'placeTypeTownCity', locality: 'placeTypeLocality', neighborhood: 'placeTypeSuburb',
+  postcode: 'placeTypePostcode', region: 'placeTypeStateRegion', district: 'placeTypeDistrict',
+  address: 'placeTypeAddress', country: 'placeTypeCountry',
 }
-const placeTypeLabel = (f) => PLACE_TYPE_LABEL[f?.place_type?.[0]] || 'Place'
+const placeTypeLabel = (f, t) => t(PLACE_TYPE_KEY[f?.place_type?.[0]] || 'placeTypePlace')
 
 // Small location-pin glyph — marks town/place rows in the search dropdown so
 // they read distinct from the venue-name results above them.
@@ -354,12 +356,28 @@ export default function MapClient({
   publicVerticals = null,
 }) {
   const isEmbedded = mode === 'embedded'
+  const t = useTranslations('map')
+  // Active locale — appended to the pin + card fetches so popups/preview cards
+  // show translated listing content under /ko (English default unchanged).
+  const locale = useLocale()
+
+  // Translated strings for the raw-HTML popup (embedded mode). buildPopupHTML
+  // is a module-level function so it can't call the hook itself.
+  const popupStrings = {
+    featured: t('featured'),
+    youAreHere: t('youAreHere'),
+    viewListing: t('viewListing'),
+    kmAwayShort: t('kmAwayUnderOne'),
+    kmAway: (n) => t('kmAway', { distance: n }),
+  }
+  const popupStringsRef = useRef(popupStrings)
+  useEffect(() => { popupStringsRef.current = popupStrings })
 
   // Legend + filter chips derive from the public-vertical list. Fullscreen
   // /map passes it from the server so the WAY_ATLAS_PUBLIC override is honoured;
   // other callers fall back to the registry default (gated verticals excluded).
   const verticalKeys = publicVerticals || getPublicVerticals()
-  const verticalFilters = [{ key: 'all', label: 'All' }, ...verticalKeys.map(k => ({ key: k, label: getVerticalBadge(k) }))]
+  const verticalFilters = [{ key: 'all', label: t('all') }, ...verticalKeys.map(k => ({ key: k, label: getVerticalBadge(k) }))]
   const mapContainer = useRef(null)
   const map = useRef(null)
   const popup = useRef(null)      // embedded mode only
@@ -707,7 +725,7 @@ export default function MapClient({
     }
     async function fetchData() {
       try {
-        const res = await fetch('/api/map')
+        const res = await fetch(`/api/map?locale=${encodeURIComponent(locale)}`)
         if (!res.ok) throw new Error('fetch failed')
         const { listings: data } = await res.json()
         setAllListings(annotateDisplayGeometry(data || []))
@@ -718,7 +736,7 @@ export default function MapClient({
       setLoading(false)
     }
     fetchData()
-  }, [prefilteredListings])
+  }, [prefilteredListings, locale])
 
   // ── Viewport → gazetteer sync ──
   const updateInView = useCallback(() => {
@@ -759,7 +777,7 @@ export default function MapClient({
     if (!missing.length) return
     missing.forEach(id => cardFetchInFlight.current.add(id))
     const idsParam = [...missing].sort().join(',')
-    fetch(`/api/map/cards?ids=${idsParam}`)
+    fetch(`/api/map/cards?ids=${idsParam}&locale=${encodeURIComponent(locale)}`)
       .then(r => r.json())
       .then(({ cards }) => {
         setCardMeta(prev => {
@@ -1140,7 +1158,7 @@ export default function MapClient({
               // "View listing →" button — clicking the page you're already on
               // would be a dead end.
               const isCurrent = highlightListingId && props.id === highlightListingId
-              popup.current.setLngLat(coords).setHTML(buildPopupHTML(props, { isCurrent })).addTo(m)
+              popup.current.setLngLat(coords).setHTML(buildPopupHTML(props, { isCurrent, strings: popupStringsRef.current })).addTo(m)
             } else {
               const l = listingsRef.current.find(x => x.id === props.id)
               if (l) selectListing(l)
@@ -1332,7 +1350,7 @@ export default function MapClient({
     setFocusFilter(l.id)
     const coords = displayCoords(l)
     const isCurrent = highlightListingId && l.id === highlightListingId
-    popup.current.setLngLat(coords).setHTML(buildPopupHTML(listingToProps(l), { isCurrent })).addTo(m)
+    popup.current.setLngLat(coords).setHTML(buildPopupHTML(listingToProps(l), { isCurrent, strings: popupStringsRef.current })).addTo(m)
   }, [focusListingId, mapReady, highlightListingId, isEmbedded])
 
   // Mapbox canvases don't track size while display:none — recalc when the
@@ -1431,7 +1449,7 @@ export default function MapClient({
         ? { background: 'rgba(250,248,245,0.97)', backdropFilter: 'blur(8px)', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }
         : { background: 'transparent' }),
     }}>
-      {[{ key: 'map', label: 'Map' }, { key: 'builder', label: 'Build a trail' }].map(tab => (
+      {[{ key: 'map', label: t('tabMap') }, { key: 'builder', label: t('tabBuildTrail') }].map(tab => (
         <button key={tab.key} onClick={() => {
           // On phones the builder is its own full-screen page with its own
           // Builder/Map tabs — iframing it here would stack a second tab bar on
@@ -1464,7 +1482,7 @@ export default function MapClient({
       ...widthStyle,
     }}>
       {venueMatches.length > 0 && (
-        <div style={{ padding: '7px 11px 3px', fontSize: 8.5, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-muted)' }}>Venues</div>
+        <div style={{ padding: '7px 11px 3px', fontSize: 8.5, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-muted)' }}>{t('venues')}</div>
       )}
       {venueMatches.map(l => (
         <button key={l.id} onClick={() => jumpToVenue(l)} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '8px 11px', minHeight: 40, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-sans)' }}>
@@ -1476,7 +1494,7 @@ export default function MapClient({
         </button>
       ))}
       {placeResults.length > 0 && (
-        <div style={{ padding: '7px 11px 3px', fontSize: 8.5, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-muted)', borderTop: venueMatches.length ? '1px solid var(--color-border)' : 'none' }}>Towns &amp; places</div>
+        <div style={{ padding: '7px 11px 3px', fontSize: 8.5, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-muted)', borderTop: venueMatches.length ? '1px solid var(--color-border)' : 'none' }}>{t('townsAndPlaces')}</div>
       )}
       {placeResults.slice(0, 5).map(f => (
         <button key={f.id} onClick={() => handlePlaceSelect(f)} style={{ display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 11px', minHeight: 40, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-sans)' }}>
@@ -1485,7 +1503,7 @@ export default function MapClient({
             <span style={{ display: 'block', fontSize: 12.5, color: 'var(--color-ink)', fontWeight: 500, lineHeight: 1.3, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.text}</span>
             <span style={{ display: 'block', fontSize: 10, color: 'var(--color-muted)', marginTop: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.place_name.replace(f.text + ', ', '')}</span>
           </span>
-          <span style={{ flexShrink: 0, fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#5f8a7e', background: 'rgba(95,138,126,0.1)', borderRadius: 3, padding: '2px 6px' }}>{placeTypeLabel(f)}</span>
+          <span style={{ flexShrink: 0, fontSize: 9, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#5f8a7e', background: 'rgba(95,138,126,0.1)', borderRadius: 3, padding: '2px 6px' }}>{placeTypeLabel(f, t)}</span>
         </button>
       ))}
     </div>
@@ -1502,8 +1520,8 @@ export default function MapClient({
       }
       if (e.key === 'Escape') setShowSearchDropdown(false)
     },
-    placeholder: 'Search venues, towns, places…',
-    'aria-label': 'Search venues, towns and places',
+    placeholder: t('searchPlaceholder'),
+    'aria-label': t('searchAriaLabel'),
   }
 
   const selectedMeta = selected ? cardMeta[selected.id] : null
@@ -1534,7 +1552,7 @@ export default function MapClient({
           <iframe
             src="/trails/builder?embed=1&tab=builder"
             style={{ width: '100%', height: '100%', border: 'none' }}
-            title="Trail Builder"
+            title={t('trailBuilder')}
           />
         </div>
       )}
@@ -1584,20 +1602,20 @@ export default function MapClient({
             <select
               value={stateFilter}
               onChange={e => setStateFilter(e.target.value)}
-              aria-label="Filter by state"
+              aria-label={t('filterByState')}
               style={{
                 padding: '6px 10px', borderRadius: 6, border: '1px solid var(--color-border)',
                 background: stateFilter !== 'All States' ? 'rgba(95,138,126,0.12)' : '#fff',
                 color: 'var(--color-ink)', fontSize: 11.5, fontWeight: 500, fontFamily: 'var(--font-sans)', cursor: 'pointer', outline: 'none',
               }}
             >
-              {STATES.map(s => <option key={s} value={s}>{s}</option>)}
+              {STATES.map(s => <option key={s} value={s}>{s === 'All States' ? t('allStates') : s}</option>)}
             </select>
             <div role="status" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, color: 'var(--color-muted)' }}>
-              <span>{loading ? 'Loading…' : filterBusy ? 'Searching…' : placesLabel(count)}</span>
+              <span>{loading ? t('loading') : filterBusy ? t('searchingShort') : placesLabel(count, t)}</span>
               {activeFilterCount > 0 && (
                 <button onClick={clearAllFilters} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: 11, fontWeight: 600, color: PRIMARY, fontFamily: 'var(--font-sans)' }}>
-                  Clear filters
+                  {t('clearFilters')}
                 </button>
               )}
             </div>
@@ -1606,13 +1624,13 @@ export default function MapClient({
           {/* Row 2: sub-type pills (only visible when a vertical is selected) */}
           {hasSubTypes && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 20px 10px', borderBottom: '1px solid var(--color-border)', background: 'rgba(250,248,245,0.97)', backdropFilter: 'blur(8px)', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', fontFamily: 'var(--font-sans)', marginRight: 4 }}>Type</span>
+              <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', fontFamily: 'var(--font-sans)', marginRight: 4 }}>{t('type')}</span>
               <button onClick={() => setSubTypeFilter('all')} style={{
                 padding: '4px 10px', borderRadius: 12, border: `1px solid ${subTypeFilter === 'all' ? verticalColor(singleSelectedVertical) : 'var(--color-border)'}`,
                 cursor: 'pointer', fontSize: 10, fontWeight: 500, fontFamily: 'var(--font-sans)',
                 background: subTypeFilter === 'all' ? verticalColor(singleSelectedVertical) : 'transparent',
                 color: subTypeFilter === 'all' ? '#fff' : 'var(--color-muted)', transition: 'all 0.15s',
-              }}>All</button>
+              }}>{t('all')}</button>
               {Object.entries(currentSubTypes).map(([key, label]) => (
                 <button key={key} onClick={() => setSubTypeFilter(key)} style={{
                   padding: '4px 10px', borderRadius: 12, border: `1px solid ${subTypeFilter === key ? verticalColor(singleSelectedVertical) : 'var(--color-border)'}`,
@@ -1661,7 +1679,7 @@ export default function MapClient({
             {/* Collapse handle */}
             <button
               onClick={togglePanel}
-              aria-label={panelOpen ? 'Hide list' : 'Show list'}
+              aria-label={panelOpen ? t('hideList') : t('showList')}
               aria-expanded={panelOpen}
               style={{
                 position: 'absolute', top: '50%', right: -22, transform: 'translateY(-50%)',
@@ -1703,7 +1721,7 @@ export default function MapClient({
             {highlightListing && (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 10.5, color: 'var(--color-muted)', fontFamily: 'var(--font-sans, sans-serif)' }}>
                 <span style={{ width: 9, height: 9, borderRadius: '50%', background: highlightColor, boxShadow: `0 0 0 2px ${highlightColor}55` }} />
-                This place
+                {t('thisPlace')}
               </span>
             )}
             {embeddedLegend.map(v => (
@@ -1720,7 +1738,7 @@ export default function MapClient({
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 6, pointerEvents: 'none' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(250,248,245,0.97)', border: '1px solid var(--color-border)', borderRadius: 6, padding: '12px 18px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
               <span className="map-spinner" />
-              <span style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--color-muted)', letterSpacing: '0.04em' }}>Loading the atlas…</span>
+              <span style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--color-muted)', letterSpacing: '0.04em' }}>{t('loadingTheAtlas')}</span>
             </div>
           </div>
         )}
@@ -1732,13 +1750,13 @@ export default function MapClient({
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 6, pointerEvents: 'none' }}>
             <div style={{ pointerEvents: 'auto', textAlign: 'center', background: 'rgba(250,248,245,0.97)', border: '1px solid var(--color-border)', borderRadius: 6, padding: '20px 26px', boxShadow: '0 4px 20px rgba(0,0,0,0.10)', maxWidth: 320 }}>
               <div style={{ fontFamily: 'Georgia, serif', fontSize: 16, color: 'var(--color-ink)', marginBottom: 6 }}>
-                {filterActive ? `Nothing matches “${appliedPinQuery}”` : 'No places match these filters'}
+                {filterActive ? t('nothingMatchesQuery', { query: appliedPinQuery }) : t('noPlacesMatchFilters')}
               </div>
               <div style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--color-muted)', lineHeight: 1.5, marginBottom: 14 }}>
-                {filterActive ? 'Try fewer words, a different phrasing, or clear the filter.' : 'Try widening the category and state filters.'}
+                {filterActive ? t('filterEmptyHint') : t('filtersEmptyHint')}
               </div>
               <button onClick={clearAllFilters} style={{ padding: '8px 18px', background: PRIMARY, color: '#fff', border: 'none', borderRadius: 2, cursor: 'pointer', fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', fontFamily: 'var(--font-sans)' }}>
-                Clear all filters
+                {t('clearAllFilters')}
               </button>
             </div>
           </div>
@@ -1756,7 +1774,7 @@ export default function MapClient({
               <input type="text" inputMode="search" {...searchInputProps}
                 style={{ width: '100%', padding: '11px 38px 11px 34px', background: 'rgba(255,255,255,0.98)', border: '1px solid var(--color-border)', color: 'var(--color-ink)', fontSize: 14, outline: 'none', borderRadius: 10, fontFamily: 'var(--font-sans)', boxSizing: 'border-box', boxShadow: '0 2px 10px rgba(0,0,0,0.12)' }} />
               {query && (
-                <button onClick={() => { setQuery(''); setPlaceResults([]); setShowSearchDropdown(false) }} aria-label="Clear search" style={{ position: 'absolute', right: 6, width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-muted)' }}>
+                <button onClick={() => { setQuery(''); setPlaceResults([]); setShowSearchDropdown(false) }} aria-label={t('clearSearch')} style={{ position: 'absolute', right: 6, width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-muted)' }}>
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
                 </button>
               )}
@@ -1780,7 +1798,7 @@ export default function MapClient({
             fontFamily: 'var(--font-sans)', fontSize: 10, fontWeight: 600, letterSpacing: '0.04em', color: 'var(--color-muted)',
             boxShadow: '0 1px 6px rgba(0,0,0,0.06)',
           }}>
-            {loading ? 'Loading…' : filterBusy ? 'Searching…' : placesLabel(count)}
+            {loading ? t('loading') : filterBusy ? t('searchingShort') : placesLabel(count, t)}
           </div>
         )}
 
@@ -1816,8 +1834,8 @@ export default function MapClient({
                 value={pinQuery}
                 onChange={e => setPinQuery(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Escape') setPinQuery('') }}
-                placeholder="Filter the map — try ‘breweries in the Mornington Peninsula’"
-                aria-label="Filter the map by keyword"
+                placeholder={t('filterPlaceholderLong')}
+                aria-label={t('filterAriaLabel')}
                 style={{
                   flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent',
                   fontFamily: 'var(--font-sans)', fontSize: 14, color: 'var(--color-ink)', letterSpacing: '0.005em',
@@ -1826,7 +1844,7 @@ export default function MapClient({
               {/* Status cluster: spinner while resolving; a sage count chip once
                   matches are known; a clear button always available with a query. */}
               {filterBusy && (
-                <span aria-label="Searching" title="Searching the atlas…" style={{
+                <span aria-label={t('searching')} title={t('searchingAtlas')} style={{
                   width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
                   border: '2px solid rgba(95,138,126,0.28)', borderTopColor: '#5f8a7e',
                   animation: 'map-spin 0.7s linear infinite',
@@ -1841,11 +1859,11 @@ export default function MapClient({
                   fontFamily: 'var(--font-sans)', fontSize: 11.5, fontWeight: 600, letterSpacing: '0.01em',
                   whiteSpace: 'nowrap',
                 }}>
-                  {count > 0 ? `${count.toLocaleString()} ${count === 1 ? 'match' : 'matches'}` : 'No matches'}
+                  {count > 0 ? t('matchesCount', { count }) : t('noMatches')}
                 </span>
               )}
               {pinQuery && (
-                <button onClick={() => setPinQuery('')} aria-label="Clear filter" style={{
+                <button onClick={() => setPinQuery('')} aria-label={t('clearFilter')} style={{
                   flexShrink: 0, width: 26, height: 26, borderRadius: '50%', border: 'none', cursor: 'pointer',
                   background: 'rgba(28,26,23,0.06)', color: 'var(--color-muted)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -1861,12 +1879,12 @@ export default function MapClient({
         {!isEmbedded && (
         <div className="map-desktop-toolbar" style={{ position: 'absolute', bottom: 40, left: panelOpen ? PANEL_W + 16 : 16, transition: 'left 0.38s cubic-bezier(0.22, 1, 0.36, 1)', background: 'rgba(250,248,245,0.97)', border: '1px solid var(--color-border)', borderRadius: 4, zIndex: 5, overflow: 'hidden' }}>
           <button onClick={() => setLegendCollapsed(c => !c)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '10px 14px', background: 'none', border: 'none', cursor: 'pointer', gap: 24 }}>
-            <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', fontFamily: 'var(--font-sans)' }}>Legend</span>
+            <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', fontFamily: 'var(--font-sans)' }}>{t('legend')}</span>
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--color-muted)" strokeWidth="2.5" style={{ transform: legendCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}><path d="M6 9l6 6 6-6"/></svg>
           </button>
           {!legendCollapsed && (
             <div style={{ padding: '0 14px 12px' }}>
-              <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', marginBottom: 8, fontFamily: 'var(--font-sans)' }}>Atlas Verticals</div>
+              <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', marginBottom: 8, fontFamily: 'var(--font-sans)' }}>{t('atlasVerticals')}</div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px' }}>
                 {verticalKeys.map(v => (
                   <div key={v} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1876,10 +1894,10 @@ export default function MapClient({
                 ))}
               </div>
               <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--color-border)' }}>
-                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', marginBottom: 6, fontFamily: 'var(--font-sans)' }}>Listing Type</div>
+                <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', marginBottom: 6, fontFamily: 'var(--font-sans)' }}>{t('listingType')}</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#9a8878', display: 'inline-block' }} /><span style={{ fontSize: 10, color: 'var(--color-muted)' }}>Standard</span></div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 9, height: 9, borderRadius: '50%', background: PREMIUM_COLOR, display: 'inline-block' }} /><span style={{ fontSize: 10, color: 'var(--color-muted)' }}>Featured</span></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#9a8878', display: 'inline-block' }} /><span style={{ fontSize: 10, color: 'var(--color-muted)' }}>{t('standard')}</span></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 9, height: 9, borderRadius: '50%', background: PREMIUM_COLOR, display: 'inline-block' }} /><span style={{ fontSize: 10, color: 'var(--color-muted)' }}>{t('featured')}</span></div>
                 </div>
               </div>
             </div>
@@ -1890,7 +1908,7 @@ export default function MapClient({
         {/* ── MOBILE FABs — fullscreen mode only ── */}
         {!isEmbedded && (
         <>
-        <button className="map-mobile-only" onClick={() => setMobileSheetOpen(o => !o)} aria-label="Filters" style={{
+        <button className="map-mobile-only" onClick={() => setMobileSheetOpen(o => !o)} aria-label={t('filters')} style={{
           position: 'absolute', bottom: 100, right: 16, zIndex: 10,
           width: 48, height: 48, borderRadius: '50%',
           background: mobileSheetOpen ? PRIMARY : 'rgba(250,248,245,0.97)',
@@ -1923,14 +1941,14 @@ export default function MapClient({
           boxShadow: '0 2px 12px rgba(0,0,0,0.15)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer',
-        }} aria-label="Use my location">
+        }} aria-label={t('useMyLocation')}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={PRIMARY} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="3" />
             <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
           </svg>
         </button>
 
-        <button className="map-mobile-only" onClick={() => setMobileLegendOpen(o => !o)} aria-label="Legend" style={{
+        <button className="map-mobile-only" onClick={() => setMobileLegendOpen(o => !o)} aria-label={t('legend')} style={{
           position: 'absolute', bottom: 220, right: 16, zIndex: 10,
           width: 48, height: 48, borderRadius: '50%',
           background: 'rgba(250,248,245,0.97)', border: '1px solid var(--color-border)',
@@ -1947,7 +1965,7 @@ export default function MapClient({
             background: 'rgba(250,248,245,0.97)', border: '1px solid var(--color-border)',
             borderRadius: 6, padding: '12px 14px', boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
           }}>
-            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', marginBottom: 8 }}>Atlas Verticals</div>
+            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', marginBottom: 8 }}>{t('atlasVerticals')}</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 16px' }}>
               {verticalKeys.map(v => (
                 <div key={v} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1970,7 +1988,7 @@ export default function MapClient({
             fontFamily: 'var(--font-sans)', fontSize: 12.5, fontWeight: 600, letterSpacing: '0.03em',
           }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
-            List{mapReady && !loading ? ` · ${inView.total.toLocaleString()}` : ''}
+            {t('list')}{mapReady && !loading ? ` · ${inView.total.toLocaleString()}` : ''}
           </button>
         )}
 
@@ -2030,7 +2048,7 @@ export default function MapClient({
 
             {/* Vertical filters */}
             <div style={{ padding: '0 20px 14px', borderBottom: '1px solid var(--color-border)' }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', marginBottom: 10, fontFamily: 'var(--font-sans)' }}>Category</div>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', marginBottom: 10, fontFamily: 'var(--font-sans)' }}>{t('category')}</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {verticalFilters.map(v => {
                   const active = v.key === 'all' ? isAllVerticals : selectedVerticals.has(v.key)
@@ -2050,7 +2068,7 @@ export default function MapClient({
             {/* Sub-type filters (only when vertical is selected) */}
             {hasSubTypes && (
               <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--color-border)' }}>
-                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', marginBottom: 10, fontFamily: 'var(--font-sans)' }}>Type</div>
+                <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', marginBottom: 10, fontFamily: 'var(--font-sans)' }}>{t('type')}</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                   <button onClick={() => setSubTypeFilter('all')} style={{
                     padding: '10px 16px', borderRadius: 20, minHeight: 44,
@@ -2058,7 +2076,7 @@ export default function MapClient({
                     cursor: 'pointer', fontSize: 13, fontWeight: 500, fontFamily: 'var(--font-sans)',
                     background: subTypeFilter === 'all' ? verticalColor(singleSelectedVertical) : 'transparent',
                     color: subTypeFilter === 'all' ? '#fff' : 'var(--color-muted)', transition: 'all 0.15s',
-                  }}>All</button>
+                  }}>{t('all')}</button>
                   {Object.entries(currentSubTypes).map(([key, label]) => (
                     <button key={key} onClick={() => { setSubTypeFilter(key); setMobileSheetOpen(false) }} style={{
                       padding: '10px 16px', borderRadius: 20, minHeight: 44,
@@ -2074,7 +2092,7 @@ export default function MapClient({
 
             {/* State filters */}
             <div style={{ padding: '14px 20px' }}>
-              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', marginBottom: 10, fontFamily: 'var(--font-sans)' }}>State</div>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted)', marginBottom: 10, fontFamily: 'var(--font-sans)' }}>{t('state')}</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 {STATES.map(s => (
                   <button key={s} onClick={() => { setStateFilter(s); setMobileSheetOpen(false) }} style={{
@@ -2083,7 +2101,7 @@ export default function MapClient({
                     cursor: 'pointer', fontSize: 13, fontWeight: 500, fontFamily: 'var(--font-sans)',
                     background: stateFilter === s ? PRIMARY : 'transparent',
                     color: stateFilter === s ? '#fff' : 'var(--color-muted)', transition: 'all 0.15s',
-                  }}>{s}</button>
+                  }}>{s === 'All States' ? t('allStates') : s}</button>
                 ))}
               </div>
             </div>
@@ -2091,12 +2109,12 @@ export default function MapClient({
             {/* Count + clear */}
             <div style={{ padding: '0 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span role="status" style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--color-muted)' }}>
-                {loading ? 'Loading…' : placesLabel(count)}
+                {loading ? t('loading') : placesLabel(count, t)}
               </span>
               {activeFilterCount > 0 && (
                 <button onClick={clearAllFilters}
                   style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: PRIMARY, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
-                  Clear all filters
+                  {t('clearAllFilters')}
                 </button>
               )}
             </div>
@@ -2186,12 +2204,17 @@ function listingToProps(l) {
 // `props` is either listingToProps() output or mapbox feature.properties —
 // the latter stringifies values, hence the 'null'/'true' string checks.
 // (Embedded mode only — the fullscreen map renders <MapPreviewCard/> instead.)
-function buildPopupHTML(props, { isCurrent = false } = {}) {
+function buildPopupHTML(props, { isCurrent = false, strings = {} } = {}) {
+  const s = {
+    featured: 'Featured', youAreHere: 'You are here', viewListing: 'View listing',
+    kmAwayShort: '<1 km away', kmAway: (n) => `${n} km away`,
+    ...strings,
+  }
   const desc = props.description && props.description !== 'null'
     ? (props.description.length > 120 ? props.description.slice(0, 120).trimEnd() + '…' : props.description)
     : ''
   const featuredBadge = props.featured === true || props.featured === 'true'
-    ? `<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(200,148,58,0.12);border:1px solid rgba(200,148,58,0.3);padding:2px 7px;border-radius:2px;font-size:9px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:${PREMIUM_COLOR};">★ Featured</span>`
+    ? `<span style="display:inline-flex;align-items:center;gap:3px;background:rgba(200,148,58,0.12);border:1px solid rgba(200,148,58,0.3);padding:2px 7px;border-radius:2px;font-size:9px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:${PREMIUM_COLOR};">★ ${esc(s.featured)}</span>`
     : ''
   const subLabel = props.subTypeLabel && props.subTypeLabel !== 'null'
     ? `<span style="display:inline-flex;align-items:center;gap:5px;background:rgba(95,138,126,0.08);border:1px solid rgba(95,138,126,0.2);padding:3px 9px;border-radius:2px;"><span style="font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#6b6560;">${esc(props.subTypeLabel)}</span></span>`
@@ -2208,15 +2231,15 @@ function buildPopupHTML(props, { isCurrent = false } = {}) {
   const distNum = props.distance != null && props.distance !== '' && props.distance !== 'null'
     ? parseFloat(props.distance) : NaN
   const distText = !isCurrent && !Number.isNaN(distNum) && distNum > 0
-    ? (distNum < 1 ? '<1 km away' : `${distNum < 10 ? distNum.toFixed(1) : Math.round(distNum)} km away`)
+    ? (distNum < 1 ? s.kmAwayShort : s.kmAway(distNum < 10 ? distNum.toFixed(1) : Math.round(distNum)))
     : ''
 
   // The pin for the current listing (embedded mode) shows a "You are here"
   // badge instead of a self-linking "View listing →" button — clicking the
   // page you're already on would be a dead end.
   const ctaHtml = isCurrent
-    ? `<div style="display:block;margin-top:10px;padding:7px 0;text-align:center;background:rgba(95,138,126,0.10);color:${PRIMARY};font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;border-radius:2px;border:1px dashed rgba(95,138,126,0.35);">You are here</div>`
-    : `<a href="${esc(props.url)}" style="display:block;margin-top:10px;padding:7px 0;text-align:center;background:${PRIMARY};color:#fff;text-decoration:none;font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;border-radius:2px;">View listing →</a>`
+    ? `<div style="display:block;margin-top:10px;padding:7px 0;text-align:center;background:rgba(95,138,126,0.10);color:${PRIMARY};font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;border-radius:2px;border:1px dashed rgba(95,138,126,0.35);">${esc(s.youAreHere)}</div>`
+    : `<a href="${esc(props.url)}" style="display:block;margin-top:10px;padding:7px 0;text-align:center;background:${PRIMARY};color:#fff;text-decoration:none;font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;border-radius:2px;">${esc(s.viewListing)} →</a>`
 
   const locLine = [esc(props.location), distText ? `<span style="color:${PRIMARY};font-weight:600;">${distText}</span>` : '']
     .filter(Boolean).join(' · ')

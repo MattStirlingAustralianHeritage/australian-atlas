@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getPublicVerticals } from '@/lib/verticalUrl'
 import { relationHasVerticals } from '@/lib/listings/verticalFilter'
 import { excludeNeedsReview, excludeTestListings } from '@/lib/listings/publicFilter'
+import { overlayListingTranslations } from '@/lib/i18n/overlayListings'
 
 // Pin data only changes on sync (~every 6h), so hold the CDN copy for an hour
 // and serve stale for a day while it revalidates. This keeps all but a handful
@@ -51,9 +52,10 @@ async function fetchPinsFallback(sb) {
   return all.map(l => ({ ...l, description: l.description ? String(l.description).slice(0, 160) : null }))
 }
 
-export async function GET() {
+export async function GET(request) {
   try {
     const sb = getSupabaseAdmin()
+    const locale = new URL(request.url).searchParams.get('locale')
 
     // Only ship listings for verticals that are publicly live — the
     // authoritative no-leak boundary, read server-side and passed to the RPC.
@@ -79,6 +81,10 @@ export async function GET() {
     if (listings === null) {
       listings = await fetchPinsFallback(sb)
     }
+
+    // Korean launch: overlay translated name/description onto the pin set for
+    // the active locale (English default unchanged). Fail-open + batched.
+    listings = await overlayListingTranslations(listings, locale, sb)
 
     return NextResponse.json(
       { listings, total: listings.length },

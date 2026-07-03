@@ -1,5 +1,7 @@
+import { getLocale } from 'next-intl/server'
 import { getSupabaseAdmin, getVerticalClient } from '@/lib/supabase/clients'
 import JournalFeed from './JournalFeed'
+import { overlayArticleTranslations } from '@/lib/i18n/overlayEditorial'
 import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 
 export const revalidate = 3600 // ISR: refresh every hour
@@ -129,14 +131,17 @@ export default async function JournalPage() {
   // Sort by published_at descending
   allArticles.sort((a, b) => new Date(b.published_at) - new Date(a.published_at))
 
+  // Overlay Korean article translations (no-op for 'en', English fallback)
+  const localizedArticles = await overlayArticleTranslations(allArticles, await getLocale())
+
   // Extract unique verticals and tags for filter bar
-  const verticals = [...new Set(allArticles.map(a => a.vertical).filter(Boolean))]
+  const verticals = [...new Set(localizedArticles.map(a => a.vertical).filter(Boolean))]
     .map(v => ({ key: v, label: VERTICAL_LABELS[v] || v, color: VERTICAL_COLORS[v] || '#888' }))
-  const allTags = [...new Set(allArticles.flatMap(a => a.tags || []).filter(Boolean))].sort()
+  const allTags = [...new Set(localizedArticles.flatMap(a => a.tags || []).filter(Boolean))].sort()
 
   return (
     <JournalFeed
-      articles={allArticles}
+      articles={localizedArticles}
       verticals={verticals}
       tags={allTags}
       verticalLabels={VERTICAL_LABELS}

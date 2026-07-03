@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { getTranslations } from 'next-intl/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 
 const VERTICAL_JOURNAL_URLS = {
@@ -19,6 +20,7 @@ function articleUrl(a) {
 }
 
 export async function RelatedCollections({ region, vertical, limit = 3, excludeSlug }) {
+  const t = await getTranslations('cards')
   const sb = getSupabaseAdmin()
   let query = sb
     .from('collections')
@@ -45,13 +47,13 @@ export async function RelatedCollections({ region, vertical, limit = 3, excludeS
           fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '1.15rem',
           color: 'var(--color-ink)', margin: 0,
         }}>
-          {region ? `Collections from ${region}` : 'Related Collections'}
+          {region ? t('collectionsFrom', { region }) : t('relatedCollections')}
         </h3>
         <Link href="/collections" style={{
           fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 500,
           color: 'var(--color-accent)', textDecoration: 'none',
         }}>
-          All collections &rarr;
+          {t('allCollections')}
         </Link>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -86,7 +88,7 @@ export async function RelatedCollections({ region, vertical, limit = 3, excludeS
                 fontFamily: 'var(--font-body)', fontSize: '11px',
                 color: 'var(--color-muted)', flexShrink: 0,
               }}>
-                {c.listing_ids?.length || 0} places
+                {t('placesCount', { count: c.listing_ids?.length || 0 })}
               </span>
             </div>
           </Link>
@@ -97,6 +99,7 @@ export async function RelatedCollections({ region, vertical, limit = 3, excludeS
 }
 
 export async function RelatedArticles({ regionName, vertical, limit = 3 }) {
+  const t = await getTranslations('cards')
   const sb = getSupabaseAdmin()
   let query = sb
     .from('articles')
@@ -118,13 +121,13 @@ export async function RelatedArticles({ regionName, vertical, limit = 3 }) {
           fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '1.15rem',
           color: 'var(--color-ink)', margin: 0,
         }}>
-          {regionName ? `From the Journal` : 'Related Articles'}
+          {regionName ? t('fromTheJournal') : t('relatedArticles')}
         </h3>
         <Link href="/journal" style={{
           fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 500,
           color: 'var(--color-accent)', textDecoration: 'none',
         }}>
-          All articles &rarr;
+          {t('allArticles')}
         </Link>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>

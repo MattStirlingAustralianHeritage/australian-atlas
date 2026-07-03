@@ -1,6 +1,9 @@
 import { cache } from 'react'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { getTranslations, getLocale } from 'next-intl/server'
+import { overlayListingTranslations } from '@/lib/i18n/overlayListings'
+import { overlayRegionTranslation } from '@/lib/i18n/overlayEditorial'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { regionJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
 import RegionMapHero from '@/components/RegionMapHero'
@@ -196,13 +199,13 @@ function truncateDescription(text, max = 100) {
 
 // Way card. mode 'based' = operator based in this region; mode 'runs' = based
 // elsewhere but runs experiences through it (eyebrow names the home region).
-function WayExperienceCard({ listing, mode }) {
+function WayExperienceCard({ listing, mode, t }) {
   const href = listing.slug ? `/place/${listing.slug}` : '#'
   const dep = listing._way?.departure_point_name
   const multi = listing._way?.multiple_departure_points
   const eyebrow = mode === 'runs'
-    ? (listing._homeRegion ? `Based in ${listing._homeRegion}` : 'Visiting operator')
-    : (multi ? 'Multiple departure points' : (dep ? `Departs ${dep}` : 'Based here'))
+    ? (listing._homeRegion ? t('basedIn', { region: listing._homeRegion }) : t('visitingOperator'))
+    : (multi ? t('multipleDeparturePoints') : (dep ? t('departsFrom', { point: dep }) : t('basedHere')))
   const desc = truncateDescription(listing.description, 90)
   return (
     <a
@@ -239,8 +242,9 @@ function WayExperienceCard({ listing, mode }) {
 
 export async function generateMetadata({ params }) {
   const { slug } = await params
-  const region = await getRegion(slug)
+  let region = await getRegion(slug)
   if (!region) return { title: 'Region not found' }
+  region = await overlayRegionTranslation(region, await getLocale())
   const description = region.description || `Discover independent places in ${region.name}`
   const title = `${region.name}, ${STATE_LABELS[region.state] || region.state} \u2014 Australian Atlas`
   return {
@@ -262,19 +266,23 @@ export async function generateMetadata({ params }) {
 
 export default async function RegionPage({ params }) {
   const { slug } = await params
-  const region = await getRegion(slug)
+  const t = await getTranslations('regions')
+  const locale = await getLocale()
+  let region = await getRegion(slug)
   if (!region) notFound()
+  region = await overlayRegionTranslation(region, locale)
 
   const publicVerticals = getPublicVerticals()
   const venueVerticals = publicVerticals.filter(v => v !== 'way')
 
-  const [listings, narrative, way] = await Promise.all([
+  const [listingsRaw, narrative, way] = await Promise.all([
     getRegionListings(region, venueVerticals),
     getRegionNarrative(region.id),
     getWayInRegion(region, publicVerticals),
   ])
-  const wayBased = way.based
-  const wayRuns = way.runs
+  const listings = await overlayListingTranslations(listingsRaw, locale)
+  const wayBased = await overlayListingTranslations(way.based, locale)
+  const wayRuns = await overlayListingTranslations(way.runs, locale)
   const wayCount = wayBased.length + wayRuns.length
 
   // Group by vertical
@@ -356,7 +364,7 @@ export default async function RegionPage({ params }) {
             padding: '1.25rem 0',
           }}
         >
-          <Link href="/regions" style={{ color: 'var(--color-muted)', textDecoration: 'none' }}>Regions</Link>
+          <Link href="/regions" style={{ color: 'var(--color-muted)', textDecoration: 'none' }}>{t('title')}</Link>
           <span style={{ margin: '0 0.5rem' }}>/</span>
           <span style={{ color: 'var(--color-ink)' }}>{region.name}</span>
         </nav>
@@ -484,7 +492,7 @@ export default async function RegionPage({ params }) {
                         letterSpacing: '0.1em', textTransform: 'uppercase',
                         color: 'var(--color-muted)', marginBottom: '0.75rem',
                       }}>
-                        Best time to visit
+                        {t('bestTimeToVisit')}
                       </h2>
                       <p style={{
                         fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px',
@@ -501,7 +509,7 @@ export default async function RegionPage({ params }) {
                         letterSpacing: '0.1em', textTransform: 'uppercase',
                         color: 'var(--color-muted)', marginBottom: '0.75rem',
                       }}>
-                        What sets it apart
+                        {t('whatSetsItApart')}
                       </h2>
                       <p style={{
                         fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px',
@@ -521,7 +529,7 @@ export default async function RegionPage({ params }) {
                       letterSpacing: '0.1em', textTransform: 'uppercase',
                       color: 'var(--color-muted)', marginBottom: '0.75rem',
                     }}>
-                      Highlights
+                      {t('highlights')}
                     </h2>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
                       {narrative.vertical_highlights.map((h, i) => {
@@ -552,9 +560,9 @@ export default async function RegionPage({ params }) {
                   color: 'var(--color-muted)', marginTop: '1.5rem',
                   paddingTop: '1rem', borderTop: '1px solid var(--color-border)',
                 }}>
-                  Generated from {narrative.listing_count_at_generation || listings.length} verified listing{(narrative.listing_count_at_generation || listings.length) !== 1 ? 's' : ''}
+                  {t('generatedFrom', { count: narrative.listing_count_at_generation || listings.length })}
                   {narrative.generated_at && (
-                    <> &middot; Last updated {new Date(narrative.generated_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}</>
+                    <> &middot; {t('lastUpdated', { date: new Date(narrative.generated_at).toLocaleDateString(locale === 'ko' ? 'ko-KR' : 'en-AU', { day: 'numeric', month: 'long', year: 'numeric' }) })}</>
                   )}
                 </p>
               </>
@@ -566,7 +574,7 @@ export default async function RegionPage({ params }) {
                 fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 400,
                 color: 'var(--color-muted)', marginTop: '0.5rem',
               }}>
-                Generated from {listings.length} verified listing{listings.length !== 1 ? 's' : ''}
+                {t('generatedFrom', { count: listings.length })}
               </p>
             )}
           </div>
@@ -594,13 +602,13 @@ export default async function RegionPage({ params }) {
                 fontSize: 'clamp(1.5rem, 3vw, 2rem)', color: 'var(--color-ink)',
                 margin: '0 0 0.5rem',
               }}>
-                Highlights
+                {t('highlights')}
               </h2>
               <p style={{
                 fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 300,
                 color: 'var(--color-muted)', margin: '0 0 1.5rem',
               }}>
-                A selection of standout places across {region.name}
+                {t('highlightsSub', { region: region.name })}
               </p>
               <div style={{
                 display: 'grid',
@@ -689,7 +697,7 @@ export default async function RegionPage({ params }) {
                         fontFamily: 'var(--font-body)', fontSize: '12px',
                         fontWeight: 500, color: color,
                       }}>
-                        {items.length} listing{items.length !== 1 ? 's' : ''}
+                        {t('listingCount', { count: items.length })}
                       </span>
                     </div>
                   </div>
@@ -769,7 +777,7 @@ export default async function RegionPage({ params }) {
                           textDecoration: 'none',
                         }}
                       >
-                        View all {items.length} listings &rarr;
+                        {t('viewAllListings', { count: items.length })} &rarr;
                       </a>
                     </p>
                   )}
@@ -790,7 +798,7 @@ export default async function RegionPage({ params }) {
                     fontSize: '1.5rem', color: 'var(--color-ink)',
                     margin: '0 0 1.25rem',
                   }}>
-                    Also in {region.name}
+                    {t('alsoIn', { region: region.name })}
                   </h2>
                   <div style={{
                     display: 'grid',
@@ -868,7 +876,7 @@ export default async function RegionPage({ params }) {
                   fontFamily: 'var(--font-body)', fontSize: '12px',
                   fontWeight: 500, color: VERTICAL_COLORS.way,
                 }}>
-                  {wayCount} experience{wayCount !== 1 ? 's' : ''}
+                  {t('experienceCount', { count: wayCount })}
                 </span>
               </div>
             </div>
@@ -881,7 +889,7 @@ export default async function RegionPage({ params }) {
                   letterSpacing: '0.1em', textTransform: 'uppercase',
                   color: 'var(--color-muted)', margin: '0 0 0.75rem',
                 }}>
-                  Based in {region.name}
+                  {t('basedIn', { region: region.name })}
                 </h3>
                 <div style={{
                   display: 'grid',
@@ -889,7 +897,7 @@ export default async function RegionPage({ params }) {
                   gap: '1rem',
                 }}>
                   {wayBased.map(listing => (
-                    <WayExperienceCard key={listing.id} listing={listing} mode="based" />
+                    <WayExperienceCard key={listing.id} listing={listing} mode="based" t={t} />
                   ))}
                 </div>
               </div>
@@ -903,7 +911,7 @@ export default async function RegionPage({ params }) {
                   letterSpacing: '0.1em', textTransform: 'uppercase',
                   color: 'var(--color-muted)', margin: '0 0 0.75rem',
                 }}>
-                  Also runs experiences here
+                  {t('alsoRunsHere')}
                 </h3>
                 <div style={{
                   display: 'grid',
@@ -911,7 +919,7 @@ export default async function RegionPage({ params }) {
                   gap: '1rem',
                 }}>
                   {wayRuns.map(listing => (
-                    <WayExperienceCard key={listing.id} listing={listing} mode="runs" />
+                    <WayExperienceCard key={listing.id} listing={listing} mode="runs" t={t} />
                   ))}
                 </div>
               </div>
@@ -923,10 +931,10 @@ export default async function RegionPage({ params }) {
         {listings.length === 0 && wayCount === 0 && (
           <div style={{ textAlign: 'center', padding: '4rem 0' }}>
             <p style={{ color: 'var(--color-muted)', fontFamily: 'var(--font-body)', fontSize: '15px' }}>
-              No listings synced for this region yet.
+              {t('emptyTitle')}
             </p>
             <p style={{ color: 'var(--color-muted)', fontFamily: 'var(--font-body)', fontSize: '13px', marginTop: '0.5rem' }}>
-              Listings will appear here once the next sync completes.
+              {t('emptySub')}
             </p>
           </div>
         )}

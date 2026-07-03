@@ -1,16 +1,9 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
+import { useTranslations } from 'next-intl'
 
 const DAY_ORDER = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
-const DAY_LABELS = {
-  monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu',
-  friday: 'Fri', saturday: 'Sat', sunday: 'Sun',
-}
-const DAY_FULL = {
-  monday: 'Monday', tuesday: 'Tuesday', wednesday: 'Wednesday', thursday: 'Thursday',
-  friday: 'Friday', saturday: 'Saturday', sunday: 'Sunday',
-}
 
 /** Convert "09:00" to "9am", "17:30" to "5:30pm", "12:00" to "12pm" */
 function formatTime(t) {
@@ -78,11 +71,11 @@ function groupHours(hours) {
 }
 
 /** Format a group label like "Mon-Fri" or just "Sat" */
-function groupLabel(group) {
+function groupLabel(group, dayLabels) {
   if (group.startDay === group.endDay) {
-    return DAY_LABELS[group.startDay]
+    return dayLabels[group.startDay]
   }
-  return `${DAY_LABELS[group.startDay]}\u2013${DAY_LABELS[group.endDay]}`
+  return `${dayLabels[group.startDay]}\u2013${dayLabels[group.endDay]}`
 }
 
 /** Check if a day falls within a group */
@@ -94,10 +87,20 @@ function dayInGroup(group, day) {
 }
 
 export default function OpeningHours({ hours }) {
+  const t = useTranslations('placePanels')
   const [expanded, setExpanded] = useState(false)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => { setMounted(true) }, [])
+
+  const DAY_LABELS = {
+    monday: t('dayShortMon'), tuesday: t('dayShortTue'), wednesday: t('dayShortWed'), thursday: t('dayShortThu'),
+    friday: t('dayShortFri'), saturday: t('dayShortSat'), sunday: t('dayShortSun'),
+  }
+  const DAY_FULL = {
+    monday: t('dayMon'), tuesday: t('dayTue'), wednesday: t('dayWed'), thursday: t('dayThu'),
+    friday: t('dayFri'), saturday: t('daySat'), sunday: t('daySun'),
+  }
 
   const groups = useMemo(() => groupHours(hours), [hours])
 
@@ -143,10 +146,10 @@ export default function OpeningHours({ hours }) {
             <span>
               <span style={{ fontWeight: 500 }}>{DAY_FULL[today]}</span>
               {' '}
-              <span style={{ color: 'var(--color-muted)' }}>Closed</span>
+              <span style={{ color: 'var(--color-muted)' }}>{t('closed')}</span>
             </span>
           ) : (
-            <span style={{ color: 'var(--color-muted)' }}>Opening hours</span>
+            <span style={{ color: 'var(--color-muted)' }}>{t('openingHours')}</span>
           )}
 
           {/* Chevron */}
@@ -192,7 +195,7 @@ export default function OpeningHours({ hours }) {
                 background: openNow ? '#3a7d44' : 'var(--color-muted)',
               }}
             />
-            {openNow ? 'Open now' : 'Closed now'}
+            {openNow ? t('openNow') : t('closedNow')}
           </span>
         )}
       </div>
@@ -217,10 +220,10 @@ export default function OpeningHours({ hours }) {
                   fontWeight: isToday ? 500 : 400,
                 }}
               >
-                <span>{groupLabel(group)}</span>
+                <span>{groupLabel(group, DAY_LABELS)}</span>
                 <span>
                   {group.closed
-                    ? 'Closed'
+                    ? t('closed')
                     : `${formatTime(group.open)}\u2013${formatTime(group.close)}`
                   }
                 </span>

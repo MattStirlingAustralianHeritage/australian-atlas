@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useRef, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 
 /* ═══════════════════════════════════════════════════════════════════════
    DEAD CODE — replaced by ghost-watermark design in RegionMapSelect.js
@@ -79,6 +80,7 @@ export default function StaticRegionMap({
   onSelect,
   onHover,
 }) {
+  const t = useTranslations('regions')
   const containerRef = useRef(null)
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 })
   const [imageLoaded, setImageLoaded] = useState(false)
@@ -125,7 +127,7 @@ export default function StaticRegionMap({
       {/* Local SVG map image */}
       <img
         src="/maps/australia-states.svg"
-        alt="Map of Australia showing covered regions"
+        alt={t('mapAlt')}
         loading="eager"
         onLoad={() => setImageLoaded(true)}
         style={{
@@ -149,7 +151,7 @@ export default function StaticRegionMap({
         return (
           <button
             key={r.name}
-            aria-label={`Select ${r.name}`}
+            aria-label={t('selectNamed', { name: r.name })}
             onClick={() => onSelect(r.name)}
             onMouseEnter={() => onHover && onHover(r.name)}
             onMouseLeave={() => onHover && onHover(null)}

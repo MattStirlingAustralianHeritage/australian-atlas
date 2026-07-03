@@ -7,10 +7,11 @@
 // rendering of the Mapbox container, which depends on `window`.
 
 import dynamic from 'next/dynamic'
+import { useTranslations } from 'next-intl'
 
-const MapClient = dynamic(() => import('@/components/MapClient'), {
-  ssr: false,
-  loading: () => (
+function MapLoading() {
+  const t = useTranslations('map')
+  return (
     <div
       style={{
         width: '100%', height: '100%',
@@ -20,9 +21,14 @@ const MapClient = dynamic(() => import('@/components/MapClient'), {
         letterSpacing: '0.08em', textTransform: 'uppercase',
       }}
     >
-      Loading map…
+      {t('loadingMap')}
     </div>
-  ),
+  )
+}
+
+const MapClient = dynamic(() => import('@/components/MapClient'), {
+  ssr: false,
+  loading: () => <MapLoading />,
 })
 
 export default function EmbeddedNearbyMap(props) {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { getListingRegion } from '@/lib/regions'
 
 /**
@@ -15,36 +16,36 @@ import { getListingRegion } from '@/lib/regions'
  *   listing  – { id, name, slug, region, state, vertical, lat, lng }
  */
 
-const ACCOMMODATION_OPTIONS = [
-  { value: 'need', label: 'I\u2019ll need somewhere to stay' },
-  { value: 'sorted', label: 'Already sorted' },
-  { value: 'daytrip', label: 'Day trip' },
-]
-
-const TRANSPORT_OPTIONS = [
-  { value: 'driving', label: 'Driving' },
-  { value: 'public', label: 'Public transport' },
-  { value: 'walking', label: 'Walking or cycling' },
-]
-
-const GROUP_OPTIONS = [
-  { value: 'solo', label: 'Solo' },
-  { value: 'couple', label: 'Couple' },
-  { value: 'friends', label: 'Friends' },
-  { value: 'family', label: 'Family with kids' },
-]
-
-const PACE_OPTIONS = [
-  { value: 'relaxed', label: 'Relaxed' },
-  { value: 'packed', label: 'Packed' },
-]
-
-const DAYS_OPTIONS = [
-  { value: '1', label: '1 day' },
-  { value: '2', label: '2 days' },
-  { value: '3', label: '3 days' },
-  { value: '5', label: '5 days' },
-]
+function buildOptions(t) {
+  return {
+    ACCOMMODATION_OPTIONS: [
+      { value: 'need', label: t('accomNeed') },
+      { value: 'sorted', label: t('accomSorted') },
+      { value: 'daytrip', label: t('accomDaytrip') },
+    ],
+    TRANSPORT_OPTIONS: [
+      { value: 'driving', label: t('transportDriving') },
+      { value: 'public', label: t('transportPublic') },
+      { value: 'walking', label: t('transportWalking') },
+    ],
+    GROUP_OPTIONS: [
+      { value: 'solo', label: t('groupSolo') },
+      { value: 'couple', label: t('groupCouple') },
+      { value: 'friends', label: t('groupFriends') },
+      { value: 'family', label: t('groupFamily') },
+    ],
+    PACE_OPTIONS: [
+      { value: 'relaxed', label: t('paceRelaxed') },
+      { value: 'packed', label: t('pacePacked') },
+    ],
+    DAYS_OPTIONS: [
+      { value: '1', label: t('days1') },
+      { value: '2', label: t('days2') },
+      { value: '3', label: t('days3') },
+      { value: '5', label: t('days5') },
+    ],
+  }
+}
 
 function OptionGrid({ options, selected, onSelect, columns }) {
   const cols = columns || (options.length <= 3 ? options.length : 2)
@@ -107,6 +108,8 @@ function QuestionBlock({ label, children }) {
 
 function StartTrailModal({ listing, onClose }) {
   const router = useRouter()
+  const t = useTranslations('actions')
+  const { ACCOMMODATION_OPTIONS, TRANSPORT_OPTIONS, GROUP_OPTIONS, PACE_OPTIONS, DAYS_OPTIONS } = buildOptions(t)
   const [answers, setAnswers] = useState({
     days: '1',
     accommodation: null,
@@ -196,13 +199,13 @@ function StartTrailModal({ listing, onClose }) {
               color: 'var(--color-sage)', textTransform: 'uppercase',
               letterSpacing: '0.18em', marginBottom: 8, lineHeight: 1,
             }}>
-              Start a trail
+              {t('startTrailKicker')}
             </p>
             <p style={{
               fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22,
               color: 'var(--color-ink)', lineHeight: 1.25, margin: 0,
             }}>
-              Build a trail starting<br />from {listing.name}
+              {t('buildTrailFrom', { name: listing.name })}
             </p>
           </div>
           <button
@@ -212,7 +215,7 @@ function StartTrailModal({ listing, onClose }) {
               color: 'var(--color-muted)', padding: 4, marginTop: 2,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
-            aria-label="Close"
+            aria-label={t('close')}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
           </button>
@@ -242,7 +245,7 @@ function StartTrailModal({ listing, onClose }) {
 
         {/* Questions */}
         <div style={{ padding: '28px 32px 8px' }}>
-          <QuestionBlock label="How many days?">
+          <QuestionBlock label={t('howManyDays')}>
             <OptionGrid
               options={DAYS_OPTIONS}
               selected={answers.days}
@@ -252,7 +255,7 @@ function StartTrailModal({ listing, onClose }) {
           </QuestionBlock>
 
           {showAccommodation && (
-            <QuestionBlock label="Accommodation">
+            <QuestionBlock label={t('accommodation')}>
               <OptionGrid
                 options={ACCOMMODATION_OPTIONS}
                 selected={answers.accommodation}
@@ -261,7 +264,7 @@ function StartTrailModal({ listing, onClose }) {
             </QuestionBlock>
           )}
 
-          <QuestionBlock label="Getting around">
+          <QuestionBlock label={t('gettingAround')}>
             <OptionGrid
               options={TRANSPORT_OPTIONS}
               selected={answers.transport}
@@ -269,7 +272,7 @@ function StartTrailModal({ listing, onClose }) {
             />
           </QuestionBlock>
 
-          <QuestionBlock label="Travelling with">
+          <QuestionBlock label={t('travellingWith')}>
             <OptionGrid
               options={GROUP_OPTIONS}
               selected={answers.group}
@@ -278,7 +281,7 @@ function StartTrailModal({ listing, onClose }) {
             />
           </QuestionBlock>
 
-          <QuestionBlock label="Pace">
+          <QuestionBlock label={t('pace')}>
             <OptionGrid
               options={PACE_OPTIONS}
               selected={answers.pace}
@@ -303,7 +306,7 @@ function StartTrailModal({ listing, onClose }) {
               cursor: 'pointer', padding: '8px 0', letterSpacing: '0.01em',
             }}
           >
-            Skip, just build it
+            {t('skipBuild')}
           </button>
           <button
             onClick={handleSubmit}
@@ -316,7 +319,7 @@ function StartTrailModal({ listing, onClose }) {
               letterSpacing: '0.02em',
             }}
           >
-            Build trail · {answeredCount}/5
+            {t('buildTrailCount', { count: answeredCount })}
           </button>
         </div>
       </div>
@@ -326,6 +329,7 @@ function StartTrailModal({ listing, onClose }) {
 
 export default function StartTrailButton({ listing, className = '' }) {
   const [showModal, setShowModal] = useState(false)
+  const t = useTranslations('actions')
 
   return (
     <>
@@ -338,7 +342,7 @@ export default function StartTrailButton({ listing, className = '' }) {
           minHeight: 44,
         }}
       >
-        Start a trail here
+        {t('startTrailHere')}
         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
           <path d="M13 17l5-5-5-5" />
           <path d="M6 17l5-5-5-5" />

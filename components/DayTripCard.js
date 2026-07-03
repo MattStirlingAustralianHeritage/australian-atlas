@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 
 const VERTICAL_COLORS = VERTICAL_ACCENTS
@@ -11,17 +12,17 @@ const VERTICAL_SHORT = {
   corner: 'Corner', found: 'Found', table: 'Table',
 }
 
-function distanceLabel(km) {
-  if (km < 1) return 'Under 1 km'
-  if (km < 10) return `${km.toFixed(1)} km`
-  return `${Math.round(km)} km`
+function distanceLabel(km, t) {
+  if (km < 1) return t('underOneKm')
+  if (km < 10) return t('km', { distance: km.toFixed(1) })
+  return t('km', { distance: Math.round(km) })
 }
 
-function driveTimeLabel(mins) {
-  if (mins < 60) return `${mins} min`
+function driveTimeLabel(mins, t) {
+  if (mins < 60) return t('minutes', { count: mins })
   const h = Math.floor(mins / 60)
   const m = mins % 60
-  return m > 0 ? `${h}hr ${m}min` : `${h}hr`
+  return m > 0 ? t('hoursMinutes', { hours: h, minutes: m }) : t('hours', { count: h })
 }
 
 /**
@@ -53,6 +54,7 @@ function staticMapUrl(baseLat, baseLng, stops, token) {
  * Single day card in the day trip results.
  */
 export default function DayTripCard({ day, base, mapboxToken }) {
+  const t = useTranslations('cards')
   const mapUrl = base?.lat && base?.lng
     ? staticMapUrl(base.lat, base.lng, day.stops, mapboxToken)
     : null
@@ -70,7 +72,7 @@ export default function DayTripCard({ day, base, mapboxToken }) {
         <div style={{ width: '100%', height: 200, overflow: 'hidden', background: '#f0ede6' }}>
           <img
             src={mapUrl}
-            alt={`Day ${day.day_number} route map`}
+            alt={t('dayRouteMap', { day: day.day_number })}
             loading="lazy"
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
@@ -85,14 +87,14 @@ export default function DayTripCard({ day, base, mapboxToken }) {
             letterSpacing: '0.14em', textTransform: 'uppercase',
             color: 'var(--color-sage)',
           }}>
-            Day {day.day_number}
+            {t('dayNumber', { day: day.day_number })}
           </span>
           {day.direction && (
             <span style={{
               fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 400,
               color: 'var(--color-muted)', textTransform: 'capitalize',
             }}>
-              Heading {day.direction}
+              {t('heading', { direction: day.direction })}
             </span>
           )}
         </div>
@@ -106,9 +108,9 @@ export default function DayTripCard({ day, base, mapboxToken }) {
           fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 400,
           color: 'var(--color-muted)', display: 'flex', gap: 12,
         }}>
-          <span>{Math.round(day.total_distance_km)} km loop</span>
-          <span>{driveTimeLabel(day.estimated_drive_minutes)} driving</span>
-          <span>{day.stops.length} stops</span>
+          <span>{t('kmLoop', { distance: Math.round(day.total_distance_km) })}</span>
+          <span>{t('driving', { time: driveTimeLabel(day.estimated_drive_minutes, t) })}</span>
+          <span>{t('stopsCount', { count: day.stops.length })}</span>
         </div>
       </div>
 
@@ -165,7 +167,7 @@ export default function DayTripCard({ day, base, mapboxToken }) {
                       fontFamily: 'var(--font-body)', fontSize: 11,
                       color: 'var(--color-muted)',
                     }}>
-                      {distanceLabel(stop.distance_from_base_km)} from base
+                      {t('fromBase', { distance: distanceLabel(stop.distance_from_base_km, t) })}
                     </span>
                   </div>
                   {stop.description_snippet && (
@@ -226,7 +228,7 @@ export default function DayTripCard({ day, base, mapboxToken }) {
               <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" />
               <circle cx="12" cy="10" r="3" />
             </svg>
-            Open in Google Maps
+            {t('openInGoogleMaps')}
           </a>
         </div>
       )}
@@ -239,7 +241,7 @@ export default function DayTripCard({ day, base, mapboxToken }) {
           fontFamily: 'var(--font-body)', fontSize: 12,
           color: 'var(--color-muted)', fontStyle: 'italic',
         }}>
-          Limited coverage in this direction. We added nearby options to fill the day.
+          {t('thinCoverageNotice')}
         </div>
       )}
     </div>

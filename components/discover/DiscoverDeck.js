@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useTranslations, useLocale } from 'next-intl'
 import Link from 'next/link'
 import { getAuthSupabase } from '@/lib/supabase/auth-clients'
 import { useLocation } from '@/components/LocationProvider'
@@ -85,6 +86,8 @@ function capConsecutive(queue, servedVerticals, maxRun) {
 // hideHead: suppress the band's own kicker/title block when a parent section
 // (e.g. the homepage "Make it yours" band) provides the masthead instead.
 export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hideHead = false }) {
+  const t = useTranslations('discover')
+  const locale = useLocale()
   const supabase = getAuthSupabase()
   const { location } = useLocation()
   const isOnboarding = variant === 'onboarding'
@@ -106,6 +109,10 @@ export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hi
   const queueRef = useRef([])
   const hasFetched = useRef(false)
   const locRef = useRef(null)
+  // Active locale, read inside the async feed callback (like locRef) so the
+  // server can overlay translated listing content for /ko without adding the
+  // locale to loadFeed's deps (which would re-fire the mount effect).
+  const localeRef = useRef(locale)
   // Verticals the user has actually been SHOWN (most recent last). Sent to the
   // feed so the server caps single-vertical runs across the whole session, not
   // just within one batch (otherwise re-rank-on-pick walls up one category).
@@ -113,6 +120,7 @@ export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hi
   const lastServedId = useRef(null)
   useEffect(() => { queueRef.current = queue }, [queue])
   useEffect(() => { locRef.current = location }, [location])
+  useEffect(() => { localeRef.current = locale }, [locale])
 
   // Mirror the live pick set out to a host (the planner onboarding gate), which
   // carries it into the trip the visitor is about to build.
@@ -161,11 +169,12 @@ export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hi
           lat: loc?.lat ?? null,
           lng: loc?.lng ?? null,
           recentVerticals: servedRef.current.slice(-12),
+          locale: localeRef.current,
         }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        setError(data.error || 'Could not load the feed.')
+        setError(data.error || t('errFeed'))
         return
       }
       setError('')
@@ -190,12 +199,12 @@ export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hi
         return capConsecutive(next, servedRef.current, CLIENT_MAX_RUN)
       })
     } catch {
-      setError('Could not load the feed. Check your connection and try again.')
+      setError(t('errFeedRetry'))
     } finally {
       hasFetched.current = true
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   // ── Mount: auth state + first (cold-start) batch ────────────────────
   useEffect(() => {
@@ -225,9 +234,9 @@ export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hi
       })
       if (!res.ok) throw new Error('save failed')
     } catch {
-      setError('Could not save that one. Your connection may have dropped.')
+      setError(t('errSave'))
     }
-  }, [])
+  }, [t])
 
   // ── Swipe (pick / skip) ─────────────────────────────────────────────
   const swipe = useCallback((kind) => {
@@ -309,10 +318,10 @@ export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hi
         setJustKept(true)
         setError('')
       } catch {
-        setError('Signed in, but could not keep your picks. They are still selected — try the counter again.')
+        setError(t('errFlush'))
       }
     }
-  }, [pickedIds])
+  }, [pickedIds, t])
 
   // returnTo for Google OAuth. NOTE: OAuth reloads the page, so in-memory
   // picks made before sign-in are intentionally not carried across (the spec
@@ -332,7 +341,7 @@ export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hi
     if (authed) {
       return (
         <p className="dd-counter dd-counter--static">
-          <b>{pickCount}</b> {justKept ? 'kept' : 'saved'}
+          <b>{pickCount}</b> {justKept ? t('kept') : t('saved')}
         </p>
       )
     }
@@ -340,8 +349,8 @@ export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hi
     // shown it carries the CTA, so here we drop to a plain tally.
     return (
       <button type="button" className="dd-counter" onClick={() => setAuthModalOpen(true)}>
-        <b>{pickCount}</b> place{pickCount === 1 ? '' : 's'} you&rsquo;d visit
-        {!showReflection && <> · <u>sign in to keep them</u></>}
+        <b>{pickCount}</b> {t('placesYoudVisit', { count: pickCount })}
+        {!showReflection && <> · <u>{t('signInToKeepThem')}</u></>}
       </button>
     )
   })()
@@ -352,10 +361,10 @@ export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hi
       <div className={`dd-stage dd-stage--${variant}`}>
         <div className="dd-empty" role="alert">
           <div className="dd-empty-rule" />
-          <h2>Something went wrong</h2>
+          <h2>{t('somethingWrong')}</h2>
           <p>{error}</p>
           <button className="dd-reflection-cta" onClick={() => loadFeed({ picked: pickedIds, skipped: skippedIds, mode: 'init' })}>
-            Try again
+            {t('tryAgain')}
           </button>
         </div>
       </div>
@@ -367,7 +376,7 @@ export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hi
       <div className={`dd-stage dd-stage--${variant}`}>
         <div className="dd-empty">
           <div className="dd-empty-rule" />
-          <p style={{ fontStyle: 'italic', fontFamily: 'var(--font-display)' }}>Finding something good…</p>
+          <p style={{ fontStyle: 'italic', fontFamily: 'var(--font-display)' }}>{t('findingSomething')}</p>
         </div>
       </div>
     )
@@ -378,19 +387,19 @@ export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hi
       <div className={`dd-stage dd-stage--${variant}`}>
         <div className="dd-empty">
           <div className="dd-empty-rule" />
-          <h2>{pickCount > 0 ? 'You’ve a good list going' : 'You’ve seen them all'}</h2>
+          <h2>{pickCount > 0 ? t('goodListGoing') : t('seenThemAll')}</h2>
           <p>
             {pickCount > 0
-              ? (authed ? `${pickCount} place${pickCount === 1 ? '' : 's'} saved.` : `${pickCount} place${pickCount === 1 ? '' : 's'} you’d visit — sign in to keep them.`)
-              : 'Come back soon for more.'}
+              ? (authed ? t('placesSaved', { count: pickCount }) : t('placesYoudVisitSignIn', { count: pickCount }))
+              : t('comeBackSoon')}
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
             {pickCount > 0 && authed === false && !isOnboarding && (
-              <button className="dd-reflection-cta" onClick={() => setAuthModalOpen(true)}>Sign in to keep them</button>
+              <button className="dd-reflection-cta" onClick={() => setAuthModalOpen(true)}>{t('signInToKeepThem')}</button>
             )}
             {!isOnboarding && (
               <Link href="/explore" className="dd-btn dd-btn-skip" style={{ flex: '0 0 auto', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
-                Explore the network
+                {t('exploreNetwork')}
               </Link>
             )}
           </div>
@@ -415,9 +424,9 @@ export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hi
       <div style={{ width: '100%' }}>
         {isBand && !hideHead && (
           <div className="dd-band-head">
-            <p className="dd-band-kicker">Discover</p>
-            <h2 className="dd-band-title">One place at a time</h2>
-            <p className="dd-band-sub">Flick through independent Australia. The more you pick, the more it&apos;s to your taste.</p>
+            <p className="dd-band-kicker">{t('kicker')}</p>
+            <h2 className="dd-band-title">{t('bandTitle')}</h2>
+            <p className="dd-band-sub">{t('bandSub')}</p>
           </div>
         )}
 
@@ -442,7 +451,7 @@ export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hi
         {/* Action row — authoritative on desktop. */}
         <div className={`dd-actions${isBand ? ' dd-actions--band' : ''}`}>
           <button className="dd-btn dd-btn-skip" onClick={handleSkip} disabled={animating || loading}>
-            Next
+            {t('next')}
           </button>
           <button
             className="dd-btn dd-btn-pick"
@@ -450,19 +459,19 @@ export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hi
             disabled={animating || loading}
             style={{ background: 'var(--color-gold, #b8862b)' }}
           >
-            I&rsquo;d visit this
+            {t('idVisitThis')}
           </button>
         </div>
 
-        <p className="dd-swipe-hint">Swipe right to pick · left to skip</p>
+        <p className="dd-swipe-hint">{t('swipeHint')}</p>
 
         {counterEl}
 
         {showReflection && (
           <div className={`dd-reflection${isBand ? ' dd-reflection--band' : ''}`}>
-            <p>{reflection.descriptor || 'Keep the places you’d visit.'}</p>
+            <p>{reflection.descriptor || t('keepPlaces')}</p>
             <button className="dd-reflection-cta" onClick={() => setAuthModalOpen(true)}>
-              {reflection.hasPattern ? 'Sign in to keep your taste' : 'Sign in to keep your places'}
+              {reflection.hasPattern ? t('signInKeepTaste') : t('signInKeepPlaces')}
             </button>
           </div>
         )}

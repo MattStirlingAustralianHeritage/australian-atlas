@@ -17,6 +17,7 @@ import { relevanceFloorFor } from '@/lib/search/relevanceFloor'
 import { rerankSearchResults } from '@/lib/search/rerank'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { translateSearchQuery } from '@/lib/search/translateQuery'
+import { overlayListingTranslations } from '@/lib/i18n/overlayListings'
 
 // Largest candidate pool the RPC ranks per request. Pagination/dedup/total are
 // computed over this fixed pool so `total` is stable across pages (it does NOT
@@ -248,6 +249,9 @@ export async function GET(request) {
   // (no Hangul → no-op) and fail-open on any translation error.
   const qRaw = (searchParams.get('q') || '').trim()
   const q = await translateSearchQuery(qRaw, searchParams.get('lang'))
+  // Active locale for result overlay: Korean results carry Korean name/description
+  // (English fallback per field). No-op for 'en'; whole overlay is fail-open.
+  const locale = searchParams.get('locale')
   const vertical = searchParams.get('vertical') || null
   const state = searchParams.get('state') || null
   const region = searchParams.get('region') || null
@@ -501,9 +505,14 @@ export async function GET(request) {
       const total = filtered.length
       const offset = (page - 1) * limit
       // Full ranked pool as map pins (post-refine, pre-pagination).
-      const pins = buildPins(filtered)
+      let pins = buildPins(filtered)
       // Strip internal scoring AND `address` — search must not leak street addresses.
-      const listings = filtered.slice(offset, offset + limit).map(({ fused_score, address, ...rest }) => rest)
+      let listings = filtered.slice(offset, offset + limit).map(({ fused_score, address, ...rest }) => rest)
+
+      // Korean launch: overlay Korean name/description on the results the client
+      // renders (cards + map pins). No-op for 'en'; fail-open inside the helper.
+      listings = await overlayListingTranslations(listings, locale, sb)
+      pins = await overlayListingTranslations(pins, locale, sb)
 
       // Fuzzy "did you mean" against the raw query (no filters) — offered on
       // zero results AND on weak-only pools (nothing cleared the relevance
@@ -576,12 +585,17 @@ export async function GET(request) {
       logSearch(request, { queryText: vertical || state || region || '', verticalFilter: vertical, resultCount: (data || []).length })
     }
 
+    // Korean launch: overlay Korean name/description on browse results + pins.
+    // No-op for 'en'; fail-open inside the helper.
+    const browseListings = await overlayListingTranslations(data || [], locale, sb)
+    const browsePins = await overlayListingTranslations(buildPins(data || []), locale, sb)
+
     return NextResponse.json({
-      listings: data || [], total: count || 0, page, limit,
+      listings: browseListings, total: count || 0, page, limit,
       totalPages: Math.ceil((count || 0) / limit),
       // Browse has no ranked pool — pins cover the loaded page (the client
       // accumulates them across "show more" loads).
-      pins: buildPins(data || []),
+      pins: browsePins,
       events: await withTimeout(eventsPromise, 1200, []),
     })
   } catch (err) {

@@ -14,6 +14,7 @@
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 
 /* ─── Vertical badge labels ──────────────────────────────────────────── */
 export const VERTICAL_LABELS = {
@@ -29,10 +30,10 @@ export const VERTICAL_LABELS = {
   culture: 'Culture',
 }
 
-/* ─── Meal-slot eyebrow labels ───────────────────────────────────────── */
-const MEAL_SLOT_LABELS = {
-  coffee: 'Morning coffee',
-  lunch: 'Lunch',
+/* ─── Meal-slot eyebrow label keys (translated at render) ────────────── */
+const MEAL_SLOT_KEYS = {
+  coffee: 'mealSlotCoffee',
+  lunch: 'mealSlotLunch',
 }
 
 const REST_ACCENT = '#8a5a6b'
@@ -52,6 +53,7 @@ function prettySubtype(s) {
 
 /* ─── Stop card ──────────────────────────────────────────────────────── */
 export function StopCard({ stop, index, prevStop }) {
+  const t = useTranslations('plan')
   // Compute distance from previous stop
   let distLabel = null
   if (prevStop) {
@@ -63,12 +65,12 @@ export function StopCard({ stop, index, prevStop }) {
       Math.cos(prevStop.lat * Math.PI / 180) * Math.cos(stop.lat * Math.PI / 180) *
       Math.sin(dLng / 2) ** 2
     const km = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-    if (km >= 1) distLabel = `${Math.round(km)}km from previous`
-    else distLabel = `${Math.round(km * 1000)}m from previous`
+    if (km >= 1) distLabel = t('kmFromPrevious', { distance: Math.round(km) })
+    else distLabel = t('mFromPrevious', { distance: Math.round(km * 1000) })
   }
 
   const numeral = String(index + 1).padStart(2, '0')
-  const mealLabel = MEAL_SLOT_LABELS[stop.meal_slot]
+  const mealLabel = MEAL_SLOT_KEYS[stop.meal_slot] ? t(MEAL_SLOT_KEYS[stop.meal_slot]) : null
 
   return (
     <div style={{
@@ -234,7 +236,8 @@ function RestGlyph({ size = 14, color = REST_ACCENT }) {
   )
 }
 
-function AccommodationEyebrow({ suffix }) {
+function AccommodationEyebrow({ everyNight }) {
+  const t = useTranslations('plan')
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 7, marginBottom: 12,
@@ -242,12 +245,13 @@ function AccommodationEyebrow({ suffix }) {
       letterSpacing: '0.16em', textTransform: 'uppercase', color: REST_ACCENT,
     }}>
       <RestGlyph />
-      <span>Where you{"'"}ll stay{suffix}</span>
+      <span>{everyNight ? t('whereYoullStayEveryNight') : t('whereYoullStay')}</span>
     </div>
   )
 }
 
 function DayAccommodation({ day, chosen, keepForAll, onChoose, onClear, onToggleKeepForAll }) {
+  const t = useTranslations('plan')
   const [open, setOpen] = useState(false)
   const options = day.accommodation_options || []
 
@@ -265,7 +269,7 @@ function DayAccommodation({ day, chosen, keepForAll, onChoose, onClear, onToggle
   if (chosen) {
     return (
       <div style={wrapStyle}>
-        <AccommodationEyebrow suffix={keepForAll ? ' · every night' : ''} />
+        <AccommodationEyebrow everyNight={keepForAll} />
         <div style={{
           background: 'linear-gradient(180deg, #F1ECE4 0%, #EBE4D9 100%)',
           border: '1px solid rgba(138,90,107,0.18)',
@@ -305,7 +309,7 @@ function DayAccommodation({ day, chosen, keepForAll, onChoose, onClear, onToggle
               color: REST_ACCENT, background: 'rgba(138,90,107,0.12)',
               padding: '3px 9px', borderRadius: 999, whiteSpace: 'nowrap',
             }}>
-              Rest
+              {t('restBadge')}
             </span>
           </div>
 
@@ -313,8 +317,8 @@ function DayAccommodation({ day, chosen, keepForAll, onChoose, onClear, onToggle
             display: 'flex', alignItems: 'center', gap: 10, marginTop: 14,
             paddingTop: 12, borderTop: '1px solid rgba(138,90,107,0.15)', flexWrap: 'wrap',
           }}>
-            <button onClick={() => { onClear(); setOpen(true) }} style={pillBtnStyle}>Change</button>
-            <button onClick={onClear} style={pillBtnStyle}>Remove</button>
+            <button onClick={() => { onClear(); setOpen(true) }} style={pillBtnStyle}>{t('change')}</button>
+            <button onClick={onClear} style={pillBtnStyle}>{t('remove')}</button>
             <label style={{
               display: 'inline-flex', alignItems: 'center', gap: 7, marginLeft: 'auto',
               fontFamily: 'var(--font-body)', fontSize: 12.5,
@@ -327,7 +331,7 @@ function DayAccommodation({ day, chosen, keepForAll, onChoose, onClear, onToggle
                 onChange={(e) => onToggleKeepForAll(e.target.checked)}
                 style={{ accentColor: REST_ACCENT, cursor: 'pointer', width: 15, height: 15 }}
               />
-              Stay here every night
+              {t('stayHereEveryNight')}
             </label>
           </div>
         </div>
@@ -338,7 +342,7 @@ function DayAccommodation({ day, chosen, keepForAll, onChoose, onClear, onToggle
   // ── Empty state — invitation + options ─────────────────────────────
   return (
     <div style={wrapStyle}>
-      <AccommodationEyebrow suffix="" />
+      <AccommodationEyebrow everyNight={false} />
       {!open ? (
         <button
           onClick={() => setOpen(true)}
@@ -361,10 +365,10 @@ function DayAccommodation({ day, chosen, keepForAll, onChoose, onClear, onToggle
           }}>+</span>
           <span style={{ display: 'flex', flexDirection: 'column' }}>
             <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-ink, #1C1A17)' }}>
-              Add somewhere to stay
+              {t('addSomewhereToStay')}
             </span>
             <span style={{ fontSize: 12, color: 'var(--color-muted, #6B6760)', marginTop: 1 }}>
-              {options.length} independent {options.length === 1 ? 'place' : 'places'} nearby
+              {t('independentPlacesNearby', { count: options.length })}
             </span>
           </span>
         </button>
@@ -382,9 +386,9 @@ function DayAccommodation({ day, chosen, keepForAll, onChoose, onClear, onToggle
               fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 700,
               letterSpacing: '0.14em', textTransform: 'uppercase', color: REST_ACCENT,
             }}>
-              Places to stay nearby
+              {t('placesToStayNearby')}
             </span>
-            <button onClick={() => setOpen(false)} style={pillBtnStyle}>Close</button>
+            <button onClick={() => setOpen(false)} style={pillBtnStyle}>{t('close')}</button>
           </div>
           <div>
             {options.map((opt, i) => (
@@ -422,7 +426,7 @@ function DayAccommodation({ day, chosen, keepForAll, onChoose, onClear, onToggle
                   letterSpacing: '0.06em', textTransform: 'uppercase',
                   color: REST_ACCENT, whiteSpace: 'nowrap', flexShrink: 0,
                 }}>
-                  Select
+                  {t('select')}
                 </span>
               </button>
             ))}
@@ -458,6 +462,7 @@ function initAccommodation(days) {
 
 /* ─── Normal trip render ─────────────────────────────────────────────── */
 export function TripRender({ trip, onAccommodationChange }) {
+  const t = useTranslations('plan')
   const days = trip.days || []
   const initial = initAccommodation(days)
   const [accommodationByDay, setAccommodationByDay] = useState(initial.byDay)
@@ -611,7 +616,7 @@ export function TripRender({ trip, onAccommodationChange }) {
             }}>
               <img
                 src={day.map_url}
-                alt={`Map for ${day.heading}`}
+                alt={t('mapForDay', { heading: day.heading })}
                 loading={dayIdx === 0 ? 'eager' : 'lazy'}
                 style={{
                   width: '100%',

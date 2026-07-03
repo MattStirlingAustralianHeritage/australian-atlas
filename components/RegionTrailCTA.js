@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 
 /**
  * Trail CTA card for region pages.
@@ -8,6 +9,7 @@ import { useRouter } from 'next/navigation'
  */
 export default function RegionTrailCTA({ regionName }) {
   const router = useRouter()
+  const t = useTranslations('actions')
 
   return (
     <div
@@ -27,7 +29,7 @@ export default function RegionTrailCTA({ regionName }) {
         color: 'var(--color-ink)',
         margin: '0 0 0.5rem',
       }}>
-        Planning a trip to {regionName}?
+        {t('planningTrip', { region: regionName })}
       </h2>
       <p style={{
         fontFamily: 'var(--font-body)',
@@ -38,7 +40,7 @@ export default function RegionTrailCTA({ regionName }) {
         margin: '0 auto 1.5rem',
         lineHeight: 1.6,
       }}>
-        Build a day-by-day itinerary from verified venues across all ten atlases.
+        {t('regionTrailBlurb')}
       </p>
       <button
         onClick={() => router.push(`/itinerary?q=${encodeURIComponent(`Explore ${regionName}`)}`)}
@@ -56,7 +58,7 @@ export default function RegionTrailCTA({ regionName }) {
           transition: 'opacity 0.15s',
         }}
       >
-        Build trail &rarr;
+        {t('buildTrailArrow')}
       </button>
     </div>
   )

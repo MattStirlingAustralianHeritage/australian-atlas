@@ -5,6 +5,7 @@ import { computeTasteVector } from '@/lib/discover/tasteVector'
 import { getTasteProfile } from '@/lib/discover/getTasteProfile'
 import { deriveTasteReflection, shouldShowReflection } from '@/lib/discover/tasteReflection'
 import { getPublicVerticals } from '@/lib/verticalUrl'
+import { overlayListingTranslations } from '@/lib/i18n/overlayListings'
 
 // Card payload: everything the floating card renders. presence_type is NOT
 // here — reflection is derived server-side (below) where we can read it.
@@ -196,6 +197,10 @@ export async function POST(request) {
   const recentVerticals = Array.isArray(body.recentVerticals)
     ? body.recentVerticals.filter((v) => typeof v === 'string').slice(-12)
     : []
+  // Korean launch: the client sends the active locale so the served cards carry
+  // translated name/description. Overlay is a no-op for the default locale, so
+  // English behaviour is unchanged.
+  const locale = typeof body.locale === 'string' ? body.locale : null
 
   const seen = new Set(seenIds)
   // Picks/skips are always seen even if the client's seenIds lags behind.
@@ -260,6 +265,10 @@ export async function POST(request) {
   } catch (err) {
     return NextResponse.json({ error: `Feed query failed: ${err.message}` }, { status: 500 })
   }
+
+  // Korean launch: overlay translated name/description onto the served cards.
+  // No-op for the default locale; fail-open (returns English on any error).
+  listings = await overlayListingTranslations(listings, locale, sb)
 
   return NextResponse.json({
     listings,

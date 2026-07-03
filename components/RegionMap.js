@@ -2,6 +2,7 @@
 import 'mapbox-gl/dist/mapbox-gl.css'
 
 import { useEffect, useRef } from 'react'
+import { useTranslations } from 'next-intl'
 import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 
 const VERTICAL_COLORS = VERTICAL_ACCENTS
@@ -17,6 +18,7 @@ const VERTICAL_COLORS = VERTICAL_ACCENTS
  * fills the iframe. Default behaviour is unchanged for existing callers.
  */
 export default function RegionMap({ points, regionName, fill = false }) {
+  const t = useTranslations('regions')
   const mapRef = useRef(null)
   const mapInstance = useRef(null)
 
@@ -152,7 +154,7 @@ export default function RegionMap({ points, regionName, fill = false }) {
             color: 'var(--color-muted)',
           }}
         >
-          {points.length} {points.length === 1 ? 'listing' : 'listings'}
+          {t('listingCount', { count: points.length })}
         </span>
       </div>
       <div

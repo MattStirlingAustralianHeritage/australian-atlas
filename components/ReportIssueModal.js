@@ -1,17 +1,20 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 
-const REPORT_TYPES = [
-  { key: 'permanently_closed', label: 'Permanently closed', desc: 'This business has closed for good.' },
-  { key: 'temporarily_closed', label: 'Temporarily closed', desc: 'Closed for renovations, seasonal break, etc.' },
-  { key: 'incorrect_info', label: 'Something is incorrect', desc: 'Wrong address, phone, hours, or other details.' },
-  { key: 'request_deletion', label: 'Request removal', desc: "You own this venue, or it shouldn't be listed at all." },
-]
+const REPORT_TYPE_KEYS = ['permanently_closed', 'temporarily_closed', 'incorrect_info', 'request_deletion']
 
 const DETAIL_TYPES = ['incorrect_info', 'request_deletion']
 
 export default function ReportIssueModal({ listingId, listingName, slug, onClose }) {
+  const t = useTranslations('actions')
+  const REPORT_TYPES = [
+    { key: 'permanently_closed', label: t('reportPermanentlyClosed'), desc: t('reportPermanentlyClosedDesc') },
+    { key: 'temporarily_closed', label: t('reportTemporarilyClosed'), desc: t('reportTemporarilyClosedDesc') },
+    { key: 'incorrect_info', label: t('reportIncorrect'), desc: t('reportIncorrectDesc') },
+    { key: 'request_deletion', label: t('reportRemoval'), desc: t('reportRemovalDesc') },
+  ]
   const [selected, setSelected] = useState(null)
   const [details, setDetails] = useState('')
   const [contactEmail, setContactEmail] = useState('')
@@ -52,19 +55,19 @@ export default function ReportIssueModal({ listingId, listingName, slug, onClose
           background: 'white', borderRadius: 16, padding: '32px 28px',
           maxWidth: 420, width: '100%', textAlign: 'center',
         }} onClick={e => e.stopPropagation()}>
-          <div style={{ fontSize: 28, marginBottom: 12 }}>Thank you</div>
+          <div style={{ fontSize: 28, marginBottom: 12 }}>{t('thankYou')}</div>
           <p style={{
             fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--color-muted)',
             lineHeight: 1.6, marginBottom: 20,
           }}>
-            Your report about {listingName} has been received. We&apos;ll review it shortly.
+            {t('reportReceived', { name: listingName })}
           </p>
           <button onClick={onClose} style={{
             fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13,
             background: 'var(--color-ink)', color: 'white', border: 'none',
             borderRadius: 8, padding: '10px 24px', cursor: 'pointer',
           }}>
-            Close
+            {t('close')}
           </button>
         </div>
       </div>
@@ -85,13 +88,13 @@ export default function ReportIssueModal({ listingId, listingName, slug, onClose
           fontFamily: 'var(--font-display)', fontWeight: 500, fontSize: 20,
           color: 'var(--color-ink)', marginBottom: 4,
         }}>
-          Report an issue
+          {t('reportIssue')}
         </h3>
         <p style={{
           fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)',
           marginBottom: 20,
         }}>
-          Help us keep {listingName} accurate.
+          {t('reportHelp', { name: listingName })}
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
@@ -127,8 +130,8 @@ export default function ReportIssueModal({ listingId, listingName, slug, onClose
             value={details}
             onChange={e => setDetails(e.target.value)}
             placeholder={selected === 'request_deletion'
-              ? 'Tell us why this should be removed (optional)'
-              : 'What needs correcting?'}
+              ? t('reportRemovalPlaceholder')
+              : t('reportCorrectPlaceholder')}
             rows={3}
             style={{
               width: '100%', fontFamily: 'var(--font-body)', fontSize: 13,
@@ -144,7 +147,7 @@ export default function ReportIssueModal({ listingId, listingName, slug, onClose
             type="email"
             value={contactEmail}
             onChange={e => setContactEmail(e.target.value)}
-            placeholder="Your email (optional, so we can follow up)"
+            placeholder={t('reportEmailPlaceholder')}
             style={{
               width: '100%', fontFamily: 'var(--font-body)', fontSize: 13,
               border: '1px solid var(--color-border)', borderRadius: 8,
@@ -159,7 +162,7 @@ export default function ReportIssueModal({ listingId, listingName, slug, onClose
             href={`/report-infringement?${new URLSearchParams({ ...(slug ? { slug } : {}), ...(listingName ? { name: listingName } : {}) }).toString()}`}
             style={{ fontFamily: 'var(--font-body)', fontSize: 12.5, color: 'var(--color-muted)', textDecoration: 'underline' }}
           >
-            Report a copyright or intellectual-property issue →
+            {t('reportInfringement')}
           </a>
         </div>
 
@@ -170,7 +173,7 @@ export default function ReportIssueModal({ listingId, listingName, slug, onClose
             border: '1px solid var(--color-border)', borderRadius: 8,
             padding: '10px 20px', cursor: 'pointer',
           }}>
-            Cancel
+            {t('cancel')}
           </button>
           <button
             onClick={handleSubmit}
@@ -183,7 +186,7 @@ export default function ReportIssueModal({ listingId, listingName, slug, onClose
               opacity: submitting ? 0.6 : 1,
             }}
           >
-            {submitting ? 'Submitting...' : 'Submit report'}
+            {submitting ? t('submitting') : t('submitReport')}
           </button>
         </div>
       </div>

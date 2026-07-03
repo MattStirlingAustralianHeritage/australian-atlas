@@ -1,6 +1,7 @@
 import { cache } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { getTranslations } from 'next-intl/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import DayTripCard from '@/components/DayTripCard'
 
@@ -101,9 +102,10 @@ export default async function DayTripPage({ params }) {
   const trip = await getTrip(tripId)
   if (!trip) notFound()
 
+  const t = await getTranslations('plan')
   const { days, base } = trip
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''
-  const baseName = base?.name || 'your accommodation'
+  const baseName = base?.name || t('yourAccommodation')
   const totalStops = days.reduce((n, d) => n + d.stops.length, 0)
 
   return (
@@ -127,7 +129,7 @@ export default async function DayTripPage({ params }) {
             color: 'rgba(255,255,255,0.4)', marginBottom: 14,
             fontFamily: 'var(--font-body)',
           }}>
-            Stay here, explore from here
+            {t('stayExploreKicker')}
             {trip.region ? ` \u00b7 ${trip.region}` : ''}
           </div>
           <h1 style={{
@@ -136,20 +138,20 @@ export default async function DayTripPage({ params }) {
             fontWeight: 400, color: '#fff',
             lineHeight: 1.15, marginBottom: 20,
           }}>
-            {days.length} days from {baseName}
+            {t('daysFromBase', { count: days.length, base: baseName })}
           </h1>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 16,
             fontSize: 13, color: 'rgba(255,255,255,0.45)',
             fontFamily: 'var(--font-body)', flexWrap: 'wrap',
           }}>
-            <span>{days.length} day{days.length !== 1 ? 's' : ''}</span>
+            <span>{t('dayCount', { count: days.length })}</span>
             <span style={{ opacity: 0.3 }}>|</span>
-            <span>{totalStops} stops</span>
+            <span>{t('stopCount', { count: totalStops })}</span>
             {base && (
               <>
                 <span style={{ opacity: 0.3 }}>|</span>
-                <span>Based at {baseName}</span>
+                <span>{t('basedAt', { base: baseName })}</span>
               </>
             )}
           </div>
@@ -168,7 +170,7 @@ export default async function DayTripPage({ params }) {
                 fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase',
                 color: 'var(--color-muted)', fontFamily: 'var(--font-body)', fontWeight: 600,
               }}>
-                Your base
+                {t('yourBase')}
               </span>
               <Link
                 href={`/place/${base.slug}`}
@@ -217,7 +219,7 @@ export default async function DayTripPage({ params }) {
             color: 'var(--color-muted)', marginBottom: 12,
             fontFamily: 'var(--font-body)',
           }}>
-            Planning a trip?
+            {t('planningATrip')}
           </div>
           <h2 style={{
             fontFamily: 'var(--font-display)',
@@ -225,14 +227,14 @@ export default async function DayTripPage({ params }) {
             fontWeight: 400, color: 'var(--color-ink)',
             marginBottom: 24, lineHeight: 1.2,
           }}>
-            Discover more places to stay
+            {t('discoverMoreStays')}
           </h2>
           <p style={{
             fontSize: 14, color: 'var(--color-muted)', lineHeight: 1.7,
             fontFamily: 'var(--font-body)',
             maxWidth: 440, margin: '0 auto 32px',
           }}>
-            Find independently run accommodation across Australia and plan day trips from any base.
+            {t('discoverMoreStaysBody')}
           </p>
           <Link
             href="/explore?vertical=rest"
@@ -244,7 +246,7 @@ export default async function DayTripPage({ params }) {
               fontFamily: 'var(--font-body)', borderRadius: 2,
             }}
           >
-            Browse Rest Atlas
+            {t('browseRestAtlas')}
           </Link>
         </div>
       </section>

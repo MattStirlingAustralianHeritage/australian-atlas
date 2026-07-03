@@ -1,8 +1,10 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 
-export default function TrailPromptInput({ placeholder }) {
+export default function TrailPromptInput({ placeholder, buildLabel }) {
+  const t = useTranslations('trails')
   const [query, setQuery] = useState('')
   const router = useRouter()
 
@@ -27,7 +29,7 @@ export default function TrailPromptInput({ placeholder }) {
           type="text"
           value={query}
           onChange={e => setQuery(e.target.value)}
-          placeholder={placeholder || "Try 'weekend wine trail through the Barossa' or 'three day art tour of Hobart'..."}
+          placeholder={placeholder || t('promptPlaceholder')}
           className="flex-1 bg-transparent text-[var(--color-ink)] placeholder:text-[var(--color-muted)] outline-none"
           style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px' }}
         />
@@ -37,7 +39,7 @@ export default function TrailPromptInput({ placeholder }) {
             className="shrink-0 text-white px-3 py-1.5 rounded-full hover:opacity-90 transition-opacity"
             style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '12px', background: 'var(--color-sage)' }}
           >
-            Build trail
+            {buildLabel || t('buildTrail')}
           </button>
         )}
       </div>

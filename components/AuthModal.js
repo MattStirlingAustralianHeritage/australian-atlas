@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import { getAuthSupabase } from '@/lib/supabase/auth-clients'
 
 /**
@@ -30,6 +31,7 @@ export default function AuthModal({ open, onClose, onAuthSuccess, returnTo }) {
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const supabase = getAuthSupabase()
+  const t = useTranslations('actions')
 
   useEffect(() => {
     if (!open) return
@@ -81,7 +83,7 @@ export default function AuthModal({ open, onClose, onAuthSuccess, returnTo }) {
           body: JSON.stringify({ email, password, next }),
         })
         const data = await res.json().catch(() => ({}))
-        if (!res.ok) throw new Error(data.error || 'Could not create your account.')
+        if (!res.ok) throw new Error(data.error || t('accountCreateError'))
         if (data.requiresEmailConfirmation === false) {
           // Email couldn't be sent, so the account was auto-confirmed — sign in now.
           const { error: signErr } = await supabase.auth.signInWithPassword({ email, password })
@@ -89,7 +91,7 @@ export default function AuthModal({ open, onClose, onAuthSuccess, returnTo }) {
           if (onAuthSuccess) await onAuthSuccess()
           onClose()
         } else {
-          setMessage('Check your email to confirm your account.')
+          setMessage(t('checkEmailConfirm'))
         }
       }
     } catch (err) {
@@ -125,18 +127,18 @@ export default function AuthModal({ open, onClose, onAuthSuccess, returnTo }) {
               color: 'var(--color-sage)', textTransform: 'uppercase',
               letterSpacing: '0.18em', marginBottom: 8, lineHeight: 1,
             }}>
-              {mode === 'signup' ? 'Create account' : 'Sign in'}
+              {mode === 'signup' ? t('createAccount') : t('signIn')}
             </p>
             <p style={{
               fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 20,
               color: 'var(--color-ink)', lineHeight: 1.3, margin: 0,
             }}>
-              {mode === 'signup' ? 'Join the Atlas' : 'Welcome back'}
+              {mode === 'signup' ? t('joinAtlas') : t('welcomeBack')}
             </p>
           </div>
           <button
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t('close')}
             style={{
               background: 'none', border: 'none', cursor: 'pointer',
               color: 'var(--color-muted)', padding: 4, marginTop: 2,
@@ -167,20 +169,20 @@ export default function AuthModal({ open, onClose, onAuthSuccess, returnTo }) {
               <path d="M3.964 10.706A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.038l3.007-2.332z" fill="#FBBC05"/>
               <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.962L3.964 7.294C4.672 5.166 6.656 3.58 9 3.58z" fill="#EA4335"/>
             </svg>
-            Continue with Google
+            {t('continueWithGoogle')}
           </button>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', margin: '1.25rem 0' }}>
             <div style={{ flex: 1, height: 1, background: 'var(--color-border)' }} />
             <span style={{ fontFamily: 'var(--font-body)', fontSize: '0.75rem', color: 'var(--color-muted)' }}>
-              or with email
+              {t('orWithEmail')}
             </span>
             <div style={{ flex: 1, height: 1, background: 'var(--color-border)' }} />
           </div>
 
           <form onSubmit={handleSubmit}>
             <label style={{ display: 'block', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-muted)', marginBottom: 6 }}>
-              Email
+              {t('emailLabel')}
             </label>
             <input
               type="email"
@@ -197,7 +199,7 @@ export default function AuthModal({ open, onClose, onAuthSuccess, returnTo }) {
             />
 
             <label style={{ display: 'block', fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-muted)', marginBottom: 6 }}>
-              Password
+              {t('passwordLabel')}
             </label>
             <input
               type="password"
@@ -235,7 +237,7 @@ export default function AuthModal({ open, onClose, onAuthSuccess, returnTo }) {
                 cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1,
               }}
             >
-              {loading ? 'Please wait…' : mode === 'signup' ? 'Create account' : 'Sign in'}
+              {loading ? t('pleaseWait') : mode === 'signup' ? t('createAccount') : t('signIn')}
             </button>
           </form>
 
@@ -245,14 +247,14 @@ export default function AuthModal({ open, onClose, onAuthSuccess, returnTo }) {
                 onClick={() => { setMode('signup'); setError(''); setMessage('') }}
                 style={{ background: 'none', border: 'none', color: 'var(--color-sage)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'inherit' }}
               >
-                Need an account? Create one
+                {t('needAccount')}
               </button>
             ) : (
               <button
                 onClick={() => { setMode('login'); setError(''); setMessage('') }}
                 style={{ background: 'none', border: 'none', color: 'var(--color-sage)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'inherit' }}
               >
-                Already have an account? Sign in
+                {t('haveAccount')}
               </button>
             )}
           </div>

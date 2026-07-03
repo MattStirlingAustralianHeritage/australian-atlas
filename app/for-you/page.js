@@ -1,8 +1,10 @@
 import { cookies } from 'next/headers'
+import { getTranslations, getLocale } from 'next-intl/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { verifySharedToken } from '@/lib/shared-auth'
 import ForYouClient from './ForYouClient'
 import { LISTING_REGION_SELECT } from '@/lib/regions'
+import { overlayListingTranslations } from '@/lib/i18n/overlayListings'
 
 export const dynamic = 'force-dynamic'
 
@@ -164,6 +166,8 @@ async function getPersonalisedListings(sb, userId) {
 
 export default async function ForYouPage() {
   const sb = getSupabaseAdmin()
+  const t = await getTranslations('explore')
+  const locale = await getLocale()
   const userId = await getUserId()
   const isLoggedIn = !!userId
 
@@ -176,6 +180,8 @@ export default async function ForYouPage() {
   } else {
     listings = await getLoggedOutListings(sb)
   }
+
+  listings = await overlayListingTranslations(listings || [], locale)
 
   return (
     <div style={{
@@ -192,7 +198,7 @@ export default async function ForYouPage() {
             color: 'var(--color-ink)',
             margin: '0 0 0.5rem',
           }}>
-            For You
+            {t('forYouTitle')}
           </h1>
           <p style={{
             fontFamily: 'var(--font-body)',
@@ -200,7 +206,7 @@ export default async function ForYouPage() {
             color: 'var(--color-muted)',
             margin: 0,
           }}>
-            Places we think you'll love
+            {t('forYouSubtitle')}
           </p>
         </div>
 

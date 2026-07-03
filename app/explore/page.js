@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { getTranslations, getLocale } from 'next-intl/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { VERTICAL_STYLES } from '@/components/VerticalBadge'
 import RegionMapCard from '@/components/RegionMapCard'
@@ -71,6 +72,8 @@ export const metadata = {
 
 export default async function ExplorePage() {
   const sb = getSupabaseAdmin()
+  const t = await getTranslations('explore')
+  const locale = await getLocale()
 
   const [regionsRes, collectionsRes, articlesRes] = await Promise.all([
     sb.from('regions')
@@ -123,17 +126,17 @@ export default async function ExplorePage() {
       <div style={{ background: 'var(--color-cream)', borderBottom: '1px solid var(--color-border)' }}>
         <div style={{ maxWidth: '72rem', margin: '0 auto', padding: '3.5rem 1.5rem 3rem' }}>
           <p className="section-dateline" style={{ marginBottom: '14px' }}>
-            Explore
+            {t('kicker')}
           </p>
           <h1 className="masthead-title" style={{ margin: 0 }}>
-            Discover independent Australia
+            {t('heroTitle')}
           </h1>
           <p style={{
             fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px',
             color: 'var(--color-muted)', marginTop: '0.625rem',
             maxWidth: '36rem', lineHeight: 1.6,
           }}>
-            Regions, collections, and {countWord} directories of the places that make a road trip worth the drive.
+            {t('heroSubtitle', { count: countWord })}
           </p>
         </div>
       </div>
@@ -148,20 +151,20 @@ export default async function ExplorePage() {
                 fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '1.35rem',
                 color: 'var(--color-ink)', margin: 0,
               }}>
-                Regions
+                {t('regionsTitle')}
               </h2>
               <p style={{
                 fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--color-muted)',
                 marginTop: '0.25rem',
               }}>
-                Browse by region across every state
+                {t('regionsSubtitle')}
               </p>
             </div>
             <Link href="/regions" style={{
               fontFamily: 'var(--font-body)', fontSize: '13px', fontWeight: 500,
               color: 'var(--color-accent)', textDecoration: 'none',
             }}>
-              All regions &rarr;
+              {t('allRegions')} &rarr;
             </Link>
           </div>
           <div className="explore-grid" style={{ paddingTop: '8px' }}>
@@ -180,20 +183,20 @@ export default async function ExplorePage() {
                   fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '1.35rem',
                   color: 'var(--color-ink)', margin: 0,
                 }}>
-                  Collections
+                  {t('collectionsTitle')}
                 </h2>
                 <p style={{
                   fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--color-muted)',
                   marginTop: '0.25rem',
                 }}>
-                  Curated guides assembled by our editors
+                  {t('collectionsSubtitle')}
                 </p>
               </div>
               <Link href="/collections" style={{
                 fontFamily: 'var(--font-body)', fontSize: '13px', fontWeight: 500,
                 color: 'var(--color-accent)', textDecoration: 'none',
               }}>
-                All collections &rarr;
+                {t('allCollections')} &rarr;
               </Link>
             </div>
             <div className="explore-collections">
@@ -209,7 +212,7 @@ export default async function ExplorePage() {
                       letterSpacing: '0.14em', textTransform: 'uppercase',
                       color: 'rgba(240,236,228,0.45)', marginBottom: '0.5rem',
                     }}>
-                      {c.listing_ids?.length || 0} places{c.region ? ` · ${c.region}` : ''}
+                      {t('countPlaces', { count: c.listing_ids?.length || 0 })}{c.region ? ` · ${c.region}` : ''}
                     </p>
                     <p style={{
                       fontFamily: 'var(--font-display)', fontSize: '17px', fontWeight: 400,
@@ -231,13 +234,13 @@ export default async function ExplorePage() {
               fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '1.35rem',
               color: 'var(--color-ink)', margin: 0,
             }}>
-              Browse by category
+              {t('categoryTitle')}
             </h2>
             <p style={{
               fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--color-muted)',
               marginTop: '0.25rem',
             }}>
-              {CountWord} directories, each dedicated to a corner of Australian culture
+              {t('categorySubtitle', { count: PUBLIC_VERTICAL_ORDER.length, countWord: CountWord })}
             </p>
           </div>
           <div className="explore-verticals">
@@ -261,13 +264,13 @@ export default async function ExplorePage() {
                       fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 400,
                       color: 'var(--color-ink)',
                     }}>
-                      {info.name}
+                      {t(`vertical_${key}_name`)}
                     </div>
                     <div style={{
                       fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-muted)',
                       marginTop: '2px',
                     }}>
-                      {info.desc}
+                      {t(`vertical_${key}_desc`)}
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '0.75rem', flexShrink: 0 }}>
@@ -275,13 +278,13 @@ export default async function ExplorePage() {
                       fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 500,
                       color: vs?.text || 'var(--color-accent)', textDecoration: 'none',
                     }}>
-                      Browse
+                      {t('browse')}
                     </Link>
                     <a href={info.url} target="_blank" rel="noopener noreferrer" style={{
                       fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 300,
                       color: 'var(--color-muted)', textDecoration: 'none',
                     }}>
-                      Site &#x2197;
+                      {t('site')} &#x2197;
                     </a>
                   </div>
                 </div>
@@ -299,20 +302,20 @@ export default async function ExplorePage() {
                   fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '1.35rem',
                   color: 'var(--color-ink)', margin: 0,
                 }}>
-                  From the Journal
+                  {t('journalTitle')}
                 </h2>
                 <p style={{
                   fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--color-muted)',
                   marginTop: '0.25rem',
                 }}>
-                  Stories from across the network
+                  {t('journalSubtitle')}
                 </p>
               </div>
               <Link href="/journal" style={{
                 fontFamily: 'var(--font-body)', fontSize: '13px', fontWeight: 500,
                 color: 'var(--color-accent)', textDecoration: 'none',
               }}>
-                All articles &rarr;
+                {t('allArticles')} &rarr;
               </Link>
             </div>
             <div className="explore-articles">
@@ -337,7 +340,7 @@ export default async function ExplorePage() {
                           fontFamily: 'var(--font-body)', fontSize: '11px',
                           color: 'var(--color-muted)', marginBottom: '0.375rem',
                         }}>
-                          {new Date(article.published_at).toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}
+                          {new Date(article.published_at).toLocaleDateString(locale === 'ko' ? 'ko-KR' : 'en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}
                         </p>
                       )}
                       <h3 style={{
@@ -372,11 +375,11 @@ export default async function ExplorePage() {
               fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '1.35rem',
               color: 'var(--color-ink)', margin: 0,
             }}>
-              Browse by state
+              {t('stateTitle')}
             </h2>
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
-            {Object.entries(STATE_LABELS).map(([code, label]) => (
+            {Object.keys(STATE_LABELS).map((code) => (
               <Link key={code} href={`/regions?state=${code}`} style={{
                 display: 'inline-block', padding: '0.5rem 1.25rem',
                 border: '1px solid var(--color-border)', borderRadius: 2,
@@ -384,7 +387,7 @@ export default async function ExplorePage() {
                 color: 'var(--color-ink)', textDecoration: 'none',
                 transition: 'border-color 0.2s',
               }}>
-                {label}
+                {t(`state_${code}`)}
               </Link>
             ))}
           </div>

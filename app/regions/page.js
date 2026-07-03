@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { getTranslations } from 'next-intl/server'
 import RegionMapCard from '@/components/RegionMapCard'
 
 export const revalidate = 3600
@@ -36,6 +37,7 @@ async function getRegions() {
 }
 
 export default async function RegionsPage() {
+  const t = await getTranslations('regions')
   const regions = await getRegions()
 
   // Group by state
@@ -50,9 +52,9 @@ export default async function RegionsPage() {
       {/* Page masthead — cream, contrasts with dark cards */}
       <div style={{ maxWidth: '72rem', margin: '0 auto', padding: '0 1.5rem' }}>
         <div className="page-masthead" style={{ paddingBottom: 0 }}>
-          <p className="section-dateline">Explore by region</p>
-          <h1 className="masthead-title">Regions</h1>
-          <p className="masthead-sub">Independent places across Australia, mapped by region.</p>
+          <p className="section-dateline">{t('kicker')}</p>
+          <h1 className="masthead-title">{t('title')}</h1>
+          <p className="masthead-sub">{t('subtitle')}</p>
         </div>
       </div>
 
@@ -93,7 +95,7 @@ export default async function RegionsPage() {
                     color: 'var(--color-muted)',
                   }}
                 >
-                  {stateRegions.length} {stateRegions.length === 1 ? 'region' : 'regions'}
+                  {t('regionCount', { count: stateRegions.length })}
                 </span>
               </div>
 

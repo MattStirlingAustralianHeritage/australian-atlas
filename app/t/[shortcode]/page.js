@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { getTranslations } from 'next-intl/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getVerticalUrl, getVerticalBadge, VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 import TrailMap from '../../trails/[slug]/TrailMap'
@@ -29,6 +30,7 @@ export async function generateMetadata({ params }) {
 
 export default async function SharedTrailPage({ params }) {
   const { shortcode } = await params
+  const t = await getTranslations('trails')
   const sb = getSupabaseAdmin()
 
   const { data: trail } = await sb
@@ -62,7 +64,7 @@ export default async function SharedTrailPage({ params }) {
         )}
         <div className="max-w-6xl mx-auto" style={{ position: 'relative' }}>
           <div style={{ fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--color-sage)', marginBottom: 12, fontFamily: 'var(--font-body)' }}>
-            {isEditorial ? 'Editorial trail' : 'Community trail'}
+            {isEditorial ? t('editorialTrail') : t('communityTrail')}
             {trail.region ? ` · ${trail.region}` : ''}
           </div>
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(24px, 4vw, 42px)', fontWeight: 400, color: '#fff', lineHeight: 1.15, marginBottom: 16 }}>
@@ -74,15 +76,15 @@ export default async function SharedTrailPage({ params }) {
             </p>
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 13, color: 'rgba(255,255,255,0.4)', fontFamily: 'var(--font-body)', flexWrap: 'wrap' }}>
-            <span>{validStops.length} stops</span>
+            <span>{t('stopsCount', { count: validStops.length })}</span>
             {trail.transport_mode === 'transit' && (
-              <><span>·</span><span style={{ color: 'var(--color-sage)' }}>Car-free trail</span></>
+              <><span>·</span><span style={{ color: 'var(--color-sage)' }}>{t('carFreeTrail')}</span></>
             )}
             {trail.transport_mode === 'neighbourhood' && (
-              <><span>·</span><span style={{ color: '#5A8A9A' }}>Neighbourhood walk{trail.neighbourhood_label ? ` · ${trail.neighbourhood_label}` : ''}</span></>
+              <><span>·</span><span style={{ color: '#5A8A9A' }}>{t('neighbourhoodWalk')}{trail.neighbourhood_label ? ` · ${trail.neighbourhood_label}` : ''}</span></>
             )}
             {trail.duration && <><span>·</span><span>{trail.duration}</span></>}
-            {trail.curator_name && <><span>·</span><span>Curated by {trail.curator_name}</span></>}
+            {trail.curator_name && <><span>·</span><span>{t('curatedBy', { name: trail.curator_name })}</span></>}
           </div>
         </div>
       </section>
@@ -173,7 +175,7 @@ export default async function SharedTrailPage({ params }) {
                       )}
                       {venueUrl && (
                         <a href={venueUrl} style={{ display: 'inline-block', marginTop: 10, fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-sage)', textDecoration: 'none', fontFamily: 'var(--font-body)' }}>
-                          View listing →
+                          {t('viewListing')} →
                         </a>
                       )}
                     </div>
@@ -206,17 +208,17 @@ export default async function SharedTrailPage({ params }) {
       <section className="max-w-6xl mx-auto px-6" style={{ padding: '56px 24px 80px' }}>
         <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 48 }}>
           <div style={{ fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--color-sage)', marginBottom: 12, fontFamily: 'var(--font-body)' }}>
-            Plan your visit
+            {t('planYourVisit')}
           </div>
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(20px, 3vw, 28px)', fontWeight: 400, color: 'var(--color-ink)', marginBottom: 36, lineHeight: 1.2 }}>
-            What to know before you go
+            {t('whatToKnow')}
           </h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 24, marginBottom: 48 }}>
             {[
-              { label: 'Stops', value: `${validStops.length} venues`, sub: 'All independently operated' },
-              { label: 'Duration', value: trail.duration || 'Allow a full day', sub: 'Adjust pace between stops' },
-              { label: 'Getting there', value: trail.transport_mode === 'neighbourhood' ? 'Walk' : trail.transport_mode === 'transit' ? 'Transit + walking' : 'Car recommended', sub: trail.transport_mode === 'neighbourhood' ? 'All stops walkable' : 'Check venue hours before going' },
-              { label: 'Best visited', value: trail.best_season || 'Year round', sub: 'Weather varies by region' },
+              { label: t('infoStops'), value: t('venuesCount', { count: validStops.length }), sub: t('allIndependent') },
+              { label: t('infoDuration'), value: trail.duration || t('allowFullDay'), sub: t('adjustPace') },
+              { label: t('infoGettingThere'), value: trail.transport_mode === 'neighbourhood' ? t('gettingThereWalk') : trail.transport_mode === 'transit' ? t('gettingThereTransit') : t('gettingThereCar'), sub: trail.transport_mode === 'neighbourhood' ? t('allStopsWalkable') : t('checkVenueHours') },
+              { label: t('infoBestVisited'), value: trail.best_season || t('yearRound'), sub: t('weatherVaries') },
             ].map(item => (
               <div key={item.label} style={{ padding: '20px 24px', background: 'var(--color-card-bg)', border: '1px solid var(--color-border)', borderRadius: 3 }}>
                 <div style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--color-muted)', fontFamily: 'var(--font-body)', marginBottom: 8 }}>{item.label}</div>
@@ -228,19 +230,19 @@ export default async function SharedTrailPage({ params }) {
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 24, padding: '32px 0', borderTop: '1px solid var(--color-border)' }}>
             <div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, color: 'var(--color-ink)', marginBottom: 6 }}>Build your own trail</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, color: 'var(--color-ink)', marginBottom: 6 }}>{t('buildYourOwn')}</div>
               <div style={{ fontSize: 13, color: 'var(--color-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
-                Plan a custom route across Australia's best independent places.<br />
-                Save and share with anyone.
+                {t('buildYourOwnLine1')}<br />
+                {t('buildYourOwnLine2')}
               </div>
             </div>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               <ShareButton shortCode={trail.short_code} slug={trail.slug} />
               <Link href="/trails" style={{ display: 'inline-block', padding: '11px 24px', border: '1px solid var(--color-border)', color: 'var(--color-muted)', textDecoration: 'none', fontSize: 12, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'var(--font-body)', borderRadius: 2 }}>
-                All Trails
+                {t('allTrails')}
               </Link>
               <Link href="/trails/builder" style={{ display: 'inline-block', padding: '11px 24px', background: 'var(--color-sage)', color: '#fff', textDecoration: 'none', fontSize: 12, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'var(--font-body)', borderRadius: 2 }}>
-                Build a trail
+                {t('buildATrail')}
               </Link>
             </div>
           </div>

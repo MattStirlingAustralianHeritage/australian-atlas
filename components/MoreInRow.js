@@ -1,6 +1,7 @@
 'use client'
 
 import { Children, useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslations } from 'next-intl'
 
 /**
  * Horizontal, arrow-navigable "More in [region]" row.
@@ -12,6 +13,7 @@ import { Children, useCallback, useEffect, useRef, useState } from 'react'
  * and the buttons are hidden on phones (where swiping is the natural gesture).
  */
 export default function MoreInRow({ region, children }) {
+  const t = useTranslations('cards')
   const trackRef = useRef(null)
   const [canPrev, setCanPrev] = useState(false)
   const [canNext, setCanNext] = useState(false)
@@ -116,14 +118,14 @@ export default function MoreInRow({ region, children }) {
           color: 'var(--color-ink)',
           margin: 0,
         }}>
-          More in {region}
+          {t('moreIn', { region })}
         </h2>
         {showArrows && (
           <div className="more-in-arrows">
             <button
               type="button"
               className="more-in-arrow"
-              aria-label={`Scroll back through more in ${region}`}
+              aria-label={t('scrollBackMoreIn', { region })}
               onClick={() => page(-1)}
               disabled={!canPrev}
             >
@@ -132,7 +134,7 @@ export default function MoreInRow({ region, children }) {
             <button
               type="button"
               className="more-in-arrow"
-              aria-label={`Scroll forward through more in ${region}`}
+              aria-label={t('scrollForwardMoreIn', { region })}
               onClick={() => page(1)}
               disabled={!canNext}
             >

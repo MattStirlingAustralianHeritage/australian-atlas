@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { getTranslations } from 'next-intl/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getPublishedEventBySlug } from '@/lib/events'
 import { getVerticalBadge, getVerticalBrandColour } from '@/lib/verticalUrl'
@@ -73,6 +74,7 @@ export async function generateMetadata({ params }) {
 
 export default async function EventDetailPage({ params }) {
   const { slug } = await params
+  const t = await getTranslations('discovery2')
   const sb = getSupabaseAdmin()
   const event = await getPublishedEventBySlug(sb, slug)
 
@@ -158,7 +160,7 @@ export default async function EventDetailPage({ params }) {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[var(--color-sage)] text-white text-sm font-medium hover:opacity-90 transition-opacity"
                 >
-                  Get tickets
+                  {t('getTickets')}
                 </a>
               )}
               {venue && (
@@ -166,7 +168,7 @@ export default async function EventDetailPage({ params }) {
                   href={`/place/${venue.slug}`}
                   className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full border border-[var(--color-ink)] text-[var(--color-ink)] text-sm font-medium hover:bg-[var(--color-ink)] hover:text-white transition-colors"
                 >
-                  Visit venue
+                  {t('visitVenue')}
                 </Link>
               )}
               <CopyUrlButton />
@@ -177,7 +179,7 @@ export default async function EventDetailPage({ params }) {
           {venue && (
             <aside className="mt-12 lg:mt-0 lg:col-span-1">
               <h2 className="font-[family-name:var(--font-serif)] text-sm font-semibold uppercase tracking-wide text-[var(--color-muted)] mb-3">
-                Hosted by
+                {t('hostedBy')}
               </h2>
               <Link
                 href={`/place/${venue.slug}`}
@@ -220,7 +222,7 @@ export default async function EventDetailPage({ params }) {
             href="/events"
             className="text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] transition-colors"
           >
-            &larr; All events
+            &larr; {t('allEvents')}
           </Link>
         </div>
       </div>

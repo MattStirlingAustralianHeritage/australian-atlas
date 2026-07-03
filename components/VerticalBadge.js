@@ -1,3 +1,8 @@
+'use client'
+
+import { useLocale } from 'next-intl'
+import { localizeVerticalKicker } from '@/lib/i18n/listingLabels'
+
 const VERTICAL_STYLES = {
   sba:          { bg: '#EEEDFE', text: '#3C3489', label: 'Small Batch' },
   collection:   { bg: '#E6F1FB', text: '#185FA5', label: 'Culture' },
@@ -14,9 +19,11 @@ const VERTICAL_STYLES = {
 export { VERTICAL_STYLES }
 
 export default function VerticalBadge({ vertical, className = '', size = 'md' }) {
+  const locale = useLocale()
   const style = VERTICAL_STYLES[vertical]
   if (!style) return null
   const isSmall = size === 'sm'
+  const label = localizeVerticalKicker(vertical, style.label, locale)
   return (
     <span
       className={`inline-flex items-center rounded-full font-medium ${className}`}
@@ -27,7 +34,7 @@ export default function VerticalBadge({ vertical, className = '', size = 'md' })
         padding: isSmall ? '2px 8px' : '4px 10px',
       }}
     >
-      {style.label}
+      {label}
     </span>
   )
 }

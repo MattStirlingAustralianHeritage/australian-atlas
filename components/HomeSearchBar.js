@@ -1,22 +1,8 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
 import SearchAutocomplete from '@/components/SearchAutocomplete'
-
-// Example queries cycled through the hero placeholder while the field is empty —
-// they teach the plain-English query patterns (style, thing + region, vibe +
-// state, category + city) by example. Every query here was verified against the
-// live /api/search to return real results; don't add one without checking it
-// isn't a dead end. The first line is a generic opener (never submitted — the
-// placeholder is only a hint); the rest are real "Try …" queries.
-const PLACEHOLDER_EXAMPLES = [
-  'Find a roaster, a winery, a gallery, a farm stay…',
-  'Try “wood-fired bakery”',
-  'Try “natural wine in the Adelaide Hills”',
-  'Or just ask: “a gift for my niece that’s made in Australia”',
-  'Or ask: “somewhere to take mum for her birthday”',
-  'Try “galleries in Hobart”',
-]
 
 const ROLL_MS = 3200
 
@@ -32,6 +18,18 @@ const HINT_TEXT_STYLE = {
 }
 
 export default function HomeSearchBar() {
+  const t = useTranslations('home')
+  // Example queries cycled through the hero placeholder while the field is empty —
+  // they teach the plain-English query patterns by example. The first line is a
+  // generic opener (never submitted); the rest are real "Try …" queries.
+  const PLACEHOLDER_EXAMPLES = [
+    t('phOpener'),
+    t('phBakery'),
+    t('phWine'),
+    t('phGift'),
+    t('phBirthday'),
+    t('phGalleries'),
+  ]
   const [query, setQuery] = useState('')
   // The two lines currently on stage: `curr` rolls in, `prev` rolls out.
   // prev === null on first paint so the opening hint appears without a roll.
@@ -118,7 +116,7 @@ export default function HomeSearchBar() {
           placeholder=""
           overlay={hintOverlay}
           inputStyle={{ fontSize: '16px', border: 'none', background: 'transparent', padding: 0, borderRadius: 0 }}
-          ariaLabel="Search the atlas"
+          ariaLabel={t('searchAriaLabel')}
         />
         <button
           type="submit"
@@ -129,7 +127,7 @@ export default function HomeSearchBar() {
             padding: '10px 22px',
           }}
         >
-          Search
+          {t('searchButton')}
         </button>
       </div>
     </form>

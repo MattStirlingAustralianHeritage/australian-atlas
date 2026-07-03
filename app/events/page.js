@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { getTranslations } from 'next-intl/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { listUpcomingEvents, listEventCategories } from '@/lib/events'
 import EventCard, { EventListRow } from '@/components/EventCard'
@@ -33,6 +34,7 @@ export const metadata = {
 }
 
 export default async function EventsPage({ searchParams }) {
+  const t = await getTranslations('discovery2')
   const params = await searchParams
   const state = params?.state || ''
   const category = params?.category || ''
@@ -50,10 +52,10 @@ export default async function EventsPage({ searchParams }) {
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 pb-12">
       <div className="page-masthead max-w-2xl">
-        <p className="section-dateline">On the calendar</p>
-        <h1 className="masthead-title">What&apos;s on</h1>
+        <p className="section-dateline">{t('eventsKicker')}</p>
+        <h1 className="masthead-title">{t('eventsTitle')}</h1>
         <p className="masthead-sub">
-          Festivals, markets, long-table dinners, exhibitions and workshops across the Australian Atlas network.
+          {t('eventsSubtitle')}
         </p>
       </div>
 
@@ -65,7 +67,7 @@ export default async function EventsPage({ searchParams }) {
             defaultValue={state}
             className="atlas-select px-3 py-2 border border-[var(--color-border)] bg-white text-sm text-[var(--color-ink)] font-[family-name:var(--font-sans)]"
           >
-            <option value="">All states</option>
+            <option value="">{t('allStates')}</option>
             {STATES.map(s => (
               <option key={s} value={s}>{s}</option>
             ))}
@@ -77,7 +79,7 @@ export default async function EventsPage({ searchParams }) {
               defaultValue={category}
               className="atlas-select px-3 py-2 border border-[var(--color-border)] bg-white text-sm text-[var(--color-ink)] font-[family-name:var(--font-sans)] capitalize"
             >
-              <option value="">All types</option>
+              <option value="">{t('allTypes')}</option>
               {categories.map(c => (
                 <option key={c} value={c} className="capitalize">{c}</option>
               ))}
@@ -85,11 +87,11 @@ export default async function EventsPage({ searchParams }) {
           )}
 
           <button type="submit" className="px-4 py-2 rounded-lg bg-[var(--color-sage)] text-white text-sm font-medium">
-            Filter
+            {t('filter')}
           </button>
           {(state || category) && (
             <Link href="/events" className="px-4 py-2 rounded-lg border border-[var(--color-border)] text-sm text-[var(--color-muted)] self-center">
-              Clear
+              {t('clear')}
             </Link>
           )}
         </form>
@@ -108,15 +110,15 @@ export default async function EventsPage({ searchParams }) {
             fontFamily: 'var(--font-display)', fontStyle: 'italic',
             fontSize: '20px', color: 'var(--color-ink)', marginBottom: '10px',
           }}>
-            Nothing on the calendar just yet.
+            {t('emptyTitle')}
           </p>
           <p style={{
             fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px',
             lineHeight: 1.6, color: 'var(--color-muted)',
           }}>
             {(state || category)
-              ? 'Try clearing your filters.'
-              : 'Markets, festivals, openings, and long-table dinners will appear here as they’re announced.'}
+              ? t('emptyFiltered')
+              : t('emptyBody')}
           </p>
         </div>
       ) : isLowCount ? (
@@ -146,7 +148,7 @@ export default async function EventsPage({ searchParams }) {
           href="/events/submit"
           className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[var(--color-sage)] text-white font-medium text-sm hover:opacity-90 transition-opacity"
         >
-          Submit an event
+          {t('submitEvent')}
         </Link>
       </div>
     </div>

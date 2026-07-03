@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { useTranslations } from 'next-intl'
 
 // Branded replacement for window.confirm(). Controlled: render with open,
 // wire onConfirm/onCancel. `danger` styles the confirm button for
@@ -19,14 +20,17 @@ export default function ConfirmDialog({
   open,
   title,
   message,
-  confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel',
+  confirmLabel,
+  cancelLabel,
   danger = false,
   busy = false,
   onConfirm,
   onCancel,
 }) {
+  const t = useTranslations('actions')
   const cancelRef = useRef(null)
+  const confirmText = confirmLabel ?? t('confirm')
+  const cancelText = cancelLabel ?? t('cancel')
 
   useEffect(() => {
     if (!open) return
@@ -105,7 +109,7 @@ export default function ConfirmDialog({
             onClick={onCancel}
             disabled={busy}
           >
-            {cancelLabel}
+            {cancelText}
           </button>
           <button
             type="button"
@@ -113,7 +117,7 @@ export default function ConfirmDialog({
             onClick={onConfirm}
             disabled={busy}
           >
-            {busy ? 'Working…' : confirmLabel}
+            {busy ? t('working') : confirmText}
           </button>
         </div>
       </div>

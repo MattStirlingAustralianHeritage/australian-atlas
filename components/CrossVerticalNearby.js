@@ -1,11 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import { VERTICAL_STYLES } from './VerticalBadge'
 import { TypographicCard } from './ListingCard'
 import { isApprovedImageSource } from '@/lib/image-utils'
 
 export default function CrossVerticalNearby({ lat, lng, currentVertical, listingName, subRegion }) {
+  const t = useTranslations('cards')
   const [listings, setListings] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -38,10 +40,10 @@ export default function CrossVerticalNearby({ lat, lng, currentVertical, listing
   return (
     <section style={{ borderTop: '0.5px solid var(--border, #e0dcd4)', paddingTop: '1.5rem', maxWidth: 900, margin: '0 auto', padding: '1.5rem 24px 48px' }}>
       <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--text-3, #999)', marginBottom: 6, fontFamily: 'var(--font-sans, "DM Sans", sans-serif)' }}>
-        {subRegion ? `More in ${subRegion}` : 'Also nearby'}
+        {subRegion ? t('moreIn', { region: subRegion }) : t('alsoNearby')}
       </div>
       <div style={{ fontSize: 13, color: 'var(--text-3, #999)', fontFamily: 'var(--font-sans, "DM Sans", sans-serif)', marginBottom: 24 }}>
-        From across the Atlas network
+        {t('fromAcrossTheNetwork')}
       </div>
 
       <div className="cvn-grid">
@@ -95,7 +97,7 @@ export default function CrossVerticalNearby({ lat, lng, currentVertical, listing
                     {item.region || item.state}
                   </span>
                   <span style={{ fontFamily: 'var(--font-sans, "DM Sans", sans-serif)', fontSize: 11, fontWeight: 300, color: 'var(--text-3, #999)' }}>
-                    {item.distance_km < 1 ? '<1' : item.distance_km} km
+                    {t('km', { distance: item.distance_km < 1 ? '<1' : item.distance_km })}
                   </span>
                 </div>
               </div>

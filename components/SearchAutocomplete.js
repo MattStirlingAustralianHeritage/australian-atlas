@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useTranslations } from 'next-intl'
 import { isInquiryQuery } from '@/lib/search/inquiryIntent'
 
 // Sparkle mark for the "Ask the Atlas" affordance — signals the field just
@@ -58,10 +59,10 @@ function CategoryIcon() {
 }
 
 const TYPE_CONFIG = {
-  region: { heading: 'Regions', Icon: RegionIcon },
-  suburb: { heading: 'Suburbs', Icon: SuburbIcon },
-  category: { heading: 'Categories', Icon: CategoryIcon },
-  place: { heading: 'Places', Icon: PlaceIcon },
+  region: { headingKey: 'acRegions', Icon: RegionIcon },
+  suburb: { headingKey: 'acSuburbs', Icon: SuburbIcon },
+  category: { headingKey: 'acCategories', Icon: CategoryIcon },
+  place: { headingKey: 'acPlaces', Icon: PlaceIcon },
 }
 
 // Render/keyboard order: location + category suggestions surface above
@@ -70,6 +71,7 @@ const TYPE_CONFIG = {
 const TYPE_ORDER = ['region', 'suburb', 'category', 'place']
 
 export default function SearchAutocomplete({ value, onChange, onSelect, placeholder, inputStyle, ariaLabel, overlay }) {
+  const t = useTranslations('search')
   const [results, setResults] = useState([])
   const [isOpen, setIsOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -321,14 +323,14 @@ export default function SearchAutocomplete({ value, onChange, onSelect, placehol
                 display: 'block', fontFamily: 'var(--font-body)', fontWeight: 600,
                 fontSize: 14, color: 'var(--color-ink)',
               }}>
-                Ask the Atlas
+                {t('askTheAtlas')}
               </span>
               <span style={{
                 display: 'block', fontFamily: 'var(--font-body)', fontWeight: 300,
                 fontSize: 12.5, color: 'var(--color-muted)', marginTop: 1,
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}>
-                Get recommendations for “{trimmed}”
+                {t('askRecommendations', { query: trimmed })}
               </span>
             </span>
             <span style={{ color: 'var(--color-gold)', fontSize: 18, flexShrink: 0 }} aria-hidden="true">→</span>
@@ -338,7 +340,7 @@ export default function SearchAutocomplete({ value, onChange, onSelect, placehol
             fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 11.5,
             color: 'var(--color-muted)', background: 'var(--color-cream)',
           }}>
-            Reads like a question, so we&apos;ll answer it — not just match names.
+            {t('askHint')}
           </div>
         </div>
       )}
@@ -380,7 +382,7 @@ export default function SearchAutocomplete({ value, onChange, onSelect, placehol
                   letterSpacing: '0.08em',
                   color: 'var(--color-muted)',
                 }}>
-                  {config.heading}
+                  {t(config.headingKey)}
                 </div>
 
                 {/* Items */}

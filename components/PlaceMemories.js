@@ -1,8 +1,10 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 
 export default function PlaceMemories({ listingId, initialMemories = [] }) {
+  const t = useTranslations('placePanels')
   const [memories, setMemories] = useState(initialMemories)
   const [formOpen, setFormOpen] = useState(false)
   const [memory, setMemory] = useState('')
@@ -49,7 +51,7 @@ export default function PlaceMemories({ listingId, initialMemories = [] }) {
         color: 'var(--color-ink)',
         margin: '0 0 1.25rem',
       }}>
-        People's memories of this place
+        {t('memoriesTitle')}
       </h2>
 
       {/* Memories list */}
@@ -81,7 +83,7 @@ export default function PlaceMemories({ listingId, initialMemories = [] }) {
                 fontSize: '0.8rem',
                 color: 'var(--color-muted)',
               }}>
-                — {m.author_name || 'Anonymous'}
+                — {m.author_name || t('anonymous')}
               </footer>
             </blockquote>
           ))}
@@ -103,7 +105,7 @@ export default function PlaceMemories({ listingId, initialMemories = [] }) {
             color: '#166534',
             margin: 0,
           }}>
-            Thank you! Your memory will appear after review.
+            {t('memorySuccess')}
           </p>
         </div>
       )}
@@ -132,7 +134,7 @@ export default function PlaceMemories({ listingId, initialMemories = [] }) {
             e.currentTarget.style.color = '#d97706'
           }}
         >
-          {hasMemories ? 'Share a memory' : 'Be the first to share a memory of this place'}
+          {hasMemories ? t('shareMemory') : t('shareMemoryFirst')}
         </button>
       )}
 
@@ -144,7 +146,7 @@ export default function PlaceMemories({ listingId, initialMemories = [] }) {
               value={memory}
               onChange={(e) => setMemory(e.target.value)}
               maxLength={300}
-              placeholder="Share your memory of this place..."
+              placeholder={t('memoryPlaceholder')}
               rows={3}
               style={{
                 width: '100%',
@@ -174,7 +176,7 @@ export default function PlaceMemories({ listingId, initialMemories = [] }) {
               type="text"
               value={authorName}
               onChange={(e) => setAuthorName(e.target.value)}
-              placeholder="Your name (optional)"
+              placeholder={t('yourNameOptional')}
               style={{
                 width: '100%',
                 padding: '0.6rem 0.75rem',
@@ -205,7 +207,7 @@ export default function PlaceMemories({ listingId, initialMemories = [] }) {
                 opacity: submitting ? 0.7 : 1,
               }}
             >
-              {submitting ? 'Submitting...' : 'Submit memory'}
+              {submitting ? t('submitting') : t('submitMemory')}
             </button>
             <button
               type="button"
@@ -225,7 +227,7 @@ export default function PlaceMemories({ listingId, initialMemories = [] }) {
                 cursor: 'pointer',
               }}
             >
-              Cancel
+              {t('cancel')}
             </button>
           </div>
         </form>

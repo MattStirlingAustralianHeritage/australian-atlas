@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { getTranslations } from 'next-intl/server'
 import ScrollReveal from '@/components/ScrollReveal'
 import { VERTICAL_CARD_BG as CARD_BG } from '@/lib/verticalUrl'
 import { getNetworkStats } from '@/lib/networkStats'
@@ -34,36 +35,19 @@ const aboutJsonLd = {
 }
 
 const ATLASES = [
-  { name: 'Small Batch', desc: 'Craft drink. The distillers, brewers, winemakers, and cidermakers doing it independently.', url: 'https://smallbatchatlas.com.au' },
-  { name: 'Craft', desc: 'Makers. Ceramicists, woodworkers, textile artists, glassblowers, and studio potters.', url: 'https://craftatlas.com.au' },
-  { name: 'Culture', desc: 'Museums, galleries, heritage spaces, and artist-run initiatives worth the visit.', url: 'https://collectionatlas.com.au' },
-  { name: 'Fine Grounds', desc: 'Specialty coffee. Single-origin roasters, independent cafes, and the places that take it seriously.', url: 'https://finegroundsatlas.com.au' },
-  { name: 'Rest', desc: 'Boutique stays. The cabin in the ranges, the guesthouse on the coast, the converted shed.', url: 'https://restatlas.com.au' },
-  { name: 'Field', desc: 'Natural places. Swimming holes, walking trails, lookouts, and the landscapes between towns.', url: 'https://fieldatlas.com.au' },
-  { name: 'Corner', desc: 'Independent shops. Bookshops, record stores, design studios, and retailers who stock with intent.', url: 'https://corneratlas.com.au' },
-  { name: 'Found', desc: 'Vintage and secondhand. Op shops, antique dealers, salvage yards, and the thrill of the find.', url: 'https://foundatlas.com.au' },
-  { name: 'Table', desc: 'Food producers. Farm gates, bakeries, providores, and the people growing and making what you eat.', url: 'https://tableatlas.com.au' },
-  { name: 'Way', desc: 'Experiences. Guided walks, cultural tours, sailing charters, and the people who know the country.', url: 'https://wayatlas.com.au' },
+  { key: 'sba', name: 'Small Batch', url: 'https://smallbatchatlas.com.au' },
+  { key: 'craft', name: 'Craft', url: 'https://craftatlas.com.au' },
+  { key: 'collection', name: 'Culture', url: 'https://collectionatlas.com.au' },
+  { key: 'fine_grounds', name: 'Fine Grounds', url: 'https://finegroundsatlas.com.au' },
+  { key: 'rest', name: 'Rest', url: 'https://restatlas.com.au' },
+  { key: 'field', name: 'Field', url: 'https://fieldatlas.com.au' },
+  { key: 'corner', name: 'Corner', url: 'https://corneratlas.com.au' },
+  { key: 'found', name: 'Found', url: 'https://foundatlas.com.au' },
+  { key: 'table', name: 'Table', url: 'https://tableatlas.com.au' },
+  { key: 'way', name: 'Way', url: 'https://wayatlas.com.au' },
 ]
 
-const BELIEFS = [
-  {
-    title: 'Independence is the filter',
-    body: 'No chains. No franchises. No paid placements. Every listing in the network exists because someone built something real, not because they bought visibility. If a place is here, it is because it is independently run and worth knowing about.',
-  },
-  {
-    title: 'Specificity matters',
-    body: 'Every listing is verified, geocoded, and categorised. We check URLs, phone numbers, and business status. Venues that cannot be verified are excluded. We would rather have a smaller, accurate atlas than a large, unreliable one.',
-  },
-  {
-    title: 'The country is the subject',
-    body: 'Australia has an extraordinary independent layer: the makers, the growers, the people running galleries in converted woolsheds and roasting coffee in country towns. Most platforms miss it. We exist to map it.',
-  },
-  {
-    title: 'One person, long view',
-    body: 'Australian Atlas is built and maintained by one person in Australia. It is not a venture-backed startup chasing growth metrics. It is a reference work, built with care, and intended to last.',
-  },
-]
+const BELIEF_KEYS = ['belief1', 'belief2', 'belief3', 'belief4']
 
 const VERTICAL_CARD_BG = {
   'Small Batch': CARD_BG.sba, 'Craft': CARD_BG.craft, 'Culture': CARD_BG.collection,
@@ -74,6 +58,7 @@ const VERTICAL_CARD_BG = {
 
 export default async function AboutPage() {
   const stats = await getNetworkStats()
+  const t = await getTranslations('explore')
 
   return (
     <div style={{ background: 'var(--color-bg)', minHeight: '100vh' }}>
@@ -90,7 +75,7 @@ export default async function AboutPage() {
         textAlign: 'center',
       }}>
         <p className="section-dateline" style={{ marginBottom: 24 }}>
-          About
+          {t('aboutKicker')}
         </p>
         <h1 style={{
           fontFamily: 'var(--font-display)',
@@ -101,7 +86,10 @@ export default async function AboutPage() {
           margin: '0 0 28px',
           letterSpacing: '-0.02em',
         }}>
-          An independent guide to<br /><em style={{ fontStyle: 'italic' }}>independent</em> Australia
+          {t.rich('aboutHeroTitle', {
+            br: () => <br />,
+            em: (chunks) => <em style={{ fontStyle: 'italic' }}>{chunks}</em>,
+          })}
         </h1>
         <p style={{
           fontFamily: 'var(--font-body)',
@@ -112,9 +100,7 @@ export default async function AboutPage() {
           margin: '0 auto',
           maxWidth: 560,
         }}>
-          Mapping the small batch producers, the family-run stays, the bookshops,
-          the galleries you stumble upon, and the places that make this country
-          worth exploring slowly.
+          {t('aboutHeroSubtitle')}
         </p>
       </section>
 
@@ -135,38 +121,29 @@ export default async function AboutPage() {
             fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 400,
             color: 'var(--color-ink)', lineHeight: 1.75, margin: 0,
           }}>
-            There is another Australia underneath the one the big platforms show you.
-            It is the ceramics studio in a regional town, the distillery in a converted dairy,
-            the swimming hole the locals know about, the vintage shop worth the detour.
-            These places rarely appear on mainstream travel sites. They are too small,
-            too independent, too particular.
+            {t('aboutStory1')}
           </p>
           <p style={{
             fontFamily: 'var(--font-body)', fontSize: 16, fontWeight: 300,
             color: 'var(--color-muted)', lineHeight: 1.75, margin: 0,
           }}>
-            Australian Atlas exists to map that layer. Ten curated atlases cover every dimension
-            of independent culture across {stats.regions} regions
-            {stats.listings > 0 ? ` and ${stats.listings.toLocaleString()} verified listings` : ''}.
-            Each place is checked, categorised, and maintained &mdash; a reference work,
-            not a scrape.
+            {stats.listings > 0
+              ? t('aboutStory2WithListings', { regions: stats.regions, listings: stats.listings.toLocaleString() })
+              : t('aboutStory2', { regions: stats.regions })}
           </p>
           <p style={{
             fontFamily: 'var(--font-body)', fontSize: 16, fontWeight: 300,
             color: 'var(--color-muted)', lineHeight: 1.75, margin: 0,
           }}>
-            I started this because I kept finding places that deserved more visibility than an
-            Instagram post or a Google pin. A distiller doing something genuinely interesting
-            in a shed outside Castlemaine. A bookshop in a town of 400 people. These are the
-            places that make a region worth the drive, and nobody was mapping them properly.
+            {t('aboutStory3')}
           </p>
         </div>
       </ScrollReveal>
 
       {/* ── What We Believe — alternating full-width blocks ── */}
-      {BELIEFS.map((belief, i) => (
+      {BELIEF_KEYS.map((bkey, i) => (
         <ScrollReveal
-          key={belief.title}
+          key={bkey}
           as="section"
           style={{
             background: i % 2 === 0 ? 'var(--color-cream)' : 'var(--color-bg)',
@@ -187,14 +164,14 @@ export default async function AboutPage() {
               lineHeight: 1.15,
               margin: '0 0 16px',
             }}>
-              {belief.title}
+              {t(`${bkey}Title`)}
             </h3>
             <p style={{
               fontFamily: 'var(--font-body)', fontSize: 16, fontWeight: 300,
               color: 'var(--color-muted)', lineHeight: 1.75, margin: 0,
               maxWidth: 580,
             }}>
-              {belief.body}
+              {t(`${bkey}Body`)}
             </p>
           </div>
         </ScrollReveal>
@@ -213,22 +190,21 @@ export default async function AboutPage() {
               letterSpacing: '0.2em', textTransform: 'uppercase',
               color: 'var(--color-muted)', marginBottom: 12,
             }}>
-              The Network
+              {t('aboutNetworkKicker')}
             </p>
             <h2 style={{
               fontFamily: 'var(--font-display)', fontSize: 'clamp(26px, 4vw, 40px)',
               fontWeight: 400, color: 'var(--color-ink)', marginBottom: 12,
               lineHeight: 1.15,
             }}>
-              Ten atlases, one Australia
+              {t('aboutNetworkHeading')}
             </h2>
             <p style={{
               fontFamily: 'var(--font-body)', fontSize: 16, fontWeight: 300,
               color: 'var(--color-muted)', lineHeight: 1.7, margin: '0 auto',
               maxWidth: 520,
             }}>
-              Each atlas covers a distinct category of independent place.
-              Together, they form the most comprehensive guide to independent Australia.
+              {t('aboutNetworkSubtitle')}
             </p>
           </div>
 
@@ -267,13 +243,13 @@ export default async function AboutPage() {
                       fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 400,
                       color: '#FAF8F4', margin: '0 0 8px', lineHeight: 1.3,
                     }}>
-                      {atlas.name}
+                      {t(`atlas_${atlas.key}_name`)}
                     </p>
                     <p style={{
                       fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 300,
                       color: 'rgba(250,248,244,0.6)', lineHeight: 1.55, margin: 0,
                     }}>
-                      {atlas.desc}
+                      {t(`atlas_${atlas.key}_desc`)}
                     </p>
                   </div>
                 </a>
@@ -296,14 +272,14 @@ export default async function AboutPage() {
               letterSpacing: '0.2em', textTransform: 'uppercase',
               color: 'var(--color-muted)', marginBottom: 12,
             }}>
-              Who it&apos;s for
+              {t('aboutWhoKicker')}
             </p>
             <h2 style={{
               fontFamily: 'var(--font-display)', fontSize: 'clamp(26px, 4vw, 40px)',
               fontWeight: 400, color: 'var(--color-ink)',
               lineHeight: 1.15,
             }}>
-              Different people, same network
+              {t('aboutWhoHeading')}
             </h2>
           </div>
 
@@ -313,9 +289,9 @@ export default async function AboutPage() {
             gap: 20,
           }}>
             {[
-              { title: 'Travellers', body: 'Discover independent places across the country. Build trails, save favourites, and plan trips around the things that actually make a region interesting.', link: '/explore', cta: 'Start exploring' },
-              { title: 'Operators', body: 'If you run an independent venue, your listing may already be here. Claim it for free to update your details, or subscribe for enhanced features.', link: '/operators', cta: 'For operators' },
-              { title: 'Councils', body: 'Tourism bodies and regional councils get access to verified data, regional dashboards, and embeddable content for their own platforms.', link: '/for-councils', cta: 'For councils' },
+              { title: t('audTravellersTitle'), body: t('audTravellersBody'), link: '/explore', cta: t('audTravellersCta') },
+              { title: t('audOperatorsTitle'), body: t('audOperatorsBody'), link: '/operators', cta: t('audOperatorsCta') },
+              { title: t('audCouncilsTitle'), body: t('audCouncilsBody'), link: '/for-councils', cta: t('audCouncilsCta') },
             ].map((item, idx) => (
               <div
                 key={item.title}
@@ -371,15 +347,14 @@ export default async function AboutPage() {
             fontWeight: 400, fontStyle: 'italic',
             color: 'var(--color-ink)', marginBottom: 16, lineHeight: 1.15,
           }}>
-            Know a place we should list?
+            {t('aboutCommunityTitle')}
           </h2>
           <p style={{
             fontFamily: 'var(--font-body)', fontSize: 16, fontWeight: 300,
             color: 'var(--color-muted)', lineHeight: 1.7, margin: '0 auto 28px',
             maxWidth: 480,
           }}>
-            The network gets better when people contribute. If you know an independent place
-            that should be listed &mdash; a maker, a producer, a shop, a swimming hole &mdash; let me know.
+            {t('aboutCommunityDesc')}
           </p>
           <Link
             href="/suggest"
@@ -396,7 +371,7 @@ export default async function AboutPage() {
               transition: 'opacity 0.15s',
             }}
           >
-            Suggest a place
+            {t('suggestPlace')}
           </Link>
         </div>
       </section>
@@ -412,28 +387,30 @@ export default async function AboutPage() {
           fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 300,
           color: 'var(--color-muted)', lineHeight: 1.7, margin: '0 0 8px',
         }}>
-          Australian Atlas is part of{' '}
-          <a
-            href="https://australianheritage.au"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              color: 'var(--color-ink)',
-              textDecoration: 'underline',
-              textUnderlineOffset: 3,
-              textDecorationColor: 'var(--color-border)',
-            }}
-          >
-            Australian Heritage
-          </a>
-          , an editorial network focused on Australian culture, place, and identity.
+          {t.rich('aboutPartOf', {
+            link: (chunks) => (
+              <a
+                href="https://australianheritage.au"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: 'var(--color-ink)',
+                  textDecoration: 'underline',
+                  textUnderlineOffset: 3,
+                  textDecorationColor: 'var(--color-border)',
+                }}
+              >
+                {chunks}
+              </a>
+            ),
+          })}
         </p>
         <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
           <p style={{
             fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 300,
             color: 'var(--color-muted)', margin: 0,
           }}>
-            General enquiries:{' '}
+            {t('aboutGeneralEnquiries')}{' '}
             <a href="mailto:hello@australianatlas.com.au" style={{
               color: 'var(--color-ink)', textDecoration: 'underline',
               textUnderlineOffset: 3, textDecorationColor: 'var(--color-border)',
@@ -445,7 +422,7 @@ export default async function AboutPage() {
             fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 300,
             color: 'var(--color-muted)', margin: 0,
           }}>
-            Councils & tourism bodies:{' '}
+            {t('aboutCouncilsEnquiries')}{' '}
             <a href="mailto:councils@australianatlas.com.au" style={{
               color: 'var(--color-ink)', textDecoration: 'underline',
               textUnderlineOffset: 3, textDecorationColor: 'var(--color-border)',

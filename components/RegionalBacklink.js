@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 
 export default function RegionalBacklink({ regionName, regionSlug, regionDescription, venueName }) {
+  const t = useTranslations('cards')
   const [regionValid, setRegionValid] = useState(false)
 
   useEffect(() => {
@@ -40,10 +42,13 @@ export default function RegionalBacklink({ regionName, regionSlug, regionDescrip
           lineHeight: 1.6,
           margin: '0 0 8px',
         }}>
-          <span style={{ fontFamily: 'var(--font-serif, "Playfair Display", serif)', fontWeight: 400 }}>{venueName}</span>
-          {' '}is part of our{' '}
-          <span style={{ fontFamily: 'var(--font-serif, "Playfair Display", serif)', fontWeight: 400 }}>{regionName}</span>
-          {' '}guide
+          {t.rich('partOfGuide', {
+            venue: venueName,
+            region: regionName,
+            serif: (chunks) => (
+              <span style={{ fontFamily: 'var(--font-serif, "Playfair Display", serif)', fontWeight: 400 }}>{chunks}</span>
+            ),
+          })}
         </p>
 
         {snippet && (
@@ -71,7 +76,7 @@ export default function RegionalBacklink({ regionName, regionSlug, regionDescrip
             textDecoration: 'none',
           }}
         >
-          Explore the full {regionName} guide &rarr;
+          {t('exploreFullGuide', { region: regionName })}
         </a>
       </div>
     </div>

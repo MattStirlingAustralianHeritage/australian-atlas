@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 /**
  * TrailLegCard — compact walking leg card between trail stops.
  *
@@ -40,13 +42,15 @@ function transitUrl(fromLat, fromLng, toLat, toLng) {
 }
 
 export default function TrailLegCard({ fromLat, fromLng, toLat, toLng, compact = false }) {
+  const t = useTranslations('trails')
   if (!fromLat || !fromLng || !toLat || !toLng) return null
 
   const distKm = haversineKm(fromLat, fromLng, toLat, toLng)
   // Walking routes are ~1.3x straight-line distance in urban areas
   const walkKm = distKm * 1.3
   const isFar = walkKm > 2
-  const walkTimeStr = formatWalkTime(walkKm)
+  const walkMinutes = Math.max(1, Math.round((walkKm / WALK_SPEED_KMH) * 60))
+  const walkTimeStr = t('minWalk', { min: walkMinutes })
   const walkDistStr = formatDistance(walkKm)
 
   if (compact) {
@@ -67,7 +71,7 @@ export default function TrailLegCard({ fromLat, fromLng, toLat, toLng, compact =
         {isFar && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: '#C49A3C' }}>
-              A bit far to walk
+              {t('aBitFarToWalk')}
             </span>
             <a
               href={transitUrl(fromLat, fromLng, toLat, toLng)}
@@ -78,7 +82,7 @@ export default function TrailLegCard({ fromLat, fromLng, toLat, toLng, compact =
                 color: 'var(--color-sage)', textDecoration: 'none',
               }}
             >
-              Get transit directions →
+              {t('getTransitDirections')} →
             </a>
           </div>
         )}
@@ -114,7 +118,7 @@ export default function TrailLegCard({ fromLat, fromLng, toLat, toLng, compact =
             fontFamily: 'var(--font-body)', fontSize: 12, color: '#C49A3C',
             marginBottom: 4,
           }}>
-            A bit far to walk
+            {t('aBitFarToWalk')}
           </div>
           <a
             href={transitUrl(fromLat, fromLng, toLat, toLng)}
@@ -125,7 +129,7 @@ export default function TrailLegCard({ fromLat, fromLng, toLat, toLng, compact =
               color: 'var(--color-sage)', textDecoration: 'none',
             }}
           >
-            Get transit directions →
+            {t('getTransitDirections')} →
           </a>
         </div>
       )}

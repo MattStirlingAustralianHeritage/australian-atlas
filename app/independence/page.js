@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { getTranslations } from 'next-intl/server'
 import { breadcrumbJsonLd } from '@/lib/jsonLd'
 
 export const metadata = {
@@ -10,7 +11,20 @@ export const metadata = {
   },
 }
 
-export default function IndependencePage() {
+export default async function IndependencePage() {
+  const t = await getTranslations('explore')
+  const criteria = [
+    { title: t('indepCriteria1Title'), desc: t('indepCriteria1Desc') },
+    { title: t('indepCriteria2Title'), desc: t('indepCriteria2Desc') },
+    { title: t('indepCriteria3Title'), desc: t('indepCriteria3Desc') },
+    { title: t('indepCriteria4Title'), desc: t('indepCriteria4Desc') },
+  ]
+  const verifySteps = [
+    { title: t('indepVerify1Title'), desc: t('indepVerify1Desc') },
+    { title: t('indepVerify2Title'), desc: t('indepVerify2Desc') },
+    { title: t('indepVerify3Title'), desc: t('indepVerify3Desc') },
+    { title: t('indepVerify4Title'), desc: t('indepVerify4Desc') },
+  ]
   const breadcrumbs = breadcrumbJsonLd([
     { name: 'Home', url: '/' },
     { name: 'The Independence Pledge', url: '/independence' },
@@ -39,7 +53,7 @@ export default function IndependencePage() {
           color: 'var(--color-sage)',
           marginBottom: 12,
         }}>
-          Our Standard
+          {t('indepKicker')}
         </p>
         <h1 style={{
           fontFamily: 'var(--font-display)',
@@ -49,7 +63,7 @@ export default function IndependencePage() {
           lineHeight: 1.15,
           marginBottom: 20,
         }}>
-          The Independence Pledge
+          {t('indepTitle')}
         </h1>
         <p style={{
           fontFamily: 'var(--font-body)',
@@ -60,7 +74,7 @@ export default function IndependencePage() {
           maxWidth: 540,
           margin: '0 auto',
         }}>
-          What it means to be on Australian Atlas.
+          {t('indepSubtitle')}
         </p>
       </section>
 
@@ -91,9 +105,7 @@ export default function IndependencePage() {
               lineHeight: 1.55,
               margin: 0,
             }}>
-              Every place on Australian Atlas is independently owned and operated.
-              No chains. No franchises. No corporate groups.
-              Just people running places they believe in.
+              {t('indepPledge')}
             </p>
           </blockquote>
         </div>
@@ -114,7 +126,7 @@ export default function IndependencePage() {
           color: 'var(--color-sage)',
           marginBottom: 12,
         }}>
-          The Criteria
+          {t('indepCriteriaKicker')}
         </p>
         <h2 style={{
           fontFamily: 'var(--font-display)',
@@ -124,27 +136,10 @@ export default function IndependencePage() {
           lineHeight: 1.25,
           marginBottom: 28,
         }}>
-          What we mean by independent
+          {t('indepCriteriaHeading')}
         </h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {[
-            {
-              title: 'Owner-operated or family-run',
-              desc: 'The people behind the business are involved in running it day to day. Decisions are made by the people doing the work, not a board in another city.',
-            },
-            {
-              title: 'Not part of a national or international chain',
-              desc: 'No multi-site corporate brands. If it has hundreds of locations and a franchise model, it doesn\u2019t belong here.',
-            },
-            {
-              title: 'Makes its own decisions',
-              desc: 'The menu, the stock, the opening hours, the character of the place \u2014 these are chosen by the operator, not dictated by a head office.',
-            },
-            {
-              title: 'Connected to place and community',
-              desc: 'The best independent places are shaped by where they are. They source locally, respond to their community, and contribute to the character of a town or region.',
-            },
-          ].map((item) => (
+          {criteria.map((item) => (
             <div key={item.title} style={{
               padding: '22px 24px',
               borderRadius: 10,
@@ -195,7 +190,7 @@ export default function IndependencePage() {
             color: 'var(--color-sage)',
             marginBottom: 12,
           }}>
-            Why It Matters
+            {t('indepWhyKicker')}
           </p>
           <h2 style={{
             fontFamily: 'var(--font-display)',
@@ -205,7 +200,7 @@ export default function IndependencePage() {
             lineHeight: 1.25,
             marginBottom: 24,
           }}>
-            The case for independent
+            {t('indepWhyHeading')}
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <p style={{
@@ -216,12 +211,7 @@ export default function IndependencePage() {
               lineHeight: 1.75,
               margin: 0,
             }}>
-              Independent businesses are the difference between a town that feels like
-              somewhere and one that could be anywhere. They create the texture of a place:
-              the bakery that opens at five, the bookshop that stocks local authors, the
-              gallery in the old post office. When you spend money at an independent business,
-              more of it stays in the community. The owner lives nearby, hires locally, and
-              reinvests in the street they trade on.
+              {t('indepWhyPara1')}
             </p>
             <p style={{
               fontFamily: 'var(--font-body)',
@@ -231,11 +221,7 @@ export default function IndependencePage() {
               lineHeight: 1.75,
               margin: 0,
             }}>
-              Australia has always been shaped by people who start things in the places they
-              love. A cellar door in the Adelaide Hills. A ceramics studio on the mid-north
-              coast. A coffee roaster in a Hobart laneway. These aren&apos;t just businesses
-              &mdash; they&apos;re expressions of skill, taste, and commitment to a place.
-              They make regional Australia worth the drive.
+              {t('indepWhyPara2')}
             </p>
             <p style={{
               fontFamily: 'var(--font-body)',
@@ -245,10 +231,7 @@ export default function IndependencePage() {
               lineHeight: 1.75,
               margin: 0,
             }}>
-              But independent places are harder to find. They don&apos;t have the marketing
-              budgets of chains. They don&apos;t appear at the top of algorithm-driven
-              platforms. Australian Atlas exists to change that &mdash; to make the independent
-              layer of this country visible, searchable, and easy to support.
+              {t('indepWhyPara3')}
             </p>
           </div>
         </div>
@@ -270,7 +253,7 @@ export default function IndependencePage() {
           lineHeight: 1.5,
           margin: 0,
         }}>
-          The best places in Australia are the ones somebody put their name to.
+          {t('indepPullQuote')}
         </p>
       </section>
 
@@ -294,7 +277,7 @@ export default function IndependencePage() {
             color: 'var(--color-sage)',
             marginBottom: 12,
           }}>
-            Verification
+            {t('indepVerifyKicker')}
           </p>
           <h2 style={{
             fontFamily: 'var(--font-display)',
@@ -304,7 +287,7 @@ export default function IndependencePage() {
             lineHeight: 1.25,
             marginBottom: 24,
           }}>
-            How we verify independence
+            {t('indepVerifyHeading')}
           </h2>
           <p style={{
             fontFamily: 'var(--font-body)',
@@ -314,28 +297,10 @@ export default function IndependencePage() {
             lineHeight: 1.75,
             marginBottom: 28,
           }}>
-            Keeping the network accurate is an ongoing process, not a one-time check.
-            Here&apos;s how we do it.
+            {t('indepVerifyIntro')}
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            {[
-              {
-                title: 'Every listing is reviewed before publishing',
-                desc: 'New listings go through a verification process before they appear on the network. We check ownership structure, business registration, and chain affiliation.',
-              },
-              {
-                title: 'Community reporting keeps things honest',
-                desc: 'Visitors and locals can flag listings that no longer meet the criteria. If a place has been acquired by a chain or closed its doors, we hear about it quickly.',
-              },
-              {
-                title: 'Operators can claim their listing',
-                desc: 'Business owners can claim their listing for free to keep details current. Claimed listings are verified directly with the operator and updated in real time.',
-              },
-              {
-                title: 'We remove places that no longer qualify',
-                desc: 'If a business changes hands, joins a franchise, or no longer operates independently, we remove it from the network. No exceptions, no grandfathering.',
-              },
-            ].map((item) => (
+            {verifySteps.map((item) => (
               <div key={item.title} style={{
                 display: 'flex',
                 gap: 16,
@@ -391,7 +356,7 @@ export default function IndependencePage() {
           lineHeight: 1.3,
           marginBottom: 12,
         }}>
-          Know an independent place that should be here?
+          {t('indepCtaTitle')}
         </h2>
         <p style={{
           fontFamily: 'var(--font-body)',
@@ -403,8 +368,7 @@ export default function IndependencePage() {
           maxWidth: 440,
           margin: '0 auto 28px',
         }}>
-          If you know a place that&apos;s independently owned, genuinely good, and deserves
-          to be found &mdash; we want to hear about it.
+          {t('indepCtaDesc')}
         </p>
         <Link
           href="/suggest"
@@ -421,7 +385,7 @@ export default function IndependencePage() {
             transition: 'background 0.15s',
           }}
         >
-          Suggest a place
+          {t('suggestPlace')}
         </Link>
       </section>
     </div>

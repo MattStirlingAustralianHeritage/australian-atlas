@@ -2,6 +2,7 @@
 import 'mapbox-gl/dist/mapbox-gl.css'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useTranslations } from 'next-intl'
 
 /**
  * Full-screen loading overlay for trail generation on Australian Atlas.
@@ -75,12 +76,12 @@ const REGION_CENTERS = {
 
 const DEFAULT_CENTER = { lat: -28.5, lng: 134.5, zoom: 4.2 }
 
-const LOADING_LINES = [
-  'Searching across ten atlases\u2026',
-  'Finding independent venues\u2026',
-  'Plotting your route\u2026',
-  'Checking the back roads\u2026',
-  'Almost there\u2026',
+const LOADING_LINE_KEYS = [
+  'loadingLine1',
+  'loadingLine2',
+  'loadingLine3',
+  'loadingLine4',
+  'loadingLine5',
 ]
 
 const LINE_CYCLE_MS = 2800
@@ -106,6 +107,7 @@ export default function TrailLoadingOverlay({
   trailReady,
   minimumMs = 1500,
 }) {
+  const t = useTranslations('trails')
   const [lineIndex, setLineIndex] = useState(0)
   const [fadingOut, setFadingOut] = useState(false)
   const [hidden, setHidden] = useState(!visible)
@@ -140,7 +142,7 @@ export default function TrailLoadingOverlay({
     if (!visible) return
     setLineIndex(0)
     lineIntervalRef.current = setInterval(() => {
-      setLineIndex(prev => (prev + 1) % LOADING_LINES.length)
+      setLineIndex(prev => (prev + 1) % LOADING_LINE_KEYS.length)
     }, LINE_CYCLE_MS)
     return () => clearInterval(lineIntervalRef.current)
   }, [visible])
@@ -579,9 +581,9 @@ export default function TrailLoadingOverlay({
               justifyContent: 'center',
             }}
           >
-            {LOADING_LINES.map((line, i) => (
+            {LOADING_LINE_KEYS.map((lineKey, i) => (
               <span
-                key={line}
+                key={lineKey}
                 style={{
                   position: 'absolute',
                   fontFamily: 'var(--font-display)',
@@ -594,7 +596,7 @@ export default function TrailLoadingOverlay({
                   transition: 'opacity 0.5s ease, transform 0.5s ease',
                 }}
               >
-                {line}
+                {t(lineKey)}
               </span>
             ))}
           </div>
@@ -609,7 +611,7 @@ export default function TrailLoadingOverlay({
               letterSpacing: '0.02em',
             }}
           >
-            Building from verified venues only
+            {t('buildingFromVerified')}
           </div>
         </div>
       </div>

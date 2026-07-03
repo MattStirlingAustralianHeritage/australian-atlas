@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import Link from 'next/link'
 import { Coffee, Wine, UtensilsCrossed, BedDouble, Mountain, Compass, Hammer, Landmark, ShoppingBag, Clock, ChevronDown } from 'lucide-react'
 import { VERTICAL_CARD_TOKENS } from '@/lib/verticalUrl'
@@ -36,6 +37,7 @@ const VERTICAL_GUIDE = [
 // opacity:0). All data arrives as serializable props; the icons live here
 // because component references can't cross the server→client boundary.
 export default function CategoryGuideSection({ publicVerticals = [], verticalCounts = {}, verticalCount = 10 }) {
+  const t = useTranslations('home')
   const [open, setOpen] = useState(false)
 
   const word = COUNT_WORDS[verticalCount] || String(verticalCount)
@@ -54,21 +56,21 @@ export default function CategoryGuideSection({ publicVerticals = [], verticalCou
             letterSpacing: '0.22em', textTransform: 'uppercase',
             color: GOLD, marginBottom: '16px',
           }}>
-            What you&apos;ll find
+            {t('whatYoullFind')}
           </p>
           <h2 style={{
             fontFamily: 'var(--font-display)', fontWeight: 400,
             fontSize: 'clamp(30px, 4vw, 50px)', color: 'var(--color-ink)',
             lineHeight: 1.15, marginBottom: '14px', textWrap: 'balance',
           }}>
-            {word} kinds of independent place
+            {t('kindsOfPlaceTitle', { word, count: verticalCount })}
           </h2>
           <p style={{
             fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
             lineHeight: 1.65, color: 'var(--color-muted)',
             maxWidth: '540px', margin: '0 auto',
           }}>
-            Every place we list belongs to one of {word.toLowerCase()} categories. Browse a category on its own, or search across all of them at once.
+            {t('kindsOfPlaceIntro', { word: word.toLowerCase(), count: verticalCount })}
           </p>
         </div>
 
@@ -89,7 +91,7 @@ export default function CategoryGuideSection({ publicVerticals = [], verticalCou
               padding: '12px 22px', minHeight: 44, cursor: 'pointer',
             }}
           >
-            {open ? 'Hide categories' : `Browse the ${word.toLowerCase()} categories`}
+            {open ? t('hideCategories') : t('browseCategories', { word: word.toLowerCase(), count: verticalCount })}
             <ChevronDown
               size={16}
               strokeWidth={1.8}
@@ -163,7 +165,7 @@ export default function CategoryGuideSection({ publicVerticals = [], verticalCou
                         letterSpacing: '0.04em', color: ground,
                         margin: 0, marginTop: 'auto', paddingTop: '12px',
                       }}>
-                        {verticalCounts[v.key].toLocaleString()} places
+                        {t('countPlaces', { count: verticalCounts[v.key].toLocaleString() })}
                       </p>
                     )}
                   </Link>
@@ -176,7 +178,7 @@ export default function CategoryGuideSection({ publicVerticals = [], verticalCou
                 fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
                 color: GOLD, padding: '10px 4px', minHeight: 44,
               }}>
-                See everything on one page &rarr;
+                {t('seeEverything')} &rarr;
               </Link>
             </div>
           </>

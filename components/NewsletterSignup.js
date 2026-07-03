@@ -1,10 +1,12 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 
 export default function NewsletterSignup({ variant = 'inline' }) {
   const [email, setEmail] = useState('')
   const [status, setStatus] = useState('idle')
+  const t = useTranslations('actions')
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -43,8 +45,8 @@ export default function NewsletterSignup({ variant = 'inline' }) {
         fontWeight: 400,
       }}>
         {status === 'pending'
-          ? 'Almost there — check your email to confirm your subscription.'
-          : 'You’re on the list. Welcome to the Atlas.'}
+          ? t('newsletterPending')
+          : t('newsletterSuccess')}
       </div>
     )
   }
@@ -61,7 +63,7 @@ export default function NewsletterSignup({ variant = 'inline' }) {
           color: 'var(--color-muted)',
           marginBottom: '0.75rem',
         }}>
-          New places, editorial, and quiet finds — delivered monthly.
+          {t('newsletterBlurb')}
         </p>
       )}
       <div style={{
@@ -77,7 +79,7 @@ export default function NewsletterSignup({ variant = 'inline' }) {
           onChange={e => setEmail(e.target.value)}
           placeholder="your@email.com"
           required
-          aria-label="Email address"
+          aria-label={t('emailAddressAria')}
           style={{
             flex: 1,
             padding: isHomepage ? '0.875rem 1.125rem' : '0.625rem 0.875rem',
@@ -109,7 +111,7 @@ export default function NewsletterSignup({ variant = 'inline' }) {
             whiteSpace: 'nowrap',
           }}
         >
-          {status === 'loading' ? 'Joining…' : 'Subscribe'}
+          {status === 'loading' ? t('joining') : t('subscribe')}
         </button>
       </div>
       {status === 'error' && (
@@ -119,7 +121,7 @@ export default function NewsletterSignup({ variant = 'inline' }) {
           color: '#c44',
           marginTop: '0.5rem',
         }}>
-          Something went wrong. Please try again.
+          {t('newsletterError')}
         </p>
       )}
     </form>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import { useLocation } from './LocationProvider'
 
 const GOLD = 'var(--color-gold)'
@@ -11,6 +12,7 @@ const GOLD = 'var(--color-gold)'
  */
 export default function LocationBar() {
   const { location, status, detectLocation, setManualLocation, clearLocation, isReady } = useLocation()
+  const t = useTranslations('actions')
   const [searchOpen, setSearchOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [suggestions, setSuggestions] = useState([])
@@ -74,7 +76,7 @@ export default function LocationBar() {
           fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 400,
           color: 'var(--color-muted)', whiteSpace: 'nowrap',
         }}>
-          Locating...
+          {t('locating')}
         </span>
       )
     }
@@ -91,12 +93,12 @@ export default function LocationBar() {
           fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 400,
           color: 'var(--color-muted)', whiteSpace: 'nowrap',
         }}
-        title="Use my location"
+        title={t('useMyLocation')}
       >
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="12" cy="12" r="3" /><path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
         </svg>
-        Near me
+        {t('nearMe')}
       </button>
     )
   }
@@ -112,7 +114,7 @@ export default function LocationBar() {
           fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 400,
           color: GOLD, whiteSpace: 'nowrap', maxWidth: '160px',
         }}
-        title={`Location: ${location?.name || 'Set'}. Click to change.`}
+        title={t('locationTitle', { name: location?.name || t('locationSet') })}
       >
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
@@ -121,7 +123,7 @@ export default function LocationBar() {
         <span style={{
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>
-          {location?.name || 'Your location'}
+          {location?.name || t('yourLocation')}
         </span>
       </button>
 
@@ -143,7 +145,7 @@ export default function LocationBar() {
             <input
               ref={inputRef}
               type="text"
-              placeholder="Search a town or city..."
+              placeholder={t('searchTownCity')}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               style={{
@@ -195,7 +197,7 @@ export default function LocationBar() {
                 color: GOLD, padding: '4px 0',
               }}
             >
-              Use my location
+              {t('useMyLocation')}
             </button>
             <button
               onClick={() => {
@@ -208,7 +210,7 @@ export default function LocationBar() {
                 color: 'var(--color-muted)', padding: '4px 0',
               }}
             >
-              Clear
+              {t('clear')}
             </button>
           </div>
         </div>

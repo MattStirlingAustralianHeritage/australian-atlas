@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { getTranslations } from 'next-intl/server'
 import { getVerticalBadge, getVerticalBrandColour } from '@/lib/verticalUrl'
 
 // Producer Picks — public, read-only endorsements on the place page.
@@ -15,13 +16,15 @@ import { getVerticalBadge, getVerticalBrandColour } from '@/lib/verticalUrl'
 // access (canonical store is the master-portal listing_relationships table;
 // the place page hydrates and filters to active venues — see
 // lib/picks/producerPicks.js).
-export default function ProducerPicks({ venueName, picks = [], pickedBy = [] }) {
+export default async function ProducerPicks({ venueName, picks = [], pickedBy = [] }) {
   if (picks.length === 0 && pickedBy.length === 0) return null
+
+  const t = await getTranslations('placePanels')
 
   return (
     <section className="mb-12 flex flex-col" style={{ gap: 36 }}>
-      {pickedBy.length > 0 && <PickedBy venueName={venueName} pickedBy={pickedBy} />}
-      {picks.length > 0 && <ProducerGives venueName={venueName} picks={picks} />}
+      {pickedBy.length > 0 && <PickedBy venueName={venueName} pickedBy={pickedBy} t={t} />}
+      {picks.length > 0 && <ProducerGives venueName={venueName} picks={picks} t={t} />}
     </section>
   )
 }
@@ -30,12 +33,9 @@ export default function ProducerPicks({ venueName, picks = [], pickedBy = [] }) 
 // A framed cream panel: terracotta accent rail along the top, a seal medallion
 // beside a serif heading, a lead line that frames the peer social proof, then
 // each endorsing venue as a testimonial row.
-function PickedBy({ venueName, pickedBy }) {
+function PickedBy({ venueName, pickedBy, t }) {
   const n = pickedBy.length
-  const lead =
-    n === 1
-      ? `A fellow venue on the Australian Atlas network personally vouches for ${venueName}.`
-      : `${n} fellow venues on the Australian Atlas network personally vouch for ${venueName}.`
+  const lead = t('pickedByLead', { count: n, venueName })
 
   return (
     <div
@@ -62,7 +62,7 @@ function PickedBy({ venueName, pickedBy }) {
               fontSize: '26px', lineHeight: 1.1, color: 'var(--color-ink)', margin: 0,
             }}
           >
-            Picked by
+            {t('pickedBy')}
           </h2>
         </div>
 
@@ -185,20 +185,20 @@ function EndorsementSeal() {
 }
 
 // ── "Producer Picks" — outgoing, the quieter secondary list ───────────────
-function ProducerGives({ venueName, picks }) {
+function ProducerGives({ venueName, picks, t }) {
   return (
     <div>
       <h2
         className="mb-1"
         style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)' }}
       >
-        Producer Picks
+        {t('producerPicks')}
       </h2>
       <p
         className="mb-4"
         style={{ fontFamily: 'var(--font-body)', fontSize: '13px', fontWeight: 300, color: 'var(--color-muted)' }}
       >
-        Places {venueName} personally vouches for.
+        {t('producerPicksLead', { venueName })}
       </p>
       <div className="flex flex-col gap-3">
         {picks.map(p => (

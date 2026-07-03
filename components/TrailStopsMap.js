@@ -2,6 +2,7 @@
 import 'mapbox-gl/dist/mapbox-gl.css'
 
 import { useEffect, useRef, useState } from 'react'
+import { useTranslations } from 'next-intl'
 
 const MARKER_COLOR = '#C49A3C'
 const ROUTE_COLOR = '#C4943A'
@@ -19,6 +20,7 @@ function escapeHtml(s) {
 }
 
 export default function TrailStopsMap({ stops, height = 280, interactive = false }) {
+  const t = useTranslations('trails')
   const validStops = (stops || []).filter(isValidStop)
 
   if (validStops.length === 0) {
@@ -31,7 +33,7 @@ export default function TrailStopsMap({ stops, height = 280, interactive = false
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         <p style={{ fontSize: 12, color: 'var(--color-muted)', fontFamily: 'var(--font-body)', margin: 0 }}>
-          No mapped stops yet.
+          {t('noMappedStops')}
         </p>
       </div>
     )

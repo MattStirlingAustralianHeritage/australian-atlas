@@ -1,10 +1,12 @@
 'use client'
 
+import { useTranslations, useLocale } from 'next-intl'
 import { TypographicCard, VERTICAL_TOKENS } from '@/components/ListingCard'
 import VerticalBadge, { VERTICAL_STYLES } from '@/components/VerticalBadge'
 import { isApprovedImageSource, isHeroDisplayable } from '@/lib/image-utils'
 import { getListingRegion } from '@/lib/regions'
 import { VERTICAL_MUTED } from '@/lib/verticalUrl'
+import { localizeVerticalKicker } from '@/lib/i18n/listingLabels'
 
 // ============================================================
 // SearchResultCard — the search-surface result unit.
@@ -82,19 +84,22 @@ function localityLine(listing) {
 
 // Small cross-atlas chips: "Also in Craft" etc (data: also_in from dedupe).
 function AlsoInChips({ alsoIn }) {
+  const t = useTranslations('search')
+  const locale = useLocale()
   if (!Array.isArray(alsoIn) || alsoIn.length === 0) return null
   return (
     <span style={{ display: 'inline-flex', gap: 4, flexWrap: 'wrap' }}>
       {alsoIn.map((v) => {
         const vs = VERTICAL_STYLES[v]
         if (!vs) return null
+        const vsLabel = localizeVerticalKicker(v, vs.label, locale)
         return (
-          <span key={v} title={`Also listed in ${vs.label} Atlas`} style={{
+          <span key={v} title={t('alsoListedIn', { atlas: vsLabel })} style={{
             fontFamily: 'var(--font-body)', fontSize: 9.5, fontWeight: 600,
             letterSpacing: '0.04em', padding: '2px 7px', borderRadius: 100,
             background: vs.bg, color: vs.text, whiteSpace: 'nowrap',
           }}>
-            +{vs.label}
+            +{vsLabel}
           </span>
         )
       })}
@@ -103,11 +108,12 @@ function AlsoInChips({ alsoIn }) {
 }
 
 function DistanceChip({ km, inline = false }) {
+  const t = useTranslations('search')
   const label = formatDistance(km)
   if (!label) return null
   return (
     <span
-      title={`${label} away`}
+      title={t('distanceAway', { distance: label })}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 4,
         padding: inline ? '1px 7px 1px 5px' : '4px 9px 4px 7px', borderRadius: 100,
@@ -165,6 +171,7 @@ function ThumbSquare({ listing, size = 76 }) {
 }
 
 function CurationBadge({ listing, overlay = false }) {
+  const t = useTranslations('search')
   const isSelect = listing.editors_pick
   const isFeat = !isSelect && listing.is_featured && listing.is_claimed
   if (!isSelect && !isFeat) return null
@@ -175,7 +182,7 @@ function CurationBadge({ listing, overlay = false }) {
       padding: '3px 9px', borderRadius: 100, color: '#fff', whiteSpace: 'nowrap',
       background: isSelect ? 'var(--color-ink)' : 'var(--color-accent)',
     }}>
-      {isSelect ? 'Atlas Select' : 'Featured'}
+      {isSelect ? t('atlasSelect') : t('featured')}
     </span>
   )
 }
@@ -196,6 +203,7 @@ export default function SearchResultCard({
   variant = 'grid', rank = null, active = false,
   onHover, onClick,
 }) {
+  const locale = useLocale()
   const tokens = VERTICAL_TOKENS[listing.vertical] || VERTICAL_TOKENS.portal
   const muted = VERTICAL_MUTED[listing.vertical] || 'var(--color-muted)'
   const category = fmtCategory(listing.sub_type)
@@ -324,6 +332,7 @@ export default function SearchResultCard({
             aspectRatio="16/10"
             showVerticalTag={true}
             mobile={listing.presence_type === 'mobile'}
+            locale={locale}
           />
         )}
         <CurationBadge listing={listing} overlay />

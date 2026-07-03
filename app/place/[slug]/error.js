@@ -1,6 +1,9 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 export default function PlaceError({ error, reset }) {
+  const t = useTranslations('place')
   return (
     <div style={{
       minHeight: '60vh',
@@ -17,7 +20,7 @@ export default function PlaceError({ error, reset }) {
           color: 'var(--color-ink, #2D2A26)',
           marginBottom: '0.5rem',
         }}>
-          Something went wrong
+          {t('errorTitle')}
         </h1>
         <p style={{
           fontFamily: 'var(--font-body, system-ui)',
@@ -26,7 +29,7 @@ export default function PlaceError({ error, reset }) {
           marginBottom: '1.5rem',
           lineHeight: 1.5,
         }}>
-          {error?.message || 'We couldn\u2019t load this listing. Please try again.'}
+          {error?.message || t('errorBody')}
         </p>
         <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
           <button
@@ -43,7 +46,7 @@ export default function PlaceError({ error, reset }) {
               cursor: 'pointer',
             }}
           >
-            Try again
+            {t('tryAgain')}
           </button>
           <a
             href="/map"
@@ -60,7 +63,7 @@ export default function PlaceError({ error, reset }) {
               display: 'inline-block',
             }}
           >
-            Back to map
+            {t('backToMap')}
           </a>
         </div>
       </div>

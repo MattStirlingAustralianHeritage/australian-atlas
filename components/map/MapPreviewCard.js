@@ -1,4 +1,5 @@
 'use client'
+import { useTranslations } from 'next-intl'
 import { getVerticalBadge, getVerticalBrandColour, VERTICAL_CARD_BG } from '@/lib/verticalUrl'
 import { SUB_TYPE_LABELS } from '@/lib/subTypeLabels'
 
@@ -14,6 +15,7 @@ const GOLD = '#c8943a'
  *   Google Maps pattern; the map stays pannable behind it.
  */
 export default function MapPreviewCard({ listing, meta, variant = 'anchored', onClose, onVisit }) {
+  const t = useTranslations('map')
   const color = getVerticalBrandColour(listing.vertical) || '#5f8a7e'
   const ground = VERTICAL_CARD_BG[listing.vertical] || '#0f0e0c'
   const subTypes = SUB_TYPE_LABELS[listing.vertical] || {}
@@ -58,7 +60,7 @@ export default function MapPreviewCard({ listing, meta, variant = 'anchored', on
         </div>
       )}
 
-      <button onClick={onClose} aria-label="Close" style={{
+      <button onClick={onClose} aria-label={t('close')} style={{
         position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: '50%',
         background: 'rgba(251,249,244,0.94)', border: '1px solid rgba(28,26,23,0.12)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
@@ -80,7 +82,7 @@ export default function MapPreviewCard({ listing, meta, variant = 'anchored', on
               </span>
             </span>
             {listing.is_featured && (
-              <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: GOLD }}>★ Featured</span>
+              <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: GOLD }}>★ {t('featured')}</span>
             )}
           </div>
         )}
@@ -90,7 +92,7 @@ export default function MapPreviewCard({ listing, meta, variant = 'anchored', on
         {locality && (
           <div style={{ fontSize: 11, color: 'var(--color-muted)', marginTop: 3 }}>
             {locality}
-            {meta?.editors_pick && <span style={{ color: 'var(--color-accent)', fontWeight: 600 }}> · Editor’s pick</span>}
+            {meta?.editors_pick && <span style={{ color: 'var(--color-accent)', fontWeight: 600 }}> · {t('editorsPick')}</span>}
           </div>
         )}
         {desc && (
@@ -105,7 +107,7 @@ export default function MapPreviewCard({ listing, meta, variant = 'anchored', on
             fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', borderRadius: 6,
           }}
         >
-          View listing →
+          {t('viewListing')} →
         </a>
       </div>
 

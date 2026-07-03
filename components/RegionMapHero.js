@@ -3,6 +3,7 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { ATLAS_PAPER_STYLE, ATLAS_LABEL_ROOF } from '@/lib/map/atlasPaperStyle'
 import { attachDonutClusters } from '@/lib/map/donutClusters'
 import { VERTICAL_ACCENTS, getVerticalBadge } from '@/lib/verticalUrl'
@@ -48,6 +49,7 @@ function buildGeoJSON(points) {
  */
 export default function RegionMapHero({ points, regionName, stateName, regionSlug, centerLat, centerLng, zoom }) {
   const router = useRouter()
+  const t = useTranslations('regions')
   const mapRef = useRef(null)
   const mapInstance = useRef(null)
   const donutsRef = useRef(null)
@@ -286,7 +288,7 @@ export default function RegionMapHero({ points, regionName, stateName, regionSlu
             `<div style="font-family:var(--font-body,system-ui);padding:2px 0;">
               <div style="font-family:var(--font-display,Georgia);font-size:15px;color:#1C1A17;margin-bottom:3px;">${escHtml(f.name)}</div>
               <div style="font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:${color};margin-bottom:7px;">${escHtml(subLabel)}</div>
-              <a href="${url}" style="font-size:12px;color:${color};text-decoration:none;font-weight:500;">View place &rarr;</a>
+              <a href="${url}" style="font-size:12px;color:${color};text-decoration:none;font-weight:500;">${escHtml(t('viewPlace'))} &rarr;</a>
             </div>`
           ).addTo(map)
         })
@@ -363,11 +365,11 @@ export default function RegionMapHero({ points, regionName, stateName, regionSlu
   const busy = semLoading || query.trim() !== applied
   const showStatus = applied.length > 0
   const statusText = busy
-    ? 'Searching…'
+    ? t('searching')
     : matchCount === 0
-      ? 'No matches — press Enter to search all'
+      ? t('noMatches')
       : matchCount != null
-        ? `${matchCount} ${matchCount === 1 ? 'place' : 'places'}`
+        ? t('placeCount', { count: matchCount })
         : ''
 
   return (
@@ -409,8 +411,8 @@ export default function RegionMapHero({ points, regionName, stateName, regionSlu
             <input
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder={`Search ${regionName}…`}
-              aria-label={`Search ${regionName} — try a category like wineries or coffee`}
+              placeholder={t('heroSearchPlaceholder', { region: regionName })}
+              aria-label={t('heroSearchAria', { region: regionName })}
               enterKeyHint="search"
               style={{
                 flex: 1, minWidth: 0, border: 'none', outline: 'none', background: 'transparent',
@@ -421,7 +423,7 @@ export default function RegionMapHero({ points, regionName, stateName, regionSlu
               <button
                 type="button"
                 onClick={() => setQuery('')}
-                aria-label="Clear search"
+                aria-label={t('clearSearch')}
                 style={{
                   flexShrink: 0, border: 'none', background: 'transparent', cursor: 'pointer',
                   color: '#8C8272', fontSize: '17px', lineHeight: 1, padding: '0 2px',
@@ -489,7 +491,7 @@ export default function RegionMapHero({ points, regionName, stateName, regionSlu
           boxShadow: '0 1px 6px rgba(40,30,15,0.18)', zIndex: 5,
         }}
       >
-        {expanded ? 'Collapse map' : 'Expand map'}
+        {expanded ? t('collapseMap') : t('expandMap')}
       </button>
     </div>
   )

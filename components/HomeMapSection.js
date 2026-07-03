@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { getTranslations } from 'next-intl/server'
 import { VERTICAL_ACCENTS, getVerticalBadge, getPublicVerticals } from '@/lib/verticalUrl'
 
 const VERTICAL_COLORS = VERTICAL_ACCENTS
@@ -19,7 +20,8 @@ const ALL_VERTICALS = getPublicVerticals()
 // a dateline + serif caption, in the site's own voice; (4) restraint — a quiet
 // basemap, the colour carried by the data. The ten-colour legend below doubles
 // as the key to the dots. Zero client JS.
-export default function HomeMapSection({ listingCount }) {
+export default async function HomeMapSection({ listingCount }) {
+  const t = await getTranslations('home')
   const count = typeof listingCount === 'number' && listingCount > 0
     ? listingCount.toLocaleString()
     : null
@@ -28,14 +30,14 @@ export default function HomeMapSection({ listingCount }) {
     <section className="home-map-strip relative w-full overflow-hidden">
       <Link
         href="/map"
-        aria-label="Explore the full interactive map of Australia"
+        aria-label={t('mapSectionAria')}
         className="home-map-link"
       >
         <picture>
           <source srcSet="/maps/home-map-atlas.webp" type="image/webp" />
           <img
             src="/maps/home-map-atlas.jpg"
-            alt="A map of Australia with every verified independent place in the Atlas network marked as a coloured dot — clustered densely around the capital cities and coastlines, scattered through the interior."
+            alt={t('mapSectionAlt')}
             className="home-map-img"
             width={2560}
             height={680}
@@ -50,9 +52,9 @@ export default function HomeMapSection({ listingCount }) {
 
         {/* Editorial caption — top-left, over the open Indian Ocean */}
         <span className="home-map-caption">
-          <span className="home-map-overline">The living atlas</span>
+          <span className="home-map-overline">{t('livingAtlas')}</span>
           <span className="home-map-headline">
-            {count ? `${count} verified places, mapped` : 'Every verified place, mapped'}
+            {count ? t('verifiedPlacesMapped', { count }) : t('everyPlaceMapped')}
           </span>
         </span>
 
@@ -68,7 +70,7 @@ export default function HomeMapSection({ listingCount }) {
 
         {/* Open full map — bottom-right */}
         <span className="home-map-cta">
-          Open full map
+          {t('openFullMapShort')}
           <svg className="home-map-cta-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>

@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { getTranslations } from 'next-intl/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import VerticalBadge, { VERTICAL_STYLES } from '@/components/VerticalBadge'
 
@@ -30,6 +31,7 @@ export const metadata = {
 }
 
 export default async function CollectionsPage() {
+  const t = await getTranslations('discovery2')
   const sb = getSupabaseAdmin()
 
   const { data: collections } = await sb
@@ -61,7 +63,7 @@ export default async function CollectionsPage() {
       <div className="section-gap" style={{ background: 'var(--color-cream)', borderBottom: '1px solid var(--color-border)' }}>
         <div className="max-w-4xl mx-auto text-center" style={{ padding: '0 24px' }}>
           <p className="section-dateline" style={{ marginBottom: 16 }}>
-            Collections
+            {t('collectionsKicker')}
           </p>
           <h1 style={{
             fontFamily: 'var(--font-display)',
@@ -71,14 +73,14 @@ export default async function CollectionsPage() {
             marginBottom: 16,
             lineHeight: 1.15,
           }}>
-            Curated guides to independent Australia
+            {t('collectionsTitle')}
           </h1>
           <p style={{
             color: 'var(--color-muted)', fontSize: 16, lineHeight: 1.7,
             maxWidth: 540, margin: '0 auto',
             fontFamily: 'var(--font-body)',
           }}>
-            Hand-picked groups of listings around a theme, a region, or a vertical &mdash; assembled by our editors from thousands of verified independent places.
+            {t('collectionsSubtitle')}
           </p>
         </div>
       </div>
@@ -90,12 +92,12 @@ export default async function CollectionsPage() {
             textAlign: 'center', padding: '48px 0',
             color: 'var(--color-muted)', fontFamily: 'var(--font-body)', fontSize: 14,
           }}>
-            Collections are coming soon.
+            {t('collectionsComingSoon')}
           </div>
         ) : (
           <>
             {/* Featured collection — full width */}
-            {featured && <FeaturedCollectionCard collection={featured} />}
+            {featured && <FeaturedCollectionCard collection={featured} t={t} />}
 
             {/* Grouped by vertical */}
             {Object.entries(verticalGroups).map(([vertical, items]) => (
@@ -106,7 +108,7 @@ export default async function CollectionsPage() {
                     fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 400,
                     color: 'var(--color-ink)',
                   }}>
-                    {VERTICAL_LABELS[vertical]} Collections
+                    {t('verticalCollections', { label: VERTICAL_LABELS[vertical] })}
                   </span>
                 </div>
                 <div style={{
@@ -114,7 +116,7 @@ export default async function CollectionsPage() {
                   gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
                   gap: 20,
                 }}>
-                  {items.map(c => <CollectionCard key={c.id} collection={c} />)}
+                  {items.map(c => <CollectionCard key={c.id} collection={c} t={t} />)}
                 </div>
               </section>
             ))}
@@ -126,14 +128,14 @@ export default async function CollectionsPage() {
                   fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 400,
                   color: 'var(--color-ink)', marginBottom: 24,
                 }}>
-                  More Collections
+                  {t('moreCollections')}
                 </h2>
                 <div style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
                   gap: 20,
                 }}>
-                  {ungrouped.map(c => <CollectionCard key={c.id} collection={c} />)}
+                  {ungrouped.map(c => <CollectionCard key={c.id} collection={c} t={t} />)}
                 </div>
               </section>
             )}
@@ -144,7 +146,7 @@ export default async function CollectionsPage() {
   )
 }
 
-function FeaturedCollectionCard({ collection }) {
+function FeaturedCollectionCard({ collection, t }) {
   const listingCount = collection.listing_ids?.length || 0
   const bg = VERTICAL_CARD_BG[collection.vertical] || '#0f0e0c'
 
@@ -179,7 +181,7 @@ function FeaturedCollectionCard({ collection }) {
               letterSpacing: '0.15em', textTransform: 'uppercase',
               opacity: 0.45, margin: '0 0 1.5rem',
             }}>
-              Featured Collection
+              {t('featuredCollection')}
             </p>
             <div style={{
               width: 24, height: 1, background: '#FAF8F4',
@@ -206,7 +208,7 @@ function FeaturedCollectionCard({ collection }) {
               fontSize: 12, opacity: 0.45,
               fontFamily: 'var(--font-body)',
             }}>
-              <span>{listingCount} places</span>
+              <span>{t('countPlaces', { count: listingCount })}</span>
               {collection.region && <><span>&middot;</span><span>{collection.region}</span></>}
               {collection.author && <><span>&middot;</span><span>{collection.author}</span></>}
             </div>
@@ -236,7 +238,7 @@ function FeaturedCollectionCard({ collection }) {
               letterSpacing: '0.12em', textTransform: 'uppercase',
               color: 'var(--color-muted)', marginTop: 8,
             }}>
-              Independent Places
+              {t('independentPlaces')}
             </p>
           </div>
         </div>
@@ -245,7 +247,7 @@ function FeaturedCollectionCard({ collection }) {
   )
 }
 
-function CollectionCard({ collection }) {
+function CollectionCard({ collection, t }) {
   const listingCount = collection.listing_ids?.length || 0
   const bg = VERTICAL_CARD_BG[collection.vertical] || '#0f0e0c'
 
@@ -276,7 +278,7 @@ function CollectionCard({ collection }) {
               letterSpacing: '0.14em', textTransform: 'uppercase',
               opacity: 0.4, margin: '0 0 1rem',
             }}>
-              {collection.region ? collection.region.toUpperCase() : 'COLLECTION'}
+              {collection.region ? collection.region.toUpperCase() : t('collectionKicker')}
             </p>
             <div style={{
               width: 20, height: 1, background: '#FAF8F4',
@@ -301,7 +303,7 @@ function CollectionCard({ collection }) {
               fontSize: 12, color: 'var(--color-muted)',
               fontFamily: 'var(--font-body)',
             }}>
-              {listingCount} {listingCount === 1 ? 'place' : 'places'}
+              {t('countPlaces', { count: listingCount })}
             </span>
             {collection.author && (
               <>

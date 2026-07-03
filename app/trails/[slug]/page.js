@@ -1,6 +1,7 @@
 import { cache } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { getTranslations } from 'next-intl/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getVerticalUrl, getVerticalBadge, VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 import { isApprovedImageSource } from '@/lib/image-utils'
@@ -51,6 +52,7 @@ export async function generateMetadata({ params }) {
 
 export default async function TrailPage({ params }) {
   const { slug } = await params
+  const t = await getTranslations('trails')
 
   const trail = await getTrail(slug)
   if (!trail) notFound()
@@ -73,7 +75,7 @@ export default async function TrailPage({ params }) {
         <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle, #f0ece4 1px, transparent 1px)', backgroundSize: '16px 16px', opacity: 0.1, pointerEvents: 'none' }} />
         <div className="max-w-6xl mx-auto" style={{ position: 'relative' }}>
           <div style={{ fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--color-sage)', marginBottom: 14, fontFamily: 'var(--font-body)' }}>
-            {trail.region ? `${trail.region} · ` : ''}Discovery Trail
+            {trail.region ? `${trail.region} · ` : ''}{t('discoveryTrailKicker')}
           </div>
           <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(28px, 4vw, 48px)', fontWeight: 400, color: '#fff', lineHeight: 1.15, marginBottom: 16 }}>
             {trail.title}
@@ -84,21 +86,21 @@ export default async function TrailPage({ params }) {
             </p>
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 13, color: 'rgba(255,255,255,0.45)', fontFamily: 'var(--font-body)', flexWrap: 'wrap' }}>
-            <span>{validStops.length} stops</span>
+            <span>{t('stopsCount', { count: validStops.length })}</span>
             {trail.total_distance_km > 0 && (
-              <><span>·</span><span>{Math.round(trail.total_distance_km)} km</span></>
+              <><span>·</span><span>{t('distanceKm', { km: Math.round(trail.total_distance_km) })}</span></>
             )}
             {trail.total_duration_minutes > 0 && (
-              <><span>·</span><span>{trail.total_duration_minutes >= 60 ? `${Math.floor(trail.total_duration_minutes / 60)} h ${trail.total_duration_minutes % 60 ? `${trail.total_duration_minutes % 60} min` : ''}`.trim() : `${trail.total_duration_minutes} min`} {trail.transport_mode === 'drive' ? 'driving' : 'travel'}</span></>
+              <><span>·</span><span>{trail.total_duration_minutes >= 60 ? `${t('hoursShort', { h: Math.floor(trail.total_duration_minutes / 60) })}${trail.total_duration_minutes % 60 ? ` ${t('minutesShort', { min: trail.total_duration_minutes % 60 })}` : ''}` : t('minutesShort', { min: trail.total_duration_minutes })} {trail.transport_mode === 'drive' ? t('travelDriving') : t('travelGeneric')}</span></>
             )}
             {trail.transport_mode === 'transit' && (
-              <><span>·</span><span style={{ color: 'var(--color-sage)' }}>Car-free trail</span></>
+              <><span>·</span><span style={{ color: 'var(--color-sage)' }}>{t('carFreeTrail')}</span></>
             )}
             {trail.transport_mode === 'neighbourhood' && (
-              <><span>·</span><span style={{ color: '#5A8A9A' }}>Neighbourhood walk{trail.neighbourhood_label ? ` · ${trail.neighbourhood_label}` : ''}</span></>
+              <><span>·</span><span style={{ color: '#5A8A9A' }}>{t('neighbourhoodWalk')}{trail.neighbourhood_label ? ` · ${trail.neighbourhood_label}` : ''}</span></>
             )}
             {trail.duration && <><span>·</span><span>{trail.duration}</span></>}
-            {trail.curator_name && <><span>·</span><span>Curated by {trail.curator_name}</span></>}
+            {trail.curator_name && <><span>·</span><span>{t('curatedBy', { name: trail.curator_name })}</span></>}
             {trail.vertical_focus && (
               <>
                 <span>·</span>
@@ -136,7 +138,7 @@ export default async function TrailPage({ params }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
             {trail.curator_note && (
               <div style={{ background: 'var(--color-card-bg)', border: '1px solid var(--color-border)', borderLeft: '3px solid var(--color-sage)', borderRadius: 3, padding: '20px 24px' }}>
-                <div style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--color-sage)', fontFamily: 'var(--font-body)', marginBottom: 8 }}>Curator's note</div>
+                <div style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--color-sage)', fontFamily: 'var(--font-body)', marginBottom: 8 }}>{t('curatorsNote')}</div>
                 <p style={{ fontSize: 14, color: 'var(--color-muted)', lineHeight: 1.7, fontFamily: 'var(--font-body)' }}>{trail.curator_note}</p>
               </div>
             )}
@@ -152,7 +154,7 @@ export default async function TrailPage({ params }) {
             )}
             {validStops.map((stop, index) => (
               <div key={stop.id}>
-                <StopCard stop={stop} index={index} isLast={index === validStops.length - 1 && trail.transport_mode === 'drive'} />
+                <StopCard stop={stop} index={index} isLast={index === validStops.length - 1 && trail.transport_mode === 'drive'} t={t} />
                 {/* Walking leg card for no-car modes */}
                 {trail.transport_mode && trail.transport_mode !== 'drive' && index < validStops.length - 1 && (
                   <div style={{ margin: '8px 0 0 0' }}>
@@ -172,9 +174,9 @@ export default async function TrailPage({ params }) {
                     </svg>
                     <span style={{ fontSize: 12, color: 'var(--color-muted)', fontFamily: 'var(--font-body)' }}>
                       {validStops[index + 1].duration_from_previous_minutes >= 60
-                        ? `${Math.floor(validStops[index + 1].duration_from_previous_minutes / 60)} h ${validStops[index + 1].duration_from_previous_minutes % 60 || ''}${validStops[index + 1].duration_from_previous_minutes % 60 ? ' min' : ''}`.trim()
-                        : `${validStops[index + 1].duration_from_previous_minutes} min`} drive
-                      {validStops[index + 1].distance_from_previous_km != null && ` · ${Math.round(validStops[index + 1].distance_from_previous_km)} km`}
+                        ? `${t('hoursShort', { h: Math.floor(validStops[index + 1].duration_from_previous_minutes / 60) })}${validStops[index + 1].duration_from_previous_minutes % 60 ? ` ${t('minutesShort', { min: validStops[index + 1].duration_from_previous_minutes % 60 })}` : ''}`
+                        : t('minutesShort', { min: validStops[index + 1].duration_from_previous_minutes })} {t('driveLabel')}
+                      {validStops[index + 1].distance_from_previous_km != null && ` · ${t('distanceKm', { km: Math.round(validStops[index + 1].distance_from_previous_km) })}`}
                     </span>
                   </div>
                 )}
@@ -193,17 +195,17 @@ export default async function TrailPage({ params }) {
       <section className="max-w-6xl mx-auto px-6" style={{ padding: '56px 24px 80px' }}>
         <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 48 }}>
           <div style={{ fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--color-sage)', marginBottom: 12, fontFamily: 'var(--font-body)' }}>
-            Plan your visit
+            {t('planYourVisit')}
           </div>
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(20px, 3vw, 28px)', fontWeight: 400, color: 'var(--color-ink)', marginBottom: 36, lineHeight: 1.2 }}>
-            What to know before you go
+            {t('whatToKnow')}
           </h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 24, marginBottom: 48 }}>
             {[
-              { label: 'Duration', value: trail.duration || 'Full day', sub: 'Allow time between stops' },
-              { label: 'Best visited', value: trail.best_season || 'Year round', sub: 'Check venue hours before going' },
-              { label: 'Region', value: trail.region || 'Multiple regions', sub: trail.transport_mode === 'neighbourhood' ? 'Walkable neighbourhood' : trail.transport_mode === 'transit' ? 'Public transport + walking' : 'A car is recommended' },
-              { label: 'Stops', value: `${validStops.length} venues`, sub: 'Across multiple verticals' },
+              { label: t('infoDuration'), value: trail.duration || t('fullDay'), sub: t('allowTimeBetween') },
+              { label: t('infoBestVisited'), value: trail.best_season || t('yearRound'), sub: t('checkVenueHours') },
+              { label: t('infoRegion'), value: trail.region || t('multipleRegions'), sub: trail.transport_mode === 'neighbourhood' ? t('walkableNeighbourhood') : trail.transport_mode === 'transit' ? t('publicTransportWalking') : t('carRecommended') },
+              { label: t('infoStops'), value: t('venuesCount', { count: validStops.length }), sub: t('acrossVerticals') },
             ].map(item => (
               <div key={item.label} style={{ padding: '20px 24px', background: 'var(--color-card-bg)', border: '1px solid var(--color-border)', borderRadius: 3 }}>
                 <div style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--color-muted)', fontFamily: 'var(--font-body)', marginBottom: 8 }}>{item.label}</div>
@@ -216,18 +218,18 @@ export default async function TrailPage({ params }) {
           {/* Share + nav */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 24, padding: '32px 0', borderTop: '1px solid var(--color-border)' }}>
             <div>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, color: 'var(--color-ink)', marginBottom: 6 }}>Share this trail</div>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 20, color: 'var(--color-ink)', marginBottom: 6 }}>{t('shareThisTrail')}</div>
               <div style={{ fontSize: 13, color: 'var(--color-muted)', fontFamily: 'var(--font-body)', lineHeight: 1.5 }}>
-                Send the link to a friend or save it for later.
+                {t('shareBlurb')}
               </div>
             </div>
             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               <ShareButton shortCode={trail.short_code} slug={trail.slug} />
               <Link href="/trails" style={{ display: 'inline-block', padding: '11px 24px', border: '1px solid var(--color-border)', color: 'var(--color-muted)', textDecoration: 'none', fontSize: 12, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'var(--font-body)', borderRadius: 2 }}>
-                All Trails
+                {t('allTrails')}
               </Link>
               <Link href="/trails/builder" style={{ display: 'inline-block', padding: '11px 24px', background: 'var(--color-sage)', color: '#fff', textDecoration: 'none', fontSize: 12, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'var(--font-body)', borderRadius: 2 }}>
-                Build a trail
+                {t('buildATrail')}
               </Link>
             </div>
           </div>
@@ -237,7 +239,7 @@ export default async function TrailPage({ params }) {
   )
 }
 
-function StopCard({ stop, index, isLast }) {
+function StopCard({ stop, index, isLast, t }) {
   const verticalColor = VERTICAL_COLORS[stop.vertical] || 'var(--color-sage)'
   // Use the actual listing slug from the joined listings table
   const listingSlug = stop.listings?.slug || null
@@ -312,7 +314,7 @@ function StopCard({ stop, index, isLast }) {
           )}
           {venueUrl && (
             <a href={venueUrl} style={{ display: 'inline-block', marginTop: 12, fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-sage)', textDecoration: 'none', fontFamily: 'var(--font-body)' }}>
-              View listing →
+              {t('viewListing')} →
             </a>
           )}
         </div>

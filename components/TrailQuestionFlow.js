@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 
 /**
  * 4-question pre-flight modal that shapes trail generation.
@@ -16,43 +17,44 @@ import { useRouter } from 'next/navigation'
 const QUESTIONS = [
   {
     key: 'accommodation',
-    label: 'Accommodation',
+    labelKey: 'qAccommodation',
     options: [
-      { value: 'need', label: 'I\u2019ll need somewhere to stay' },
-      { value: 'sorted', label: 'Already sorted' },
-      { value: 'daytrip', label: 'Day trip' },
+      { value: 'need', labelKey: 'qAccommodationNeed' },
+      { value: 'sorted', labelKey: 'qAccommodationSorted' },
+      { value: 'daytrip', labelKey: 'qAccommodationDaytrip' },
     ],
   },
   {
     key: 'transport',
-    label: 'Getting around',
+    labelKey: 'qTransport',
     options: [
-      { value: 'driving', label: 'Driving' },
-      { value: 'public', label: 'Public transport' },
-      { value: 'walking', label: 'Walking or cycling' },
+      { value: 'driving', labelKey: 'qTransportDriving' },
+      { value: 'public', labelKey: 'qTransportPublic' },
+      { value: 'walking', labelKey: 'qTransportWalking' },
     ],
   },
   {
     key: 'group',
-    label: 'Travelling with',
+    labelKey: 'qGroup',
     options: [
-      { value: 'solo', label: 'Solo' },
-      { value: 'couple', label: 'Couple' },
-      { value: 'friends', label: 'Friends' },
-      { value: 'family', label: 'Family with kids' },
+      { value: 'solo', labelKey: 'qGroupSolo' },
+      { value: 'couple', labelKey: 'qGroupCouple' },
+      { value: 'friends', labelKey: 'qGroupFriends' },
+      { value: 'family', labelKey: 'qGroupFamily' },
     ],
   },
   {
     key: 'pace',
-    label: 'Pace',
+    labelKey: 'qPace',
     options: [
-      { value: 'relaxed', label: 'Relaxed' },
-      { value: 'packed', label: 'Packed' },
+      { value: 'relaxed', labelKey: 'qPaceRelaxed' },
+      { value: 'packed', labelKey: 'qPacePacked' },
     ],
   },
 ]
 
 export default function TrailQuestionFlow({ query, regionName, onClose }) {
+  const t = useTranslations('trails')
   const router = useRouter()
   const [answers, setAnswers] = useState({
     accommodation: null,
@@ -126,13 +128,13 @@ export default function TrailQuestionFlow({ query, regionName, onClose }) {
               color: 'var(--color-sage)', textTransform: 'uppercase',
               letterSpacing: '0.18em', marginBottom: 8, lineHeight: 1,
             }}>
-              Tailor your trail
+              {t('tailorYourTrail')}
             </p>
             <p style={{
               fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22,
               color: 'var(--color-ink)', lineHeight: 1.25, margin: 0,
             }}>
-              A few details to shape<br />your itinerary
+              {t('fewDetailsLine1')}<br />{t('fewDetailsLine2')}
             </p>
           </div>
           <button
@@ -142,7 +144,7 @@ export default function TrailQuestionFlow({ query, regionName, onClose }) {
               color: 'var(--color-muted)', padding: 4, marginTop: 2,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
-            aria-label="Close"
+            aria-label={t('close')}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
           </button>
@@ -155,7 +157,7 @@ export default function TrailQuestionFlow({ query, regionName, onClose }) {
             color: 'var(--color-muted)', marginBottom: 10,
             textTransform: 'uppercase', letterSpacing: '0.14em', lineHeight: 1,
           }}>
-            {regionName ? 'Destination' : 'Your trail'}
+            {regionName ? t('destination') : t('yourTrail')}
           </p>
           <div style={{
             fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 16,
@@ -171,14 +173,14 @@ export default function TrailQuestionFlow({ query, regionName, onClose }) {
 
         {/* Questions */}
         <div style={{ padding: '28px 32px 8px' }}>
-          {QUESTIONS.map(({ key, label, options }) => (
+          {QUESTIONS.map(({ key, labelKey, options }) => (
             <div key={key} style={{ marginBottom: 24 }}>
               <p style={{
                 fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 10,
                 color: 'var(--color-muted)', marginBottom: 10,
                 textTransform: 'uppercase', letterSpacing: '0.14em', lineHeight: 1,
               }}>
-                {label}
+                {t(labelKey)}
               </p>
               <div style={{
                 display: 'grid',
@@ -217,7 +219,7 @@ export default function TrailQuestionFlow({ query, regionName, onClose }) {
                         }
                       }}
                     >
-                      {opt.label}
+                      {t(opt.labelKey)}
                     </button>
                   )
                 })}
@@ -244,7 +246,7 @@ export default function TrailQuestionFlow({ query, regionName, onClose }) {
               letterSpacing: '0.01em',
             }}
           >
-            Skip, just build it
+            {t('skipJustBuild')}
           </button>
           <button
             onClick={handleSubmit}
@@ -259,7 +261,7 @@ export default function TrailQuestionFlow({ query, regionName, onClose }) {
               letterSpacing: '0.02em',
             }}
           >
-            Build trail{answeredCount > 0 ? ` \u00b7 ${answeredCount}/4` : ''}
+            {t('buildTrail')}{answeredCount > 0 ? ` \u00b7 ${answeredCount}/4` : ''}
           </button>
         </div>
       </div>

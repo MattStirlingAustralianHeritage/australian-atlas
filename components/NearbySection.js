@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { useLocation } from './LocationProvider'
 import { getListingRegion } from '@/lib/regions'
 
@@ -17,16 +18,17 @@ import { VERTICAL_CARD_BG } from '@/lib/verticalUrl'
 
 const VERTICAL_CARD_COLORS = VERTICAL_CARD_BG
 
-function distanceLabel(km) {
-  if (km < 1) return 'Under 1 km'
-  if (km < 10) return `${km.toFixed(1)} km`
-  return `${Math.round(km)} km`
+function distanceLabel(km, t) {
+  if (km < 1) return t('underOneKm')
+  if (km < 10) return t('km', { distance: km.toFixed(1) })
+  return t('km', { distance: Math.round(km) })
 }
 
 // variant: 'standalone' (its own homepage band — legacy) | 'embedded' (a column
 // inside the "Make it yours" band: compact card chrome, h3-level headings, no
 // <section> wrapper of its own).
 export default function NearbySection({ variant = 'standalone' }) {
+  const t = useTranslations('cards')
   const embedded = variant === 'embedded'
   const { location, status, detectLocation, isReady } = useLocation()
   const [listings, setListings] = useState(null)
@@ -82,13 +84,13 @@ export default function NearbySection({ variant = 'standalone' }) {
             fontSize: 'clamp(21px, 2.2vw, 26px)', color: 'var(--color-ink)',
             marginBottom: '8px',
           }}>
-            Worth finding nearby
+            {t('worthFindingNearby')}
           </h3>
           <p style={{
             fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14.5px',
             lineHeight: 1.6, color: 'var(--color-muted)', marginBottom: '20px', maxWidth: '42ch',
           }}>
-            Share your location and the Atlas surfaces the independent places within reach — the roaster, the maker, the walk you didn&apos;t know was there.
+            {t('nearbyPromptBody')}
           </p>
           <button
             onClick={detectLocation}
@@ -102,13 +104,17 @@ export default function NearbySection({ variant = 'standalone' }) {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3" /><path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
             </svg>
-            Use my location
+            {t('useMyLocation')}
           </button>
           <p style={{
             fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '12px',
             color: 'var(--color-muted)', marginTop: '14px', marginBottom: 0,
           }}>
-            Or browse by suburb on <Link href="/near-me" style={{ color: GOLD, textDecoration: 'none', fontWeight: 500 }}>the near-me page &rarr;</Link>
+            {t.rich('orBrowseBySuburb', {
+              link: (chunks) => (
+                <Link href="/near-me" style={{ color: GOLD, textDecoration: 'none', fontWeight: 500 }}>{chunks}</Link>
+              ),
+            })}
           </p>
         </div>
       )
@@ -121,13 +127,13 @@ export default function NearbySection({ variant = 'standalone' }) {
             fontSize: 'clamp(24px, 3vw, 36px)', color: 'var(--color-ink)',
             marginBottom: '12px',
           }}>
-            Worth finding nearby
+            {t('worthFindingNearby')}
           </h2>
           <p style={{
             fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
             color: 'var(--color-muted)', marginBottom: '28px',
           }}>
-            See independent places close to where you are.
+            {t('seeIndependentPlaces')}
           </p>
           <button
             onClick={detectLocation}
@@ -141,7 +147,7 @@ export default function NearbySection({ variant = 'standalone' }) {
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3" /><path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
             </svg>
-            Use my location
+            {t('useMyLocation')}
           </button>
         </div>
       </section>
@@ -160,7 +166,7 @@ export default function NearbySection({ variant = 'standalone' }) {
             fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14.5px',
             color: 'var(--color-muted)', margin: 0,
           }}>
-            Finding places near you…
+            {t('findingPlacesNearYou')}
           </p>
         </div>
       )
@@ -172,7 +178,7 @@ export default function NearbySection({ variant = 'standalone' }) {
             fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px',
             color: 'var(--color-muted)',
           }}>
-            Finding places near you...
+            {t('findingPlacesNearYou')}
           </p>
         </div>
       </section>
@@ -193,19 +199,19 @@ export default function NearbySection({ variant = 'standalone' }) {
             fontSize: 'clamp(21px, 2.2vw, 26px)', color: 'var(--color-ink)',
             marginBottom: '8px',
           }}>
-            Worth finding nearby
+            {t('worthFindingNearby')}
           </h3>
           <p style={{
             fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14.5px',
             lineHeight: 1.6, color: 'var(--color-muted)', marginBottom: '16px', maxWidth: '42ch',
           }}>
-            We couldn&apos;t place you — but you can browse what&apos;s close by suburb instead.
+            {t('couldntPlaceYou')}
           </p>
           <Link href="/near-me" style={{
             fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13.5px',
             color: GOLD, textDecoration: 'none',
           }}>
-            Open the near-me page &rarr;
+            {t('openNearMePage')}
           </Link>
         </div>
       )
@@ -225,7 +231,7 @@ export default function NearbySection({ variant = 'standalone' }) {
             fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14.5px',
             color: 'var(--color-muted)', margin: 0,
           }}>
-            Loading nearby places…
+            {t('loadingNearbyPlaces')}
           </p>
         </div>
       )
@@ -238,13 +244,13 @@ export default function NearbySection({ variant = 'standalone' }) {
             fontSize: 'clamp(24px, 3vw, 36px)', color: 'var(--color-ink)',
             marginBottom: '12px',
           }}>
-            Worth finding nearby
+            {t('worthFindingNearby')}
           </h2>
           <p style={{
             fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px',
             color: 'var(--color-muted)',
           }}>
-            Loading nearby places...
+            {t('loadingNearbyPlaces')}
           </p>
         </div>
       </section>
@@ -264,19 +270,19 @@ export default function NearbySection({ variant = 'standalone' }) {
             fontSize: 'clamp(21px, 2.2vw, 26px)', color: 'var(--color-ink)',
             marginBottom: '8px',
           }}>
-            Worth finding nearby
+            {t('worthFindingNearby')}
           </h3>
           <p style={{
             fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14.5px',
             lineHeight: 1.6, color: 'var(--color-muted)', marginBottom: '16px', maxWidth: '42ch',
           }}>
-            Nothing close enough just yet — the wider hunt lives on the near-me page.
+            {t('nothingCloseEnough')}
           </p>
           <Link href="/near-me" style={{
             fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13.5px',
             color: GOLD, textDecoration: 'none',
           }}>
-            Open the near-me page &rarr;
+            {t('openNearMePage')}
           </Link>
         </div>
       )
@@ -286,12 +292,12 @@ export default function NearbySection({ variant = 'standalone' }) {
 
   // ── Build header text ──
   const headerText = location?.name
-    ? `Worth finding near ${location.name}`
-    : 'Worth finding nearby'
+    ? t('worthFindingNear', { town: location.name })
+    : t('worthFindingNearby')
 
   const subText = radiusUsed
-    ? `Independent places within ${radiusUsed} km`
-    : 'Independent places close to you'
+    ? t('independentPlacesWithin', { radius: radiusUsed })
+    : t('independentPlacesCloseToYou')
 
   if (embedded) {
     return (
@@ -318,7 +324,7 @@ export default function NearbySection({ variant = 'standalone' }) {
                 color: GOLD, textDecoration: 'none',
               }}
             >
-              See all &rarr;
+              {t('seeAll')}
             </Link>
           </div>
         </div>
@@ -373,7 +379,7 @@ export default function NearbySection({ variant = 'standalone' }) {
                         fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 400,
                         color: 'rgba(250,248,244,0.4)',
                       }}>
-                        {distanceLabel(listing.distance_km)}
+                        {distanceLabel(listing.distance_km, t)}
                       </span>
                     )}
                   </div>
@@ -398,7 +404,7 @@ export default function NearbySection({ variant = 'standalone' }) {
       <div className="max-w-6xl mx-auto px-6 sm:px-12">
         {/* Header */}
         <div style={{ marginBottom: '32px' }}>
-          <p className="section-dateline" style={{ marginBottom: '14px' }}>Near you</p>
+          <p className="section-dateline" style={{ marginBottom: '14px' }}>{t('nearYou')}</p>
           <h2 style={{
             fontFamily: 'var(--font-display)', fontWeight: 400,
             fontSize: 'clamp(26px, 3.2vw, 40px)', color: 'var(--color-ink)',
@@ -420,7 +426,7 @@ export default function NearbySection({ variant = 'standalone' }) {
                 color: GOLD, textDecoration: 'none',
               }}
             >
-              See all &rarr;
+              {t('seeAll')}
             </Link>
           </div>
         </div>
@@ -482,7 +488,7 @@ export default function NearbySection({ variant = 'standalone' }) {
                         fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 400,
                         color: 'rgba(250,248,244,0.4)',
                       }}>
-                        {distanceLabel(listing.distance_km)}
+                        {distanceLabel(listing.distance_km, t)}
                       </span>
                     )}
                   </div>

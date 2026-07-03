@@ -37,6 +37,7 @@
  */
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 
 const PORTAL_URL = 'https://australianatlas.com.au'
 
@@ -59,6 +60,7 @@ export default function WhatsNearby({
   portalUrl = PORTAL_URL,
   limitPerVertical = 3,
 }) {
+  const t = useTranslations('cards')
   const [verticals, setVerticals] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -111,13 +113,13 @@ export default function WhatsNearby({
           color: 'var(--text-3, #999)', marginBottom: 6,
           fontFamily: 'var(--font-sans, "DM Sans", sans-serif)',
         }}>
-          What's Nearby
+          {t('whatsNearby')}
         </div>
         <div style={{
           fontSize: 13, color: 'var(--text-3, #999)', marginBottom: 28,
           fontFamily: 'var(--font-sans, "DM Sans", sans-serif)',
         }}>
-          From across the Atlas network
+          {t('fromAcrossTheNetwork')}
         </div>
 
         {verticalKeys.map(vKey => {
@@ -196,7 +198,7 @@ export default function WhatsNearby({
                           fontFamily: 'var(--font-sans, "DM Sans", sans-serif)',
                           fontSize: 12, fontWeight: 300, color: 'var(--text-3, #999)',
                         }}>
-                          {item.distance_km < 1 ? '<1' : item.distance_km} km
+                          {t('km', { distance: item.distance_km < 1 ? '<1' : item.distance_km })}
                         </span>
                       </div>
                     </div>

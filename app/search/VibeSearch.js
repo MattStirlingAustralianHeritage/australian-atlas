@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import { useTranslations } from 'next-intl'
 import { isApprovedImageSource } from '@/lib/image-utils'
 import { VERTICAL_MUTED } from '@/lib/verticalUrl'
 
@@ -161,15 +162,10 @@ function VibeSkeletonCard() {
   )
 }
 
-const EXAMPLE_VIBES = [
-  'Somewhere quiet to read on a rainy day',
-  'A long table lunch with local wine',
-  'Wild swimming and a good coffee after',
-  'Moody gallery then a natural wine bar',
-  'The kind of place that smells like old books',
-]
+const EXAMPLE_VIBE_KEYS = ['vibeExample1', 'vibeExample2', 'vibeExample3', 'vibeExample4', 'vibeExample5']
 
 export default function VibeSearch({ initialQuery = '', onQueryChange }) {
+  const t = useTranslations('search')
   const [query, setQuery] = useState(initialQuery)
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
@@ -199,7 +195,7 @@ export default function VibeSearch({ initialQuery = '', onQueryChange }) {
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}))
-        throw new Error(errData.error || 'Search failed')
+        throw new Error(errData.error || t('vibeSearchFailed'))
       }
 
       const data = await res.json()
@@ -259,7 +255,7 @@ export default function VibeSearch({ initialQuery = '', onQueryChange }) {
             type="text"
             value={query}
             onChange={(e) => updateQuery(e.target.value)}
-            placeholder="Describe a feeling, mood, or scenario..."
+            placeholder={t('vibePlaceholder')}
             style={{
               flex: 1,
               border: 'none',
@@ -316,7 +312,7 @@ export default function VibeSearch({ initialQuery = '', onQueryChange }) {
               minHeight: '36px',
             }}
           >
-            {loading ? 'Searching...' : 'Search'}
+            {loading ? t('vibeSearching') : t('vibeSearchButton')}
           </button>
         </div>
       </form>
@@ -335,12 +331,14 @@ export default function VibeSearch({ initialQuery = '', onQueryChange }) {
               marginBottom: '0.625rem',
             }}
           >
-            Try a vibe
+            {t('vibeTryLabel')}
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
-            {EXAMPLE_VIBES.map((vibe) => (
+            {EXAMPLE_VIBE_KEYS.map((vibeKey) => {
+              const vibe = t(vibeKey)
+              return (
               <button
-                key={vibe}
+                key={vibeKey}
                 onClick={() => handleExampleClick(vibe)}
                 style={{
                   padding: '0.5rem 0.875rem',
@@ -361,7 +359,8 @@ export default function VibeSearch({ initialQuery = '', onQueryChange }) {
               >
                 {vibe}
               </button>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
@@ -379,7 +378,7 @@ export default function VibeSearch({ initialQuery = '', onQueryChange }) {
       {loading && (
         <div style={{ marginTop: '2rem' }}>
           <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8125rem', color: 'var(--color-muted)', marginBottom: '1rem' }}>
-            Finding places that match your vibe...
+            {t('vibeFinding')}
           </p>
           <div
             style={{
@@ -399,7 +398,7 @@ export default function VibeSearch({ initialQuery = '', onQueryChange }) {
       {!loading && searched && results.length > 0 && (
         <div style={{ marginTop: '2rem' }}>
           <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8125rem', color: 'var(--color-muted)', marginBottom: '1rem' }}>
-            {results.length} {results.length === 1 ? 'place' : 'places'} matching your vibe
+            {t('vibeResultsCount', { count: results.length })}
           </p>
           <div
             style={{
@@ -427,7 +426,7 @@ export default function VibeSearch({ initialQuery = '', onQueryChange }) {
               marginBottom: '0.5rem',
             }}
           >
-            No places matched that vibe
+            {t('vibeEmptyTitle')}
           </p>
           <p
             style={{
@@ -436,7 +435,7 @@ export default function VibeSearch({ initialQuery = '', onQueryChange }) {
               color: 'var(--color-muted)',
             }}
           >
-            Try describing the feeling differently, or use the regular search.
+            {t('vibeEmptyHelp')}
           </p>
         </div>
       )}

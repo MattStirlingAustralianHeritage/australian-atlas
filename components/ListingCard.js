@@ -2,6 +2,7 @@ import { getVerticalUrl, VERTICAL_CARD_TOKENS } from '@/lib/verticalUrl'
 import VerticalBadge from '@/components/VerticalBadge'
 import { isApprovedImageSource, isHeroDisplayable } from '@/lib/image-utils'
 import { getListingRegion } from '@/lib/regions'
+import { localizeVerticalKicker } from '@/lib/i18n/listingLabels'
 
 // ============================================================
 // ListingCard — Bespoke typographic card replacing all photography
@@ -88,8 +89,10 @@ export function TypographicCard({
   textColor,
   eyebrow,
   mobile = false,
+  locale,
 }) {
   const tokens = VERTICAL_TOKENS[vertical] || VERTICAL_TOKENS.portal
+  const kickerLabel = localizeVerticalKicker(vertical, tokens.label, locale)
   // Callers may override the ground/text (e.g. the events surface drives the
   // ground off event category, not vertical). Defaults preserve the listing
   // treatment exactly.
@@ -172,7 +175,7 @@ export function TypographicCard({
     )
   }
   const topLine = showVerticalTag
-    ? `${tokens.label}${categoryLabel ? `  \u00B7  ${categoryLabel}` : ''}`.toUpperCase()
+    ? `${kickerLabel}${categoryLabel ? `  \u00B7  ${categoryLabel}` : ''}`.toUpperCase()
     : categoryLabel
       ? categoryLabel.toUpperCase()
       : null
@@ -345,8 +348,9 @@ export function TypographicCard({
 
 // ── VerticalIdentityCard: for homepage sections representing a vertical ──
 
-export function VerticalIdentityCard({ vertical, tagline, aspectRatio = '4/3' }) {
+export function VerticalIdentityCard({ vertical, tagline, aspectRatio = '4/3', locale }) {
   const tokens = VERTICAL_TOKENS[vertical] || VERTICAL_TOKENS.portal
+  const kickerLabel = localizeVerticalKicker(vertical, tokens.label, locale)
   const isField = vertical === 'field'
 
   return (
@@ -382,7 +386,7 @@ export function VerticalIdentityCard({ vertical, tagline, aspectRatio = '4/3' })
           textTransform: 'uppercase', opacity: 0.55,
           margin: '0 0 1rem', lineHeight: 1.4,
         }}>
-          {tokens.label.toUpperCase()}
+          {kickerLabel.toUpperCase()}
         </p>
 
         <div style={{
@@ -395,7 +399,7 @@ export function VerticalIdentityCard({ vertical, tagline, aspectRatio = '4/3' })
           fontFamily: 'var(--font-display, "Playfair Display", Georgia)',
           fontSize: 17, fontWeight: 400, margin: 0, lineHeight: 1.3,
         }}>
-          {tokens.label}
+          {kickerLabel}
         </p>
         {tagline && (
           <p style={{
@@ -423,7 +427,7 @@ function formatDistance(km) {
   return `${Math.round(km)} km`
 }
 
-export default function ListingCard({ listing, meta, linkToVertical = false, distanceKm = null, onClick }) {
+export default function ListingCard({ listing, meta, linkToVertical = false, distanceKm = null, onClick, locale }) {
   const derivedMeta = meta || {}
   if (!derivedMeta.entity_type && listing.vertical === 'fine_grounds' && listing.source_id) {
     if (listing.source_id.startsWith('cafe_')) derivedMeta.entity_type = 'cafe'
@@ -441,6 +445,7 @@ export default function ListingCard({ listing, meta, linkToVertical = false, dis
   // flagged/held verdict swaps the photo for the typographic card.
   const hasRealImage = listing.hero_image_url && isApprovedImageSource(listing.hero_image_url) && isHeroDisplayable(listing)
   const tokens = VERTICAL_TOKENS[listing.vertical] || VERTICAL_TOKENS.portal
+  const kickerLabel = localizeVerticalKicker(listing.vertical, tokens.label, locale)
   const region = getListingRegion(listing)
   const distanceLabel = formatDistance(distanceKm)
   // Mobile venues (food trucks, carts) carry a subtle "Mobile" marker in place
@@ -478,7 +483,7 @@ export default function ListingCard({ listing, meta, linkToVertical = false, dis
               letterSpacing: '0.15em', textTransform: 'uppercase',
               color: 'rgba(255,255,255,0.6)',
             }}>
-              {tokens.label}
+              {kickerLabel}
             </p>
             {/* Text overlay */}
             <div style={{
@@ -516,6 +521,7 @@ export default function ListingCard({ listing, meta, linkToVertical = false, dis
             aspectRatio="4/5"
             showVerticalTag={true}
             mobile={isMobile}
+            locale={locale}
           />
         )}
 

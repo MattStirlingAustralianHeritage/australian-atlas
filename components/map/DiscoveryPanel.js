@@ -1,4 +1,5 @@
 'use client'
+import { useTranslations } from 'next-intl'
 import { getVerticalBadge, getVerticalBrandColour } from '@/lib/verticalUrl'
 import { SUB_TYPE_LABELS } from '@/lib/subTypeLabels'
 
@@ -9,6 +10,7 @@ const GOLD = '#c8943a'
 // serif name, set-small meta — and a thumbnail appears only when a listing
 // actually has an approved image (meta from /api/map/cards).
 function PanelRow({ l, meta, active, visited, onHover, onSelect }) {
+  const t = useTranslations('map')
   const color = getVerticalBrandColour(l.vertical) || '#5f8a7e'
   const subTypes = SUB_TYPE_LABELS[l.vertical] || {}
   const metaLine = [
@@ -39,9 +41,9 @@ function PanelRow({ l, meta, active, visited, onHover, onSelect }) {
             fontFamily: 'var(--font-serif)', fontSize: 14.5, lineHeight: 1.25, color: visited ? 'var(--color-muted)' : 'var(--color-ink)',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>{l.name}</span>
-          {l.is_featured && <span title="Featured" style={{ color: GOLD, fontSize: 10, flexShrink: 0 }}>★</span>}
+          {l.is_featured && <span title={t('featured')} style={{ color: GOLD, fontSize: 10, flexShrink: 0 }}>★</span>}
           {meta?.editors_pick && !l.is_featured && (
-            <span style={{ flexShrink: 0, fontSize: 8.5, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--color-accent)' }}>Pick</span>
+            <span style={{ flexShrink: 0, fontSize: 8.5, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--color-accent)' }}>{t('pick')}</span>
           )}
         </span>
         <span style={{ display: 'block', fontSize: 10.5, color: 'var(--color-muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -86,6 +88,7 @@ export default function DiscoveryPanel({
   onSelect,
   onClose,
 }) {
+  const t = useTranslations('map')
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       {/* Header */}
@@ -96,14 +99,14 @@ export default function DiscoveryPanel({
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
           <div role="status">
             <div style={{ fontFamily: 'var(--font-serif)', fontSize: 15.5, color: 'var(--color-ink)' }}>
-              {loading ? 'Reading the atlas…' : filterBusy ? 'Searching the atlas…' : `${totalInView.toLocaleString()} ${totalInView === 1 ? 'place' : 'places'} in view`}
+              {loading ? t('readingAtlas') : filterBusy ? t('searchingAtlas') : t('placesInView', { count: totalInView })}
             </div>
             <div style={{ fontSize: 10.5, color: 'var(--color-muted)', marginTop: 1 }}>
-              {loading || filterBusy ? '' : `of ${totalAll.toLocaleString()} across Australia — move the map to explore`}
+              {loading || filterBusy ? '' : t('ofTotalAcrossAustralia', { total: totalAll })}
             </div>
           </div>
           {mode === 'sheet' && (
-            <button onClick={onClose} aria-label="Close list" style={{
+            <button onClick={onClose} aria-label={t('closeList')} style={{
               width: 32, height: 32, borderRadius: '50%', border: '1px solid var(--color-border)',
               background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
             }}>
@@ -126,8 +129,8 @@ export default function DiscoveryPanel({
               value={filterQuery}
               onChange={e => onFilterQuery(e.target.value)}
               onKeyDown={e => { if (e.key === 'Escape') onFilterQuery('') }}
-              placeholder="Filter the map — try ‘whisky’ or ‘homewares’"
-              aria-label="Filter the map by keyword"
+              placeholder={t('filterPlaceholderShort')}
+              aria-label={t('filterAriaLabel')}
               style={{
                 width: '100%', boxSizing: 'border-box', padding: '7px 30px 7px 27px',
                 background: '#fff', border: `1px solid ${filterQuery ? '#5f8a7e' : 'var(--color-border)'}`,
@@ -136,14 +139,14 @@ export default function DiscoveryPanel({
               }}
             />
             {filterBusy ? (
-              <span aria-label="Searching" title="Smart search running…" style={{
+              <span aria-label={t('searching')} title={t('smartSearchRunning')} style={{
                 position: 'absolute', right: 9, top: '50%', transform: 'translateY(-50%)',
                 width: 13, height: 13, borderRadius: '50%',
                 border: '2px solid rgba(95,138,126,0.28)', borderTopColor: '#5f8a7e',
                 animation: 'dp-spin 0.7s linear infinite',
               }} />
             ) : filterQuery ? (
-              <button onClick={() => onFilterQuery('')} aria-label="Clear filter" style={{
+              <button onClick={() => onFilterQuery('')} aria-label={t('clearFilter')} style={{
                 position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)',
                 width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-muted)',
@@ -155,7 +158,7 @@ export default function DiscoveryPanel({
         )}
         {onFilterQuery && mode === 'sheet' && filterQuery && (
           <div style={{ fontSize: 9.5, color: 'var(--color-muted)', marginTop: 5, letterSpacing: '0.02em' }}>
-            {filterBusy ? 'Searching meaning, not just words…' : 'Matches stay in colour · the rest fade back'}
+            {filterBusy ? t('searchingMeaning') : t('matchesStayInColour')}
           </div>
         )}
         <style>{`@keyframes dp-spin { to { transform: translateY(-50%) rotate(360deg); } }`}</style>
@@ -168,17 +171,17 @@ export default function DiscoveryPanel({
         {!loading && items.length === 0 && !filterBusy && (
           <div style={{ padding: '28px 18px', textAlign: 'center' }}>
             <div style={{ fontFamily: 'var(--font-serif)', fontSize: 15, color: 'var(--color-ink)', marginBottom: 6 }}>
-              {filterQuery ? `Nothing here matches “${filterQuery}”` : 'Nothing in view'}
+              {filterQuery ? t('nothingMatchesQuery', { query: filterQuery }) : t('nothingInView')}
             </div>
             <div style={{ fontSize: 11.5, color: 'var(--color-muted)', lineHeight: 1.5 }}>
-              {filterQuery ? 'Try a different word, zoom out, or clear the filter.' : 'Zoom out, or move the map toward a town — the list follows the map.'}
+              {filterQuery ? t('nothingMatchesHint') : t('nothingInViewHint')}
             </div>
             {filterQuery && onFilterQuery && (
               <button onClick={() => onFilterQuery('')} style={{
                 marginTop: 12, padding: '7px 16px', background: '#5f8a7e', color: '#fff', border: 'none',
                 borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600, fontFamily: 'var(--font-sans)',
               }}>
-                Clear filter
+                {t('clearFilter')}
               </button>
             )}
           </div>
@@ -196,7 +199,7 @@ export default function DiscoveryPanel({
         ))}
         {!loading && totalInView > items.length && (
           <div style={{ padding: '12px 15px 18px', fontSize: 10.5, color: 'var(--color-muted)', textAlign: 'center' }}>
-            Showing the first {items.length} — zoom in to narrow the view
+            {t('showingFirst', { count: items.length })}
           </div>
         )}
       </div>

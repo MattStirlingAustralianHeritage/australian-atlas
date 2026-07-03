@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useTranslations } from 'next-intl'
 import { Bookmark } from 'lucide-react'
 import { getAuthSupabase } from '@/lib/supabase/auth-clients'
 import AuthModal from './AuthModal'
@@ -29,6 +30,7 @@ export default function SaveListingButton({ listingId, listingName }) {
   const [hovering, setHovering] = useState(false)
   const errorTimer = useRef(null)
   const supabase = getAuthSupabase()
+  const t = useTranslations('actions')
 
   const showError = useCallback((msg) => {
     setError(msg)
@@ -96,9 +98,9 @@ export default function SaveListingButton({ listingId, listingName }) {
     setSaved(true)
     postSave().catch(() => {
       setSaved(false)
-      showError('Could not save. Try again.')
+      showError(t('saveError'))
     })
-  }, [statusLoading, authed, saved, postSave, showError])
+  }, [statusLoading, authed, saved, postSave, showError, t])
 
   function handleClick() {
     if (statusLoading) return
@@ -112,13 +114,13 @@ export default function SaveListingButton({ listingId, listingName }) {
       setSaved(false)
       deleteSave().catch(() => {
         setSaved(true)
-        showError('Could not unsave. Try again.')
+        showError(t('unsaveError'))
       })
     } else {
       setSaved(true)
       postSave().catch(() => {
         setSaved(false)
-        showError('Could not save. Try again.')
+        showError(t('saveError'))
       })
     }
   }
@@ -131,7 +133,7 @@ export default function SaveListingButton({ listingId, listingName }) {
       await postSave()
     } catch {
       setSaved(false)
-      showError('Could not save. Try again.')
+      showError(t('saveError'))
     }
   }
 
@@ -156,8 +158,8 @@ export default function SaveListingButton({ listingId, listingName }) {
   }
 
   const ariaLabel = saved
-    ? `Remove ${listingName} from saved listings`
-    : `Save ${listingName} to your listings`
+    ? t('removeFromSaved', { name: listingName })
+    : t('saveToListings', { name: listingName })
 
   return (
     <>
@@ -176,7 +178,7 @@ export default function SaveListingButton({ listingId, listingName }) {
           strokeWidth={2}
           fill={saved ? 'currentColor' : 'none'}
         />
-        {saved ? 'Saved' : 'Save'}
+        {saved ? t('saved') : t('save')}
       </button>
 
       {error && (

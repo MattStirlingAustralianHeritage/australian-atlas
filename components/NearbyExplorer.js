@@ -11,6 +11,7 @@
 // halves stay in sync.
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import EmbeddedNearbyMap from '@/components/EmbeddedNearbyMap'
 import { getVerticalBrandColour, getVerticalBadge } from '@/lib/verticalUrl'
 import { subTypeLabel } from '@/lib/subTypeLabels'
@@ -19,10 +20,10 @@ import { isApprovedImageSource } from '@/lib/image-utils'
 const PRIMARY = '#5f8a7e'
 const LIST_MAX = 8
 
-function fmtDistance(km) {
+function fmtDistance(km, t) {
   if (km == null || Number.isNaN(km)) return null
-  if (km < 1) return '<1 km away'
-  return `${km < 10 ? km.toFixed(1) : Math.round(km)} km away`
+  if (km < 1) return t('underOneKmAway')
+  return t('kmAway', { distance: km < 10 ? km.toFixed(1) : Math.round(km) })
 }
 
 export default function NearbyExplorer({
@@ -33,6 +34,7 @@ export default function NearbyExplorer({
   accent = PRIMARY,
   originName = '',
 }) {
+  const t = useTranslations('cards')
   const [focusId, setFocusId] = useState(null)
 
   // The list shows neighbours only — drop the current listing (it's the map's
@@ -49,7 +51,9 @@ export default function NearbyExplorer({
         className="atlas-nearby-map rounded-xl overflow-hidden nbx-map"
         style={{ border: '1px solid var(--color-border)' }}
         role="region"
-        aria-label={`Interactive map of ${originName || 'this place'} and nearby Australian Atlas listings${radiusKm ? ` within ${radiusKm} km` : ''}`}
+        aria-label={radiusKm
+          ? t('mapAriaLabelRadius', { origin: originName || t('thisPlace'), radius: radiusKm })
+          : t('mapAriaLabel', { origin: originName || t('thisPlace') })}
       >
         <EmbeddedNearbyMap
           prefilteredListings={listings}
@@ -63,13 +67,13 @@ export default function NearbyExplorer({
         <div className="nbx-list-wrap">
           <ul
             className="nbx-list"
-            aria-label="Nearby places, nearest first"
+            aria-label={t('nearbyPlacesNearestFirst')}
             onMouseLeave={() => setFocusId(null)}
           >
             {shown.map(l => {
               const color = getVerticalBrandColour(l.vertical) || PRIMARY
               const category = subTypeLabel(l.vertical, l.sub_type) || getVerticalBadge(l.vertical)
-              const dist = fmtDistance(l._dist)
+              const dist = fmtDistance(l._dist, t)
               const hasImg = isApprovedImageSource(l.hero_image_url)
               return (
                 <li key={l.id}>
@@ -103,14 +107,18 @@ export default function NearbyExplorer({
           {total > 0 && (
             <div className="nbx-foot">
               {total > shown.length
-                ? <>Nearest {shown.length} of {total} places{radiusKm ? ` within ${radiusKm} km` : ''}</>
-                : <>{total} {total === 1 ? 'place' : 'places'} nearby{radiusKm ? ` within ${radiusKm} km` : ''}</>}
+                ? (radiusKm
+                    ? t('nearestOfPlacesRadius', { shown: shown.length, total, radius: radiusKm })
+                    : t('nearestOfPlaces', { shown: shown.length, total }))
+                : (radiusKm
+                    ? t('placesNearbyRadius', { count: total, radius: radiusKm })
+                    : t('placesNearby', { count: total }))}
             </div>
           )}
         </div>
       ) : (
         <div className="nbx-empty">
-          No other Atlas listings nearby yet.
+          {t('noOtherListingsNearby')}
         </div>
       )}
 

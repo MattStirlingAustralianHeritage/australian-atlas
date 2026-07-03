@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 /**
  * GettingThereCard — pinned above the first stop in neighbourhood trail mode.
  *
@@ -63,13 +65,15 @@ export default function GettingThereCard({
   state = null,
   compact = false,
 }) {
+  const t = useTranslations('placePanels')
+
   if (!firstStopLat || !firstStopLng) return null
 
   const origin = resolveOrigin(state, customOrigin)
   const heading = neighbourhoodLabel
-    ? `Getting to ${neighbourhoodLabel}`
-    : 'Getting to your first stop'
-  const cityName = origin.name || 'the city'
+    ? t('gettingTo', { label: neighbourhoodLabel })
+    : t('gettingToFirstStop')
+  const cityName = origin.name || t('theCity')
 
   if (compact) {
     // Builder preview mode
@@ -98,7 +102,7 @@ export default function GettingThereCard({
               color: 'var(--color-sage)', textDecoration: 'none',
             }}
           >
-            Get directions from {cityName} →
+            {t('getDirectionsFrom', { city: cityName })}
           </a>
         </div>
       </div>
@@ -148,7 +152,7 @@ export default function GettingThereCard({
             display: 'inline-flex', alignItems: 'center', gap: 4,
           }}
         >
-          Get directions from {cityName} →
+          {t('getDirectionsFrom', { city: cityName })}
         </a>
       </div>
     </div>

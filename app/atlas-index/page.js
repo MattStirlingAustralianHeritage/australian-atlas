@@ -1,5 +1,6 @@
 import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
+import { getTranslations } from 'next-intl/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getPublicVerticals } from '@/lib/verticalUrl'
 import { excludeNeedsReview, excludeTestListings } from '@/lib/listings/publicFilter'
@@ -95,12 +96,13 @@ const getAllListings = cache(async () => {
 export async function generateMetadata() {
   const listings = await getAllListings()
   const count = listings.length.toLocaleString()
+  const t = await getTranslations('explore')
   return {
-    title: 'Atlas Index — Every Independent Place in Australia',
-    description: `Browse all ${count} independent Australian places alphabetically. The complete A-Z directory of the Australian Atlas network.`,
+    title: t('indexMetaTitle'),
+    description: t('indexMetaDescription', { count }),
     openGraph: {
-      title: 'Atlas Index — Every Independent Place in Australia',
-      description: `Browse all ${count} independent Australian places alphabetically.`,
+      title: t('indexMetaTitle'),
+      description: t('indexMetaOgDescription', { count }),
     },
   }
 }

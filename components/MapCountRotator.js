@@ -1,18 +1,21 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useTranslations } from 'next-intl'
 import Link from 'next/link'
 
-const VERTICAL_PHRASES = {
-  sba:          (n) => `${n} craft breweries, distilleries and cellar doors`,
-  rest:         (n) => `${n} boutique stays, farm retreats and glamping`,
-  craft:        (n) => `${n} makers, artists and studios`,
-  collection:   (n) => `${n} museums, galleries and cultural centres`,
-  fine_grounds: (n) => `${n} specialty roasters and independent cafes`,
-  field:        (n) => `${n} natural places, lookouts and swimming holes`,
-  found:        (n) => `${n} vintage stores, op shops and weekend markets`,
-  table:        (n) => `${n} farm gates, providores and food producers`,
-  corner:       (n) => `${n} independent bookshops and record stores`,
+// The per-vertical rotator phrases live in the "home" message namespace, keyed
+// by vertical, each interpolating the live count {n}.
+const VERTICAL_PHRASE_KEYS = {
+  sba:          'rotatorSba',
+  rest:         'rotatorRest',
+  craft:        'rotatorCraft',
+  collection:   'rotatorCollection',
+  fine_grounds: 'rotatorFineGrounds',
+  field:        'rotatorField',
+  found:        'rotatorFound',
+  table:        'rotatorTable',
+  corner:       'rotatorCorner',
 }
 
 const VERTICAL_MAP_SLUGS = {
@@ -28,15 +31,16 @@ const VERTICAL_MAP_SLUGS = {
 }
 
 export default function MapCountRotator({ verticalCounts, totalListings }) {
+  const t = useTranslations('home')
   const [activeIndex, setActiveIndex] = useState(0)
   const [visible, setVisible] = useState(true)
   const intervalRef = useRef(null)
 
   // Build phrases from real data, skipping zero-count verticals
-  const entries = Object.entries(VERTICAL_PHRASES)
+  const entries = Object.entries(VERTICAL_PHRASE_KEYS)
     .filter(([key]) => verticalCounts[key] > 0)
-    .map(([key, fn]) => ({
-      text: fn(verticalCounts[key].toLocaleString()),
+    .map(([key, msgKey]) => ({
+      text: t(msgKey, { n: verticalCounts[key].toLocaleString() }),
       href: `/map?vertical=${VERTICAL_MAP_SLUGS[key]}`,
     }))
 
@@ -65,8 +69,8 @@ export default function MapCountRotator({ verticalCounts, totalListings }) {
         style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 'clamp(28px, 4vw, 40px)' }}
       >
         {totalListings > 0
-          ? `${totalListings.toLocaleString()} independent places across Australia`
-          : 'Every listing on one map'}
+          ? t('rotatorFallbackCount', { n: totalListings.toLocaleString() })
+          : t('rotatorFallbackEmpty')}
       </h2>
     )
   }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useTranslations } from 'next-intl'
 
 /* ═══════════════════════════════════════════════════════════════════════
    RegionMapSelect — ghost-watermark map with grouped, counted region list
@@ -41,11 +42,9 @@ const STATE_NAMES = {
   WA: 'Western Australia',
 }
 
-function stayLabel(n) {
-  return `${n} ${n === 1 ? 'stay' : 'stays'}`
-}
-
 export default function RegionMapSelect({ regions, selectedRegion, onSelect }) {
+  const t = useTranslations('regions')
+  const stayLabel = (n) => t('stayCount', { count: n })
   /* ─── Detect reduced motion ──────────────────────────────────────── */
   const prefersReducedMotion = useMemo(() => {
     if (typeof window === 'undefined') return false
@@ -126,7 +125,7 @@ export default function RegionMapSelect({ regions, selectedRegion, onSelect }) {
         }}
       >
         <FilterChip
-          label="All states"
+          label={t('allStates')}
           active={stateFilter === null}
           onClick={() => setStateFilter(null)}
         />
@@ -143,7 +142,7 @@ export default function RegionMapSelect({ regions, selectedRegion, onSelect }) {
       {/* ── Region list — grouped by state ──────────────────────────── */}
       <div
         role="listbox"
-        aria-label="Select a region"
+        aria-label={t('selectRegion')}
         className="region-list-hero"
         style={{
           position: 'relative',
@@ -180,7 +179,7 @@ export default function RegionMapSelect({ regions, selectedRegion, onSelect }) {
                 flexShrink: 0,
                 marginLeft: 12,
               }}>
-                {group.regions.length === 1 ? '1 region' : `${group.regions.length} regions`}
+                {t('regionCount', { count: group.regions.length })}
               </span>
             </div>
 

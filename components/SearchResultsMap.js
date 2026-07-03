@@ -2,6 +2,7 @@
 import 'mapbox-gl/dist/mapbox-gl.css'
 
 import { useEffect, useRef } from 'react'
+import { useTranslations } from 'next-intl'
 import { ATLAS_PAPER_STYLE } from '@/lib/map/atlasPaperStyle'
 import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 
@@ -22,6 +23,9 @@ function pinColor(vertical) {
 }
 
 export default function SearchResultsMap({ pins = [], origin = null, activeId = null, onPinHover }) {
+  const t = useTranslations('search')
+  const tRef = useRef(t)
+  tRef.current = t
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const markersRef = useRef(new Map())   // id → { marker, inner }
@@ -123,8 +127,9 @@ export default function SearchResultsMap({ pins = [], origin = null, activeId = 
     div.innerHTML = `
       <p style="font-family: var(--font-display, Georgia); font-size: 15px; line-height: 1.25; margin: 0; color: #1C1A17;"></p>
       <p style="font-size: 10.5px; letter-spacing: 0.05em; text-transform: uppercase; color: #6B6760; margin: 4px 0 0;"></p>
-      <a style="display: inline-block; font-size: 12px; font-weight: 600; color: #C4603A; margin-top: 7px; text-decoration: none;">View place →</a>
+      <a style="display: inline-block; font-size: 12px; font-weight: 600; color: #C4603A; margin-top: 7px; text-decoration: none;"></a>
     `
+    div.children[2].textContent = tRef.current('mapViewPlace')
     div.children[0].textContent = pin.name
     div.children[1].textContent = meta
     div.children[2].href = `/place/${pin.slug}`
@@ -166,7 +171,7 @@ export default function SearchResultsMap({ pins = [], origin = null, activeId = 
       <path d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 26 14 26s14-15.5 14-26C28 6.268 21.732 0 14 0z" fill="#1C1A17"/>
       <circle cx="14" cy="14" r="5" fill="#C4973B"/>
     </svg>`
-    el.title = nextOrigin.label || 'Search origin'
+    el.title = nextOrigin.label || tRef.current('mapSearchOrigin')
     originMarkerRef.current = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
       .setLngLat([nextOrigin.lng, nextOrigin.lat])
       .addTo(map)

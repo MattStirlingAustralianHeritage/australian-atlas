@@ -1,6 +1,8 @@
 import Link from 'next/link'
+import { getTranslations, getLocale } from 'next-intl/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { listPickedVenues } from '@/lib/picks/producerPicks'
+import { overlayListingTranslations } from '@/lib/i18n/overlayListings'
 import ListingCard from '@/components/ListingCard'
 
 export const revalidate = 3600
@@ -27,11 +29,18 @@ export const metadata = {
 
 export default async function ProducerPicksPage() {
   const sb = getSupabaseAdmin()
+  const t = await getTranslations('explore')
+  const locale = await getLocale()
   const venues = await listPickedVenues(sb)
 
-  const subtitle = venues.length > 0
-    ? `${venues.length} independent ${venues.length === 1 ? 'place' : 'places'} singled out by another venue on the network — a recommendation from the people who would know best.`
-    : 'When a venue vouches for another independent place, it appears here — a recommendation from the people who would know best.'
+  // Overlay Korean name/description onto the picked listing objects for /ko.
+  const overlaid = await overlayListingTranslations(venues.map(v => v.listing), locale)
+  const overlaidById = new Map(overlaid.map(l => [l && l.id, l]))
+  const localizedVenues = venues.map(v => ({ ...v, listing: overlaidById.get(v.listing?.id) || v.listing }))
+
+  const subtitle = localizedVenues.length > 0
+    ? t('picksSubtitleCount', { count: localizedVenues.length })
+    : t('picksSubtitleEmpty')
 
   return (
     <div style={{ background: 'var(--color-bg)', minHeight: '100vh' }}>
@@ -40,7 +49,7 @@ export default async function ProducerPicksPage() {
       <div className="section-gap" style={{ background: 'var(--color-cream)', borderBottom: '1px solid var(--color-border)' }}>
         <div className="max-w-4xl mx-auto text-center" style={{ padding: '0 24px' }}>
           <p className="section-dateline" style={{ marginBottom: 16 }}>
-            Producer Picks
+            {t('picksKicker')}
           </p>
           <h1 style={{
             fontFamily: 'var(--font-display)',
@@ -50,7 +59,7 @@ export default async function ProducerPicksPage() {
             marginBottom: 16,
             lineHeight: 1.15,
           }}>
-            Vouched for by their peers
+            {t('picksTitle')}
           </h1>
           <p style={{
             color: 'var(--color-muted)', fontSize: 16, lineHeight: 1.7,
@@ -63,19 +72,19 @@ export default async function ProducerPicksPage() {
       </div>
 
       <div className="max-w-6xl mx-auto px-6" style={{ paddingTop: 64, paddingBottom: 96 }}>
-        {venues.length === 0 ? (
+        {localizedVenues.length === 0 ? (
           <div style={{
             textAlign: 'center', padding: '48px 0',
             color: 'var(--color-muted)', fontFamily: 'var(--font-body)', fontSize: 14,
           }}>
-            No producer picks yet. As venues across the network vouch for one another, their picks will appear here.
+            {t('picksEmpty')}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-8">
-            {venues.map(({ listing, curators }) => (
+            {localizedVenues.map(({ listing, curators }) => (
               <div key={listing.id}>
                 <ListingCard listing={listing} />
-                <CuratorLine curators={curators} />
+                <CuratorLine curators={curators} t={t} />
               </div>
             ))}
           </div>
@@ -88,7 +97,7 @@ export default async function ProducerPicksPage() {
 // "Picked by …" attribution beneath each card. Names link to the curator's
 // place page. Caps at three names with a "+N more" tail so dense cards stay
 // tidy. Curators are pre-filtered to active venues in listPickedVenues.
-function CuratorLine({ curators }) {
+function CuratorLine({ curators, t }) {
   if (!curators || curators.length === 0) return null
   const shown = curators.slice(0, 3)
   const extra = curators.length - shown.length
@@ -98,7 +107,7 @@ function CuratorLine({ curators }) {
       fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 300,
       color: 'var(--color-muted)', lineHeight: 1.5, margin: '10px 2px 0',
     }}>
-      Picked by{' '}
+      {t('pickedBy')}{' '}
       {shown.map((c, i) => (
         <span key={c.id}>
           {i > 0 && ', '}
@@ -115,7 +124,7 @@ function CuratorLine({ curators }) {
           )}
         </span>
       ))}
-      {extra > 0 && ` +${extra} more`}
+      {extra > 0 && ` ${t('plusMore', { count: extra })}`}
     </p>
   )
 }

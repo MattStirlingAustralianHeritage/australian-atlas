@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { getTranslations } from 'next-intl/server'
 import { TypographicCard } from '@/components/ListingCard'
 import { eventHeroPalette } from '@/lib/events-palette'
 
@@ -39,7 +40,7 @@ function eventPlace(event) {
   return [venue?.name, venue?.suburb || venue?.region, event.state].filter(Boolean).join(', ')
 }
 
-function FreePill() {
+function FreePill({ label }) {
   return (
     <span style={{
       position: 'absolute', top: 12, right: 12, zIndex: 3,
@@ -48,12 +49,13 @@ function FreePill() {
       background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(4px)',
       letterSpacing: '0.02em',
     }}>
-      Free
+      {label}
     </span>
   )
 }
 
-export default function EventCard({ event, feature = false }) {
+export default async function EventCard({ event, feature = false }) {
+  const t = await getTranslations('cards')
   const place = eventPlace(event)
   const aspectRatio = feature ? '3/2' : '16/9'
   const hasImage = !!event.hero_image_url
@@ -111,7 +113,7 @@ export default function EventCard({ event, feature = false }) {
             textColor={palette.text}
           />
         )}
-        {event.is_free && <FreePill />}
+        {event.is_free && <FreePill label={t('free')} />}
       </div>
 
       {/* Info panel — date + venue + region only */}
