@@ -371,13 +371,17 @@ export default function MapClient({
         // Strong rows cleared the calibrated relevance floor — that's the
         // filter's quality bar. Weak-only pools are better than nothing.
         const usable = pins.some(p => p.strong) ? pins.filter(p => p.strong) : pins
+        // The search parses the QUERY TEXT for places (never result clustering),
+        // so its detected* fields are a confidence-gated "user named a place"
+        // signal. A specific place/region/suburb → fly to the matched venues;
+        // a bare state ("cidery in victoria") → fly to the whole state.
+        const st = typeof data.detectedState === 'string' ? data.detectedState.toUpperCase() : null
         const entry = {
           query: q,
           ids: new Set(usable.map(p => p.id)),
           rank: new Map(usable.map((p, i) => [p.id, i])),
-          // A resolved place/region/suburb means the query was geographic —
-          // the camera should fly to the matches so they're actually in view.
           placeDetected: !!(data.detectedPlace || data.detectedRegion || data.detectedSuburb),
+          stateCode: st && STATE_BOUNDS[st] ? st : null,
         }
         semanticCache.current.set(q, entry)
         if (semanticCache.current.size > 40) semanticCache.current.delete(semanticCache.current.keys().next().value)
@@ -1159,25 +1163,33 @@ export default function MapClient({
     }
     prevFilterKey.current = key
 
-    // When a geographic query resolves ("breweries in Mornington Peninsula"),
-    // fly the camera to the matches so they're actually in view — otherwise
-    // the accurate, place-scoped results sit off-screen and the map reads as
-    // empty. Fires once per resolved query (flownForQuery guard), never on pan.
-    if (sem && sem.placeDetected && flownForQuery.current !== sem.query) {
+    // When a geographic query resolves, fly the camera to it — otherwise the
+    // accurate, place-scoped results sit off-screen and the map reads as empty.
+    // A specific place/region/suburb frames the matched venues; a bare state
+    // ("cidery in victoria") frames the whole state. Fires once per resolved
+    // query (flownForQuery guard), never on pan.
+    if (sem && (sem.placeDetected || sem.stateCode) && flownForQuery.current !== sem.query) {
       flownForQuery.current = sem.query
-      // Fit to the category-constrained matches, not the raw semantic pool —
-      // "breweries in Mornington" flies to the breweries, not the wineries too.
-      let pts = matches.filter(l => sem.ids.has(l.id)).map(displayCoords)
-      if (!pts.length) pts = matches.map(displayCoords)
-      if (pts.length) {
-        let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity
-        for (const [lng, lat] of pts) {
-          if (lng < minLng) minLng = lng
-          if (lat < minLat) minLat = lat
-          if (lng > maxLng) maxLng = lng
-          if (lat > maxLat) maxLat = lat
+      if (sem.placeDetected) {
+        // Fit to the category-constrained matches, not the raw semantic pool —
+        // "breweries in Mornington" flies to the breweries, not the wineries too.
+        let pts = matches.filter(l => sem.ids.has(l.id)).map(displayCoords)
+        if (!pts.length) pts = matches.map(displayCoords)
+        if (pts.length) {
+          let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity
+          for (const [lng, lat] of pts) {
+            if (lng < minLng) minLng = lng
+            if (lat < minLat) minLat = lat
+            if (lng > maxLng) maxLng = lng
+            if (lat > maxLat) maxLat = lat
+          }
+          map.current.fitBounds([[minLng, minLat], [maxLng, maxLat]], { padding: cameraPadding(), maxZoom: 12.5, duration: 900 })
         }
-        map.current.fitBounds([[minLng, minLat], [maxLng, maxLat]], { padding: cameraPadding(), maxZoom: 12.5, duration: 900 })
+      } else if (sem.stateCode && STATE_BOUNDS[sem.stateCode]) {
+        // Bare state named — frame the whole state (predictable, and robust
+        // when only a handful of venues match so fitting to pins would over-zoom).
+        const b = STATE_BOUNDS[sem.stateCode]
+        map.current.fitBounds([[b[0], b[1]], [b[2], b[3]]], { padding: cameraPadding(), duration: 900 })
       }
     }
     if (!appliedPinQuery) flownForQuery.current = null
