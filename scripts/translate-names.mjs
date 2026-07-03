@@ -67,7 +67,7 @@ try {
   const { rows } = await client.query(`
     select l.id, l.name from listings l
     join listing_translations t on t.listing_id = l.id and t.locale='ko'
-    where l.status='active' and l.name is not null`)
+    where l.status='active' and l.name is not null and t.name = l.name`)
   let items = rows
   if (LIMIT) items = items.slice(0, LIMIT)
   console.log(`Names to render: ${items.length}`)

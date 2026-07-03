@@ -90,6 +90,7 @@ export function TypographicCard({
   eyebrow,
   mobile = false,
   locale,
+  nameKo,
 }) {
   const tokens = VERTICAL_TOKENS[vertical] || VERTICAL_TOKENS.portal
   const kickerLabel = localizeVerticalKicker(vertical, tokens.label, locale)
@@ -322,6 +323,18 @@ export function TypographicCard({
               </p>
             )}
           </>
+        )}
+
+        {/* Korean rendering of the name (split display on /ko) */}
+        {nameKo && (
+          <p lang="ko" style={{
+            fontFamily: 'var(--font-display, "Playfair Display", Georgia)',
+            fontStyle: 'italic', fontWeight: 400,
+            fontSize: isHero ? 'clamp(1rem, 2.2vw, 1.5rem)' : `calc(${nameFontSize} * 0.7)`,
+            margin: '0.35rem 0 0', lineHeight: 1.25, opacity: 0.82,
+          }}>
+            {nameKo}
+          </p>
         )}
 
         <div style={{ height: bottomGap }} />

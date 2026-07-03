@@ -937,6 +937,7 @@ export default async function PlacePage({ params }) {
       ) : (
         <TypographicCard
           name={listing.name}
+          nameKo={listing.name_ko}
           vertical={listing.vertical}
           category={listing._subcategory || listing.sub_type}
           region={cleanRegion}

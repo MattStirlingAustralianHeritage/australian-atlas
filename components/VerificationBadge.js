@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useLocale } from 'next-intl'
 
 /**
  * Floating verification badge — bottom-left corner of listing pages.
@@ -14,6 +15,7 @@ import { useState, useEffect, useCallback } from 'react'
  * On click: sets verified=true, verified_at=now(), verification_source='editorial_review'
  */
 export default function VerificationBadge({ listingId, listingName, initialVerified }) {
+  const isKo = useLocale() === 'ko'
   const [verified, setVerified] = useState(initialVerified)
   const [saving, setSaving] = useState(false)
   const [stats, setStats] = useState(null)
@@ -121,7 +123,7 @@ export default function VerificationBadge({ listingId, listingName, initialVerif
           overflow: 'hidden',
           textOverflow: 'ellipsis',
         }}>
-          {verified ? 'Verified' : 'Unverified'}
+          {verified ? (isKo ? '인증됨' : 'Verified') : (isKo ? '미인증' : 'Unverified')}
         </div>
         {stats && (
           <div style={{
@@ -131,7 +133,7 @@ export default function VerificationBadge({ listingId, listingName, initialVerif
             fontWeight: 400,
             letterSpacing: '0.01em',
           }}>
-            {stats.verified.toLocaleString()} / {stats.total.toLocaleString()} verified
+            {stats.verified.toLocaleString()} / {stats.total.toLocaleString()} {isKo ? '인증됨' : 'verified'}
           </div>
         )}
       </div>
@@ -141,7 +143,7 @@ export default function VerificationBadge({ listingId, listingName, initialVerif
         <button
           onClick={handleVerify}
           disabled={saving}
-          title={`Verify "${listingName}"`}
+          title={isKo ? `"${listingName}" 인증` : `Verify "${listingName}"`}
           style={{
             width: 32,
             height: 32,
