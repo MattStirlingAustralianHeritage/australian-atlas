@@ -20,7 +20,7 @@ const CATEGORY_LABELS = {
   live_music_venue: 'Live Music Venue', comedy_club: 'Comedy Club', theatre: 'Theatre',
   ceramics_clay: 'Ceramics & Clay', visual_art: 'Visual Art', jewellery_metalwork: 'Jewellery & Metalwork',
   textile_fibre: 'Textile & Fibre', wood_furniture: 'Wood & Furniture', glass: 'Glass', printmaking: 'Printmaking',
-  leathermaker: 'Leatherwork', shoemaker: 'Shoemaking',
+  leathermaker: 'Leatherwork', shoemaker: 'Shoemaking', fragrance_candles: 'Fragrance & Candles',
   roaster: 'Roaster', cafe: 'Cafe',
   boutique_hotel: 'Boutique Hotel', guesthouse: 'Guesthouse', bnb: 'B&B',
   farm_stay: 'Farm Stay', glamping: 'Glamping', cottage: 'Cottage',
