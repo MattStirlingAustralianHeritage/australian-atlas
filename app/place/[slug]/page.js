@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { getLocale, getTranslations } from 'next-intl/server'
 import { overlayListingTranslations } from '@/lib/i18n/overlayListings'
 import { localizeSubcategory, localizeVerticalCategory, localizeRegionName, localizeVerticalKicker } from '@/lib/i18n/listingLabels'
+import { localizeHighlightHeading, localizeHighlightLabel } from '@/lib/i18n/highlightLabels'
 import { localizePath } from '@/lib/i18n/config'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getVerticalUrl, getVerticalLabel, getVerticalTagline, getVerticalBrandColour, getPublicVerticals } from '@/lib/verticalUrl'
@@ -1143,7 +1144,7 @@ export default async function PlacePage({ params }) {
             <div className="rounded-xl p-6 flex flex-col gap-4" style={{ background: 'rgba(196, 151, 59, 0.12)', border: '1px solid var(--color-border)' }}>
               <div>
                 <h2 id="from-the-maker-heading" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)', margin: 0 }}>
-                  {highlightDef.heading || t('fromTheOperator')}
+                  {localizeHighlightHeading(highlightDef.heading, locale) || t('fromTheOperator')}
                 </h2>
                 <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: '15px', color: 'var(--color-muted)', margin: '4px 0 0' }}>
                   {t('inTheirOwnWords')}
@@ -1152,12 +1153,12 @@ export default async function PlacePage({ params }) {
               {highlightTextFields.map(f => {
                 const value = storedHighlightFields[f.key]
                 if (f.type === 'list') {
-                  return <MetaPillGroup key={f.key} label={f.label} items={(value || []).filter(Boolean)} vertColor={vertColor} muted />
+                  return <MetaPillGroup key={f.key} label={localizeHighlightLabel(f.label, locale)} items={(value || []).filter(Boolean)} vertColor={vertColor} muted />
                 }
                 return (
                   <div key={f.key}>
                     <dt className="text-xs font-semibold tracking-wider uppercase mb-1" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)', letterSpacing: '0.08em', fontSize: '10px' }}>
-                      {f.label}
+                      {localizeHighlightLabel(f.label, locale)}
                     </dt>
                     <dd className="text-sm" style={{ fontFamily: 'var(--font-body)', color: 'var(--color-ink)', margin: 0, lineHeight: 1.65 }}>
                       {String(value).split('\n').filter(p => p.trim()).map((p, i) => (
@@ -1175,7 +1176,7 @@ export default async function PlacePage({ params }) {
                       className="inline-flex items-center text-xs font-bold uppercase px-3 py-1.5 rounded text-white"
                       style={{ background: vertColor, letterSpacing: '0.04em', textDecoration: 'none' }}
                     >
-                      {f.label} &rarr;
+                      {localizeHighlightLabel(f.label, locale)} &rarr;
                     </a>
                   ))}
                 </div>

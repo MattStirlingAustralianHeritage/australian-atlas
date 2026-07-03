@@ -41,33 +41,43 @@ export const viewport = {
   themeColor: '#EFE7D8',
 }
 
-export const metadata = {
-  title: "Australian Atlas — Discover Australia's best independent places",
-  description:
-    "The curated guide to the best of independent Australia — specialty coffee, makers, distillers, galleries, boutique stays, and the natural places in between. Thousands of independent places, every one verified and mapped.",
+// Locale-aware document metadata: the default (English) title/description are
+// byte-identical to before; the /ko surface gets Korean title/description + a
+// ko_KR OpenGraph locale. Pages with their own generateMetadata (place, region)
+// override this; the home and any page without its own metadata inherit it.
+export async function generateMetadata() {
+  const locale = await getLocale()
+  const isKo = locale === 'ko'
+  const title = isKo
+    ? "Australian Atlas — 호주의 독립적인 명소를 발견하세요"
+    : "Australian Atlas — Discover Australia's best independent places"
+  const description = isKo
+    ? "큐레이션한 독립 호주 가이드 — 스페셜티 커피, 메이커, 양조장, 갤러리, 부티크 숙소, 그리고 그 사이의 자연까지. 검증되고 지도에 표시된 수천 곳의 독립 명소."
+    : "The curated guide to the best of independent Australia — specialty coffee, makers, distillers, galleries, boutique stays, and the natural places in between. Thousands of independent places, every one verified and mapped."
+  return {
+  title,
+  description,
   metadataBase: new URL("https://australianatlas.com.au"),
   openGraph: {
-    title: "Australian Atlas — Discover Australia's best independent places",
-    description:
-      "The curated guide to the best of independent Australia — specialty coffee, makers, distillers, galleries, boutique stays, and the natural places in between. Thousands of independent places, every one verified and mapped.",
+    title,
+    description,
     url: "https://australianatlas.com.au",
     siteName: "Australian Atlas",
-    locale: "en_AU",
+    locale: isKo ? "ko_KR" : "en_AU",
     type: "website",
     images: [
       {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "Australian Atlas — Discover Australia's best independent places",
+        alt: title,
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Australian Atlas — Discover Australia's best independent places",
-    description:
-      "The curated guide to the best of independent Australia — coffee, makers, distillers, galleries, boutique stays, and the natural places in between.",
+    title,
+    description,
     site: "@australianatlas",
     images: ["/og-image.png"],
   },
@@ -80,7 +90,8 @@ export const metadata = {
     ],
     apple: [{ url: '/apple-touch-icon.png', sizes: '180x180' }],
   },
-};
+  }
+}
 
 export default async function RootLayout({ children }) {
   // Try to load saved location from profile (logged-in users only)

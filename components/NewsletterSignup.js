@@ -77,7 +77,7 @@ export default function NewsletterSignup({ variant = 'inline' }) {
           type="email"
           value={email}
           onChange={e => setEmail(e.target.value)}
-          placeholder="your@email.com"
+          placeholder={t('emailPlaceholder')}
           required
           aria-label={t('emailAddressAria')}
           style={{

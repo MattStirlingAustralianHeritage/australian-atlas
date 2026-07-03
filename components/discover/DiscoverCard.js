@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import Link from 'next/link'
 import { VERTICAL_CARD_TOKENS, VERTICAL_ACCENTS } from '@/lib/verticalUrl'
-import { localizeVerticalKicker } from '@/lib/i18n/listingLabels'
+import { localizeVerticalKicker, localizeSubcategory } from '@/lib/i18n/listingLabels'
 
 /** First sentence of the description, trimmed to a hook length. */
 function getHook(text) {
@@ -55,7 +55,9 @@ export default function DiscoverCard({ listing, variant = 'fullscreen', hint = f
     .filter((p, i, arr) => i === 0 || p.toLowerCase() !== arr[i - 1].toLowerCase())
   const breadcrumb = locParts.join(' · ')
   const initial = (listing.name || '?').trim()[0]?.toUpperCase() || '?'
-  const category = formatCategory(listing.sub_type)
+  // Localize the subcategory shown in the info panel on /ko (English is
+  // byte-identical): Korean label for the raw sub_type, else the English one.
+  const category = localizeSubcategory(listing.sub_type, formatCategory(listing.sub_type), locale)
   const presence = listing.presence_type && listing.presence_type !== 'permanent'
     ? (PRESENCE_KEYS[listing.presence_type] ? t(PRESENCE_KEYS[listing.presence_type]) : null)
     : null

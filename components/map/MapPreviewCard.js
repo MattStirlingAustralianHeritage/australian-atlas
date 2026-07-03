@@ -1,7 +1,8 @@
 'use client'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { getVerticalBadge, getVerticalBrandColour, VERTICAL_CARD_BG } from '@/lib/verticalUrl'
 import { SUB_TYPE_LABELS } from '@/lib/subTypeLabels'
+import { localizeSubcategory } from '@/lib/i18n/listingLabels'
 
 const GOLD = '#c8943a'
 
@@ -16,10 +17,14 @@ const GOLD = '#c8943a'
  */
 export default function MapPreviewCard({ listing, meta, variant = 'anchored', onClose, onVisit }) {
   const t = useTranslations('map')
+  const locale = useLocale()
   const color = getVerticalBrandColour(listing.vertical) || '#5f8a7e'
   const ground = VERTICAL_CARD_BG[listing.vertical] || '#0f0e0c'
   const subTypes = SUB_TYPE_LABELS[listing.vertical] || {}
-  const subLabel = subTypes[listing.sub_type] || null
+  // Localize the subcategory tag on /ko (English is byte-identical): resolve the
+  // raw sub_type to a Korean label, falling back to the curated English label.
+  const enSubLabel = subTypes[listing.sub_type] || null
+  const subLabel = enSubLabel ? localizeSubcategory(listing.sub_type, enSubLabel, locale) : null
   const locality = [meta?.suburb || listing.region, listing.state].filter(Boolean).join(', ')
   const desc = listing.description
     ? (listing.description.length > 130 ? listing.description.slice(0, 130).trimEnd() + '…' : listing.description)

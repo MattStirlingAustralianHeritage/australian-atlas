@@ -6,7 +6,7 @@ import VerticalBadge, { VERTICAL_STYLES } from '@/components/VerticalBadge'
 import { isApprovedImageSource, isHeroDisplayable } from '@/lib/image-utils'
 import { getListingRegion } from '@/lib/regions'
 import { VERTICAL_MUTED } from '@/lib/verticalUrl'
-import { localizeVerticalKicker } from '@/lib/i18n/listingLabels'
+import { localizeVerticalKicker, localizeSubcategory } from '@/lib/i18n/listingLabels'
 
 // ============================================================
 // SearchResultCard — the search-surface result unit.
@@ -206,7 +206,9 @@ export default function SearchResultCard({
   const locale = useLocale()
   const tokens = VERTICAL_TOKENS[listing.vertical] || VERTICAL_TOKENS.portal
   const muted = VERTICAL_MUTED[listing.vertical] || 'var(--color-muted)'
-  const category = fmtCategory(listing.sub_type)
+  // Localize the subcategory eyebrow on /ko (English is byte-identical): resolve
+  // the raw sub_type to a Korean label, falling back to fmtCategory()'s English.
+  const category = localizeSubcategory(listing.sub_type, fmtCategory(listing.sub_type), locale)
   const loc = localityLine(listing)
   const terms = queryTerms(query)
   const snippet = buildSnippet(listing.description, terms, variant === 'grid' ? 150 : 170)

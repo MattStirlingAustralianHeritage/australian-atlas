@@ -2,8 +2,10 @@
 import 'mapbox-gl/dist/mapbox-gl.css'
 
 import { useEffect, useRef, useCallback } from 'react'
-import Link from 'next/link'
+import { useLocale } from 'next-intl'
+import LocalizedLink from './LocalizedLink'
 import { ATLAS_DARK_STYLE } from '@/lib/atlas-map-style'
+import { localizeRegionName } from '@/lib/i18n/listingLabels'
 
 const STATE_LABELS = {
   VIC: 'Victoria',
@@ -30,6 +32,7 @@ export default function RegionMapCard({ region, isOrphanLast }) {
   const mapRef = useRef(null)
   const mapInstance = useRef(null)
   const observerRef = useRef(null)
+  const locale = useLocale()
 
   const hasCoords = region.center_lat && region.center_lng
   const count = region.listing_count || 0
@@ -103,7 +106,7 @@ export default function RegionMapCard({ region, isOrphanLast }) {
   }, [hasCoords, initMap, destroyMap])
 
   return (
-    <Link
+    <LocalizedLink
       href={`/regions/${region.slug}`}
       ref={containerRef}
       className="region-map-card"
@@ -157,7 +160,7 @@ export default function RegionMapCard({ region, isOrphanLast }) {
               lineHeight: 1.3,
             }}
           >
-            {region.name}
+            {localizeRegionName(region.name, locale)}
           </span>
         </div>
       )}
@@ -243,7 +246,7 @@ export default function RegionMapCard({ region, isOrphanLast }) {
             textShadow: '0 1px 4px rgba(0,0,0,0.5)',
           }}
         >
-          {region.name}
+          {localizeRegionName(region.name, locale)}
         </h3>
       </div>
       {/* Hide Mapbox logo on card thumbnails — non-interactive decorative maps */}
@@ -253,6 +256,6 @@ export default function RegionMapCard({ region, isOrphanLast }) {
           display: none !important;
         }
       `}</style>
-    </Link>
+    </LocalizedLink>
   )
 }

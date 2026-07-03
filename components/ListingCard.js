@@ -2,7 +2,7 @@ import { getVerticalUrl, VERTICAL_CARD_TOKENS } from '@/lib/verticalUrl'
 import VerticalBadge from '@/components/VerticalBadge'
 import { isApprovedImageSource, isHeroDisplayable } from '@/lib/image-utils'
 import { getListingRegion } from '@/lib/regions'
-import { localizeVerticalKicker } from '@/lib/i18n/listingLabels'
+import { localizeVerticalKicker, localizeSubcategory } from '@/lib/i18n/listingLabels'
 
 // ============================================================
 // ListingCard — Bespoke typographic card replacing all photography
@@ -100,7 +100,10 @@ export function TypographicCard({
   const text = textColor || tokens.text
   const isField = vertical === 'field'
   const isHero = size === 'hero'
-  const categoryLabel = formatCategory(category)
+  // Localize the category eyebrow on /ko (English is byte-identical): resolve
+  // the raw category key to a Korean label, falling back to the English
+  // formatCategory() output when there's no Korean entry or locale !== 'ko'.
+  const categoryLabel = localizeSubcategory(category, formatCategory(category), locale)
 
   // ── Poster variant: eyebrow top-left, serif title lower-left, cream on the
   // ground. Used by the events surface; listings use the centred default
@@ -182,6 +185,8 @@ export function TypographicCard({
 
   const [line1, line2] = splitName(name)
   const bottomLine = [region, state].filter(Boolean).join(', ').toUpperCase()
+  // Mobile-venue marker word. Localized on /ko; English ("Mobile") elsewhere.
+  const mobileTag = locale === 'ko' ? '모바일' : 'Mobile'
 
   // Hero height is delegated to the .atlas-hero-band class so it can use
   // breakpoint-aware media queries the inline style can't carry. The class
@@ -328,7 +333,7 @@ export function TypographicCard({
             textTransform: 'uppercase', opacity: tagOpacity,
             margin: 0, lineHeight: 1.4,
           }}>
-            {bottomLine}{mobile ? '  ·  Mobile' : ''}
+            {bottomLine}{mobile ? `  ·  ${mobileTag}` : ''}
           </p>
         )}
         {!bottomLine && mobile && (
@@ -338,7 +343,7 @@ export function TypographicCard({
             textTransform: 'uppercase', opacity: tagOpacity,
             margin: 0, lineHeight: 1.4,
           }}>
-            Mobile
+            {mobileTag}
           </p>
         )}
       </div>

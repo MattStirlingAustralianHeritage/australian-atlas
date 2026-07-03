@@ -467,6 +467,7 @@
     "continueWithGoogle": "Continue with Google",
     "orWithEmail": "or with email",
     "emailLabel": "Email",
+    "emailPlaceholder": "your@email.com",
     "passwordLabel": "Password",
     "pleaseWait": "Please wait…",
     "needAccount": "Need an account? Create one",

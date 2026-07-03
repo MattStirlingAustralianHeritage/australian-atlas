@@ -11,10 +11,11 @@
 // halves stay in sync.
 
 import { useState } from 'react'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import EmbeddedNearbyMap from '@/components/EmbeddedNearbyMap'
 import { getVerticalBrandColour, getVerticalBadge } from '@/lib/verticalUrl'
 import { subTypeLabel } from '@/lib/subTypeLabels'
+import { localizeSubcategory } from '@/lib/i18n/listingLabels'
 import { isApprovedImageSource } from '@/lib/image-utils'
 
 const PRIMARY = '#5f8a7e'
@@ -35,6 +36,7 @@ export default function NearbyExplorer({
   originName = '',
 }) {
   const t = useTranslations('cards')
+  const locale = useLocale()
   const [focusId, setFocusId] = useState(null)
 
   // The list shows neighbours only — drop the current listing (it's the map's
@@ -72,7 +74,13 @@ export default function NearbyExplorer({
           >
             {shown.map(l => {
               const color = getVerticalBrandColour(l.vertical) || PRIMARY
-              const category = subTypeLabel(l.vertical, l.sub_type) || getVerticalBadge(l.vertical)
+              // Localize the subcategory eyebrow on /ko; English is byte-identical.
+              // When the listing has a sub_type, resolve it (Korean on /ko, else
+              // the curated English label); otherwise keep the vertical badge.
+              const enSubLabel = subTypeLabel(l.vertical, l.sub_type)
+              const category = enSubLabel
+                ? localizeSubcategory(l.sub_type, enSubLabel, locale)
+                : getVerticalBadge(l.vertical)
               const dist = fmtDistance(l._dist, t)
               const hasImg = isApprovedImageSource(l.hero_image_url)
               return (

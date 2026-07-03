@@ -1,7 +1,8 @@
 'use client'
-import { useTranslations } from 'next-intl'
+import { useTranslations, useLocale } from 'next-intl'
 import { getVerticalBadge, getVerticalBrandColour } from '@/lib/verticalUrl'
 import { SUB_TYPE_LABELS } from '@/lib/subTypeLabels'
+import { localizeSubcategory } from '@/lib/i18n/listingLabels'
 
 const GOLD = '#c8943a'
 
@@ -11,10 +12,18 @@ const GOLD = '#c8943a'
 // actually has an approved image (meta from /api/map/cards).
 function PanelRow({ l, meta, active, visited, onHover, onSelect }) {
   const t = useTranslations('map')
+  const locale = useLocale()
   const color = getVerticalBrandColour(l.vertical) || '#5f8a7e'
   const subTypes = SUB_TYPE_LABELS[l.vertical] || {}
+  // Localize the subcategory portion of the meta line on /ko (English is
+  // byte-identical): Korean label when the sub_type is known, else the curated
+  // English label; fall back to the vertical badge when there's no sub_type.
+  const enSubLabel = subTypes[l.sub_type]
+  const categoryLabel = enSubLabel
+    ? localizeSubcategory(l.sub_type, enSubLabel, locale)
+    : getVerticalBadge(l.vertical)
   const metaLine = [
-    subTypes[l.sub_type] || getVerticalBadge(l.vertical),
+    categoryLabel,
     [meta?.suburb || l.region, l.state].filter(Boolean).join(', '),
   ].filter(Boolean).join(' · ')
 

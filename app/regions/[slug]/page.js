@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { getTranslations, getLocale } from 'next-intl/server'
 import { overlayListingTranslations } from '@/lib/i18n/overlayListings'
 import { overlayRegionTranslation } from '@/lib/i18n/overlayEditorial'
+import { localizeVerticalDescription, localizeVerticalKicker } from '@/lib/i18n/listingLabels'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { regionJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
 import RegionMapHero from '@/components/RegionMapHero'
@@ -268,6 +269,8 @@ export default async function RegionPage({ params }) {
   const { slug } = await params
   const t = await getTranslations('regions')
   const locale = await getLocale()
+  // Vertical section headers/pills: Korean brand kicker on /ko, English fallback.
+  const vLabel = (v) => localizeVerticalKicker(v, VERTICAL_LABELS[v] || v, locale)
   let region = await getRegion(slug)
   if (!region) notFound()
   region = await overlayRegionTranslation(region, locale)
@@ -399,7 +402,7 @@ export default async function RegionPage({ params }) {
                     transition: 'opacity 0.15s',
                   }}
                 >
-                  {VERTICAL_LABELS[v] || v} <strong style={{ fontWeight: 700 }}>{verticalCounts[v]}</strong>
+                  {vLabel(v)} <strong style={{ fontWeight: 700 }}>{verticalCounts[v]}</strong>
                 </a>
               )
             })}
@@ -414,7 +417,7 @@ export default async function RegionPage({ params }) {
                   textDecoration: 'none', transition: 'opacity 0.15s',
                 }}
               >
-                {VERTICAL_LABELS.way} <strong style={{ fontWeight: 700 }}>{wayCount}</strong>
+                {vLabel('way')} <strong style={{ fontWeight: 700 }}>{wayCount}</strong>
               </a>
             )}
           </div>
@@ -543,7 +546,7 @@ export default async function RegionPage({ params }) {
                               fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em',
                               textTransform: 'uppercase', color: color, flexShrink: 0,
                             }}>
-                              {VERTICAL_LABELS[h.vertical] || h.vertical}
+                              {vLabel(h.vertical)}
                             </span>
                             <span style={{ color: 'var(--color-ink)', fontWeight: 400 }}>{h.listing_name}</span>
                             {h.note && <span style={{ color: 'var(--color-muted)', fontWeight: 300 }}>&mdash; {h.note}</span>}
@@ -618,7 +621,7 @@ export default async function RegionPage({ params }) {
                 {highlights.map(listing => {
                   const href = listing.slug ? `/place/${listing.slug}` : '#'
                   const bg = VERTICAL_CARD_BG[listing.vertical] || '#2d2a24'
-                  const vertLabel = VERTICAL_LABELS[listing.vertical] || listing.vertical
+                  const vertLabel = vLabel(listing.vertical)
                   return (
                     <a
                       key={listing.id}
@@ -667,9 +670,9 @@ export default async function RegionPage({ params }) {
             {/* Main vertical sections (3+ listings) */}
             {activeVerticals.filter(v => grouped[v].length >= 3).map((vertical, idx) => {
               const items = grouped[vertical]
-              const label = VERTICAL_LABELS[vertical] || vertical
+              const label = vLabel(vertical)
               const color = VERTICAL_COLORS[vertical] || '#888'
-              const desc = VERTICAL_DESCRIPTIONS[vertical] || ''
+              const desc = localizeVerticalDescription(vertical, VERTICAL_DESCRIPTIONS[vertical] || '', locale)
               const shown = items.slice(0, MAX_PER_SECTION)
               const hasMore = items.length > MAX_PER_SECTION
 
@@ -808,7 +811,7 @@ export default async function RegionPage({ params }) {
                     {thinListings.map(listing => {
                       const href = listing.slug ? `/place/${listing.slug}` : '#'
                       const bg = VERTICAL_CARD_BG[listing.vertical] || '#2d2a24'
-                      const vertLabel = VERTICAL_LABELS[listing.vertical] || listing.vertical
+                      const vertLabel = vLabel(listing.vertical)
 
                       return (
                         <a
@@ -863,14 +866,14 @@ export default async function RegionPage({ params }) {
                 color: 'var(--color-ink)',
                 margin: '0 0 0.25rem',
               }}>
-                {VERTICAL_LABELS.way}
+                {vLabel('way')}
               </h2>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.75rem' }}>
                 <span style={{
                   fontFamily: 'var(--font-body)', fontSize: '13px',
                   fontWeight: 400, color: 'var(--color-muted)',
                 }}>
-                  {VERTICAL_DESCRIPTIONS.way}
+                  {localizeVerticalDescription('way', VERTICAL_DESCRIPTIONS.way, locale)}
                 </span>
                 <span style={{
                   fontFamily: 'var(--font-body)', fontSize: '12px',
