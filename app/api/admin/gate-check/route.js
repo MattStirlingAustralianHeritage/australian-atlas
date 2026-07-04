@@ -5,6 +5,10 @@ import { checkAdmin } from '@/lib/admin-auth'
 import { fetchGateCheckRows, applyGateCheckAction } from '@/lib/gate-check/queue'
 import { checkGate1Web, checkGate2Location, checkGate4Vertical, summariseFailures } from '@/lib/gate-check/gates'
 import { gate4VerticalFit } from '@/lib/prospector/gates'
+import { getRemediations, VERTICAL_LABELS } from '@/lib/gate-check/remediation'
+import { updateListing } from '@/lib/admin/updateListing'
+import { searchPlaces, getPlaceDetails } from '@/lib/prospector/google-places'
+import { anchoredGeocode } from '@/lib/geo/anchoredGeocode'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -48,6 +52,16 @@ export async function POST(request) {
   try { body = await request.json() } catch { return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 }) }
   const sb = getSupabaseAdmin()
 
+  // ── One-click Repair: apply the suggested remediation for a single row ──
+  if (body && body.repair) {
+    try {
+      const result = await runRepair(sb, body.repair)
+      return NextResponse.json({ success: true, ...result })
+    } catch (err) {
+      return NextResponse.json({ error: err.message || 'Repair failed' }, { status: 400 })
+    }
+  }
+
   // ── On-demand AI vertical-fit deep check (LLM Gate 4) for a single row ──
   if (body && body.aiCheck) {
     try {
@@ -78,6 +92,111 @@ export async function POST(request) {
     return NextResponse.json({ error: err.message || 'Action failed' }, { status: 400 })
   }
 }
+
+// Token overlap between two names (0–1) — used to guard against attaching an
+// unrelated Google Places result's website to a listing.
+function nameOverlap(a, b) {
+  const toks = s => new Set(String(s || '').toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 2))
+  const ta = toks(a), tb = toks(b)
+  if (!ta.size) return 0
+  let m = 0
+  for (const w of ta) if (tb.has(w)) m++
+  return m / ta.size
+}
+
+// Apply the safe, one-click remediation(s) for a row, then clear the repaired
+// gate(s). Any listing write goes through the canonical updateListing (which
+// syncs to the vertical DB, so the fix is durable).
+async function runRepair(sb, rowId) {
+  const { data: row, error } = await sb.from('listing_gate_check')
+    .select('id,listing_id,failed_gates,gate_details,reason_summary,severity,suggested_action,website,http_status,status')
+    .eq('id', rowId).single()
+  if (error || !row) throw new Error('Row not found')
+  if (row.status !== 'pending') throw new Error('Row already actioned')
+
+  const { data: listing, error: lerr } = await sb.from('listings')
+    .select('id,name,region,state,address,suburb,lat,lng,website,vertical,verticals,sub_type,slug,source_id').eq('id', row.listing_id).single()
+  if (lerr || !listing) throw new Error('Listing not found')
+
+  const remediations = getRemediations(row, listing)
+  if (!remediations.length) throw new Error('Nothing to repair on this listing')
+
+  const updates = {}
+  const applied = []
+  const repairedGates = new Set()
+
+  for (const rem of remediations) {
+    if (rem.type === 'fix_website') {
+      const g1 = (row.gate_details || []).find(d => d.gate === 'gate1_web')
+      const confirmedDead = g1 && ['domain_dead', 'http_gone', 'parked_domain'].includes(g1.code)
+      let found = null
+      try {
+        const loc = (Number.isFinite(Number(listing.lat)) && Number.isFinite(Number(listing.lng)) && !(Number(listing.lat) === 0 && Number(listing.lng) === 0))
+          ? { lat: Number(listing.lat), lng: Number(listing.lng) } : null
+        const results = await searchPlaces(`${listing.name} ${listing.region || listing.state || ''}`.trim(), loc)
+        const best = (results || []).find(r => nameOverlap(listing.name, r.name) >= 0.5) || (results || [])[0]
+        if (best && nameOverlap(listing.name, best.name) >= 0.5) {
+          const det = await getPlaceDetails(best.place_id)
+          // Only accept a genuinely different URL from the current dead one.
+          if (det?.website && hostOf(det.website) !== hostOf(listing.website || '')) found = det.website
+        }
+      } catch (e) { /* Places unavailable → confirmed-dead falls back to nulling */ }
+
+      if (found) { updates.website = found; applied.push(`set website to ${hostOf(found)}`); repairedGates.add('gate1_web') }
+      else if (confirmedDead) { updates.website = null; applied.push('removed the dead website link'); repairedGates.add('gate1_web') }
+      else { applied.push('no replacement website found — left for manual review') } // do NOT mark repaired
+
+    } else if (rem.type === 'regeocode') {
+      let coords = null
+      try { coords = await anchoredGeocode({ address: listing.address || `${listing.name}, ${listing.region || ''}`, suburb: listing.suburb, state: listing.state }) } catch {}
+      if (coords && Number.isFinite(coords.lat) && Number.isFinite(coords.lng)) {
+        updates.lat = coords.lat; updates.lng = coords.lng
+        applied.push(`re-pinned to ${coords.lat.toFixed(3)}, ${coords.lng.toFixed(3)}`)
+        repairedGates.add('gate2_location')
+      } else {
+        applied.push('could not re-geocode (no usable address) — pin left for manual fix')
+      }
+
+    } else if (rem.type === 'move_vertical' && rem.to) {
+      updates.vertical = rem.to
+      updates.verticals = [rem.to]
+      applied.push(`moved to ${VERTICAL_LABELS[rem.to] || rem.to} Atlas`)
+      repairedGates.add('gate4_vertical')
+    }
+  }
+
+  // Nothing could be auto-applied (e.g. Places quota exhausted on a name_mismatch).
+  if (!repairedGates.size && !Object.keys(updates).length) {
+    return { applied, cleared: false, noop: true, repaired_gates: [] }
+  }
+
+  let updatedListing = null
+  if (Object.keys(updates).length) {
+    const res = await updateListing(row.listing_id, updates, { action: 'gate-check-repair' })
+    if (!res.success) throw new Error(`Listing update failed: ${res.error}`)
+    updatedListing = res.listing
+  }
+
+  // Clear the repaired gate(s); keep any that weren't repaired.
+  const remaining = (row.gate_details || []).filter(d => !repairedGates.has(d.gate))
+  let cleared = false
+  let updatedRow = null
+  if (!remaining.length) {
+    await sb.from('listing_gate_check').update({ status: 'passed', reviewed_at: new Date().toISOString(), reviewed_by: 'repaired' }).eq('id', rowId)
+    cleared = true
+  } else {
+    const summary = summariseFailures(
+      remaining.map(d => ({ gate: d.gate, code: d.code, severity: d.severity, reason: d.reason })),
+      { website: ('website' in updates) ? updates.website : row.website, http_status: row.http_status },
+    )
+    await sb.from('listing_gate_check').update({ ...summary }).eq('id', rowId)
+    updatedRow = summary
+  }
+
+  return { applied, cleared, updatedRow, repaired_gates: [...repairedGates] }
+}
+
+function hostOf(u) { try { return new URL(/^https?:\/\//i.test(u) ? u : 'https://' + u).hostname.replace(/^www\./, '') } catch { return u } }
 
 // Re-evaluate the two instant gates (Location + service-trade Vertical-fit)
 // across every active listing. Upserts new/changed failures and clears pending
@@ -194,11 +313,13 @@ async function runAiCheck(sb, rowId) {
   if (unverifiable) {
     return { isFit: null, unverifiable: true, verdict: { reason: verdict.reason || 'could not verify vertical fit', confidence: null, suggestedVertical: null } }
   }
+  const suggestedVertical = verdict.wrongVertical?.suggested_vertical || verdict.details?.suggestedVertical || null
   const detail = {
     gate: 'gate4_vertical',
     code: verdict.wrongVertical ? 'wrong_vertical_ai' : 'low_fit_ai',
     severity: verdict.wrongVertical ? 2 : 1,
     reason: `AI check: ${verdict.reason || (isFit ? 'good fit' : 'unverified')}`,
+    ...(suggestedVertical ? { suggested_vertical: suggestedVertical } : {}),
   }
 
   let updatedRow = null

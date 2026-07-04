@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useMemo, useEffect } from 'react'
+import { getRemediations } from '@/lib/gate-check/remediation'
 
 // ── Palette / tokens (aligned to the admin design system + Candidate Review) ──
 const SAGE = 'var(--color-sage, #5f8a7e)'
@@ -11,6 +12,7 @@ const BORDER = 'var(--color-border, rgba(28,26,23,0.12))'
 const KEEP = '#4A7C59'
 const HIDE = '#C49A3C'
 const DEL = '#CC4444'
+const REPAIR = '#2f7f8f'
 
 const GATE_META = {
   gate1_web:       { label: 'Web Presence', short: 'Web',       color: '#c4603a' },
@@ -44,14 +46,14 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
   const [busy, setBusy] = useState(false)
   const [missing, setMissing] = useState(!!tableMissing)
   const [counts, setCounts] = useState({ pending: pendingCount || 0, trash: trashCount || 0 })
-  const [session, setSession] = useState({ kept: 0, hidden: 0, deleted: 0 })
+  const [session, setSession] = useState({ kept: 0, hidden: 0, deleted: 0, repaired: 0 })
   const [scan, setScan] = useState({ running: false, result: null, error: null })
   const [ai, setAi] = useState({}) // rowId -> { busy?, verdict?, error? }
   const [msg, setMsg] = useState(loadError ? { kind: 'error', text: loadError } : null)
 
   const isTrash = view === 'trash'
   const current = rows[0] || null
-  const sessionReviewed = session.kept + session.hidden + session.deleted
+  const sessionReviewed = session.kept + session.hidden + session.deleted + session.repaired
   const totalQueue = rows.length + sessionReviewed
   const progressPct = totalQueue > 0 ? (sessionReviewed / totalQueue) * 100 : 0
 
@@ -164,6 +166,37 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
     }
   }, [])
 
+  // ── One-click Repair ─────────────────────────────────────────────────────────
+  const [repairing, setRepairing] = useState(null) // rowId being repaired
+  const doRepair = useCallback(async (rowId) => {
+    setRepairing(rowId)
+    setMsg(null)
+    try {
+      const res = await fetch('/api/admin/gate-check', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ repair: rowId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Repair failed')
+      const applied = (data.applied || []).join('; ')
+      if (data.noop) {
+        setMsg({ kind: 'error', text: `Couldn't auto-repair — ${applied || 'edit this listing manually'}.` })
+      } else if (data.cleared) {
+        setRows(prev => prev.filter(r => r.id !== rowId))
+        setSession(s => ({ ...s, repaired: s.repaired + 1 }))
+        setCounts(prev => ({ ...prev, pending: Math.max(0, prev.pending - 1) }))
+        setMsg({ kind: 'ok', text: `Repaired — ${applied}.` })
+      } else if (data.updatedRow) {
+        setRows(prev => prev.map(r => r.id === rowId ? { ...r, ...data.updatedRow } : r))
+        setMsg({ kind: 'ok', text: `Repaired — ${applied}. Some issue(s) remain on this listing.` })
+      }
+    } catch (err) {
+      setMsg({ kind: 'error', text: err.message })
+    } finally {
+      setRepairing(null)
+    }
+  }, [])
+
   // ── Quick re-scan (Location + Vertical-fit gates) ────────────────────────────
   const runQuickScan = useCallback(async () => {
     setScan({ running: true, result: null, error: null })
@@ -195,10 +228,11 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
       else if (k === 'h') { e.preventDefault(); runAction(current.id, 'hide') }
       else if (k === 'd') { e.preventDefault(); runAction(current.id, 'delete') }
       else if (k === 'a') { e.preventDefault(); if (!ai[current.id]?.busy) runAi(current.id) }
+      else if (k === 'r') { e.preventDefault(); if (getRemediations(current).length && repairing !== current.id) doRepair(current.id) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [isTrash, current, busy, ai, runAction, runAi])
+  }, [isTrash, current, busy, ai, runAction, runAi, doRepair, repairing])
 
   return (
     <div style={{ maxWidth: 860, margin: '0 auto', padding: '2rem 1.5rem 4rem' }}>
@@ -256,6 +290,7 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
                 padding: '9px 16px', marginBottom: 16, background: CREAM, borderRadius: 8,
                 fontFamily: font.body, fontSize: 11, color: MUTED, flexWrap: 'wrap',
               }}>
+                <span><Kbd>R</Kbd> repair</span><Sep />
                 <span><Kbd>P</Kbd> keep</span><Sep />
                 <span><Kbd>H</Kbd> hide</span><Sep />
                 <span><Kbd>D</Kbd> delete</span><Sep />
@@ -270,6 +305,7 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
                     {lastScannedAt && <span style={{ fontWeight: 400, color: MUTED }}>{'  '}· swept {new Date(lastScannedAt).toLocaleDateString()}</span>}
                   </span>
                   <span style={{ fontFamily: font.body, fontSize: 11, color: MUTED }}>
+                    <span style={{ color: REPAIR }}>{session.repaired} repaired</span>{' / '}
                     <span style={{ color: KEEP }}>{session.kept} kept</span>{' / '}
                     <span style={{ color: HIDE }}>{session.hidden} hidden</span>{' / '}
                     <span style={{ color: DEL }}>{session.deleted} deleted</span>
@@ -287,7 +323,9 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
           ) : current ? (
             <>
               <GateCard row={current} busy={busy} ai={ai[current.id]}
-                onAction={(a) => runAction(current.id, a)} onAi={() => runAi(current.id)} mapboxToken={mapboxToken} />
+                onAction={(a) => runAction(current.id, a)} onAi={() => runAi(current.id)}
+                onRepair={() => doRepair(current.id)} repairing={repairing === current.id}
+                mapboxToken={mapboxToken} />
               {rows.length > 1 && (
                 <p style={{ textAlign: 'center', fontFamily: font.body, fontSize: 13, color: MUTED, marginTop: 10 }}>
                   {rows.length - 1} more flagged listing{rows.length - 1 !== 1 ? 's' : ''} in the queue
@@ -315,7 +353,7 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
 // ════════════════════════════════════════════════════════════════════════════
 // The one-at-a-time review card
 // ════════════════════════════════════════════════════════════════════════════
-function GateCard({ row, busy, ai, onAction, onAi, mapboxToken }) {
+function GateCard({ row, busy, ai, onAction, onAi, onRepair, repairing, mapboxToken }) {
   const l = row.listing || {}
   const name = l.name || '(listing missing)'
   const live = l.slug ? `/place/${l.slug}` : null
@@ -326,6 +364,7 @@ function GateCard({ row, busy, ai, onAction, onAi, mapboxToken }) {
   const lat = Number(l.lat), lng = Number(l.lng)
   const hasCoords = Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0)
   const details = row.gate_details || []
+  const remediations = getRemediations(row, l)
 
   return (
     <div style={{ background: '#fff', borderRadius: 16, border: `1px solid ${BORDER}`, boxShadow: '0 2px 16px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
@@ -369,6 +408,24 @@ function GateCard({ row, busy, ai, onAction, onAi, mapboxToken }) {
             ))}
           </div>
         </div>
+
+        {/* One-click fix strip — the easy, suggested remediation */}
+        {remediations.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 10, background: `${REPAIR}12`, border: `1px solid ${REPAIR}44`, marginBottom: 16 }}>
+            <span style={{ fontSize: 15, lineHeight: 1 }}>⚡</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: font.body, fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: REPAIR, marginBottom: 2 }}>One-click fix</div>
+              <div style={{ fontFamily: font.body, fontSize: 13, color: '#2a5560', lineHeight: 1.35 }}>{remediations.map(r => r.label).join('  ·  ')}</div>
+            </div>
+            <button onClick={onRepair} disabled={busy || repairing} title="Apply the suggested remediation (R)" style={{
+              height: 36, padding: '0 18px', borderRadius: 8, background: REPAIR, color: '#fff', border: 'none',
+              fontFamily: font.body, fontSize: 13, fontWeight: 600, cursor: (busy || repairing) ? 'default' : 'pointer', opacity: (busy || repairing) ? 0.6 : 1,
+              display: 'inline-flex', alignItems: 'center', gap: 7, flexShrink: 0,
+            }}>
+              {repairing ? <><span style={{ width: 13, height: 13, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'gcspin 0.6s linear infinite' }} />Repairing…</> : 'Repair'}
+            </button>
+          </div>
+        )}
 
         {/* Mini map for coords (esp. Location failures) */}
         {hasCoords && mapboxToken && (
@@ -454,6 +511,7 @@ function Completion({ session }) {
       <div style={{ fontSize: 40, marginBottom: 12 }}>✓</div>
       <h2 style={{ fontFamily: font.display, fontWeight: 400, fontSize: 24, color: INK, margin: '0 0 16px' }}>Queue cleared</h2>
       <div style={{ display: 'inline-flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', fontFamily: font.body, fontSize: 13, color: MUTED }}>
+        <span style={{ color: REPAIR, fontWeight: 500 }}>⚡ {session.repaired} repaired</span><span style={{ opacity: 0.3 }}>·</span>
         <span style={{ color: KEEP, fontWeight: 500 }}>✓ {session.kept} kept</span><span style={{ opacity: 0.3 }}>·</span>
         <span style={{ color: HIDE, fontWeight: 500 }}>{session.hidden} hidden</span><span style={{ opacity: 0.3 }}>·</span>
         <span style={{ color: DEL, fontWeight: 500 }}>{session.deleted} deleted</span>
