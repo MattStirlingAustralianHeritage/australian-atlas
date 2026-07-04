@@ -179,6 +179,13 @@ export default function SearchAutocomplete({ value, onChange, onSelect, placehol
 
   // Keyboard navigation
   function handleKeyDown(e) {
+    // Never hijack keys while an IME is composing (Korean/Japanese/Chinese):
+    // Enter confirms the syllable and arrows pick candidates. Intercepting here
+    // — especially preventDefault on Enter — breaks CJK input entirely, so a
+    // typed Korean query never completes and search returns almost nothing.
+    if (e.nativeEvent?.isComposing || e.keyCode === 229) {
+      return
+    }
     if (!isOpen || flatItems.length === 0) {
       return
     }
