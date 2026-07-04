@@ -72,7 +72,10 @@ async function fetchExistingRows() {
   const map = new Map() // listing_id -> status
   const PAGE = 1000
   for (let from = 0; ; from += PAGE) {
-    const { data, error } = await sb.from('listing_gate_check').select('listing_id,status').range(from, from + PAGE - 1)
+    // MUST .order() a stable column — without it, paged range() over a table
+    // >1000 rows can skip rows, dropping their listing_id from the resolved set
+    // and clobbering a prior admin Pass/Hide/Delete decision on the next sweep.
+    const { data, error } = await sb.from('listing_gate_check').select('listing_id,status').order('listing_id').range(from, from + PAGE - 1)
     if (error) {
       if (error.code === 'PGRST205' || /listing_gate_check/.test(error.message)) {
         throw new Error('Table listing_gate_check does not exist — apply migration 219 first.')
@@ -150,18 +153,22 @@ async function main() {
   const failingIds = new Set()
   const stats = { flagged: 0, byGate: {}, byAction: {}, bySeverity: {}, upserted: 0 }
   let processed = 0
+  let interrupted = false
 
   async function maybeFlush(force) {
     if (buffer.length && (force || buffer.length >= FLUSH_EVERY)) {
       const batch = buffer.splice(0)
-      stats.upserted += await upsertChunk(batch)
+      // Snapshot the count before mutating shared state (no await between read
+      // and write) so overlapping flushes can't lose an increment.
+      const n = await upsertChunk(batch)
+      stats.upserted += n
     }
   }
 
   // Bounded worker pool over a shared index.
   let idx = 0
   async function worker() {
-    while (idx < listings.length) {
+    while (idx < listings.length && !interrupted) {
       const listing = listings[idx++]
       let row = null
       try { row = await evaluate(listing) } catch (e) { /* per-listing failure is non-fatal */ }
@@ -184,9 +191,8 @@ async function main() {
     }
   }
 
-  // Flush-on-interrupt safety.
-  let interrupted = false
-  const onSig = async () => { if (interrupted) return; interrupted = true; console.log('\n[gate-check] interrupt — flushing…'); await maybeFlush(true); process.exit(1) }
+  // Flush-on-interrupt safety: stop starting new work, let in-flight settle briefly, flush, exit.
+  const onSig = async () => { if (interrupted) return; interrupted = true; console.log('\n[gate-check] interrupt — draining…'); await new Promise(r => setTimeout(r, 300)); await maybeFlush(true); process.exit(1) }
   process.on('SIGINT', onSig)
   process.on('SIGTERM', onSig)
 

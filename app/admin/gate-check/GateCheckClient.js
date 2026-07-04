@@ -58,6 +58,18 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
     return { byGate, bySeverity, byAction }
   }, [rows])
 
+  // Filter options = initial server facets UNION whatever is loaded now, so a
+  // rescan that surfaces a new vertical/gate still appears in the dropdowns.
+  const liveFacets = useMemo(() => {
+    const verticals = new Set(facets.verticals || [])
+    const gates = new Set(facets.gates || [])
+    for (const r of rows) {
+      if (r.listing?.vertical) verticals.add(r.listing.vertical)
+      for (const g of (r.failed_gates || [])) gates.add(g)
+    }
+    return { verticals: [...verticals].sort(), gates: [...gates].sort() }
+  }, [rows, facets])
+
   // ── Data fetch ─────────────────────────────────────────────────────────────
   const refetch = useCallback(async (nextView = view, nextFilters = filters) => {
     setLoading(true)
@@ -81,7 +93,13 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
     }
   }, [view, filters])
 
-  const changeView = (v) => { setView(v); refetch(v, filters) }
+  const changeView = (v) => {
+    setView(v)
+    // Don't carry queue filters into Trash — its filter UI is hidden, so a filtered
+    // row would silently vanish from Trash with no way to clear the filter there.
+    if (v === 'trash') { const cleared = { vertical: '', gate: '', severity: '', action: '' }; setFilters(cleared); refetch(v, cleared) }
+    else refetch(v, filters)
+  }
   const changeFilter = (key, val) => {
     const next = { ...filters, [key]: val }
     setFilters(next)
@@ -142,6 +160,8 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'AI check failed')
       setAi(prev => ({ ...prev, [rowId]: { verdict: data } }))
+      // The AI check may have persisted new gates/severity/suggested action — reconcile the row.
+      if (data.updatedRow) setRows(prev => prev.map(r => r.id === rowId ? { ...r, ...data.updatedRow } : r))
     } catch (err) {
       setAi(prev => ({ ...prev, [rowId]: { error: err.message } }))
     }
@@ -161,12 +181,8 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
       setScan({ running: false, result: data, error: null })
       refetch('queue', filters)
       setView('queue')
-      // refresh counts
-      try {
-        const c = await fetch('/api/admin/gate-check?status=pending')
-        const cd = await c.json()
-        if (c.ok && !cd.tableMissing) setCounts(prev => ({ ...prev, pending: (cd.rows || []).length }))
-      } catch {}
+      // Use the exact pending count the quick-scan returns (head count, not capped rows).
+      if (typeof data.pending === 'number') setCounts(prev => ({ ...prev, pending: data.pending }))
     } catch (err) {
       setScan({ running: false, result: null, error: err.message })
     }
@@ -252,9 +268,9 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
           {!isTrash && (
             <>
               <FilterSelect label="Vertical" value={filters.vertical} onChange={v => changeFilter('vertical', v)}
-                options={facets.verticals.map(v => [v, VERTICAL_NAMES[v] || v])} />
+                options={liveFacets.verticals.map(v => [v, VERTICAL_NAMES[v] || v])} />
               <FilterSelect label="Gate" value={filters.gate} onChange={v => changeFilter('gate', v)}
-                options={facets.gates.map(g => [g, GATE_META[g]?.label || g])} />
+                options={liveFacets.gates.map(g => [g, GATE_META[g]?.label || g])} />
               <FilterSelect label="Severity" value={filters.severity} onChange={v => changeFilter('severity', v)}
                 options={[['high', 'High'], ['medium', 'Medium'], ['low', 'Low']]} />
               <FilterSelect label="Suggested" value={filters.action} onChange={v => changeFilter('action', v)}

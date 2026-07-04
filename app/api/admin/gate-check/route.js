@@ -96,11 +96,12 @@ async function runQuickScan(sb) {
     if (!data || data.length < PAGE) break
   }
 
-  // Existing rows: id, listing_id, status, failed_gates.
+  // Existing rows. MUST .order() a stable column — a paged range() over >1000
+  // rows without it can skip rows and clobber prior admin decisions.
   const existing = new Map()
   for (let from = 0; ; from += PAGE) {
     const { data, error } = await sb.from('listing_gate_check')
-      .select('id,listing_id,status,failed_gates,gate_details,website,http_status').range(from, from + PAGE - 1)
+      .select('id,listing_id,status,failed_gates,gate_details,website,http_status').order('listing_id').range(from, from + PAGE - 1)
     if (error) throw new Error(`Failed to read gate-check rows: ${error.message}`)
     for (const r of data) existing.set(r.listing_id, r)
     if (!data || data.length < PAGE) break
@@ -114,10 +115,11 @@ async function runQuickScan(sb) {
     failingIds.add(l.id)
     const prev = existing.get(l.id)
     if (prev && prev.status !== 'pending') continue // already actioned — leave it
-    // Preserve the deep sweep's web/activity findings (which this fast path can't
-    // re-verify) and refresh only the location/fit gates on top.
+    // Preserve every finding this fast path does NOT recompute — the deep sweep's
+    // web/activity findings AND any on-demand AI vertical finding (code *_ai) —
+    // and refresh only the deterministic location/fit gates on top.
     const kept = (prev?.gate_details || [])
-      .filter(d => d.gate === 'gate1_web' || d.gate === 'gate3_activity')
+      .filter(d => d.gate === 'gate1_web' || d.gate === 'gate3_activity' || String(d.code || '').endsWith('_ai'))
       .map(d => ({ gate: d.gate, code: d.code, severity: d.severity, reason: d.reason }))
     const summary = summariseFailures([...kept, ...failures], { website: l.website || prev?.website || null, http_status: prev?.http_status ?? null })
     toUpsert.push({ listing_id: l.id, scanned_at: new Date().toISOString(), status: 'pending', reviewed_at: null, reviewed_by: null, ...summary })
@@ -137,6 +139,8 @@ async function runQuickScan(sb) {
   for (const [listingId, r] of existing.entries()) {
     if (r.status !== 'pending') continue
     if (failingIds.has(listingId)) continue
+    // Never clear a row carrying an on-demand AI finding — this pass doesn't re-verify it.
+    if ((r.gate_details || []).some(d => String(d.code || '').endsWith('_ai'))) continue
     const gates = r.failed_gates || []
     const onlyQuickGates = gates.length > 0 && gates.every(g => g === 'gate2_location' || g === 'gate4_vertical')
     if (onlyQuickGates) clearIds.push(r.id)
@@ -150,7 +154,8 @@ async function runQuickScan(sb) {
     cleared += data.length
   }
 
-  return { scanned: listings.length, upserted, cleared }
+  const { count: pending } = await sb.from('listing_gate_check').select('id', { count: 'exact', head: true }).eq('status', 'pending')
+  return { scanned: listings.length, upserted, cleared, pending: pending ?? null }
 }
 
 // Run Claude vertical-fit on a single queue row's listing; persist the verdict
@@ -181,7 +186,11 @@ async function runAiCheck(sb, rowId) {
   // Distinguish a real "poor fit" verdict from an unverifiable one (no API key,
   // budget reached, API/parse error) — those carry no confidence and must NOT
   // be persisted as a fit failure.
-  const unverifiable = !isFit && verdict.details?.confidence == null && !verdict.wrongVertical
+  // gate4VerticalFit coerces a malformed/absent confidence to 0 (not null) — treat
+  // confidence 0 with no wrong-vertical as unverifiable too (a model non-answer),
+  // so a hiccup never persists a fabricated "poor fit".
+  const conf = verdict.details?.confidence
+  const unverifiable = !isFit && !verdict.wrongVertical && (conf == null || Number(conf) === 0)
   if (unverifiable) {
     return { isFit: null, unverifiable: true, verdict: { reason: verdict.reason || 'could not verify vertical fit', confidence: null, suggestedVertical: null } }
   }
@@ -192,6 +201,7 @@ async function runAiCheck(sb, rowId) {
     reason: `AI check: ${verdict.reason || (isFit ? 'good fit' : 'unverified')}`,
   }
 
+  let updatedRow = null
   if (!isFit) {
     // Merge the AI finding into the row so it persists + becomes actionable.
     const details = Array.isArray(row.gate_details) ? row.gate_details.filter(d => !String(d.code || '').endsWith('_ai')) : []
@@ -199,12 +209,18 @@ async function runAiCheck(sb, rowId) {
     const failedGates = [...new Set([...(row.failed_gates || []), 'gate4_vertical'])]
     const suggested = verdict.wrongVertical && row.suggested_action === 'pass' ? 'hide' : row.suggested_action
     const severity = verdict.wrongVertical && row.severity === 'low' ? 'medium' : row.severity
+    const reason_summary = details.map(d => d.reason).join(' ')
     await sb.from('listing_gate_check').update({
-      gate_details: details, failed_gates: failedGates,
-      reason_summary: details.map(d => d.reason).join(' '),
+      gate_details: details, failed_gates: failedGates, reason_summary,
       suggested_action: suggested, severity,
     }).eq('id', rowId)
+    // Return the new fields so the client can reconcile the row without a refetch.
+    updatedRow = { gate_details: details, failed_gates: failedGates, reason_summary, suggested_action: suggested, severity }
   }
 
-  return { isFit, verdict: { reason: verdict.reason || null, confidence: verdict.details?.confidence ?? null, suggestedVertical: verdict.details?.suggestedVertical || verdict.wrongVertical?.suggested_vertical || null } }
+  return {
+    isFit,
+    updatedRow,
+    verdict: { reason: verdict.reason || null, confidence: verdict.details?.confidence ?? null, suggestedVertical: verdict.details?.suggestedVertical || verdict.wrongVertical?.suggested_vertical || null },
+  }
 }
