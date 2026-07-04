@@ -6,16 +6,18 @@ import { getPublicVerticals, isVerticalPublic } from '@/lib/verticalUrl'
 export const dynamic = 'force-dynamic'
 
 export async function generateMetadata() {
-  const isKo = (await getLocale()) === 'ko'
-  if (isKo) {
-    return {
-      title: '지도 — 오스트레일리안 아틀라스',
-      description: '오스트레일리아 전역의 모든 독립 매장을 인터랙티브 지도에서 둘러보세요. 카테고리, 주로 필터링하거나 이름으로 검색하세요.',
-    }
-  }
+  const locale = await getLocale()
   return {
-    title: 'Map — Australian Atlas',
-    description: 'Explore every independent business across Australia on an interactive map. Filter by category, state, or search by name.',
+    title: {
+      en: 'Map — Australian Atlas',
+      ko: '지도 — 오스트레일리안 아틀라스',
+      zh: '地图 — Australian Atlas',
+    }[locale] || 'Map — Australian Atlas',
+    description: {
+      en: 'Explore every independent business across Australia on an interactive map. Filter by category, state, or search by name.',
+      ko: '오스트레일리아 전역의 모든 독립 매장을 인터랙티브 지도에서 둘러보세요. 카테고리, 주로 필터링하거나 이름으로 검색하세요.',
+      zh: '在交互式地图上探索澳大利亚各地的每一家独立商户。按类别、州筛选，或按名称搜索。',
+    }[locale] || 'Explore every independent business across Australia on an interactive map. Filter by category, state, or search by name.',
   }
 }
 

@@ -3,6 +3,7 @@ import { getTranslations, getLocale } from 'next-intl/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { listPickedVenues } from '@/lib/picks/producerPicks'
 import { overlayListingTranslations } from '@/lib/i18n/overlayListings'
+import { ogLocale } from '@/lib/i18n/config'
 import ListingCard from '@/components/ListingCard'
 
 export const revalidate = 3600
@@ -11,11 +12,16 @@ const SITE_URL = 'https://australianatlas.com.au'
 
 export async function generateMetadata() {
   const locale = await getLocale()
-  const isKo = locale === 'ko'
-  const title = isKo ? '프로듀서 픽 | Australian Atlas' : 'Producer Picks | Australian Atlas'
-  const description = isKo
-    ? '동료들이 보증하는 독립 장소들. 이곳의 모든 업체는 Australian Atlas 네트워크의 또 다른 검증된 운영자가 직접 추천했습니다.'
-    : 'The independent places vouched for by their peers. Every venue here has been personally picked by another verified operator on the Australian Atlas network.'
+  const title = {
+    en: 'Producer Picks | Australian Atlas',
+    ko: '프로듀서 픽 | Australian Atlas',
+    zh: 'Producer Picks | Australian Atlas',
+  }[locale] || 'Producer Picks | Australian Atlas'
+  const description = {
+    en: 'The independent places vouched for by their peers. Every venue here has been personally picked by another verified operator on the Australian Atlas network.',
+    ko: '동료들이 보증하는 독립 장소들. 이곳의 모든 업체는 Australian Atlas 네트워크의 또 다른 검증된 운영자가 직접 추천했습니다.',
+    zh: '由同行亲自背书的独立场所。这里的每一家都由 Australian Atlas 网络中另一位经过核实的经营者亲手推荐。',
+  }[locale] || 'The independent places vouched for by their peers. Every venue here has been personally picked by another verified operator on the Australian Atlas network.'
   return {
     title,
     description,
@@ -24,7 +30,7 @@ export async function generateMetadata() {
       description,
       url: `${SITE_URL}/producer-picks`,
       siteName: 'Australian Atlas',
-      locale: 'en_AU',
+      locale: ogLocale(locale),
       type: 'website',
     },
     alternates: {

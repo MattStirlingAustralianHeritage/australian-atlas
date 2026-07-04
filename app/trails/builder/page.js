@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getLocale } from 'next-intl/server'
+import { localizePath } from '@/lib/i18n/config'
 
 // ============================================================
 // The trail builder now lives ON the map — /map carries the
@@ -15,7 +16,6 @@ import { getLocale } from 'next-intl/server'
 export default async function TrailBuilderRedirect({ searchParams }) {
   const params = await searchParams
   const locale = await getLocale()
-  const prefix = locale === 'ko' ? '/ko' : ''
 
   const qs = new URLSearchParams()
   const id = typeof params?.id === 'string' ? params.id : ''
@@ -23,5 +23,5 @@ export default async function TrailBuilderRedirect({ searchParams }) {
   if (typeof params?.region === 'string' && params.region) qs.set('region', params.region.slice(0, 80))
   if (params?.resume === '1') qs.set('resume', '1')
 
-  redirect(`${prefix}/map?${qs.toString()}`)
+  redirect(`${localizePath('/map', locale)}?${qs.toString()}`)
 }

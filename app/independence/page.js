@@ -4,23 +4,27 @@ import { breadcrumbJsonLd } from '@/lib/jsonLd'
 
 export async function generateMetadata() {
   const locale = await getLocale()
-  const isKo = locale === 'ko'
-  if (isKo) {
-    return {
-      title: '독립성 서약 | Australian Atlas',
-      description: 'Australian Atlas에서 "독립"이 무엇을 의미하는지, 왜 중요한지, 그리고 네트워크의 모든 등록처를 어떻게 검증하는지 알아보세요.',
-      openGraph: {
-        title: '독립성 서약 | Australian Atlas',
-        description: 'Australian Atlas의 모든 장소는 독립적으로 소유되고 운영됩니다. 체인 없음. 프랜차이즈 없음. 기업 그룹 없음.',
-      },
-    }
-  }
+  const title = {
+    en: 'The Independence Pledge | Australian Atlas',
+    ko: '독립성 서약 | Australian Atlas',
+    zh: '独立承诺 | Australian Atlas',
+  }[locale] || 'The Independence Pledge | Australian Atlas'
+  const description = {
+    en: 'What "independent" means on Australian Atlas, why it matters, and how we verify every listing in the network.',
+    ko: 'Australian Atlas에서 "독립"이 무엇을 의미하는지, 왜 중요한지, 그리고 네트워크의 모든 등록처를 어떻게 검증하는지 알아보세요.',
+    zh: '了解“独立”在 Australian Atlas 上意味着什么、为何重要，以及我们如何核实网络中的每一处收录。',
+  }[locale] || 'What "independent" means on Australian Atlas, why it matters, and how we verify every listing in the network.'
+  const ogDescription = {
+    en: 'Every place on Australian Atlas is independently owned and operated. No chains. No franchises. No corporate groups.',
+    ko: 'Australian Atlas의 모든 장소는 독립적으로 소유되고 운영됩니다. 체인 없음. 프랜차이즈 없음. 기업 그룹 없음.',
+    zh: 'Australian Atlas 上的每一处场所都由个人独立拥有与经营。没有连锁。没有加盟。没有企业集团。',
+  }[locale] || 'Every place on Australian Atlas is independently owned and operated. No chains. No franchises. No corporate groups.'
   return {
-    title: 'The Independence Pledge | Australian Atlas',
-    description: 'What "independent" means on Australian Atlas, why it matters, and how we verify every listing in the network.',
+    title,
+    description,
     openGraph: {
-      title: 'The Independence Pledge | Australian Atlas',
-      description: 'Every place on Australian Atlas is independently owned and operated. No chains. No franchises. No corporate groups.',
+      title,
+      description: ogDescription,
     },
   }
 }

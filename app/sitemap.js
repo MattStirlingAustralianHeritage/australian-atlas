@@ -1,27 +1,24 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
-import { localizePath, splitLocale } from '@/lib/i18n/config'
+import { localizePath, splitLocale, PREFIXED_LOCALES } from '@/lib/i18n/config'
 
 export const revalidate = 3600
 
 const SITE_URL = 'https://australianatlas.com.au'
 const PAGE_SIZE = 1000
 
-// Attach en/ko hreflang alternates to a sitemap entry (Korean launch). Every
-// English URL gains a `/ko` sibling; the visible URL stays the English one.
+// Attach hreflang alternates to a sitemap entry. Every English URL gains a
+// sibling for each prefixed locale (/ko, /zh, …); the visible URL stays the
+// English one.
 function withAlternates(entry) {
   const path = entry.url.startsWith(SITE_URL) ? entry.url.slice(SITE_URL.length) || '/' : entry.url
   // Normalise any locale prefix back to the base path first, so an already-
   // prefixed entry (e.g. the /ko home) isn't double-prefixed into /ko/ko.
   const base = splitLocale(path).basePath
-  return {
-    ...entry,
-    alternates: {
-      languages: {
-        en: `${SITE_URL}${localizePath(base, 'en')}`,
-        ko: `${SITE_URL}${localizePath(base, 'ko')}`,
-      },
-    },
+  const languages = { en: `${SITE_URL}${localizePath(base, 'en')}` }
+  for (const loc of PREFIXED_LOCALES) {
+    languages[loc] = `${SITE_URL}${localizePath(base, loc)}`
   }
+  return { ...entry, alternates: { languages } }
 }
 
 /**
@@ -157,13 +154,18 @@ export default async function sitemap() {
     priority: 0.7,
   }))
 
-  // Korean home as an explicit entry, plus en/ko alternates on every URL so
-  // search engines discover the /ko surface for the whole site.
-  const koHome = { url: `${SITE_URL}/ko`, lastModified: new Date(), changeFrequency: 'daily', priority: 0.9 }
+  // Each prefixed locale's home as an explicit entry, plus alternates on every
+  // URL so search engines discover the /ko and /zh surfaces for the whole site.
+  const localeHomes = PREFIXED_LOCALES.map((loc) => ({
+    url: `${SITE_URL}${localizePath('/', loc)}`,
+    lastModified: new Date(),
+    changeFrequency: 'daily',
+    priority: 0.9,
+  }))
 
   return [
     ...staticPages,
-    koHome,
+    ...localeHomes,
     ...listingPages,
     ...regionPages,
     ...trailPages,

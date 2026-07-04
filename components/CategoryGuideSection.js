@@ -25,6 +25,23 @@ const KO_GUIDE = {
   found:        { label: '빈티지·중고', desc: '골동품 상인, 자선 중고점, 샐비지 야드, 큐레이티드 중고.' },
 }
 
+// Simplified-Chinese copy for the category-decoder cards. Same rules as KO_GUIDE:
+// the brand `name` stays English; only `label` + `desc` are localized.
+const ZH_GUIDE = {
+  fine_grounds: { label: '精品咖啡', desc: '拥有自家烘焙坊的烘焙商，以及认真对待咖啡的咖啡馆。' },
+  sba:          { label: '酿造与蒸馏', desc: '独立啤酒厂、酒庄、蒸馏酒厂与酒窖门店。' },
+  table:        { label: '餐厅与美食', desc: '独立餐厅、烘焙坊、市集与农场直售。' },
+  rest:         { label: '精品住宿', desc: '值得专程前往的小屋、民宿、农场住宿与生态旅舍。' },
+  field:        { label: '自然与徒步', desc: '自然保护区、国家公园、天然泳池与徒步步道。' },
+  way:          { label: '旅游与体验', desc: '向导徒步、文化旅游、帆船包船与探险体验。' },
+  craft:        { label: '匠人与工作室', desc: '陶艺家、木工、纺织艺术家与工作室陶艺人。' },
+  collection:   { label: '画廊与博物馆', desc: '美术馆、公共画廊与文化收藏。' },
+  corner:       { label: '独立商店', desc: '书店、唱片店、家居用品与设计工作室。' },
+  found:        { label: '复古与二手', desc: '古董商、慈善二手店、旧料场与精选二手。' },
+}
+
+const GUIDES = { ko: KO_GUIDE, zh: ZH_GUIDE }
+
 const COUNT_WORDS = { 8: 'Eight', 9: 'Nine', 10: 'Ten', 11: 'Eleven', 12: 'Twelve' }
 
 // Plain-English decoder for the categories. Kept in lock-step with the copy in
@@ -57,9 +74,10 @@ export default function CategoryGuideSection({ publicVerticals = [], verticalCou
   const t = useTranslations('home')
   const locale = useLocale()
   const [open, setOpen] = useState(false)
-  // Korean label/desc for a card, English fallback (never blank).
-  const cardLabel = (v) => (locale === 'ko' && KO_GUIDE[v.key]?.label) || v.label
-  const cardDesc = (v) => (locale === 'ko' && KO_GUIDE[v.key]?.desc) || v.desc
+  // Localized label/desc for a card from the active locale's guide, English
+  // fallback (never blank).
+  const cardLabel = (v) => GUIDES[locale]?.[v.key]?.label || v.label
+  const cardDesc = (v) => GUIDES[locale]?.[v.key]?.desc || v.desc
 
   const word = COUNT_WORDS[verticalCount] || String(verticalCount)
   const cards = VERTICAL_GUIDE.filter(v => publicVerticals.includes(v.key))

@@ -2,6 +2,7 @@ import PlanAStayV2Client from './PlanAStayV2Client'
 import { getQualifyingRegions } from '@/lib/plan-a-stay/qualifying-regions'
 import PlannerDiscoveryGate from '@/components/planner/PlannerDiscoveryGate'
 import { getTranslations, getLocale } from 'next-intl/server'
+import { ogLocale } from '@/lib/i18n/config'
 
 export async function generateMetadata() {
   const t = await getTranslations('planStay')
@@ -17,7 +18,7 @@ export async function generateMetadata() {
       description,
       url: 'https://australianatlas.com.au/plan-a-stay-v2',
       siteName: 'Australian Atlas',
-      locale: locale === 'ko' ? 'ko_KR' : 'en_AU',
+      locale: ogLocale(locale),
       type: 'website',
     },
   }

@@ -11,6 +11,7 @@ import { createAuthServerClient } from "@/lib/supabase/auth-clients";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import LocaleUrlGuardian from "@/components/LocaleUrlGuardian";
+import { ogLocale } from "@/lib/i18n/config";
 
 // Newsreader — an editorial serif with true optical sizing (opsz 6–72):
 // classical letterforms (a proper two-part f — Fraunces' curled f didn't
@@ -42,18 +43,22 @@ export const viewport = {
 }
 
 // Locale-aware document metadata: the default (English) title/description are
-// byte-identical to before; the /ko surface gets Korean title/description + a
-// ko_KR OpenGraph locale. Pages with their own generateMetadata (place, region)
-// override this; the home and any page without its own metadata inherit it.
+// byte-identical to before; each localized surface (/ko, /zh) gets its own
+// title/description + matching OpenGraph locale. Pages with their own
+// generateMetadata (place, region) override this; the home and any page without
+// its own metadata inherit it.
 export async function generateMetadata() {
   const locale = await getLocale()
-  const isKo = locale === 'ko'
-  const title = isKo
-    ? "Australian Atlas — 호주의 독립적인 명소를 발견하세요"
-    : "Australian Atlas — Discover Australia's best independent places"
-  const description = isKo
-    ? "큐레이션한 독립 호주 가이드 — 스페셜티 커피, 메이커, 양조장, 갤러리, 부티크 숙소, 그리고 그 사이의 자연까지. 검증되고 지도에 표시된 수천 곳의 독립 명소."
-    : "The curated guide to the best of independent Australia — specialty coffee, makers, distillers, galleries, boutique stays, and the natural places in between. Thousands of independent places, every one verified and mapped."
+  const title = {
+    en: "Australian Atlas — Discover Australia's best independent places",
+    ko: "Australian Atlas — 호주의 독립적인 명소를 발견하세요",
+    zh: "Australian Atlas — 发现澳大利亚最好的独立场所",
+  }[locale] || "Australian Atlas — Discover Australia's best independent places"
+  const description = {
+    en: "The curated guide to the best of independent Australia — specialty coffee, makers, distillers, galleries, boutique stays, and the natural places in between. Thousands of independent places, every one verified and mapped.",
+    ko: "큐레이션한 독립 호주 가이드 — 스페셜티 커피, 메이커, 양조장, 갤러리, 부티크 숙소, 그리고 그 사이의 자연까지. 검증되고 지도에 표시된 수천 곳의 독립 명소.",
+    zh: "精选的独立澳大利亚指南——精品咖啡、匠人、酿酒商、画廊、精品住宿，以及其间的自然秘境。数千处独立场所，每一处都经过核实并标注于地图。",
+  }[locale] || "The curated guide to the best of independent Australia — specialty coffee, makers, distillers, galleries, boutique stays, and the natural places in between. Thousands of independent places, every one verified and mapped."
   return {
   title,
   description,
@@ -63,7 +68,7 @@ export async function generateMetadata() {
     description,
     url: "https://australianatlas.com.au",
     siteName: "Australian Atlas",
-    locale: isKo ? "ko_KR" : "en_AU",
+    locale: ogLocale(locale),
     type: "website",
     images: [
       {

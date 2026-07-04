@@ -311,7 +311,7 @@ function SubcategoryPicker({ label, options, selected, onChange }) {
 
 export default function InlineListingEditor({ listing }) {
   const router = useRouter()
-  const isKo = useLocale() === 'ko'
+  const locale = useLocale()
   const [open, setOpen] = useState(false)
   const [draft, setDraft] = useState(null)
   const [metaDraft, setMetaDraft] = useState({})
@@ -482,7 +482,7 @@ export default function InlineListingEditor({ listing }) {
       {!open && (
         <button
           onClick={openPanel}
-          aria-label={isKo ? '목록 편집' : 'Edit listing'}
+          aria-label={{ en: 'Edit listing', ko: '목록 편집', zh: '编辑条目' }[locale] || 'Edit listing'}
           style={{
             position: 'fixed', bottom: 24, right: 24, zIndex: 9999,
             display: 'flex', alignItems: 'center', gap: 8,
@@ -500,7 +500,7 @@ export default function InlineListingEditor({ listing }) {
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
             <path d="M10.5 1.5L12.5 3.5L4.5 11.5L1.5 12.5L2.5 9.5L10.5 1.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-          {isKo ? '목록 편집' : 'Edit listing'}
+          {{ en: 'Edit listing', ko: '목록 편집', zh: '编辑条目' }[locale] || 'Edit listing'}
         </button>
       )}
 

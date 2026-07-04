@@ -15,7 +15,7 @@ import { useLocale } from 'next-intl'
  * On click: sets verified=true, verified_at=now(), verification_source='editorial_review'
  */
 export default function VerificationBadge({ listingId, listingName, initialVerified }) {
-  const isKo = useLocale() === 'ko'
+  const locale = useLocale()
   const [verified, setVerified] = useState(initialVerified)
   const [saving, setSaving] = useState(false)
   const [stats, setStats] = useState(null)
@@ -123,7 +123,7 @@ export default function VerificationBadge({ listingId, listingName, initialVerif
           overflow: 'hidden',
           textOverflow: 'ellipsis',
         }}>
-          {verified ? (isKo ? '인증됨' : 'Verified') : (isKo ? '미인증' : 'Unverified')}
+          {verified ? ({ en: 'Verified', ko: '인증됨', zh: '已验证' }[locale] || 'Verified') : ({ en: 'Unverified', ko: '미인증', zh: '未验证' }[locale] || 'Unverified')}
         </div>
         {stats && (
           <div style={{
@@ -133,7 +133,7 @@ export default function VerificationBadge({ listingId, listingName, initialVerif
             fontWeight: 400,
             letterSpacing: '0.01em',
           }}>
-            {stats.verified.toLocaleString()} / {stats.total.toLocaleString()} {isKo ? '인증됨' : 'verified'}
+            {stats.verified.toLocaleString()} / {stats.total.toLocaleString()} {{ en: 'verified', ko: '인증됨', zh: '已验证' }[locale] || 'verified'}
           </div>
         )}
       </div>
@@ -143,7 +143,7 @@ export default function VerificationBadge({ listingId, listingName, initialVerif
         <button
           onClick={handleVerify}
           disabled={saving}
-          title={isKo ? `"${listingName}" 인증` : `Verify "${listingName}"`}
+          title={{ en: `Verify "${listingName}"`, ko: `"${listingName}" 인증`, zh: `验证“${listingName}”` }[locale] || `Verify "${listingName}"`}
           style={{
             width: 32,
             height: 32,

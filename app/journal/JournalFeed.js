@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
+import { dateLocale } from '@/lib/i18n/config'
 
 const INITIAL_COUNT = 12
 const LOAD_MORE_COUNT = 12
@@ -218,7 +219,7 @@ function ArticleCard({ article, verticalLabels, verticalColors, locale }) {
   const color = verticalColors[article.vertical] || '#888'
   const label = verticalLabels[article.vertical] || article.vertical
   const date = article.published_at
-    ? new Date(article.published_at).toLocaleDateString(locale === 'ko' ? 'ko-KR' : 'en-AU', {
+    ? new Date(article.published_at).toLocaleDateString(dateLocale(locale), {
         day: 'numeric', month: 'short', year: 'numeric',
       })
     : null

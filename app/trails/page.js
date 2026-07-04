@@ -8,12 +8,13 @@ export const revalidate = 3600
 
 export async function generateMetadata() {
   const locale = await getLocale()
-  const isKo = locale === 'ko'
   return {
-    title: isKo ? '디스커버리 트레일 | Australian Atlas' : 'Discovery Trails | Australian Atlas',
-    description: isKo
-      ? '호주 전역의 가장 좋은 독립 장소들을 잇는 큐레이션 트레일 — 와이너리, 갤러리, 메이커, 숙소 등을 가로지릅니다.'
-      : 'Curated trails connecting the best independent places across Australia — crossing wineries, galleries, makers, stays, and more.',
+    title: { en: 'Discovery Trails | Australian Atlas', ko: '디스커버리 트레일 | Australian Atlas', zh: '探索路线 | Australian Atlas' }[locale] || 'Discovery Trails | Australian Atlas',
+    description: {
+      en: 'Curated trails connecting the best independent places across Australia — crossing wineries, galleries, makers, stays, and more.',
+      ko: '호주 전역의 가장 좋은 독립 장소들을 잇는 큐레이션 트레일 — 와이너리, 갤러리, 메이커, 숙소 등을 가로지릅니다.',
+      zh: '精选路线串联澳大利亚各地最出色的独立场所 —— 途经酒庄、艺廊、匠人工坊、住宿等。',
+    }[locale] || 'Curated trails connecting the best independent places across Australia — crossing wineries, galleries, makers, stays, and more.',
   }
 }
 

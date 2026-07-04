@@ -6,7 +6,7 @@ import { getLocale, getTranslations } from 'next-intl/server'
 import { overlayListingTranslations } from '@/lib/i18n/overlayListings'
 import { localizeSubcategory, localizeVerticalCategory, localizeRegionName, localizeVerticalKicker } from '@/lib/i18n/listingLabels'
 import { localizeHighlightHeading, localizeHighlightLabel } from '@/lib/i18n/highlightLabels'
-import { localizePath } from '@/lib/i18n/config'
+import { localizePath, ogLocale, PREFIXED_LOCALES } from '@/lib/i18n/config'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getVerticalUrl, getVerticalLabel, getVerticalTagline, getVerticalBrandColour, getPublicVerticals } from '@/lib/verticalUrl'
 import { relationHasVerticals, listingVerticals } from '@/lib/listings/verticalFilter'
@@ -651,7 +651,7 @@ export async function generateMetadata({ params }) {
   const region = getListingRegion(listing)
   const location = [localizeRegionName(region?.name, locale), listing.state].filter(Boolean).join(', ')
   const enUrl = `https://australianatlas.com.au/place/${slug}`
-  const koUrl = `https://australianatlas.com.au${localizePath(`/place/${slug}`, 'ko')}`
+  const localizedUrl = `https://australianatlas.com.au${localizePath(`/place/${slug}`, locale)}`
   const title = location
     ? t('metaTitleWithLocation', { name: listing.name, category: vertLabel, location })
     : t('metaTitle', { name: listing.name, category: vertLabel })
@@ -667,9 +667,9 @@ export async function generateMetadata({ params }) {
     openGraph: {
       title,
       description,
-      url: locale === 'ko' ? koUrl : enUrl,
+      url: localizedUrl,
       siteName: 'Australian Atlas',
-      locale: locale === 'ko' ? 'ko_KR' : 'en_AU',
+      locale: ogLocale(locale),
       type: 'website',
       images: [
         // Same moderation gate as the visible hero — a flagged/held image must
@@ -680,10 +680,15 @@ export async function generateMetadata({ params }) {
       ],
     },
     alternates: {
-      canonical: locale === 'ko' ? koUrl : enUrl,
+      canonical: localizedUrl,
       languages: {
         en: enUrl,
-        ko: koUrl,
+        ...Object.fromEntries(
+          PREFIXED_LOCALES.map((loc) => [
+            loc,
+            `https://australianatlas.com.au${localizePath(`/place/${slug}`, loc)}`,
+          ])
+        ),
         'x-default': enUrl,
       },
     },
@@ -795,6 +800,8 @@ export default async function PlacePage({ params }) {
   const enVertStem = enVertLabel.replace(/\s*Atlas$/i, '')
   const vertLabel = locale === 'ko'
     ? `${localizeVerticalKicker(listing.vertical, enVertStem, locale)} 아틀라스`
+    : locale === 'zh'
+    ? `${localizeVerticalKicker(listing.vertical, enVertStem, locale)} Atlas`
     : enVertLabel
   const vertColor = getVerticalBrandColour(listing.vertical) || '#5F8A7E'
   const rawSubcat = listing._subcategory || listing.sub_type

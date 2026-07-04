@@ -26,7 +26,7 @@ const LOCALE = li !== -1 && argv[li + 1] ? argv[li + 1] : 'ko'
 const FORCE = argv.includes('--force')
 const onlyI = argv.indexOf('--only')
 const ONLY = onlyI !== -1 && argv[onlyI + 1] ? argv[onlyI + 1].split(',') : null
-const LOCALE_NAMES = { ko: 'Korean (한국어)' }
+const LOCALE_NAMES = { ko: 'Korean (한국어)', zh: 'Simplified Chinese (简体中文)' }
 const LOCALE_LABEL = LOCALE_NAMES[LOCALE] || LOCALE
 const MODEL = 'claude-haiku-4-5-20251001'
 
@@ -46,15 +46,31 @@ Rules:
 - Preserve ICU placeholders in braces verbatim, e.g. {town}, {count}, {query}.
 - Preserve any HTML-like tags verbatim, e.g. <em>...</em> (translate the text between, keep the tags).
 - Keep the proper noun "Australian Atlas" as-is, and keep "Atlas" in product names.
-- Translate concisely and naturally, as UI chrome (nav, buttons, labels, headings, empty states). Use natural Korean, not literal word-for-word.
-- Keep "korean" as "한국어" if present.
+- Translate concisely and naturally, as UI chrome (nav, buttons, labels, headings, empty states). Use natural ${LOCALE_LABEL}, not literal word-for-word.
+- CRITICAL: never place a raw ASCII double-quote (") inside a translated value — it breaks the JSON. If the source quotes a phrase, use the target language's own quotation marks instead (Chinese: “ ” or 「 」; Korean: 「 」).
 - Output ONLY the JSON object.`
+
+// CJK values sometimes contain a raw ASCII double-quote (the model rendered a
+// quoted phrase with " instead of target-language quote marks), which is an
+// unescaped quote inside a JSON string value and breaks JSON.parse. Since the
+// model emits one flat `"key": "value"[,]` per line (mirroring our pretty
+// input), we can losslessly re-escape the inner quotes line-by-line as a repair.
+function repairJsonQuotes(jsonish) {
+  return jsonish.split('\n').map((line) => {
+    const m = line.match(/^(\s*"(?:[^"\\]|\\.)*"\s*:\s*)"([\s\S]*)"(\s*,?)\s*$/)
+    if (!m) return line
+    const inner = m[2].replace(/\\"/g, '"').replace(/"/g, '\\"')
+    return `${m[1]}"${inner}"${m[3]}`
+  }).join('\n')
+}
 
 function extractJson(text) {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/)
   const body = fenced ? fenced[1] : text
   const s = body.indexOf('{'); const e = body.lastIndexOf('}')
-  return JSON.parse(body.slice(s, e + 1))
+  const slice = body.slice(s, e + 1)
+  try { return JSON.parse(slice) }
+  catch { return JSON.parse(repairJsonQuotes(slice)) }
 }
 
 function fill(src, dst) {
@@ -81,15 +97,23 @@ for (const ns of Object.keys(en)) {
     skipped++
     continue
   }
-  const resp = await anthropic.messages.create({
-    model: MODEL, max_tokens: 8000, system: SYSTEM,
-    messages: [{ role: 'user', content: `Translate this "${ns}" namespace to ${LOCALE_LABEL}:\n\n${JSON.stringify(en[ns], null, 2)}` }],
-  })
-  inTok += resp.usage?.input_tokens || 0
-  outTok += resp.usage?.output_tokens || 0
-  let parsed
-  try { parsed = extractJson(resp.content.map(b => b.type === 'text' ? b.text : '').join('')) }
-  catch (e) { console.warn(`  ns "${ns}" parse failed (${e.message}) — falling back to English`); parsed = {} }
+  // CJK values occasionally contain a raw ASCII double-quote (a quoted phrase
+  // the model failed to render with target-language quote marks), which breaks
+  // the JSON. That failure is stochastic, so retry a few times before giving up
+  // and falling back to English for the namespace.
+  let parsed = null
+  let lastErr = null
+  for (let attempt = 1; attempt <= 4 && !parsed; attempt++) {
+    const resp = await anthropic.messages.create({
+      model: MODEL, max_tokens: 16000, system: SYSTEM,
+      messages: [{ role: 'user', content: `Translate this "${ns}" namespace to ${LOCALE_LABEL}:\n\n${JSON.stringify(en[ns], null, 2)}` }],
+    })
+    inTok += resp.usage?.input_tokens || 0
+    outTok += resp.usage?.output_tokens || 0
+    try { parsed = extractJson(resp.content.map(b => b.type === 'text' ? b.text : '').join('')) }
+    catch (e) { lastErr = e }
+  }
+  if (!parsed) { console.warn(`  ns "${ns}" parse failed after retries (${lastErr?.message}) — falling back to English`); parsed = {} }
   result[ns] = fill(en[ns], parsed)
   translated++
   process.stdout.write(`\r  translated ${translated} namespaces…   `)

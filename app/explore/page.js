@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { VERTICAL_STYLES } from '@/components/VerticalBadge'
 import RegionMapCard from '@/components/RegionMapCard'
 import { isVerticalPublic } from '@/lib/verticalUrl'
+import { dateLocale, ogLocale } from '@/lib/i18n/config'
 
 export const revalidate = 3600
 
@@ -58,32 +59,29 @@ const STATE_LABELS = {
 
 const EXPLORE_DESCRIPTION_KO = `독립적인 오스트레일리아를 발견하세요. 지역, 큐레이션 컬렉션, 그리고 메이커·생산자·숙소·찾아갈 가치가 있는 장소들의 ${PUBLIC_VERTICAL_ORDER.length}개 디렉터리를 둘러보세요.`
 
+const EXPLORE_DESCRIPTION_ZH = `发现独立的澳大利亚。浏览各个地区、精选合集，以及 ${PUBLIC_VERTICAL_ORDER.length} 个汇集匠人、生产者、住宿与值得驱车前往之地的目录。`
+
 export async function generateMetadata() {
-  const isKo = (await getLocale()) === 'ko'
-  if (isKo) {
-    return {
-      title: '둘러보기 — 오스트레일리안 아틀라스',
-      description: EXPLORE_DESCRIPTION_KO,
-      openGraph: {
-        title: '둘러보기 — 오스트레일리안 아틀라스',
-        description: EXPLORE_DESCRIPTION_KO,
-        url: `${SITE_URL}/explore`,
-        siteName: 'Australian Atlas',
-        locale: 'ko_KR',
-        type: 'website',
-      },
-      alternates: { canonical: `${SITE_URL}/explore` },
-    }
-  }
+  const locale = await getLocale()
+  const title = {
+    en: 'Explore — Australian Atlas',
+    ko: '둘러보기 — 오스트레일리안 아틀라스',
+    zh: '探索 — Australian Atlas',
+  }[locale] || 'Explore — Australian Atlas'
+  const description = {
+    en: EXPLORE_DESCRIPTION,
+    ko: EXPLORE_DESCRIPTION_KO,
+    zh: EXPLORE_DESCRIPTION_ZH,
+  }[locale] || EXPLORE_DESCRIPTION
   return {
-    title: 'Explore — Australian Atlas',
-    description: EXPLORE_DESCRIPTION,
+    title,
+    description,
     openGraph: {
-      title: 'Explore — Australian Atlas',
-      description: EXPLORE_DESCRIPTION,
+      title,
+      description,
       url: `${SITE_URL}/explore`,
       siteName: 'Australian Atlas',
-      locale: 'en_AU',
+      locale: ogLocale(locale),
       type: 'website',
     },
     alternates: { canonical: `${SITE_URL}/explore` },
@@ -360,7 +358,7 @@ export default async function ExplorePage() {
                           fontFamily: 'var(--font-body)', fontSize: '11px',
                           color: 'var(--color-muted)', marginBottom: '0.375rem',
                         }}>
-                          {new Date(article.published_at).toLocaleDateString(locale === 'ko' ? 'ko-KR' : 'en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}
+                          {new Date(article.published_at).toLocaleDateString(dateLocale(locale), { day: 'numeric', month: 'long', year: 'numeric' })}
                         </p>
                       )}
                       <h3 style={{

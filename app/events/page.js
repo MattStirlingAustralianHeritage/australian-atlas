@@ -18,12 +18,12 @@ const LOW_COUNT = 3
 
 const EVENTS_DESCRIPTION = 'Upcoming festivals, markets, dinners, tours, exhibitions and workshops across the Australian Atlas network.'
 const EVENTS_DESCRIPTION_KO = '오스트레일리안 아틀라스 네트워크 전역의 다가오는 축제, 마켓, 디너, 투어, 전시, 워크숍.'
+const EVENTS_DESCRIPTION_ZH = 'Australian Atlas 网络各地即将举办的节庆、市集、晚宴、导览、展览与工作坊。'
 
 export async function generateMetadata() {
   const locale = await getLocale()
-  const isKo = locale === 'ko'
-  const title = isKo ? '이벤트 — Australian Atlas' : 'Events — Australian Atlas'
-  const description = isKo ? EVENTS_DESCRIPTION_KO : EVENTS_DESCRIPTION
+  const title = { en: 'Events — Australian Atlas', ko: '이벤트 — Australian Atlas', zh: '活动 — Australian Atlas' }[locale] || 'Events — Australian Atlas'
+  const description = { en: EVENTS_DESCRIPTION, ko: EVENTS_DESCRIPTION_KO, zh: EVENTS_DESCRIPTION_ZH }[locale] || EVENTS_DESCRIPTION
   return {
     title,
     description,

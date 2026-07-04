@@ -2,19 +2,20 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import { jwtVerify } from 'jose'
 import { CRAWLER_RE, logCrawlerHit } from '@/lib/crawler-log'
-import { splitLocale, localizePath, defaultLocale, LOCALE_HEADER } from '@/lib/i18n/config'
+import { splitLocale, localizePath, defaultLocale, LOCALE_HEADER, isLocale, PREFIXED_LOCALES } from '@/lib/i18n/config'
 
 // hreflang alternates delivered as HTTP Link headers — a Google-supported,
-// route-agnostic way to advertise en/ko/x-default on every HTML page without
-// touching 200+ per-route metadata exports. `basePath` is the unprefixed path.
+// route-agnostic way to advertise en + every prefixed locale + x-default on
+// each HTML page without touching 200+ per-route metadata exports. `basePath`
+// is the unprefixed path. Generic over PREFIXED_LOCALES (ko, zh, …).
 function hreflangLinkHeader(origin, basePath) {
-  const en = `${origin}${localizePath(basePath, 'en')}`
-  const ko = `${origin}${localizePath(basePath, 'ko')}`
-  return [
-    `<${en}>; rel="alternate"; hreflang="en"`,
-    `<${ko}>; rel="alternate"; hreflang="ko"`,
-    `<${en}>; rel="alternate"; hreflang="x-default"`,
-  ].join(', ')
+  const en = `${origin}${localizePath(basePath, defaultLocale)}`
+  const parts = [`<${en}>; rel="alternate"; hreflang="en"`]
+  for (const loc of PREFIXED_LOCALES) {
+    parts.push(`<${origin}${localizePath(basePath, loc)}>; rel="alternate"; hreflang="${loc}"`)
+  }
+  parts.push(`<${en}>; rel="alternate"; hreflang="x-default"`)
+  return parts.join(', ')
 }
 
 export async function middleware(request, event) {
@@ -57,7 +58,12 @@ export async function middleware(request, event) {
   const { locale: urlLocale, basePath } = splitLocale(pathname)
   const cookieLocale = request.cookies.get('atlas_locale')?.value
   const isPrefixed = urlLocale !== defaultLocale
-  const locale = isPrefixed ? urlLocale : (cookieLocale === 'ko' ? 'ko' : defaultLocale)
+  // An explicit prefix always wins; otherwise a prior non-English choice (the
+  // sticky `atlas_locale` cookie) keeps the reader in that language across
+  // UNPREFIXED navigation too. Any supported non-default locale sticks (ko, zh).
+  const locale = isPrefixed
+    ? urlLocale
+    : (isLocale(cookieLocale) && cookieLocale !== defaultLocale ? cookieLocale : defaultLocale)
   const rewriteUrl = isPrefixed
     ? new URL(`${basePath}${request.nextUrl.search}`, request.url)
     : null

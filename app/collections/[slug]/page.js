@@ -2,6 +2,7 @@ import { cache } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getTranslations, getLocale } from 'next-intl/server'
+import { ogLocale } from '@/lib/i18n/config'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { overlayListingTranslations } from '@/lib/i18n/overlayListings'
 import { breadcrumbJsonLd, collectionJsonLd } from '@/lib/jsonLd'
@@ -28,26 +29,29 @@ const getCollection = cache(async function getCollection(slug) {
 export async function generateMetadata({ params }) {
   const { slug } = await params
   const locale = await getLocale()
-  const isKo = locale === 'ko'
   const collection = await getCollection(slug)
   if (!collection) return {}
 
   const description = collection.description
-    || (isKo
-      ? `독립 장소들을 엄선한 컬렉션 — ${collection.title}.`
-      : `A curated collection of independent places — ${collection.title}.`)
+    || ({
+      en: `A curated collection of independent places — ${collection.title}.`,
+      ko: `독립 장소들을 엄선한 컬렉션 — ${collection.title}.`,
+      zh: `独立好去处的甄选合集 — ${collection.title}。`,
+    }[locale] || `A curated collection of independent places — ${collection.title}.`)
 
   return {
-    title: isKo
-      ? `${collection.title} | 컬렉션 | Australian Atlas`
-      : `${collection.title} | Collections | Australian Atlas`,
+    title: {
+      en: `${collection.title} | Collections | Australian Atlas`,
+      ko: `${collection.title} | 컬렉션 | Australian Atlas`,
+      zh: `${collection.title} | 合集 | Australian Atlas`,
+    }[locale] || `${collection.title} | Collections | Australian Atlas`,
     description,
     openGraph: {
       title: collection.title,
       description,
       url: `${SITE_URL}/collections/${slug}`,
       siteName: 'Australian Atlas',
-      locale: 'en_AU',
+      locale: ogLocale(locale),
       type: 'article',
       ...(collection.hero_image_url ? { images: [collection.hero_image_url] } : {}),
     },

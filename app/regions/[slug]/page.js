@@ -6,6 +6,7 @@ import { overlayListingTranslations } from '@/lib/i18n/overlayListings'
 import { overlayRegionTranslation } from '@/lib/i18n/overlayEditorial'
 import { localizeVerticalDescription, localizeVerticalKicker } from '@/lib/i18n/listingLabels'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { dateLocale, ogLocale } from '@/lib/i18n/config'
 import { regionJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
 import RegionMapHero from '@/components/RegionMapHero'
 import RegionSearchBar from '@/components/RegionSearchBar'
@@ -84,6 +85,11 @@ const STATE_LABELS = {
 const STATE_LABELS_KO = {
   VIC: '빅토리아', NSW: '뉴사우스웨일스', QLD: '퀸즐랜드', SA: '사우스오스트레일리아',
   WA: '웨스턴오스트레일리아', TAS: '태즈메이니아', ACT: '오스트레일리아 수도 준주', NT: '노던 준주',
+}
+
+const STATE_LABELS_ZH = {
+  VIC: '维多利亚州', NSW: '新南威尔士州', QLD: '昆士兰州', SA: '南澳大利亚州',
+  WA: '西澳大利亚州', TAS: '塔斯马尼亚州', ACT: '澳大利亚首都领地', NT: '北领地',
 }
 
 const MAX_EDITORIAL_WORDS = 250
@@ -249,16 +255,23 @@ function WayExperienceCard({ listing, mode, t }) {
 export async function generateMetadata({ params }) {
   const { slug } = await params
   const locale = await getLocale()
-  const isKo = locale === 'ko'
   let region = await getRegion(slug)
-  if (!region) return { title: isKo ? '\uc9c0\uc5ed\uc744 \ucc3e\uc744 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4' : 'Region not found' }
+  if (!region) return { title: {
+    en: 'Region not found',
+    ko: '\uc9c0\uc5ed\uc744 \ucc3e\uc744 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4',
+    zh: '\u672a\u627e\u5230\u8be5\u5730\u533a',
+  }[locale] || 'Region not found' }
   region = await overlayRegionTranslation(region, locale)
-  const description = region.description || (isKo
-    ? `${region.name}\uc758 \ub3c5\ub9bd \ub9e4\uc7a5\uacfc \uc7a5\uc18c\ub97c \ubc1c\uacac\ud558\uc138\uc694`
-    : `Discover independent places in ${region.name}`)
-  const title = isKo
-    ? `${region.name}, ${STATE_LABELS_KO[region.state] || region.state} \u2014 \uc624\uc2a4\ud2b8\ub808\uc77c\ub9ac\uc548 \uc544\ud2c0\ub77c\uc2a4`
-    : `${region.name}, ${STATE_LABELS[region.state] || region.state} \u2014 Australian Atlas`
+  const description = region.description || ({
+    en: `Discover independent places in ${region.name}`,
+    ko: `${region.name}\uc758 \ub3c5\ub9bd \ub9e4\uc7a5\uacfc \uc7a5\uc18c\ub97c \ubc1c\uacac\ud558\uc138\uc694`,
+    zh: `\u53d1\u73b0 ${region.name} \u7684\u72ec\u7acb\u597d\u53bb\u5904`,
+  }[locale] || `Discover independent places in ${region.name}`)
+  const title = {
+    en: `${region.name}, ${STATE_LABELS[region.state] || region.state} \u2014 Australian Atlas`,
+    ko: `${region.name}, ${STATE_LABELS_KO[region.state] || region.state} \u2014 \uc624\uc2a4\ud2b8\ub808\uc77c\ub9ac\uc548 \uc544\ud2c0\ub77c\uc2a4`,
+    zh: `${region.name}\uff0c${STATE_LABELS_ZH[region.state] || region.state} \u2014 Australian Atlas`,
+  }[locale] || `${region.name}, ${STATE_LABELS[region.state] || region.state} \u2014 Australian Atlas`
   return {
     title,
     description,
@@ -267,7 +280,7 @@ export async function generateMetadata({ params }) {
       description,
       url: `https://australianatlas.com.au/regions/${slug}`,
       siteName: 'Australian Atlas',
-      locale: 'en_AU',
+      locale: ogLocale(locale),
       type: 'website',
     },
     alternates: {
@@ -576,7 +589,7 @@ export default async function RegionPage({ params }) {
                 }}>
                   {t('generatedFrom', { count: narrative.listing_count_at_generation || listings.length })}
                   {narrative.generated_at && (
-                    <> &middot; {t('lastUpdated', { date: new Date(narrative.generated_at).toLocaleDateString(locale === 'ko' ? 'ko-KR' : 'en-AU', { day: 'numeric', month: 'long', year: 'numeric' }) })}</>
+                    <> &middot; {t('lastUpdated', { date: new Date(narrative.generated_at).toLocaleDateString(dateLocale(locale), { day: 'numeric', month: 'long', year: 'numeric' }) })}</>
                   )}
                 </p>
               </>

@@ -12,17 +12,17 @@ export async function generateMetadata() {
   const count = getPublicVerticals().length
   const word = ATLAS_COUNT_WORDS[count] || count
   const locale = await getLocale()
-  const isKo = locale === 'ko'
-  if (isKo) {
-    return {
-      title: '네트워크 — Australian Atlas',
-      description: `${count}개 버티컬로 이루어진 Australian Atlas 네트워크의 실시간 등록 수, 최근 추가, 커버리지 데이터.`,
-    }
-  }
-  return {
-    title: 'The Network — Australian Atlas',
-    description: `Live listing counts, recent additions, and coverage data across the ${word}-vertical Australian Atlas network.`,
-  }
+  const title = {
+    en: 'The Network — Australian Atlas',
+    ko: '네트워크 — Australian Atlas',
+    zh: '网络 — Australian Atlas',
+  }[locale] || 'The Network — Australian Atlas'
+  const description = {
+    en: `Live listing counts, recent additions, and coverage data across the ${word}-vertical Australian Atlas network.`,
+    ko: `${count}개 버티컬로 이루어진 Australian Atlas 네트워크의 실시간 등록 수, 최근 추가, 커버리지 데이터.`,
+    zh: `涵盖 ${count} 个门类的 Australian Atlas 网络的实时收录数量、最新新增与覆盖数据。`,
+  }[locale] || `Live listing counts, recent additions, and coverage data across the ${word}-vertical Australian Atlas network.`
+  return { title, description }
 }
 
 const VERTICAL_NAMES = {

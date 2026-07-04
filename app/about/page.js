@@ -8,11 +8,16 @@ export const revalidate = 86400
 
 export async function generateMetadata() {
   const locale = await getLocale()
-  const isKo = locale === 'ko'
-  const title = isKo ? '소개 | Australian Atlas' : 'About | Australian Atlas'
-  const description = isKo
-    ? 'Australian Atlas는 독립적인 호주를 안내하는 독립 운영 가이드입니다 — 전국의 메이커, 생산자, 문화 공간, 자연 명소를 담은 열 개의 큐레이션 아틀라스.'
-    : 'Australian Atlas is an independently operated guide to independent Australia — ten curated atlases mapping makers, producers, cultural spaces, and natural places across the country.'
+  const title = {
+    en: 'About | Australian Atlas',
+    ko: '소개 | Australian Atlas',
+    zh: '关于我们 | Australian Atlas',
+  }[locale] || 'About | Australian Atlas'
+  const description = {
+    en: 'Australian Atlas is an independently operated guide to independent Australia — ten curated atlases mapping makers, producers, cultural spaces, and natural places across the country.',
+    ko: 'Australian Atlas는 독립적인 호주를 안내하는 독립 운영 가이드입니다 — 전국의 메이커, 생산자, 문화 공간, 자연 명소를 담은 열 개의 큐레이션 아틀라스.',
+    zh: 'Australian Atlas 是一份由独立团队运营的独立澳大利亚指南——十本精心策划的图鉴，标绘出全国各地的匠人、生产者、文化空间与自然胜地。',
+  }[locale] || 'Australian Atlas is an independently operated guide to independent Australia — ten curated atlases mapping makers, producers, cultural spaces, and natural places across the country.'
   return {
     title,
     description,
