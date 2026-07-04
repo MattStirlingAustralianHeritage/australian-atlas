@@ -1,6 +1,6 @@
 'use client'
 import 'mapbox-gl/dist/mapbox-gl.css'
-import { useRef, useEffect, useState, useCallback } from 'react'
+import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
 import { createPortal } from 'react-dom'
 import { getVerticalUrl, getVerticalBadge, getVerticalLabel, getVerticalBrandColour, getPublicVerticals } from '@/lib/verticalUrl'
@@ -49,6 +49,14 @@ const STATE_BOUNDS = {
   'TAS':  [143.83, -43.65, 148.48, -39.57],
   'NT':   [129.00, -26.00, 138.00, -10.97],
   'ACT':  [148.76, -35.92, 149.40, -35.12],
+}
+
+// Full state names → folded into each listing's search haystack so a query
+// like "accommodation in Victoria" matches on the state (listings only store
+// the "VIC" code). Both name and code stay searchable.
+const STATE_FULL = {
+  NSW: 'new south wales', VIC: 'victoria', QLD: 'queensland', SA: 'south australia',
+  WA: 'western australia', TAS: 'tasmania', ACT: 'australian capital territory', NT: 'northern territory',
 }
 
 // Mainland + Tasmania. The initial camera and the "All States" reset both
@@ -205,7 +213,7 @@ function buildHaystack(l) {
     getVerticalBadge(l.vertical), getVerticalLabel(l.vertical),
     l.sub_type ? String(l.sub_type).replace(/_/g, ' ') : '',
     subTypes[l.sub_type] || '',
-    l.region, l.state,
+    l.region, l.state, STATE_FULL[l.state] || '',
     l.description,
   ].filter(Boolean).join(' ').toLowerCase()
 }
@@ -265,17 +273,6 @@ const SUBTYPE_WORD_INDEX = (() => {
   return idx
 })()
 
-// The sub_type keys a query's tokens explicitly name (empty = no category
-// named, so no constraint applies).
-function requiredSubtypes(tokens) {
-  const req = new Set()
-  for (const t of tokens) {
-    const keys = SUBTYPE_WORD_INDEX[t]
-    if (keys) for (const k of keys) req.add(k)
-  }
-  return req
-}
-
 // A listing satisfies a named category if its sub_type is one named, or (as a
 // safety net for un-typed rows) its name literally contains a category token.
 function passesCategory(l, reqSub, catTokens) {
@@ -283,6 +280,143 @@ function passesCategory(l, reqSub, catTokens) {
   if (l.sub_type && reqSub.has(l.sub_type)) return true
   const n = (l.name || '').toLowerCase()
   return catTokens.some(t => n.includes(t))
+}
+
+// ── Plain-language understanding ──
+// Filler words that carry no filtering intent. Stripped before matching so
+// "places to sleep in Ballarat" reduces to the words that matter (sleep +
+// Ballarat) instead of demanding every listing literally contain "places".
+const STOPWORDS = new Set([
+  'a', 'an', 'the', 'in', 'on', 'at', 'of', 'to', 'for', 'and', 'or', 'with', 'near',
+  'nearby', 'around', 'about', 'me', 'my', 'i', 'we', 'us', 'our', 'is', 'are', 'am',
+  'be', 'was', 'some', 'any', 'all', 'best', 'good', 'great', 'nice', 'top', 'cool',
+  'find', 'show', 'see', 'go', 'going', 'get', 'take', 'want', 'wanting', 'need', 'looking',
+  'look', 'search', 'searching', 'where', 'here', 'there', 'that', 'this', 'these', 'those',
+  'place', 'places', 'somewhere', 'spot', 'spots', 'area', 'areas', 'thing', 'things',
+  'can', 'could', 'would', 'should', 'do', 'you', 'it', 'give', 'got', 'have',
+])
+
+// Everyday intent words that name a WHOLE vertical rather than one sub_type —
+// they never appear literally in a listing's category vocabulary, so they
+// constrain the vertical instead of being required in the haystack. Keeps the
+// semantic pool honest too: "places to sleep in Ballarat" can't leak galleries.
+const VERTICAL_INTENT = {
+  // Rest — the "places to stay" vertical
+  accommodation: 'rest', accom: 'rest', accomodation: 'rest', accommodations: 'rest',
+  sleep: 'rest', sleeping: 'rest', stay: 'rest', stays: 'rest', staying: 'rest',
+  lodging: 'rest', overnight: 'rest',
+  // Table — the food/eat vertical
+  eat: 'table', eating: 'table', eatery: 'table', eateries: 'table', food: 'table',
+  dining: 'table', dine: 'table',
+}
+
+// ── Typo tolerance ──
+// A misspelled query must not silently return zero. We spell-correct each query
+// token against the live corpus vocabulary (every word the listings actually
+// use, plus the category/intent/state vocabulary) so "acommodation", "brewrey"
+// and "restaurants" resolve to real words before matching runs.
+
+// Levenshtein with a hard ceiling and per-row early-out — returns max+1 the
+// moment the edit distance is known to exceed `max`, so most comparisons bail
+// in a couple of rows.
+function boundedLev(a, b, max) {
+  const al = a.length, bl = b.length
+  if (Math.abs(al - bl) > max) return max + 1
+  let prev = new Array(bl + 1)
+  for (let j = 0; j <= bl; j++) prev[j] = j
+  for (let i = 1; i <= al; i++) {
+    const cur = new Array(bl + 1)
+    cur[0] = i
+    let rowMin = i
+    for (let j = 1; j <= bl; j++) {
+      const cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost)
+      if (cur[j] < rowMin) rowMin = cur[j]
+    }
+    if (rowMin > max) return max + 1
+    prev = cur
+  }
+  return prev[bl] <= max ? prev[bl] : max + 1
+}
+
+// Build the correction vocabulary from the loaded listings + the fixed
+// category/intent/state vocabulary. Bucketed by length so correction only
+// scans candidates of a compatible length.
+function buildVocab(listings) {
+  const set = new Set()
+  const add = (w) => { if (w && w.length >= 3) set.add(w) }
+  for (const l of listings) {
+    const hay = l._hay || ''
+    for (const w of hay.split(/[^a-z0-9]+/)) add(w)
+  }
+  for (const k of Object.keys(SUBTYPE_WORD_INDEX)) add(k)
+  for (const k of Object.keys(QUERY_SYNONYMS)) add(k)
+  for (const k of Object.keys(VERTICAL_INTENT)) add(k)
+  for (const v of Object.values(STATE_FULL)) for (const w of v.split(' ')) add(w)
+  const byLen = new Map()
+  for (const w of set) {
+    const a = byLen.get(w.length); if (a) a.push(w); else byLen.set(w.length, [w])
+  }
+  return { set, byLen }
+}
+
+// Correct one token. Left unchanged when it's already known, is a prefix of a
+// known word (partial typing / a valid substring the matcher would hit anyway),
+// or has no close neighbour. Only tokens of 4+ chars are eligible.
+function correctToken(tok, vocab) {
+  if (!vocab || tok.length < 4 || vocab.set.has(tok)) return tok
+  // A prefix of any longer known word ("brew" → "brewery", "accom" → …) already
+  // matches via substring, so never rewrite it.
+  for (let len = tok.length + 1; len <= tok.length + 8; len++) {
+    const bucket = vocab.byLen.get(len)
+    if (!bucket) continue
+    for (const w of bucket) if (w.charCodeAt(0) === tok.charCodeAt(0) && w.startsWith(tok)) return tok
+  }
+  const maxDist = tok.length >= 8 ? 2 : 1
+  let best = null, bestD = maxDist + 1
+  for (let len = tok.length - maxDist; len <= tok.length + maxDist; len++) {
+    if (len < 3) continue
+    const bucket = vocab.byLen.get(len)
+    if (!bucket) continue
+    for (const w of bucket) {
+      const d = boundedLev(tok, w, maxDist)
+      if (d < bestD) { bestD = d; best = w; if (d === 1 && w.charCodeAt(0) === tok.charCodeAt(0)) break }
+    }
+    if (bestD === 1 && best && best.charCodeAt(0) === tok.charCodeAt(0)) break
+  }
+  return best && bestD <= maxDist ? best : tok
+}
+
+// Parse a raw filter query into its constituent constraints. Every token is
+// spell-corrected, then classified: stopwords drop out; cuisine/dietary words
+// become HARD literals; whole-vertical intent words constrain the vertical;
+// category words constrain the sub_type; everything else must appear in the
+// haystack (fuzzily, via the correction above).
+function parsePinQuery(raw, vocab) {
+  const reqVerticals = new Set()
+  const reqSubtypes = new Set()
+  const hardTerms = []
+  const matchTokens = []
+  const catTokens = []
+  for (const rt of tokenizeQuery(raw)) {
+    const t = correctToken(rt, vocab)
+    if (STOPWORDS.has(t)) continue
+    if (HARD_TERMS.has(t)) { hardTerms.push(t); continue }
+    const vk = VERTICAL_INTENT[t]
+    if (vk) { reqVerticals.add(vk); continue }
+    const subs = SUBTYPE_WORD_INDEX[t]
+    if (subs) { for (const k of subs) reqSubtypes.add(k); catTokens.push(t); matchTokens.push(t); continue }
+    matchTokens.push(t)
+  }
+  const hasQuery = reqVerticals.size > 0 || reqSubtypes.size > 0 || hardTerms.length > 0 || matchTokens.length > 0
+  return { reqVerticals, reqSubtypes, hardTerms, matchTokens, catTokens, hasQuery }
+}
+
+// A named vertical ("accommodation", "somewhere to eat") gates the vertical the
+// same way a named category gates the sub_type — applied to the semantic pool
+// too, so an off-vertical neighbour can never sneak in.
+function passesVertical(l, reqVert) {
+  return reqVert.size === 0 || reqVert.has(l.vertical)
 }
 
 // ── Cuisine / attribute HARD terms ──
@@ -305,11 +439,6 @@ const HARD_TERMS = new Set([
   // Dietary / religious attributes — accuracy here matters as much as cuisine
   'vegan', 'vegetarian', 'halal', 'kosher', 'kasher',
 ])
-
-// The HARD terms present in a query — each MUST appear in a listing's haystack.
-function hardTermsIn(tokens) {
-  return tokens.filter(t => HARD_TERMS.has(t))
-}
 
 const placesLabel = (n, t) => t('placesCount', { count: n })
 
@@ -395,6 +524,9 @@ export default function MapClient({
   const donuts = useRef(null)
 
   const [allListings, setAllListings] = useState([])
+  // Spell-correction vocabulary, rebuilt once per data load. Powers the
+  // typo-tolerant filter (misspellings resolve to real corpus words).
+  const vocab = useMemo(() => buildVocab(allListings), [allListings])
   // Multi-select vertical filter — empty Set = "all"
   const [selectedVerticals, setSelectedVerticals] = useState(() => {
     if (initialVertical && initialVertical !== 'all') return new Set([initialVertical])
@@ -550,12 +682,14 @@ export default function MapClient({
     }
   }
 
-  // Unified search (venues + towns in one field)
-  const [query, setQuery] = useState('')
+  // Unified search + filter: pinQuery is the single field. As the user types it
+  // (a) filters the map live (the smart filter) and (b) offers a dropdown of
+  // precise jumps — matching venues and towns/POIs from the geocoder — so one
+  // box both narrows the map and navigates to a specific place.
   const [placeResults, setPlaceResults] = useState([])
   const [showSearchDropdown, setShowSearchDropdown] = useState(false)
-  const searchRef = useRef(null)
-  const mobileSearchRef = useRef(null)
+  const searchRef = useRef(null)        // desktop pill wrapper (click-outside)
+  const mobileSearchRef = useRef(null)  // mobile search box wrapper
   // Picking a result sets the query programmatically, which would otherwise
   // re-fire the debounced geocoder and pop the dropdown back open.
   const suppressSearch = useRef(false)
@@ -582,19 +716,22 @@ export default function MapClient({
   // Derived: single-selected vertical for sub-type pills
   const singleSelectedVertical = selectedVerticals.size === 1 ? [...selectedVerticals][0] : null
 
-  // Debounced geocoding half of the unified search
+  // Debounced geocoding half of the unified field — towns, suburbs, regions AND
+  // named businesses (poi), so "Tar Barrel Brewery" resolves and flies there
+  // even when it isn't one of our listings.
   useEffect(() => {
     if (suppressSearch.current) { suppressSearch.current = false; return }
-    if (!query || query.length < 2) { setPlaceResults([]); return }
+    const q = pinQuery.trim()
+    if (!q || q.length < 2) { setPlaceResults([]); return }
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?country=AU&types=region,postcode,district,place,locality,neighborhood,address&access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`)
+        const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(q)}.json?country=AU&types=region,postcode,district,place,locality,neighborhood,address,poi&access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`)
         const data = await res.json()
         setPlaceResults(data.features || [])
       } catch (e) { console.error('Geocoding error:', e) }
     }, 350)
     return () => clearTimeout(timer)
-  }, [query])
+  }, [pinQuery])
 
   useEffect(() => {
     function handleClickOutside(e) {
@@ -688,19 +825,21 @@ export default function MapClient({
     return () => window.removeEventListener('keydown', onKey)
   }, [isEmbedded, clearSelected])
 
-  // Jump straight to a venue picked from the unified search.
+  // Jump straight to a venue picked from the unified search — fly to it and
+  // select it; the field reflects the pick (the filter narrows to that one).
   function jumpToVenue(l) {
     setShowSearchDropdown(false)
     setMobileSheetOpen(false)
     setMobileListOpen(false)
+    setPlaceResults([])
     suppressSearch.current = true
-    setQuery(l.name)
+    setPinQuery(l.name)
     if (typeof document !== 'undefined' && document.activeElement?.blur) document.activeElement.blur()
     selectListing(l, { fly: true })
   }
 
   function getZoomForPlaceType(placeType) {
-    const zooms = { country: 4, region: 6, postcode: 9, district: 9, place: 11, locality: 13, neighborhood: 13, address: 15 }
+    const zooms = { country: 4, region: 6, postcode: 9, district: 9, place: 11, locality: 13, neighborhood: 13, address: 15, poi: 15 }
     return zooms[placeType] || 11
   }
 
@@ -709,7 +848,13 @@ export default function MapClient({
     const placeType = feature.place_type?.[0] || 'place'
     map.current?.flyTo({ center: [lng, lat], zoom: getZoomForPlaceType(placeType), padding: cameraPadding(), duration: 1500 })
     suppressSearch.current = true
-    setQuery(feature.place_name)
+    // We've flown here explicitly — mark it so the filter's own place-detection
+    // fly (which runs when the query resolves) doesn't re-frame a beat later.
+    if (placeType !== 'poi') flownForQuery.current = feature.text
+    // A named business (poi) is a "take me there" jump — clear the filter so the
+    // venues around it stay visible. A town/region/suburb scopes the filter to
+    // that place (its short name matches the listings' region text).
+    setPinQuery(placeType === 'poi' ? '' : feature.text)
     setPlaceResults([])
     setShowSearchDropdown(false)
     setMobileListOpen(false)
@@ -1317,19 +1462,18 @@ export default function MapClient({
     // matches on local tokens (instant, complete for category words) OR on
     // the semantic result set from the /search pipeline (rice-lager-grade
     // recall, landing a beat later).
-    const tokens = tokenizeQuery(appliedPinQuery)
+    // Parse the plain-language query: stopwords stripped, typos corrected, and
+    // intent classified. A named vertical ("accommodation") or category
+    // ("brewery") hard-constrains the result — applied to the semantic pool too,
+    // so the vertical's other members never sneak in.
+    const parsed = parsePinQuery(appliedPinQuery, vocab)
     const sem = semantic && semantic.query === appliedPinQuery ? semantic : null
-    // A named category ("brewery") hard-constrains the sub_type so the vertical's
-    // other members (wineries, distilleries) never sneak in via the semantic pool.
-    const reqSub = requiredSubtypes(tokens)
-    const catTokens = tokens.filter(t => SUBTYPE_WORD_INDEX[t])
     // A cuisine/nationality/dietary word must appear literally in the venue's
     // text — "Korean" must never fuzz into a Japanese ramen bar via semantics.
-    const hardTerms = hardTermsIn(tokens)
-    const passesHard = (l) => hardTerms.length === 0 || hardTerms.every(t => (l._hay || '').includes(t))
-    const isMatch = (l) => passesCategory(l, reqSub, catTokens) && passesHard(l) && (matchesPinQuery(l, tokens) || (sem !== null && sem.ids.has(l.id)))
-    const matches = tokens.length ? base.filter(isMatch) : base
-    const rest = tokens.length ? base.filter(l => !isMatch(l)) : []
+    const passesHard = (l) => parsed.hardTerms.length === 0 || parsed.hardTerms.every(t => (l._hay || '').includes(t))
+    const isMatch = (l) => passesVertical(l, parsed.reqVerticals) && passesCategory(l, parsed.reqSubtypes, parsed.catTokens) && passesHard(l) && (matchesPinQuery(l, parsed.matchTokens) || (sem !== null && sem.ids.has(l.id)))
+    const matches = parsed.hasQuery ? base.filter(isMatch) : base
+    const rest = parsed.hasQuery ? base.filter(l => !isMatch(l)) : []
     filteredRef.current = matches
     setCount(matches.length)
     const source = map.current.getSource('listings-clustered')
@@ -1345,7 +1489,7 @@ export default function MapClient({
     // survivors get fewer, they grow, gain a swelling colour glow and a bolder
     // rim, while the greyed-out rest fades further back so the matches pop.
     const m = map.current
-    const e = matchEmphasis(matches.length, tokens.length > 0)
+    const e = matchEmphasis(matches.length, parsed.hasQuery)
     if (m.getLayer('pins-basic')) {
       m.setPaintProperty('pins-basic', 'circle-radius', pinRadius(1 + 0.95 * e))
       m.setPaintProperty('pins-basic', 'circle-stroke-width', 1.75 + 1.35 * e)
@@ -1400,7 +1544,7 @@ export default function MapClient({
     if (!appliedPinQuery) flownForQuery.current = null
 
     updateInView()
-  }, [allListings, selectedVerticals, subTypeFilter, stateFilter, appliedPinQuery, semantic, mapReady])
+  }, [allListings, selectedVerticals, subTypeFilter, stateFilter, appliedPinQuery, semantic, mapReady, vocab])
 
   // ── Anchored selection card (desktop): one marker as a React portal, so
   // the map engine keeps the card glued to its pin through pan/zoom. ──
@@ -1620,19 +1764,25 @@ export default function MapClient({
     setPinQuery('')
   }
 
-  // Venue half of the unified search — prefix matches rank above substring
-  // matches; capped at 5 rows (the towns section sits beneath).
-  const venueMatches = (() => {
-    const q = query.trim().toLowerCase()
+  // Venue half of the unified field — name matches ranked prefix → substring →
+  // all-word (so "Tar Barrel brewery" still finds "Tar Barrel" once the generic
+  // category word is set aside). Capped at 5 (towns/POIs sit beneath).
+  const venueMatches = useMemo(() => {
+    const q = pinQuery.trim().toLowerCase()
     if (q.length < 2) return []
-    const starts = [], contains = []
+    // Words that must appear in the NAME — drop stopwords and generic category/
+    // intent words so a trailing "brewery"/"cafe" doesn't exclude the venue.
+    const nameToks = q.split(/\s+/).filter(w => w.length >= 2 && !STOPWORDS.has(w) && !SUBTYPE_WORD_INDEX[w] && !VERTICAL_INTENT[w])
+    const starts = [], contains = [], allWord = []
     for (const l of allListings) {
       const n = l.name ? l.name.toLowerCase() : ''
-      if (n.startsWith(q)) { starts.push(l); if (starts.length >= 5) break }
-      else if (n.includes(q) && contains.length < 5) contains.push(l)
+      if (!n) continue
+      if (n.startsWith(q)) { if (starts.length < 5) starts.push(l) }
+      else if (n.includes(q)) { if (contains.length < 5) contains.push(l) }
+      else if (nameToks.length && nameToks.every(w => n.includes(w))) { if (allWord.length < 5) allWord.push(l) }
     }
-    return [...starts, ...contains].slice(0, 5)
-  })()
+    return [...starts, ...contains, ...allWord].slice(0, 5)
+  }, [pinQuery, allListings])
 
   const hasSearchResults = venueMatches.length > 0 || placeResults.length > 0
 
@@ -1674,10 +1824,12 @@ export default function MapClient({
     )
   }
 
-  // Unified search dropdown — venues first, then towns/places.
-  const renderSearchDropdown = (widthStyle) => (
+  // Unified search dropdown — venues first, then towns/places. Opens downward
+  // by default; `up` anchors it above the input (for the bottom filter pill).
+  const renderSearchDropdown = (widthStyle, { up = false } = {}) => (
     <div style={{
-      position: 'absolute', top: '100%', left: 0, marginTop: 4, background: '#fff',
+      position: 'absolute', left: 0, background: '#fff',
+      ...(up ? { bottom: '100%', marginBottom: 6 } : { top: '100%', marginTop: 4 }),
       border: '1px solid var(--color-border)', borderRadius: 8,
       boxShadow: '0 8px 28px rgba(28,26,23,0.16)', zIndex: 1000, maxHeight: 340, overflowY: 'auto',
       ...widthStyle,
@@ -1710,16 +1862,21 @@ export default function MapClient({
     </div>
   )
 
+  // Shared handlers for the unified field (bottom pill on desktop, top box on
+  // mobile). Typing both filters the map (pinQuery) and opens the jump dropdown;
+  // Enter takes the top precise match (a specific venue, then a town/POI) so a
+  // name like "Tar Barrel Brewery" flies straight there.
   const searchInputProps = {
-    value: query,
-    onChange: e => { setQuery(e.target.value); setShowSearchDropdown(!!e.target.value) },
+    value: pinQuery,
+    onChange: e => { setPinQuery(e.target.value); setShowSearchDropdown(!!e.target.value) },
     onFocus: () => { if (hasSearchResults) setShowSearchDropdown(true) },
     onKeyDown: e => {
       if (e.key === 'Enter') {
         if (venueMatches.length) jumpToVenue(venueMatches[0])
         else if (placeResults.length) handlePlaceSelect(placeResults[0])
+        else setShowSearchDropdown(false)
       }
-      if (e.key === 'Escape') setShowSearchDropdown(false)
+      if (e.key === 'Escape') { setShowSearchDropdown(false); setPinQuery('') }
     },
     placeholder: t('searchPlaceholder'),
     'aria-label': t('searchAriaLabel'),
@@ -1751,18 +1908,10 @@ export default function MapClient({
               {renderTrailButton()}
             </div>
           </div>
-          {/* Row 1: unified search, vertical chips, state select, count */}
+          {/* Row 1: vertical chips, state select, count. The former top-left
+              search box is folded into the one bottom "search & filter" pill —
+              a single surface that both filters the map and jumps to a place. */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px 9px', borderBottom: hasSubTypes ? 'none' : '1px solid var(--color-border)', background: 'rgba(250,248,245,0.97)', backdropFilter: 'blur(8px)', flexWrap: 'wrap' }}>
-            <div ref={searchRef} style={{ position: 'relative', width: 250 }}>
-              <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', display: 'flex', pointerEvents: 'none' }} aria-hidden="true">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-muted)" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-              </span>
-              <input {...searchInputProps}
-                style={{ padding: '8px 12px 8px 31px', background: '#fff', border: '1px solid var(--color-border)', color: 'var(--color-ink)', fontSize: 12, outline: 'none', borderRadius: 999, width: '100%', fontFamily: 'var(--font-sans)', boxSizing: 'border-box' }}
-              />
-              {showSearchDropdown && hasSearchResults && renderSearchDropdown({ width: 330 })}
-            </div>
-            <div style={{ width: 1, height: 18, background: 'var(--color-border)' }} />
             {verticalFilters.map(v => {
               const active = v.key === 'all' ? isAllVerticals : selectedVerticals.has(v.key)
               const c = v.key === 'all' ? PRIMARY : verticalColor(v.key)
@@ -1982,8 +2131,8 @@ export default function MapClient({
               </span>
               <input type="text" inputMode="search" {...searchInputProps}
                 style={{ width: '100%', padding: '11px 38px 11px 34px', background: 'rgba(255,255,255,0.98)', border: '1px solid var(--color-border)', color: 'var(--color-ink)', fontSize: 14, outline: 'none', borderRadius: 10, fontFamily: 'var(--font-sans)', boxSizing: 'border-box', boxShadow: '0 2px 10px rgba(0,0,0,0.12)' }} />
-              {query && (
-                <button onClick={() => { setQuery(''); setPlaceResults([]); setShowSearchDropdown(false) }} aria-label={t('clearSearch')} style={{ position: 'absolute', right: 6, width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-muted)' }}>
+              {pinQuery && (
+                <button onClick={() => { setPinQuery(''); setPlaceResults([]); setShowSearchDropdown(false) }} aria-label={t('clearSearch')} style={{ position: 'absolute', right: 6, width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-muted)' }}>
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
                 </button>
               )}
@@ -2024,8 +2173,8 @@ export default function MapClient({
             pointerEvents: 'none', transition: 'left 0.38s cubic-bezier(0.22, 1, 0.36, 1)',
             padding: '0 88px',
           }}>
-            <div style={{
-              pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 9,
+            <div ref={searchRef} style={{
+              position: 'relative', pointerEvents: 'auto', display: 'flex', alignItems: 'center', gap: 9,
               width: 'min(520px, 100%)', boxSizing: 'border-box',
               background: 'rgba(251,249,244,0.94)', backdropFilter: 'blur(14px) saturate(1.2)',
               border: `1px solid ${filterActive ? 'rgba(95,138,126,0.5)' : 'rgba(28,26,23,0.1)'}`,
@@ -2041,8 +2190,16 @@ export default function MapClient({
               <input
                 type="text"
                 value={pinQuery}
-                onChange={e => setPinQuery(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Escape') setPinQuery('') }}
+                onChange={e => { setPinQuery(e.target.value); setShowSearchDropdown(!!e.target.value) }}
+                onFocus={() => { if (hasSearchResults) setShowSearchDropdown(true) }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    if (venueMatches.length) jumpToVenue(venueMatches[0])
+                    else if (placeResults.length) handlePlaceSelect(placeResults[0])
+                    else setShowSearchDropdown(false)
+                  }
+                  if (e.key === 'Escape') { setShowSearchDropdown(false); setPinQuery('') }
+                }}
                 placeholder={t('filterPlaceholderLong')}
                 aria-label={t('filterAriaLabel')}
                 style={{
@@ -2080,6 +2237,9 @@ export default function MapClient({
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
                 </button>
               )}
+              {/* Jump dropdown — specific venues + towns/POIs, opening upward
+                  above the pill. Picking one flies straight there. */}
+              {showSearchDropdown && hasSearchResults && renderSearchDropdown({ width: '100%' }, { up: true })}
             </div>
           </div>
         )}
