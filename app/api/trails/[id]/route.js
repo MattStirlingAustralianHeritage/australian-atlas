@@ -35,7 +35,7 @@ export async function GET(request, { params }) {
     // Fetch stops ordered by order_index
     const { data: stops, error: stopsError } = await sb
       .from('trail_stops')
-      .select('id, trail_id, listing_id, vertical, venue_name, venue_lat, venue_lng, venue_image_url, position, editorial_copy, distance_from_previous_km, duration_from_previous_minutes')
+      .select('id, trail_id, listing_id, vertical, venue_name, venue_lat, venue_lng, venue_image_url, position, day_number, editorial_copy, distance_from_previous_km, duration_from_previous_minutes')
       .eq('trail_id', trail.id)
       .order('position', { ascending: true })
 
@@ -192,6 +192,7 @@ export async function PUT(request, { params }) {
           venue_lng: stop.venue_lng,
           venue_image_url: stop.venue_image_url || null,
           position: stop.position ?? stop.order_index ?? i,
+          day_number: Number.isFinite(stop.day_number) ? stop.day_number : null,
           editorial_copy: stop.editorial_copy ?? stop.notes ?? null,
           // included_in_route: column absent from the production schema
           distance_from_previous_km: Number.isFinite(stop.distance_from_previous_km) ? stop.distance_from_previous_km : null,
@@ -214,7 +215,7 @@ export async function PUT(request, { params }) {
     // Fetch updated stops
     const { data: updatedStops } = await sb
       .from('trail_stops')
-      .select('id, trail_id, listing_id, vertical, venue_name, venue_lat, venue_lng, venue_image_url, position, editorial_copy, distance_from_previous_km, duration_from_previous_minutes')
+      .select('id, trail_id, listing_id, vertical, venue_name, venue_lat, venue_lng, venue_image_url, position, day_number, editorial_copy, distance_from_previous_km, duration_from_previous_minutes')
       .eq('trail_id', id)
       .order('position', { ascending: true })
 

@@ -11,6 +11,9 @@ import { ATLAS_PAPER_STYLE, ATLAS_LABEL_ROOF } from '@/lib/map/atlasPaperStyle'
 import { attachDonutClusters } from '@/lib/map/donutClusters'
 import DiscoveryPanel from '@/components/map/DiscoveryPanel'
 import MapPreviewCard from '@/components/map/MapPreviewCard'
+import TrailPanel from '@/components/map/TrailPanel'
+import useTrailPlanner from '@/components/map/useTrailPlanner'
+import AuthModal from '@/components/AuthModal'
 
 const PRIMARY = '#5f8a7e'
 const PREMIUM_COLOR = '#c8943a'
@@ -64,6 +67,9 @@ const MIN_ZOOM = 2
 // (mapbox persists whatever padding a camera call carries — by passing it
 // everywhere we own that state instead of being surprised by it).
 const PANEL_W = 384
+
+// Desktop trail panel width (right rail).
+const TRAIL_W = 336
 
 // Cap on rendered gazetteer rows — the list is a scanning surface, not a
 // database dump; past this the answer is "zoom in".
@@ -354,6 +360,10 @@ export default function MapClient({
   highlightListingId = null,
   focusListingId = null,
   publicVerticals = null,
+  initialTrailOpen = false,   // ?trail=1 — open the trail panel on load
+  initialTrailEdit = null,    // ?trail=<uuid> — hydrate a saved trail for editing
+  initialTrailResume = false, // ?resume=1 — finish an interrupted save after OAuth
+  initialTrailRegion = '',    // ?region=Name — frame that region (from "build a trail here" links)
 }) {
   const isEmbedded = mode === 'embedded'
   const t = useTranslations('map')
@@ -473,7 +483,20 @@ export default function MapClient({
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false)
   const [mobileLegendOpen, setMobileLegendOpen] = useState(false)
   const [mobileListOpen, setMobileListOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState('map') // 'map' | 'builder'
+
+  // ── Trail planner — the "Build a trail" function folded into the map.
+  // The hook owns draft persistence, routing, day structure, taste-ranked
+  // suggestions and saving; MapClient renders its pins, route and panel. ──
+  const trail = useTrailPlanner({
+    allListings,
+    initialOpen: initialTrailOpen,
+    initialEditId: initialTrailEdit,
+    initialResume: initialTrailResume,
+  })
+  const trailOpen = !isEmbedded && trail.open
+  const trailOpenRef = useRef(trailOpen)
+  useEffect(() => { trailOpenRef.current = trailOpen }, [trailOpen])
+  const trailIds = new Set(trail.stops.map(s => String(s.id)))
 
   // Discovery panel (desktop) — open by default: split view is the difference
   // between a map people use and a map people bounce off.
@@ -620,11 +643,11 @@ export default function MapClient({
   }, [])
 
   // Explicit camera padding for every camera call — panel-aware on desktop.
-  const cameraPadding = useCallback((panelIsOpen = panelOpenRef.current) => {
+  const cameraPadding = useCallback((panelIsOpen = panelOpenRef.current, trailIsOpen = trailOpenRef.current) => {
     if (typeof window === 'undefined' || isEmbedded) return 40
     const mobile = window.matchMedia('(max-width: 768px)').matches
     if (mobile) return { top: 116, bottom: 96, left: 28, right: 28 }
-    return { top: 138, bottom: 48, left: (panelIsOpen ? PANEL_W : 0) + 56, right: 56 }
+    return { top: 138, bottom: 48, left: (panelIsOpen ? PANEL_W : 0) + 56, right: (trailIsOpen ? TRAIL_W : 0) + 56 }
   }, [isEmbedded])
 
   // ── Selection ──
@@ -792,6 +815,10 @@ export default function MapClient({
 
   // ── URL state: filters + camera, all shareable ──
   const urlTimer = useRef(null)
+  const trailUrlRef = useRef({ open: false, editId: null })
+  useEffect(() => {
+    trailUrlRef.current = { open: trailOpen, editId: trail.editingTrail?.id || initialTrailEdit || null }
+  }, [trailOpen, trail.editingTrail, initialTrailEdit])
   const writeUrl = useCallback(() => {
     if (isEmbedded || typeof window === 'undefined') return
     const m = map.current
@@ -803,6 +830,12 @@ export default function MapClient({
     else url.searchParams.delete('state')
     if (appliedPinQuery) url.searchParams.set('q', appliedPinQuery)
     else url.searchParams.delete('q')
+    // Trail state: editing keeps its id; an open panel keeps trail=1 so
+    // refresh/share restores the planning session.
+    const trailUrl = trailUrlRef.current
+    if (trailUrl.editId) url.searchParams.set('trail', trailUrl.editId)
+    else if (trailUrl.open) url.searchParams.set('trail', '1')
+    else url.searchParams.delete('trail')
     if (m) {
       const c = m.getCenter()
       url.searchParams.set('lng', c.lng.toFixed(4))
@@ -1116,6 +1149,60 @@ export default function MapClient({
           })
         }
 
+        // ── Trail layers: the route line rides under the pins; the numbered
+        // stop markers ride above everything, town labels included — when
+        // you're building a trail, your stops are the headline. ──
+        if (!isEmbedded) {
+          const emptyFC = { type: 'FeatureCollection', features: [] }
+          m.addSource('trail-route', { type: 'geojson', data: emptyFC })
+          m.addLayer({
+            id: 'trail-route-casing', type: 'line', source: 'trail-route',
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: { 'line-color': PAPER, 'line-width': 6, 'line-opacity': 0.85 },
+          }, 'pins-halo')
+          m.addLayer({
+            id: 'trail-route-line', type: 'line', source: 'trail-route',
+            layout: { 'line-cap': 'round', 'line-join': 'round' },
+            paint: { 'line-color': '#1c1a17', 'line-width': 2.6, 'line-opacity': 0.55 },
+          }, 'pins-halo')
+          m.addSource('trail-stops', { type: 'geojson', data: emptyFC, promoteId: 'id' })
+          m.addLayer({
+            id: 'trail-stop-halo', type: 'circle', source: 'trail-stops',
+            paint: {
+              'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 13, 10, 16, 14, 18],
+              'circle-color': '#1c1a17', 'circle-opacity': 0.16,
+            },
+          })
+          m.addLayer({
+            id: 'trail-stop-circle', type: 'circle', source: 'trail-stops',
+            paint: {
+              'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 9, 10, 11.5, 14, 13],
+              'circle-color': '#1c1a17',
+              'circle-stroke-width': 2.25,
+              'circle-stroke-color': PAPER,
+            },
+          })
+          m.addLayer({
+            id: 'trail-stop-number', type: 'symbol', source: 'trail-stops',
+            layout: {
+              'text-field': ['get', 'label'],
+              'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+              'text-size': ['interpolate', ['linear'], ['zoom'], 3, 10, 10, 11.5, 14, 13],
+              'text-allow-overlap': true,
+              'text-ignore-placement': true,
+            },
+            paint: { 'text-color': '#FBF9F4' },
+          })
+          m.on('mousemove', 'trail-stop-circle', () => { m.getCanvas().style.cursor = 'pointer' })
+          m.on('mouseleave', 'trail-stop-circle', () => { m.getCanvas().style.cursor = '' })
+          m.on('click', 'trail-stop-circle', (e) => {
+            if (!e.features?.length) return
+            const id = e.features[0].properties.id
+            const l = listingsRef.current.find(x => String(x.id) === String(id))
+            if (l) selectListing(l)
+          })
+        }
+
         // Click + hover handlers
         const pinLayers = ['pins-basic', 'pins-featured-glow', 'pins-featured']
         if (highlightListingId) pinLayers.push('pin-highlight-ring', 'pin-highlight')
@@ -1168,7 +1255,8 @@ export default function MapClient({
 
         // Dismiss card/popup on empty click
         m.on('click', (e) => {
-          const features = m.queryRenderedFeatures(e.point, { layers: pinLayers.filter(l2 => m.getLayer(l2)) })
+          const clickLayers = [...pinLayers, 'trail-stop-circle'].filter(l2 => m.getLayer(l2))
+          const features = m.queryRenderedFeatures(e.point, { layers: clickLayers })
           if (features.length) return
           if (isEmbedded) popup.current?.remove()
           else clearSelected()
@@ -1353,11 +1441,76 @@ export default function MapClient({
     popup.current.setLngLat(coords).setHTML(buildPopupHTML(listingToProps(l), { isCurrent, strings: popupStringsRef.current })).addTo(m)
   }, [focusListingId, mapReady, highlightListingId, isEmbedded])
 
-  // Mapbox canvases don't track size while display:none — recalc when the
-  // user switches back from the Build-a-trail tab.
+  // ── Trail → map sync: numbered stop pins + route line ──
   useEffect(() => {
-    if (activeTab === 'map' && map.current) map.current.resize()
-  }, [activeTab])
+    if (!mapReady || !map.current || isEmbedded) return
+    const m = map.current
+    const stopSource = m.getSource('trail-stops')
+    const routeSource = m.getSource('trail-route')
+    if (!stopSource || !routeSource) return
+    stopSource.setData({
+      type: 'FeatureCollection',
+      features: trail.stops
+        .filter(s => s.latitude != null && s.longitude != null)
+        .map((s, i) => ({
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [parseFloat(s.longitude), parseFloat(s.latitude)] },
+          properties: { id: s.id, label: String(i + 1) },
+        })),
+    })
+    routeSource.setData(
+      trail.route.geometry && trail.stops.length >= 2
+        ? { type: 'Feature', geometry: trail.route.geometry, properties: {} }
+        : { type: 'FeatureCollection', features: [] }
+    )
+    // Straight-line fallback geometry renders dashed — an honest sketch,
+    // not a road promise.
+    if (m.getLayer('trail-route-line')) {
+      m.setPaintProperty('trail-route-line', 'line-dasharray', trail.route.approx ? [2.4, 1.8] : [1, 0])
+    }
+  }, [trail.stops, trail.route, mapReady, isEmbedded])
+
+  // Seeding a trail (wizard, template, plan-a-stay import, saved-trail edit)
+  // lands several stops at once — frame them. Single hand-adds never move
+  // the camera; the reader is already looking where they're working.
+  const prevTrailCount = useRef(0)
+  useEffect(() => {
+    const n = trail.stops.length
+    const prev = prevTrailCount.current
+    prevTrailCount.current = n
+    if (!mapReady || !map.current || isEmbedded || !trailOpenRef.current) return
+    if (n >= 2 && n - prev >= 2) {
+      const pts = trail.stops
+        .filter(s => s.latitude != null && s.longitude != null)
+        .map(s => [parseFloat(s.longitude), parseFloat(s.latitude)])
+      if (!pts.length) return
+      let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity
+      for (const [lng, lat] of pts) {
+        if (lng < minLng) minLng = lng
+        if (lat < minLat) minLat = lat
+        if (lng > maxLng) maxLng = lng
+        if (lat > maxLat) maxLat = lat
+      }
+      map.current.fitBounds([[minLng, minLat], [maxLng, maxLat]], { padding: cameraPadding(), maxZoom: 11.5, duration: 1100 })
+    }
+  }, [trail.stops, mapReady, isEmbedded, cameraPadding])
+
+  // ── Region deep-link (?region=Name from "build a trail here" links):
+  // once pins are in, frame that region. ──
+  const regionFitDone = useRef(false)
+  useEffect(() => {
+    if (!initialTrailRegion || regionFitDone.current || !mapReady || !map.current || !allListings.length) return
+    const matches = allListings.filter(l => (l.region || '').toLowerCase().includes(initialTrailRegion.toLowerCase()))
+    if (matches.length < 2) return
+    const lats = matches.map(l => parseFloat(l.lat)).filter(Number.isFinite)
+    const lngs = matches.map(l => parseFloat(l.lng)).filter(Number.isFinite)
+    if (!lats.length) return
+    regionFitDone.current = true
+    map.current.fitBounds(
+      [[Math.min(...lngs) - 0.1, Math.min(...lats) - 0.1], [Math.max(...lngs) + 0.1, Math.max(...lats) + 0.1]],
+      { padding: cameraPadding(), duration: 900 }
+    )
+  }, [initialTrailRegion, mapReady, allListings, cameraPadding])
 
   // Zoom to state — but ONLY on a real stateFilter change. The effect can
   // re-fire without one (dep identity churn in dev, prop re-renders), and an
@@ -1385,6 +1538,43 @@ export default function MapClient({
     setPanelOpen(next)
     if (map.current) map.current.easeTo({ padding: cameraPadding(next), duration: 380 })
   }
+
+  // Trail panel toggle — same camera courtesy on the right edge.
+  const setTrailOpen = useCallback((next) => {
+    trail.setOpen(next)
+    if (map.current && typeof window !== 'undefined' && !window.matchMedia('(max-width: 768px)').matches) {
+      map.current.easeTo({ padding: cameraPadding(undefined, next), duration: 380 })
+    }
+    clearTimeout(urlTimer.current)
+    urlTimer.current = setTimeout(() => writeUrlRef.current(), 80)
+  }, [trail, cameraPadding])
+
+  // Adding a stop from a card or list row: panel opens alongside on desktop
+  // (there's room to see both); on mobile the pill count ticking up is the
+  // feedback — a sheet popping over the map would bury what they just did.
+  const handleAddToTrail = useCallback((l) => {
+    trail.addStop(l)
+    if (typeof window !== 'undefined' && !window.matchMedia('(max-width: 768px)').matches) {
+      if (!trailOpenRef.current) setTrailOpen(true)
+    }
+  }, [trail, setTrailOpen])
+
+  const handleRemoveFromTrail = useCallback((l) => {
+    trail.removeStop(l.id)
+  }, [trail])
+
+  // Trail panel rows fly the camera to the stop and open its card.
+  const handleTrailSelect = useCallback((s) => {
+    const l = listingsRef.current.find(x => String(x.id) === String(s.id))
+    if (l) {
+      selectListing(l, { fly: true })
+    } else if (s.latitude != null && s.longitude != null && map.current) {
+      map.current.flyTo({ center: [parseFloat(s.longitude), parseFloat(s.latitude)], zoom: Math.max(map.current.getZoom(), 11), padding: cameraPadding(), maxDuration: 2200 })
+    }
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches) {
+      trail.setOpen(false) // drop the sheet so the map is visible
+    }
+  }, [selectListing, cameraPadding, trail])
 
   const isAllVerticals = selectedVerticals.size === 0
   const activeFilterCount = (!isAllVerticals ? 1 : 0) + (subTypeFilter !== 'all' ? 1 : 0) + (stateFilter !== 'All States' ? 1 : 0) + (appliedPinQuery ? 1 : 0)
@@ -1437,40 +1627,29 @@ export default function MapClient({
     ? { position: 'relative', width: '100%', height: '100%', background: '#faf8f5' }
     : { position: 'fixed', inset: 0, zIndex: 50, background: '#F1EADB' }
 
-  // Map / Build-a-trail switch. 'inline' sits flush on the desktop toolbar's
-  // own top row (no shadow, transparent — it IS the bar). 'floating' is the
-  // self-contained pill used where that toolbar is hidden (every mobile view +
-  // the desktop builder tab), so it needs a background to read over the map.
-  const renderTabToggle = (variant) => (
-    <div style={{
-      display: 'inline-flex', borderRadius: 6, overflow: 'hidden', pointerEvents: 'auto',
-      border: '1px solid var(--color-border)',
-      ...(variant === 'floating'
-        ? { background: 'rgba(250,248,245,0.97)', backdropFilter: 'blur(8px)', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }
-        : { background: 'transparent' }),
-    }}>
-      {[{ key: 'map', label: t('tabMap') }, { key: 'builder', label: t('tabBuildTrail') }].map(tab => (
-        <button key={tab.key} onClick={() => {
-          // On phones the builder is its own full-screen page with its own
-          // Builder/Map tabs — iframing it here would stack a second tab bar on
-          // top of the page's. Navigate instead so mobile gets one clean chrome
-          // (the builder carries a "← Map" link back here). Desktop keeps the
-          // in-place iframe tab.
-          if (tab.key === 'builder' && typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches) {
-            window.location.href = '/trails/builder'
-            return
-          }
-          setActiveTab(tab.key)
-        }} style={{
-          padding: '9px 20px', border: 'none', cursor: 'pointer',
-          fontSize: 12, fontWeight: activeTab === tab.key ? 600 : 400,
-          fontFamily: 'var(--font-sans)', minHeight: variant === 'floating' ? 44 : 36,
-          background: activeTab === tab.key ? PRIMARY : 'transparent',
-          color: activeTab === tab.key ? '#fff' : 'var(--color-muted)',
-          transition: 'all 0.15s',
-        }}>{tab.label}</button>
-      ))}
-    </div>
+  // "Build a trail" toggle — the builder is no longer a separate tab; it's a
+  // mode of this map. The button carries the live stop count so a draft in
+  // progress is never invisible.
+  const trailCount = trail.stops.length
+  const renderTrailButton = () => (
+    <button
+      onClick={() => setTrailOpen(!trailOpen)}
+      aria-pressed={trailOpen}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 7,
+        padding: '7px 14px', borderRadius: 17, cursor: 'pointer', minHeight: 32,
+        border: `1px solid ${trailOpen || trailCount ? PRIMARY : 'var(--color-border)'}`,
+        background: trailOpen ? PRIMARY : trailCount ? 'rgba(95,138,126,0.10)' : '#fff',
+        color: trailOpen ? '#fff' : trailCount ? 'var(--color-sage-dark, #4a6e63)' : 'var(--color-muted)',
+        fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--font-sans)', transition: 'all 0.18s',
+      }}
+    >
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="6" cy="19" r="3" /><circle cx="18" cy="5" r="3" />
+        <path d="M9 19h6.5a3.5 3.5 0 0 0 0-7h-7a3.5 3.5 0 0 1 0-7H15" />
+      </svg>
+      {trailCount > 0 ? t('trailButtonCount', { count: trailCount }) : t('trailButton')}
+    </button>
   )
 
   // Unified search dropdown — venues first, then towns/places.
@@ -1528,46 +1707,19 @@ export default function MapClient({
 
   return (
     <div style={rootStyle}>
-      {/* ── TAB TOGGLE: Map / Build a trail (floating copy) ──
-          On the desktop map view the toggle lives inline on the toolbar's top
-          row (see Row 0 below), so this floating copy is hidden there via
-          `map-mobile-only`. It only shows where that toolbar is absent: every
-          mobile view, and desktop while the builder tab is open. */}
-      {!isEmbedded && (
-      <div
-        className={activeTab === 'map' ? 'map-mobile-only' : undefined}
-        style={{
-          position: 'absolute', top: 0, left: 0, right: 0, zIndex: 60,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: '8px 0 0', pointerEvents: 'none',
-        }}
-      >
-        {renderTabToggle('floating')}
-      </div>
-      )}
-
-      {/* ── BUILDER TAB (iframe) — fullscreen mode only ── */}
-      {!isEmbedded && activeTab === 'builder' && (
-        <div style={{ position: 'absolute', inset: 0, paddingTop: 42 }}>
-          <iframe
-            src="/trails/builder?embed=1&tab=builder"
-            style={{ width: '100%', height: '100%', border: 'none' }}
-            title={t('trailBuilder')}
-          />
-        </div>
-      )}
-
       {/* ── MAP — fills the container ── */}
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden', display: !isEmbedded && activeTab === 'builder' ? 'none' : 'block' }}>
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' }}>
         {/* ── DESKTOP TOOLBAR (overlays map) — fullscreen mode only ── */}
         {!isEmbedded && (
         <div ref={toolbarRef} className="map-desktop-toolbar" style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
-          {/* Row 0: Map / Build a trail + a way back to the site. */}
+          {/* Row 0: brand + the trail mode toggle. */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 20px 0', background: 'rgba(250,248,245,0.97)', backdropFilter: 'blur(8px)' }}>
-            {renderTabToggle('inline')}
-            <a href="/" style={{ marginLeft: 'auto', fontFamily: 'var(--font-serif)', fontSize: 13, color: 'var(--color-muted)', textDecoration: 'none', letterSpacing: '0.01em' }}>
+            <a href="/" style={{ fontFamily: 'var(--font-serif)', fontSize: 13, color: 'var(--color-muted)', textDecoration: 'none', letterSpacing: '0.01em' }}>
               ✳ Australian Atlas
             </a>
+            <div style={{ marginLeft: 'auto' }}>
+              {renderTrailButton()}
+            </div>
           </div>
           {/* Row 1: unified search, vertical chips, state select, count */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px 9px', borderBottom: hasSubTypes ? 'none' : '1px solid var(--color-border)', background: 'rgba(250,248,245,0.97)', backdropFilter: 'blur(8px)', flexWrap: 'wrap' }}>
@@ -1673,6 +1825,9 @@ export default function MapClient({
                   filterBusy={filterBusy}
                   onHover={setHoverState}
                   onSelect={(l) => selectListing(l, { fly: true })}
+                  trailIds={trailIds}
+                  onToggleTrail={(l) => trailIds.has(String(l.id)) ? handleRemoveFromTrail(l) : handleAddToTrail(l)}
+                  trailAtCapacity={trail.atCapacity}
                 />
               )}
             </div>
@@ -1697,6 +1852,28 @@ export default function MapClient({
           </div>
         )}
 
+        {/* ── DESKTOP TRAIL PANEL — the trail under construction, right rail ── */}
+        {!isEmbedded && (
+          <div className="map-desktop-toolbar" style={{
+            position: 'absolute', top: toolbarH, bottom: 0, right: 0, zIndex: 9,
+            width: TRAIL_W,
+            transform: trailOpen ? 'translateX(0)' : `translateX(${TRAIL_W}px)`,
+            transition: 'transform 0.38s cubic-bezier(0.22, 1, 0.36, 1)',
+          }}>
+            <div style={{
+              position: 'absolute', inset: 0, background: 'rgba(251,249,244,0.98)',
+              borderLeft: '1px solid var(--color-border)', boxShadow: '-4px 0 24px rgba(28,26,23,0.07)',
+            }}>
+              <TrailPanel
+                trail={trail}
+                mode="panel"
+                onClose={() => setTrailOpen(false)}
+                onSelectListing={handleTrailSelect}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Anchored selection card — portalled into a Mapbox marker */}
         {!isEmbedded && selected && cardPortalEl && createPortal(
           <MapPreviewCard
@@ -1705,6 +1882,8 @@ export default function MapClient({
             variant="anchored"
             onClose={clearSelected}
             onVisit={markVisited}
+            inTrail={trailIds.has(String(selected.id))}
+            onAddToTrail={trail.atCapacity && !trailIds.has(String(selected.id)) ? null : (trailIds.has(String(selected.id)) ? () => handleRemoveFromTrail(selected) : () => handleAddToTrail(selected))}
           />,
           cardPortalEl
         )}
@@ -1765,7 +1944,7 @@ export default function MapClient({
         {/* ── MOBILE SEARCH — unified venues + towns finder ── */}
         {!isEmbedded && (
           <div ref={mobileSearchRef} className="map-mobile-only" style={{
-            position: 'absolute', top: 54, left: 12, right: 12, zIndex: 12, flexDirection: 'column',
+            position: 'absolute', top: 12, left: 12, right: 12, zIndex: 12, flexDirection: 'column',
           }}>
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%' }}>
               <span style={{ position: 'absolute', left: 12, display: 'flex', pointerEvents: 'none' }} aria-hidden="true">
@@ -1792,7 +1971,7 @@ export default function MapClient({
             so the two never collide. */}
         {!isEmbedded && !mobileSheetOpen && !(showSearchDropdown && hasSearchResults) && (
           <div className="map-mobile-only" role="status" style={{
-            position: 'absolute', top: 104, left: '50%', transform: 'translateX(-50%)', zIndex: 8,
+            position: 'absolute', top: 62, left: '50%', transform: 'translateX(-50%)', zIndex: 8,
             background: 'rgba(250,248,245,0.95)', border: '1px solid var(--color-border)', borderRadius: 12,
             padding: '4px 12px', pointerEvents: 'none', alignItems: 'center',
             fontFamily: 'var(--font-sans)', fontSize: 10, fontWeight: 600, letterSpacing: '0.04em', color: 'var(--color-muted)',
@@ -1977,19 +2156,55 @@ export default function MapClient({
           </div>
         )}
 
-        {/* Mobile "List" pill — persistent, labelled (a hidden toggle is a
-            dead toggle), opens the gazetteer as a full sheet. */}
-        {!mobileSheetOpen && !mobileListOpen && (
-          <button className="map-mobile-only" onClick={() => { clearSelected(); setMobileListOpen(true) }} style={{
+        {/* Mobile "List" + "Trail" pills — persistent, labelled (a hidden
+            toggle is a dead toggle). List opens the gazetteer sheet; Trail
+            opens the trail planner sheet, its count always live. */}
+        {!mobileSheetOpen && !mobileListOpen && !trailOpen && (
+          <div className="map-mobile-only" style={{
             position: 'absolute', bottom: 28, left: '50%', transform: 'translateX(-50%)', zIndex: 11,
-            alignItems: 'center', gap: 7, padding: '11px 20px', borderRadius: 24,
-            background: 'var(--color-ink)', color: 'var(--color-cream)', border: 'none',
-            boxShadow: '0 4px 16px rgba(28,26,23,0.3)', cursor: 'pointer',
-            fontFamily: 'var(--font-sans)', fontSize: 12.5, fontWeight: 600, letterSpacing: '0.03em',
+            alignItems: 'center', gap: 8,
           }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
-            {t('list')}{mapReady && !loading ? ` · ${inView.total.toLocaleString()}` : ''}
-          </button>
+            <button onClick={() => { clearSelected(); setMobileListOpen(true) }} style={{
+              display: 'flex', alignItems: 'center', gap: 7, padding: '11px 18px', borderRadius: 24,
+              background: 'var(--color-ink)', color: 'var(--color-cream)', border: 'none',
+              boxShadow: '0 4px 16px rgba(28,26,23,0.3)', cursor: 'pointer',
+              fontFamily: 'var(--font-sans)', fontSize: 12.5, fontWeight: 600, letterSpacing: '0.03em',
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+              {t('list')}{mapReady && !loading ? ` · ${inView.total.toLocaleString()}` : ''}
+            </button>
+            <button onClick={() => { clearSelected(); setMobileListOpen(false); trail.setOpen(true) }} style={{
+              display: 'flex', alignItems: 'center', gap: 7, padding: '11px 18px', borderRadius: 24,
+              background: trailCount > 0 ? PRIMARY : 'rgba(250,248,245,0.97)',
+              color: trailCount > 0 ? '#fff' : 'var(--color-ink)',
+              border: trailCount > 0 ? 'none' : '1px solid var(--color-border)',
+              boxShadow: '0 4px 16px rgba(28,26,23,0.22)', cursor: 'pointer',
+              fontFamily: 'var(--font-sans)', fontSize: 12.5, fontWeight: 600, letterSpacing: '0.03em',
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="6" cy="19" r="3" /><circle cx="18" cy="5" r="3" />
+                <path d="M9 19h6.5a3.5 3.5 0 0 0 0-7h-7a3.5 3.5 0 0 1 0-7H15" />
+              </svg>
+              {trailCount > 0 ? t('trailButtonCount', { count: trailCount }) : t('trailButton')}
+            </button>
+          </div>
+        )}
+
+        {/* Mobile trail sheet — the planner, full height */}
+        {trailOpen && (
+          <div className="map-mobile-only" style={{
+            position: 'absolute', inset: 0, top: 12, zIndex: 23, flexDirection: 'column',
+            background: 'rgba(251,249,244,0.99)', borderRadius: '16px 16px 0 0',
+            boxShadow: '0 -4px 24px rgba(0,0,0,0.14)', overflow: 'hidden',
+          }}>
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--color-border)', margin: '8px auto 6px', flexShrink: 0 }} />
+            <TrailPanel
+              trail={trail}
+              mode="sheet"
+              onClose={() => trail.setOpen(false)}
+              onSelectListing={handleTrailSelect}
+            />
+          </div>
         )}
 
         {/* Mobile list sheet — the gazetteer, full height */}
@@ -2015,13 +2230,16 @@ export default function MapClient({
               onHover={() => {}}
               onSelect={(l) => { setMobileListOpen(false); selectListing(l, { fly: true }) }}
               onClose={() => setMobileListOpen(false)}
+              trailIds={trailIds}
+              onToggleTrail={(l) => trailIds.has(String(l.id)) ? handleRemoveFromTrail(l) : handleAddToTrail(l)}
+              trailAtCapacity={trail.atCapacity}
             />
           </div>
         )}
 
         {/* Mobile docked selection card — Google Maps pattern: the map stays
             pannable behind it; explicit X to dismiss. */}
-        {selected && !mobileListOpen && (
+        {selected && !mobileListOpen && !trailOpen && (
           <div className="map-mobile-only" style={{ position: 'absolute', left: 10, right: 10, bottom: 84, zIndex: 21, flexDirection: 'column' }}>
             <MapPreviewCard
               listing={selected}
@@ -2029,6 +2247,8 @@ export default function MapClient({
               variant="docked"
               onClose={clearSelected}
               onVisit={markVisited}
+              inTrail={trailIds.has(String(selected.id))}
+              onAddToTrail={trail.atCapacity && !trailIds.has(String(selected.id)) ? null : (trailIds.has(String(selected.id)) ? () => handleRemoveFromTrail(selected) : () => handleAddToTrail(selected))}
             />
           </div>
         )}
@@ -2123,6 +2343,17 @@ export default function MapClient({
         </>
         )}
       </div>
+
+      {/* Sign-in for "Save trail" — draft persists through the round-trip;
+          resume=1 finishes the save on return from Google OAuth. */}
+      {!isEmbedded && (
+        <AuthModal
+          open={trail.authOpen}
+          onClose={() => trail.setAuthOpen(false)}
+          returnTo={typeof window !== 'undefined' ? `${window.location.origin}/map?trail=1&resume=1` : '/map?trail=1&resume=1'}
+          onAuthSuccess={trail.handleAuthSuccess}
+        />
+      )}
 
       <style>{`
         .mapboxgl-popup-content { border-radius: 4px !important; padding: 14px 16px !important; box-shadow: 0 4px 20px rgba(0,0,0,0.12) !important; border: 1px solid rgba(95,138,126,0.15) !important; background: #faf8f5 !important; }

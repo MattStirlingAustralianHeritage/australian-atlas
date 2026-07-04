@@ -11,6 +11,7 @@ import {
 import RegionMapSelect from '@/components/RegionMapSelect'
 import AuthModal from '@/components/AuthModal'
 import { readDiscoveryPicks } from '@/lib/discover/sessionPicks'
+import { writeDraft, stopsFromPlanAStayTrip } from '@/lib/trail/draft'
 
 /* ─── Trip persistence helpers ───────────────────────────────────────────
    Build the exact payload sent to /share and /save. Visitor accommodation
@@ -1080,7 +1081,7 @@ function ActionButtons({ tripData, accommodationByDay, onReset, shareState, setS
         paddingTop: 24,
         borderTop: '1px solid var(--color-border, rgba(28,26,23,0.12))',
       }}>
-        <div style={{ display: 'flex', gap: 12 }}>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
           <button
             onClick={() => doSave()}
             disabled={saveState === 'saving' || saveState === 'saved'}
@@ -1119,6 +1120,41 @@ function ActionButtons({ tripData, accommodationByDay, onReset, shareState, setS
           >
             {shareLabel}
           </button>
+          {/* One tech tree: hand the drafted trip to the /map trail planner
+              as an editable trail — same draft shape, same engine. */}
+          {tripData?.trip && (
+            <button
+              onClick={() => {
+                const stops = stopsFromPlanAStayTrip(tripData.trip)
+                if (stops.length < 2) return
+                writeDraft({
+                  name: tripData.trip.title || '',
+                  desc: '',
+                  visibility: 'private',
+                  transportMode: 'drive',
+                  neighbourhoodLabel: '',
+                  stops,
+                  notes: {},
+                  savedAt: Date.now(),
+                })
+                window.location.href = '/map?trail=1'
+              }}
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 500,
+                fontSize: 14,
+                color: '#4a6e63',
+                background: 'rgba(95,138,126,0.08)',
+                border: '1px solid rgba(95,138,126,0.4)',
+                borderRadius: 8,
+                padding: '10px 24px',
+                cursor: 'pointer',
+                transition: 'border-color 0.2s ease',
+              }}
+            >
+              {t('openOnMap')}
+            </button>
+          )}
           <button
             onClick={onReset}
             style={{
