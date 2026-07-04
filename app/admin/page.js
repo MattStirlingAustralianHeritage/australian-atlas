@@ -598,6 +598,7 @@ function ContentStat({ label, value }) {
 
 function DataQualityZone() {
   const links = [
+    { label: 'Gate Check', description: 'Live listings that fail a quality gate — web, location, activity, fit', href: '/admin/gate-check' },
     { label: 'Gate Review', description: "Flag & clear listings that don't fit the proposition", href: '/admin/gate-review' },
     { label: 'Completeness', description: 'Listing quality scores, missing fields', href: '/admin/completeness' },
     { label: 'Staleness', description: 'Listing freshness, dead URLs', href: '/admin/staleness' },
