@@ -8,6 +8,7 @@ import {
 } from '@/lib/wayLabels'
 import AddListingForm from './AddListingForm'
 import SuggestUrlPill from './SuggestUrlPill'
+import { usePublishQueue } from './usePublishQueue'
 import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 
 const VERTICAL_NAMES = {
@@ -741,6 +742,10 @@ function GateResultsDisplay({ gateResults }) {
 }
 
 const AUTO_ADVANCE_MS = 3000
+// Brief exit animation before the card is swapped for the next one. Kept short
+// so the reviewer moves at keyboard speed — the publish itself runs in the
+// background (usePublishQueue), so there is nothing to wait on here.
+const EXIT_MS = 180
 
 // ─── Candidate Preview (Full listing layout) ─────────────
 
@@ -1026,100 +1031,57 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
     setTimeout(() => onApprove(candidate.id, region), 500)
   }, [candidate.id, candidate.region, result, onApprove])
 
-  const handleAction = async (action) => {
+  // Optimistic decision: capture the reviewer's choice, animate the card out,
+  // and advance immediately. The slow publish/reject POST runs in the parent's
+  // background queue (usePublishQueue) via onApprove/onReject — the reviewer
+  // never waits on Claude enrichment, geocoding, or vertical sync.
+  const handleAction = (action) => {
     if (busyRef.current) return
     busyRef.current = true
-    setErrorMsg(null)
 
     if (action === 'reject') {
-      setStatus('rejecting')
-      try {
-        const res = await fetch(`/api/admin/candidates/${candidate.id}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'reject' }),
-        })
-        if (!res.ok) {
-          const d = await res.json().catch(() => ({}))
-          setErrorMsg(d.error || 'Rejection failed')
-          setStatus('error')
-          busyRef.current = false
-          return
-        }
-        setStatus('rejected')
-        setTimeout(() => {
-          setExiting(true)
-          setTimeout(() => onReject(candidate.id), 500)
-        }, 400)
-      } catch (err) {
-        setErrorMsg(err.message || 'Network error')
-        setStatus('error')
-        busyRef.current = false
-      }
+      setExiting(true)
+      setTimeout(() => onReject(candidate.id), EXIT_MS)
       return
     }
 
-    // Approve — 5-15s with enrichment + geocoding + vertical sync
-    setStatus('approving')
-    try {
-      const res = await fetch(`/api/admin/candidates/${candidate.id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'approve',
-          subcategory: subcategory || undefined,
-          subcategory_secondary: subcategorySecondary || undefined,
-          address_on_request: addressOnRequest,
-          visitable,
-          presence_type: presenceType,
-          // Full set of non-visitable modes (persisted to listings.presence_types).
-          // Only meaningful when non-visitable; scalar presence_type carries the primary.
-          presence_types: !visitable ? presenceTypes : undefined,
-          service_area: isMobile ? (serviceArea || undefined) : undefined,
-          offers_classes: offersClasses,
-          wayClassification,
-          reviewerOverrides: {
-            name: candidate.name || undefined,
-            description: candidate.description || undefined,
-            website_url: candidate.website_url || undefined,
-            region: candidate.region || undefined,
-            // New editable fields — written to listings.address / suburb /
-            // region_override_id / lat / lng. The legacy listings.region
-            // text column is intentionally NOT written by the publish handler;
-            // region resolution goes through region_override_id (set here)
-            // and region_computed_id (set by the spatial trigger on lat/lng).
-            address: (editAddress || '').trim() || undefined,
-            suburb: (editSuburb || '').trim() || undefined,
-            region_override_id: editRegionId || undefined,
-            lat: editLat ?? undefined,
-            lng: editLng ?? undefined,
-            state: candidate.state || undefined,
-          },
-        }),
-      })
-      const data = await res.json().catch(() => ({}))
-
-      if (!res.ok) {
-        setErrorMsg(data.error || 'Publish failed')
-        setStatus('error')
-        busyRef.current = false
-        return
-      }
-
-      // Vertical sync failure is NOT a publish failure — listing is saved to master DB.
-      // Show success with a warning note; cron will retry the vertical push.
-      if (!data.verticalSync?.success && data.verticalSync?.warning) {
-        data._syncWarning = data.verticalSync.warning
-      }
-
-      setResult(data)
-      setStatus('success')
-      autoAdvanceRef.current = setTimeout(advanceNow, AUTO_ADVANCE_MS)
-    } catch (err) {
-      setErrorMsg(err.message || 'Network error')
-      setStatus('error')
-      busyRef.current = false
+    // Build the approve payload (same shape the synchronous flow sent); the
+    // parent hands it to the background publisher unchanged.
+    const region = candidate.region || null
+    const payload = {
+      action: 'approve',
+      subcategory: subcategory || undefined,
+      subcategory_secondary: subcategorySecondary || undefined,
+      address_on_request: addressOnRequest,
+      visitable,
+      presence_type: presenceType,
+      // Full set of non-visitable modes (persisted to listings.presence_types).
+      // Only meaningful when non-visitable; scalar presence_type carries the primary.
+      presence_types: !visitable ? presenceTypes : undefined,
+      service_area: isMobile ? (serviceArea || undefined) : undefined,
+      offers_classes: offersClasses,
+      wayClassification,
+      reviewerOverrides: {
+        name: candidate.name || undefined,
+        description: candidate.description || undefined,
+        website_url: candidate.website_url || undefined,
+        region: candidate.region || undefined,
+        // New editable fields — written to listings.address / suburb /
+        // region_override_id / lat / lng. The legacy listings.region
+        // text column is intentionally NOT written by the publish handler;
+        // region resolution goes through region_override_id (set here)
+        // and region_computed_id (set by the spatial trigger on lat/lng).
+        address: (editAddress || '').trim() || undefined,
+        suburb: (editSuburb || '').trim() || undefined,
+        region_override_id: editRegionId || undefined,
+        lat: editLat ?? undefined,
+        lng: editLng ?? undefined,
+        state: candidate.state || undefined,
+      },
     }
+
+    setExiting(true)
+    setTimeout(() => onApprove(candidate.id, region, payload), EXIT_MS)
   }
 
   useEffect(() => {
@@ -2936,6 +2898,102 @@ function RefillVerticalButton({ vertical }) {
   )
 }
 
+// ─── Background Publish Tray ──────────────────────────────
+// Fixed status card for the background publisher. Shows what's in flight, how
+// many landed live this session, and any failures (with one-click retry). Only
+// mounts when there's something to report so it stays out of the way.
+
+function PublishTray({ stats, tasks, onRetry, onDismiss }) {
+  const failures = tasks.filter(t => t.status === 'error')
+  const visible = stats.active > 0 || failures.length > 0 || stats.published > 0
+  if (!visible) return null
+
+  return (
+    <div style={{
+      position: 'fixed', right: 20, bottom: 20, zIndex: 60,
+      width: 300, maxWidth: 'calc(100vw - 40px)',
+      background: '#fff', borderRadius: 12,
+      border: '1px solid var(--color-border)',
+      boxShadow: '0 8px 28px rgba(0,0,0,0.14)',
+      overflow: 'hidden', fontFamily: 'var(--font-body)',
+    }}>
+      {/* Header — live tallies */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '11px 14px',
+        borderBottom: (failures.length > 0 ? '1px solid var(--color-border)' : 'none'),
+      }}>
+        {stats.active > 0 ? (
+          <div style={{
+            width: 14, height: 14, flexShrink: 0,
+            border: '2px solid rgba(74,124,89,0.2)', borderTopColor: '#4A7C59',
+            borderRadius: '50%', animation: 'candidateSpinner 0.7s linear infinite',
+          }} />
+        ) : (
+          <svg width="15" height="15" viewBox="0 0 28 28" fill="none" style={{ flexShrink: 0 }}>
+            <path d="M7 14.5L12 19.5L21 10.5" stroke="#4A7C59" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        )}
+        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-ink)' }}>
+          {stats.active > 0
+            ? `Publishing ${stats.active}…`
+            : failures.length > 0 ? 'Publishing paused' : 'All published'}
+        </span>
+        <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--color-muted)' }}>
+          {stats.published > 0 && <span style={{ color: '#4A7C59', fontWeight: 600 }}>{stats.published} live</span>}
+          {stats.published > 0 && failures.length > 0 && ' · '}
+          {failures.length > 0 && <span style={{ color: '#CC4444', fontWeight: 600 }}>{failures.length} failed</span>}
+        </span>
+      </div>
+
+      {/* Failures — need attention */}
+      {failures.length > 0 && (
+        <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+          {failures.map(t => (
+            <div key={t.id} style={{
+              padding: '9px 14px', borderBottom: '1px solid var(--color-cream)',
+              display: 'flex', alignItems: 'flex-start', gap: 8,
+            }}>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{
+                  fontSize: 12, fontWeight: 600, color: 'var(--color-ink)',
+                  whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                }}>
+                  {t.name}
+                </div>
+                <div style={{ fontSize: 11, color: '#CC4444', lineHeight: 1.35, marginTop: 2 }}>
+                  {t.error}
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--color-muted)', marginTop: 2, opacity: 0.8 }}>
+                  Still in the queue — reappears on reload if not retried.
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+                <button onClick={() => onRetry(t.id)} style={{
+                  fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600,
+                  color: '#4A7C59', background: 'rgba(74,124,89,0.08)',
+                  border: '1px solid rgba(74,124,89,0.25)', borderRadius: 6,
+                  padding: '3px 10px', cursor: 'pointer',
+                }}>
+                  Retry
+                </button>
+                <button onClick={() => onDismiss(t.id)} style={{
+                  fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 500,
+                  color: 'var(--color-muted)', background: 'none',
+                  border: '1px solid var(--color-border)', borderRadius: 6,
+                  padding: '3px 10px', cursor: 'pointer',
+                }}>
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Queue Container ──────────────────────────────────────
 
 export default function CandidateReviewQueue({ initialCandidates = [], initialRejected = [], queueDepth = {}, mapboxToken, regions = [] }) {
@@ -2950,6 +3008,20 @@ export default function CandidateReviewQueue({ initialCandidates = [], initialRe
   // visible in the current filter until explicitly published or skipped.
   const [verticalOverrides, setVerticalOverrides] = useState({}) // { candidateId: originalVertical }
   const focusDescRefs = useRef({})
+
+  // Background publisher — the slow publish/reject POST (Claude enrichment,
+  // geocode, vertical sync) runs here so the reviewer advances instantly.
+  const publisher = usePublishQueue({
+    onPublished: (task, data) => {
+      const region = data?.listing?.region || task.region || null
+      if (region) setPublishedRegions(prev => (prev.includes(region) ? prev : [...prev, region]))
+    },
+  })
+  // The most recent decision, kept so Undo (Z) can pull it back while its
+  // background task is still in the grace window (before anything hit the server).
+  const lastDecisionRef = useRef(null) // { candidate, taskId, kind, region }
+  const undoRef = useRef(null)
+
   const totalReviewed = approved + rejected
   const totalQueue = candidates.length + totalReviewed
 
@@ -2966,6 +3038,13 @@ export default function CandidateReviewQueue({ initialCandidates = [], initialRe
   useEffect(() => {
     const handleKey = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return
+      // Undo runs before the empty-queue guard so it still works right after the
+      // last decision (when the queue has momentarily drained to zero).
+      if (e.key === 'z' || e.key === 'Z') {
+        e.preventDefault()
+        undoRef.current?.()
+        return
+      }
       if (filteredCandidates.length === 0) return
       switch (e.key) {
         case 'ArrowRight': case 'y': case 'Y': {
@@ -2991,8 +3070,17 @@ export default function CandidateReviewQueue({ initialCandidates = [], initialRe
     return () => window.removeEventListener('keydown', handleKey)
   }, [filteredCandidates.length])
 
-  const handleApprove = useCallback((id, region) => {
+  const handleApprove = useCallback((id, region, payload) => {
     const candidate = candidates.find(c => c.id === id)
+    const taskId = publisher.enqueue({
+      kind: 'approve',
+      candidateId: id,
+      name: candidate?.name || 'Listing',
+      vertical: candidate?.vertical || null,
+      region: region || candidate?.region || null,
+      payload: payload || { action: 'approve' },
+    })
+    lastDecisionRef.current = { candidate, taskId, kind: 'approve', region }
     setCandidates(prev => prev.filter(c => c.id !== id))
     setApproved(a => a + 1)
     setVerticalOverrides(vo => { const { [id]: _, ...rest } = vo; return rest })
@@ -3006,9 +3094,17 @@ export default function CandidateReviewQueue({ initialCandidates = [], initialRe
         [candidate.vertical]: Math.max(0, (prev[candidate.vertical] || 0) - 1),
       }))
     }
-  }, [candidates])
+  }, [candidates, publisher])
   const handleReject = useCallback((id) => {
     const candidate = candidates.find(c => c.id === id)
+    const taskId = publisher.enqueue({
+      kind: 'reject',
+      candidateId: id,
+      name: candidate?.name || 'Listing',
+      vertical: candidate?.vertical || null,
+      payload: { action: 'reject' },
+    })
+    lastDecisionRef.current = { candidate, taskId, kind: 'reject' }
     setCandidates(prev => prev.filter(c => c.id !== id))
     setRejected(r => r + 1)
     setVerticalOverrides(vo => { const { [id]: _, ...rest } = vo; return rest })
@@ -3018,7 +3114,24 @@ export default function CandidateReviewQueue({ initialCandidates = [], initialRe
         [candidate.vertical]: Math.max(0, (prev[candidate.vertical] || 0) - 1),
       }))
     }
-  }, [candidates])
+  }, [candidates, publisher])
+
+  // Undo the last decision — only works while its background task is still
+  // queued (grace window). Re-inserts the candidate at the front of the queue.
+  const handleUndo = useCallback(() => {
+    const last = lastDecisionRef.current
+    if (!last || !last.candidate) return
+    if (!publisher.cancel(last.taskId)) return // already dispatched — nothing safe to undo
+    lastDecisionRef.current = null
+    const c = last.candidate
+    setCandidates(prev => (prev.some(x => x.id === c.id) ? prev : [c, ...prev]))
+    if (last.kind === 'approve') setApproved(a => Math.max(0, a - 1))
+    else setRejected(r => Math.max(0, r - 1))
+    // Keep it visible even if a vertical filter is active (mirrors handleUpdate).
+    setVerticalOverrides(vo => ({ ...vo, [c.id]: c.vertical }))
+    setDepth(prev => ({ ...prev, [c.vertical]: (prev[c.vertical] || 0) + 1 }))
+  }, [publisher])
+  useEffect(() => { undoRef.current = handleUndo }, [handleUndo])
   const handleUpdate = useCallback((updated) => {
     setCandidates(prev => prev.map(c => {
       if (c.id !== updated.id) return c
@@ -3120,6 +3233,8 @@ export default function CandidateReviewQueue({ initialCandidates = [], initialRe
               <span><Kbd>N</Kbd> / <Kbd>{'\u2190'}</Kbd> skip</span>
               <span style={{ opacity: 0.3 }}>|</span>
               <span><Kbd>E</Kbd> edit description</span>
+              <span style={{ opacity: 0.3 }}>|</span>
+              <span><Kbd>Z</Kbd> undo</span>
             </div>
           )}
 
@@ -3136,7 +3251,7 @@ export default function CandidateReviewQueue({ initialCandidates = [], initialRe
                   )}
                 </span>
                 <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-muted)' }}>
-                  <span style={{ color: '#4A7C59' }}>{approved} published</span>
+                  <span style={{ color: '#4A7C59' }}>{approved} approved</span>
                   {' / '}
                   <span style={{ color: '#CC4444' }}>{rejected} skipped</span>
                 </span>
@@ -3206,6 +3321,13 @@ export default function CandidateReviewQueue({ initialCandidates = [], initialRe
           )}
         </>
       )}
+
+      <PublishTray
+        stats={publisher.stats}
+        tasks={publisher.tasks}
+        onRetry={publisher.retry}
+        onDismiss={publisher.dismiss}
+      />
     </div>
   )
 }
