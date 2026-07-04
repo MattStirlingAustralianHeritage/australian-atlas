@@ -14,6 +14,7 @@ import {
 } from '@/lib/trail/draft'
 import { chunkIntoDays, clearDays, hasDays } from '@/lib/trail/days'
 import { suggestForTrail, sharesFromListings } from '@/lib/trail/suggest'
+import { conciergeSlots } from '@/lib/trail/concierge'
 import { mergeTasteProfiles } from '@/lib/discover/tasteProfile'
 import { readDiscoveryPicks, writeDiscoveryPicks } from '@/lib/discover/sessionPicks'
 
@@ -164,15 +165,31 @@ export default function useTrailPlanner({
     return suggestForTrail({ stops, listings: allListings, taste, limit: 6 })
   }, [open, stops, allListings, taste])
 
+  // ── Concierge: which day-moments are still open, and the best fill for
+  // each (coffee to start, lunch mid-route, a bed for the night). ──
+  const concierge = useMemo(() => {
+    if (!open || !stops.length) return { slots: [], openCount: 0 }
+    return conciergeSlots({ stops, listings: allListings, taste })
+  }, [open, stops, allListings, taste])
+
   // ── Stop operations ──
-  const addStop = useCallback((venue) => {
+  // atIndex === null appends; otherwise the stop is spliced in at that
+  // position (the concierge drops coffee at the start, lunch mid-route, a
+  // bed at the end). The inserted stop inherits its neighbour's day.
+  const addStop = useCallback((venue, atIndex = null) => {
     const v = normaliseStop(venue)
     setStops(prev => {
       if (prev.find(s => String(s.id) === String(v.id))) return prev
       if (prev.length >= MAX_STOPS) return prev
-      // New hand-picked stops join the last day when days are assigned.
-      const lastDay = prev.length ? prev[prev.length - 1].day : null
-      return [...prev, lastDay != null ? { ...v, day: lastDay } : v]
+      if (atIndex == null || atIndex >= prev.length) {
+        const lastDay = prev.length ? prev[prev.length - 1].day : null
+        return [...prev, lastDay != null ? { ...v, day: lastDay } : v]
+      }
+      const i = Math.max(0, atIndex)
+      const neighbourDay = (prev[i]?.day ?? prev[i - 1]?.day) ?? null
+      const next = [...prev]
+      next.splice(i, 0, neighbourDay != null ? { ...v, day: neighbourDay } : v)
+      return next
     })
     setSavedTrail(null)
     // Feed the discovery engine: adding a stop is a strong "I'd visit this".
@@ -384,6 +401,7 @@ export default function useTrailPlanner({
     route,
     taste,
     suggestions,
+    concierge,
     addStop, removeStop, undoRemove, reorderStops,
     optimiseOrder, optimiseSavingsKm,
     splitIntoDays, mergeDays, daysAssigned,

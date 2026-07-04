@@ -1163,22 +1163,27 @@ export default function MapClient({
           m.addLayer({
             id: 'trail-route-line', type: 'line', source: 'trail-route',
             layout: { 'line-cap': 'round', 'line-join': 'round' },
-            paint: { 'line-color': '#1c1a17', 'line-width': 2.6, 'line-opacity': 0.55 },
+            // Warm editorial ink, not stark black — a quiet thread between the
+            // coloured stop coins.
+            paint: { 'line-color': '#5A4A38', 'line-width': 2.4, 'line-opacity': 0.7 },
           }, 'pins-halo')
           m.addSource('trail-stops', { type: 'geojson', data: emptyFC, promoteId: 'id' })
           m.addLayer({
             id: 'trail-stop-halo', type: 'circle', source: 'trail-stops',
             paint: {
-              'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 13, 10, 16, 14, 18],
-              'circle-color': '#1c1a17', 'circle-opacity': 0.16,
+              'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 14, 10, 17, 14, 19],
+              // Soft warm shadow beneath each coin.
+              'circle-color': '#5A4A38', 'circle-opacity': 0.14,
             },
           })
           m.addLayer({
             id: 'trail-stop-circle', type: 'circle', source: 'trail-stops',
             paint: {
-              'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 9, 10, 11.5, 14, 13],
-              'circle-color': '#1c1a17',
-              'circle-stroke-width': 2.25,
+              'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 9.5, 10, 12, 14, 13.5],
+              // The stop's own category colour — ties each numbered coin to its
+              // vertical, matching the editorial wayfinding across the Atlas.
+              'circle-color': ['coalesce', ['get', 'color'], '#5f8a7e'],
+              'circle-stroke-width': 2.5,
               'circle-stroke-color': PAPER,
             },
           })
@@ -1186,12 +1191,14 @@ export default function MapClient({
             id: 'trail-stop-number', type: 'symbol', source: 'trail-stops',
             layout: {
               'text-field': ['get', 'label'],
-              'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
-              'text-size': ['interpolate', ['linear'], ['zoom'], 3, 10, 10, 11.5, 14, 13],
+              'text-font': ['DIN Offc Pro Bold', 'Arial Unicode MS Bold'],
+              'text-size': ['interpolate', ['linear'], ['zoom'], 3, 10.5, 10, 12, 14, 13.5],
               'text-allow-overlap': true,
               'text-ignore-placement': true,
             },
-            paint: { 'text-color': '#FBF9F4' },
+            // A soft dark halo keeps the white numeral legible on lighter
+            // category colours (gold, ochre) as well as the deep ones.
+            paint: { 'text-color': '#FBF9F4', 'text-halo-color': 'rgba(28,26,23,0.35)', 'text-halo-width': 1.1 },
           })
           m.on('mousemove', 'trail-stop-circle', () => { m.getCanvas().style.cursor = 'pointer' })
           m.on('mouseleave', 'trail-stop-circle', () => { m.getCanvas().style.cursor = '' })
@@ -1455,7 +1462,7 @@ export default function MapClient({
         .map((s, i) => ({
           type: 'Feature',
           geometry: { type: 'Point', coordinates: [parseFloat(s.longitude), parseFloat(s.latitude)] },
-          properties: { id: s.id, label: String(i + 1) },
+          properties: { id: s.id, label: String(i + 1), color: verticalColor(s.vertical) },
         })),
     })
     routeSource.setData(
@@ -1474,12 +1481,22 @@ export default function MapClient({
   // lands several stops at once — frame them. Single hand-adds never move
   // the camera; the reader is already looking where they're working.
   const prevTrailCount = useRef(0)
+  const framedInitial = useRef(false)
   useEffect(() => {
+    // Only advance the baseline once the map can actually act on it — otherwise
+    // a draft that hydrates before the map is ready would leave prev === n and
+    // the trail would never get framed.
+    if (!mapReady || !map.current || isEmbedded || !trailOpenRef.current) return
     const n = trail.stops.length
     const prev = prevTrailCount.current
     prevTrailCount.current = n
-    if (!mapReady || !map.current || isEmbedded || !trailOpenRef.current) return
-    if (n >= 2 && n - prev >= 2) {
+    // Frame when a batch lands at once (wizard / plan-a-stay import / template),
+    // or on the first ready render of a restored/edited trail. Single hand-adds
+    // never yank the camera — the reader is already looking where they work.
+    const batchLanded = n >= 2 && n - prev >= 2
+    const initialRestore = !framedInitial.current && n >= 2
+    if (n >= 2) framedInitial.current = true
+    if (batchLanded || initialRestore) {
       const pts = trail.stops
         .filter(s => s.latitude != null && s.longitude != null)
         .map(s => [parseFloat(s.longitude), parseFloat(s.latitude)])
@@ -1631,26 +1648,31 @@ export default function MapClient({
   // mode of this map. The button carries the live stop count so a draft in
   // progress is never invisible.
   const trailCount = trail.stops.length
-  const renderTrailButton = () => (
-    <button
-      onClick={() => setTrailOpen(!trailOpen)}
-      aria-pressed={trailOpen}
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: 7,
-        padding: '7px 14px', borderRadius: 17, cursor: 'pointer', minHeight: 32,
-        border: `1px solid ${trailOpen || trailCount ? PRIMARY : 'var(--color-border)'}`,
-        background: trailOpen ? PRIMARY : trailCount ? 'rgba(95,138,126,0.10)' : '#fff',
-        color: trailOpen ? '#fff' : trailCount ? 'var(--color-sage-dark, #4a6e63)' : 'var(--color-muted)',
-        fontSize: 11.5, fontWeight: 600, fontFamily: 'var(--font-sans)', transition: 'all 0.18s',
-      }}
-    >
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <circle cx="6" cy="19" r="3" /><circle cx="18" cy="5" r="3" />
-        <path d="M9 19h6.5a3.5 3.5 0 0 0 0-7h-7a3.5 3.5 0 0 1 0-7H15" />
-      </svg>
-      {trailCount > 0 ? t('trailButtonCount', { count: trailCount }) : t('trailButton')}
-    </button>
-  )
+  const renderTrailButton = () => {
+    const filled = trailOpen || trailCount > 0
+    return (
+      <button
+        onClick={() => setTrailOpen(!trailOpen)}
+        aria-pressed={trailOpen}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 8,
+          padding: '8px 16px', borderRadius: 999, cursor: 'pointer', minHeight: 34,
+          border: `1px solid ${filled ? 'transparent' : 'var(--color-border)'}`,
+          background: filled ? PRIMARY : '#fff',
+          color: filled ? '#fff' : 'var(--color-ink)',
+          fontSize: 12, fontWeight: 600, fontFamily: 'var(--font-sans)', letterSpacing: '0.01em',
+          boxShadow: filled ? '0 2px 10px rgba(82,58,30,0.14)' : 'none',
+          transition: 'all 0.18s',
+        }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <circle cx="6" cy="19" r="3" /><circle cx="18" cy="5" r="3" />
+          <path d="M9 19h6.5a3.5 3.5 0 0 0 0-7h-7a3.5 3.5 0 0 1 0-7H15" />
+        </svg>
+        {trailCount > 0 ? t('trailButtonCount', { count: trailCount }) : t('trailButton')}
+      </button>
+    )
+  }
 
   // Unified search dropdown — venues first, then towns/places.
   const renderSearchDropdown = (widthStyle) => (
@@ -1713,10 +1735,18 @@ export default function MapClient({
         {!isEmbedded && (
         <div ref={toolbarRef} className="map-desktop-toolbar" style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
           {/* Row 0: brand + the trail mode toggle. */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 20px 0', background: 'rgba(250,248,245,0.97)', backdropFilter: 'blur(8px)' }}>
-            <a href="/" style={{ fontFamily: 'var(--font-serif)', fontSize: 13, color: 'var(--color-muted)', textDecoration: 'none', letterSpacing: '0.01em' }}>
-              ✳ Australian Atlas
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '11px 20px 1px', background: 'rgba(250,248,245,0.97)', backdropFilter: 'blur(8px)' }}>
+            <a href="/" className="map-wordmark" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, textDecoration: 'none' }}>
+              <svg className="map-wordmark-star" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#C4973B" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ transition: 'transform 0.4s cubic-bezier(0.22,1,0.36,1)' }}>
+                <path d="M12 2v20M2 12h20M4.9 4.9l14.2 14.2M19.1 4.9L4.9 19.1" />
+              </svg>
+              <span style={{ fontFamily: 'var(--font-serif)', fontSize: 16, fontWeight: 400, color: 'var(--color-ink)', letterSpacing: '0.005em' }}>
+                Australian Atlas
+              </span>
             </a>
+            <span style={{ fontFamily: 'var(--font-sans)', fontSize: 10, fontWeight: 600, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--color-muted)', paddingLeft: 2 }}>
+              {t('mapWordmarkKicker')}
+            </span>
             <div style={{ marginLeft: 'auto' }}>
               {renderTrailButton()}
             </div>
@@ -1728,7 +1758,7 @@ export default function MapClient({
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-muted)" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
               </span>
               <input {...searchInputProps}
-                style={{ padding: '7px 12px 7px 30px', background: '#fff', border: '1px solid var(--color-border)', color: 'var(--color-ink)', fontSize: 12, outline: 'none', borderRadius: 6, width: '100%', fontFamily: 'var(--font-sans)', boxSizing: 'border-box' }}
+                style={{ padding: '8px 12px 8px 31px', background: '#fff', border: '1px solid var(--color-border)', color: 'var(--color-ink)', fontSize: 12, outline: 'none', borderRadius: 999, width: '100%', fontFamily: 'var(--font-sans)', boxSizing: 'border-box' }}
               />
               {showSearchDropdown && hasSearchResults && renderSearchDropdown({ width: 330 })}
             </div>
@@ -1756,7 +1786,7 @@ export default function MapClient({
               onChange={e => setStateFilter(e.target.value)}
               aria-label={t('filterByState')}
               style={{
-                padding: '6px 10px', borderRadius: 6, border: '1px solid var(--color-border)',
+                padding: '7px 12px', borderRadius: 999, border: '1px solid var(--color-border)',
                 background: stateFilter !== 'All States' ? 'rgba(95,138,126,0.12)' : '#fff',
                 color: 'var(--color-ink)', fontSize: 11.5, fontWeight: 500, fontFamily: 'var(--font-sans)', cursor: 'pointer', outline: 'none',
               }}
@@ -2373,6 +2403,8 @@ export default function MapClient({
         .mapboxgl-popup-close-button { font-size: 18px !important; padding: 4px 8px !important; color: #9a8878 !important; }
         .map-hover-tip { pointer-events: none !important; }
         .map-hover-tip .mapboxgl-popup-content { padding: 8px 11px !important; box-shadow: 0 2px 10px rgba(0,0,0,0.10) !important; border-radius: 7px !important; }
+        .map-wordmark .map-wordmark-star { transform: rotate(0deg); }
+        .map-wordmark:hover .map-wordmark-star { transform: rotate(90deg); }
         .map-spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(95,138,126,0.25); border-top-color: #5f8a7e; animation: map-spin 0.8s linear infinite; display: inline-block; flex-shrink: 0; }
         @keyframes map-spin { to { transform: rotate(360deg); } }
         .atlas-donut { cursor: pointer; filter: drop-shadow(0 2px 6px rgba(28,26,23,0.22)); transition: transform 0.16s ease; }
