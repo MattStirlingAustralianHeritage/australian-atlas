@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { getSupabaseAdmin, getVerticalClient } from '@/lib/supabase/clients'
+import { getPlaceDetails } from '@/lib/prospector/google-places'
 import { startRun, completeRun } from '@/lib/agents/logRun'
 import { sendAgentEmail } from '@/lib/agents/email'
 
@@ -45,6 +46,8 @@ export async function GET(request) {
     cleared: 0,
     reinstated: 0,
     errors: 0,
+    hours_checked: 0,
+    hours_updated: 0,
   }
   let timeCapped = false
 
@@ -192,6 +195,19 @@ export async function GET(request) {
       console.log(`[staleness-agent] Time budget reached after ${counts.listings_checked} checks — remaining backlog picks up next run`)
     }
 
+    // ── Opening-hours refresh ────────────────────────────────────
+    // Google ToS caps caching (~30 days). Ride the existing staleness cadence
+    // and opening_hours_fetched_at — no new scheduler. Bounded per run and
+    // monthly-budget-governed via getPlaceDetails. Non-fatal.
+    try {
+      const hr = await refreshStaleOpeningHours(sb, deadlineMs)
+      counts.hours_checked = hr.checked
+      counts.hours_updated = hr.updated
+      counts.errors += hr.errors
+    } catch (err) {
+      console.error('[staleness-agent] opening-hours refresh error:', err.message)
+    }
+
     // ── Log run completion ──────────────────────────────────────
     await completeRun(runId, {
       summary: {
@@ -200,6 +216,8 @@ export async function GET(request) {
         cleared: counts.cleared,
         reinstated: counts.reinstated,
         errors: counts.errors,
+        hours_checked: counts.hours_checked,
+        hours_updated: counts.hours_updated,
         time_capped: timeCapped ? 'yes' : null,
       },
     })
@@ -288,6 +306,65 @@ function cleanFlags(flags) {
  */
 function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+// ─── Opening-hours refresh (Google Places) ─────────────────────
+// Only sba currently stores a durable google_place_id (in its source DB), so
+// the refresh is scoped to sba. Bounded per run; getPlaceDetails is monthly-
+// budget-governed and returns null when the budget is exhausted.
+const HOURS_REFRESH_LIMIT = 40
+const HOURS_STALE_DAYS = 30
+
+function deriveOpeningHours(details) {
+  const bs = details?.business_status || null
+  const oh = details?.opening_hours || null
+  const hasRegular = !!(oh && ((Array.isArray(oh.weekday_text) && oh.weekday_text.length) ||
+                               (Array.isArray(oh.periods) && oh.periods.length)))
+  let status
+  if (bs === 'CLOSED_PERMANENTLY' || bs === 'CLOSED_TEMPORARILY') status = 'unavailable'
+  else if (hasRegular) status = 'published'
+  else status = 'by_appointment' // operational but no Google hours — never fabricated
+  return { value: hasRegular ? oh : null, status }
+}
+
+async function refreshStaleOpeningHours(sb, deadlineMs) {
+  const out = { checked: 0, updated: 0, errors: 0 }
+  const cutoff = new Date(Date.now() - HOURS_STALE_DAYS * 24 * 60 * 60 * 1000).toISOString()
+  const { data: rows, error } = await sb
+    .from('listings')
+    .select('id, source_id, opening_hours_fetched_at')
+    .eq('vertical', 'sba')
+    .eq('status', 'active')
+    .or(`opening_hours_fetched_at.is.null,opening_hours_fetched_at.lt.${cutoff}`)
+    .order('opening_hours_fetched_at', { ascending: true, nullsFirst: true })
+    .limit(HOURS_REFRESH_LIMIT)
+  if (error || !rows || rows.length === 0) return out
+
+  const sba = getVerticalClient('sba')
+  const sourceIds = rows.map(r => String(r.source_id)).filter(Boolean)
+  const { data: venues } = await sba.from('venues').select('id, google_place_id').in('id', sourceIds)
+  const placeIdBySource = new Map((venues || []).map(v => [String(v.id), v.google_place_id]))
+
+  for (const r of rows) {
+    if (Date.now() >= deadlineMs) break
+    const placeId = placeIdBySource.get(String(r.source_id))
+    if (!placeId) continue
+    out.checked++
+    try {
+      const details = await getPlaceDetails(placeId) // governed; null when budget hit or place not found
+      if (!details) continue
+      const d = deriveOpeningHours(details)
+      const { error: upErr } = await sb.from('listings').update({
+        opening_hours: d.value,
+        opening_hours_status: d.status,
+        opening_hours_fetched_at: new Date().toISOString(),
+      }).eq('id', r.id)
+      if (upErr) out.errors++
+      else out.updated++
+    } catch { out.errors++ }
+    await delay(200)
+  }
+  return out
 }
 
 /**
