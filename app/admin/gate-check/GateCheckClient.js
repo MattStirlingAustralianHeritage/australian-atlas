@@ -1,65 +1,59 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
-import ConfirmDialog from '@/components/ConfirmDialog'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 
-// ── Palette (matches the admin dashboard) ───────────────────────────────────
-const INK = '#2D2A26'
-const MUTED = '#6B6760'
-const CREAM = '#FAF8F5'
-const ACCENT = '#C4603A'
-const BORDER = 'rgba(28,26,23,0.12)'
-const DARK = '#1C1A17'
-const GREEN = '#5f8a7e'
-const AMBER = '#d4a039'
-const RED = '#b5482a'
+// ── Palette / tokens (aligned to the admin design system + Candidate Review) ──
+const SAGE = 'var(--color-sage, #5f8a7e)'
+const INK = 'var(--color-ink, #2D2A26)'
+const MUTED = 'var(--color-muted, #6B6760)'
+const CREAM = 'var(--color-cream, #FAF8F5)'
+const BORDER = 'var(--color-border, rgba(28,26,23,0.12))'
+const KEEP = '#4A7C59'
+const HIDE = '#C49A3C'
+const DEL = '#CC4444'
 
 const GATE_META = {
-  gate1_web:      { label: 'Web',      color: '#c4603a' },
-  gate2_location: { label: 'Location', color: '#3a6ea5' },
-  gate3_activity: { label: 'Activity', color: '#7a5ea0' },
-  gate4_vertical: { label: 'Fit',      color: '#5f8a7e' },
+  gate1_web:      { label: 'Web Presence', short: 'Web',      color: '#c4603a' },
+  gate2_location: { label: 'Location',     short: 'Location', color: '#3a6ea5' },
+  gate3_activity: { label: 'Activity',     short: 'Activity', color: '#7a5ea0' },
+  gate4_vertical: { label: 'Vertical Fit', short: 'Fit',      color: '#5f8a7e' },
 }
 const SEVERITY_META = {
-  high:   { color: RED,   label: 'High' },
-  medium: { color: AMBER, label: 'Medium' },
+  high:   { color: DEL,  label: 'High' },
+  medium: { color: HIDE, label: 'Medium' },
   low:    { color: MUTED, label: 'Low' },
 }
-const ACTION_COLOR = { delete: RED, hide: AMBER, pass: GREEN }
+const ACTION_META = {
+  delete: { color: DEL,  label: 'Delete' },
+  hide:   { color: HIDE, label: 'Hide' },
+  pass:   { color: KEEP, label: 'Keep' },
+}
 const VERTICAL_NAMES = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft', fine_grounds: 'Fine Grounds',
   rest: 'Rest', field: 'Field', corner: 'Corner', found: 'Found', table: 'Table', way: 'Way',
 }
 const font = { body: 'var(--font-body, system-ui)', display: 'var(--font-display, Georgia)' }
 
-export default function GateCheckClient({ initialRows, tableMissing, loadError, pendingCount, trashCount, lastScannedAt, facets }) {
+export default function GateCheckClient({ initialRows, tableMissing, loadError, pendingCount, trashCount, lastScannedAt, facets, mapboxToken }) {
   const [rows, setRows] = useState(initialRows || [])
+  const [trashRows, setTrashRows] = useState([])
   const [view, setView] = useState('queue') // 'queue' | 'trash'
   const [filters, setFilters] = useState({ vertical: '', gate: '', severity: '', action: '' })
-  const [selected, setSelected] = useState(() => new Set())
   const [loading, setLoading] = useState(false)
   const [busy, setBusy] = useState(false)
   const [missing, setMissing] = useState(!!tableMissing)
   const [counts, setCounts] = useState({ pending: pendingCount || 0, trash: trashCount || 0 })
+  const [session, setSession] = useState({ kept: 0, hidden: 0, deleted: 0 })
   const [scan, setScan] = useState({ running: false, result: null, error: null })
   const [ai, setAi] = useState({}) // rowId -> { busy?, verdict?, error? }
   const [msg, setMsg] = useState(loadError ? { kind: 'error', text: loadError } : null)
 
   const isTrash = view === 'trash'
+  const current = rows[0] || null
+  const sessionReviewed = session.kept + session.hidden + session.deleted
+  const totalQueue = rows.length + sessionReviewed
+  const progressPct = totalQueue > 0 ? (sessionReviewed / totalQueue) * 100 : 0
 
-  // Breakdown of the currently-loaded queue (for the summary strip).
-  const breakdown = useMemo(() => {
-    const byGate = {}, bySeverity = {}, byAction = {}
-    for (const r of rows) {
-      for (const g of (r.failed_gates || [])) byGate[g] = (byGate[g] || 0) + 1
-      bySeverity[r.severity] = (bySeverity[r.severity] || 0) + 1
-      byAction[r.suggested_action] = (byAction[r.suggested_action] || 0) + 1
-    }
-    return { byGate, bySeverity, byAction }
-  }, [rows])
-
-  // Filter options = initial server facets UNION whatever is loaded now, so a
-  // rescan that surfaces a new vertical/gate still appears in the dropdowns.
   const liveFacets = useMemo(() => {
     const verticals = new Set(facets.verticals || [])
     const gates = new Set(facets.gates || [])
@@ -73,19 +67,21 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
   // ── Data fetch ─────────────────────────────────────────────────────────────
   const refetch = useCallback(async (nextView = view, nextFilters = filters) => {
     setLoading(true)
-    setSelected(new Set())
     try {
       const status = nextView === 'trash' ? 'deleted' : 'pending'
       const params = new URLSearchParams({ status })
-      if (nextFilters.vertical) params.set('vertical', nextFilters.vertical)
-      if (nextFilters.gate) params.set('gate', nextFilters.gate)
-      if (nextFilters.severity) params.set('severity', nextFilters.severity)
-      if (nextFilters.action) params.set('action', nextFilters.action)
+      if (nextView !== 'trash') {
+        if (nextFilters.vertical) params.set('vertical', nextFilters.vertical)
+        if (nextFilters.gate) params.set('gate', nextFilters.gate)
+        if (nextFilters.severity) params.set('severity', nextFilters.severity)
+        if (nextFilters.action) params.set('action', nextFilters.action)
+      }
       const res = await fetch(`/api/admin/gate-check?${params}`)
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to load')
-      if (data.tableMissing) { setMissing(true); setRows([]); return }
-      setRows(data.rows || [])
+      if (data.tableMissing) { setMissing(true); return }
+      if (nextView === 'trash') setTrashRows(data.rows || [])
+      else setRows(data.rows || [])
     } catch (err) {
       setMsg({ kind: 'error', text: err.message })
     } finally {
@@ -95,40 +91,32 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
 
   const changeView = (v) => {
     setView(v)
-    // Don't carry queue filters into Trash — its filter UI is hidden, so a filtered
-    // row would silently vanish from Trash with no way to clear the filter there.
-    if (v === 'trash') { const cleared = { vertical: '', gate: '', severity: '', action: '' }; setFilters(cleared); refetch(v, cleared) }
-    else refetch(v, filters)
+    if (v === 'trash') refetch('trash', filters)
   }
   const changeFilter = (key, val) => {
-    const next = { ...filters, [key]: val }
+    const next = { ...filters, [key]: (filters[key] === val ? '' : val) }
     setFilters(next)
-    refetch(view, next)
+    refetch('queue', next)
   }
 
-  // ── Actions ─────────────────────────────────────────────────────────────────
-  const runAction = useCallback(async (ids, action) => {
-    if (!ids.length) return
+  // ── Actions (advance to the next card on success) ────────────────────────────
+  const runAction = useCallback(async (id, action) => {
+    if (!id) return
     setBusy(true)
     setMsg(null)
     try {
       const res = await fetch('/api/admin/gate-check', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids, action }),
+        body: JSON.stringify({ ids: [id], action }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Action failed')
-      const idSet = new Set(ids)
-      setRows(prev => prev.filter(r => !idSet.has(r.id)))
-      setSelected(prev => { const n = new Set(prev); ids.forEach(i => n.delete(i)); return n })
-      const n = ids.length
-      setCounts(prev => {
-        if (action === 'delete') return { pending: Math.max(0, prev.pending - n), trash: prev.trash + n }
-        if (action === 'restore') return { pending: prev.pending + n, trash: Math.max(0, prev.trash - n) }
-        if (action === 'pass' || action === 'hide') return { ...prev, pending: Math.max(0, prev.pending - n) }
-        return prev
-      })
-      setMsg({ kind: 'ok', text: `${actionLabel(action)} ${n} listing${n === 1 ? '' : 's'}.` })
+      setRows(prev => prev.filter(r => r.id !== id))
+      if (action === 'delete') setCounts(prev => ({ pending: Math.max(0, prev.pending - 1), trash: prev.trash + 1 }))
+      else setCounts(prev => ({ ...prev, pending: Math.max(0, prev.pending - 1) }))
+      if (action === 'pass') setSession(s => ({ ...s, kept: s.kept + 1 }))
+      else if (action === 'hide') setSession(s => ({ ...s, hidden: s.hidden + 1 }))
+      else if (action === 'delete') setSession(s => ({ ...s, deleted: s.deleted + 1 }))
     } catch (err) {
       setMsg({ kind: 'error', text: err.message })
     } finally {
@@ -136,20 +124,29 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
     }
   }, [])
 
-  const [pendingBulk, setPendingBulk] = useState(null) // { action, ids }
-  const bulk = (action) => {
-    const ids = [...selected]
-    if (!ids.length) return
-    if (action === 'hide' || action === 'delete') { setPendingBulk({ action, ids }); return }
-    runAction(ids, action)
-  }
-  const confirmBulk = async () => {
-    if (!pendingBulk) return
-    await runAction(pendingBulk.ids, pendingBulk.action)
-    setPendingBulk(null)
-  }
+  const restore = useCallback(async (id) => {
+    setBusy(true)
+    try {
+      const res = await fetch('/api/admin/gate-check', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [id], action: 'restore' }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Restore failed')
+      const restored = trashRows.find(r => r.id === id)
+      setTrashRows(prev => prev.filter(r => r.id !== id))
+      setCounts(prev => ({ pending: prev.pending + 1, trash: Math.max(0, prev.trash - 1) }))
+      // Bring it back into the working queue.
+      if (restored) setRows(prev => [{ ...restored, status: 'pending' }, ...prev])
+      setMsg({ kind: 'ok', text: 'Restored to the queue.' })
+    } catch (err) {
+      setMsg({ kind: 'error', text: err.message })
+    } finally {
+      setBusy(false)
+    }
+  }, [trashRows])
 
-  // ── AI fit check (LLM Gate 4) for one row ─────────────────────────────────────
+  // ── AI fit check (LLM Gate 4) for the current card ───────────────────────────
   const runAi = useCallback(async (rowId) => {
     setAi(prev => ({ ...prev, [rowId]: { busy: true } }))
     try {
@@ -160,14 +157,13 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'AI check failed')
       setAi(prev => ({ ...prev, [rowId]: { verdict: data } }))
-      // The AI check may have persisted new gates/severity/suggested action — reconcile the row.
       if (data.updatedRow) setRows(prev => prev.map(r => r.id === rowId ? { ...r, ...data.updatedRow } : r))
     } catch (err) {
       setAi(prev => ({ ...prev, [rowId]: { error: err.message } }))
     }
   }, [])
 
-  // ── Quick re-scan (Location + Vertical-fit gates) ─────────────────────────────
+  // ── Quick re-scan (Location + Vertical-fit gates) ────────────────────────────
   const runQuickScan = useCallback(async () => {
     setScan({ running: true, result: null, error: null })
     setMsg(null)
@@ -179,303 +175,364 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Quick scan failed')
       setScan({ running: false, result: data, error: null })
+      setSession({ kept: 0, hidden: 0, deleted: 0 })
       refetch('queue', filters)
       setView('queue')
-      // Use the exact pending count the quick-scan returns (head count, not capped rows).
       if (typeof data.pending === 'number') setCounts(prev => ({ ...prev, pending: data.pending }))
     } catch (err) {
       setScan({ running: false, result: null, error: err.message })
     }
   }, [filters, refetch])
 
-  // ── Selection ────────────────────────────────────────────────────────────────
-  const allVisibleSelected = rows.length > 0 && rows.every(r => selected.has(r.id))
-  const toggleAll = () => setSelected(allVisibleSelected ? new Set() : new Set(rows.map(r => r.id)))
-  const toggleOne = (id) => setSelected(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
-
-  const pendingCountLabel = pendingBulk ? `${pendingBulk.ids.length} listing${pendingBulk.ids.length === 1 ? '' : 's'}` : ''
+  // ── Keyboard shortcuts (queue view) — P keep · H hide · D delete · A ai ──────
+  useEffect(() => {
+    const onKey = (e) => {
+      if (isTrash || !current || busy) return
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable) return
+      const k = e.key.toLowerCase()
+      if (k === 'p' || e.key === 'ArrowRight') { e.preventDefault(); runAction(current.id, 'pass') }
+      else if (k === 'h') { e.preventDefault(); runAction(current.id, 'hide') }
+      else if (k === 'd') { e.preventDefault(); runAction(current.id, 'delete') }
+      else if (k === 'a') { e.preventDefault(); if (!ai[current.id]?.busy) runAi(current.id) }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [isTrash, current, busy, ai, runAction, runAi])
 
   return (
-    <div style={{ minHeight: '100vh', background: CREAM, paddingBottom: '4rem' }}>
-      <ConfirmDialog
-        open={!!pendingBulk}
-        title={pendingBulk?.action === 'hide' ? `Hide ${pendingCountLabel}?` : `Soft-delete ${pendingCountLabel}?`}
-        message={pendingBulk?.action === 'hide'
-          ? 'They will be removed from every public surface and the map (reversible).'
-          : 'They move to Trash, removed from public + the default admin views. Reversible via Restore.'}
-        confirmLabel={pendingBulk?.action === 'hide' ? 'Hide' : 'Delete'}
-        danger busy={busy}
-        onConfirm={confirmBulk}
-        onCancel={() => setPendingBulk(null)}
-      />
-      <div style={{ maxWidth: 1320, margin: '0 auto', padding: '2rem 1.5rem 0' }}>
+    <div style={{ maxWidth: 860, margin: '0 auto', padding: '2rem 1.5rem 4rem' }}>
+      <style>{`@keyframes gcspin { to { transform: rotate(360deg) } }`}</style>
 
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
-          <div>
-            <h1 style={{ fontFamily: font.display, fontSize: '1.75rem', fontWeight: 600, color: INK, margin: '0 0 0.25rem' }}>
-              Gate Check
-            </h1>
-            <p style={{ fontFamily: font.body, fontSize: '0.85rem', color: MUTED, margin: 0, maxWidth: 720 }}>
-              Every live listing swept through the Atlas quality gates — <b>Web Presence</b>, <b>Location</b>, <b>Activity</b> and <b>Vertical Fit</b>.
-              Only the listings that <i>failed</i> a gate appear here, with the reason and a suggested action. Pass keeps it; Hide / Delete are reversible.
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <button onClick={runQuickScan} disabled={scan.running || missing} style={btnStyle('ghost', scan.running || missing)}>
+      {/* Header */}
+      <div style={{ textAlign: 'center', marginBottom: 24 }}>
+        <h1 style={{ fontFamily: font.display, fontWeight: 400, fontSize: 28, color: INK, margin: '0 0 4px' }}>Gate Check</h1>
+        <p style={{ fontFamily: font.body, fontWeight: 300, fontSize: 14, color: MUTED, margin: 0 }}>
+          Review each flagged listing one at a time — keep it, hide it, or delete it.
+        </p>
+      </div>
+
+      {missing && (
+        <Banner kind="error">
+          <strong>Migration 219 not applied.</strong> The table <code>listing_gate_check</code> does not exist yet — apply
+          <code> supabase/migrations/219_listing_gate_check.sql</code> and run the sweep, then reload.
+        </Banner>
+      )}
+      {scan.error && <Banner kind="error">Quick scan error: {scan.error}</Banner>}
+      {scan.result && <Banner kind="ok">Quick re-scan complete — {scan.result.scanned} scanned, {scan.result.upserted} location/fit flags written, {scan.result.cleared} cleared.</Banner>}
+      {msg && <Banner kind={msg.kind === 'error' ? 'error' : 'ok'}>{msg.text}</Banner>}
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', borderBottom: `1px solid ${BORDER}`, marginBottom: 16 }}>
+        <Tab active={!isTrash} onClick={() => changeView('queue')}>Review Queue ({counts.pending})</Tab>
+        <Tab active={isTrash} onClick={() => changeView('trash')}>Trash ({counts.trash})</Tab>
+      </div>
+
+      {isTrash ? (
+        <TrashView rows={trashRows} loading={loading} busy={busy} onRestore={restore} />
+      ) : (
+        <>
+          {/* Controls: filters + quick re-scan */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
+            <PillGroup label="Severity" value={filters.severity} onPick={v => changeFilter('severity', v)}
+              options={[['high', 'High'], ['medium', 'Medium'], ['low', 'Low']]} colorFor={v => SEVERITY_META[v]?.color} />
+            <PillGroup label="Action" value={filters.action} onPick={v => changeFilter('action', v)}
+              options={[['delete', 'Delete'], ['hide', 'Hide'], ['pass', 'Keep']]} colorFor={v => ACTION_META[v]?.color} />
+            <span style={{ flex: 1 }} />
+            <Dropdown label="Vertical" value={filters.vertical} onChange={v => changeFilter('vertical', v)}
+              options={liveFacets.verticals.map(v => [v, VERTICAL_NAMES[v] || v])} />
+            <Dropdown label="Gate" value={filters.gate} onChange={v => changeFilter('gate', v)}
+              options={liveFacets.gates.map(g => [g, GATE_META[g]?.short || g])} />
+            <button onClick={runQuickScan} disabled={scan.running || missing} style={ghostBtn(scan.running || missing)}>
               {scan.running ? 'Re-scanning…' : 'Quick re-scan'}
             </button>
           </div>
-        </div>
 
-        {/* Missing-table banner */}
-        {missing && (
-          <div style={bannerStyle('error')}>
-            <strong>Migration 219 not applied.</strong> The table <code>listing_gate_check</code> does not exist yet.
-            Apply <code>supabase/migrations/219_listing_gate_check.sql</code> to the portal project <code>nyhkcmvhwbydsqsyvizs</code>,
-            run <code>scripts/sweep-gate-check.mjs</code>, then reload.
-          </div>
-        )}
-
-        {/* Quick-scan result / error */}
-        {scan.error && <div style={bannerStyle('error')}>Quick scan error: {scan.error}</div>}
-        {scan.result && (
-          <div style={bannerStyle('ok')}>
-            Quick re-scan complete — {scan.result.scanned} scanned, {scan.result.upserted} location/fit flags written, {scan.result.cleared} cleared.
-          </div>
-        )}
-        {msg && <div style={bannerStyle(msg.kind === 'error' ? 'error' : 'ok')}>{msg.text}</div>}
-
-        {/* Summary strip */}
-        {!isTrash && !missing && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', margin: '1rem 0 0' }}>
-            {Object.entries(breakdown.byGate).sort((a, b) => b[1] - a[1]).map(([g, n]) => (
-              <SummaryPill key={g} color={GATE_META[g]?.color || MUTED} label={GATE_META[g]?.label || g} value={n} />
-            ))}
-            <span style={{ width: 1, background: BORDER, margin: '0 0.25rem' }} />
-            {['high', 'medium', 'low'].filter(s => breakdown.bySeverity[s]).map(s => (
-              <SummaryPill key={s} color={SEVERITY_META[s].color} label={SEVERITY_META[s].label} value={breakdown.bySeverity[s]} outline />
-            ))}
-          </div>
-        )}
-
-        {/* Controls row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', margin: '1rem 0 0.75rem' }}>
-          <div style={{ display: 'inline-flex', border: `1px solid ${BORDER}`, borderRadius: 8, overflow: 'hidden' }}>
-            <ToggleBtn active={!isTrash} onClick={() => changeView('queue')}>Queue · {counts.pending}</ToggleBtn>
-            <ToggleBtn active={isTrash} onClick={() => changeView('trash')}>Trash · {counts.trash}</ToggleBtn>
-          </div>
-          {!isTrash && (
+          {current && (
             <>
-              <FilterSelect label="Vertical" value={filters.vertical} onChange={v => changeFilter('vertical', v)}
-                options={liveFacets.verticals.map(v => [v, VERTICAL_NAMES[v] || v])} />
-              <FilterSelect label="Gate" value={filters.gate} onChange={v => changeFilter('gate', v)}
-                options={liveFacets.gates.map(g => [g, GATE_META[g]?.label || g])} />
-              <FilterSelect label="Severity" value={filters.severity} onChange={v => changeFilter('severity', v)}
-                options={[['high', 'High'], ['medium', 'Medium'], ['low', 'Low']]} />
-              <FilterSelect label="Suggested" value={filters.action} onChange={v => changeFilter('action', v)}
-                options={[['delete', 'Delete'], ['hide', 'Hide'], ['pass', 'Pass']]} />
+              {/* Keyboard hints */}
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16,
+                padding: '9px 16px', marginBottom: 16, background: CREAM, borderRadius: 8,
+                fontFamily: font.body, fontSize: 11, color: MUTED, flexWrap: 'wrap',
+              }}>
+                <span><Kbd>P</Kbd> keep</span><Sep />
+                <span><Kbd>H</Kbd> hide</span><Sep />
+                <span><Kbd>D</Kbd> delete</span><Sep />
+                <span><Kbd>A</Kbd> AI fit check</span>
+              </div>
+
+              {/* Progress */}
+              <div style={{ marginBottom: 22 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+                  <span style={{ fontFamily: font.body, fontSize: 13, fontWeight: 500, color: INK }}>
+                    {sessionReviewed} of {totalQueue} reviewed
+                    {lastScannedAt && <span style={{ fontWeight: 400, color: MUTED }}>{'  '}· swept {new Date(lastScannedAt).toLocaleDateString()}</span>}
+                  </span>
+                  <span style={{ fontFamily: font.body, fontSize: 11, color: MUTED }}>
+                    <span style={{ color: KEEP }}>{session.kept} kept</span>{' / '}
+                    <span style={{ color: HIDE }}>{session.hidden} hidden</span>{' / '}
+                    <span style={{ color: DEL }}>{session.deleted} deleted</span>
+                  </span>
+                </div>
+                <div style={{ height: 3, borderRadius: 2, background: BORDER, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${progressPct}%`, background: SAGE, borderRadius: 2, transition: 'width 0.4s ease' }} />
+                </div>
+              </div>
             </>
           )}
-          <span style={{ flex: 1 }} />
-          {lastScannedAt && <span style={{ fontFamily: font.body, fontSize: '0.72rem', color: MUTED }}>Last sweep: {new Date(lastScannedAt).toLocaleString()}</span>}
-          {loading && <span style={{ fontFamily: font.body, fontSize: '0.8rem', color: MUTED }}>Loading…</span>}
-        </div>
 
-        {/* Bulk action bar */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.625rem 0.875rem',
-          background: selected.size ? 'rgba(196,96,58,0.06)' : '#fff',
-          border: `1px solid ${selected.size ? 'rgba(196,96,58,0.3)' : BORDER}`, borderRadius: 10, marginBottom: '0.75rem',
-        }}>
-          <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontFamily: font.body, fontSize: '0.8rem', color: INK, cursor: 'pointer' }}>
-            <input type="checkbox" checked={allVisibleSelected} onChange={toggleAll} disabled={!rows.length} />
-            Select all visible
-          </label>
-          <span style={{ fontFamily: font.body, fontSize: '0.8rem', color: MUTED }}>
-            {selected.size ? `${selected.size} selected` : `${rows.length} shown`}
-          </span>
-          <span style={{ flex: 1 }} />
-          {isTrash ? (
-            <button onClick={() => bulk('restore')} disabled={!selected.size || busy} style={btnStyle('green', !selected.size)}>Restore</button>
+          {loading ? (
+            <Empty>Loading…</Empty>
+          ) : current ? (
+            <>
+              <GateCard row={current} busy={busy} ai={ai[current.id]}
+                onAction={(a) => runAction(current.id, a)} onAi={() => runAi(current.id)} mapboxToken={mapboxToken} />
+              {rows.length > 1 && (
+                <p style={{ textAlign: 'center', fontFamily: font.body, fontSize: 13, color: MUTED, marginTop: 10 }}>
+                  {rows.length - 1} more flagged listing{rows.length - 1 !== 1 ? 's' : ''} in the queue
+                </p>
+              )}
+            </>
+          ) : sessionReviewed > 0 ? (
+            <Completion session={session} />
           ) : (
-            <>
-              <button onClick={() => bulk('pass')} disabled={!selected.size || busy} style={btnStyle('green', !selected.size)}>Pass / Keep</button>
-              <button onClick={() => bulk('hide')} disabled={!selected.size || busy} style={btnStyle('amber', !selected.size)}>Hide</button>
-              <button onClick={() => bulk('delete')} disabled={!selected.size || busy} style={btnStyle('red', !selected.size)}>Delete</button>
-            </>
+            <Empty>
+              <div style={{ fontFamily: font.display, fontSize: 22, color: INK, marginBottom: 6 }}>Nothing failing a gate 🎉</div>
+              <div style={{ fontFamily: font.body, fontSize: 14, color: MUTED }}>
+                {missing ? 'Apply migration 219 and run the sweep to begin.'
+                  : Object.values(filters).some(Boolean) ? 'No flagged listings match these filters.'
+                  : 'Every live listing passed the gates. Run a sweep to re-check.'}
+              </div>
+            </Empty>
           )}
+        </>
+      )}
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// The one-at-a-time review card
+// ════════════════════════════════════════════════════════════════════════════
+function GateCard({ row, busy, ai, onAction, onAi, mapboxToken }) {
+  const l = row.listing || {}
+  const name = l.name || '(listing missing)'
+  const live = l.slug ? `/place/${l.slug}` : null
+  const edit = l.name ? `/admin/listings?search=${encodeURIComponent(l.name)}` : '/admin/listings'
+  const sev = SEVERITY_META[row.severity] || SEVERITY_META.low
+  const act = ACTION_META[row.suggested_action] || ACTION_META.pass
+  const meta = [VERTICAL_NAMES[l.vertical] || l.vertical, l.sub_type, l.region || l.state].filter(Boolean).join('  ·  ')
+  const lat = Number(l.lat), lng = Number(l.lng)
+  const hasCoords = Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0)
+  const details = row.gate_details || []
+
+  return (
+    <div style={{ background: '#fff', borderRadius: 16, border: `1px solid ${BORDER}`, boxShadow: '0 2px 16px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+      {/* Top strip: severity (left) + suggested action (right) */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 20px', background: CREAM, borderBottom: `1px solid ${BORDER}` }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: font.body, fontSize: 11, fontWeight: 600, color: sev.color, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: sev.color }} /> {sev.label} severity
+        </span>
+        <span style={{ fontFamily: font.body, fontSize: 11, color: MUTED }}>
+          Suggested: <b style={{ color: act.color }}>{act.label}</b>
+        </span>
+      </div>
+
+      <div style={{ padding: '22px 28px 24px' }}>
+        {/* Gate badges */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+          {(row.failed_gates || []).map(g => (
+            <span key={g} style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 3, fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#fff', background: GATE_META[g]?.color || MUTED, fontFamily: font.body }}>
+              {GATE_META[g]?.label || g}
+            </span>
+          ))}
         </div>
 
-        {/* Table */}
-        <div style={{ background: '#fff', border: `1px solid ${BORDER}`, borderRadius: 12, overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: font.body, fontSize: '0.8rem' }}>
-              <thead>
-                <tr style={{ background: CREAM, textAlign: 'left', color: MUTED }}>
-                  <Th style={{ width: 34 }}></Th>
-                  <Th>Listing</Th>
-                  <Th>Vertical</Th>
-                  <Th>Gates failed</Th>
-                  <Th style={{ minWidth: 340 }}>Why it failed</Th>
-                  <Th>Severity</Th>
-                  <Th>Suggested</Th>
-                  <Th style={{ textAlign: 'right' }}>Action</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.length === 0 && (
-                  <tr><td colSpan={8} style={{ padding: '2.5rem', textAlign: 'center', color: MUTED }}>
-                    {missing ? 'Apply migration 219 and run the sweep to begin.' : isTrash ? 'Trash is empty.' : 'No listings are failing a gate. 🎉'}
-                  </td></tr>
-                )}
-                {rows.map(r => (
-                  <Row key={r.id} r={r} selected={selected.has(r.id)} onToggle={() => toggleOne(r.id)}
-                    isTrash={isTrash} busy={busy} ai={ai[r.id]} onAi={() => runAi(r.id)}
-                    onAction={(action) => runAction([r.id], action)} />
-                ))}
-              </tbody>
-            </table>
+        {/* Name + meta */}
+        <h2 style={{ fontFamily: font.display, fontWeight: 400, fontSize: 24, color: INK, margin: '0 0 4px', lineHeight: 1.2 }}>
+          {live ? <a href={live} target="_blank" rel="noreferrer" style={{ color: INK, textDecoration: 'none' }}>{name}</a> : name}
+        </h2>
+        <div style={{ fontFamily: font.body, fontSize: 13, color: MUTED, marginBottom: 18 }}>{meta || '—'}</div>
+
+        {/* Why it failed */}
+        <div style={{ background: CREAM, borderRadius: 10, border: `1px solid ${BORDER}`, padding: '14px 16px', marginBottom: hasCoords ? 16 : 18 }}>
+          <div style={{ fontFamily: font.body, fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: MUTED, marginBottom: 10 }}>Why it failed</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+            {details.map((d, i) => (
+              <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <span style={{ flexShrink: 0, marginTop: 1, display: 'inline-block', padding: '2px 7px', borderRadius: 4, fontSize: 9.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#fff', background: GATE_META[d.gate]?.color || MUTED, fontFamily: font.body }}>
+                  {GATE_META[d.gate]?.short || d.gate}
+                </span>
+                <span style={{ fontFamily: font.body, fontSize: 13.5, color: '#413d38', lineHeight: 1.45 }}>{d.reason}</span>
+              </div>
+            ))}
           </div>
         </div>
+
+        {/* Mini map for coords (esp. Location failures) */}
+        {hasCoords && mapboxToken && (
+          <a href={`https://www.google.com/maps?q=${lat},${lng}`} target="_blank" rel="noreferrer" style={{ display: 'block', borderRadius: 10, overflow: 'hidden', border: `1px solid ${BORDER}`, marginBottom: 18, lineHeight: 0 }}>
+            <img
+              alt={`Map showing the pin for ${name}`}
+              src={`https://api.mapbox.com/styles/v1/mapbox/light-v11/static/pin-l+cc4444(${lng},${lat})/${lng},${lat},4,0/760x220@2x?access_token=${mapboxToken}`}
+              style={{ width: '100%', height: 'auto', display: 'block' }}
+              onError={(e) => { e.currentTarget.parentElement.style.display = 'none' }}
+            />
+          </a>
+        )}
+
+        {/* Links */}
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 4, fontFamily: font.body, fontSize: 12 }}>
+          {row.website && <a href={row.website} target="_blank" rel="noreferrer" style={{ color: SAGE, textDecoration: 'none' }}>↗ Visit website{row.http_status ? ` (HTTP ${row.http_status})` : ''}</a>}
+          {live && <a href={live} target="_blank" rel="noreferrer" style={{ color: MUTED, textDecoration: 'none' }}>View live ›</a>}
+          <a href={edit} target="_blank" rel="noreferrer" style={{ color: MUTED, textDecoration: 'none' }}>Open in editor ›</a>
+        </div>
+
+        {/* AI verdict blurb */}
+        {ai?.busy && <div style={{ marginTop: 12, fontFamily: font.body, fontSize: 12, color: MUTED }}>Running AI vertical-fit check…</div>}
+        {ai?.error && <div style={{ marginTop: 12, fontFamily: font.body, fontSize: 12, color: DEL }}>AI check: {ai.error}</div>}
+        {ai?.verdict && (
+          <div style={{ marginTop: 12, fontFamily: font.body, fontSize: 12.5, color: ai.verdict.isFit === true ? '#3a5a50' : ai.verdict.isFit === null ? MUTED : '#8a3a22' }}>
+            AI fit: <b>{ai.verdict.isFit === true ? 'belongs in this vertical' : ai.verdict.isFit === null ? 'could not verify' : 'poor fit'}</b>
+            {ai.verdict.verdict?.suggestedVertical ? ` → suggests ${ai.verdict.verdict.suggestedVertical}` : ''}
+            {ai.verdict.verdict?.reason ? ` — ${ai.verdict.verdict.reason}` : ''}
+          </div>
+        )}
+      </div>
+
+      {/* Action bar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 20px', background: CREAM, borderTop: `1px solid ${BORDER}` }}>
+        <ActionBtn kind="keep" onClick={() => onAction('pass')} disabled={busy} title="Keep this listing active (P)">Keep</ActionBtn>
+        <ActionBtn kind="hide" onClick={() => onAction('hide')} disabled={busy} title="Hide from public (H)">Hide</ActionBtn>
+        <ActionBtn kind="delete" onClick={() => onAction('delete')} disabled={busy} title="Soft-delete to Trash (D)">Delete</ActionBtn>
+        <span style={{ flex: 1 }} />
+        <button onClick={onAi} disabled={busy || ai?.busy} style={{
+          height: 34, padding: '0 12px', borderRadius: 8, background: '#fff', border: `1px solid ${BORDER}`,
+          fontFamily: font.body, fontSize: 12, fontWeight: 500, color: MUTED, cursor: (busy || ai?.busy) ? 'default' : 'pointer', opacity: (busy || ai?.busy) ? 0.5 : 1,
+        }}>AI fit check</button>
       </div>
     </div>
   )
 }
 
-// ── Row ──────────────────────────────────────────────────────────────────────
-function Row({ r, selected, onToggle, isTrash, busy, ai, onAi, onAction }) {
-  const l = r.listing || {}
-  const name = l.name || '(listing missing)'
-  const live = l.slug ? `/place/${l.slug}` : null
-  const edit = l.name ? `/admin/listings?search=${encodeURIComponent(l.name)}` : '/admin/listings'
-  const sev = SEVERITY_META[r.severity] || SEVERITY_META.low
+// ════════════════════════════════════════════════════════════════════════════
+// Trash (soft-deleted) — compact list with Restore
+// ════════════════════════════════════════════════════════════════════════════
+function TrashView({ rows, loading, busy, onRestore }) {
+  if (loading) return <Empty>Loading…</Empty>
+  if (!rows.length) return <Empty><div style={{ fontFamily: font.body, fontSize: 14, color: MUTED }}>Trash is empty.</div></Empty>
   return (
-    <tr style={{ borderTop: `1px solid ${BORDER}`, background: selected ? 'rgba(196,96,58,0.04)' : '#fff' }}>
-      <Td><input type="checkbox" checked={selected} onChange={onToggle} /></Td>
-      <Td>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {live
-            ? <a href={live} target="_blank" rel="noreferrer" style={{ color: INK, fontWeight: 600, textDecoration: 'none' }}>{name}</a>
-            : <span style={{ color: INK, fontWeight: 600 }}>{name}</span>}
-          <div style={{ display: 'flex', gap: 8 }}>
-            <a href={edit} target="_blank" rel="noreferrer" style={{ color: ACCENT, fontSize: '0.7rem', textDecoration: 'none' }}>edit ›</a>
-            {r.website && <a href={r.website} target="_blank" rel="noreferrer" style={{ color: MUTED, fontSize: '0.7rem', textDecoration: 'none' }}>site ›</a>}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {rows.map(r => {
+        const l = r.listing || {}
+        return (
+          <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#fff', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '10px 14px' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: font.body, fontWeight: 600, fontSize: 13.5, color: INK }}>{l.name || '(listing)'}</div>
+              <div style={{ fontFamily: font.body, fontSize: 11.5, color: MUTED, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {[VERTICAL_NAMES[l.vertical] || l.vertical, l.region || l.state].filter(Boolean).join(' · ')}  —  {r.reason_summary}
+              </div>
+            </div>
+            <button onClick={() => onRestore(r.id)} disabled={busy} style={{
+              height: 32, padding: '0 14px', borderRadius: 8, background: '#fff', border: `1px solid ${KEEP}`,
+              fontFamily: font.body, fontSize: 12, fontWeight: 600, color: KEEP, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.5 : 1, flexShrink: 0,
+            }}>Restore</button>
           </div>
-          <span style={{ color: MUTED, fontSize: '0.68rem' }}>{[l.sub_type, l.region || l.state].filter(Boolean).join(' · ') || '—'}</span>
-        </div>
-      </Td>
-      <Td>{VERTICAL_NAMES[l.vertical] || l.vertical || '—'}</Td>
-      <Td>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-          {(r.failed_gates || []).map(g => (
-            <span key={g} style={{ display: 'inline-block', padding: '0.1rem 0.45rem', borderRadius: 6, fontSize: '0.66rem', fontWeight: 600,
-              color: '#fff', background: GATE_META[g]?.color || MUTED }}>
-              {GATE_META[g]?.label || g}
-            </span>
-          ))}
-        </div>
-      </Td>
-      <Td style={{ color: INK }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {(r.gate_details || []).map((d, i) => (
-            <div key={i} style={{ lineHeight: 1.35 }}>
-              <span style={{ color: GATE_META[d.gate]?.color || MUTED, fontWeight: 600 }}>{GATE_META[d.gate]?.label || d.gate}:</span>{' '}
-              <span style={{ color: '#413d38' }}>{d.reason}</span>
-            </div>
-          ))}
-          {ai?.busy && <div style={{ color: MUTED, fontSize: '0.7rem' }}>Running AI fit check…</div>}
-          {ai?.error && <div style={{ color: RED, fontSize: '0.7rem' }}>AI check: {ai.error}</div>}
-          {ai?.verdict && (
-            <div style={{ fontSize: '0.72rem', color: ai.verdict.isFit === true ? '#3a5a50' : ai.verdict.isFit === null ? MUTED : '#8a3a22', marginTop: 2 }}>
-              AI fit: <b>{ai.verdict.isFit === true ? 'belongs here' : ai.verdict.isFit === null ? 'could not verify' : 'poor fit'}</b>
-              {ai.verdict.verdict?.suggestedVertical ? ` → suggests ${ai.verdict.verdict.suggestedVertical}` : ''}
-              {ai.verdict.verdict?.reason ? ` — ${ai.verdict.verdict.reason}` : ''}
-            </div>
-          )}
-        </div>
-      </Td>
-      <Td><span style={{ display: 'inline-block', padding: '0.1rem 0.45rem', borderRadius: 6, fontSize: '0.66rem', fontWeight: 700,
-        color: '#fff', background: sev.color }}>{sev.label}</span></Td>
-      <Td><span style={{ color: ACTION_COLOR[r.suggested_action] || MUTED, fontWeight: 600, textTransform: 'capitalize' }}>{r.suggested_action}</span></Td>
-      <Td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-        {isTrash ? (
-          <RowBtn kind="green" onClick={() => onAction('restore')} disabled={busy}>Restore</RowBtn>
-        ) : (
-          <>
-            <RowBtn kind="green" onClick={() => onAction('pass')} disabled={busy}>Pass</RowBtn>
-            <RowBtn kind="amber" onClick={() => onAction('hide')} disabled={busy}>Hide</RowBtn>
-            <RowBtn kind="red" onClick={() => onAction('delete')} disabled={busy}>Delete</RowBtn>
-            <RowBtn kind="ghost" onClick={onAi} disabled={busy || ai?.busy}>AI fit</RowBtn>
-          </>
-        )}
-      </Td>
-    </tr>
+        )
+      })}
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Completion screen
+// ════════════════════════════════════════════════════════════════════════════
+function Completion({ session }) {
+  return (
+    <div style={{ textAlign: 'center', padding: '4rem 2.5rem', background: '#fff', borderRadius: 16, border: `1px solid ${BORDER}`, boxShadow: '0 2px 16px rgba(0,0,0,0.04)' }}>
+      <div style={{ fontSize: 40, marginBottom: 12 }}>✓</div>
+      <h2 style={{ fontFamily: font.display, fontWeight: 400, fontSize: 24, color: INK, margin: '0 0 16px' }}>Queue cleared</h2>
+      <div style={{ display: 'inline-flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center', fontFamily: font.body, fontSize: 13, color: MUTED }}>
+        <span style={{ color: KEEP, fontWeight: 500 }}>✓ {session.kept} kept</span><span style={{ opacity: 0.3 }}>·</span>
+        <span style={{ color: HIDE, fontWeight: 500 }}>{session.hidden} hidden</span><span style={{ opacity: 0.3 }}>·</span>
+        <span style={{ color: DEL, fontWeight: 500 }}>{session.deleted} deleted</span>
+      </div>
+      <p style={{ fontFamily: font.body, fontSize: 12, color: MUTED, opacity: 0.7, marginTop: 24, marginBottom: 0 }}>
+        Run a fresh sweep (server-side) to re-check the Atlas, or Quick re-scan to refresh Location & Fit flags.
+      </p>
+    </div>
   )
 }
 
 // ── Small presentational helpers ─────────────────────────────────────────────
-function SummaryPill({ color, label, value, outline }) {
+function ActionBtn({ kind, onClick, disabled, title, children }) {
+  const c = { keep: KEEP, hide: HIDE, delete: DEL }[kind]
+  const solid = kind === 'keep'
   return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 6, padding: '0.3rem 0.6rem', borderRadius: 8,
-      background: outline ? '#fff' : `${color}14`, border: `1px solid ${outline ? BORDER : color + '55'}`,
-      fontFamily: font.body, fontSize: '0.74rem', color: INK,
-    }}>
-      <span style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
-      <b>{value}</b> {label}
-    </span>
+    <button onClick={onClick} disabled={disabled} title={title} style={{
+      height: 38, padding: '0 20px', borderRadius: 8, cursor: disabled ? 'default' : 'pointer',
+      fontFamily: font.body, fontSize: 13, fontWeight: 600, letterSpacing: '0.02em', transition: 'all 0.15s',
+      background: solid ? c : '#fff', color: solid ? '#fff' : c, border: solid ? 'none' : `1px solid ${c}`,
+      boxShadow: solid ? '0 1px 3px rgba(74,124,89,0.3)' : 'none', opacity: disabled ? 0.5 : 1,
+    }}
+      onMouseEnter={e => { if (!disabled && !solid) { e.currentTarget.style.background = c; e.currentTarget.style.color = '#fff' } }}
+      onMouseLeave={e => { if (!solid) { e.currentTarget.style.background = '#fff'; e.currentTarget.style.color = c } }}>
+      {children}
+    </button>
   )
 }
-function Th({ children, style }) {
-  return <th style={{ padding: '0.6rem 0.75rem', fontSize: '0.68rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', ...style }}>{children}</th>
-}
-function Td({ children, style }) {
-  return <td style={{ padding: '0.55rem 0.75rem', verticalAlign: 'top', ...style }}>{children}</td>
-}
-function ToggleBtn({ active, onClick, children }) {
+function Tab({ active, onClick, children }) {
   return (
     <button onClick={onClick} style={{
-      padding: '0.4rem 0.85rem', border: 'none', cursor: 'pointer', fontFamily: font.body, fontSize: '0.78rem', fontWeight: 600,
-      background: active ? INK : '#fff', color: active ? '#fff' : MUTED,
+      fontFamily: font.body, fontSize: 12, fontWeight: active ? 600 : 400, color: active ? INK : MUTED,
+      background: 'none', border: 'none', borderBottom: active ? `2px solid ${SAGE}` : '2px solid transparent',
+      padding: '10px 20px', cursor: 'pointer', transition: 'all 0.15s',
     }}>{children}</button>
   )
 }
-function FilterSelect({ label, value, onChange, options }) {
+function PillGroup({ label, value, onPick, options, colorFor }) {
   return (
-    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontFamily: font.body, fontSize: '0.75rem', color: MUTED }}>
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+      <span style={{ fontFamily: font.body, fontSize: 10.5, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: MUTED, opacity: 0.7 }}>{label}</span>
+      {options.map(([v, lbl]) => {
+        const on = value === v
+        const c = (colorFor && colorFor(v)) || SAGE
+        return (
+          <button key={v} onClick={() => onPick(v)} style={{
+            fontFamily: font.body, fontSize: 11, fontWeight: on ? 600 : 500,
+            color: on ? '#fff' : c, background: on ? c : `${typeof c === 'string' && c.startsWith('#') ? c + '15' : 'transparent'}`,
+            border: `1px solid ${on ? c : (typeof c === 'string' && c.startsWith('#') ? c + '40' : BORDER)}`,
+            borderRadius: 100, padding: '3px 10px', cursor: 'pointer', transition: 'all 0.15s',
+          }}>{lbl}</button>
+        )
+      })}
+    </div>
+  )
+}
+function Dropdown({ label, value, onChange, options }) {
+  return (
+    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: font.body, fontSize: 11, color: MUTED }}>
       {label}
-      <select value={value} onChange={e => onChange(e.target.value)} style={{
-        padding: '0.35rem 0.5rem', border: `1px solid ${BORDER}`, borderRadius: 7, background: '#fff',
-        fontFamily: font.body, fontSize: '0.78rem', color: INK,
-      }}>
+      <select value={value} onChange={e => onChange(e.target.value)} style={{ padding: '4px 6px', border: `1px solid ${BORDER}`, borderRadius: 7, background: '#fff', fontFamily: font.body, fontSize: 11.5, color: INK }}>
         <option value="">All</option>
-        {options.map(([val, lbl]) => <option key={val} value={val}>{lbl}</option>)}
+        {options.map(([v, lbl]) => <option key={v} value={v}>{lbl}</option>)}
       </select>
     </label>
   )
 }
-function RowBtn({ kind, onClick, disabled, children }) {
-  const c = { green: GREEN, amber: AMBER, red: RED, ghost: MUTED }[kind] || MUTED
-  return (
-    <button onClick={onClick} disabled={disabled} style={{
-      marginLeft: 4, padding: '0.28rem 0.55rem', border: `1px solid ${c}`, borderRadius: 6, background: '#fff',
-      color: c, fontFamily: font.body, fontSize: '0.72rem', fontWeight: 600, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.5 : 1,
-    }}>{children}</button>
-  )
+function Kbd({ children }) {
+  return <kbd style={{ display: 'inline-block', minWidth: 16, padding: '1px 5px', borderRadius: 4, background: '#fff', border: `1px solid ${BORDER}`, boxShadow: '0 1px 0 rgba(0,0,0,0.05)', fontFamily: font.body, fontSize: 10.5, fontWeight: 600, color: INK, textAlign: 'center' }}>{children}</kbd>
 }
-function btnStyle(kind, disabled) {
-  const base = { padding: '0.5rem 0.9rem', borderRadius: 8, fontFamily: font.body, fontSize: '0.8rem', fontWeight: 600, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.5 : 1 }
-  if (kind === 'solid') return { ...base, border: `1px solid ${INK}`, background: INK, color: '#fff' }
-  if (kind === 'ghost') return { ...base, border: `1px solid ${BORDER}`, background: '#fff', color: INK }
-  const c = { green: GREEN, amber: AMBER, red: RED }[kind] || INK
-  return { ...base, border: `1px solid ${c}`, background: '#fff', color: c }
+function Sep() { return <span style={{ opacity: 0.3 }}>|</span> }
+function Empty({ children }) {
+  return <div style={{ textAlign: 'center', padding: '4rem 2rem', background: '#fff', borderRadius: 16, border: `1px solid ${BORDER}` }}>{children}</div>
 }
-const bannerBase = { padding: '0.7rem 0.95rem', borderRadius: 10, marginTop: '1rem', fontFamily: font.body, fontSize: '0.82rem', lineHeight: 1.45 }
-function bannerStyle(kind) {
-  if (kind === 'error') return { ...bannerBase, background: 'rgba(181,72,42,0.08)', border: '1px solid rgba(181,72,42,0.35)', color: '#8a3a22' }
-  return { ...bannerBase, background: 'rgba(95,138,126,0.1)', border: '1px solid rgba(95,138,126,0.35)', color: '#3a5a50' }
+function Banner({ kind, children }) {
+  const s = kind === 'error'
+    ? { background: 'rgba(181,72,42,0.08)', border: '1px solid rgba(181,72,42,0.35)', color: '#8a3a22' }
+    : { background: 'rgba(95,138,126,0.1)', border: '1px solid rgba(95,138,126,0.35)', color: '#3a5a50' }
+  return <div style={{ padding: '0.7rem 0.95rem', borderRadius: 10, marginBottom: 12, fontFamily: font.body, fontSize: 13, lineHeight: 1.45, ...s }}>{children}</div>
 }
-function actionLabel(action) {
-  return { pass: 'Passed', hide: 'Hid', delete: 'Deleted', restore: 'Restored' }[action] || 'Updated'
+function ghostBtn(disabled) {
+  return { height: 32, padding: '0 14px', borderRadius: 8, border: `1px solid ${BORDER}`, background: '#fff', fontFamily: font.body, fontSize: 12, fontWeight: 600, color: INK, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.5 : 1 }
 }

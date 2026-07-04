@@ -47,6 +47,7 @@ export default async function GateCheckPage() {
       trashCount={trashCount}
       lastScannedAt={lastScannedAt}
       facets={{ verticals, gates }}
+      mapboxToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''}
     />
   )
 }
