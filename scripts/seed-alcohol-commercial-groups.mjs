@@ -33,9 +33,9 @@ const tok = names => names.map(name => ({ name, match_mode: 'token' }))
 const GROUPS = [
   {
     group_name: 'Lion', category: 'brewing', parent_entity: 'Kirin Holdings (Japan)', verify_case_by_case: false,
-    notes: 'Owned by Lion (Kirin Holdings, Japan). These formerly-independent craft brands were acquired by Lion — no longer independent producers.',
-    brands: ['Little Creatures', 'White Rabbit', 'James Squire', 'Furphy', 'Stone & Wood', 'Fixation', 'Byron Bay Brewery', 'Malt Shovel', 'Kosciuszko', 'Two Birds'],
-    domains: ['littlecreatures.com.au', 'whiterabbitbeer.com.au', 'jamessquire.com.au', 'furphy.com.au', 'stoneandwood.com.au', 'fixationbrewing.com.au', 'byronbaybrewery.com.au', 'maltshovelbrewery.com.au', 'twobirdsbrewing.com.au'],
+    notes: 'Owned by Lion (Kirin Holdings, Japan). These formerly-independent craft producers (beer and spirits) were acquired by Lion — no longer independent.',
+    brands: ['Little Creatures', 'White Rabbit', 'James Squire', 'Furphy', 'Stone & Wood', 'Fixation', 'Byron Bay Brewery', 'Malt Shovel', 'Kosciuszko', 'Two Birds', 'Four Pillars'],
+    domains: ['littlecreatures.com.au', 'whiterabbitbeer.com.au', 'jamessquire.com.au', 'furphy.com.au', 'stoneandwood.com.au', 'fixationbrewing.com.au', 'byronbaybrewery.com.au', 'maltshovelbrewery.com.au', 'twobirdsbrewing.com.au', 'fourpillarsgin.com', 'fourpillarsgin.com.au'],
   },
   {
     group_name: 'Asahi (Carlton & United Breweries)', category: 'brewing', parent_entity: 'Asahi Group Holdings (Japan)', verify_case_by_case: false,
