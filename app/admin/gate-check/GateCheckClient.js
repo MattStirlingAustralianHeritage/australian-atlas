@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useMemo, useEffect } from 'react'
-import { getRemediations } from '@/lib/gate-check/remediation'
+import { getRemediations, getAutoRemediations, hasWebFailure } from '@/lib/gate-check/remediation'
 
 // ── Palette / tokens (aligned to the admin design system + Candidate Review) ──
 const SAGE = 'var(--color-sage, #5f8a7e)'
@@ -166,29 +166,35 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
     }
   }, [])
 
-  // ── One-click Repair ─────────────────────────────────────────────────────────
-  const [repairing, setRepairing] = useState(null) // rowId being repaired
-  const doRepair = useCallback(async (rowId) => {
-    setRepairing(rowId)
+  // ── Repair (per-remediation, or manual URL) ──────────────────────────────────
+  const [repairing, setRepairing] = useState(null) // `${rowId}:${type}` currently running
+  const doRepair = useCallback(async (rowId, only = null, extra = {}) => {
+    const key = `${rowId}:${only || (extra.manualWebsite ? 'manual' : 'auto')}`
+    setRepairing(key)
     setMsg(null)
     try {
       const res = await fetch('/api/admin/gate-check', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ repair: rowId }),
+        body: JSON.stringify({ repair: rowId, ...(only ? { only } : {}), ...extra }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Repair failed')
       const applied = (data.applied || []).join('; ')
+      // Fold any changed listing fields back into the card (map moves, link updates).
+      const mergeListing = (r) => data.listingPatch ? { ...r, listing: { ...r.listing, ...data.listingPatch } } : r
       if (data.noop) {
-        setMsg({ kind: 'error', text: `Couldn't auto-repair — ${applied || 'edit this listing manually'}.` })
+        setMsg({ kind: 'error', text: `Nothing changed — ${applied || 'edit this listing manually'}.` })
       } else if (data.cleared) {
         setRows(prev => prev.filter(r => r.id !== rowId))
         setSession(s => ({ ...s, repaired: s.repaired + 1 }))
         setCounts(prev => ({ ...prev, pending: Math.max(0, prev.pending - 1) }))
         setMsg({ kind: 'ok', text: `Repaired — ${applied}.` })
       } else if (data.updatedRow) {
-        setRows(prev => prev.map(r => r.id === rowId ? { ...r, ...data.updatedRow } : r))
-        setMsg({ kind: 'ok', text: `Repaired — ${applied}. Some issue(s) remain on this listing.` })
+        setRows(prev => prev.map(r => r.id === rowId ? mergeListing({ ...r, ...data.updatedRow }) : r))
+        setMsg({ kind: 'ok', text: `Applied — ${applied}. Some issue(s) remain on this listing.` })
+      } else if (data.listingPatch) {
+        setRows(prev => prev.map(r => r.id === rowId ? mergeListing(r) : r))
+        setMsg({ kind: 'ok', text: `Applied — ${applied}.` })
       }
     } catch (err) {
       setMsg({ kind: 'error', text: err.message })
@@ -228,7 +234,7 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
       else if (k === 'h') { e.preventDefault(); runAction(current.id, 'hide') }
       else if (k === 'd') { e.preventDefault(); runAction(current.id, 'delete') }
       else if (k === 'a') { e.preventDefault(); if (!ai[current.id]?.busy) runAi(current.id) }
-      else if (k === 'r') { e.preventDefault(); if (getRemediations(current).length && repairing !== current.id) doRepair(current.id) }
+      else if (k === 'r') { e.preventDefault(); if (getAutoRemediations(current).length && !repairing) doRepair(current.id) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -324,7 +330,9 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
             <>
               <GateCard row={current} busy={busy} ai={ai[current.id]}
                 onAction={(a) => runAction(current.id, a)} onAi={() => runAi(current.id)}
-                onRepair={() => doRepair(current.id)} repairing={repairing === current.id}
+                onRepair={(only) => doRepair(current.id, only)}
+                onManualWebsite={(url) => doRepair(current.id, null, { manualWebsite: url })}
+                repairing={repairing}
                 mapboxToken={mapboxToken} />
               {rows.length > 1 && (
                 <p style={{ textAlign: 'center', fontFamily: font.body, fontSize: 13, color: MUTED, marginTop: 10 }}>
@@ -353,7 +361,7 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
 // ════════════════════════════════════════════════════════════════════════════
 // The one-at-a-time review card
 // ════════════════════════════════════════════════════════════════════════════
-function GateCard({ row, busy, ai, onAction, onAi, onRepair, repairing, mapboxToken }) {
+function GateCard({ row, busy, ai, onAction, onAi, onRepair, onManualWebsite, repairing, mapboxToken }) {
   const l = row.listing || {}
   const name = l.name || '(listing missing)'
   const live = l.slug ? `/place/${l.slug}` : null
@@ -365,6 +373,8 @@ function GateCard({ row, busy, ai, onAction, onAi, onRepair, repairing, mapboxTo
   const hasCoords = Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0)
   const details = row.gate_details || []
   const remediations = getRemediations(row, l)
+  const showManualWebsite = hasWebFailure(row)
+  const anyRepairBusy = busy || !!repairing
 
   return (
     <div style={{ background: '#fff', borderRadius: 16, border: `1px solid ${BORDER}`, boxShadow: '0 2px 16px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
@@ -409,21 +419,40 @@ function GateCard({ row, busy, ai, onAction, onAi, onRepair, repairing, mapboxTo
           </div>
         </div>
 
-        {/* One-click fix strip — the easy, suggested remediation */}
-        {remediations.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 14px', borderRadius: 10, background: `${REPAIR}12`, border: `1px solid ${REPAIR}44`, marginBottom: 16 }}>
-            <span style={{ fontSize: 15, lineHeight: 1 }}>⚡</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: font.body, fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: REPAIR, marginBottom: 2 }}>One-click fix</div>
-              <div style={{ fontFamily: font.body, fontSize: 13, color: '#2a5560', lineHeight: 1.35 }}>{remediations.map(r => r.label).join('  ·  ')}</div>
+        {/* Fix strip — one button per available remediation, plus manual URL entry.
+            Each repair runs on its own; destructive ones are visually distinct. */}
+        {(remediations.length > 0 || showManualWebsite) && (
+          <div style={{ padding: '12px 14px', borderRadius: 10, background: `${REPAIR}12`, border: `1px solid ${REPAIR}44`, marginBottom: 16 }}>
+            <div style={{ fontFamily: font.body, fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: REPAIR, marginBottom: 9 }}>Suggested fixes</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {remediations.map(rem => {
+                const spinning = repairing === `${row.id}:${rem.type}`
+                return (
+                  <div key={rem.type} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontFamily: font.body, fontSize: 13, fontWeight: 600, color: rem.destructive ? '#8a3a22' : '#2a5560', lineHeight: 1.3 }}>{rem.label}</div>
+                      {rem.hint && <div style={{ fontFamily: font.body, fontSize: 11.5, color: MUTED, lineHeight: 1.35, marginTop: 1 }}>{rem.hint}</div>}
+                    </div>
+                    <button onClick={() => onRepair(rem.type)} disabled={anyRepairBusy}
+                      title={rem.hint || rem.label} style={{
+                        height: 34, padding: '0 15px', borderRadius: 8, flexShrink: 0,
+                        background: rem.destructive ? '#fff' : REPAIR, color: rem.destructive ? DEL : '#fff',
+                        border: rem.destructive ? `1px solid ${DEL}` : 'none',
+                        fontFamily: font.body, fontSize: 12.5, fontWeight: 600,
+                        cursor: anyRepairBusy ? 'default' : 'pointer', opacity: anyRepairBusy && !spinning ? 0.5 : 1,
+                        display: 'inline-flex', alignItems: 'center', gap: 7,
+                      }}>
+                      {spinning
+                        ? <><span style={{ width: 12, height: 12, border: `2px solid ${rem.destructive ? DEL + '55' : 'rgba(255,255,255,0.4)'}`, borderTopColor: rem.destructive ? DEL : '#fff', borderRadius: '50%', display: 'inline-block', animation: 'gcspin 0.6s linear infinite' }} />Working…</>
+                        : (rem.destructive ? 'Remove' : 'Fix')}
+                    </button>
+                  </div>
+                )
+              })}
+              {showManualWebsite && (
+                <ManualWebsite onSubmit={onManualWebsite} busy={anyRepairBusy} spinning={repairing === `${row.id}:manual`} currentUrl={row.website} />
+              )}
             </div>
-            <button onClick={onRepair} disabled={busy || repairing} title="Apply the suggested remediation (R)" style={{
-              height: 36, padding: '0 18px', borderRadius: 8, background: REPAIR, color: '#fff', border: 'none',
-              fontFamily: font.body, fontSize: 13, fontWeight: 600, cursor: (busy || repairing) ? 'default' : 'pointer', opacity: (busy || repairing) ? 0.6 : 1,
-              display: 'inline-flex', alignItems: 'center', gap: 7, flexShrink: 0,
-            }}>
-              {repairing ? <><span style={{ width: 13, height: 13, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'gcspin 0.6s linear infinite' }} />Repairing…</> : 'Repair'}
-            </button>
           </div>
         )}
 
@@ -469,6 +498,41 @@ function GateCard({ row, busy, ai, onAction, onAi, onRepair, repairing, mapboxTo
           fontFamily: font.body, fontSize: 12, fontWeight: 500, color: MUTED, cursor: (busy || ai?.busy) ? 'default' : 'pointer', opacity: (busy || ai?.busy) ? 0.5 : 1,
         }}>AI fit check</button>
       </div>
+    </div>
+  )
+}
+
+// Inline "paste the correct URL" entry — always offered when a web gate fails,
+// so the reviewer can supply the right site when the auto-lookup can't find it.
+function ManualWebsite({ onSubmit, busy, spinning, currentUrl }) {
+  const [open, setOpen] = useState(false)
+  const [url, setUrl] = useState('')
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} disabled={busy} style={{
+        alignSelf: 'flex-start', marginTop: 2, background: 'none', border: 'none', padding: 0,
+        fontFamily: font.body, fontSize: 12, fontWeight: 600, color: REPAIR,
+        cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.5 : 1, textDecoration: 'underline',
+      }}>… or enter the correct URL yourself</button>
+    )
+  }
+  const submit = () => { const v = url.trim(); if (v) onSubmit(v) }
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+      <input
+        type="url" value={url} autoFocus placeholder={currentUrl ? 'https://the-correct-site.com.au' : 'https://…'}
+        onChange={e => setUrl(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); submit() } }}
+        disabled={busy}
+        style={{ flex: 1, minWidth: 0, height: 34, padding: '0 10px', borderRadius: 8, border: `1px solid ${BORDER}`, fontFamily: font.body, fontSize: 12.5, color: INK, background: '#fff' }}
+      />
+      <button onClick={submit} disabled={busy || !url.trim()} style={{
+        height: 34, padding: '0 15px', borderRadius: 8, flexShrink: 0, background: REPAIR, color: '#fff', border: 'none',
+        fontFamily: font.body, fontSize: 12.5, fontWeight: 600, cursor: (busy || !url.trim()) ? 'default' : 'pointer', opacity: (busy || !url.trim()) ? 0.5 : 1,
+        display: 'inline-flex', alignItems: 'center', gap: 7,
+      }}>
+        {spinning ? <><span style={{ width: 12, height: 12, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'gcspin 0.6s linear infinite' }} />Saving…</> : 'Set URL'}
+      </button>
     </div>
   )
 }

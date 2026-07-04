@@ -5,7 +5,7 @@ import { checkAdmin } from '@/lib/admin-auth'
 import { fetchGateCheckRows, applyGateCheckAction } from '@/lib/gate-check/queue'
 import { checkGate1Web, checkGate2Location, checkGate4Vertical, summariseFailures } from '@/lib/gate-check/gates'
 import { gate4VerticalFit } from '@/lib/prospector/gates'
-import { getRemediations, VERTICAL_LABELS } from '@/lib/gate-check/remediation'
+import { getRemediations, getAutoRemediations, DEAD_WEB_CODES, VERTICAL_LABELS } from '@/lib/gate-check/remediation'
 import { updateListing } from '@/lib/admin/updateListing'
 import { searchPlaces, getPlaceDetails } from '@/lib/prospector/google-places'
 import { anchoredGeocode } from '@/lib/geo/anchoredGeocode'
@@ -52,10 +52,13 @@ export async function POST(request) {
   try { body = await request.json() } catch { return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 }) }
   const sb = getSupabaseAdmin()
 
-  // ── One-click Repair: apply the suggested remediation for a single row ──
+  // ── Repair: apply a remediation for a single row. ──
+  //   { repair: id }                       → auto-apply the safe (non-destructive) set
+  //   { repair: id, only: '<type>' }       → apply just that one remediation (incl. destructive)
+  //   { repair: id, manualWebsite: '<url>' }→ set a reviewer-supplied website
   if (body && body.repair) {
     try {
-      const result = await runRepair(sb, body.repair)
+      const result = await runRepair(sb, body.repair, { only: body.only || null, manualWebsite: body.manualWebsite || null })
       return NextResponse.json({ success: true, ...result })
     } catch (err) {
       return NextResponse.json({ error: err.message || 'Repair failed' }, { status: 400 })
@@ -104,10 +107,17 @@ function nameOverlap(a, b) {
   return m / ta.size
 }
 
-// Apply the safe, one-click remediation(s) for a row, then clear the repaired
-// gate(s). Any listing write goes through the canonical updateListing (which
-// syncs to the vertical DB, so the fix is durable).
-async function runRepair(sb, rowId) {
+// Apply a repair to a single row, then clear or refresh the affected gate(s).
+// Any listing write goes through the canonical updateListing (which syncs to
+// the vertical DB, so the fix is durable).
+//
+// opts.only         — apply just this one remediation type (incl. a destructive
+//                     one, when the reviewer clicks it deliberately). When
+//                     omitted, the SAFE non-destructive set is auto-applied.
+// opts.manualWebsite — a reviewer-supplied URL to set as the listing's website
+//                     (overrides the Places lookup; the reviewer knows best).
+async function runRepair(sb, rowId, opts = {}) {
+  const { only = null, manualWebsite = null } = opts
   const { data: row, error } = await sb.from('listing_gate_check')
     .select('id,listing_id,failed_gates,gate_details,reason_summary,severity,suggested_action,website,http_status,status')
     .eq('id', rowId).single()
@@ -118,17 +128,33 @@ async function runRepair(sb, rowId) {
     .select('id,name,region,state,address,suburb,lat,lng,website,vertical,verticals,sub_type,slug,source_id').eq('id', row.listing_id).single()
   if (lerr || !listing) throw new Error('Listing not found')
 
-  const remediations = getRemediations(row, listing)
-  if (!remediations.length) throw new Error('Nothing to repair on this listing')
+  // Decide which remediation(s) to run.
+  let toRun
+  if (manualWebsite != null) {
+    // Manual URL entry: only valid when a web gate is actually failing.
+    if (!(row.gate_details || []).some(d => d.gate === 'gate1_web')) throw new Error('This listing has no web gate to repair')
+    const url = normaliseWebsiteUrl(manualWebsite)
+    if (!url) throw new Error('That does not look like a valid URL')
+    toRun = [{ type: 'set_website', gates: ['gate1_web'], url }]
+  } else if (only) {
+    toRun = getRemediations(row, listing).filter(r => r.type === only)
+    if (!toRun.length) throw new Error('That repair no longer applies to this listing')
+  } else {
+    // The one-click auto-repair: safe, non-destructive remediations only.
+    toRun = getAutoRemediations(row, listing)
+    if (!toRun.length) throw new Error('Nothing to auto-repair on this listing')
+  }
 
   const updates = {}
   const applied = []
   const repairedGates = new Set()
+  // Working copy of the findings so a regeocode that MOVES the pin but does not
+  // clear the gate can refresh that finding's reason in place.
+  let details = (row.gate_details || []).map(d => ({ gate: d.gate, code: d.code, severity: d.severity, reason: d.reason }))
 
-  for (const rem of remediations) {
+  for (const rem of toRun) {
     if (rem.type === 'fix_website') {
-      const g1 = (row.gate_details || []).find(d => d.gate === 'gate1_web')
-      const confirmedDead = g1 && ['domain_dead', 'http_gone', 'parked_domain'].includes(g1.code)
+      // Replace-only: find the official site and swap it in. NEVER deletes.
       let found = null
       try {
         const loc = (Number.isFinite(Number(listing.lat)) && Number.isFinite(Number(listing.lng)) && !(Number(listing.lat) === 0 && Number(listing.lng) === 0))
@@ -137,22 +163,47 @@ async function runRepair(sb, rowId) {
         const best = (results || []).find(r => nameOverlap(listing.name, r.name) >= 0.5) || (results || [])[0]
         if (best && nameOverlap(listing.name, best.name) >= 0.5) {
           const det = await getPlaceDetails(best.place_id)
-          // Only accept a genuinely different URL from the current dead one.
-          if (det?.website && hostOf(det.website) !== hostOf(listing.website || '')) found = det.website
+          // Only accept a genuinely different URL that itself passes the web gate —
+          // never swap one broken link for another.
+          if (det?.website && hostOf(det.website) !== hostOf(listing.website || '') && await urlPassesWebGate(listing.name, det.website)) {
+            found = det.website
+          }
         }
-      } catch (e) { /* Places unavailable → confirmed-dead falls back to nulling */ }
+      } catch (e) { /* Places unavailable → no replacement, nothing deleted */ }
 
-      if (found) { updates.website = found; applied.push(`set website to ${hostOf(found)}`); repairedGates.add('gate1_web') }
-      else if (confirmedDead) { updates.website = null; applied.push('removed the dead website link'); repairedGates.add('gate1_web') }
-      else { applied.push('no replacement website found — left for manual review') } // do NOT mark repaired
+      if (found) { updates.website = normaliseWebsiteUrl(found) || found; applied.push(`set website to ${hostOf(found)}`); repairedGates.add('gate1_web') }
+      else { applied.push('no confident replacement website found — left the current link in place') } // do NOT delete, do NOT mark repaired
+
+    } else if (rem.type === 'set_website') {
+      // Reviewer-supplied URL — trust it and clear the gate.
+      updates.website = rem.url
+      const ok = await urlPassesWebGate(listing.name, rem.url)
+      applied.push(ok ? `set website to ${hostOf(rem.url)}` : `set website to ${hostOf(rem.url)} (heads-up: it did not pass the automated web check)`)
+      repairedGates.add('gate1_web')
+
+    } else if (rem.type === 'remove_dead_link') {
+      // Destructive, explicit: only allowed for confidently-dead codes.
+      const g1 = details.find(d => d.gate === 'gate1_web')
+      if (!g1 || !DEAD_WEB_CODES.has(g1.code)) throw new Error('The link is not confirmed dead — remove is disabled')
+      updates.website = null
+      applied.push('removed the dead website link')
+      repairedGates.add('gate1_web')
 
     } else if (rem.type === 'regeocode') {
       let coords = null
       try { coords = await anchoredGeocode({ address: listing.address || `${listing.name}, ${listing.region || ''}`, suburb: listing.suburb, state: listing.state }) } catch {}
       if (coords && Number.isFinite(coords.lat) && Number.isFinite(coords.lng)) {
         updates.lat = coords.lat; updates.lng = coords.lng
-        applied.push(`re-pinned to ${coords.lat.toFixed(3)}, ${coords.lng.toFixed(3)}`)
-        repairedGates.add('gate2_location')
+        // Re-verify: the flag clears ONLY if the fresh pin passes the location gate.
+        const recheck = checkGate2Location({ lat: coords.lat, lng: coords.lng, state: listing.state })
+        if (!recheck) {
+          applied.push(`re-pinned to ${coords.lat.toFixed(3)}, ${coords.lng.toFixed(3)} — now in ${listing.state || 'the listed state'}`)
+          repairedGates.add('gate2_location')
+        } else {
+          // Pin moved, but the address still resolves outside the listed state.
+          details = details.map(d => d.gate === 'gate2_location' ? { gate: recheck.gate, code: recheck.code, severity: recheck.severity, reason: recheck.reason } : d)
+          applied.push(`re-pinned to ${coords.lat.toFixed(3)}, ${coords.lng.toFixed(3)}, but it still fails: ${recheck.reason}`)
+        }
       } else {
         applied.push('could not re-geocode (no usable address) — pin left for manual fix')
       }
@@ -165,20 +216,23 @@ async function runRepair(sb, rowId) {
     }
   }
 
-  // Nothing could be auto-applied (e.g. Places quota exhausted on a name_mismatch).
+  // Nothing changed on the listing and no gate cleared (e.g. Places found no
+  // replacement, or the address wouldn't geocode).
   if (!repairedGates.size && !Object.keys(updates).length) {
     return { applied, cleared: false, noop: true, repaired_gates: [] }
   }
 
-  let updatedListing = null
+  let listingPatch = null
   if (Object.keys(updates).length) {
     const res = await updateListing(row.listing_id, updates, { action: 'gate-check-repair' })
     if (!res.success) throw new Error(`Listing update failed: ${res.error}`)
-    updatedListing = res.listing
+    // Echo the changed fields back so the card reflects them (map moves, link updates).
+    listingPatch = {}
+    for (const k of ['lat', 'lng', 'website', 'vertical', 'verticals']) if (k in updates) listingPatch[k] = res.listing?.[k] ?? updates[k]
   }
 
-  // Clear the repaired gate(s); keep any that weren't repaired.
-  const remaining = (row.gate_details || []).filter(d => !repairedGates.has(d.gate))
+  // Clear the repaired gate(s); keep (with any refreshed reason) those that weren't.
+  const remaining = details.filter(d => !repairedGates.has(d.gate))
   let cleared = false
   let updatedRow = null
   if (!remaining.length) {
@@ -186,17 +240,42 @@ async function runRepair(sb, rowId) {
     cleared = true
   } else {
     const summary = summariseFailures(
-      remaining.map(d => ({ gate: d.gate, code: d.code, severity: d.severity, reason: d.reason })),
+      remaining,
       { website: ('website' in updates) ? updates.website : row.website, http_status: row.http_status },
     )
     await sb.from('listing_gate_check').update({ ...summary }).eq('id', rowId)
     updatedRow = summary
   }
 
-  return { applied, cleared, updatedRow, repaired_gates: [...repairedGates] }
+  return { applied, cleared, updatedRow, listingPatch, repaired_gates: [...repairedGates] }
 }
 
 function hostOf(u) { try { return new URL(/^https?:\/\//i.test(u) ? u : 'https://' + u).hostname.replace(/^www\./, '') } catch { return u } }
+
+// Loose URL validation + normalisation for a reviewer-pasted / Places website.
+// Returns a canonical https URL string, or null if it isn't a plausible web URL.
+function normaliseWebsiteUrl(raw) {
+  const s = String(raw || '').trim()
+  if (!s) return null
+  let candidate = /^https?:\/\//i.test(s) ? s : 'https://' + s
+  try {
+    const u = new URL(candidate)
+    // Must have a dotted hostname (reject "https://localhost", bare words, etc.).
+    if (!u.hostname || !u.hostname.includes('.')) return null
+    return u.toString()
+  } catch { return null }
+}
+
+// Does a candidate URL clear the Web-Presence gate? Used to reject swapping in a
+// replacement that is itself dead/parked/unrelated. Bot-blocks (401/403/429) and
+// transient 5xx are treated as PASS by checkGate1Web, so they don't reject a
+// legitimate site. On any error, fail open (don't block the repair on a hiccup).
+async function urlPassesWebGate(name, url) {
+  try {
+    const r = await checkGate1Web({ name, website: url }, { timeoutMs: 9000, retries: 0 })
+    return !r.failure
+  } catch { return true }
+}
 
 // Re-evaluate the two instant gates (Location + service-trade Vertical-fit)
 // across every active listing. Upserts new/changed failures and clears pending
