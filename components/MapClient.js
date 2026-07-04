@@ -825,15 +825,16 @@ export default function MapClient({
     return () => window.removeEventListener('keydown', onKey)
   }, [isEmbedded, clearSelected])
 
-  // Jump straight to a venue picked from the unified search — fly to it and
-  // select it; the field reflects the pick (the filter narrows to that one).
+  // Jump straight to a venue picked from the unified search — a "take me there"
+  // action: clear the filter (focus on this one place, not a category sweep),
+  // fly to it, and open its card.
   function jumpToVenue(l) {
     setShowSearchDropdown(false)
     setMobileSheetOpen(false)
     setMobileListOpen(false)
     setPlaceResults([])
     suppressSearch.current = true
-    setPinQuery(l.name)
+    setPinQuery('')
     if (typeof document !== 'undefined' && document.activeElement?.blur) document.activeElement.blur()
     selectListing(l, { fly: true })
   }
