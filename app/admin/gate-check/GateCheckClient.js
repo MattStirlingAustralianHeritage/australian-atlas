@@ -13,10 +13,11 @@ const HIDE = '#C49A3C'
 const DEL = '#CC4444'
 
 const GATE_META = {
-  gate1_web:      { label: 'Web Presence', short: 'Web',      color: '#c4603a' },
-  gate2_location: { label: 'Location',     short: 'Location', color: '#3a6ea5' },
-  gate3_activity: { label: 'Activity',     short: 'Activity', color: '#7a5ea0' },
-  gate4_vertical: { label: 'Vertical Fit', short: 'Fit',      color: '#5f8a7e' },
+  gate1_web:       { label: 'Web Presence', short: 'Web',       color: '#c4603a' },
+  gate2_location:  { label: 'Location',     short: 'Location',  color: '#3a6ea5' },
+  gate3_activity:  { label: 'Activity',     short: 'Activity',  color: '#7a5ea0' },
+  gate4_vertical:  { label: 'Vertical Fit', short: 'Fit',       color: '#5f8a7e' },
+  gate5_character: { label: 'Character',    short: 'Character', color: '#a24d7a' },
 }
 const SEVERITY_META = {
   high:   { color: DEL,  label: 'High' },
