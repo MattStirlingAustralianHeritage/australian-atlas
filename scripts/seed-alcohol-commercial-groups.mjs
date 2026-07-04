@@ -75,6 +75,29 @@ const GROUPS = [
     notes: 'ASX-listed wine group. Not independent — verify.',
     brands: ['McGuigan', 'Tempus Two', 'Nepenthe', 'Passion Pop'], domains: ['mcguiganwines.com.au', 'tempustwo.com.au', 'nepenthe.com.au'],
   },
+  // ── Heritage brewery venues owned by the majors ──────────────────────────
+  // These are historic, corporate-owned brewery experiences (not craft
+  // acquisitions). They're not independent producers, but a reviewer may want
+  // to KEEP them as heritage/tourism listings — so verify, don't auto-hide.
+  // Brand strings are two-token and venue-specific to avoid over-matching
+  // ("Cascade Brewery" won't hit Cascade Gardens; "Carlton Brewhouse" won't hit
+  // the suburb of Carlton).
+  {
+    group_name: 'Lion (heritage breweries)', category: 'brewing', parent_entity: 'Kirin Holdings (Japan)', verify_case_by_case: true,
+    notes: 'Lion-owned heritage brewery venues (Cascade est. 1824, James Boag est. 1881) — corporate, not independent. Verify: keep as a heritage/tourism listing, or hide as non-independent.',
+    brands: ['Cascade Brewery', 'James Boag'], domains: [],
+  },
+  {
+    group_name: 'Asahi (heritage breweries)', category: 'brewing', parent_entity: 'Asahi Group Holdings (Japan)', verify_case_by_case: true,
+    notes: 'CUB / Asahi corporate brewery experience (Carlton Brewhouse, Abbotsford) — not an independent producer. Verify.',
+    brands: ['Carlton Brewhouse'], domains: [],
+  },
+  // ── Corporate spirits group (future-proofing; may have no listings yet) ───
+  {
+    group_name: 'Top Shelf International', category: 'distilling', parent_entity: 'Top Shelf International Ltd (ASX:TSI — in administration 2025)', verify_case_by_case: true,
+    notes: 'ASX-listed spirits group (NED Whisky, Grainshaker, Act of Treason) — corporate, not owner-operated craft. Verify pending the administration outcome. Two-token brand strings to avoid matching "NED" inside unrelated words.',
+    brands: ['NED Whisky', 'Grainshaker', 'Act of Treason'], domains: ['nedwhisky.com.au', 'grainshaker.com.au', 'actoftreason.com.au'],
+  },
 ]
 
 async function main() {
