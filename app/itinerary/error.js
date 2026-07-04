@@ -10,8 +10,10 @@
  */
 
 import { useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 
 export default function ItineraryError({ error, reset }) {
+  const t = useTranslations('itinerary')
   useEffect(() => {
     console.error('[Itinerary Error Boundary]', error)
     // Report error to the server silently
@@ -60,7 +62,7 @@ export default function ItineraryError({ error, reset }) {
           color: 'var(--color-ink, #1C1A17)',
           margin: '0 0 0.5rem 0',
         }}>
-          Itinerary hit a snag
+          {t('boundaryTitle')}
         </h1>
 
         <p style={{
@@ -71,7 +73,7 @@ export default function ItineraryError({ error, reset }) {
           marginBottom: '1.25rem',
           lineHeight: 1.6,
         }}>
-          We couldn't load the itinerary builder. This has been logged and we're looking into it.
+          {t('boundaryBody')}
         </p>
 
         {/* Show error detail in development only */}
@@ -107,7 +109,7 @@ export default function ItineraryError({ error, reset }) {
               cursor: 'pointer',
             }}
           >
-            Try again
+            {t('tryAgain')}
           </button>
           <a
             href="/"
@@ -124,7 +126,7 @@ export default function ItineraryError({ error, reset }) {
               display: 'inline-block',
             }}
           >
-            Go home
+            {t('goHome')}
           </a>
         </div>
       </div>

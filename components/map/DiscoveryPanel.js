@@ -10,7 +10,7 @@ const GOLD = '#c8943a'
 // operator perk), so rows are typographic by default — vertical colour rail,
 // serif name, set-small meta — and a thumbnail appears only when a listing
 // actually has an approved image (meta from /api/map/cards).
-function PanelRow({ l, meta, active, visited, onHover, onSelect }) {
+function PanelRow({ l, meta, active, visited, onHover, onSelect, inTrail, onToggleTrail }) {
   const t = useTranslations('map')
   const locale = useLocale()
   const color = getVerticalBrandColour(l.vertical) || '#5f8a7e'
@@ -27,19 +27,24 @@ function PanelRow({ l, meta, active, visited, onHover, onSelect }) {
     [meta?.suburb || l.region, l.state].filter(Boolean).join(', '),
   ].filter(Boolean).join(' · ')
 
+  // The row is a div-with-button-role (not a <button>) so the trail toggle
+  // can be a real button inside it without nesting interactive elements.
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onMouseEnter={() => onHover(l.id)}
       onMouseLeave={() => onHover(null)}
       onFocus={() => onHover(l.id)}
       onBlur={() => onHover(null)}
       onClick={() => onSelect(l)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(l) } }}
       aria-pressed={active}
       className="map-panel-row"
       style={{
         display: 'flex', alignItems: 'stretch', gap: 0, width: '100%', textAlign: 'left',
         background: active ? 'rgba(95,138,126,0.10)' : 'transparent',
-        border: 'none', borderBottom: '1px solid rgba(28,26,23,0.07)',
+        borderBottom: '1px solid rgba(28,26,23,0.07)',
         padding: 0, cursor: 'pointer',
       }}
     >
@@ -65,13 +70,34 @@ function PanelRow({ l, meta, active, visited, onHover, onSelect }) {
         )}
       </span>
       {meta?.image && (
-        <span style={{ width: 62, alignSelf: 'center', flexShrink: 0, marginRight: 10 }}>
+        <span style={{ width: 62, alignSelf: 'center', flexShrink: 0, marginRight: 8 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={meta.image} alt="" loading="lazy" decoding="async"
             style={{ width: 62, height: 50, objectFit: 'cover', borderRadius: 5, display: 'block' }} />
         </span>
       )}
-    </button>
+      {onToggleTrail && (
+        <span style={{ alignSelf: 'center', flexShrink: 0, marginRight: 10, marginLeft: meta?.image ? 0 : 2 }}>
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleTrail(l) }}
+            aria-label={inTrail ? t('trailRemoveStop') : t('trailAddStop')}
+            title={inTrail ? t('trailRemoveStop') : t('trailAddStop')}
+            style={{
+              width: 26, height: 26, borderRadius: '50%', cursor: 'pointer',
+              border: `1px solid ${inTrail ? '#5f8a7e' : 'rgba(28,26,23,0.16)'}`,
+              background: inTrail ? '#5f8a7e' : 'rgba(255,255,255,0.9)',
+              color: inTrail ? '#fff' : 'var(--color-muted)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'all 0.15s',
+            }}
+          >
+            {inTrail
+              ? <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>}
+          </button>
+        </span>
+      )}
+    </div>
   )
 }
 
@@ -96,6 +122,9 @@ export default function DiscoveryPanel({
   onHover,
   onSelect,
   onClose,
+  trailIds = null,
+  onToggleTrail = null,
+  trailAtCapacity = false,
 }) {
   const t = useTranslations('map')
   return (
@@ -195,17 +224,22 @@ export default function DiscoveryPanel({
             )}
           </div>
         )}
-        {items.map(l => (
-          <PanelRow
-            key={l.id}
-            l={l}
-            meta={cardMeta[l.id]}
-            active={selectedId === l.id}
-            visited={visitedIds?.has(l.id)}
-            onHover={onHover}
-            onSelect={onSelect}
-          />
-        ))}
+        {items.map(l => {
+          const inTrail = !!trailIds?.has(String(l.id))
+          return (
+            <PanelRow
+              key={l.id}
+              l={l}
+              meta={cardMeta[l.id]}
+              active={selectedId === l.id}
+              visited={visitedIds?.has(l.id)}
+              onHover={onHover}
+              onSelect={onSelect}
+              inTrail={inTrail}
+              onToggleTrail={onToggleTrail && (inTrail || !trailAtCapacity) ? onToggleTrail : null}
+            />
+          )
+        })}
         {!loading && totalInView > items.length && (
           <div style={{ padding: '12px 15px 18px', fontSize: 10.5, color: 'var(--color-muted)', textAlign: 'center' }}>
             {t('showingFirst', { count: items.length })}

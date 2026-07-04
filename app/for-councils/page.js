@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { getTranslations } from 'next-intl/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getAtlasCount } from '@/lib/networkStats'
 
@@ -10,9 +11,12 @@ export const revalidate = 86400
 // silently drifts when a vertical goes live (this is why the page said "9").
 const ATLAS_COUNT = getAtlasCount()
 
-export const metadata = {
-  title: 'For Regional Councils & Tourism Bodies | Australian Atlas',
-  description: `Partner with Australian Atlas to surface independent businesses in your region. Verified listings, editorial content, and discovery infrastructure across ${ATLAS_COUNT} categories.`,
+export async function generateMetadata() {
+  const t = await getTranslations('forCouncils')
+  return {
+    title: t('metaTitle'),
+    description: t('metaDescription', { count: ATLAS_COUNT }),
+  }
 }
 
 async function getNetworkStats() {
@@ -28,35 +32,12 @@ async function getNetworkStats() {
   }
 }
 
-const FAQ = [
-  {
-    q: 'How does this sit alongside ATDW?',
-    a: 'ATDW focuses on operator-submitted tourism listings. Australian Atlas covers the independent layer that those platforms typically miss: the small-batch winery that doesn\'t list on ATDW, the maker studio without a tourism accreditation, the vintage shop that\'s a genuine draw but isn\'t on any register. We\'re complementary infrastructure, not a replacement.',
-  },
-  {
-    q: 'What does "verified" mean?',
-    a: 'Every listing in our network is verified against its source data: confirmed active, correct location, validated contact details. We run automated audits across the full database and flag anything that fails. Venues marked as AI-generated carry a disclaimer and are excluded from editorial content until human-verified.',
-  },
-  {
-    q: 'What commitment is required?',
-    a: 'None. While we\'re in beta it\'s free for founding partners, with full access and no lock-in. You can step away at any time, and we\'ll give partners plenty of notice before anything changes.',
-  },
-  {
-    q: 'What regions are already active?',
-    a: 'We have verified listings across every state and territory, with the deepest coverage in Victoria, New South Wales, South Australia, and Tasmania. Regional editorial content is growing, and council partnerships directly accelerate coverage in specific areas.',
-  },
-  {
-    q: 'Can we contribute our own data?',
-    a: 'Yes. Founding partners can suggest operators for consideration, with operators opting in themselves, flag corrections, and co-create editorial content for their region. All submissions go through our verification pipeline before publishing.',
-  },
-  {
-    q: 'Who runs Australian Atlas?',
-    a: 'Australian Atlas is independently operated and Australian-owned. It\'s part of the Australian Heritage editorial network. The platform is built and maintained by a small team focused on documenting independent Australia.',
-  },
-]
+// FAQ keys drive translation lookups (question/answer strings live in messages).
+const FAQ_KEYS = ['1', '2', '3', '4', '5', '6']
 
 export default async function ForCouncilsPage() {
   const stats = await getNetworkStats()
+  const t = await getTranslations('forCouncils')
 
   return (
     <div style={{ background: 'var(--color-bg)', minHeight: '100vh' }}>
@@ -78,13 +59,13 @@ export default async function ForCouncilsPage() {
             color: 'var(--color-ink)', background: 'var(--color-sage)',
             padding: '3px 10px', borderRadius: 99,
           }}>
-            Free founding beta
+            {t('bannerBadge')}
           </span>
           <p style={{
             fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 300,
             color: 'rgba(255,255,255,0.78)', lineHeight: 1.55, margin: 0,
           }}>
-            Australian Atlas for councils is in free founding beta. Founding partners get full access at no cost while the product matures.
+            {t('bannerText')}
           </p>
         </div>
       </div>
@@ -96,20 +77,23 @@ export default async function ForCouncilsPage() {
           letterSpacing: '0.15em', textTransform: 'uppercase',
           color: 'var(--color-sage)', marginBottom: 12,
         }}>
-          For Regional Councils & Tourism Bodies
+          {t('heroEyebrow')}
         </p>
         <h1 style={{
           fontFamily: 'var(--font-display)', fontSize: 'clamp(28px, 4vw, 44px)',
           fontWeight: 400, color: 'var(--color-ink)', lineHeight: 1.15, marginBottom: 16,
         }}>
-          Regional discovery infrastructure<br />for independent Australia
+          {t('heroTitleLine1')}<br />{t('heroTitleLine2')}
         </h1>
         <p style={{
           fontFamily: 'var(--font-body)', fontSize: 16, fontWeight: 300,
           color: 'var(--color-muted)', lineHeight: 1.65, maxWidth: 560, margin: '0 auto',
         }}>
-          Australian Atlas is a verified, editorially curated network of {stats.listings.toLocaleString()} independent
-          places across {ATLAS_COUNT} categories and {stats.regions} regions. Built and operated in Australia.
+          {t('heroSubtitle', {
+            listings: stats.listings.toLocaleString(),
+            count: ATLAS_COUNT,
+            regions: stats.regions,
+          })}
         </p>
       </section>
 
@@ -120,16 +104,16 @@ export default async function ForCouncilsPage() {
       }}>
         {[
           {
-            title: `${ATLAS_COUNT} curated atlases`,
-            desc: 'Wineries and breweries. Galleries and heritage sites. Makers and studios. Coffee roasters. Restaurants and eateries. Boutique stays. Natural places. Independent retail. Vintage and antiques. Farm gates and food producers.',
+            title: t('whatCard1Title', { count: ATLAS_COUNT }),
+            desc: t('whatCard1Desc'),
           },
           {
-            title: `${stats.listings.toLocaleString()} verified listings`,
-            desc: 'Every listing is location-verified, contact-audited, and categorised across the network. No self-serve submissions without review. No paid placement.',
+            title: t('whatCard2Title', { listings: stats.listings.toLocaleString() }),
+            desc: t('whatCard2Desc'),
           },
           {
-            title: `${stats.regions} regions mapped`,
-            desc: 'From the Barossa to Byron, Gippsland to the Goldfields. Bounding-box geographic anchoring means every listing belongs to a real place, not a marketing label.',
+            title: t('whatCard3Title', { regions: stats.regions }),
+            desc: t('whatCard3Desc'),
           },
         ].map(item => (
           <div key={item.title} style={{
@@ -163,13 +147,13 @@ export default async function ForCouncilsPage() {
             letterSpacing: '0.15em', textTransform: 'uppercase',
             color: 'var(--color-sage)', marginBottom: 12,
           }}>
-            Why this matters
+            {t('whyEyebrow')}
           </p>
           <h2 style={{
             fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 400,
             color: 'var(--color-ink)', lineHeight: 1.25, marginBottom: 24,
           }}>
-            The independent layer your existing platforms miss
+            {t('whyTitle')}
           </h2>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -177,27 +161,19 @@ export default async function ForCouncilsPage() {
               fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 300,
               color: 'var(--color-muted)', lineHeight: 1.7, margin: 0,
             }}>
-              Your region has an ATDW presence and a council tourism website. Those platforms
-              cover accredited operators and major attractions. What they typically don&apos;t cover
-              is the independent layer: the cellar door that opened last year, the ceramics
-              studio operating from a converted shed, the vintage shop that draws weekend visitors
-              from three hours away.
+              {t('whyPara1')}
             </p>
             <p style={{
               fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 300,
               color: 'var(--color-muted)', lineHeight: 1.7, margin: 0,
             }}>
-              These places are often the actual reason people visit a region. Australian Atlas
-              maps them systematically &mdash; verified, categorised, and positioned within a
-              national discovery network that connects makers, producers, and cultural spaces
-              across the country.
+              {t('whyPara2')}
             </p>
             <p style={{
               fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 300,
               color: 'var(--color-muted)', lineHeight: 1.7, margin: 0,
             }}>
-              We&apos;re not competing with your existing tourism assets. We&apos;re filling the
-              gap between what those platforms capture and what your region actually offers.
+              {t('whyPara3')}
             </p>
           </div>
         </div>
@@ -211,19 +187,19 @@ export default async function ForCouncilsPage() {
             letterSpacing: '0.15em', textTransform: 'uppercase',
             color: 'var(--color-sage)', marginBottom: 12,
           }}>
-            Discovery Infrastructure
+            {t('discoveryEyebrow')}
           </p>
           <h2 style={{
             fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 400,
             color: 'var(--color-ink)', lineHeight: 1.25, marginBottom: 12,
           }}>
-            How people find your region is changing
+            {t('discoveryTitle')}
           </h2>
           <p style={{
             fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 300,
             color: 'var(--color-muted)', lineHeight: 1.65, maxWidth: 560, margin: '0 auto',
           }}>
-            Search engine optimisation (SEO) is still essential. But a new category &mdash; generative engine optimisation (GEO) &mdash; is emerging fast. Councils that understand both will have a structural advantage.
+            {t('discoveryIntro')}
           </p>
         </div>
 
@@ -240,28 +216,26 @@ export default async function ForCouncilsPage() {
               letterSpacing: '0.1em', textTransform: 'uppercase',
               color: 'var(--color-muted)', marginBottom: 10,
             }}>
-              Search &middot; SEO
+              {t('seoLabel')}
             </p>
             <h3 style={{
               fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 400,
               color: 'var(--color-ink)', marginBottom: 10,
             }}>
-              Traditional search
+              {t('seoTitle')}
             </h3>
             <p style={{
               fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 300,
               color: 'var(--color-muted)', lineHeight: 1.6, margin: '0 0 16px',
             }}>
-              Google ranks pages based on relevance, authority, and structure. When someone searches
-              &ldquo;best wineries Barossa Valley,&rdquo; pages with verified, well-structured listing
-              data outperform thin directory pages and generic tourism copy.
+              {t('seoDesc')}
             </p>
             <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
               {[
-                'Structured data (schema.org) on every listing',
-                'Canonical URLs per venue, per vertical',
-                'Regional pages with geographic anchoring',
-                `Internal linking across ${ATLAS_COUNT} vertical sites`,
+                t('seoFeature1'),
+                t('seoFeature2'),
+                t('seoFeature3'),
+                t('seoFeature4', { count: ATLAS_COUNT }),
               ].map((f, i) => (
                 <li key={i} style={{
                   display: 'flex', alignItems: 'flex-start', gap: 8,
@@ -288,35 +262,33 @@ export default async function ForCouncilsPage() {
               letterSpacing: '0.08em', textTransform: 'uppercase',
               padding: '3px 10px', borderRadius: 99,
             }}>
-              Emerging
+              {t('geoBadge')}
             </span>
             <p style={{
               fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 600,
               letterSpacing: '0.1em', textTransform: 'uppercase',
               color: 'var(--color-sage)', marginBottom: 10,
             }}>
-              AI Discovery &middot; GEO
+              {t('geoLabel')}
             </p>
             <h3 style={{
               fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 400,
               color: 'var(--color-ink)', marginBottom: 10,
             }}>
-              Generative search
+              {t('geoTitle')}
             </h3>
             <p style={{
               fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 300,
               color: 'var(--color-muted)', lineHeight: 1.6, margin: '0 0 16px',
             }}>
-              AI tools like ChatGPT, Perplexity, and Google AI Overviews now answer travel
-              questions directly. When someone asks &ldquo;plan a weekend in the Adelaide Hills,&rdquo;
-              the AI assembles an answer from structured, authoritative sources it can cite.
+              {t('geoDesc')}
             </p>
             <ul style={{ margin: 0, padding: 0, listStyle: 'none' }}>
               {[
-                'Cited-source architecture (AI can reference)',
-                'Entity-level data: name, location, category, description',
-                'Cross-vertical linking increases citation surface',
-                'Verified data preferred over unstructured pages',
+                t('geoFeature1'),
+                t('geoFeature2'),
+                t('geoFeature3'),
+                t('geoFeature4'),
               ].map((f, i) => (
                 <li key={i} style={{
                   display: 'flex', alignItems: 'flex-start', gap: 8,
@@ -340,38 +312,32 @@ export default async function ForCouncilsPage() {
               letterSpacing: '0.1em', textTransform: 'uppercase',
               color: 'var(--color-muted)', marginBottom: 10,
             }}>
-              Strategic
+              {t('earlyEyebrow')}
             </p>
             <h3 style={{
               fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 400,
               color: 'var(--color-ink)', marginBottom: 10,
             }}>
-              Why early presence matters
+              {t('earlyTitle')}
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <p style={{
                 fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 300,
                 color: 'var(--color-muted)', lineHeight: 1.6, margin: 0,
               }}>
-                AI models build knowledge from the structured data they can access today.
-                Regions with well-organised, verified, consistently cited listing data will
-                be recommended more reliably than regions without it.
+                {t('earlyPara1')}
               </p>
               <p style={{
                 fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 300,
                 color: 'var(--color-muted)', lineHeight: 1.6, margin: 0,
               }}>
-                Australian Atlas provides this infrastructure: verified entities, structured
-                metadata, canonical URLs, and cross-linked editorial content across {ATLAS_COUNT}
-                specialist verticals. Your region&apos;s independent businesses become
-                discoverable in both traditional and generative search.
+                {t('earlyPara2', { count: ATLAS_COUNT })}
               </p>
               <p style={{
                 fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500,
                 color: 'var(--color-ink)', lineHeight: 1.6, margin: 0,
               }}>
-                The councils that move early will define how their regions are described
-                by AI for years to come.
+                {t('earlyPara3')}
               </p>
             </div>
           </div>
@@ -386,13 +352,13 @@ export default async function ForCouncilsPage() {
             letterSpacing: '0.15em', textTransform: 'uppercase',
             color: 'var(--color-sage)', marginBottom: 12,
           }}>
-            Partnership
+            {t('partnershipEyebrow')}
           </p>
           <h2 style={{
             fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 400,
             color: 'var(--color-ink)', lineHeight: 1.25,
           }}>
-            What working together looks like
+            {t('partnershipTitle')}
           </h2>
         </div>
 
@@ -401,8 +367,8 @@ export default async function ForCouncilsPage() {
         }}>
           {[
             {
-              title: 'Verified listing data',
-              desc: 'The verified, categorised record of every independent business operating in your region. Know exactly what\'s open, where, and in which category: the cellar doors, studios, and producers that never reach ATDW or your tourism site. This is the layer most regional data misses, mapped and audited.',
+              title: t('partnerCard1Title'),
+              desc: t('partnerCard1Desc'),
               icon: (
                 <svg width="24" height="24" fill="none" stroke="var(--color-sage)" strokeWidth="1.5" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5m.75-9l3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605" />
@@ -410,8 +376,8 @@ export default async function ForCouncilsPage() {
               ),
             },
             {
-              title: 'Editorial visibility',
-              desc: 'Your region featured editorially across the Australian Atlas network: homepage, discovery trails, regional pages, and the journal. Not an ad — a genuine editorial presence.',
+              title: t('partnerCard2Title'),
+              desc: t('partnerCard2Desc'),
               icon: (
                 <svg width="24" height="24" fill="none" stroke="var(--color-sage)" strokeWidth="1.5" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z" />
@@ -419,8 +385,8 @@ export default async function ForCouncilsPage() {
               ),
             },
             {
-              title: 'Regional content co-creation',
-              desc: 'Curate editorial trails, regional picks, and seasonal guides for your area. Your local knowledge, published through a platform that reaches independent-minded travellers nationally.',
+              title: t('partnerCard3Title'),
+              desc: t('partnerCard3Desc'),
               icon: (
                 <svg width="24" height="24" fill="none" stroke="var(--color-sage)" strokeWidth="1.5" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
@@ -428,8 +394,8 @@ export default async function ForCouncilsPage() {
               ),
             },
             {
-              title: 'Analytics & reporting',
-              desc: 'From the day you join, your region builds a performance baseline: weekly trend lines for page views and clicks, visitor origin, search interest — including the searches that found nothing (your demand gaps) — and how your region ranks against every other Atlas region. Bot-filtered, exportable, and delivered to your inbox monthly as the Region Pulse.',
+              title: t('partnerCard4Title'),
+              desc: t('partnerCard4Desc'),
               icon: (
                 <svg width="24" height="24" fill="none" stroke="var(--color-sage)" strokeWidth="1.5" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6a7.5 7.5 0 107.5 7.5h-7.5V6z" />
@@ -469,12 +435,12 @@ export default async function ForCouncilsPage() {
               textDecoration: 'none',
             }}
           >
-            See an example regional report →
+            {t('exampleReportCta')}
           </Link>
           <p style={{
             fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', marginTop: 12,
           }}>
-            A live sample built from real Australian Atlas data &mdash; the actual deliverable, not a mock-up.
+            {t('exampleReportNote')}
           </p>
         </div>
       </section>
@@ -492,20 +458,19 @@ export default async function ForCouncilsPage() {
               letterSpacing: '0.15em', textTransform: 'uppercase',
               color: 'var(--color-sage)', marginBottom: 12,
             }}>
-              Beta access
+              {t('betaEyebrow')}
             </p>
             <h2 style={{
               fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 400,
               color: 'var(--color-ink)', lineHeight: 1.25, marginBottom: 12,
             }}>
-              Free right now, while we&apos;re in beta
+              {t('betaTitle')}
             </h2>
             <p style={{
               fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 300,
               color: 'var(--color-muted)', lineHeight: 1.6, maxWidth: 580, margin: '0 auto',
             }}>
-              Australian Atlas for councils is in free founding beta. Founding partners get full access at no cost
-              while the product matures &mdash; no card, no tiers to weigh up. One offering, everything included.
+              {t('betaIntro')}
             </p>
           </div>
 
@@ -521,40 +486,39 @@ export default async function ForCouncilsPage() {
                 color: 'white', background: 'var(--color-sage)',
                 padding: '4px 12px', borderRadius: 99,
               }}>
-                Free during beta
+                {t('freeDuringBeta')}
               </span>
               <h3 style={{
                 fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 400,
                 color: 'var(--color-ink)', margin: 0,
               }}>
-                What founding partners get &mdash; free
+                {t('foundingPartnersGetTitle')}
               </h3>
             </div>
             <p style={{
               fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 300,
               color: 'var(--color-muted)', lineHeight: 1.6, margin: '0 0 18px',
             }}>
-              You&apos;re set up as a founding partner with full access to everything below &mdash; the complete
-              council toolkit, with nothing held back behind a higher tier.
+              {t('foundingPartnersGetIntro')}
             </p>
             <ul style={{
               margin: 0, padding: 0, listStyle: 'none',
               display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '10px 24px',
             }}>
               {[
-                'Your region’s complete verified listing data, with performance (views & clicks)',
-                'A live region dashboard, kept current automatically',
-                'Multiple regions in a single dashboard',
-                'Weekly trend analytics — views, clicks, visitor origin and unique visitors, with period-on-period change',
-                'Search-demand insights — what visitors looked for, and the demand gaps no spend data can see',
-                'A digital presence audit of your local operators, with exportable hit-lists for capability programs',
-                'Benchmarking against every other published Atlas region',
-                'The monthly Region Pulse — your region’s numbers in your inbox on the 1st',
-                'Regional content co-creation — trails, editorials, picks and seasonal guides',
-                'An embeddable live region map for your own website',
-                'A councillor-ready white-label report (your branding) to share or print',
-                'Export your region’s full listing data (CSV)',
-                'A direct line to the team for support and feedback',
+                t('betaFeature1'),
+                t('betaFeature2'),
+                t('betaFeature3'),
+                t('betaFeature4'),
+                t('betaFeature5'),
+                t('betaFeature6'),
+                t('betaFeature7'),
+                t('betaFeature8'),
+                t('betaFeature9'),
+                t('betaFeature10'),
+                t('betaFeature11'),
+                t('betaFeature12'),
+                t('betaFeature13'),
               ].map((f, i) => (
                 <li key={i} style={{
                   display: 'flex', alignItems: 'flex-start', gap: 8,
@@ -578,12 +542,12 @@ export default async function ForCouncilsPage() {
                 textDecoration: 'none',
               }}
             >
-              Join the free founding beta
+              {t('joinBetaCta')}
             </Link>
             <p style={{
               fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '12px 0 0',
             }}>
-              It takes a minute.
+              {t('joinBetaNote')}
             </p>
           </div>
 
@@ -591,9 +555,9 @@ export default async function ForCouncilsPage() {
             textAlign: 'center', marginTop: 24,
             fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)',
           }}>
-            Already have an account?{' '}
+            {t('alreadyHaveAccount')}{' '}
             <Link href="/council/login" style={{ color: 'var(--color-sage)', textDecoration: 'underline', textUnderlineOffset: 3 }}>
-              Sign in to your council dashboard
+              {t('signInLink')}
             </Link>
           </p>
         </div>
@@ -606,27 +570,27 @@ export default async function ForCouncilsPage() {
             fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 400,
             color: 'var(--color-ink)', lineHeight: 1.25,
           }}>
-            Common questions
+            {t('faqTitle')}
           </h2>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-          {FAQ.map((item, i) => (
-            <div key={i} style={{
+          {FAQ_KEYS.map((k, i) => (
+            <div key={k} style={{
               padding: '20px 0',
-              borderBottom: i < FAQ.length - 1 ? '1px solid var(--color-border)' : 'none',
+              borderBottom: i < FAQ_KEYS.length - 1 ? '1px solid var(--color-border)' : 'none',
             }}>
               <h3 style={{
                 fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 500,
                 color: 'var(--color-ink)', margin: '0 0 8px',
               }}>
-                {item.q}
+                {t(`faq${k}Q`)}
               </h3>
               <p style={{
                 fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 300,
                 color: 'var(--color-muted)', lineHeight: 1.65, margin: 0,
               }}>
-                {item.a}
+                {t(`faq${k}A`)}
               </p>
             </div>
           ))}
@@ -643,22 +607,19 @@ export default async function ForCouncilsPage() {
             fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 400,
             color: 'white', lineHeight: 1.25, marginBottom: 16,
           }}>
-            Let&apos;s have a conversation
+            {t('contactTitle')}
           </h2>
           <p style={{
             fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 300,
             color: 'rgba(255,255,255,0.7)', lineHeight: 1.65, marginBottom: 8,
           }}>
-            I&apos;m Matt, the founder of Australian Atlas. If you represent a council, a tourism body,
-            or a regional organisation and want to talk about what a partnership could look like for
-            your area, I&apos;d like to hear from you.
+            {t('contactPara1')}
           </p>
           <p style={{
             fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 300,
             color: 'rgba(255,255,255,0.5)', lineHeight: 1.65, marginBottom: 28,
           }}>
-            Not a sales pitch &mdash; a genuine conversation about your region and how we might
-            be useful.
+            {t('contactPara2')}
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
@@ -681,7 +642,7 @@ export default async function ForCouncilsPage() {
                   transition: 'opacity 0.15s',
                 }}
               >
-                Join the free founding beta
+                {t('joinBetaCta')}
               </Link>
               <Link
                 href="/council/login"
@@ -692,7 +653,7 @@ export default async function ForCouncilsPage() {
                   transition: 'color 0.15s',
                 }}
               >
-                Council login
+                {t('councilLogin')}
               </Link>
             </div>
           </div>

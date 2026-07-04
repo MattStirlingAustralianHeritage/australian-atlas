@@ -1,6 +1,7 @@
 import { cache } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { getTranslations } from 'next-intl/server'
 import { getSupabase } from '@/lib/supabase/clients'
 import { TripRender, StaysOnlyRender } from '@/components/PlanAStayTripRender'
 import { VERTICAL_MUTED } from '@/lib/verticalUrl'
@@ -46,14 +47,15 @@ const getTrip = cache(async function getTrip(slug) {
 
 export async function generateMetadata({ params }) {
   const { slug } = await params
+  const t = await getTranslations('tripShare')
 
   // Check plan-a-stay first
   const pasTrip = await getPlanAStayTrip(slug)
   if (pasTrip) {
-    const title = pasTrip.trip?.title || `${pasTrip.answers?.region || 'Trip'} stays`
-    const intro = pasTrip.trip?.intro || `A curated stay in ${pasTrip.answers?.region || 'Australia'}.`
+    const title = pasTrip.trip?.title || t('staysTitleFallback', { region: pasTrip.answers?.region || t('regionFallback') })
+    const intro = pasTrip.trip?.intro || t('staysIntroFallback', { region: pasTrip.answers?.region || t('australiaFallback') })
     return {
-      title: `${title} | Australian Atlas`,
+      title: t('metaTitle', { title }),
       description: intro,
       openGraph: {
         title,
@@ -72,9 +74,9 @@ export async function generateMetadata({ params }) {
   // Fall back to road trip
   const trip = await getTrip(slug)
   if (!trip) return {}
-  const description = trip.intro || `A road trip from ${trip.start_name} to ${trip.end_name} via the Australian Atlas network.`
+  const description = trip.intro || t('roadTripIntroFallback', { start: trip.start_name, end: trip.end_name })
   return {
-    title: `${trip.title} | Australian Atlas`,
+    title: t('metaTitle', { title: trip.title }),
     description,
     openGraph: {
       title: trip.title,
@@ -91,19 +93,19 @@ export async function generateMetadata({ params }) {
 }
 
 /** Format km into a readable string */
-function formatDistance(km) {
+function formatDistance(km, t) {
   if (!km) return null
-  return km >= 1000 ? `${(km / 1000).toFixed(1)}k km` : `${Math.round(km)} km`
+  return km >= 1000 ? t('distanceThousandsKm', { km: (km / 1000).toFixed(1) }) : t('distanceKm', { km: Math.round(km) })
 }
 
 /** Format minutes into hours + minutes */
-function formatDuration(minutes) {
+function formatDuration(minutes, t) {
   if (!minutes) return null
   const h = Math.floor(minutes / 60)
   const m = Math.round(minutes % 60)
-  if (h === 0) return `${m} min`
-  if (m === 0) return `${h} hr`
-  return `${h} hr ${m} min`
+  if (h === 0) return t('minutesShort', { min: m })
+  if (m === 0) return t('hoursShort', { h })
+  return `${t('hoursShort', { h })} ${t('minutesShort', { min: m })}`
 }
 
 /** Count all stops across days */
@@ -122,11 +124,12 @@ function isSingleDay(days) {
 
 export default async function TripPage({ params }) {
   const { slug } = await params
+  const t = await getTranslations('tripShare')
 
   // ── Plan-a-Stay trip (checked first) ──────────────────────────────
   const pasTrip = await getPlanAStayTrip(slug)
   if (pasTrip) {
-    return <PlanAStayPage pasTrip={pasTrip} slug={slug} />
+    return <PlanAStayPage pasTrip={pasTrip} slug={slug} t={t} />
   }
 
   // ── Road trip (v1 fallback) ───────────────────────────────────────
@@ -160,7 +163,7 @@ export default async function TripPage({ params }) {
             color: 'rgba(255,255,255,0.4)', marginBottom: 14,
             fontFamily: 'var(--font-body)',
           }}>
-            {trip.start_name} to {trip.end_name}
+            {t('routeKicker', { start: trip.start_name, end: trip.end_name })}
           </div>
           <h1 style={{
             fontFamily: 'var(--font-display)',
@@ -179,25 +182,25 @@ export default async function TripPage({ params }) {
             fontSize: 13, color: 'rgba(255,255,255,0.45)',
             fontFamily: 'var(--font-body)', flexWrap: 'wrap',
           }}>
-            {formatDistance(trip.route_distance_km) && (
-              <span>{formatDistance(trip.route_distance_km)}</span>
+            {formatDistance(trip.route_distance_km, t) && (
+              <span>{formatDistance(trip.route_distance_km, t)}</span>
             )}
-            {formatDuration(trip.route_duration_minutes) && (
+            {formatDuration(trip.route_duration_minutes, t) && (
               <>
                 <span style={{ opacity: 0.3 }}>|</span>
-                <span>{formatDuration(trip.route_duration_minutes)} drive</span>
+                <span>{t('driveDuration', { duration: formatDuration(trip.route_duration_minutes, t) })}</span>
               </>
             )}
             {totalStops > 0 && (
               <>
                 <span style={{ opacity: 0.3 }}>|</span>
-                <span>{totalStops} {totalStops === 1 ? 'stop' : 'stops'}</span>
+                <span>{t('stopsCount', { count: totalStops })}</span>
               </>
             )}
             {days.length > 1 && (
               <>
                 <span style={{ opacity: 0.3 }}>|</span>
-                <span>{days.length} days</span>
+                <span>{t('daysCount', { count: days.length })}</span>
               </>
             )}
           </div>
@@ -229,10 +232,10 @@ export default async function TripPage({ params }) {
       {/* Stops */}
       <div style={{ maxWidth: 700, margin: '0 auto', padding: '48px 24px 24px' }}>
         {singleDay ? (
-          <StopList stops={days[0].stops || days[0].listings || []} />
+          <StopList stops={days[0].stops || days[0].listings || []} t={t} />
         ) : (
           days.map((day, dayIndex) => (
-            <DaySection key={dayIndex} day={day} dayIndex={dayIndex} isLast={dayIndex === days.length - 1} />
+            <DaySection key={dayIndex} day={day} dayIndex={dayIndex} isLast={dayIndex === days.length - 1} t={t} />
           ))
         )}
       </div>
@@ -252,7 +255,7 @@ export default async function TripPage({ params }) {
             color: '#6B6760', marginBottom: 12,
             fontFamily: 'var(--font-body)',
           }}>
-            Inspired?
+            {t('inspiredKicker')}
           </div>
           <h2 style={{
             fontFamily: 'var(--font-display)',
@@ -262,15 +265,14 @@ export default async function TripPage({ params }) {
             marginBottom: 24,
             lineHeight: 1.2,
           }}>
-            Plan your own road trip
+            {t('planYourOwnRoadTrip')}
           </h2>
           <p style={{
             fontSize: 14, color: '#6B6760', lineHeight: 1.7,
             fontFamily: 'var(--font-body)',
             maxWidth: 440, margin: '0 auto 32px',
           }}>
-            Set your start and end points, choose your pace, and we will find
-            the best independent stops along the way.
+            {t('planYourOwnRoadTripBody')}
           </p>
           <Link
             href="/on-this-road"
@@ -288,7 +290,7 @@ export default async function TripPage({ params }) {
               borderRadius: 2,
             }}
           >
-            Plan a trip
+            {t('planATrip')}
           </Link>
         </div>
       </section>
@@ -299,7 +301,7 @@ export default async function TripPage({ params }) {
 /* ═══════════════════════════════════════════════════════════════════════
    Plan-a-Stay shared trip page
    ═══════════════════════════════════════════════════════════════════════ */
-function PlanAStayPage({ pasTrip, slug }) {
+function PlanAStayPage({ pasTrip, slug, t }) {
   const region = pasTrip.answers?.region || 'Australia'
 
   return (
@@ -341,7 +343,7 @@ function PlanAStayPage({ pasTrip, slug }) {
               borderRadius: 6,
             }}
           >
-            Plan your own
+            {t('planYourOwn')}
           </Link>
         </div>
       </div>
@@ -359,7 +361,7 @@ function PlanAStayPage({ pasTrip, slug }) {
               fontSize: 15,
               color: 'var(--color-muted, #6B6760)',
             }}>
-              This trip is no longer available.
+              {t('tripUnavailable')}
             </p>
           </div>
         )}
@@ -382,7 +384,7 @@ function PlanAStayPage({ pasTrip, slug }) {
             lineHeight: 1.6,
             marginBottom: 20,
           }}>
-            Built with Plan a Stay — find independent places to eat, drink, stay, and explore across Australia.
+            {t('builtWithPlanAStay')}
           </p>
           <Link
             href="/plan-a-stay-v2"
@@ -400,7 +402,7 @@ function PlanAStayPage({ pasTrip, slug }) {
               borderRadius: 4,
             }}
           >
-            Plan your own stay
+            {t('planYourOwnStay')}
           </Link>
         </div>
       </section>
@@ -411,9 +413,9 @@ function PlanAStayPage({ pasTrip, slug }) {
 
 /* ---------- Day section (multi-day trips) ---------- */
 
-function DaySection({ day, dayIndex, isLast }) {
+function DaySection({ day, dayIndex, isLast, t }) {
   const stops = day.stops || day.listings || []
-  const dayLabel = day.label || `Day ${dayIndex + 1}`
+  const dayLabel = day.label || t('dayLabel', { n: dayIndex + 1 })
 
   return (
     <div style={{ marginBottom: isLast ? 0 : 48 }}>
@@ -444,22 +446,22 @@ function DaySection({ day, dayIndex, isLast }) {
             background: 'rgba(138,90,107,0.08)', padding: '3px 10px', borderRadius: 3,
             marginLeft: 'auto',
           }}>
-            Stay: {day.overnight_location}
+            {t('stayAt', { location: day.overnight_location })}
           </span>
         )}
       </div>
-      <StopList stops={stops} />
+      <StopList stops={stops} t={t} />
     </div>
   )
 }
 
 /* ---------- Stop list ---------- */
 
-function StopList({ stops }) {
+function StopList({ stops, t }) {
   if (!stops || stops.length === 0) {
     return (
       <p style={{ fontSize: 14, color: '#6B6760', fontFamily: 'var(--font-body)' }}>
-        No stops on this leg.
+        {t('noStopsOnLeg')}
       </p>
     )
   }
@@ -472,6 +474,7 @@ function StopList({ stops }) {
           stop={stop}
           index={index}
           isLast={index === stops.length - 1}
+          t={t}
         />
       ))}
     </div>
@@ -480,7 +483,7 @@ function StopList({ stops }) {
 
 /* ---------- Individual stop card ---------- */
 
-function StopCard({ stop, index, isLast }) {
+function StopCard({ stop, index, isLast, t }) {
   const vertical = stop.vertical || null
   const verticalColor = VERTICAL_COLORS[vertical] || '#6B6760'
   const verticalName = VERTICAL_NAMES[vertical] || null
@@ -572,7 +575,7 @@ function StopCard({ stop, index, isLast }) {
                   padding: '2px 8px', borderRadius: 3,
                   verticalAlign: 'middle',
                 }}>
-                  Stay tonight
+                  {t('stayTonight')}
                 </span>
               )}
             </div>
@@ -615,7 +618,7 @@ function StopCard({ stop, index, isLast }) {
                 textDecoration: 'none', fontFamily: 'var(--font-body)',
               }}
             >
-              View listing &rarr;
+              {t('viewListing')} &rarr;
             </Link>
           )}
         </div>

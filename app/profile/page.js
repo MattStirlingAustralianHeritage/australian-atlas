@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import Link from 'next/link'
 import { getListingRegion } from '@/lib/regions'
 
@@ -11,6 +12,7 @@ const VERTICAL_NAMES = {
 }
 
 export default function ProfilePage() {
+  const t = useTranslations('profile')
   const [visits, setVisits] = useState([])
   const [saves, setSaves] = useState([])
   const [loading, setLoading] = useState(true)
@@ -43,7 +45,7 @@ export default function ProfilePage() {
           letterSpacing: '0.18em', textTransform: 'uppercase',
           color: 'var(--color-sage)', marginBottom: 12,
         }}>
-          Your Atlas
+          {t('kicker')}
         </p>
         <h1 style={{
           fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '2.25rem',
@@ -55,13 +57,13 @@ export default function ProfilePage() {
           fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 15,
           color: 'var(--color-muted)', lineHeight: 1.5,
         }}>
-          Your personal record of independent Australia.
+          {t('tagline')}
         </p>
       </section>
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: '4rem 0' }}>
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--color-muted)' }}>Loading your passport...</p>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--color-muted)' }}>{t('loading')}</p>
         </div>
       ) : (
         <>
@@ -73,10 +75,10 @@ export default function ProfilePage() {
               background: 'var(--color-ink)', color: '#fff',
             }}>
               {[
-                { n: visitedListings.length, label: 'Places visited' },
-                { n: savedListings.length, label: 'Places saved' },
-                { n: regionsExplored.size, label: 'Regions explored' },
-                { n: verticalsEngaged.size, label: 'Atlases engaged' },
+                { n: visitedListings.length, label: t('statPlacesVisited') },
+                { n: savedListings.length, label: t('statPlacesSaved') },
+                { n: regionsExplored.size, label: t('statRegionsExplored') },
+                { n: verticalsEngaged.size, label: t('statAtlasesEngaged') },
               ].map(s => (
                 <div key={s.label} style={{ textAlign: 'center' }}>
                   <p style={{ fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 400, color: '#fff', margin: 0 }}>{s.n}</p>
@@ -94,7 +96,7 @@ export default function ProfilePage() {
                 letterSpacing: '0.14em', textTransform: 'uppercase',
                 color: 'var(--color-sage)', marginBottom: 10,
               }}>
-                Atlases explored
+                {t('atlasesExplored')}
               </p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {[...verticalsEngaged].map(v => (
@@ -119,7 +121,7 @@ export default function ProfilePage() {
                 letterSpacing: '0.14em', textTransform: 'uppercase',
                 color: 'var(--color-sage)', marginBottom: 10,
               }}>
-                Places visited
+                {t('placesVisited')}
               </p>
               <div style={{ display: 'grid', gap: 6 }}>
                 {visitedListings.map(l => (
@@ -155,7 +157,7 @@ export default function ProfilePage() {
                 letterSpacing: '0.14em', textTransform: 'uppercase',
                 color: 'var(--color-sage)', marginBottom: 10,
               }}>
-                Wishlist
+                {t('wishlist')}
               </p>
               <div style={{ display: 'grid', gap: 6 }}>
                 {savedListings.map(l => (
@@ -176,7 +178,7 @@ export default function ProfilePage() {
           {visitedListings.length === 0 && savedListings.length === 0 && (
             <section style={{ textAlign: 'center', padding: '2rem 1.5rem 4rem', maxWidth: '720px', margin: '0 auto' }}>
               <p style={{ fontFamily: 'var(--font-body)', fontSize: 15, color: 'var(--color-muted)', marginBottom: 16 }}>
-                Your passport is empty. Start exploring to build your record.
+                {t('emptyState')}
               </p>
               <Link
                 href="/explore"
@@ -187,7 +189,7 @@ export default function ProfilePage() {
                   textDecoration: 'none',
                 }}
               >
-                Start exploring
+                {t('startExploring')}
               </Link>
             </section>
           )}
@@ -198,7 +200,7 @@ export default function ProfilePage() {
               fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 12,
               color: 'var(--color-muted)', opacity: 0.6,
             }}>
-              Your passport is private. No public profiles, no social features. Your data can be exported or deleted at any time.
+              {t('privacyNote')}
             </p>
           </section>
         </>

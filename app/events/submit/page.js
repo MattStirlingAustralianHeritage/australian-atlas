@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { getTranslations } from 'next-intl/server'
 
 // ============================================================
 // Event submissions — gated ahead of operator outreach.
@@ -9,24 +10,28 @@ import Link from 'next/link'
 // tables, Stripe routes and pipeline code are untouched.
 // ============================================================
 
-const SUBMIT_DESCRIPTION = 'Event submissions are opening soon on Australian Atlas. Register your interest by email and we will let you know the moment they open.'
-
-export const metadata = {
-  title: 'Submit an Event — Australian Atlas',
-  description: SUBMIT_DESCRIPTION,
-  openGraph: {
-    title: 'Submit an Event — Australian Atlas',
-    description: SUBMIT_DESCRIPTION,
-    url: 'https://australianatlas.com.au/events/submit',
-  },
-  twitter: {
-    card: 'summary',
-    title: 'Submit an Event — Australian Atlas',
-    description: SUBMIT_DESCRIPTION,
-  },
+export async function generateMetadata() {
+  const t = await getTranslations('eventsSubmit')
+  const metaTitle = t('metaTitle')
+  const metaDescription = t('metaDescription')
+  return {
+    title: metaTitle,
+    description: metaDescription,
+    openGraph: {
+      title: metaTitle,
+      description: metaDescription,
+      url: 'https://australianatlas.com.au/events/submit',
+    },
+    twitter: {
+      card: 'summary',
+      title: metaTitle,
+      description: metaDescription,
+    },
+  }
 }
 
-export default function EventSubmitPage() {
+export default async function EventSubmitPage() {
+  const t = await getTranslations('eventsSubmit')
   return (
     <div style={{ background: 'var(--color-bg)', minHeight: '100vh' }}>
       <section style={{ padding: '110px 24px 80px', textAlign: 'center' }}>
@@ -36,23 +41,21 @@ export default function EventSubmitPage() {
             letterSpacing: '0.2em', textTransform: 'uppercase',
             color: 'var(--color-sage)', marginBottom: 16,
           }}>
-            Events
+            {t('eyebrow')}
           </p>
           <h1 style={{
             fontFamily: 'var(--font-display)', fontSize: 'clamp(30px, 5vw, 46px)',
             fontWeight: 400, color: 'var(--color-ink)', lineHeight: 1.15,
             marginBottom: 20,
           }}>
-            Event submissions are opening soon
+            {t('heading')}
           </h1>
           <p style={{
             fontFamily: 'var(--font-body)', fontSize: 16, fontWeight: 300,
             color: 'var(--color-muted)', lineHeight: 1.7, margin: '0 auto 32px',
             maxWidth: 460,
           }}>
-            We&apos;re putting the finishing touches on event listings across the
-            Atlas network. If you run a festival, market, dinner, tour, exhibition
-            or workshop, email us and we&apos;ll let you know the moment submissions open.
+            {t('body')}
           </p>
           <a
             href="mailto:hello@australianatlas.com.au?subject=Event submission"
@@ -73,7 +76,7 @@ export default function EventSubmitPage() {
                 color: 'var(--color-sage)', textDecoration: 'none',
               }}
             >
-              &larr; Browse upcoming events
+              &larr; {t('browseUpcoming')}
             </Link>
           </p>
         </div>

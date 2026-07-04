@@ -1,11 +1,17 @@
+import { getTranslations } from 'next-intl/server'
 import SuggestForm from './SuggestForm'
 
-export const metadata = {
-  title: 'Suggest a Place | Australian Atlas',
-  description: 'Know somewhere that should be on Australian Atlas? Suggest a venue for our directory.',
+export async function generateMetadata() {
+  const t = await getTranslations('suggest')
+  return {
+    title: t('metaTitle'),
+    description: t('metaDescription'),
+  }
 }
 
-export default function SuggestPage() {
+export default async function SuggestPage() {
+  const t = await getTranslations('suggest')
+
   return (
     <div style={{ background: 'var(--color-bg)', minHeight: '100vh' }}>
 
@@ -25,7 +31,7 @@ export default function SuggestPage() {
             marginBottom: 16,
             fontFamily: 'var(--font-body)',
           }}>
-            Community
+            {t('eyebrow')}
           </div>
           <h1 style={{
             fontFamily: 'var(--font-display)',
@@ -35,7 +41,7 @@ export default function SuggestPage() {
             lineHeight: 1.15,
             marginBottom: 20,
           }}>
-            Suggest a Place
+            {t('heading')}
           </h1>
           <p style={{
             fontSize: 17,
@@ -45,7 +51,7 @@ export default function SuggestPage() {
             maxWidth: 520,
             margin: '0 auto',
           }}>
-            Know somewhere that should be on Australian Atlas? Tell us about it.
+            {t('subhead')}
           </p>
         </div>
       </section>

@@ -15,7 +15,7 @@ const GOLD = '#c8943a'
  * variant 'docked': fixed to the bottom of the viewport on mobile — the
  *   Google Maps pattern; the map stays pannable behind it.
  */
-export default function MapPreviewCard({ listing, meta, variant = 'anchored', onClose, onVisit }) {
+export default function MapPreviewCard({ listing, meta, variant = 'anchored', onClose, onVisit, inTrail = false, onAddToTrail = null }) {
   const t = useTranslations('map')
   const locale = useLocale()
   const color = getVerticalBrandColour(listing.vertical) || '#5f8a7e'
@@ -103,17 +103,36 @@ export default function MapPreviewCard({ listing, meta, variant = 'anchored', on
         {desc && (
           <div style={{ fontSize: 12, lineHeight: 1.5, color: '#5a544b', marginTop: 7 }}>{desc}</div>
         )}
-        <a
-          href={`/place/${listing.slug}`}
-          onClick={() => onVisit?.(listing)}
-          style={{
-            display: 'block', marginTop: 11, padding: '8px 0', textAlign: 'center',
-            background: 'var(--color-ink)', color: 'var(--color-cream)', textDecoration: 'none',
-            fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', borderRadius: 6,
-          }}
-        >
-          {t('viewListing')} →
-        </a>
+        <div style={{ display: 'flex', gap: 7, marginTop: 11 }}>
+          <a
+            href={`/place/${listing.slug}`}
+            onClick={() => onVisit?.(listing)}
+            style={{
+              flex: 1, display: 'block', padding: '8px 0', textAlign: 'center',
+              background: 'var(--color-ink)', color: 'var(--color-cream)', textDecoration: 'none',
+              fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', borderRadius: 6,
+            }}
+          >
+            {t('viewListing')} →
+          </a>
+          {onAddToTrail && (
+            <button
+              onClick={() => onAddToTrail(listing)}
+              style={{
+                flex: 1, padding: '8px 0', textAlign: 'center', cursor: 'pointer',
+                background: inTrail ? 'rgba(95,138,126,0.12)' : '#fff',
+                border: '1px solid #5f8a7e', color: '#4a6e63', borderRadius: 6,
+                fontSize: 11, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase',
+                fontFamily: 'var(--font-sans)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+              }}
+            >
+              {inTrail
+                ? <><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>{t('trailOnTrail')}</>
+                : <>＋ {t('trailAddShort')}</>}
+            </button>
+          )}
+        </div>
       </div>
 
       {variant === 'anchored' && (

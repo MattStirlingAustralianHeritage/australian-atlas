@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { isApprovedImageSource } from '@/lib/image-utils'
@@ -27,73 +28,66 @@ const VERTICAL_NAMES = {
 }
 
 const TRIP_LENGTH_OPTIONS = [
-  { value: 'passing_through', label: 'Just passing through' },
-  { value: 'day_trip', label: 'Day trip' },
-  { value: '2_days', label: '2 days' },
-  { value: '3_days', label: '3 days' },
-  { value: '4_plus', label: '4+ days' },
+  { value: 'passing_through', labelKey: 'tripLengthPassingThrough' },
+  { value: 'day_trip', labelKey: 'tripLengthDayTrip' },
+  { value: '2_days', labelKey: 'tripLength2Days' },
+  { value: '3_days', labelKey: 'tripLength3Days' },
+  { value: '4_plus', labelKey: 'tripLength4Plus' },
 ]
 
 const BIKE_TRIP_LENGTH_OPTIONS = [
-  { value: 'half_day', label: 'Half day', sublabel: '2\u20133 hrs riding' },
-  { value: 'full_day', label: 'Full day', sublabel: '4\u20136 hrs riding' },
-  { value: 'weekend', label: 'Weekend', sublabel: '2 days, overnight' },
+  { value: 'half_day', labelKey: 'bikeLengthHalfDay', sublabelKey: 'bikeLengthHalfDaySub' },
+  { value: 'full_day', labelKey: 'bikeLengthFullDay', sublabelKey: 'bikeLengthFullDaySub' },
+  { value: 'weekend', labelKey: 'bikeLengthWeekend', sublabelKey: 'bikeLengthWeekendSub' },
 ]
 
 const BIKE_TYPE_OPTIONS = [
-  { value: 'road', label: 'Road bike' },
-  { value: 'gravel', label: 'Gravel bike' },
-  { value: 'any', label: 'Any bike' },
+  { value: 'road', labelKey: 'bikeTypeRoad' },
+  { value: 'gravel', labelKey: 'bikeTypeGravel' },
+  { value: 'any', labelKey: 'bikeTypeAny' },
 ]
 
 const FITNESS_OPTIONS = [
-  { value: 'relaxed', label: 'Relaxed', sublabel: 'Flat & easy' },
-  { value: 'moderate', label: 'Moderate', sublabel: 'Some hills' },
-  { value: 'strong', label: 'Strong', sublabel: 'Bring the climbs' },
+  { value: 'relaxed', labelKey: 'fitnessRelaxed', sublabelKey: 'fitnessRelaxedSub' },
+  { value: 'moderate', labelKey: 'fitnessModerate', sublabelKey: 'fitnessModerateSub' },
+  { value: 'strong', labelKey: 'fitnessStrong', sublabelKey: 'fitnessStrongSub' },
 ]
 
 const DEPARTURE_OPTIONS = [
-  { value: 'this_morning', label: 'This morning' },
-  { value: 'this_afternoon', label: 'This afternoon' },
-  { value: 'tomorrow_morning', label: 'Tomorrow morning' },
-  { value: 'this_weekend', label: 'This weekend' },
+  { value: 'this_morning', labelKey: 'departureThisMorning' },
+  { value: 'this_afternoon', labelKey: 'departureThisAfternoon' },
+  { value: 'tomorrow_morning', labelKey: 'departureTomorrowMorning' },
+  { value: 'this_weekend', labelKey: 'departureThisWeekend' },
 ]
 
 const DETOUR_OPTIONS = [
-  { value: 'on_route', label: 'Stays on route', sublabel: '15 min max detour' },
-  { value: 'happy_to_detour', label: 'Happy to detour', sublabel: '30\u201345 min off-route' },
-  { value: 'flexible', label: 'Flexible', sublabel: 'Show me what\u2019s worth it' },
+  { value: 'on_route', labelKey: 'detourOnRoute', sublabelKey: 'detourOnRouteSub' },
+  { value: 'happy_to_detour', labelKey: 'detourHappy', sublabelKey: 'detourHappySub' },
+  { value: 'flexible', labelKey: 'detourFlexible', sublabelKey: 'detourFlexibleSub' },
 ]
 
 const PREFERENCE_CHIPS = [
-  { key: 'cellar_doors', Icon: Wine, label: 'Cellar doors & wineries' },
-  { key: 'great_coffee', Icon: Coffee, label: 'Great coffee' },
-  { key: 'history', Icon: Landmark, label: 'History & heritage' },
-  { key: 'lunch', Icon: UtensilsCrossed, label: 'Good places for lunch' },
-  { key: 'producers', Icon: Wheat, label: 'Producers & farm gates' },
-  { key: 'art_makers', Icon: Palette, label: 'Art & makers' },
-  { key: 'nature', Icon: Mountain, label: 'Nature & outdoors' },
-  { key: 'local_shops', Icon: Store, label: 'Local shops & boutiques' },
-  { key: 'markets', Icon: Tag, label: 'Markets & vintage finds' },
-  { key: 'craft_drinks', Icon: Beer, label: 'Breweries & distilleries' },
-  { key: 'fine_dining', Icon: Star, label: 'Fine dining' },
-  { key: 'scenic', Icon: Camera, label: 'Scenic stops & lookouts' },
+  { key: 'cellar_doors', Icon: Wine, labelKey: 'prefCellarDoors' },
+  { key: 'great_coffee', Icon: Coffee, labelKey: 'prefGreatCoffee' },
+  { key: 'history', Icon: Landmark, labelKey: 'prefHistory' },
+  { key: 'lunch', Icon: UtensilsCrossed, labelKey: 'prefLunch' },
+  { key: 'producers', Icon: Wheat, labelKey: 'prefProducers' },
+  { key: 'art_makers', Icon: Palette, labelKey: 'prefArtMakers' },
+  { key: 'nature', Icon: Mountain, labelKey: 'prefNature' },
+  { key: 'local_shops', Icon: Store, labelKey: 'prefLocalShops' },
+  { key: 'markets', Icon: Tag, labelKey: 'prefMarkets' },
+  { key: 'craft_drinks', Icon: Beer, labelKey: 'prefCraftDrinks' },
+  { key: 'fine_dining', Icon: Star, labelKey: 'prefFineDining' },
+  { key: 'scenic', Icon: Camera, labelKey: 'prefScenic' },
 ]
 
-const LOADING_MESSAGES = [
-  'Mapping the route and marking the good stops\u2026',
-  'Checking which cellar doors are on the way\u2026',
-  'Asking locals where to stop\u2026',
-  'Finding places worth pulling over for\u2026',
-  'Curating your road trip\u2026',
+const LOADING_MESSAGE_KEYS = [
+  'loadingMsg1', 'loadingMsg2', 'loadingMsg3', 'loadingMsg4', 'loadingMsg5',
 ]
 
-const SURPRISE_LOADING_MESSAGES = [
-  'Spinning the compass\u2026',
-  'Scanning the horizon for something good\u2026',
-  'Picking a direction worth driving\u2026',
-  'Finding the road less travelled\u2026',
-  'Curating your surprise\u2026',
+const SURPRISE_LOADING_MESSAGE_KEYS = [
+  'surpriseLoadingMsg1', 'surpriseLoadingMsg2', 'surpriseLoadingMsg3',
+  'surpriseLoadingMsg4', 'surpriseLoadingMsg5',
 ]
 
 // Mapbox static tile for hero background
@@ -175,6 +169,7 @@ function PlaceInput({ value, onChange, placeholder, label }) {
 // ── Main component ──────────────────────────────────────────────────
 
 export default function OnThisRoadClient() {
+  const t = useTranslations('onThisRoad')
   const [mode, setMode] = useState('plan') // 'plan' | 'surprise'
   const [transportMode, setTransportMode] = useState('driving') // 'driving' | 'cycling'
   const [startPlace, setStartPlace] = useState('')
@@ -190,7 +185,7 @@ export default function OnThisRoadClient() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [result, setResult] = useState(null)
-  const [loadingMsg, setLoadingMsg] = useState(LOADING_MESSAGES[0])
+  const [loadingMsg, setLoadingMsg] = useState(t(LOADING_MESSAGE_KEYS[0]))
   const loadingInterval = useRef(null)
   const resultsRef = useRef(null)
   const formRef = useRef(null)
@@ -239,12 +234,12 @@ export default function OnThisRoadClient() {
     clearTimeout(revealTimerRef.current)
 
     // Cycle loading messages
-    const msgs = isSurpriseMode ? SURPRISE_LOADING_MESSAGES : LOADING_MESSAGES
+    const msgKeys = isSurpriseMode ? SURPRISE_LOADING_MESSAGE_KEYS : LOADING_MESSAGE_KEYS
     let msgIdx = 0
-    setLoadingMsg(msgs[0])
+    setLoadingMsg(t(msgKeys[0]))
     loadingInterval.current = setInterval(() => {
-      msgIdx = (msgIdx + 1) % msgs.length
-      setLoadingMsg(msgs[msgIdx])
+      msgIdx = (msgIdx + 1) % msgKeys.length
+      setLoadingMsg(t(msgKeys[msgIdx]))
     }, 3500)
 
     // Discovery onboarding picks (in-session "I'd visit this") bias stop
@@ -276,9 +271,9 @@ export default function OnThisRoadClient() {
         console.error('[on-this-road] API error:', res.status, body)
         try {
           const errData = JSON.parse(body)
-          setError(errData.error || `Something went wrong (${res.status}). Please try again.`)
+          setError(errData.error || t('errorGeneric', { status: res.status }))
         } catch {
-          setError(`Something went wrong (${res.status}). Please try again.`)
+          setError(t('errorGeneric', { status: res.status }))
         }
         return
       }
@@ -310,11 +305,11 @@ export default function OnThisRoadClient() {
       }
     } catch (err) {
       if (err.name === 'AbortError' || err.message?.includes('timeout')) {
-        setError('The route is taking longer than expected to plan. Try a shorter trip or fewer preferences.')
+        setError(t('errorTimeout'))
       } else if (!navigator.onLine) {
-        setError('You appear to be offline. Please check your internet connection and try again.')
+        setError(t('errorOffline'))
       } else {
-        setError('Could not reach the trip planner. Please try again in a moment.')
+        setError(t('errorUnreachable'))
       }
       console.error('[on-this-road] Client error:', err)
     } finally {
@@ -338,14 +333,14 @@ export default function OnThisRoadClient() {
             letterSpacing: '0.15em', textTransform: 'uppercase',
             color: 'rgba(250, 248, 245, 0.6)', margin: '0 0 16px',
           }}>
-            Road Trip Planner
+            {t('heroEyebrow')}
           </p>
           <h1 style={{
             fontFamily: 'var(--font-display)', fontWeight: 400,
             fontSize: 'clamp(36px, 6vw, 56px)', lineHeight: 1.05,
             color: 'var(--otr-paper)', margin: 0,
           }}>
-            On This Road
+            {t('heroTitle')}
           </h1>
           <p style={{
             fontFamily: 'var(--font-display)', fontSize: 'clamp(16px, 2.5vw, 20px)',
@@ -353,7 +348,7 @@ export default function OnThisRoadClient() {
             color: 'rgba(250, 248, 245, 0.5)', margin: '12px 0 0', lineHeight: 1.5,
             maxWidth: 500,
           }}>
-            Every drive is better with somewhere worth stopping.
+            {t('heroSubtitle')}
           </p>
         </div>
       </div>
@@ -369,46 +364,46 @@ export default function OnThisRoadClient() {
                 className={`otr-mode-btn ${mode === 'plan' ? 'active' : ''}`}
                 onClick={() => setMode('plan')}>
                 <Route size={14} strokeWidth={1.5} />
-                Plan a trip
+                {t('modePlanTrip')}
               </button>
               <button type="button"
                 className={`otr-mode-btn ${mode === 'surprise' ? 'active' : ''}`}
                 onClick={() => setMode('surprise')}>
                 <Compass size={14} strokeWidth={1.5} />
-                Surprise me
+                {t('modeSurpriseMe')}
               </button>
             </div>
 
             {/* From / To inputs */}
             <div className="otr-inputs" style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
               <PlaceInput value={startPlace} onChange={setStartPlace}
-                placeholder={mode === 'surprise' ? 'Where are you?' : 'Melbourne'}
-                label={mode === 'surprise' ? 'WHERE ARE YOU?' : 'FROM'} />
+                placeholder={mode === 'surprise' ? t('placeholderWhereAreYou') : 'Melbourne'}
+                label={mode === 'surprise' ? t('labelWhereAreYou') : t('labelFrom')} />
 
               {mode === 'plan' && (
                 <>
-                  <button type="button" className="otr-swap-btn" onClick={handleSwap} title="Swap">
+                  <button type="button" className="otr-swap-btn" onClick={handleSwap} title={t('swapTitle')}>
                     <ArrowUpDown size={16} strokeWidth={2} />
                   </button>
                   <PlaceInput value={endPlace} onChange={setEndPlace}
-                    placeholder="Sydney" label="TO" />
+                    placeholder="Sydney" label={t('labelTo')} />
                 </>
               )}
             </div>
 
             {/* Transport mode */}
             <div className="otr-selector-group">
-              <p className="otr-selector-label">How Are You Travelling?</p>
+              <p className="otr-selector-label">{t('travelHeading')}</p>
               <div className="otr-pill-row">
                 <button type="button"
                   className={`otr-pill ${transportMode === 'driving' ? 'active' : ''}`}
                   onClick={() => { setTransportMode('driving'); setTripLength('day_trip') }}>
-                  <Car size={14} strokeWidth={1.5} style={{ marginRight: 4 }} /> Car
+                  <Car size={14} strokeWidth={1.5} style={{ marginRight: 4 }} /> {t('transportCar')}
                 </button>
                 <button type="button"
                   className={`otr-pill ${transportMode === 'cycling' ? 'active' : ''}`}
                   onClick={() => { setTransportMode('cycling'); setTripLength('full_day') }}>
-                  <Bike size={14} strokeWidth={1.5} style={{ marginRight: 4 }} /> Bike
+                  <Bike size={14} strokeWidth={1.5} style={{ marginRight: 4 }} /> {t('transportBike')}
                 </button>
               </div>
             </div>
@@ -416,13 +411,13 @@ export default function OnThisRoadClient() {
             {/* Departure timing — Plan mode, driving only */}
             {mode === 'plan' && transportMode === 'driving' && (
               <div className="otr-selector-group">
-                <p className="otr-selector-label">Leaving</p>
+                <p className="otr-selector-label">{t('leavingHeading')}</p>
                 <div className="otr-pill-row">
                   {DEPARTURE_OPTIONS.map(opt => (
                     <button key={opt.value} type="button"
                       className={`otr-pill ${departureTiming === opt.value ? 'active' : ''}`}
                       onClick={() => setDepartureTiming(opt.value)}>
-                      {opt.label}
+                      {t(opt.labelKey)}
                     </button>
                   ))}
                 </div>
@@ -431,14 +426,14 @@ export default function OnThisRoadClient() {
 
             {/* Trip length */}
             <div className="otr-selector-group">
-              <p className="otr-selector-label">{mode === 'surprise' ? 'How Long?' : 'Trip Length'}</p>
+              <p className="otr-selector-label">{mode === 'surprise' ? t('howLongHeading') : t('tripLengthHeading')}</p>
               <div className="otr-pill-row">
                 {(transportMode === 'cycling' ? BIKE_TRIP_LENGTH_OPTIONS : TRIP_LENGTH_OPTIONS).map(opt => (
                   <button key={opt.value} type="button"
-                    className={`otr-pill ${opt.sublabel ? 'otr-pill--detour' : ''} ${tripLength === opt.value ? 'active' : ''}`}
+                    className={`otr-pill ${opt.sublabelKey ? 'otr-pill--detour' : ''} ${tripLength === opt.value ? 'active' : ''}`}
                     onClick={() => setTripLength(opt.value)}>
-                    <span>{opt.label}</span>
-                    {opt.sublabel && <span className="otr-pill__sublabel">{opt.sublabel}</span>}
+                    <span>{t(opt.labelKey)}</span>
+                    {opt.sublabelKey && <span className="otr-pill__sublabel">{t(opt.sublabelKey)}</span>}
                   </button>
                 ))}
               </div>
@@ -448,26 +443,26 @@ export default function OnThisRoadClient() {
             {transportMode === 'cycling' && (
               <>
                 <div className="otr-selector-group">
-                  <p className="otr-selector-label">What Are You Riding?</p>
+                  <p className="otr-selector-label">{t('ridingHeading')}</p>
                   <div className="otr-pill-row">
                     {BIKE_TYPE_OPTIONS.map(opt => (
                       <button key={opt.value} type="button"
                         className={`otr-pill ${bikeType === opt.value ? 'active' : ''}`}
                         onClick={() => setBikeType(opt.value)}>
-                        {opt.label}
+                        {t(opt.labelKey)}
                       </button>
                     ))}
                   </div>
                 </div>
                 <div className="otr-selector-group">
-                  <p className="otr-selector-label">Fitness Level</p>
+                  <p className="otr-selector-label">{t('fitnessHeading')}</p>
                   <div className="otr-pill-row">
                     {FITNESS_OPTIONS.map(opt => (
                       <button key={opt.value} type="button"
                         className={`otr-pill otr-pill--detour ${fitness === opt.value ? 'active' : ''}`}
                         onClick={() => setFitness(opt.value)}>
-                        <span>{opt.label}</span>
-                        <span className="otr-pill__sublabel">{opt.sublabel}</span>
+                        <span>{t(opt.labelKey)}</span>
+                        <span className="otr-pill__sublabel">{t(opt.sublabelKey)}</span>
                       </button>
                     ))}
                   </div>
@@ -478,14 +473,14 @@ export default function OnThisRoadClient() {
             {/* Detour tolerance — Plan mode, driving only */}
             {mode === 'plan' && transportMode === 'driving' && (
               <div className="otr-selector-group">
-                <p className="otr-selector-label">Detour Tolerance</p>
+                <p className="otr-selector-label">{t('detourHeading')}</p>
                 <div className="otr-pill-row">
                   {DETOUR_OPTIONS.map(opt => (
                     <button key={opt.value} type="button"
                       className={`otr-pill otr-pill--detour ${detourTolerance === opt.value ? 'active' : ''}`}
                       onClick={() => setDetourTolerance(opt.value)}>
-                      <span>{opt.label}</span>
-                      <span className="otr-pill__sublabel">{opt.sublabel}</span>
+                      <span>{t(opt.labelKey)}</span>
+                      <span className="otr-pill__sublabel">{t(opt.sublabelKey)}</span>
                     </button>
                   ))}
                 </div>
@@ -494,7 +489,7 @@ export default function OnThisRoadClient() {
 
             {/* Preference chips */}
             <div className="otr-selector-group">
-              <p className="otr-selector-label">What Are You Into?</p>
+              <p className="otr-selector-label">{t('intoHeading')}</p>
               <div className="otr-chips-grid">
                 {PREFERENCE_CHIPS.map(chip => {
                   const isActive = effectivePrefs.includes(chip.key)
@@ -505,7 +500,7 @@ export default function OnThisRoadClient() {
                       <span className="otr-chip-icon">
                         <chip.Icon size={16} strokeWidth={1.5} />
                       </span>
-                      <span>{chip.label}</span>
+                      <span>{t(chip.labelKey)}</span>
                     </button>
                   )
                 })}
@@ -521,7 +516,7 @@ export default function OnThisRoadClient() {
                   {returnDifferent && <Check size={14} strokeWidth={2.5} />}
                 </span>
                 <CornerDownLeft size={16} strokeWidth={1.5} />
-                <span>{returnDifferent ? 'Taking a different road home' : 'Take a different road home'}</span>
+                <span>{returnDifferent ? t('returnRoadActive') : t('returnRoadInactive')}</span>
               </button>
             )}
 
@@ -530,7 +525,7 @@ export default function OnThisRoadClient() {
               <button type="button" className={`otr-cta ${loading ? 'loading' : ''}`}
                 disabled={loading || !canSubmit}
                 onClick={handleSubmit}>
-                {loading ? (mode === 'surprise' ? 'Finding your surprise\u2026' : 'Planning your trip\u2026') : mode === 'surprise' ? 'Surprise me' : 'Show me what\u2019s on this road'}
+                {loading ? (mode === 'surprise' ? t('ctaFindingSurprise') : t('ctaPlanningTrip')) : mode === 'surprise' ? t('ctaSurpriseMe') : t('ctaShowMe')}
               </button>
             </div>
           </div>
@@ -604,13 +599,13 @@ export default function OnThisRoadClient() {
             fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 400,
             fontStyle: 'italic', color: 'var(--color-ink)', margin: '0 0 12px', lineHeight: 1.4,
           }}>
-            {result.message || "That\u2019s a short trip \u2014 not much road to explore."}
+            {result.message || t('shortTripMessage')}
           </p>
           <p style={{
             fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 300,
             color: 'var(--color-muted)', margin: '0 0 24px', lineHeight: 1.6,
           }}>
-            On This Road works best for drives of 20km or more.
+            {t('shortTripSub')}
           </p>
         </div>
       )}
@@ -635,6 +630,7 @@ export default function OnThisRoadClient() {
 // ── Results view ────────────────────────────────────────────────────
 
 function ResultsView({ result, formRef, onRegenerate, isSurpriseMode, revealPhase, onRevealComplete }) {
+  const t = useTranslations('onThisRoad')
   const {
     title, subtitle, stops, days, route_geometry,
     route_duration_minutes, route_distance_km, intro,
@@ -814,9 +810,9 @@ ${taggedStops.filter(s => s.lat && s.lng).map(s => `  <wpt lat="${s.lat}" lon="$
   if (!taggedStops.length) {
     return (
       <div className="otr-empty-state">
-        <p className="otr-empty-title">We don&apos;t have much on this route yet.</p>
-        <p className="otr-empty-sub">The network is growing. Know a place that should be here?</p>
-        <Link href="/suggest" className="otr-empty-link">Suggest a place</Link>
+        <p className="otr-empty-title">{t('emptyTitle')}</p>
+        <p className="otr-empty-sub">{t('emptySub')}</p>
+        <Link href="/suggest" className="otr-empty-link">{t('emptyLink')}</Link>
       </div>
     )
   }
@@ -830,7 +826,12 @@ ${taggedStops.filter(s => s.lat && s.lng).map(s => `  <wpt lat="${s.lat}" lon="$
 
   // Departure day name
   const departureDayName = (() => {
-    const map = { this_morning: 'Today', this_afternoon: 'Today', tomorrow_morning: 'Tomorrow', this_weekend: 'This weekend' }
+    const map = {
+      this_morning: t('departDayToday'),
+      this_afternoon: t('departDayToday'),
+      tomorrow_morning: t('departDayTomorrow'),
+      this_weekend: t('departDayWeekend'),
+    }
     return map[departure_timing] || null
   })()
 
@@ -843,21 +844,21 @@ ${taggedStops.filter(s => s.lat && s.lng).map(s => `  <wpt lat="${s.lat}" lon="$
 
         {/* Metadata strip */}
         <div className="otr-trip-meta">
-          {route_distance_km > 0 && <span>{route_distance_km.toLocaleString()} KM</span>}
+          {route_distance_km > 0 && <span>{t('metaKm', { km: route_distance_km.toLocaleString() })}</span>}
           {route_distance_km > 0 && route_duration_minutes > 0 && <span className="otr-meta-dot" aria-hidden="true">&middot;</span>}
-          {route_duration_minutes > 0 && <span>~{Math.round(route_duration_minutes / 60)} HR {result.transport_mode === 'cycling' ? 'RIDE' : 'DRIVE'}</span>}
+          {route_duration_minutes > 0 && <span>{result.transport_mode === 'cycling' ? t('metaHrRide', { hr: Math.round(route_duration_minutes / 60) }) : t('metaHrDrive', { hr: Math.round(route_duration_minutes / 60) })}</span>}
           <span className="otr-meta-dot" aria-hidden="true">&middot;</span>
-          <span>{taggedStops.filter(s => !s.is_overnight).length} STOPS</span>
-          {hasDays && <><span className="otr-meta-dot" aria-hidden="true">&middot;</span><span>{days.length} DAYS</span></>}
-          {departureDayName && <><span className="otr-meta-dot" aria-hidden="true">&middot;</span><span>DEPARTING {departureDayName.toUpperCase()}</span></>}
-          {is_surprise_loop && <><span className="otr-meta-dot" aria-hidden="true">&middot;</span><span>SURPRISE LOOP</span></>}
+          <span>{t('metaStops', { count: taggedStops.filter(s => !s.is_overnight).length })}</span>
+          {hasDays && <><span className="otr-meta-dot" aria-hidden="true">&middot;</span><span>{t('metaDays', { count: days.length })}</span></>}
+          {departureDayName && <><span className="otr-meta-dot" aria-hidden="true">&middot;</span><span>{t('metaDeparting', { day: departureDayName })}</span></>}
+          {is_surprise_loop && <><span className="otr-meta-dot" aria-hidden="true">&middot;</span><span>{t('metaSurpriseLoop')}</span></>}
         </div>
 
         {intro && <p className="otr-trip-intro">{intro}</p>}
 
         {additional_stop_hours > 0 && (
           <p className="otr-trip-stop-hours">
-            Add approximately {additional_stop_hours} {additional_stop_hours === 1 ? 'hour' : 'hours'} for stops.
+            {t('addStopHours', { count: additional_stop_hours })}
           </p>
         )}
       </div>
@@ -866,38 +867,38 @@ ${taggedStops.filter(s => s.lat && s.lng).map(s => `  <wpt lat="${s.lat}" lon="$
       <div className="otr-trip-actions">
         <button type="button" className="otr-action-btn" onClick={handleSave} disabled={saving || !!savedUrl}>
           <Upload size={14} strokeWidth={2} />
-          {savedUrl ? 'Saved' : saving ? 'Saving\u2026' : 'Save this trip'}
+          {savedUrl ? t('actionSaved') : saving ? t('actionSaving') : t('actionSaveTrip')}
         </button>
         <button type="button" className="otr-action-btn" onClick={handleShare}>
-          Share
+          {t('actionShare')}
         </button>
         <a className="otr-action-btn" href={buildGoogleMapsUrl()} target="_blank" rel="noopener noreferrer">
-          Open in Google Maps
+          {t('actionGoogleMaps')}
         </a>
         <a className="otr-action-btn otr-action-btn--secondary" href={buildAppleMapsUrl()} target="_blank" rel="noopener noreferrer">
-          Apple Maps
+          {t('actionAppleMaps')}
         </a>
         {isCycling && route_geometry && (
           <button type="button" className="otr-action-btn" onClick={handleDownloadGpx}>
-            <Download size={14} strokeWidth={2} /> Download GPX
+            <Download size={14} strokeWidth={2} /> {t('actionDownloadGpx')}
           </button>
         )}
         <button type="button" className="otr-action-btn otr-action-btn--secondary"
           onClick={() => formRef?.current?.scrollIntoView({ behavior: 'smooth' })}>
-          Edit trip
+          {t('actionEditTrip')}
         </button>
         {isSurpriseMode ? (
           <button type="button" className="otr-reroll-btn"
             onClick={handleRegenerate}
             disabled={regenCount >= 3 || regenCooldown > 0}>
             <Compass size={14} strokeWidth={1.5} className="otr-reroll-icon" />
-            {regenCooldown > 0 ? `Try again (${regenCooldown}s)` : regenCount >= 3 ? 'Limit reached' : 'Try another direction'}
+            {regenCooldown > 0 ? t('rerollCooldown', { seconds: regenCooldown }) : regenCount >= 3 ? t('actionLimitReached') : t('rerollTryDirection')}
           </button>
         ) : (
           <button type="button" className="otr-action-btn otr-action-btn--secondary"
             onClick={handleRegenerate}
             disabled={regenCount >= 3 || regenCooldown > 0}>
-            {regenCooldown > 0 ? `Regenerate (${regenCooldown}s)` : regenCount >= 3 ? 'Limit reached' : 'Regenerate'}
+            {regenCooldown > 0 ? t('regenerateCooldown', { seconds: regenCooldown }) : regenCount >= 3 ? t('actionLimitReached') : t('actionRegenerate')}
           </button>
         )}
       </div>
@@ -978,7 +979,7 @@ ${taggedStops.filter(s => s.lat && s.lng).map(s => `  <wpt lat="${s.lat}" lon="$
                     {day.accommodation_gap && (
                       <div className="otr-accommodation-gap">
                         <AlertTriangle size={14} strokeWidth={1.5} />
-                        {day.accommodation_note || 'No verified stays found for this night — you may need to book independently.'}
+                        {day.accommodation_note || t('accommodationGapDefault')}
                       </div>
                     )}
                   </section>
@@ -1027,6 +1028,7 @@ ${taggedStops.filter(s => s.lat && s.lng).map(s => `  <wpt lat="${s.lat}" lon="$
 // ── Stop card ───────────────────────────────────────────────────────
 
 function StopCard({ stop, onHover, revealClass = '' }) {
+  const t = useTranslations('onThisRoad')
   const vertName = VERTICAL_NAMES[stop.vertical] || stop.vertical
   const hasImage = isApprovedImageSource(stop.hero_image_url)
   const isLast = false // spine continues unless explicitly marked
@@ -1053,7 +1055,7 @@ function StopCard({ stop, onHover, revealClass = '' }) {
           <p className="otr-stop-reason">{stop.reason || stop.notes}</p>
         )}
         <a className="otr-stop-link" href={`/place/${stop.slug}`} target="_blank" rel="noopener noreferrer">
-          View listing <ArrowRight size={12} strokeWidth={1.5} />
+          {t('viewListing')} <ArrowRight size={12} strokeWidth={1.5} />
         </a>
       </div>
       {hasImage && (
@@ -1068,6 +1070,7 @@ function StopCard({ stop, onHover, revealClass = '' }) {
 // ── Overnight card with accommodation picker ───────────────────────
 
 function OvernightCard({ stop, alternatives = [], onSwap, revealClass = '' }) {
+  const t = useTranslations('onThisRoad')
   const [showPicker, setShowPicker] = useState(false)
   const hasImage = isApprovedImageSource(stop.hero_image_url)
   const hasAlternatives = alternatives && alternatives.length > 0
@@ -1080,7 +1083,7 @@ function OvernightCard({ stop, alternatives = [], onSwap, revealClass = '' }) {
         </div>
       )}
       <div className="otr-overnight-content">
-        <span className="otr-overnight-eyebrow">Tonight&apos;s Stay</span>
+        <span className="otr-overnight-eyebrow">{t('overnightEyebrow')}</span>
         <a className="otr-overnight-name" href={`/place/${stop.slug}`} target="_blank" rel="noopener noreferrer">
           {stop.listing_name}
         </a>
@@ -1093,7 +1096,7 @@ function OvernightCard({ stop, alternatives = [], onSwap, revealClass = '' }) {
           {hasAlternatives && (
             <button type="button" className="otr-overnight-swap"
               onClick={() => setShowPicker(!showPicker)}>
-              {showPicker ? 'Close' : `${alternatives.length} other ${alternatives.length === 1 ? 'option' : 'options'}`}
+              {showPicker ? t('overnightClose') : t('overnightOtherOptions', { count: alternatives.length })}
               <ChevronRight size={12} strokeWidth={1.5} className={showPicker ? 'otr-chevron-down' : ''} />
             </button>
           )}
@@ -1119,6 +1122,7 @@ function OvernightCard({ stop, alternatives = [], onSwap, revealClass = '' }) {
 // ── Long trip banner ────────────────────────────────────────────────
 
 function LongTripBanner({ routeDistanceKm, restListings }) {
+  const t = useTranslations('onThisRoad')
   const [expanded, setExpanded] = useState(false)
 
   return (
@@ -1126,13 +1130,13 @@ function LongTripBanner({ routeDistanceKm, restListings }) {
       <div className="otr-long-trip-header">
         <AlertTriangle size={18} strokeWidth={1.5} />
         <div>
-          <p className="otr-long-trip-title">This is a long drive ({routeDistanceKm.toLocaleString()} km)</p>
-          <p className="otr-long-trip-sub">Consider selecting a multi-day trip length. We found {restListings.length} boutique stays along the route.</p>
+          <p className="otr-long-trip-title">{t('longTripTitle', { km: routeDistanceKm.toLocaleString() })}</p>
+          <p className="otr-long-trip-sub">{t('longTripSub', { count: restListings.length })}</p>
         </div>
       </div>
       {restListings.length > 0 && (
         <button type="button" className="otr-long-trip-toggle" onClick={() => setExpanded(!expanded)}>
-          {expanded ? 'Hide' : 'Show'} overnight stops
+          {expanded ? t('longTripHideStops') : t('longTripShowStops')}
           <ChevronDown size={12} strokeWidth={2} style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
         </button>
       )}

@@ -1,12 +1,17 @@
 import Link from 'next/link'
+import { getTranslations } from 'next-intl/server'
 import ReportInfringementForm from './ReportInfringementForm'
 
-export const metadata = {
-  title: 'Report a copyright or IP issue | Australian Atlas',
-  description: 'Notify Australian Atlas of content that infringes your copyright or other rights.',
+export async function generateMetadata() {
+  const t = await getTranslations('reportInfringement')
+  return {
+    title: t('metaTitle'),
+    description: t('metaDescription'),
+  }
 }
 
 export default async function ReportInfringementPage({ searchParams }) {
+  const t = await getTranslations('reportInfringement')
   const sp = (await searchParams) || {}
   const slug = typeof sp.slug === 'string' ? sp.slug : ''
   const name = typeof sp.name === 'string' ? sp.name : ''
@@ -28,12 +33,10 @@ export default async function ReportInfringementPage({ searchParams }) {
           className="mb-2"
           style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 'clamp(24px, 4vw, 32px)', lineHeight: 1.2, color: 'var(--color-ink)' }}
         >
-          Report a copyright or IP issue
+          {t('heading')}
         </h1>
         <p className="mb-8" style={{ fontFamily: 'var(--font-body)', fontSize: '15px', fontWeight: 300, color: 'var(--color-muted)', lineHeight: 1.6 }}>
-          If you believe content on Australian Atlas infringes your copyright or other rights, tell us below.
-          We review every report and will remove infringing content where appropriate. This is an interim
-          process and does not constitute legal advice.
+          {t('intro', { brand: 'Australian Atlas' })}
         </p>
 
         <ReportInfringementForm initialSlug={slug} initialName={name} />

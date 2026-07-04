@@ -1,37 +1,39 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
 import { getNetworkStats } from '@/lib/networkStats'
+import { getTranslations, getLocale } from 'next-intl/server'
 
 export const revalidate = 86400
 
-const PRESS_DESCRIPTION = 'Live network stats, vertical overviews, and media contact information for the Australian Atlas network — ten curated directories mapping independent Australia.'
-
-export const metadata = {
-  title: 'Press Kit — Australian Atlas',
-  description: PRESS_DESCRIPTION,
-  openGraph: {
-    title: 'Press Kit — Australian Atlas',
-    description: PRESS_DESCRIPTION,
-    url: 'https://australianatlas.com.au/press',
-  },
-  twitter: {
-    card: 'summary',
-    title: 'Press Kit — Australian Atlas',
-    description: PRESS_DESCRIPTION,
-  },
+export async function generateMetadata() {
+  const t = await getTranslations('press')
+  return {
+    title: t('metaTitle'),
+    description: t('metaDescription'),
+    openGraph: {
+      title: t('metaTitle'),
+      description: t('metaDescription'),
+      url: 'https://australianatlas.com.au/press',
+    },
+    twitter: {
+      card: 'summary',
+      title: t('metaTitle'),
+      description: t('metaDescription'),
+    },
+  }
 }
 
 const verticals = [
-  { key: 'sba', name: 'Small Batch Atlas', desc: 'Craft breweries, wineries, distilleries, cideries and cellar doors' },
-  { key: 'collection', name: 'Culture Atlas', desc: 'Museums, galleries, heritage sites and cultural centres' },
-  { key: 'craft', name: 'Craft Atlas', desc: 'Makers, artists and studios across every discipline' },
-  { key: 'fine_grounds', name: 'Fine Grounds Atlas', desc: 'Specialty coffee roasters and independent cafes' },
-  { key: 'rest', name: 'Rest Atlas', desc: 'Boutique hotels, farm stays, glamping and cottages' },
-  { key: 'field', name: 'Field Atlas', desc: 'Swimming holes, waterfalls, lookouts and natural places' },
-  { key: 'corner', name: 'Corner Atlas', desc: 'Bookshops, record stores, homewares and indie retail' },
-  { key: 'found', name: 'Found Atlas', desc: 'Vintage stores, op shops, antique dealers and markets' },
-  { key: 'table', name: 'Table Atlas', desc: 'Farm gates, bakeries, food producers and providores' },
-  { key: 'way', name: 'Way Atlas', desc: 'Guided walks, cultural tours, sailing charters and expeditions' },
+  { key: 'sba', name: 'Small Batch Atlas', descKey: 'verticalSbaDesc' },
+  { key: 'collection', name: 'Culture Atlas', descKey: 'verticalCollectionDesc' },
+  { key: 'craft', name: 'Craft Atlas', descKey: 'verticalCraftDesc' },
+  { key: 'fine_grounds', name: 'Fine Grounds Atlas', descKey: 'verticalFineGroundsDesc' },
+  { key: 'rest', name: 'Rest Atlas', descKey: 'verticalRestDesc' },
+  { key: 'field', name: 'Field Atlas', descKey: 'verticalFieldDesc' },
+  { key: 'corner', name: 'Corner Atlas', descKey: 'verticalCornerDesc' },
+  { key: 'found', name: 'Found Atlas', descKey: 'verticalFoundDesc' },
+  { key: 'table', name: 'Table Atlas', descKey: 'verticalTableDesc' },
+  { key: 'way', name: 'Way Atlas', descKey: 'verticalWayDesc' },
 ]
 
 async function getPressStats() {
@@ -55,8 +57,10 @@ async function getPressStats() {
 }
 
 export default async function PressPage() {
+  const t = await getTranslations('press')
+  const locale = await getLocale()
   const stats = await getPressStats()
-  const today = new Date().toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })
+  const today = new Date().toLocaleDateString(locale === 'ko' ? 'ko-KR' : 'en-AU', { day: 'numeric', month: 'long', year: 'numeric' })
 
   return (
     <div style={{ background: 'var(--color-bg)', minHeight: '100vh' }}>
@@ -68,26 +72,26 @@ export default async function PressPage() {
           letterSpacing: '0.15em', textTransform: 'uppercase',
           color: 'var(--color-sage)', marginBottom: 12,
         }}>
-          Media
+          {t('eyebrowMedia')}
         </p>
         <h1 style={{
           fontFamily: 'var(--font-display)', fontSize: 'clamp(32px, 4vw, 48px)',
           fontWeight: 400, color: 'var(--color-ink)', lineHeight: 1.15, marginBottom: 16,
         }}>
-          Press Kit
+          {t('pageTitle')}
         </h1>
         <p style={{
           fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 300,
           color: 'var(--color-muted)', lineHeight: 1.6, margin: '0 auto',
         }}>
-          Last updated {today}
+          {t('lastUpdated', { date: today })}
         </p>
         <p style={{
           fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 400,
           color: 'var(--color-muted)', lineHeight: 1.6, marginTop: 8,
           opacity: 0.7,
         }}>
-          Stats on this page are live from the Australian Atlas database.
+          {t('liveStatsNote')}
         </p>
       </section>
 
@@ -102,30 +106,26 @@ export default async function PressPage() {
             letterSpacing: '0.15em', textTransform: 'uppercase',
             color: 'var(--color-sage)', marginBottom: 12,
           }}>
-            Network Overview
+            {t('eyebrowNetworkOverview')}
           </p>
           <h2 style={{
             fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 400,
             color: 'var(--color-ink)', lineHeight: 1.25, marginBottom: 24,
           }}>
-            What Australian Atlas is
+            {t('networkOverviewHeading')}
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <p style={{
               fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 300,
               color: 'var(--color-muted)', lineHeight: 1.7, margin: 0,
             }}>
-              Australian Atlas is a network of ten curated directories mapping independent
-              Australia &mdash; the breweries, galleries, bookshops, vintage stores, farm gates,
-              boutique stays, specialty roasters, makers, and natural places that make regions
-              worth visiting.
+              {t('networkOverviewPara1')}
             </p>
             <p style={{
               fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 300,
               color: 'var(--color-muted)', lineHeight: 1.7, margin: 0,
             }}>
-              Every listing is verified. No chains. No aggregator padding. The network exists
-              to surface the kind of places that word-of-mouth built.
+              {t('networkOverviewPara2')}
             </p>
           </div>
         </div>
@@ -138,27 +138,27 @@ export default async function PressPage() {
           letterSpacing: '0.15em', textTransform: 'uppercase',
           color: 'var(--color-sage)', marginBottom: 12,
         }}>
-          Key Facts
+          {t('eyebrowKeyFacts')}
         </p>
         <h2 style={{
           fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 400,
           color: 'var(--color-ink)', lineHeight: 1.25, marginBottom: 28,
         }}>
-          At a glance
+          {t('keyFactsHeading')}
         </h2>
 
         <dl style={{ margin: 0, padding: 0 }}>
           {[
-            { term: 'Founded', value: '2024' },
-            { term: 'Coverage', value: 'All states and territories across Australia' },
-            { term: 'Listings', value: `${stats.totalListings.toLocaleString()} verified independent listings` },
-            { term: 'Regions', value: `${stats.regionCount} mapped regions` },
+            { term: t('factFoundedTerm'), value: '2024' },
+            { term: t('factCoverageTerm'), value: t('factCoverageValue') },
+            { term: t('factListingsTerm'), value: t('factListingsValue', { count: stats.totalListings.toLocaleString() }) },
+            { term: t('factRegionsTerm'), value: t('factRegionsValue', { count: stats.regionCount }) },
             {
-              term: 'Verticals',
-              value: `${verticals.length} — ${verticals.map(v => v.name).join(', ')}`,
+              term: t('factVerticalsTerm'),
+              value: t('factVerticalsValue', { count: verticals.length, names: verticals.map(v => v.name).join(', ') }),
             },
-            { term: 'Editorial standard', value: 'Independently verified, no paid placement in editorial content' },
-            { term: 'Trail generation', value: 'AI-powered itinerary builder across all ten verticals' },
+            { term: t('factEditorialTerm'), value: t('factEditorialValue') },
+            { term: t('factTrailTerm'), value: t('factTrailValue') },
           ].map((item, i, arr) => (
             <div key={item.term} style={{
               display: 'flex', gap: 16, padding: '16px 0',
@@ -195,13 +195,13 @@ export default async function PressPage() {
               letterSpacing: '0.15em', textTransform: 'uppercase',
               color: 'var(--color-sage)', marginBottom: 12,
             }}>
-              The Network
+              {t('eyebrowNetwork')}
             </p>
             <h2 style={{
               fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 400,
               color: 'var(--color-ink)', lineHeight: 1.25,
             }}>
-              The ten atlases
+              {t('networkHeading')}
             </h2>
           </div>
 
@@ -225,14 +225,14 @@ export default async function PressPage() {
                   fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 300,
                   color: 'var(--color-muted)', lineHeight: 1.55, margin: '0 0 12px',
                 }}>
-                  {v.desc}
+                  {t(v.descKey)}
                 </p>
                 {stats.verticalCounts[v.key] > 0 && (
                   <p style={{
                     fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500,
                     color: 'var(--color-ink)', margin: 0, opacity: 0.5,
                   }}>
-                    {stats.verticalCounts[v.key].toLocaleString()} listings
+                    {t('listingsCount', { count: stats.verticalCounts[v.key].toLocaleString() })}
                   </p>
                 )}
               </div>
@@ -251,19 +251,19 @@ export default async function PressPage() {
             letterSpacing: '0.15em', textTransform: 'uppercase',
             color: 'var(--color-sage)', marginBottom: 12,
           }}>
-            Contact
+            {t('eyebrowContact')}
           </p>
           <h2 style={{
             fontFamily: 'var(--font-display)', fontSize: 28, fontWeight: 400,
             color: 'var(--color-ink)', lineHeight: 1.25, marginBottom: 20,
           }}>
-            Media contact
+            {t('contactHeading')}
           </h2>
           <p style={{
             fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 300,
             color: 'var(--color-muted)', lineHeight: 1.7, margin: '0 0 20px',
           }}>
-            For media enquiries, partnership discussions, or interview requests:
+            {t('contactBody')}
           </p>
           <a
             href="mailto:matt@australianatlas.com.au"

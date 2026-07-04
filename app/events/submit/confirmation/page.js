@@ -1,10 +1,15 @@
 import Link from 'next/link'
+import { getTranslations } from 'next-intl/server'
 
-export const metadata = {
-  title: 'Event submitted — Australian Atlas',
+export async function generateMetadata() {
+  const t = await getTranslations('eventsSubmit')
+  return {
+    title: t('confirmationMetaTitle'),
+  }
 }
 
-export default function EventConfirmationPage() {
+export default async function EventConfirmationPage() {
+  const t = await getTranslations('eventsSubmit')
   return (
     <div
       className="min-h-[70vh] flex items-center justify-center px-5"
@@ -35,15 +40,14 @@ export default function EventConfirmationPage() {
           className="text-2xl md:text-3xl mb-3"
           style={{ fontFamily: 'var(--font-serif)', color: 'var(--color-ink)' }}
         >
-          Your event has been submitted
+          {t('confirmationHeading')}
         </h1>
 
         <p
           className="mb-8"
           style={{ color: 'var(--color-muted)', lineHeight: 1.6 }}
         >
-          We'll review it within 48 hours and let you know when it goes live.
-          A confirmation email has been sent to your inbox.
+          {t('confirmationBody')}
         </p>
 
         <Link
@@ -51,7 +55,7 @@ export default function EventConfirmationPage() {
           className="inline-block rounded-lg px-6 py-3 font-medium text-white transition-opacity hover:opacity-90"
           style={{ background: 'var(--color-sage)' }}
         >
-          Browse events
+          {t('browseEvents')}
         </Link>
       </div>
     </div>

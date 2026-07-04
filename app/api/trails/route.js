@@ -163,6 +163,7 @@ export async function POST(request) {
         venue_lng: stop.venue_lng,
         venue_image_url: stop.venue_image_url || null,
         position: stop.position ?? stop.order_index ?? i,
+        day_number: Number.isFinite(stop.day_number) ? stop.day_number : null,
         editorial_copy: stop.editorial_copy ?? stop.notes ?? null,
         // included_in_route is accepted in the body for forward-compat but
         // not persisted — the column doesn't exist in the production schema.

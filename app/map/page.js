@@ -59,6 +59,17 @@ export default async function MapPage({ searchParams }) {
   // filtered map view is shareable like every other map state.
   const initialQuery = typeof params?.q === 'string' ? params.q.slice(0, 60) : ''
 
+  // Trail planner deep links: ?trail=1 opens the panel, ?trail=<uuid> loads
+  // that saved trail for editing (the old /trails/builder?id= links redirect
+  // here). ?resume=1 completes a save interrupted by OAuth; ?region=Name
+  // frames a region (the "build a trail here" links on region pages).
+  const trailParam = typeof params?.trail === 'string' ? params.trail : ''
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trailParam)
+  const initialTrailOpen = trailParam === '1' || trailParam === 'new'
+  const initialTrailEdit = isUuid ? trailParam : null
+  const initialTrailResume = params?.resume === '1'
+  const initialTrailRegion = typeof params?.region === 'string' ? params.region.slice(0, 80) : ''
+
   return (
     <Suspense fallback={
       <div style={{ height: '100svh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-sans)', color: 'var(--color-muted)' }}>
@@ -72,6 +83,10 @@ export default async function MapPage({ searchParams }) {
         initialZoom={initialZoom}
         initialQuery={initialQuery}
         publicVerticals={getPublicVerticals()}
+        initialTrailOpen={initialTrailOpen}
+        initialTrailEdit={initialTrailEdit}
+        initialTrailResume={initialTrailResume}
+        initialTrailRegion={initialTrailRegion}
       />
     </Suspense>
   )

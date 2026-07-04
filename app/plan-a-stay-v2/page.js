@@ -1,19 +1,26 @@
 import PlanAStayV2Client from './PlanAStayV2Client'
 import { getQualifyingRegions } from '@/lib/plan-a-stay/qualifying-regions'
 import PlannerDiscoveryGate from '@/components/planner/PlannerDiscoveryGate'
+import { getTranslations, getLocale } from 'next-intl/server'
 
-export const metadata = {
-  title: 'Plan a stay — Australian Atlas',
-  description: "Tell us what kind of trip you're after. We'll build it from what's listed.",
-  alternates: { canonical: 'https://australianatlas.com.au/plan-a-stay-v2' },
-  openGraph: {
-    title: 'Plan a stay — Australian Atlas',
-    description: "Tell us what kind of trip you're after. We'll build it from what's listed.",
-    url: 'https://australianatlas.com.au/plan-a-stay-v2',
-    siteName: 'Australian Atlas',
-    locale: 'en_AU',
-    type: 'website',
-  },
+export async function generateMetadata() {
+  const t = await getTranslations('planStay')
+  const locale = await getLocale()
+  const title = t('metaTitle')
+  const description = t('metaDescription')
+  return {
+    title,
+    description,
+    alternates: { canonical: 'https://australianatlas.com.au/plan-a-stay-v2' },
+    openGraph: {
+      title,
+      description,
+      url: 'https://australianatlas.com.au/plan-a-stay-v2',
+      siteName: 'Australian Atlas',
+      locale: locale === 'ko' ? 'ko_KR' : 'en_AU',
+      type: 'website',
+    },
+  }
 }
 
 export default async function PlanAStayV2Page() {

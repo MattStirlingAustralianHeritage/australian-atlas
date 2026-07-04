@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 
 const VERTICALS = [
   { value: 'sba', label: 'Small Batch' },
@@ -36,6 +37,7 @@ const labelStyle = {
 }
 
 export default function SuggestForm() {
+  const t = useTranslations('suggest')
   const [form, setForm] = useState({
     name: '',
     website_url: '',
@@ -67,12 +69,12 @@ export default function SuggestForm() {
       const data = await res.json()
 
       if (!res.ok) {
-        setError(data.error || 'Something went wrong. Please try again.')
+        setError(data.error || t('errorGeneric'))
       } else {
         setSubmitted(true)
       }
     } catch {
-      setError('Network error. Please try again.')
+      setError(t('errorNetwork'))
     } finally {
       setLoading(false)
     }
@@ -123,7 +125,7 @@ export default function SuggestForm() {
           color: 'var(--color-ink)',
           marginBottom: '0.75rem',
         }}>
-          Thank you!
+          {t('successHeading')}
         </h2>
         <p style={{
           fontFamily: 'var(--font-body)',
@@ -131,7 +133,7 @@ export default function SuggestForm() {
           color: 'var(--color-muted)',
           lineHeight: 1.5,
         }}>
-          We'll review your suggestion.
+          {t('successBody')}
         </p>
       </div>
     )
@@ -147,19 +149,19 @@ export default function SuggestForm() {
     }}>
       <form onSubmit={handleSubmit}>
         <div style={{ marginBottom: '1rem' }}>
-          <label style={labelStyle}>Name *</label>
+          <label style={labelStyle}>{t('labelName')} *</label>
           <input
             type="text"
             value={form.name}
             onChange={(e) => update('name', e.target.value)}
             required
-            placeholder="Venue or place name"
+            placeholder={t('placeholderName')}
             style={inputStyle}
           />
         </div>
 
         <div style={{ marginBottom: '1rem' }}>
-          <label style={labelStyle}>Website</label>
+          <label style={labelStyle}>{t('labelWebsite')}</label>
           <input
             type="url"
             value={form.website_url}
@@ -170,18 +172,18 @@ export default function SuggestForm() {
         </div>
 
         <div style={{ marginBottom: '1rem' }}>
-          <label style={labelStyle}>Region / Location</label>
+          <label style={labelStyle}>{t('labelRegion')}</label>
           <input
             type="text"
             value={form.region}
             onChange={(e) => update('region', e.target.value)}
-            placeholder="e.g. Yarra Valley, VIC"
+            placeholder={t('placeholderRegion')}
             style={inputStyle}
           />
         </div>
 
         <div style={{ marginBottom: '1rem' }}>
-          <label style={labelStyle}>Category</label>
+          <label style={labelStyle}>{t('labelCategory')}</label>
           <select
             value={form.vertical}
             onChange={(e) => update('vertical', e.target.value)}
@@ -190,7 +192,7 @@ export default function SuggestForm() {
               appearance: 'auto',
             }}
           >
-            <option value="">Select a category</option>
+            <option value="">{t('categoryPlaceholder')}</option>
             {VERTICALS.map(v => (
               <option key={v.value} value={v.value}>{v.label}</option>
             ))}
@@ -198,12 +200,12 @@ export default function SuggestForm() {
         </div>
 
         <div style={{ marginBottom: '1rem' }}>
-          <label style={labelStyle}>Why should it be listed?</label>
+          <label style={labelStyle}>{t('labelWhyListed')}</label>
           <textarea
             value={form.why_listed}
             onChange={(e) => update('why_listed', e.target.value)}
             rows={3}
-            placeholder="Tell us what makes this place special"
+            placeholder={t('placeholderWhyListed')}
             style={{
               ...inputStyle,
               resize: 'vertical',
@@ -213,23 +215,23 @@ export default function SuggestForm() {
         </div>
 
         <div style={{ marginBottom: '1rem' }}>
-          <label style={labelStyle}>Your name</label>
+          <label style={labelStyle}>{t('labelYourName')}</label>
           <input
             type="text"
             value={form.submitter_name}
             onChange={(e) => update('submitter_name', e.target.value)}
-            placeholder="For credit (optional)"
+            placeholder={t('placeholderYourName')}
             style={inputStyle}
           />
         </div>
 
         <div style={{ marginBottom: '1.25rem' }}>
-          <label style={labelStyle}>Your email</label>
+          <label style={labelStyle}>{t('labelYourEmail')}</label>
           <input
             type="email"
             value={form.submitter_email}
             onChange={(e) => update('submitter_email', e.target.value)}
-            placeholder="For follow-up (optional)"
+            placeholder={t('placeholderYourEmail')}
             style={inputStyle}
           />
         </div>
@@ -250,7 +252,7 @@ export default function SuggestForm() {
         )}
 
         <button type="submit" disabled={loading} style={buttonStyle}>
-          {loading ? 'Submitting...' : 'Submit suggestion'}
+          {loading ? t('submitting') : t('submitButton')}
         </button>
       </form>
     </div>
