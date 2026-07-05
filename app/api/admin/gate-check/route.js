@@ -8,7 +8,7 @@ import { gate4VerticalFit } from '@/lib/prospector/gates'
 import { getRemediations, getAutoRemediations, DEAD_WEB_CODES, VERTICAL_LABELS } from '@/lib/gate-check/remediation'
 import { updateListing } from '@/lib/admin/updateListing'
 import { searchPlaces, getPlaceDetails } from '@/lib/prospector/google-places'
-import { anchoredGeocode } from '@/lib/geo/anchoredGeocode'
+import { anchoredGeocode, localityCentroid } from '@/lib/geo/anchoredGeocode'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -190,8 +190,28 @@ async function runRepair(sb, rowId, opts = {}) {
       repairedGates.add('gate1_web')
 
     } else if (rem.type === 'regeocode') {
+      // The town/region we can trust: an explicit suburb, else the region TEXT
+      // (state-stripped). We deliberately do NOT use region_computed_id — it can
+      // be miscomputed (a "Noosa, QLD" listing whose computed region is "Adelaide"
+      // is exactly what mis-pinned it to SA in the first place).
+      const localityName = (listing.suburb || (listing.region || '').split(',')[0] || '').trim() || null
+      const inState = (c) => c && Number.isFinite(c.lat) && Number.isFinite(c.lng) &&
+        !checkGate2Location({ lat: c.lat, lng: c.lng, state: listing.state })
       let coords = null
-      try { coords = await anchoredGeocode({ address: listing.address || `${listing.name}, ${listing.region || ''}`, suburb: listing.suburb, state: listing.state }) } catch {}
+      // 1. Precise, anchor-validated — only meaningful with a real street address.
+      if (listing.address && listing.address.trim()) {
+        try { coords = await anchoredGeocode({ address: listing.address, suburb: localityName, state: listing.state }) } catch {}
+      }
+      // 2. No usable precise result (or it isn't in the listed state) → fall back
+      //    to the town / region CENTROID in the listed state. This lets a listing
+      //    with no street address — just a town or region — re-pin to the right
+      //    area (accurate to the region/city, not the exact building).
+      if (!inState(coords)) {
+        try {
+          const loc = await localityCentroid({ locality: localityName, state: listing.state })
+          if (inState(loc)) coords = loc
+        } catch {}
+      }
       if (coords && Number.isFinite(coords.lat) && Number.isFinite(coords.lng)) {
         updates.lat = coords.lat; updates.lng = coords.lng
         // Re-verify: the flag clears ONLY if the fresh pin passes the location gate.
@@ -205,7 +225,7 @@ async function runRepair(sb, rowId, opts = {}) {
           applied.push(`re-pinned to ${coords.lat.toFixed(3)}, ${coords.lng.toFixed(3)}, but it still fails: ${recheck.reason}`)
         }
       } else {
-        applied.push('could not re-geocode (no usable address) — pin left for manual fix')
+        applied.push('could not re-geocode — no address, town or region to place it in the listed state. Pin left for manual fix.')
       }
 
     } else if (rem.type === 'move_vertical' && rem.to) {
