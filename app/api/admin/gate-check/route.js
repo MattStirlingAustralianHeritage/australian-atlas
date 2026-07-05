@@ -3,12 +3,13 @@ import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
 import { fetchGateCheckRows, applyGateCheckAction } from '@/lib/gate-check/queue'
-import { checkGate1Web, checkGate2Location, checkGate4Vertical, summariseFailures } from '@/lib/gate-check/gates'
+import { checkGate1Web, checkGate2Location, checkGate4Vertical, summariseFailures, stateFromCoords, normaliseState } from '@/lib/gate-check/gates'
 import { gate4VerticalFit } from '@/lib/prospector/gates'
 import { getRemediations, getAutoRemediations, DEAD_WEB_CODES, VERTICAL_LABELS } from '@/lib/gate-check/remediation'
 import { updateListing } from '@/lib/admin/updateListing'
 import { searchPlaces, getPlaceDetails } from '@/lib/prospector/google-places'
 import { anchoredGeocode, localityCentroid } from '@/lib/geo/anchoredGeocode'
+import { resolveRegionForCoords } from '@/lib/geo/resolveRegionForCoords'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -228,6 +229,45 @@ async function runRepair(sb, rowId, opts = {}) {
         applied.push('could not re-geocode — no address, town or region to place it in the listed state. Pin left for manual fix.')
       }
 
+    } else if (rem.type === 'fix_state') {
+      // Trust the pin: the coordinates are right and the STATE column is what's
+      // wrong (a Gold-Coast gallery tagged NSW). Derive the correct state from the
+      // pin using the SAME box logic the gate flags with, then re-resolve the
+      // region from those coords so the region label follows the corrected state.
+      const lat = Number(listing.lat), lng = Number(listing.lng)
+      const actual = (Number.isFinite(lat) && Number.isFinite(lng)) ? stateFromCoords(lat, lng) : null
+      const expected = normaliseState(listing.state)
+      if (!actual) {
+        // The pin isn't squarely inside any single state (offshore / out of
+        // Australia) — there's nothing trustworthy to copy the state from.
+        applied.push('could not fix the state — the pin is not inside any single state. Re-pin from the address instead.')
+      } else if (actual === expected) {
+        // Already consistent — the wrong_state finding is stale; clear it.
+        applied.push(`the pin is already in ${actual} — the state label matches, nothing to change`)
+        repairedGates.add('gate2_location')
+      } else {
+        updates.state = actual
+        // Re-derive the region from the trusted coords (mirrors the address-change
+        // path in updateListing). Passing the resolved region NAME drives the FK
+        // chain (region_override_id / region_computed_id) that the public page
+        // actually reads — a bare state change would leave a stale region label.
+        let regionName = null
+        try {
+          const region = await resolveRegionForCoords(sb, lat, lng, { state: actual })
+          if (region?.name) { regionName = region.name; updates.region = region.name }
+        } catch { /* region resolution best-effort — the state fix still lands */ }
+        // Re-verify against the corrected state; wrong_state clears because the
+        // pin sits inside `actual`'s box by construction.
+        const recheck = checkGate2Location({ lat, lng, state: actual })
+        if (!recheck) {
+          applied.push(`set state to ${actual}${regionName ? ` and region to ${regionName}` : ''} to match the pin (was ${listing.state || 'blank'})`)
+          repairedGates.add('gate2_location')
+        } else {
+          details = details.map(d => d.gate === 'gate2_location' ? { gate: recheck.gate, code: recheck.code, severity: recheck.severity, reason: recheck.reason } : d)
+          applied.push(`set state to ${actual}, but the location gate still flags it: ${recheck.reason}`)
+        }
+      }
+
     } else if (rem.type === 'move_vertical' && rem.to) {
       updates.vertical = rem.to
       updates.verticals = [rem.to]
@@ -246,9 +286,10 @@ async function runRepair(sb, rowId, opts = {}) {
   if (Object.keys(updates).length) {
     const res = await updateListing(row.listing_id, updates, { action: 'gate-check-repair' })
     if (!res.success) throw new Error(`Listing update failed: ${res.error}`)
-    // Echo the changed fields back so the card reflects them (map moves, link updates).
+    // Echo the changed fields back so the card reflects them (map moves, link
+    // updates, corrected state/region label).
     listingPatch = {}
-    for (const k of ['lat', 'lng', 'website', 'vertical', 'verticals']) if (k in updates) listingPatch[k] = res.listing?.[k] ?? updates[k]
+    for (const k of ['lat', 'lng', 'website', 'vertical', 'verticals', 'state', 'region']) if (k in updates) listingPatch[k] = res.listing?.[k] ?? updates[k]
   }
 
   // Clear the repaired gate(s); keep (with any refreshed reason) those that weren't.
