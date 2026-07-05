@@ -4,16 +4,22 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 import { overlayListingTranslations } from '@/lib/i18n/overlayListings'
+import { ogLocale } from '@/lib/i18n/config'
 
 export const revalidate = 1800
 
 export async function generateMetadata() {
   const locale = await getLocale()
-  const isKo = locale === 'ko'
-  const title = isKo ? '숙소 중심 여행 계획 — Australian Atlas' : 'Plan your stay — Australian Atlas'
-  const description = isKo
-    ? '머물 곳을 고르면 주변 지역을 도는 당일 여행을 만들어 드립니다. 매일의 여정이 숙소에서 시작해 숙소에서 끝납니다.'
-    : 'Pick where you\u2019re staying and we\u2019ll build day trips into the surrounding area. Every day starts and ends at your base.'
+  const title = {
+    en: 'Plan your stay — Australian Atlas',
+    ko: '숙소 중심 여행 계획 — Australian Atlas',
+    zh: '规划你的落脚地 — Australian Atlas',
+  }[locale] || 'Plan your stay — Australian Atlas'
+  const description = {
+    en: 'Pick where you\u2019re staying and we\u2019ll build day trips into the surrounding area. Every day starts and ends at your base.',
+    ko: '머물 곳을 고르면 주변 지역을 도는 당일 여행을 만들어 드립니다. 매일의 여정이 숙소에서 시작해 숙소에서 끝납니다.',
+    zh: '选好落脚的地方，我们就为你规划前往周边区域的当日行程。每一天都从你的落脚地出发，也在这里收尾。',
+  }[locale] || 'Pick where you\u2019re staying and we\u2019ll build day trips into the surrounding area. Every day starts and ends at your base.'
   return {
     title,
     description,
@@ -23,7 +29,7 @@ export async function generateMetadata() {
       description,
       url: 'https://australianatlas.com.au/plan-my-stay',
       siteName: 'Australian Atlas',
-      locale: 'en_AU',
+      locale: ogLocale(locale),
       type: 'website',
     },
   }

@@ -2,11 +2,11 @@
 
 import { useLocale } from 'next-intl'
 import { usePathname } from 'next/navigation'
-import { splitLocale, localizePath, locales } from '@/lib/i18n/config'
+import { splitLocale, localizePath, locales, LOCALE_LABELS } from '@/lib/i18n/config'
 
-const LABELS = { en: 'EN', ko: '한국어' }
+const LABELS = LOCALE_LABELS
 
-// EN ⇄ KO toggle that round-trips the current path: it strips the active
+// EN · 한국어 · 中文 switcher that round-trips the current path: it strips the active
 // locale prefix off the browser pathname and re-applies the target locale, so
 // /place/x ⇄ /ko/place/x maps one-to-one. Uses a full navigation (not a soft
 // router push) because the locale is resolved in the root layout — only a fresh

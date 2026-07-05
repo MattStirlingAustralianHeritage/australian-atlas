@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getTranslations, getLocale } from 'next-intl/server'
+import { ogLocale } from '@/lib/i18n/config'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getPublishedEventBySlug } from '@/lib/events'
 import { getVerticalBadge, getVerticalBrandColour } from '@/lib/verticalUrl'
@@ -43,28 +44,28 @@ function formatDateRange(startDate, endDate) {
 export async function generateMetadata({ params }) {
   const { slug } = await params
   const locale = await getLocale()
-  const isKo = locale === 'ko'
   const sb = getSupabaseAdmin()
   const event = await getPublishedEventBySlug(sb, slug)
 
   if (!event) {
-    return { title: isKo ? '이벤트를 찾을 수 없습니다 — Australian Atlas' : 'Event not found — Australian Atlas' }
+    return { title: { en: 'Event not found — Australian Atlas', ko: '이벤트를 찾을 수 없습니다 — Australian Atlas', zh: '未找到该活动 — Australian Atlas' }[locale] || 'Event not found — Australian Atlas' }
   }
 
   const venue = event.listing
   const place = [venue?.suburb || venue?.region, event.state].filter(Boolean).join(', ')
+  const placeSuffix = { en: ` in ${place}`, ko: ` · ${place}`, zh: ` · ${place}` }[locale] || ` in ${place}`
   const description = event.description
     ? event.description.substring(0, 160)
-    : `${event.title}${place ? (isKo ? ` · ${place}` : ` in ${place}`) : ''}`
+    : `${event.title}${place ? placeSuffix : ''}`
   return {
-    title: isKo ? `${event.title} — Australian Atlas 이벤트` : `${event.title} — Australian Atlas Events`,
+    title: { en: `${event.title} — Australian Atlas Events`, ko: `${event.title} — Australian Atlas 이벤트`, zh: `${event.title} — Australian Atlas 活动` }[locale] || `${event.title} — Australian Atlas Events`,
     description,
     openGraph: {
       title: event.title,
       description,
       url: `https://australianatlas.com.au/events/${slug}`,
       siteName: 'Australian Atlas',
-      locale: 'en_AU',
+      locale: ogLocale(locale),
       type: 'article',
       images: event.hero_image_url ? [{ url: event.hero_image_url, width: 1200, height: 630 }] : [],
     },

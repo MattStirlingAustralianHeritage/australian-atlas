@@ -18,16 +18,18 @@ const STATE_LABELS = {
 }
 
 export async function generateMetadata() {
-  const isKo = (await getLocale()) === 'ko'
-  if (isKo) {
-    return {
-      title: '지역 — 오스트레일리안 아틀라스',
-      description: '오스트레일리아 전역의 지역을 둘러보세요 — 와이너리, 메이커, 갤러리, 숙소, 그리고 찾아갈 가치가 있는 독립 장소들.',
-    }
-  }
+  const locale = await getLocale()
   return {
-    title: 'Regions — Australian Atlas',
-    description: 'Explore Australian regions across every state — wineries, makers, galleries, stays, and independent places worth the drive.',
+    title: {
+      en: 'Regions — Australian Atlas',
+      ko: '지역 — 오스트레일리안 아틀라스',
+      zh: '地区 — Australian Atlas',
+    }[locale] || 'Regions — Australian Atlas',
+    description: {
+      en: 'Explore Australian regions across every state — wineries, makers, galleries, stays, and independent places worth the drive.',
+      ko: '오스트레일리아 전역의 지역을 둘러보세요 — 와이너리, 메이커, 갤러리, 숙소, 그리고 찾아갈 가치가 있는 독립 장소들.',
+      zh: '探索澳大利亚各州的地区 — 酒庄、手作人、画廊、住宿，以及值得专程前往的独立好去处。',
+    }[locale] || 'Explore Australian regions across every state — wineries, makers, galleries, stays, and independent places worth the drive.',
   }
 }
 

@@ -8,7 +8,7 @@ import { parseQueryLocation } from '@/lib/search/parseQuery'
 import { resolveQueryRegion } from '@/lib/search/resolveQueryRegion'
 import { isPublicListing } from '@/lib/listings/publicFilter'
 import { guardedAnthropicMessage } from '@/lib/ai/guardedAnthropic'
-import { translateSearchQuery, hasHangul } from '@/lib/search/translateQuery'
+import { translateSearchQuery, detectQueryLocale } from '@/lib/search/translateQuery'
 import { rerankSearchResults } from '@/lib/search/rerank'
 
 export const maxDuration = 60
@@ -16,6 +16,13 @@ export const maxDuration = 60
 // Haiku: cheap + fast, on the search hot path. Two short calls per inquiry
 // (interpret → retrieve → ground). Both budget-guarded and fully fail-open.
 const MODEL = 'claude-haiku-4-5-20251001'
+
+// Per-locale instruction appended to the grounding prompt so the concierge
+// answers in the visitor's language. English (default) adds nothing.
+const ANSWER_LANGUAGE_RULE = {
+  ko: '\n- Write the "answer" and every "why" in natural, fluent Korean (한국어). Keep place names in their original form.',
+  zh: '\n- Write the "answer" and every "why" in natural, fluent Simplified Chinese (简体中文). Keep place names in their original (usually English) form.',
+}
 
 // A touch more permissive than the plain search floor (0.48): a described need
 // ("something my niece would love that's made here") sits a little further from
@@ -125,13 +132,14 @@ export async function POST(request) {
     if (!rawQuery || rawQuery.length < 3) {
       return NextResponse.json({ error: 'Query is required' }, { status: 400 })
     }
-    // Korean launch: a Hangul inquiry is translated to English up front so
-    // location resolution, interpretation, and embedding all run against the
-    // English corpus unchanged; the grounded answer is then written back in
-    // Korean (see the ground step). Fully gated behind hasHangul — a non-Korean
-    // request is byte-for-byte unchanged. Fail-open (raw query) on any error.
-    const answerLocale = hasHangul(rawQuery) ? 'ko' : 'en'
-    const query = answerLocale === 'ko' ? await translateSearchQuery(rawQuery, 'ko') : rawQuery
+    // Multilingual launch: a non-English inquiry (Korean Hangul, Chinese Han) is
+    // translated to English up front so location resolution, interpretation, and
+    // embedding all run against the English corpus unchanged; the grounded answer
+    // is then written back in the visitor's language (see the ground step).
+    // Detected by script — an English/Latin request is byte-for-byte unchanged.
+    // Fail-open (raw query) on any error.
+    const answerLocale = detectQueryLocale(rawQuery)
+    const query = answerLocale !== 'en' ? await translateSearchQuery(rawQuery, answerLocale) : rawQuery
     const loggedQuery = query.slice(0, 200)
     const sb = getSupabaseAdmin()
 
@@ -313,7 +321,7 @@ export async function POST(request) {
       const resp = await callClaude(anthropic, {
         model: MODEL,
         max_tokens: 700,
-        system: `You are the concierge for the Australian Atlas, a curated guide to independent Australian places. A visitor made a plain-language request and we retrieved REAL matching places (each numbered). Write a brief, warm, specific reply that helps them choose.\n\nHARD RULES:\n- Ground everything in the numbered places. NEVER invent a place, product, price, or detail. NEVER mention a place not in the list.\n- Each "why" must be about THAT exact numbered place, using only what its line says. If a place only partly fits, say what it is honestly — do not borrow another place's detail.\n- Voice: understated, place-literate, no marketing hype, no exclamation marks. Australian spelling.\n\nReturn ONLY minified JSON: {"answer": string, "picks": [{"n": number, "why": string}]}.\n- answer: 2-3 sentences framing what we found; you may name 1-2 of the places. Address the visitor directly.\n- picks: the 4-6 places that best fit, each with its number "n" and a "why" of max 14 words — no place name, no full stop. Only include a place if it genuinely fits.${answerLocale === 'ko' ? '\n- Write the "answer" and every "why" in natural, fluent Korean (한국어). Keep place names in their original form.' : ''}`,
+        system: `You are the concierge for the Australian Atlas, a curated guide to independent Australian places. A visitor made a plain-language request and we retrieved REAL matching places (each numbered). Write a brief, warm, specific reply that helps them choose.\n\nHARD RULES:\n- Ground everything in the numbered places. NEVER invent a place, product, price, or detail. NEVER mention a place not in the list.\n- Each "why" must be about THAT exact numbered place, using only what its line says. If a place only partly fits, say what it is honestly — do not borrow another place's detail.\n- Voice: understated, place-literate, no marketing hype, no exclamation marks. Australian spelling.\n\nReturn ONLY minified JSON: {"answer": string, "picks": [{"n": number, "why": string}]}.\n- answer: 2-3 sentences framing what we found; you may name 1-2 of the places. Address the visitor directly.\n- picks: the 4-6 places that best fit, each with its number "n" and a "why" of max 14 words — no place name, no full stop. Only include a place if it genuinely fits.${ANSWER_LANGUAGE_RULE[answerLocale] || ''}`,
         messages: [{ role: 'user', content: `Request: "${query.slice(0, 400)}"\n\nMatching places:\n${menu}` }],
       })
       const out = firstJson(resp?.content?.[0]?.text, null)

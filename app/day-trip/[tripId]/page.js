@@ -2,6 +2,7 @@ import { cache } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getTranslations, getLocale } from 'next-intl/server'
+import { ogLocale } from '@/lib/i18n/config'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import DayTripCard from '@/components/DayTripCard'
 
@@ -91,7 +92,26 @@ export async function generateMetadata({ params }) {
         description: `${dayCount}일의 당일 여행, ${stopCount}개의 방문지 — ${baseNameKo}을(를) 기점으로 둘러보세요.`,
         url: `https://australianatlas.com.au/day-trip/${tripId}`,
         siteName: 'Australian Atlas',
-        locale: 'en_AU',
+        locale: ogLocale(locale),
+        type: 'article',
+      },
+      alternates: {
+        canonical: `https://australianatlas.com.au/day-trip/${tripId}`,
+      },
+    }
+  }
+
+  if (locale === 'zh') {
+    const baseNameZh = trip.base?.name || '您的落脚点'
+    return {
+      title: `以${baseNameZh}为起点的${dayCount}天行程 | Australian Atlas`,
+      description: `${dayCount}天当日往返行程，共${stopCount}个停靠点 —— 以${baseNameZh}为起点，畅游 Australian Atlas 网络。`,
+      openGraph: {
+        title: `以${baseNameZh}为起点的${dayCount}天行程`,
+        description: `${dayCount}天当日往返行程，共${stopCount}个停靠点 —— 以${baseNameZh}为起点畅游。`,
+        url: `https://australianatlas.com.au/day-trip/${tripId}`,
+        siteName: 'Australian Atlas',
+        locale: ogLocale(locale),
         type: 'article',
       },
       alternates: {
@@ -110,7 +130,7 @@ export async function generateMetadata({ params }) {
       description: `${dayCount} day trips, ${stopCount} stops — explore from ${baseName}.`,
       url: `https://australianatlas.com.au/day-trip/${tripId}`,
       siteName: 'Australian Atlas',
-      locale: 'en_AU',
+      locale: ogLocale(locale),
       type: 'article',
     },
     alternates: {

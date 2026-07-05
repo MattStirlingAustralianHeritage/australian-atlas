@@ -8,12 +8,13 @@ export const revalidate = 3600 // ISR: refresh every hour
 
 export async function generateMetadata() {
   const locale = await getLocale()
-  const isKo = locale === 'ko'
   return {
-    title: isKo ? '네트워크 이야기 | Australian Atlas' : 'From the Network | Australian Atlas',
-    description: isKo
-      ? '아틀라스 전역에서 전하는 이야기, 가이드, 소식 — 열 개의 렌즈로 담아낸 독립적인 호주.'
-      : 'Stories, guides, and dispatches from across the Atlas — independent Australia told through ten lenses.',
+    title: { en: 'From the Network | Australian Atlas', ko: '네트워크 이야기 | Australian Atlas', zh: '来自网络 | Australian Atlas' }[locale] || 'From the Network | Australian Atlas',
+    description: {
+      en: 'Stories, guides, and dispatches from across the Atlas — independent Australia told through ten lenses.',
+      ko: '아틀라스 전역에서 전하는 이야기, 가이드, 소식 — 열 개의 렌즈로 담아낸 독립적인 호주.',
+      zh: '来自 Atlas 各地的故事、指南与报道 —— 以十个视角讲述独立的澳大利亚。',
+    }[locale] || 'Stories, guides, and dispatches from across the Atlas — independent Australia told through ten lenses.',
   }
 }
 

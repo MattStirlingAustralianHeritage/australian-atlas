@@ -2,6 +2,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
 import { getNetworkStats } from '@/lib/networkStats'
 import { getTranslations, getLocale } from 'next-intl/server'
+import { dateLocale } from '@/lib/i18n/config'
 
 export const revalidate = 86400
 
@@ -60,7 +61,7 @@ export default async function PressPage() {
   const t = await getTranslations('press')
   const locale = await getLocale()
   const stats = await getPressStats()
-  const today = new Date().toLocaleDateString(locale === 'ko' ? 'ko-KR' : 'en-AU', { day: 'numeric', month: 'long', year: 'numeric' })
+  const today = new Date().toLocaleDateString(dateLocale(locale), { day: 'numeric', month: 'long', year: 'numeric' })
 
   return (
     <div style={{ background: 'var(--color-bg)', minHeight: '100vh' }}>

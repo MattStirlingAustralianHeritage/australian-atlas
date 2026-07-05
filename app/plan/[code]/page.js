@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getTranslations, getLocale } from 'next-intl/server'
+import { dateLocale } from '@/lib/i18n/config'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 
@@ -72,7 +73,7 @@ export default async function SharedPlanPage({ params }) {
             display: 'flex', gap: 12, alignItems: 'center',
             fontSize: 12, color: 'var(--color-muted)', fontFamily: 'var(--font-body)',
           }}>
-            <span>{new Date(plan.created_at).toLocaleDateString(locale === 'ko' ? 'ko-KR' : 'en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+            <span>{new Date(plan.created_at).toLocaleDateString(dateLocale(locale), { day: 'numeric', month: 'long', year: 'numeric' })}</span>
             {plan.regions && plan.regions.length > 0 && (
               <>
                 <span>&middot;</span>

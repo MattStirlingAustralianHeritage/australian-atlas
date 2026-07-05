@@ -2,6 +2,7 @@ import { cache } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getTranslations, getLocale } from 'next-intl/server'
+import { ogLocale } from '@/lib/i18n/config'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getVerticalUrl, getVerticalBadge, VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 import { isApprovedImageSource } from '@/lib/image-utils'
@@ -31,12 +32,13 @@ const getTrail = cache(async function getTrail(slug) {
 export async function generateMetadata({ params }) {
   const { slug } = await params
   const locale = await getLocale()
-  const isKo = locale === 'ko'
   const trail = await getTrail(slug)
   if (!trail) return {}
-  const description = trail.description || (isKo
-    ? `큐레이션 디스커버리 트레일 — ${trail.title}.`
-    : `A curated discovery trail — ${trail.title}.`)
+  const description = trail.description || ({
+    en: `A curated discovery trail — ${trail.title}.`,
+    ko: `큐레이션 디스커버리 트레일 — ${trail.title}.`,
+    zh: `精选探索路线 —— ${trail.title}。`,
+  }[locale] || `A curated discovery trail — ${trail.title}.`)
   return {
     title: `${trail.title} | Australian Atlas`,
     description,
@@ -45,7 +47,7 @@ export async function generateMetadata({ params }) {
       description,
       url: `https://australianatlas.com.au/trails/${slug}`,
       siteName: 'Australian Atlas',
-      locale: 'en_AU',
+      locale: ogLocale(locale),
       type: 'article',
     },
     alternates: {

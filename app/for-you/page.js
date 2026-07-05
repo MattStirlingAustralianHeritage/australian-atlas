@@ -10,11 +10,16 @@ export const dynamic = 'force-dynamic'
 
 export async function generateMetadata() {
   const locale = await getLocale()
-  const isKo = locale === 'ko'
-  const title = isKo ? '맞춤 추천 — Australian Atlas' : 'For You — Australian Atlas'
-  const description = isKo
-    ? '호주 최고의 독립 명소, 메이커, 숙소, 경험을 아우르는 맞춤 추천.'
-    : 'Personalised recommendations across Australia\'s best independent venues, makers, stays, and experiences.'
+  const title = {
+    en: 'For You — Australian Atlas',
+    ko: '맞춤 추천 — Australian Atlas',
+    zh: '为你推荐 — Australian Atlas',
+  }[locale] || 'For You — Australian Atlas'
+  const description = {
+    en: 'Personalised recommendations across Australia\'s best independent venues, makers, stays, and experiences.',
+    ko: '호주 최고의 독립 명소, 메이커, 숙소, 경험을 아우르는 맞춤 추천.',
+    zh: '为你精选澳大利亚最佳独立场所、匠人、住宿与体验的个性化推荐。',
+  }[locale] || 'Personalised recommendations across Australia\'s best independent venues, makers, stays, and experiences.'
   return {
     title,
     description,

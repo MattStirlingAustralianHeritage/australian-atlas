@@ -186,8 +186,8 @@ export function TypographicCard({
 
   const [line1, line2] = splitName(name)
   const bottomLine = [region, state].filter(Boolean).join(', ').toUpperCase()
-  // Mobile-venue marker word. Localized on /ko; English ("Mobile") elsewhere.
-  const mobileTag = locale === 'ko' ? '모바일' : 'Mobile'
+  // Mobile-venue marker word. Localized per locale; English ("Mobile") default.
+  const mobileTag = { ko: '모바일', zh: '流动' }[locale] || 'Mobile'
 
   // Hero height is delegated to the .atlas-hero-band class so it can use
   // breakpoint-aware media queries the inline style can't carry. The class

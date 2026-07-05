@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { getTranslations, getLocale } from 'next-intl/server'
+import { ogLocale } from '@/lib/i18n/config'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import VerticalBadge, { VERTICAL_STYLES } from '@/components/VerticalBadge'
 
@@ -16,11 +17,16 @@ import { VERTICAL_CARD_BG } from '@/lib/verticalUrl'
 
 export async function generateMetadata() {
   const locale = await getLocale()
-  const isKo = locale === 'ko'
-  const title = isKo ? '컬렉션 | Australian Atlas' : 'Collections | Australian Atlas'
-  const description = isKo
-    ? '독립 호주를 위한 큐레이션 가이드. 모든 주에 걸쳐 최고의 메이커, 생산자, 숙소, 장소를 엄선한 컬렉션.'
-    : 'Curated guides to independent Australia. Hand-picked collections of the best makers, producers, stays, and places across every state.'
+  const title = {
+    en: 'Collections | Australian Atlas',
+    ko: '컬렉션 | Australian Atlas',
+    zh: '合集 | Australian Atlas',
+  }[locale] || 'Collections | Australian Atlas'
+  const description = {
+    en: 'Curated guides to independent Australia. Hand-picked collections of the best makers, producers, stays, and places across every state.',
+    ko: '독립 호주를 위한 큐레이션 가이드. 모든 주에 걸쳐 최고의 메이커, 생산자, 숙소, 장소를 엄선한 컬렉션.',
+    zh: '独立澳大利亚的精选指南。汇集各州最出色的手作人、生产者、住宿与好去处的甄选合集。',
+  }[locale] || 'Curated guides to independent Australia. Hand-picked collections of the best makers, producers, stays, and places across every state.'
   return {
     title,
     description,
@@ -29,7 +35,7 @@ export async function generateMetadata() {
       description,
       url: `${SITE_URL}/collections`,
       siteName: 'Australian Atlas',
-      locale: 'en_AU',
+      locale: ogLocale(locale),
       type: 'website',
     },
     alternates: {
