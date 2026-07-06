@@ -23,6 +23,22 @@ const VERTICAL_NAMES = {
 }
 
 /* ─── Plan-a-Stay trip lookup (checked first) ────────────────────────── */
+/* Trips shared before 2026-06-05 stored day map URLs on the old custom
+   style, which the Static Images API renders as a near-empty dark canvas.
+   Swap to light-v11 at read time (pins/bounds/token are style-agnostic) so
+   legacy shares render — and unfurl — with a legible map. */
+const LEGACY_MAP_STYLE = 'styles/v1/mattstirlingaustralianheritage/cmn32b0iz003401swccb7d21k/static/'
+
+function normaliseLegacyMapUrls(row) {
+  if (!row?.trip?.days) return row
+  for (const day of row.trip.days) {
+    if (typeof day.map_url === 'string' && day.map_url.includes(LEGACY_MAP_STYLE)) {
+      day.map_url = day.map_url.replace(LEGACY_MAP_STYLE, 'styles/v1/mapbox/light-v11/static/')
+    }
+  }
+  return row
+}
+
 const getPlanAStayTrip = cache(async function getPlanAStayTrip(slug) {
   const sb = getSupabase()
   const { data } = await sb
@@ -31,7 +47,7 @@ const getPlanAStayTrip = cache(async function getPlanAStayTrip(slug) {
     .eq('share_slug', slug)
     .eq('is_public', true)
     .maybeSingle()
-  return data
+  return normaliseLegacyMapUrls(data)
 })
 
 /* ─── Road trip lookup (v1 fallback) ──────────────────────────────────── */
@@ -54,6 +70,10 @@ export async function generateMetadata({ params }) {
   if (pasTrip) {
     const title = pasTrip.trip?.title || t('staysTitleFallback', { region: pasTrip.answers?.region || t('regionFallback') })
     const intro = pasTrip.trip?.intro || t('staysIntroFallback', { region: pasTrip.answers?.region || t('australiaFallback') })
+    // Unfurl with the day-one route map (already rendered + stored with the
+    // trip) so a pasted link shows the trip, not a bare text card. 720×300@2x
+    // static maps are 1440×600 — right in the large-card aspect band.
+    const mapImage = (pasTrip.trip?.days || []).find(d => d.map_url)?.map_url || null
     return {
       title: t('metaTitle', { title }),
       description: intro,
@@ -64,7 +84,9 @@ export async function generateMetadata({ params }) {
         siteName: 'Australian Atlas',
         locale: 'en_AU',
         type: 'article',
+        ...(mapImage ? { images: [{ url: mapImage, width: 1440, height: 600 }] } : {}),
       },
+      ...(mapImage ? { twitter: { card: 'summary_large_image', images: [mapImage] } } : {}),
       alternates: {
         canonical: `https://www.australianatlas.com.au/trip/${slug}`,
       },
