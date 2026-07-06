@@ -4,6 +4,7 @@ import { createAuthServerClient } from '@/lib/supabase/auth-clients'
 import { getDistanceBudget, getStopLimits } from '@/lib/route-budgets'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
+import { isApprovedImageSource, isHeroDisplayable } from '@/lib/image-utils'
 import { tasteAffinity, buildTasteProfileFromListingIds, mergeTasteProfiles } from '@/lib/discover/tasteProfile'
 import { getTasteProfile } from '@/lib/discover/getTasteProfile'
 import { reserveAnthropicBudget, reconcileAnthropicBudget } from '@/lib/ai/guardedAnthropic'
@@ -463,6 +464,15 @@ function requestId() {
   return 'otr_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7)
 }
 
+// Hero image gated by source approval + moderation status (flagged/held
+// heroes never leave the server — same discipline as og:image/JSON-LD).
+function displayableHero(listing) {
+  if (!listing?.hero_image_url) return null
+  if (!isApprovedImageSource(listing.hero_image_url)) return null
+  if (!isHeroDisplayable(listing)) return null
+  return listing.hero_image_url
+}
+
 function envCheck() {
   const missing = []
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) missing.push('NEXT_PUBLIC_SUPABASE_URL')
@@ -747,7 +757,7 @@ async function buildItinerary({
   // Cycling uses a narrower corridor (cyclists don't detour far off-route)
   const effectiveBufferKm = isCycling ? Math.min(detourConfig.bufferKm, 5) : detourConfig.bufferKm
 
-  const SELECT_COLS = `id, name, slug, vertical, region, state, suburb, lat, lng, hero_image_url, quality_score, description, sub_type, visit_type, best_season, ${LISTING_REGION_SELECT}`
+  const SELECT_COLS = `id, name, slug, vertical, region, state, suburb, lat, lng, hero_image_url, image_moderation_status, quality_score, description, sub_type, visit_type, best_season, ${LISTING_REGION_SELECT}`
   // Cross-vertical (142): match the rest/accommodation leg by ANY vertical (a
   // venue tagged `rest` secondary still offers stays). The in-memory route
   // clusters (table/fine_grounds) stay primary-only — fanning a venue into
@@ -1246,6 +1256,8 @@ async function buildItinerary({
       routeDurationMinutes, coverageGaps, isLongTrip, isSurpriseLoop,
       restCandidates, overnightClusters, startCoords, endCoords, startName, endName,
       tripConfig, isMultiDay, transportMode, distanceBudget,
+      routeListings, dayTargets, totalRouteKm,
+      hasTasteSignal: !!tasteProfile,
     })
   }
 
@@ -1255,7 +1267,9 @@ async function buildItinerary({
     title: tripTitle(null, startNameFull, endNameFull, isSurpriseLoop),
     intro: null, route_geometry: routeGeometry,
     stops: fallbackStops,
-    days: [{ day_number: 1, label: 'Day 1', stops: fallbackStops, overnight: null }],
+    days: [{ day_number: 1, label: 'Day 1', stops: fallbackStops, overnight: null, km_range: [0, Math.round(totalRouteKm)] }],
+    alternate_stops: buildAlternateStops(routeListings, new Set(fallbackStops.map(s => s.listing_id))),
+    personalised: false,
     total_listings_found: routeListings.length,
     route_duration_minutes: routeDurationMinutes,
     route_distance_km: routeDistanceKm,
@@ -1267,6 +1281,53 @@ async function buildItinerary({
     start_coords: { lat: startCoords.lat, lng: startCoords.lng },
     end_coords: { lat: endCoords.lat, lng: endCoords.lng },
   })
+}
+
+// ── Real alternates for client-side editing ─────────────────────────
+// Every swap/add option the client can offer MUST be a real corridor
+// listing the retrieval step already vetted — nothing is ever invented
+// downstream. Position-ordered; capped per vertical so one high-inventory
+// vertical can't crowd the panel.
+const ALTERNATES_CAP = 24
+const ALTERNATES_PER_VERTICAL = 6
+
+function buildAlternateStops(routeListings, placedIds) {
+  const perVertical = {}
+  const picked = []
+  const candidates = [...(routeListings || [])]
+    .filter(l => !placedIds.has(l.id) && l.lat != null && l.lng != null)
+    .sort((a, b) => {
+      const qa = (a.quality_score > 0 ? a.quality_score : 50) + ((a.preferenceScore || 0) * 15) + ((a.tasteScore || 0) * TASTE_BONUS)
+      const qb = (b.quality_score > 0 ? b.quality_score : 50) + ((b.preferenceScore || 0) * 15) + ((b.tasteScore || 0) * TASTE_BONUS)
+      return qb - qa
+    })
+  for (const l of candidates) {
+    if (picked.length >= ALTERNATES_CAP) break
+    const vc = perVertical[l.vertical] || 0
+    if (vc >= ALTERNATES_PER_VERTICAL) continue
+    perVertical[l.vertical] = vc + 1
+    picked.push(l)
+  }
+  return picked
+    .sort((a, b) => (a.positionKm || 0) - (b.positionKm || 0))
+    .map(l => ({
+      listing_id: l.id,
+      listing_name: l.name,
+      slug: l.slug,
+      vertical: l.vertical,
+      visit_type: l.visit_type || null,
+      region: getListingRegion(l)?.name ?? null,
+      suburb: l.suburb,
+      state: l.state,
+      lat: l.lat,
+      lng: l.lng,
+      hero_image_url: displayableHero(l),
+      position_km: l.positionKm,
+      sub_type: l.sub_type || null,
+      description: l.description ? l.description.slice(0, 140) : '',
+      reason: '',
+      notes: '',
+    }))
 }
 
 // ── Prompt builders ─────────────────────────────────────────────────
@@ -1435,6 +1496,8 @@ function formatClaudeResult({
   routeDurationMinutes, coverageGaps, isLongTrip, isSurpriseLoop,
   restCandidates, overnightClusters = [], startCoords, endCoords, startName, endName,
   tripConfig, isMultiDay, transportMode = 'driving', distanceBudget = null,
+  routeListings = [], dayTargets = [], totalRouteKm = 0,
+  hasTasteSignal = false,
 }) {
   const budgetExceeded = distanceBudget ? routeDistanceKm > distanceBudget * 1.2 : false
   function enrichStop(stop) {
@@ -1451,7 +1514,7 @@ function formatClaudeResult({
       state: listing.state,
       lat: listing.lat,
       lng: listing.lng,
-      hero_image_url: listing.hero_image_url,
+      hero_image_url: displayableHero(listing),
       cluster: stop.cluster,
       position_km: stop.position_km || listing.positionKm,
       reason: stop.reason,
@@ -1472,11 +1535,18 @@ function formatClaudeResult({
       suburb: listing.suburb,
       lat: listing.lat,
       lng: listing.lng,
-      hero_image_url: listing.hero_image_url,
+      hero_image_url: displayableHero(listing),
       position_km: overnight.position_km || listing.positionKm,
       reason: overnight.reason || 'Rest for the night.',
       is_overnight: true,
     }
+  }
+
+  // Personalisation is only claimed when a taste signal existed AND at
+  // least one placed stop actually carried a positive taste score.
+  function personalisedFor(stops) {
+    if (!hasTasteSignal) return false
+    return stops.some(s => (listingMap.get(s.listing_id)?.tasteScore || 0) > 0)
   }
 
   // Multi-day response
@@ -1508,18 +1578,20 @@ function formatClaudeResult({
               suburb: r.suburb,
               lat: altListing?.lat || null,
               lng: altListing?.lng || null,
-              hero_image_url: altListing?.hero_image_url || null,
+              hero_image_url: altListing ? displayableHero(altListing) : null,
               position_km: r.position_km,
               reason: 'Alternative stay option.',
             }
           })
         : []
 
+      const target = dayTargets.find(dt => dt.day === day.day_number)
       return {
         day_number: day.day_number,
         label: day.label || `Day ${day.day_number}`,
         day_subtitle: day.day_subtitle || null,
         stops: composedStops,
+        km_range: target ? [Math.round(target.startKm), Math.round(target.endKm)] : null,
         overnight: enrichedOvernight,
         overnight_alternatives: overnightAlternatives,
         dinner: enrichedDinner,
@@ -1540,6 +1612,8 @@ function formatClaudeResult({
       route_geometry: routeGeometry,
       stops: allStops,
       days,
+      alternate_stops: buildAlternateStops(routeListings, new Set(allStops.map(s => s.listing_id))),
+      personalised: personalisedFor(allStops),
       total_listings_found: listingMap.size,
       route_duration_minutes: routeDurationMinutes,
       route_distance_km: routeDistanceKm,
@@ -1570,7 +1644,9 @@ function formatClaudeResult({
     intro: claudeResult.intro || null,
     route_geometry: routeGeometry,
     stops: enrichedStops,
-    days: [{ day_number: 1, label: 'Day 1', stops: enrichedStops, overnight: null }],
+    days: [{ day_number: 1, label: 'Day 1', stops: enrichedStops, overnight: null, km_range: [0, Math.round(totalRouteKm || routeDistanceKm)] }],
+    alternate_stops: buildAlternateStops(routeListings, new Set(enrichedStops.map(s => s.listing_id))),
+    personalised: personalisedFor(enrichedStops),
     total_listings_found: listingMap.size,
     route_duration_minutes: routeDurationMinutes,
     route_distance_km: routeDistanceKm,
@@ -1590,7 +1666,7 @@ function formatClaudeResult({
       ? restCandidates.slice(0, 10).map(l => ({
           listing_id: l.id, listing_name: l.name, slug: l.slug,
           region: getListingRegion(l)?.name ?? null, suburb: l.suburb, position_km: l.positionKm,
-          hero_image_url: l.hero_image_url, description: l.description?.slice(0, 150) || '',
+          hero_image_url: displayableHero(l), description: l.description?.slice(0, 150) || '',
         }))
       : [],
   })
@@ -1621,7 +1697,7 @@ async function generateSurpriseLoop(startCoords, tripConfig, preferences, detour
     const lngDelta = radiusKm / (111 * Math.cos(startCoords.lat * Math.PI / 180))
     const { data } = await sb
       .from('listings')
-      .select(`id, name, slug, vertical, region, state, lat, lng, hero_image_url, quality_score, description, sub_type, visit_type, best_season, ${LISTING_REGION_SELECT}`)
+      .select(`id, name, slug, vertical, region, state, lat, lng, hero_image_url, image_moderation_status, quality_score, description, sub_type, visit_type, best_season, ${LISTING_REGION_SELECT}`)
       .eq('status', 'active')
       .or('address_on_request.eq.false,address_on_request.is.null')
       .or('visitable.eq.true,visitable.is.null,presence_type.eq.by_appointment')
@@ -1768,7 +1844,7 @@ function buildFallbackStops(routeListings, count = 10, preferences = []) {
       listing_id: l.id, listing_name: l.name, slug: l.slug,
       vertical: l.vertical, visit_type: l.visit_type || null,
       region: lRegionName, suburb: l.suburb, state: l.state,
-      lat: l.lat, lng: l.lng, hero_image_url: l.hero_image_url,
+      lat: l.lat, lng: l.lng, hero_image_url: displayableHero(l),
       cluster: lRegionName || 'Along the way',
       position_km: l.positionKm, reason: '', notes: '',
     })

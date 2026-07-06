@@ -18,6 +18,23 @@ const ROUTE_BG_COLOR = '#8B6914'
 const PIN_FILL = '#C49A3C'
 const PIN_TEXT = '#1C1A17'
 
+function stopFeatureCollection(stops) {
+  const features = (stops || [])
+    .filter(s => s.lat && s.lng && !s.is_overnight)
+    .map((stop) => ({
+      type: 'Feature',
+      id: stop.globalIndex,
+      geometry: { type: 'Point', coordinates: [stop.lng, stop.lat] },
+      properties: {
+        index: stop.globalIndex,
+        name: stop.listing_name,
+        dayNumber: stop.day_number || 1,
+        ringColor: DAY_RING_COLORS[Math.min((stop.day_number || 1) - 1, DAY_RING_COLORS.length - 1)],
+      },
+    }))
+  return { type: 'FeatureCollection', features }
+}
+
 /**
  * Atlas-styled route map with dark cartographic style.
  *
@@ -31,6 +48,10 @@ const PIN_TEXT = '#1C1A17'
  *   highlightedStopIndex — index of stop being hovered in the list (null = none)
  *   onPinClick     — (globalIndex) => void — called when a map pin is clicked
  *   compact        — boolean — mobile compact mode (120px preview bar)
+ *
+ * The map initialises once per route; stop pins and overnight markers
+ * rebuild whenever the stops change (swap / remove / add / reorder), so
+ * client-side edits are reflected immediately.
  */
 export default function RouteMap({
   routeGeometry, stops, coverageGaps, startName, endName,
@@ -39,10 +60,19 @@ export default function RouteMap({
   const t = useTranslations('onThisRoad')
   const containerRef = useRef(null)
   const mapRef = useRef(null)
+  const mapboxRef = useRef(null)
+  const loadedRef = useRef(false)
   const markersRef = useRef([]) // HTML markers for overnights
   const userInteractedRef = useRef(false)
   const interactionTimerRef = useRef(null)
   const lastFlyDayRef = useRef(null)
+  const dataRef = useRef({ stops, onPinClick })
+  dataRef.current = { stops, onPinClick }
+
+  // Identity of the rendered pins — drives the refresh effect
+  const stopSignature = JSON.stringify(
+    (stops || []).map(s => [s.listing_id, s.globalIndex, s.day_number, !!s.is_overnight])
+  )
 
   // Suppress auto-fly for 2s after user manually pans/clicks
   const onUserInteraction = useCallback(() => {
@@ -66,18 +96,70 @@ export default function RouteMap({
     ]
   }, [stops])
 
-  // Initialize map
+  /* Rebuild stop pins + overnight markers from current data. Idempotent. */
+  const refreshStops = useCallback(() => {
+    const map = mapRef.current
+    const mapboxgl = mapboxRef.current
+    if (!map || !mapboxgl || !loadedRef.current) return
+    const { stops: current } = dataRef.current
+
+    try {
+      map.getSource('stops')?.setData(stopFeatureCollection(current))
+    } catch { /* source not ready yet */ }
+
+    for (const m of markersRef.current) m.remove()
+    markersRef.current = []
+
+    const reducedMotion = typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+    const overnightStops = (current || []).filter(s => s.lat && s.lng && s.is_overnight)
+    for (const stop of overnightStops) {
+      const el = document.createElement('div')
+      el.className = 'otr-overnight-pin'
+      el.style.cssText = 'width:28px;height:28px;transform:rotate(45deg);background:#2d2a24;border:2px solid #C49A3C;box-shadow:0 2px 6px rgba(0,0,0,0.4);cursor:pointer;display:flex;align-items:center;justify-content:center;'
+      el.setAttribute('role', 'button')
+      el.setAttribute('tabindex', '0')
+      el.setAttribute('aria-label', `${stop.listing_name || ''} — ${t('mapTonightsStay')}`)
+      const inner = document.createElement('div')
+      inner.style.cssText = 'transform:rotate(-45deg);color:#C49A3C;font-size:12px;line-height:1;'
+      inner.textContent = '★'
+      el.appendChild(inner)
+
+      const activate = () => { dataRef.current.onPinClick?.(stop.globalIndex) }
+      el.addEventListener('click', activate)
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); activate() }
+      })
+      if (reducedMotion) el.style.transition = 'none'
+
+      const marker = new mapboxgl.Marker({ element: el })
+        .setLngLat([stop.lng, stop.lat])
+        .setPopup(new mapboxgl.Popup({ offset: 18, closeButton: false, className: 'otr-map-popup' }).setHTML(
+          `<strong>${(stop.listing_name || '').replace(/</g, '&lt;')}</strong><br><span style="font-size:11px;opacity:0.7;">${t('mapTonightsStay')}</span>`
+        ))
+        .addTo(map)
+
+      markersRef.current.push(marker)
+    }
+  }, [t])
+
+  // Initialize map — once per route
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return
+    if (!containerRef.current) return
     if (!routeGeometry || !stops || stops.length === 0) return
 
+    let cancelled = false
+
     import('mapbox-gl').then(({ default: mapboxgl }) => {
+      if (cancelled || mapRef.current) return
       mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
+      mapboxRef.current = mapboxgl
 
       // Calculate full route bounds
       const allCoords = [
         ...routeGeometry.coordinates,
-        ...stops.filter(s => s.lat && s.lng).map(s => [s.lng, s.lat]),
+        ...dataRef.current.stops.filter(s => s.lat && s.lng).map(s => [s.lng, s.lat]),
       ]
       const lngs = allCoords.map(c => c[0])
       const lats = allCoords.map(c => c[1])
@@ -106,6 +188,9 @@ export default function RouteMap({
       })
 
       map.on('load', () => {
+        if (cancelled) return
+        loadedRef.current = true
+
         // ── Route line ───────────────────────────────────────────
         map.addSource('route-line', {
           type: 'geojson',
@@ -165,25 +250,10 @@ export default function RouteMap({
           ))
           .addTo(map)
 
-        // ── Stop pins (non-overnight) ────────────────────────────
-        const dayStops = stops.filter(s => s.lat && s.lng && !s.is_overnight)
-        const overnightStops = stops.filter(s => s.lat && s.lng && s.is_overnight)
-
-        const stopFeatures = dayStops.map((stop) => ({
-          type: 'Feature',
-          id: stop.globalIndex,
-          geometry: { type: 'Point', coordinates: [stop.lng, stop.lat] },
-          properties: {
-            index: stop.globalIndex,
-            name: stop.listing_name,
-            dayNumber: stop.day_number || 1,
-            ringColor: DAY_RING_COLORS[Math.min((stop.day_number || 1) - 1, DAY_RING_COLORS.length - 1)],
-          },
-        }))
-
+        // ── Stop pins (non-overnight, GL layers) ─────────────────
         map.addSource('stops', {
           type: 'geojson',
-          data: { type: 'FeatureCollection', features: stopFeatures },
+          data: stopFeatureCollection(dataRef.current.stops),
           promoteId: 'index',
         })
 
@@ -229,29 +299,8 @@ export default function RouteMap({
           },
         })
 
-        // ── Overnight pins (HTML markers — diamond shape) ────────
-        for (const stop of overnightStops) {
-          const el = document.createElement('div')
-          el.className = 'otr-overnight-pin'
-          el.style.cssText = 'width:28px;height:28px;transform:rotate(45deg);background:#2d2a24;border:2px solid #C49A3C;box-shadow:0 2px 6px rgba(0,0,0,0.4);cursor:pointer;display:flex;align-items:center;justify-content:center;'
-          const inner = document.createElement('div')
-          inner.style.cssText = 'transform:rotate(-45deg);color:#C49A3C;font-size:12px;line-height:1;'
-          inner.textContent = '★'
-          el.appendChild(inner)
-
-          el.addEventListener('click', () => {
-            if (onPinClick) onPinClick(stop.globalIndex)
-          })
-
-          const marker = new mapboxgl.Marker({ element: el })
-            .setLngLat([stop.lng, stop.lat])
-            .setPopup(new mapboxgl.Popup({ offset: 18, closeButton: false, className: 'otr-map-popup' }).setHTML(
-              `<strong>${stop.listing_name}</strong><br><span style="font-size:11px;opacity:0.7;">${t('mapTonightsStay')}</span>`
-            ))
-            .addTo(map)
-
-          markersRef.current.push(marker)
-        }
+        // Overnight HTML markers
+        refreshStops()
 
         // ── Coverage gap annotations ─────────────────────────────
         if (coverageGaps && coverageGaps.length > 0) {
@@ -300,7 +349,7 @@ export default function RouteMap({
         // ── Interactivity: pin click → scroll ────────────────────
         map.on('click', 'stops-circle', (e) => {
           const idx = e.features[0].properties.index
-          if (onPinClick) onPinClick(idx)
+          dataRef.current.onPinClick?.(idx)
         })
 
         map.on('mouseenter', 'stops-circle', () => {
@@ -310,15 +359,24 @@ export default function RouteMap({
           map.getCanvas().style.cursor = ''
         })
       })
-
-      return () => {
-        markersRef.current.forEach(m => m.remove())
-        markersRef.current = []
-        map.remove()
-        mapRef.current = null
-      }
     })
-  }, [routeGeometry, stops, coverageGaps, startName, endName, compact, onPinClick, onUserInteraction, t])
+
+    return () => {
+      cancelled = true
+      for (const m of markersRef.current) m.remove()
+      markersRef.current = []
+      if (mapRef.current) {
+        mapRef.current.remove()
+        mapRef.current = null
+        loadedRef.current = false
+      }
+    }
+  }, [routeGeometry]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Rebuild pins whenever the stop list changes (edits) ────────────
+  useEffect(() => {
+    refreshStops()
+  }, [stopSignature, refreshStops])
 
   // ── Day-fly: when activeDayNumber changes, fly to that day's bounds ──
   useEffect(() => {
@@ -356,6 +414,8 @@ export default function RouteMap({
   return (
     <div
       ref={containerRef}
+      role="region"
+      aria-label={t('mapRegionLabel', { start: startName || t('mapStart'), end: endName || t('mapEnd') })}
       className={compact ? 'otr-map-compact' : 'otr-map-full'}
       style={{
         width: '100%',
