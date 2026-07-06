@@ -18,7 +18,19 @@ const tasteAffinity = (p, l) => {
 }
 const isPublic = (l) => !(typeof l?.slug === 'string' && l.slug.toLowerCase().startsWith('admin')) && l?.needs_review !== true
 
-function pick(candidates, profile) {
+const ROTATION_POOL_SIZE = 24
+function seededShuffle(arr, seed) {
+  const shuffled = [...arr]
+  let s = seed
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    s = (s * 1103515245 + 12345) & 0x7fffffff
+    const j = s % (i + 1)
+    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+  return shuffled
+}
+
+function pick(candidates, profile, daySeed) {
   const score = (l) => {
     let s = tasteAffinity(profile, l) * TASTE_WEIGHT
     if (profile && l.region) s += 0.5 * (profile.regionWeights?.[l.region] || 0)
@@ -31,16 +43,26 @@ function pick(candidates, profile) {
     return s
   }
   const ranked = [...candidates].sort((a, b) => score(b) - score(a))
-  const lead = ranked.find((l) => l.hero_image_url && strong(l)) || ranked.find(strong) || ranked[0]
+  const pool = ranked.slice(0, ROTATION_POOL_SIZE)
+  const pooledVerticals = new Set(pool.map((l) => l.vertical))
+  for (const l of ranked) {
+    if (!pooledVerticals.has(l.vertical)) { pool.push(l); pooledVerticals.add(l.vertical) }
+  }
+  const rotated = seededShuffle(pool, daySeed)
+  const leadPool =
+    ((p) => (p.length ? p : null))(rotated.filter((l) => l.hero_image_url && strong(l))) ||
+    ((p) => (p.length ? p : null))(rotated.filter(strong)) ||
+    rotated
+  const lead = leadPool[daySeed % leadPool.length]
   const rail = []
   const used = new Set([lead.vertical])
-  for (const l of ranked) {
+  for (const l of rotated) {
     if (l.id === lead.id || rail.length >= 3) continue
     if (!used.has(l.vertical)) { rail.push(l); used.add(l.vertical) }
   }
   if (rail.length < 3) {
     const have = new Set([lead.id, ...rail.map((r) => r.id)])
-    for (const l of ranked) {
+    for (const l of [...rotated, ...ranked]) {
       if (rail.length >= 3) break
       if (!have.has(l.id)) { rail.push(l); have.add(l.id) }
     }
@@ -71,6 +93,9 @@ for (const spot of SPOTS) {
   if (cands.length < 2) { console.log('   <2 candidates → API returns empty → editorial band kept'); continue }
   const maxD = Math.max(...cands.map((c) => c.distance_km))
   console.log(`   max candidate distance: ${maxD.toFixed(1)}km (must be ≤100)`)
-  console.log('   WITH taste :', pick(cands, shares).join(' | '))
-  console.log('   NO taste   :', pick(cands, null).join(' | '))
+  const today = Math.floor(Date.now() / 86400000)
+  for (const offset of [0, 1, 2]) {
+    console.log(`   day+${offset} WITH taste :`, pick(cands, shares, today + offset).join(' | '))
+  }
+  console.log('   day+0 NO taste   :', pick(cands, null, today).join(' | '))
 }

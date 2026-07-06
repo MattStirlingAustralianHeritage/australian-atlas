@@ -13,6 +13,10 @@
 // taste profile when they've contributed to Discover. Anything short of that
 // bar — signed out, no location, sparse area, API failure — leaves the
 // editorial selection untouched.
+//
+// The upgrade is deliberately SILENT: heading, dateline, intro and card
+// chrome stay identical to the editorial band (no "near you", no distances,
+// no region reveal) — only the picks themselves change.
 // ============================================================
 
 import { useState, useEffect, useRef } from 'react'
@@ -37,8 +41,6 @@ const VERTICAL_LABELS = {
   atlas: 'Journal',
 }
 
-const RADIUS_KM = 100
-
 function firstSentence(text) {
   if (!text) return null
   const match = text.match(/^(.+?[.!?])\s/)
@@ -47,7 +49,6 @@ function firstSentence(text) {
 
 export default function WorthFindingSection({ featured, locale, editionDate }) {
   const t = useTranslations('home')
-  const tCards = useTranslations('cards')
   const { location, isReady } = useLocation()
   const supabase = getAuthSupabase()
   const [authed, setAuthed] = useState(false)
@@ -95,27 +96,18 @@ export default function WorthFindingSection({ featured, locale, editionDate }) {
   const lead = picks[0]
   const rail = picks.slice(1, 4)
   const leadColors = VERTICAL_CARD_COLORS[lead.vertical] || { bg: '#333', text: '#FAF8F4' }
-  // Editorial rows carry no joined region relations (kicker shows the vertical
-  // alone — unchanged); the nearby RPC rows carry the plain-text region.
-  const regionLabel = (l) => getListingRegion(l)?.name || (isPersonal ? l.region || null : null)
-  const distanceLabel = (l) => {
-    if (!isPersonal || l.distance_km == null) return null
-    return tCards('km', { distance: l.distance_km < 10 ? l.distance_km.toFixed(1) : Math.round(l.distance_km) })
-  }
+  // Kicker matches the editorial band exactly in BOTH modes: vertical label,
+  // plus region only via the joined relations (null on editorial rows and on
+  // RPC rows alike). No distance, no plain-text region — the personalised
+  // picks must be indistinguishable from an editorial selection.
   const kicker = (l) => {
     const parts = [localizeVerticalKicker(l.vertical, VERTICAL_LABELS[l.vertical] || l.vertical, locale)]
-    const r = regionLabel(l)
-    if (r) parts.push(r)
-    const d = distanceLabel(l)
-    if (d) parts.push(d)
+    const r = getListingRegion(l)
+    if (r) parts.push(r.name)
     return parts.join('  ·  ')
   }
-  const title = isPersonal
-    ? (location?.name ? t('worthFindingNearTown', { town: location.name }) : t('worthFindingNearTitle'))
-    : t('worthFindingTitle')
-  const intro = isPersonal
-    ? t(personal.tasteApplied ? 'worthFindingNearIntroTaste' : 'worthFindingNearIntro', { radius: RADIUS_KM })
-    : t('worthFindingIntro')
+  const title = t('worthFindingTitle')
+  const intro = t('worthFindingIntro')
   // Swapped-in cards mount after ScrollReveal has already observed the
   // original children, so they self-reveal instead of waiting on an observer
   // that will never fire for them.

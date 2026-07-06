@@ -33,6 +33,27 @@ const TASTE_WEIGHT = 2.5
 
 const AU_BOUNDS = { latMin: -44, latMax: -10, lngMin: 112, lngMax: 154 }
 
+// The picks rotate daily: the top of the taste-ranked pool is reshuffled with
+// a day-resolution seed (same LCG as the homepage's weekly editorial shuffle),
+// so a returning visitor sees a fresh local four every 24 hours without the
+// selection ever leaving the quality pool.
+const ROTATION_POOL_SIZE = 24
+
+function getDailySeed() {
+  return Math.floor(Date.now() / (24 * 60 * 60 * 1000))
+}
+
+function seededShuffle(arr, seed) {
+  const shuffled = [...arr]
+  let s = seed
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    s = (s * 1103515245 + 12345) & 0x7fffffff
+    const j = s % (i + 1)
+    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+  return shuffled
+}
+
 const wordCount = (text) => String(text || '').trim().split(/\s+/).filter(Boolean).length
 const strongDescription = (l) => wordCount(l.description) >= 15
 
@@ -101,17 +122,37 @@ export async function GET(request) {
     }
     const ranked = [...candidates].sort((a, b) => score(b) - score(a))
 
-    // Lead: highest-ranked venue that can carry the cover — photo + a real
-    // standfirst if the pool has one, then description-only, then top-ranked.
-    const lead =
-      ranked.find((l) => l.hero_image_url && strongDescription(l)) ||
-      ranked.find((l) => strongDescription(l)) ||
-      ranked[0]
+    // Daily rotation: shuffle the top of the ranked pool with today's seed,
+    // then select from the shuffled order. A concentrated taste profile can
+    // fill the whole top slice with one vertical (e.g. all breweries), which
+    // would starve the rail's one-per-vertical rule — so every vertical's
+    // best candidate is guaranteed a seat in the pool.
+    const pool = ranked.slice(0, ROTATION_POOL_SIZE)
+    const pooledVerticals = new Set(pool.map((l) => l.vertical))
+    for (const l of ranked) {
+      if (!pooledVerticals.has(l.vertical)) {
+        pool.push(l)
+        pooledVerticals.add(l.vertical)
+      }
+    }
+    const rotated = seededShuffle(pool, getDailySeed())
 
-    // Rail: next by score, one per vertical for variety, topped up to three.
+    // Lead: a venue that can carry the cover — photo + a real standfirst if
+    // the pool has one, then description-only, then anything. Cover-worthy
+    // venues are scarce in most pools, so "first qualifying in shuffled
+    // order" barely moves day to day — index by day instead, cycling the
+    // cover through every qualifying venue.
+    const leadPool =
+      ((p) => (p.length ? p : null))(rotated.filter((l) => l.hero_image_url && strongDescription(l))) ||
+      ((p) => (p.length ? p : null))(rotated.filter(strongDescription)) ||
+      rotated
+    const lead = leadPool[getDailySeed() % leadPool.length]
+
+    // Rail: next in rotated order, one per vertical for variety, topped up to
+    // three (falling back to the full ranked list when the pool runs short).
     const rail = []
     const usedVerticals = new Set([lead.vertical])
-    for (const l of ranked) {
+    for (const l of rotated) {
       if (l.id === lead.id || rail.length >= 3) continue
       if (!usedVerticals.has(l.vertical)) {
         rail.push(l)
@@ -120,7 +161,7 @@ export async function GET(request) {
     }
     if (rail.length < 3) {
       const have = new Set([lead.id, ...rail.map((r) => r.id)])
-      for (const l of ranked) {
+      for (const l of [...rotated, ...ranked]) {
         if (rail.length >= 3) break
         if (!have.has(l.id)) { rail.push(l); have.add(l.id) }
       }
