@@ -333,9 +333,12 @@ async function main() {
 
   const outDir = path.join(ROOT, 'public', 'maps')
   fs.mkdirSync(outDir, { recursive: true })
-  await sharp(composed).webp({ quality: 84 }).toFile(path.join(outDir, 'home-map-atlas.webp'))
-  await sharp(composed).jpeg({ quality: 82, mozjpeg: true }).toFile(path.join(outDir, 'home-map-atlas.jpg'))
-  const sizes = ['webp', 'jpg'].map(ext => `${ext} ${(fs.statSync(path.join(outDir, `home-map-atlas.${ext}`)).size / 1024).toFixed(0)}KB`)
+  // "-plate" suffix: do NOT write to home-map-atlas.{jpg,webp} — the retired
+  // hero layout's HTML still references that path with cover-crop CSS, and
+  // any cached copy of it rendering these taller bytes looks broken.
+  await sharp(composed).webp({ quality: 84 }).toFile(path.join(outDir, 'home-map-atlas-plate.webp'))
+  await sharp(composed).jpeg({ quality: 82, mozjpeg: true }).toFile(path.join(outDir, 'home-map-atlas-plate.jpg'))
+  const sizes = ['webp', 'jpg'].map(ext => `${ext} ${(fs.statSync(path.join(outDir, `home-map-atlas-plate.${ext}`)).size / 1024).toFixed(0)}KB`)
   console.log(`written: ${sizes.join(', ')}`)
 
   // 6 ── projection constants for the overlay component

@@ -82,10 +82,15 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
       <div className="atlas-plate-frame">
         <LocalizedLink href="/map" aria-label={t('heroMapAria')} className="atlas-plate-baselink" />
         <div className="atlas-plate-canvas">
+          {/* Versioned filename — the pre-plate homepage HTML hard-codes
+              /maps/home-map-atlas.* with cover-crop CSS, and a stale tab
+              rendering THESE bytes through THAT layout is a cropped mess
+              (seen live 2026-07-06). The legacy path keeps its original
+              2560x680 bytes; the plate's chart lives at its own path. */}
           <picture>
-            <source srcSet="/maps/home-map-atlas.webp" type="image/webp" />
+            <source srcSet="/maps/home-map-atlas-plate.webp" type="image/webp" />
             <img
-              src="/maps/home-map-atlas.jpg"
+              src="/maps/home-map-atlas-plate.jpg"
               alt={t('mapSectionAlt')}
               width={2560}
               height={1040}
