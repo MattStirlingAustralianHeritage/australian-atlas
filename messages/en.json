@@ -219,8 +219,7 @@
     "backToMap": "Back to map",
     "photoLibrary": "Photo library",
     "photosSuppliedBy": "Photographs supplied by {name}.",
-    "maintainedByOperator": "Maintained by the operator",
-    "maintainedDetail": "Photos and details on this page are supplied by {name}"
+    "claimedByOwner": "Claimed by the owner"
   },
   "search": {
     "title": "Search",

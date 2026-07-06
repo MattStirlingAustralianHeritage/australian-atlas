@@ -219,8 +219,7 @@
     "backToMap": "返回地图",
     "photoLibrary": "照片集",
     "photosSuppliedBy": "照片由 {name} 提供。",
-    "maintainedByOperator": "由经营者亲自维护",
-    "maintainedDetail": "本页照片与信息由 {name} 提供"
+    "claimedByOwner": "由店主打理"
   },
   "search": {
     "title": "搜索",

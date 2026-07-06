@@ -219,8 +219,7 @@
     "backToMap": "지도로 돌아가기",
     "photoLibrary": "포토 라이브러리",
     "photosSuppliedBy": "{name}에서 제공한 사진입니다.",
-    "maintainedByOperator": "운영자가 직접 관리하는 페이지",
-    "maintainedDetail": "이 페이지의 사진과 정보는 {name}에서 직접 제공했습니다"
+    "claimedByOwner": "주인이 직접 관리"
   },
   "search": {
     "title": "검색",

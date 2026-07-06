@@ -983,25 +983,29 @@ export default async function PlacePage({ params }) {
         />
       )}
 
-      {/* ── Operator provenance ribbon — the claimed page's quiet marker.
-          The same gold wash the operator-voice panels use, run full-width
-          under the hero: this page is kept by the people who run the place.
-          Paid-gated (same live-claim signal as every other perk). ── */}
+      {/* ── Claimed seal — the claimed page's quiet marker. A single centred
+          small-caps line on the gold operator-voice wash: this page is in the
+          owner's hands. Deliberately terse — photo and word provenance is
+          attributed inside each operator block. Paid-gated (same live-claim
+          signal as every other perk). ── */}
       {isPaid && (
         <div style={{ background: 'rgba(196, 151, 59, 0.10)', borderBottom: '1px solid var(--color-border)' }}>
-          <div className="max-w-4xl mx-auto px-6 sm:px-8 py-3 flex items-center gap-3">
+          <div className="max-w-4xl mx-auto px-6 sm:px-8 flex items-center justify-center gap-2.5" style={{ paddingTop: 10, paddingBottom: 10 }}>
             <span
               aria-hidden="true"
               className="flex items-center justify-center flex-shrink-0"
-              style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--color-gold)', color: '#fff' }}
+              style={{ width: 18, height: 18, borderRadius: '50%', background: 'var(--color-gold)', color: '#fff' }}
             >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden="true">
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" aria-hidden="true">
                 <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </span>
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--color-ink)', margin: 0, lineHeight: 1.5 }}>
-              <span style={{ fontWeight: 600 }}>{t('maintainedByOperator')}</span>
-              <span style={{ color: 'var(--color-muted)' }}> &middot; {t('maintainedDetail', { name: listing.name })}</span>
+            <p style={{
+              fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
+              letterSpacing: '0.16em', textTransform: 'uppercase',
+              color: 'var(--color-ink)', margin: 0, lineHeight: 1.4,
+            }}>
+              {t('claimedByOwner')}
             </p>
           </div>
         </div>
