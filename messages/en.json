@@ -1005,7 +1005,20 @@
     "subtypeBoutiqueHotel": "Boutique hotel",
     "subtypeCottage": "Cottage",
     "subtypeGlamping": "Glamping",
-    "subtypeFarmStay": "Farm stay"
+    "subtypeFarmStay": "Farm stay",
+    "legDrive": "≈ {mins} min drive",
+    "legWalk": "≈ {mins} min walk",
+    "timeMins": "{mins} min",
+    "timeHoursMins": "{hours} h {mins} min",
+    "dayDriveMeta": "≈ {km} km · about {time} of driving.",
+    "summaryDriving": "≈ {km} km of driving",
+    "openDayInGoogleMaps": "Open this day in Google Maps",
+    "swapStop": "Swap",
+    "swapPanelTitle": "Swap {name} for…",
+    "moveEarlier": "Move earlier in the day",
+    "moveLater": "Move later in the day",
+    "addAStop": "Add a stop",
+    "addAStopNearby": "{count, plural, one {# more listed place nearby} other {# more listed places nearby}}"
   },
   "discovery2": {
     "eventsKicker": "On the calendar",
@@ -1426,7 +1439,8 @@
     "saved": "Saved",
     "saveToAccount": "Save to account",
     "savedToAccount": "Saved to your account — <link>view in My Trails</link>",
-    "openOnMap": "Open on the map"
+    "openOnMap": "Open on the map",
+    "printTrip": "Print or save as PDF"
   },
   "developers": {
     "metaTitle": "API for Developers — Australian Atlas",

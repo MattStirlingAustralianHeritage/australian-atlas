@@ -1005,7 +1005,20 @@
     "subtypeBoutiqueHotel": "부티크 호텔",
     "subtypeCottage": "코티지",
     "subtypeGlamping": "글램핑",
-    "subtypeFarmStay": "팜 스테이"
+    "subtypeFarmStay": "팜 스테이",
+    "legDrive": "≈ 차로 {mins}분",
+    "legWalk": "≈ 도보 {mins}분",
+    "timeMins": "{mins}분",
+    "timeHoursMins": "{hours}시간 {mins}분",
+    "dayDriveMeta": "≈ {km}km · 운전 약 {time}.",
+    "summaryDriving": "≈ 운전 {km}km",
+    "openDayInGoogleMaps": "이 날 일정을 Google 지도에서 열기",
+    "swapStop": "교체",
+    "swapPanelTitle": "{name} 대신 선택…",
+    "moveEarlier": "일정에서 앞으로 이동",
+    "moveLater": "일정에서 뒤로 이동",
+    "addAStop": "장소 추가",
+    "addAStopNearby": "{count, plural, other {근처에 등록된 장소 #곳 더 있음}}"
   },
   "discovery2": {
     "eventsKicker": "캘린더에",
@@ -1426,7 +1439,8 @@
     "saved": "저장됨",
     "saveToAccount": "계정에 저장",
     "savedToAccount": "계정에 저장됨 — <link>My Trails에서 보기</link>",
-    "openOnMap": "지도에서 열기"
+    "openOnMap": "지도에서 열기",
+    "printTrip": "인쇄 또는 PDF로 저장"
   },
   "developers": {
     "metaTitle": "개발자용 API — Australian Atlas",

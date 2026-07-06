@@ -1005,7 +1005,20 @@
     "subtypeBoutiqueHotel": "精品酒店",
     "subtypeCottage": "小屋",
     "subtypeGlamping": "豪华露营",
-    "subtypeFarmStay": "农场住宿"
+    "subtypeFarmStay": "农场住宿",
+    "legDrive": "≈ 车程{mins}分钟",
+    "legWalk": "≈ 步行{mins}分钟",
+    "timeMins": "{mins}分钟",
+    "timeHoursMins": "{hours}小时{mins}分钟",
+    "dayDriveMeta": "≈ {km}公里 · 驾车约{time}。",
+    "summaryDriving": "≈ 驾车{km}公里",
+    "openDayInGoogleMaps": "在 Google 地图中打开这一天",
+    "swapStop": "更换",
+    "swapPanelTitle": "更换{name}为…",
+    "moveEarlier": "在当天行程中前移",
+    "moveLater": "在当天行程中后移",
+    "addAStop": "添加一站",
+    "addAStopNearby": "{count, plural, other {附近还有#个已收录的地方}}"
   },
   "discovery2": {
     "eventsKicker": "日历上的活动",
@@ -1426,7 +1439,8 @@
     "saved": "已保存",
     "saveToAccount": "保存到账户",
     "savedToAccount": "已保存到您的账户 — <link>在我的行程中查看</link>",
-    "openOnMap": "在地图上打开"
+    "openOnMap": "在地图上打开",
+    "printTrip": "打印或保存为PDF"
   },
   "developers": {
     "metaTitle": "开发者 API — Australian Atlas",

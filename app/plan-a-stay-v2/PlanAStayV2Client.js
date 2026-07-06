@@ -15,20 +15,26 @@ import { writeDraft, stopsFromPlanAStayTrip } from '@/lib/trail/draft'
 
 /* ─── Trip persistence helpers ───────────────────────────────────────────
    Build the exact payload sent to /share and /save. Visitor accommodation
-   picks (lifted into OutputScreen) are folded into the trip's days so the
-   stored trip matches what was on screen.                                */
-function buildTripPayload(tripData, accommodationByDay) {
+   picks AND any stop edits (swap/remove/add/reorder — lifted into
+   OutputScreen) are folded into the trip's days so the stored trip matches
+   what was on screen. The unplaced `alternates` are stripped: a shared
+   trip is frozen, and identical visible trips should fingerprint alike. */
+function buildTripPayload(tripData, accommodationByDay, editedDays) {
   const payload = { answers: tripData._answers || {} }
   if (tripData.stays_only) {
     payload.stays_only = tripData.stays_only
   } else {
     const byDay = accommodationByDay || {}
+    const sourceDays = editedDays || tripData.trip.days || []
     payload.trip = {
       ...tripData.trip,
-      days: (tripData.trip.days || []).map(d => ({
-        ...d,
-        accommodation: byDay[d.day_number] || null,
-      })),
+      days: sourceDays.map(d => {
+        const { alternates, ...rest } = d
+        return {
+          ...rest,
+          accommodation: byDay[d.day_number] || null,
+        }
+      }),
     }
   }
   return payload
@@ -828,6 +834,9 @@ function OutputScreen({ tripData, error, onReset, resumePayload }) {
   // Accommodation the visitor picks per day (day_number → stay), lifted here
   // so the Share button can fold the choices into the saved trip.
   const [accommodationByDay, setAccommodationByDay] = useState({})
+  // The days as edited in the renderer (swap/remove/add/reorder) — Share and
+  // Save persist exactly what's on screen.
+  const [editedDays, setEditedDays] = useState(null)
 
   // Error state
   if (error) {
@@ -940,10 +949,16 @@ function OutputScreen({ tripData, error, onReset, resumePayload }) {
 
   return (
     <div>
-      <TripRender trip={tripData.trip} onAccommodationChange={setAccommodationByDay} />
+      <TripRender
+        trip={tripData.trip}
+        onAccommodationChange={setAccommodationByDay}
+        onDaysChange={setEditedDays}
+        editable
+      />
       <ActionButtons
         tripData={tripData}
         accommodationByDay={accommodationByDay}
+        editedDays={editedDays}
         onReset={onReset}
         shareState={shareState}
         setShareState={setShareState}
@@ -956,8 +971,8 @@ function OutputScreen({ tripData, error, onReset, resumePayload }) {
 }
 
 
-/* ─── Action buttons (Share / Save / Start over) ─────────────────────── */
-function ActionButtons({ tripData, accommodationByDay, onReset, shareState, setShareState, shareUrl, setShareUrl, resumePayload }) {
+/* ─── Action buttons (Save / Share / Print / Map / Start over) ───────── */
+function ActionButtons({ tripData, accommodationByDay, editedDays, onReset, shareState, setShareState, shareUrl, setShareUrl, resumePayload }) {
   const t = useTranslations('planStay')
   const [saveState, setSaveState] = useState('idle') // idle | saving | saved | error
   const [savedUrl, setSavedUrl] = useState(null)
@@ -969,7 +984,7 @@ function ActionButtons({ tripData, accommodationByDay, onReset, shareState, setS
 
     setShareState('sharing')
     try {
-      const payload = buildTripPayload(tripData, accommodationByDay)
+      const payload = buildTripPayload(tripData, accommodationByDay, editedDays)
 
       const res = await fetch('/api/plan-a-stay/share', {
         method: 'POST',
@@ -1006,7 +1021,7 @@ function ActionButtons({ tripData, accommodationByDay, onReset, shareState, setS
   const doSave = useCallback(async (explicitPayload) => {
     if (saveState === 'saving' || saveState === 'saved') return
     setSaveState('saving')
-    const payload = explicitPayload || buildTripPayload(tripData, accommodationByDay)
+    const payload = explicitPayload || buildTripPayload(tripData, accommodationByDay, editedDays)
     try {
       const res = await fetch('/api/plan-a-stay/save', {
         method: 'POST',
@@ -1029,7 +1044,7 @@ function ActionButtons({ tripData, accommodationByDay, onReset, shareState, setS
       setSaveState('error')
       setTimeout(() => setSaveState('idle'), 3000)
     }
-  }, [saveState, tripData, accommodationByDay])
+  }, [saveState, tripData, accommodationByDay, editedDays])
 
   // After a Google OAuth round-trip, the restored trip arrives as
   // resumePayload — fire the save once.
@@ -1069,7 +1084,7 @@ function ActionButtons({ tripData, accommodationByDay, onReset, shareState, setS
     t('saveToAccount')
 
   return (
-    <div style={{
+    <div className="pas-no-print" style={{
       maxWidth: 720,
       margin: '0 auto',
     }}>
@@ -1125,7 +1140,10 @@ function ActionButtons({ tripData, accommodationByDay, onReset, shareState, setS
           {tripData?.trip && (
             <button
               onClick={() => {
-                const stops = stopsFromPlanAStayTrip(tripData.trip)
+                const tripForMap = editedDays
+                  ? { ...tripData.trip, days: editedDays }
+                  : tripData.trip
+                const stops = stopsFromPlanAStayTrip(tripForMap)
                 if (stops.length < 2) return
                 writeDraft({
                   name: tripData.trip.title || '',
@@ -1153,6 +1171,27 @@ function ActionButtons({ tripData, accommodationByDay, onReset, shareState, setS
               }}
             >
               {t('openOnMap')}
+            </button>
+          )}
+          {tripData?.trip && (
+            <button
+              onClick={() => window.print()}
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 500,
+                fontSize: 14,
+                color: 'var(--color-ink, #1C1A17)',
+                background: 'transparent',
+                border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
+                borderRadius: 8,
+                padding: '10px 24px',
+                cursor: 'pointer',
+                transition: 'border-color 0.2s ease',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(28,26,23,0.3)' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-border, rgba(28,26,23,0.12))' }}
+            >
+              {t('printTrip')}
             </button>
           )}
           <button

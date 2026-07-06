@@ -568,8 +568,10 @@ export async function POST(request) {
     // ── Rank within each cluster ───────────────────────────────────
     const outputClusters = validClusters.map((cluster, idx) => {
       const clusterCandidates = cluster.members.map(i => candidates[i])
+      // Top 10: the day itself uses ~5 (coffee, lunch, three activities);
+      // the rest become real swap alternates in the assembled trip.
       const ranked = rankCandidates(clusterCandidates, cluster.centroid, primaryVerticals, secondaryVerticals, tasteProfile)
-      const top5 = ranked.slice(0, 5)
+      const top = ranked.slice(0, 10)
 
       return {
         cluster_index: idx,
@@ -579,7 +581,7 @@ export async function POST(request) {
         },
         dist_from_trip_center_km: cluster._distFromCenter,
         candidate_count: clusterCandidates.length,
-        candidates: top5.map(c => ({
+        candidates: top.map(c => ({
           id: c.id,
           name: c.name,
           slug: c.slug,
