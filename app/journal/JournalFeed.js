@@ -222,7 +222,7 @@ export default function JournalFeed({ articles, verticals, tags, verticalLabels,
           padding-bottom: clamp(28px, 4vh, 44px); margin-bottom: clamp(28px, 4vh, 44px);
           border-bottom: 1px solid var(--color-border); }
         .jf-lead-title { font-family: var(--font-display); font-weight: 400;
-          font-size: clamp(1.7rem, 2.6vw + 0.8rem, 2.9rem); line-height: 1.1; letter-spacing: -0.01em;
+          font-size: clamp(1.75rem, 2.8vw + 0.8rem, 3.1rem); line-height: 1.08; letter-spacing: -0.015em;
           color: var(--color-ink); margin: 12px 0 0; text-wrap: balance; }
         .jf-lead-excerpt { font-family: var(--font-display); font-style: italic; font-weight: 400;
           font-size: clamp(1.02rem, 0.4vw + 0.9rem, 1.18rem); line-height: 1.55;
@@ -230,16 +230,29 @@ export default function JournalFeed({ articles, verticals, tags, verticalLabels,
           display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
         @media (max-width: 760px) { .jf-lead { grid-template-columns: 1fr; align-items: start; } }
 
-        /* Secondary two-up */
+        /* Secondary two-up — a single column rule between the pair */
         .jf-secondary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: clamp(20px, 3vw, 44px); margin-bottom: clamp(28px, 4vh, 44px); }
+          column-gap: clamp(22px, 2.4vw, 34px); row-gap: clamp(22px, 2.4vw, 34px);
+          margin-bottom: clamp(28px, 4vh, 44px); }
+        @media (min-width: 701px) {
+          .jf-secondary > a:nth-child(2n) { border-left: 1px solid var(--color-border);
+            padding-left: clamp(22px, 2.4vw, 34px); }
+        }
         @media (max-width: 700px) { .jf-secondary { grid-template-columns: 1fr; } }
 
-        /* Ruled grid — newspaper column rules via gap + background hairlines */
+        /* Ruled grid — newspaper column rules between stories */
         .jf-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
-          column-gap: clamp(20px, 3vw, 44px); row-gap: clamp(28px, 4vh, 40px);
+          column-gap: clamp(22px, 2.4vw, 34px); row-gap: clamp(32px, 4vh, 46px);
           padding-top: clamp(28px, 4vh, 44px); }
+        @media (min-width: 961px) {
+          .jf-grid > a:not(:nth-child(3n+1)) { border-left: 1px solid var(--color-border);
+            padding-left: clamp(22px, 2.4vw, 34px); }
+        }
         @media (max-width: 960px) { .jf-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (min-width: 601px) and (max-width: 960px) {
+          .jf-grid > a:nth-child(2n) { border-left: 1px solid var(--color-border);
+            padding-left: clamp(22px, 2.4vw, 34px); }
+        }
         @media (max-width: 600px) { .jf-grid { grid-template-columns: 1fr; } }
 
         /* Shared story anatomy */
