@@ -7,7 +7,7 @@ import { getLiveRegionsCached } from '@/lib/regions/liveRegions'
 import { getRegionVerticalMixCached, regionCardChips } from '@/lib/regions/verticalMix'
 import { localizeRegionName } from '@/lib/i18n/listingLabels'
 import { isVerticalPublic } from '@/lib/verticalUrl'
-import { dateLocale, ogLocale } from '@/lib/i18n/config'
+import { dateLocale, ogLocale, localizedCountWord } from '@/lib/i18n/config'
 
 export const revalidate = 3600
 
@@ -144,7 +144,7 @@ export default async function ExplorePage() {
             color: 'var(--color-muted)', marginTop: '0.625rem',
             maxWidth: '36rem', lineHeight: 1.6,
           }}>
-            {t('heroSubtitle', { count: countWord })}
+            {t('heroSubtitle', { count: localizedCountWord(locale, countWord, PUBLIC_VERTICAL_ORDER.length) })}
           </p>
         </div>
       </div>
@@ -253,7 +253,7 @@ export default async function ExplorePage() {
               fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--color-muted)',
               marginTop: '0.25rem',
             }}>
-              {t('categorySubtitle', { count: PUBLIC_VERTICAL_ORDER.length, countWord: CountWord })}
+              {t('categorySubtitle', { count: PUBLIC_VERTICAL_ORDER.length, countWord: localizedCountWord(locale, CountWord, PUBLIC_VERTICAL_ORDER.length) })}
             </p>
           </div>
           <div className="explore-verticals">

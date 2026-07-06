@@ -5,6 +5,7 @@ import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 import { getPublicVerticals } from '@/lib/verticalUrl'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
 import { overlayListingTranslations } from '@/lib/i18n/overlayListings'
+import { localizedCountWord } from '@/lib/i18n/config'
 
 const ATLAS_COUNT_WORDS = { 8: 'eight', 9: 'nine', 10: 'ten', 11: 'eleven', 12: 'twelve' }
 
@@ -109,7 +110,7 @@ export default async function NetworkPage() {
   const data = await getNetworkData(publicVerticals)
   data.recent = await overlayListingTranslations(data.recent, locale)
   const atlasCount = publicVerticals.length
-  const atlasCountWord = ATLAS_COUNT_WORDS[atlasCount] || atlasCount
+  const atlasCountWord = localizedCountWord(locale, ATLAS_COUNT_WORDS[atlasCount] || atlasCount, atlasCount)
 
   return (
     <div style={{ background: 'var(--color-bg)', minHeight: '100vh' }}>
