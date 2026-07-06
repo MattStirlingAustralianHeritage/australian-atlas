@@ -1,13 +1,15 @@
 import { cache } from 'react'
+import { unstable_cache } from 'next/cache'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { getTranslations, getLocale } from 'next-intl/server'
 import { overlayListingTranslations } from '@/lib/i18n/overlayListings'
 import { overlayRegionTranslation } from '@/lib/i18n/overlayEditorial'
-import { localizeVerticalDescription, localizeVerticalKicker } from '@/lib/i18n/listingLabels'
+import { localizeVerticalDescription, localizeVerticalKicker, localizeRegionName } from '@/lib/i18n/listingLabels'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { dateLocale, ogLocale } from '@/lib/i18n/config'
-import { regionJsonLd, breadcrumbJsonLd } from '@/lib/jsonLd'
+import { regionJsonLd, breadcrumbJsonLd, regionItemListJsonLd } from '@/lib/jsonLd'
+import { getLiveRegionsCached, nearbyRegions } from '@/lib/regions/liveRegions'
 import RegionMapHero from '@/components/RegionMapHero'
 import RegionSearchBar from '@/components/RegionSearchBar'
 import { hasPreciseLocation } from '@/lib/listings/presence'
@@ -20,11 +22,12 @@ import { excludeTestListings, excludeNeedsReview } from '@/lib/listings/publicFi
 
 export const revalidate = 21600
 
-// Pre-generate all region pages at build time for SEO + fast cold starts
+// Pre-generate live region pages at build time for SEO + fast cold starts.
+// Drafts still render on demand (noindex); archived regions 404.
 export async function generateStaticParams() {
   try {
     const sb = getSupabaseAdmin()
-    const { data } = await sb.from('regions').select('slug')
+    const { data } = await sb.from('regions').select('slug').eq('status', 'live')
     return (data || []).map(r => ({ slug: r.slug }))
   } catch {
     return []
@@ -95,11 +98,11 @@ const STATE_LABELS_ZH = {
 const MAX_EDITORIAL_WORDS = 250
 const MAX_PER_SECTION = 4
 
-const getRegion = cache(async function getRegion(slug) {
+async function fetchRegionRow(slug) {
   const sb = getSupabaseAdmin()
-  const { data } = await sb.from('regions').select('id, name, slug, state, description, long_description, generated_intro, center_lat, center_lng, map_zoom, listing_count').eq('slug', slug).single()
+  const { data } = await sb.from('regions').select('id, name, slug, state, status, description, long_description, generated_intro, center_lat, center_lng, map_zoom, listing_count').eq('slug', slug).single()
   return data
-})
+}
 
 async function getRegionNarrative(regionId) {
   if (!regionId) return null
@@ -111,7 +114,7 @@ async function getRegionNarrative(regionId) {
 async function getRegionListings(region, venueVerticals) {
   const sb = getSupabaseAdmin()
   const hasVerticals = await relationHasVerticals(sb, 'listings_with_region')
-  const select = `id, vertical, sub_type, source_id, name, slug, description, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website, presence_type, visitable, address_on_request, ${hasVerticals ? 'verticals, ' : ''}${LISTING_REGION_SELECT}`
+  const select = `id, vertical, sub_type, source_id, name, slug, description, region, suburb, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website, presence_type, visitable, address_on_request, ${hasVerticals ? 'verticals, ' : ''}${LISTING_REGION_SELECT}`
 
   // Override-wins resolution per docs/regions.md, via the
   // listings_with_region view (migration 125). region_id is
@@ -191,6 +194,37 @@ async function getWayInRegion(region, publicVerticals) {
   return { based, runs }
 }
 
+// One cached assembly per slug: region row + listings + narrative + Way.
+// The root layout reads auth cookies so this route always renders dynamically;
+// unstable_cache amortises the data work across requests (home-page pattern).
+// Locale overlays stay per-request, outside the cache.
+const getRegionBundleCached = unstable_cache(
+  async (slug) => {
+    const region = await fetchRegionRow(slug)
+    if (!region) return { region: null, listings: [], narrative: null, way: { based: [], runs: [] } }
+    const publicVerticals = getPublicVerticals()
+    const venueVerticals = publicVerticals.filter(v => v !== 'way')
+    const [listings, narrative, way] = await Promise.all([
+      getRegionListings(region, venueVerticals),
+      getRegionNarrative(region.id),
+      getWayInRegion(region, publicVerticals),
+    ])
+    return { region, listings, narrative, way }
+  },
+  ['region-bundle'],
+  { revalidate: 3600 }
+)
+
+// React-level memo so generateMetadata and the page share one bundle per request.
+const getRegionBundle = cache(async (slug) => {
+  try {
+    return await getRegionBundleCached(slug)
+  } catch {
+    // Cache/DB hiccup: fall back to the uncached assembly path failing soft.
+    return { region: null, listings: [], narrative: null, way: { based: [], runs: [] } }
+  }
+})
+
 function truncateEditorial(text) {
   if (!text) return null
   const words = text.split(/\s+/)
@@ -255,7 +289,8 @@ function WayExperienceCard({ listing, mode, t }) {
 export async function generateMetadata({ params }) {
   const { slug } = await params
   const locale = await getLocale()
-  let region = await getRegion(slug)
+  let { region } = await getRegionBundle(slug)
+  if (region?.status === 'archived') region = null
   if (!region) return { title: {
     en: 'Region not found',
     ko: '\uc9c0\uc5ed\uc744 \ucc3e\uc744 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4',
@@ -286,6 +321,9 @@ export async function generateMetadata({ params }) {
     alternates: {
       canonical: `https://australianatlas.com.au/regions/${slug}`,
     },
+    // Draft regions render for direct links but stay out of the index until
+    // they're promoted to live.
+    ...(region.status !== 'live' ? { robots: { index: false, follow: true } } : {}),
   }
 }
 
@@ -295,22 +333,35 @@ export default async function RegionPage({ params }) {
   const locale = await getLocale()
   // Vertical section headers/pills: Korean brand kicker on /ko, English fallback.
   const vLabel = (v) => localizeVerticalKicker(v, VERTICAL_LABELS[v] || v, locale)
-  let region = await getRegion(slug)
-  if (!region) notFound()
-  region = await overlayRegionTranslation(region, locale)
+  const bundle = await getRegionBundle(slug)
+  // Archived regions have been merged into a successor — they 404 rather
+  // than serving a stale duplicate.
+  if (!bundle.region || bundle.region.status === 'archived') notFound()
+  const region = await overlayRegionTranslation(bundle.region, locale)
 
-  const publicVerticals = getPublicVerticals()
-  const venueVerticals = publicVerticals.filter(v => v !== 'way')
-
-  const [listingsRaw, narrative, way] = await Promise.all([
-    getRegionListings(region, venueVerticals),
-    getRegionNarrative(region.id),
-    getWayInRegion(region, publicVerticals),
-  ])
-  const listings = await overlayListingTranslations(listingsRaw, locale)
-  const wayBased = await overlayListingTranslations(way.based, locale)
-  const wayRuns = await overlayListingTranslations(way.runs, locale)
+  const { narrative } = bundle
+  const venueVerticals = getPublicVerticals().filter(v => v !== 'way')
+  const listings = await overlayListingTranslations(bundle.listings, locale)
+  const wayBased = await overlayListingTranslations(bundle.way.based, locale)
+  const wayRuns = await overlayListingTranslations(bundle.way.runs, locale)
   const wayCount = wayBased.length + wayRuns.length
+
+  // Nearest live regions by centroid — cross-links that keep readers moving.
+  let nearby = []
+  try {
+    nearby = nearbyRegions(bundle.region, await getLiveRegionsCached())
+  } catch { /* section simply doesn't render */ }
+
+  // Towns & localities — real suburb values from this region's listings.
+  const townCounts = {}
+  for (const l of bundle.listings) {
+    const town = (l.suburb || '').trim()
+    if (!town || town.toLowerCase() === region.name.toLowerCase()) continue
+    townCounts[town] = (townCounts[town] || 0) + 1
+  }
+  const towns = Object.entries(townCounts)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 14)
 
   // Group by vertical
   const grouped = {}
@@ -334,7 +385,7 @@ export default async function RegionPage({ params }) {
     .filter(l => hasPreciseLocation(l))
     .map(l => ({
       id: l.id, lat: l.lat, lng: l.lng, name: l.name, vertical: l.vertical, slug: l.slug,
-      sub_type: l.sub_type, description: l.description, suburb: l.region, is_featured: l.is_featured,
+      sub_type: l.sub_type, description: l.description, suburb: l.suburb || l.region, is_featured: l.is_featured,
     }))
 
   // Quick-search suggestion chips seeded from the region's own active verticals.
@@ -367,6 +418,12 @@ export default async function RegionPage({ params }) {
           { name: region.name },
         ])) }}
       />
+      {listings.length > 0 && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(regionItemListJsonLd(region, listings)) }}
+        />
+      )}
 
       {/* ── 1. INTERACTIVE MAP HERO ────────────────────── */}
       <RegionMapHero
@@ -381,9 +438,13 @@ export default async function RegionPage({ params }) {
 
       <div style={{ maxWidth: '72rem', margin: '0 auto', padding: '0 1.5rem' }}>
 
-        {/* Breadcrumb */}
+        {/* Breadcrumb + full-map cross-link */}
         <nav
           style={{
+            display: 'flex',
+            alignItems: 'baseline',
+            justifyContent: 'space-between',
+            gap: '1rem',
             fontFamily: 'var(--font-body)',
             fontWeight: 300,
             fontSize: '12px',
@@ -391,9 +452,17 @@ export default async function RegionPage({ params }) {
             padding: '1.25rem 0',
           }}
         >
-          <Link href="/regions" style={{ color: 'var(--color-muted)', textDecoration: 'none' }}>{t('title')}</Link>
-          <span style={{ margin: '0 0.5rem' }}>/</span>
-          <span style={{ color: 'var(--color-ink)' }}>{region.name}</span>
+          <span>
+            <Link href="/regions" style={{ color: 'var(--color-muted)', textDecoration: 'none' }}>{t('title')}</Link>
+            <span style={{ margin: '0 0.5rem' }}>/</span>
+            <span style={{ color: 'var(--color-ink)' }}>{region.name}</span>
+          </span>
+          <a
+            href={`/map?region=${encodeURIComponent(region.name)}`}
+            style={{ color: 'var(--color-accent, #b8862b)', textDecoration: 'none', fontWeight: 500, whiteSpace: 'nowrap' }}
+          >
+            {t('viewOnAtlasMap')} &rarr;
+          </a>
         </nav>
 
         {/* ── 3. VERTICAL ANCHOR PILLS ──────────────────── */}
@@ -607,6 +676,37 @@ export default async function RegionPage({ params }) {
           </div>
         )}
 
+        {/* ── TOWNS & LOCALITIES — real suburbs from this region's listings ── */}
+        {towns.length >= 3 && (
+          <section style={{ paddingBottom: '2.75rem' }}>
+            <h2 style={{
+              fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
+              letterSpacing: '0.1em', textTransform: 'uppercase',
+              color: 'var(--color-muted)', margin: '0 0 0.8rem',
+            }}>
+              {t('townsTitle')}
+            </h2>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem' }}>
+              {towns.map(([town, count]) => (
+                <Link
+                  key={town}
+                  href={`/search?q=${encodeURIComponent(town)}&region=${encodeURIComponent(region.name)}`}
+                  style={{
+                    display: 'inline-flex', alignItems: 'baseline', gap: '0.4rem',
+                    padding: '0.35rem 0.8rem', borderRadius: '100px',
+                    border: '1px solid var(--color-border)',
+                    fontFamily: 'var(--font-body)', fontSize: '12.5px', fontWeight: 500,
+                    color: 'var(--color-ink)', textDecoration: 'none',
+                  }}
+                >
+                  {town}
+                  <span style={{ color: 'var(--color-muted)', fontWeight: 400, fontSize: '11px' }}>{count}</span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* ── HIGHLIGHTS: Best listings across all verticals ── */}
         {listings.length > 0 && (() => {
           const seen = new Set()
@@ -772,7 +872,7 @@ export default async function RegionPage({ params }) {
                             color: 'rgba(255,255,255,0.7)',
                             margin: '0 0 0.5rem',
                           }}>
-                            {[listing.region, listing.state].filter(Boolean).join(', ')}
+                            {[listing.suburb || listing.region, listing.state].filter(Boolean).join(', ')}
                           </p>
                           {desc && (
                             <p style={{
@@ -866,7 +966,7 @@ export default async function RegionPage({ params }) {
                             fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 400,
                             color: 'rgba(255,255,255,0.6)', margin: 0,
                           }}>
-                            {[listing.region, listing.state].filter(Boolean).join(', ')}
+                            {[listing.suburb || listing.region, listing.state].filter(Boolean).join(', ')}
                           </p>
                         </a>
                       )
@@ -964,6 +1064,67 @@ export default async function RegionPage({ params }) {
               {t('emptySub')}
             </p>
           </div>
+        )}
+
+        {/* ── NEARBY REGIONS — nearest live regions by centroid ── */}
+        {nearby.length > 0 && (
+          <section style={{ padding: '0.5rem 0 2rem' }}>
+            <h2 style={{
+              fontFamily: 'var(--font-display)', fontWeight: 400,
+              fontSize: '1.5rem', color: 'var(--color-ink)', margin: '0 0 0.25rem',
+            }}>
+              {t('nearbyTitle')}
+            </h2>
+            <p style={{
+              fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 300,
+              color: 'var(--color-muted)', margin: '0 0 1.25rem',
+            }}>
+              {t('nearbySub', { region: region.name })}
+            </p>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+              gap: '1rem',
+            }}>
+              {nearby.map(r => (
+                <Link
+                  key={r.id}
+                  href={`/regions/${r.slug}`}
+                  className="nearby-region-card"
+                  style={{
+                    display: 'block', padding: '1.125rem 1.25rem',
+                    borderRadius: '10px', border: '1px solid var(--color-border)',
+                    background: 'var(--color-surface, #faf6ee)',
+                    textDecoration: 'none',
+                    transition: 'border-color 0.15s',
+                  }}
+                >
+                  <span style={{
+                    fontFamily: 'var(--font-body)', fontSize: '9.5px', fontWeight: 500,
+                    letterSpacing: '0.12em', textTransform: 'uppercase',
+                    color: 'var(--color-muted)',
+                  }}>
+                    {STATE_LABELS[r.state] || r.state}
+                  </span>
+                  <h3 style={{
+                    fontFamily: 'var(--font-display)', fontWeight: 400,
+                    fontSize: '1.1rem', color: 'var(--color-ink)',
+                    margin: '0.3rem 0 0.35rem', lineHeight: 1.25,
+                  }}>
+                    {localizeRegionName(r.name, locale)}
+                  </h3>
+                  <p style={{
+                    fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 400,
+                    color: 'var(--color-muted)', margin: 0,
+                  }}>
+                    {t('placeCount', { count: r.listing_count || 0 })}
+                    {' · '}
+                    {t('kmAway', { km: Math.max(5, Math.round(r.distance_km / 5) * 5) })}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          </section>
         )}
 
         {/* ── 5. TRAIL PROMPT ──────────────────────────── */}

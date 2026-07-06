@@ -591,7 +591,14 @@
     "departsFrom": "从 {point} 出发",
     "basedHere": "位于此地",
     "emptyTitle": "该地区尚未同步任何列表。",
-    "emptySub": "下次同步完成后，列表将在此显示。"
+    "emptySub": "下次同步完成后，列表将在此显示。",
+    "indexStats": "{regions, plural, other {#个地区}} · {places, plural, other {#个独立好去处}}",
+    "stateNavAria": "按州跳转",
+    "townsTitle": "城镇与地方",
+    "nearbyTitle": "附近地区",
+    "nearbySub": "继续探索{region}之外的去处",
+    "kmAway": "距此约 {km} 公里",
+    "viewOnAtlasMap": "在阿特拉斯地图上查看"
   },
   "discover": {
     "kicker": "发现",

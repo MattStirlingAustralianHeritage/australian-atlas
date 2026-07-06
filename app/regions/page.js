@@ -1,5 +1,5 @@
-import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getTranslations, getLocale } from 'next-intl/server'
+import { getLiveRegionsCached } from '@/lib/regions/liveRegions'
 import RegionMapCard from '@/components/RegionMapCard'
 
 export const revalidate = 3600
@@ -35,13 +35,7 @@ export async function generateMetadata() {
 
 async function getRegions() {
   try {
-    const sb = getSupabaseAdmin()
-    const { data } = await sb
-      .from('regions')
-      .select('id, name, slug, state, listing_count, center_lat, center_lng, map_zoom')
-      .order('state')
-      .order('name')
-    return data || []
+    return await getLiveRegionsCached()
   } catch {
     return []
   }
@@ -57,6 +51,8 @@ export default async function RegionsPage() {
     if (!byState[r.state]) byState[r.state] = []
     byState[r.state].push(r)
   }
+  const presentStates = STATE_ORDER.filter(s => byState[s])
+  const totalPlaces = regions.reduce((sum, r) => sum + (r.listing_count || 0), 0)
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--color-bg)' }}>
@@ -66,16 +62,92 @@ export default async function RegionsPage() {
           <p className="section-dateline">{t('kicker')}</p>
           <h1 className="masthead-title">{t('title')}</h1>
           <p className="masthead-sub">{t('subtitle')}</p>
+          {regions.length > 0 && (
+            <p
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 400,
+                fontSize: '13px',
+                color: 'var(--color-muted)',
+                margin: '0.75rem 0 0',
+              }}
+            >
+              {t('indexStats', { regions: regions.length, places: totalPlaces })}
+            </p>
+          )}
         </div>
       </div>
 
+      {/* State jump nav */}
+      {presentStates.length > 1 && (
+        <nav
+          aria-label={t('stateNavAria')}
+          style={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 20,
+            background: 'color-mix(in srgb, var(--color-bg) 88%, transparent)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            borderBottom: '1px solid var(--color-border)',
+            marginTop: '1.75rem',
+          }}
+        >
+          <div
+            className="regions-state-nav"
+            style={{
+              maxWidth: '72rem',
+              margin: '0 auto',
+              padding: '0.6rem 1.5rem',
+              display: 'flex',
+              gap: '0.4rem',
+              overflowX: 'auto',
+              WebkitOverflowScrolling: 'touch',
+            }}
+          >
+            {presentStates.map(state => (
+              <a
+                key={state}
+                href={`#state-${state.toLowerCase()}`}
+                style={{
+                  flexShrink: 0,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  padding: '0.35rem 0.8rem',
+                  borderRadius: '100px',
+                  border: '1px solid var(--color-border)',
+                  fontFamily: 'var(--font-body)',
+                  fontSize: '12.5px',
+                  fontWeight: 500,
+                  color: 'var(--color-ink)',
+                  textDecoration: 'none',
+                  background: 'transparent',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {STATE_LABELS[state]}
+                <span style={{ color: 'var(--color-muted)', fontWeight: 400 }}>
+                  {byState[state].length}
+                </span>
+              </a>
+            ))}
+          </div>
+        </nav>
+      )}
+
       {/* Region grid grouped by state */}
       <div style={{ maxWidth: '72rem', margin: '0 auto', padding: '2.5rem 1.5rem 4rem' }}>
-        {STATE_ORDER.filter(s => byState[s]).map(state => {
+        {presentStates.map(state => {
           const stateRegions = byState[state]
           const isOrphan = stateRegions.length % 3 === 1
+          const statePlaces = stateRegions.reduce((sum, r) => sum + (r.listing_count || 0), 0)
           return (
-            <section key={state} style={{ marginBottom: '3rem' }}>
+            <section
+              key={state}
+              id={`state-${state.toLowerCase()}`}
+              style={{ marginBottom: '3rem', scrollMarginTop: '4.5rem' }}
+            >
               {/* State header */}
               <div
                 style={{
@@ -107,6 +179,8 @@ export default async function RegionsPage() {
                   }}
                 >
                   {t('regionCount', { count: stateRegions.length })}
+                  {' · '}
+                  {t('placeCount', { count: statePlaces })}
                 </span>
               </div>
 
@@ -137,6 +211,15 @@ export default async function RegionsPage() {
         .region-map-card:hover {
           transform: scale(1.02);
           border-color: rgba(184, 134, 43, 0.4) !important;
+        }
+        .regions-state-nav {
+          scrollbar-width: none;
+        }
+        .regions-state-nav::-webkit-scrollbar {
+          display: none;
+        }
+        .regions-state-nav a:hover {
+          border-color: rgba(184, 134, 43, 0.5);
         }
         @media (max-width: 768px) {
           .regions-grid {

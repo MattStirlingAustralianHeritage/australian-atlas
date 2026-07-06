@@ -591,7 +591,14 @@
     "departsFrom": "{point}에서 출발",
     "basedHere": "이곳에 위치",
     "emptyTitle": "이 지역에 동기화된 목록이 아직 없습니다.",
-    "emptySub": "다음 동기화가 완료되면 목록이 여기에 나타납니다."
+    "emptySub": "다음 동기화가 완료되면 목록이 여기에 나타납니다.",
+    "indexStats": "{regions, plural, other {지역 #곳}} · {places, plural, other {독립 장소 #곳}}",
+    "stateNavAria": "주별로 이동",
+    "townsTitle": "마을 · 동네",
+    "nearbyTitle": "주변 지역",
+    "nearbySub": "{region} 너머로 계속 둘러보세요",
+    "kmAway": "약 {km}km 거리",
+    "viewOnAtlasMap": "아틀라스 지도에서 보기"
   },
   "discover": {
     "kicker": "발견",

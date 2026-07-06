@@ -591,7 +591,14 @@
     "departsFrom": "Departs {point}",
     "basedHere": "Based here",
     "emptyTitle": "No listings synced for this region yet.",
-    "emptySub": "Listings will appear here once the next sync completes."
+    "emptySub": "Listings will appear here once the next sync completes.",
+    "indexStats": "{regions, plural, one {# region} other {# regions}} · {places, plural, one {# independent place} other {# independent places}}",
+    "stateNavAria": "Jump to state",
+    "townsTitle": "Towns & localities",
+    "nearbyTitle": "Nearby regions",
+    "nearbySub": "Keep exploring beyond {region}",
+    "kmAway": "≈ {km} km away",
+    "viewOnAtlasMap": "View on the Atlas map"
   },
   "discover": {
     "kicker": "Discover",
