@@ -306,10 +306,11 @@ function SearchEventCard({ event }) {
   )
 }
 
-// Enlarged "top result" card — a taller visual header plus a detail panel with
-// category, location, the venue address, and a description excerpt.
+// Enlarged lead card — a taller visual header plus a detail panel with
+// category, location, the venue address, and a description excerpt. The band
+// above it carries ONE quiet kicker; the cards themselves stay unbadged
+// (three per-card "TOP RESULT" stamps read as advertising, not guidance).
 function FeaturedCard({ listing, query, onClick, onHover, active }) {
-  const t = useTranslations('search')
   const region = getListingRegion(listing)
   const tokens = VERTICAL_TOKENS[listing.vertical] || VERTICAL_TOKENS.portal
   const hasImg = listing.hero_image_url && isApprovedImageSource(listing.hero_image_url)
@@ -343,20 +344,6 @@ function FeaturedCard({ listing, query, onClick, onHover, active }) {
           <TypographicCard name={listing.name} vertical={listing.vertical} category={listing.sub_type}
             region={region?.name} state={listing.state} aspectRatio="4/3" showVerticalTag={true} />
         )}
-        <span style={{
-          position: 'absolute', top: 12, left: 12, zIndex: 3,
-          display: 'inline-flex', alignItems: 'center', gap: 5,
-          fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 600,
-          letterSpacing: '0.1em', textTransform: 'uppercase',
-          padding: '4px 11px', borderRadius: 100,
-          color: 'var(--color-gold)', background: 'rgba(26,24,21,0.88)',
-          backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
-        }}>
-          <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M12 0l2.6 9.4L24 12l-9.4 2.6L12 24l-2.6-9.4L0 12l9.4-2.6L12 0z" />
-          </svg>
-          {t('topResult')}
-        </span>
       </div>
 
       <div style={{ padding: '1.15rem 1.3rem 1.3rem' }}>
@@ -751,6 +738,11 @@ function SearchPageInner() {
   // per-result reasons. Its render bypasses the featured/facet/view machinery
   // in favour of the answer panel and reason-annotated cards.
   const askMode = !!askAnswer
+
+  // The assistant panel hosts the concierge brief when both would show — one
+  // panel, one voice. The standalone brief panel only renders when the
+  // assistant isn't on the page (small result sets, no real query).
+  const assistantVisible = !askMode && !initialLoad && query.trim().length >= 3 && results.length >= 5
 
   // Distance + client-side sort. When the query resolved to a place (town/
   // suburb), distances are measured FROM that place — "how far from Apollo Bay"
@@ -1265,8 +1257,9 @@ function SearchPageInner() {
 
       {/* Concierge brief — once a keyword search settles, a short grounded
           write-up of what came back frames the results (rendered only when an
-          answer actually arrived; the whole lane is fail-open). */}
-      {!askMode && brief && brief.answer && (
+          answer actually arrived; the whole lane is fail-open). When the
+          assistant is on the page the brief renders inside ITS panel instead. */}
+      {!askMode && brief && brief.answer && !assistantVisible && (
         <div
           className="mt-6"
           style={{
@@ -1431,13 +1424,15 @@ function SearchPageInner() {
       {/* Optional assistant — a lookup that returned a real set of places gets
           an offer to whittle them down ("museums in hobart" → a few grounded
           ideas). Keyed by query+filters so a new search starts a fresh offer;
-          never shown in concierge mode, which already answers in prose. */}
-      {!askMode && !initialLoad && query.trim().length >= 3 && results.length >= 5 && (
+          never shown in concierge mode, which already answers in prose. The
+          concierge brief (when it lands) renders inside this panel as `intro`. */}
+      {assistantVisible && (
         <SearchAssistant
           key={`${query}|${vertical}|${state}`}
           query={query}
           listings={results}
           placeLabel={autoRegion?.name || detectedPlace?.label || region || facetRegion || state || autoState || null}
+          intro={brief?.answer || null}
           dimmed={loading}
           onTrackClick={trackSearchClick}
         />
@@ -1610,21 +1605,28 @@ function SearchPageInner() {
       ) : (
         /* ── Grid view (default) ── */
         <>
-          {/* Enlarged top-3 — only results that clear the calibrated relevance floor earn it */}
+          {/* Enlarged lead band — only results that clear the calibrated
+              relevance floor earn it. One quiet kicker frames the whole band;
+              the cards themselves carry no badges. */}
           {featured.length > 0 && (
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-5" style={{ opacity: loading ? 0.5 : 1, transition: 'opacity 0.15s', pointerEvents: loading ? 'none' : 'auto' }}>
-              {featured.map((listing, idx) => (
-                <div key={listing.id}>
-                  <FeaturedCard
-                    listing={listing}
-                    query={query}
-                    active={hoveredId === listing.id}
-                    onHover={setHoveredId}
-                    onClick={query ? () => trackSearchClick(listing, idx + 1) : undefined}
-                  />
-                  {brief?.reasonById?.[listing.id] && <ReasonLine text={brief.reasonById[listing.id]} />}
-                </div>
-              ))}
+            <div className="mt-5" style={{ opacity: loading ? 0.5 : 1, transition: 'opacity 0.15s', pointerEvents: loading ? 'none' : 'auto' }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--color-gold)', margin: '0 0 10px' }}>
+                {t('featuredKicker')}
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {featured.map((listing, idx) => (
+                  <div key={listing.id}>
+                    <FeaturedCard
+                      listing={listing}
+                      query={query}
+                      active={hoveredId === listing.id}
+                      onHover={setHoveredId}
+                      onClick={query ? () => trackSearchClick(listing, idx + 1) : undefined}
+                    />
+                    {brief?.reasonById?.[listing.id] && <ReasonLine text={brief.reasonById[listing.id]} />}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
           {/* Nothing cleared the floor (e.g. a nonsense query): no confident

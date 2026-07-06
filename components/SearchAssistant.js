@@ -17,6 +17,10 @@ import ListingCard from '@/components/ListingCard'
 // Deliberately additive: the full results always remain below, dismissing it
 // costs nothing, and it never renders in concierge (inquiry) mode where the
 // answer panel already does this job.
+//
+// When the post-search concierge brief lands (`intro`), it renders INSIDE this
+// panel — one gold-edged voice reading the results and offering to help, not
+// two stacked AI panels talking over each other.
 // ============================================================
 
 const star = (size, color) => (
@@ -25,7 +29,7 @@ const star = (size, color) => (
   </svg>
 )
 
-export default function SearchAssistant({ query, listings, placeLabel, dimmed, onTrackClick }) {
+export default function SearchAssistant({ query, listings, placeLabel, intro, dimmed, onTrackClick }) {
   const t = useTranslations('search')
   const locale = useLocale()
   const [dismissed, setDismissed] = useState(false)
@@ -122,7 +126,7 @@ export default function SearchAssistant({ query, listings, placeLabel, dimmed, o
     <div
       className="mt-5"
       style={{
-        padding: open ? '1.15rem 1.3rem 1.25rem' : '0.8rem 1.3rem',
+        padding: open || intro ? '1.15rem 1.3rem 1.25rem' : '0.8rem 1.3rem',
         borderRadius: '1rem',
         background: 'var(--color-cream)',
         border: '1px solid var(--color-border)',
@@ -138,10 +142,10 @@ export default function SearchAssistant({ query, listings, placeLabel, dimmed, o
         <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--color-gold)' }}>
           {t('assistLabel')}
         </span>
-        {!open && (
+        {!open && !intro && (
           <>
             <span className="hidden sm:inline" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 13.5, color: 'var(--color-ink)' }}>
-              {t('assistOfferBody', { count: listings.length })}
+              {t('assistOfferBody')}
             </span>
             <button type="button" onClick={engage} style={{ ...chip, background: 'var(--color-ink)', color: '#fff', border: '1px solid var(--color-ink)' }}>
               {t('assistOfferCta')}
@@ -151,10 +155,25 @@ export default function SearchAssistant({ query, listings, placeLabel, dimmed, o
         {dismissBtn}
       </div>
       {/* Small screens get the offer line under the label row */}
-      {!open && (
+      {!open && !intro && (
         <p className="sm:hidden" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 13, color: 'var(--color-ink)', margin: '7px 0 0' }}>
-          {t('assistOfferBody', { count: listings.length })}
+          {t('assistOfferBody')}
         </p>
+      )}
+
+      {/* Concierge note about THESE results, with the offer sitting quietly
+          beneath it — one panel, one voice. Engaging swaps to the live view. */}
+      {!open && intro && (
+        <div style={{ animation: 'search-card-in 0.35s ease both' }}>
+          <p style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 'clamp(1rem, 2.2vw, 1.2rem)', lineHeight: 1.5, color: 'var(--color-ink)', margin: '9px 0 0' }}>
+            {intro}
+          </p>
+          <div style={{ marginTop: 12 }}>
+            <button type="button" onClick={engage} style={{ ...chip, background: 'var(--color-ink)', color: '#fff', border: '1px solid var(--color-ink)' }}>
+              {t('assistOfferCta')}
+            </button>
+          </div>
+        </div>
       )}
 
       {open && (

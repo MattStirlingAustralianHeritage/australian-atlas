@@ -138,8 +138,12 @@ function buildFacets(rows, leadVertical) {
   const counts = new Map()
   const subTypeVertical = new Map()   // sub_type → owning vertical (prefer the lead)
   const regionCounts = new Map()      // region name → count (geographic drill-down)
+  // Some listings carry a street address in `region` ("166 Balnarring Rd,
+  // Merricks North,"). A digit or comma never appears in a real region name,
+  // so those rows are excluded from the facet (never offered as a "region").
+  const looksLikeRegion = (v) => !/[\d,]/.test(v)
   for (const r of rows) {
-    if (r.region) regionCounts.set(r.region, (regionCounts.get(r.region) || 0) + 1)
+    if (r.region && looksLikeRegion(r.region)) regionCounts.set(r.region, (regionCounts.get(r.region) || 0) + 1)
     if (!r.sub_type) continue
     counts.set(r.sub_type, (counts.get(r.sub_type) || 0) + 1)
     if (!subTypeVertical.has(r.sub_type) || r.vertical === leadVertical) {

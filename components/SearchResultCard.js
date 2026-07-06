@@ -21,9 +21,23 @@ import { localizeVerticalKicker, localizeSubcategory } from '@/lib/i18n/listingL
 //   compact — tight row for the map split-view column
 // ============================================================
 
+// Words that match text without carrying the query's meaning — connectors,
+// framing verbs, superlatives. Bolding "that" or "best" through every snippet
+// reads as noise, so they neither highlight nor steer the snippet window.
+const STOP_TERMS = new Set([
+  'the', 'and', 'that', 'this', 'with', 'for', 'from', 'was', 'were', 'are',
+  'has', 'had', 'have', 'but', 'not', 'all', 'any', 'its', 'you', 'your',
+  'our', 'out', 'who', 'what', 'when', 'where', 'which', 'how', 'into',
+  'near', 'around', 'some', 'something', 'somewhere', 'place', 'places',
+  'best', 'good', 'great', 'top', 'find', 'looking',
+  'specialise', 'specialises', 'specialising',
+  'specialize', 'specializes', 'specializing',
+])
+
 // Significant query terms (drop short/stop-ish words) for snippet matching.
 export function queryTerms(q) {
   return [...new Set((q || '').toLowerCase().match(/[a-z0-9]{3,}/g) || [])]
+    .filter((t) => !STOP_TERMS.has(t))
 }
 
 // Build a description excerpt CENTRED on the first matching query term, so a
