@@ -1,6 +1,7 @@
 import LocalizedLink from '@/components/LocalizedLink'
 import { unstable_cache } from 'next/cache'
 import { getTranslations, getLocale } from 'next-intl/server'
+import { localizePath, PREFIXED_LOCALES } from '@/lib/i18n/config'
 import { overlayListingTranslations } from '@/lib/i18n/overlayListings'
 import { localizeVerticalKicker } from '@/lib/i18n/listingLabels'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
@@ -17,6 +18,19 @@ import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalF
 import { Coffee, Wine, UtensilsCrossed, BedDouble, Mountain, Compass, Hammer, Landmark, ShoppingBag, Clock } from 'lucide-react'
 
 export const revalidate = 1800
+
+// Home canonical: locale-aware self-canonical plus hreflang alternates, matching
+// the /place/[slug] convention (middleware Link headers cover the rest of the site).
+export async function generateMetadata() {
+  const locale = await getLocale()
+  const base = 'https://www.australianatlas.com.au'
+  const languages = { en: `${base}${localizePath('/', 'en')}` }
+  for (const loc of PREFIXED_LOCALES) languages[loc] = `${base}${localizePath('/', loc)}`
+  languages['x-default'] = `${base}${localizePath('/', 'en')}`
+  return {
+    alternates: { canonical: `${base}${localizePath('/', locale)}`, languages },
+  }
+}
 
 const GOLD = 'var(--color-gold)'
 
