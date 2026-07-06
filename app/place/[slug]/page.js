@@ -40,7 +40,8 @@ import OpeningHours from '@/components/OpeningHours'
 import PlaceMemories from '@/components/PlaceMemories'
 import ProducerPicks from '@/components/ProducerPicks'
 import VerificationBadge from '@/components/VerificationBadge'
-import GalleryLightbox from '@/components/GalleryLightbox'
+import PlacePhotoHero from '@/components/place/PlacePhotoHero'
+import PlacePhotoLibrary from '@/components/place/PlacePhotoLibrary'
 import OperatorTrailSection from '@/components/OperatorTrailSection'
 import { readOperatorTrailForListing } from '@/lib/trails/operatorTrail'
 
@@ -768,24 +769,28 @@ export default async function PlacePage({ params }) {
   // absent or unpublished. Surfaces here only; never on region cards / discovery.
   const operatorTrail = await readOperatorTrailForListing(sbMem, listing.id)
 
+  // Paid = a live standard claim on listing_claims (the canonical signal —
+  // listings.is_claimed can lag behind it, so it is never used for perk gates).
+  const isPaid = paidCuratorSet.has(listing.id)
+
   // Photo gallery — a paid perk, stored as a master-only storage manifest. Only
   // surfaced for paid (active standard) listings; each URL is host-validated.
-  const galleryUrls = paidCuratorSet.has(listing.id)
+  const galleryUrls = isPaid
     ? (await readGallery(sbMem, listing.id)).filter(isApprovedImageSource)
     : []
 
   // Current offers + Recognition — operator-authored paid perks (migration
   // 208). Rendered only while the listing is paid, so a lapsed subscription
   // fails safe: stale offers vanish rather than lingering on the page.
-  const currentOffers = paidCuratorSet.has(listing.id) ? offersRaw : []
-  const recognition = paidCuratorSet.has(listing.id) ? awardsRaw : []
+  const currentOffers = isPaid ? offersRaw : []
+  const recognition = isPaid ? awardsRaw : []
   // Published Q&A (migration 209) — operator-attributed, paid-gated like the
   // blocks above. Also emitted as FAQPage JSON-LD below.
-  const qna = paidCuratorSet.has(listing.id) ? qnaRaw : []
+  const qna = isPaid ? qnaRaw : []
   // Approved operator story (migration 210) — paid-gated; a 'live' row only
   // exists after the operator approved it, but gate on paid too so it fails
   // safe if a subscription lapses.
-  const operatorStory = paidCuratorSet.has(listing.id) ? operatorStoryRaw : null
+  const operatorStory = isPaid ? operatorStoryRaw : null
 
   // Effective region via the FK helper. Returns canonical { id, slug, name, state }
   // from regions table, or null when both region_computed_id and region_override_id
@@ -863,14 +868,29 @@ export default async function PlacePage({ params }) {
   const highlightUrlFields = filledHighlightFields.filter(f => f.type === 'url')
   const hiring = hiringIsActive(highlights) ? highlights.hiring : null
 
+  // ── Claimed photo hero — the paid page's photo library promoted to the top.
+  // heroPhotos = the displayable hero + the (already clean-moderated, host-
+  // approved) gallery, de-duplicated. With 2+ photos the photo-first hero
+  // renders: a desktop mosaic and a swipeable mobile carousel. Anything less
+  // falls back to the standard single-image hero / typographic card, so an
+  // unclaimed page is byte-identical to before.
+  const heroDisplayable = isApprovedImageSource(listing.hero_image_url) && isHeroDisplayable(listing)
+  const heroPhotos = isPaid
+    ? [
+        ...(heroDisplayable ? [listing.hero_image_url] : []),
+        ...galleryUrls.filter(u => u !== listing.hero_image_url),
+      ]
+    : []
+
   return (
     <div className="min-h-screen" style={{ background: 'var(--color-bg)' }}>
 
       {/* ── Structured data ───────────────────────────────── */}
-      {/* LocalBusiness enriched with live operator offers (makesOffer). */}
+      {/* LocalBusiness enriched with live operator offers (makesOffer) and the
+          operator's clean-moderated photo library (image array). */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(listingJsonLd(listing, { offers: currentOffers })) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(listingJsonLd(listing, { offers: currentOffers, galleryImages: galleryUrls })) }}
       />
       <script
         type="application/ld+json"
@@ -894,7 +914,15 @@ export default async function PlacePage({ params }) {
       {/* .atlas-hero-band height tiers live in app/globals.css */}
       {/* Moderation gate: a flagged/held operator upload falls back to the
           typographic hero card. Grandfathered + clean images render as before. */}
-      {isApprovedImageSource(listing.hero_image_url) && isHeroDisplayable(listing) ? (
+      {heroPhotos.length >= 2 ? (
+        <PlacePhotoHero
+          photos={heroPhotos}
+          name={listing.name}
+          nameKo={listing.name_ko}
+          overline={`${vertLabel} · ${categoryLabel}`}
+          location={location}
+        />
+      ) : heroDisplayable ? (
         <div className="atlas-hero-band w-full relative overflow-hidden">
           <OptimizedImage
             src={listing.hero_image_url}
@@ -953,6 +981,30 @@ export default async function PlacePage({ params }) {
           showVerticalTag
           locale={locale}
         />
+      )}
+
+      {/* ── Operator provenance ribbon — the claimed page's quiet marker.
+          The same gold wash the operator-voice panels use, run full-width
+          under the hero: this page is kept by the people who run the place.
+          Paid-gated (same live-claim signal as every other perk). ── */}
+      {isPaid && (
+        <div style={{ background: 'rgba(196, 151, 59, 0.10)', borderBottom: '1px solid var(--color-border)' }}>
+          <div className="max-w-4xl mx-auto px-6 sm:px-8 py-3 flex items-center gap-3">
+            <span
+              aria-hidden="true"
+              className="flex items-center justify-center flex-shrink-0"
+              style={{ width: 22, height: 22, borderRadius: '50%', background: 'var(--color-gold)', color: '#fff' }}
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden="true">
+                <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: '13px', color: 'var(--color-ink)', margin: 0, lineHeight: 1.5 }}>
+              <span style={{ fontWeight: 600 }}>{t('maintainedByOperator')}</span>
+              <span style={{ color: 'var(--color-muted)' }}> &middot; {t('maintainedDetail', { name: listing.name })}</span>
+            </p>
+          </div>
+        </div>
       )}
 
       {/* ── Content ───────────────────────────────────────── */}
@@ -1379,14 +1431,21 @@ export default async function PlacePage({ params }) {
           </section>
         )}
 
-        {/* ── Photo gallery — paid perk, operator-uploaded. Renders only when
-            the listing is paid and has photos (see galleryUrls above). ── */}
+        {/* ── Photo library — paid perk, operator-uploaded. Renders only when
+            the listing is paid and has photos (see galleryUrls above). The
+            hero mosaic above previews the first photos; this is the full,
+            attributed set. ── */}
         {galleryUrls.length > 0 && (
-          <section className="mb-12">
-            <h2 className="mb-4" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)' }}>
-              {t('gallery')}
-            </h2>
-            <GalleryLightbox images={galleryUrls} name={listing.name} />
+          <section className="mb-12" aria-labelledby="photo-library-heading">
+            <div className="mb-4">
+              <h2 id="photo-library-heading" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)', margin: 0 }}>
+                {t('photoLibrary')}
+              </h2>
+              <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: '15px', color: 'var(--color-muted)', margin: '4px 0 0' }}>
+                {t('photosSuppliedBy', { name: listing.name })}
+              </p>
+            </div>
+            <PlacePhotoLibrary images={galleryUrls} name={listing.name} />
           </section>
         )}
 
@@ -1673,8 +1732,10 @@ export default async function PlacePage({ params }) {
             to the platform, functionally irrelevant to the user, so it sits
             after the discovery content rather than between primary and
             discovery sections. National parks are public land with no operator
-            to claim, so the CTA is suppressed for them. */}
-        {!listing.is_claimed && !isNationalPark && (
+            to claim, so the CTA is suppressed for them. Also suppressed for
+            paid listings: listings.is_claimed can lag behind listing_claims,
+            and a paying operator must never be asked to claim their own page. */}
+        {!listing.is_claimed && !isPaid && !isNationalPark && (
           <div className="mt-12" style={{
             background: '#F5F0E8', margin: '3rem -1.5rem 0', padding: '3rem 2rem',
             textAlign: 'center',

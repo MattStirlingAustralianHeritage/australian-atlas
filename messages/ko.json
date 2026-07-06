@@ -216,7 +216,11 @@
     "errorTitle": "문제가 발생했습니다",
     "errorBody": "이 목록을 로드할 수 없습니다. 다시 시도해주세요.",
     "tryAgain": "다시 시도",
-    "backToMap": "지도로 돌아가기"
+    "backToMap": "지도로 돌아가기",
+    "photoLibrary": "포토 라이브러리",
+    "photosSuppliedBy": "{name}에서 제공한 사진입니다.",
+    "maintainedByOperator": "운영자가 직접 관리하는 페이지",
+    "maintainedDetail": "이 페이지의 사진과 정보는 {name}에서 직접 제공했습니다"
   },
   "search": {
     "title": "검색",
@@ -402,7 +406,8 @@
     "emerging": "신흥",
     "geoBody": "검증된 엔티티 데이터와 교차 수직 연결을 통해 이 목록은 여행 질문에 답할 때 ChatGPT 및 Google AI Overview와 같은 AI 도구에서 인용할 수 있습니다.",
     "learnMoreCouncils": "지방 자치 단체를 위한 검색 인프라에 대해 자세히 알아보기",
-    "yourRegion": "지역"
+    "yourRegion": "지역",
+    "viewAllPhotos": "사진 {count}장 모두 보기"
   },
   "actions": {
     "save": "저장",

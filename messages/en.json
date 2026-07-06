@@ -216,7 +216,11 @@
     "errorTitle": "Something went wrong",
     "errorBody": "We couldn’t load this listing. Please try again.",
     "tryAgain": "Try again",
-    "backToMap": "Back to map"
+    "backToMap": "Back to map",
+    "photoLibrary": "Photo library",
+    "photosSuppliedBy": "Photographs supplied by {name}.",
+    "maintainedByOperator": "Maintained by the operator",
+    "maintainedDetail": "Photos and details on this page are supplied by {name}"
   },
   "search": {
     "title": "Search",
@@ -402,7 +406,8 @@
     "emerging": "Emerging",
     "geoBody": "Verified entity data and cross-vertical linking make this listing citable by AI tools like ChatGPT and Google AI Overviews when answering travel questions.",
     "learnMoreCouncils": "Learn more about discovery infrastructure for councils",
-    "yourRegion": "your region"
+    "yourRegion": "your region",
+    "viewAllPhotos": "View all {count} photos"
   },
   "actions": {
     "save": "Save",

@@ -216,7 +216,11 @@
     "errorTitle": "出错了",
     "errorBody": "我们无法加载此列表。请重试。",
     "tryAgain": "重试",
-    "backToMap": "返回地图"
+    "backToMap": "返回地图",
+    "photoLibrary": "照片集",
+    "photosSuppliedBy": "照片由 {name} 提供。",
+    "maintainedByOperator": "由经营者亲自维护",
+    "maintainedDetail": "本页照片与信息由 {name} 提供"
   },
   "search": {
     "title": "搜索",
@@ -402,7 +406,8 @@
     "emerging": "新兴",
     "geoBody": "经过验证的实体数据和跨垂直链接使此列表可被 ChatGPT 和 Google AI Overviews 等人工智能工具在回答旅游问题时引用。",
     "learnMoreCouncils": "了解更多关于议会发现基础设施的信息",
-    "yourRegion": "您的地区"
+    "yourRegion": "您的地区",
+    "viewAllPhotos": "查看全部 {count} 张照片"
   },
   "actions": {
     "save": "保存",
