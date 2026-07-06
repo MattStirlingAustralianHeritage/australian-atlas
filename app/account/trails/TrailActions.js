@@ -22,7 +22,7 @@ export default function TrailActions({ trailId, shortCode, slug, visibility, onD
   const [currentVisibility, setCurrentVisibility] = useState(visibility)
   const [updatingVisibility, setUpdatingVisibility] = useState(false)
 
-  const shareUrl = `https://australianatlas.com.au/t/${shortCode}`
+  const shareUrl = `https://www.australianatlas.com.au/t/${shortCode}`
   // Public trails have a canonical slug page; link-only trails are served by
   // the capability URL; private trails are only viewable inside the builder.
   const viewHref = currentVisibilityHref(visibility, slug, shortCode, trailId)

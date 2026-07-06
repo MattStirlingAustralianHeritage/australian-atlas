@@ -313,13 +313,13 @@ export async function generateMetadata({ params }) {
     openGraph: {
       title,
       description,
-      url: `https://australianatlas.com.au/regions/${slug}`,
+      url: `https://www.australianatlas.com.au/regions/${slug}`,
       siteName: 'Australian Atlas',
       locale: ogLocale(locale),
       type: 'website',
     },
     alternates: {
-      canonical: `https://australianatlas.com.au/regions/${slug}`,
+      canonical: `https://www.australianatlas.com.au/regions/${slug}`,
     },
     // Draft regions render for direct links but stay out of the index until
     // they're promoted to live.

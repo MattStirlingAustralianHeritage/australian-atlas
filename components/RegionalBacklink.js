@@ -65,7 +65,7 @@ export default function RegionalBacklink({ regionName, regionSlug, regionDescrip
         )}
 
         <a
-          href={`https://australianatlas.com.au/regions/${regionSlug}`}
+          href={`https://www.australianatlas.com.au/regions/${regionSlug}`}
           target="_blank"
           rel="noopener noreferrer"
           style={{

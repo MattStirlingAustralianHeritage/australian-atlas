@@ -60,13 +60,13 @@ export async function generateMetadata({ params }) {
       openGraph: {
         title,
         description: intro,
-        url: `https://australianatlas.com.au/trip/${slug}`,
+        url: `https://www.australianatlas.com.au/trip/${slug}`,
         siteName: 'Australian Atlas',
         locale: 'en_AU',
         type: 'article',
       },
       alternates: {
-        canonical: `https://australianatlas.com.au/trip/${slug}`,
+        canonical: `https://www.australianatlas.com.au/trip/${slug}`,
       },
     }
   }
@@ -81,13 +81,13 @@ export async function generateMetadata({ params }) {
     openGraph: {
       title: trip.title,
       description,
-      url: `https://australianatlas.com.au/trip/${slug}`,
+      url: `https://www.australianatlas.com.au/trip/${slug}`,
       siteName: 'Australian Atlas',
       locale: 'en_AU',
       type: 'article',
     },
     alternates: {
-      canonical: `https://australianatlas.com.au/trip/${slug}`,
+      canonical: `https://www.australianatlas.com.au/trip/${slug}`,
     },
   }
 }

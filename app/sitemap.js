@@ -3,7 +3,7 @@ import { localizePath, splitLocale, PREFIXED_LOCALES } from '@/lib/i18n/config'
 
 export const revalidate = 3600
 
-const SITE_URL = 'https://australianatlas.com.au'
+const SITE_URL = 'https://www.australianatlas.com.au'
 const PAGE_SIZE = 1000
 
 // Attach hreflang alternates to a sitemap entry. Every English URL gains a

@@ -28,7 +28,7 @@ async function sendReportEmail({ listing, reportType, details, contactEmail }) {
 
   const label = REPORT_LABELS[reportType] || reportType
   const isDeletion = reportType === 'request_deletion'
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://australianatlas.com.au'
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.australianatlas.com.au'
   const placeUrl = listing.slug ? `${baseUrl}/place/${listing.slug}` : null
   const subject = isDeletion
     ? `Deletion request: ${listing.name || 'a listing'}`

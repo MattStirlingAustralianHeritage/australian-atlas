@@ -2,7 +2,7 @@ import PlanChat from './PlanChat'
 import { getLocale } from 'next-intl/server'
 import { ogLocale } from '@/lib/i18n/config'
 
-const SITE_URL = 'https://australianatlas.com.au'
+const SITE_URL = 'https://www.australianatlas.com.au'
 
 export async function generateMetadata() {
   const locale = await getLocale()

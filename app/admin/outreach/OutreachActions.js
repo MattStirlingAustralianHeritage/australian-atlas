@@ -18,9 +18,9 @@ We've been building Australian Atlas — a curated guide to independent Australi
 
 ${descSnippet ? `Here's what we wrote: "${descSnippet}"` : ''}
 
-Your listing is live and being discovered at https://australianatlas.com.au/place/${listing.slug}. We'd love for you to claim it and tell your own story.
+Your listing is live and being discovered at https://www.australianatlas.com.au/place/${listing.slug}. We'd love for you to claim it and tell your own story.
 
-Claim your listing: https://australianatlas.com.au/claim/${listing.slug}
+Claim your listing: https://www.australianatlas.com.au/claim/${listing.slug}
 
 Matt
 Australian Atlas`,

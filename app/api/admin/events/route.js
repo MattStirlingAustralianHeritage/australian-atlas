@@ -73,7 +73,7 @@ export async function POST(request) {
           html: `
             <h2>Event approved</h2>
             <p>Great news! Your event <strong>${event.name}</strong> has been approved and is now live on Australian Atlas.</p>
-            <p><a href="https://australianatlas.com.au/events/${event.slug}">View your event listing</a></p>
+            <p><a href="https://www.australianatlas.com.au/events/${event.slug}">View your event listing</a></p>
             <p>Thanks for being part of the Australian Atlas network.</p>
           `,
         }).catch(err => console.error('[admin/events] Email error:', err.message))

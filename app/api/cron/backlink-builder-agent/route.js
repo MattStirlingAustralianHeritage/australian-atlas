@@ -403,7 +403,7 @@ function buildEmailHtml(counts, wikiOpps, heritageLinks, pendingWiki, submittedW
       ` : '<p style="font-family:sans-serif;font-size:13px;color:#8a7a5a;margin-bottom:24px">No new Wikipedia opportunities found this month.</p>'}
 
       <div style="text-align:center;margin-bottom:24px">
-        <a href="https://australianatlas.com.au/admin/wikipedia-queue" style="display:inline-block;padding:8px 20px;background:#2d2a24;color:#d4a843;font-family:sans-serif;font-size:12px;font-weight:500;text-decoration:none;border-radius:6px">
+        <a href="https://www.australianatlas.com.au/admin/wikipedia-queue" style="display:inline-block;padding:8px 20px;background:#2d2a24;color:#d4a843;font-family:sans-serif;font-size:12px;font-weight:500;text-decoration:none;border-radius:6px">
           Review Wikipedia Queue
         </a>
       </div>
@@ -438,7 +438,7 @@ function buildEmailHtml(counts, wikiOpps, heritageLinks, pendingWiki, submittedW
       ` : '<p style="font-family:sans-serif;font-size:13px;color:#8a7a5a;margin-bottom:24px">No new Heritage crosslinks found this month.</p>'}
 
       <div style="text-align:center;margin-bottom:16px">
-        <a href="https://australianatlas.com.au/admin/heritage-crosslinks" style="display:inline-block;padding:8px 20px;background:#2d2a24;color:#d4a843;font-family:sans-serif;font-size:12px;font-weight:500;text-decoration:none;border-radius:6px">
+        <a href="https://www.australianatlas.com.au/admin/heritage-crosslinks" style="display:inline-block;padding:8px 20px;background:#2d2a24;color:#d4a843;font-family:sans-serif;font-size:12px;font-weight:500;text-decoration:none;border-radius:6px">
           Review Heritage Crosslinks
         </a>
       </div>

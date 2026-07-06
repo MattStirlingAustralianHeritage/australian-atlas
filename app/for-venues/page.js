@@ -9,7 +9,7 @@ export const metadata = {
   openGraph: {
     title: 'For Venues — Australian Atlas',
     description: FOR_VENUES_DESCRIPTION,
-    url: 'https://australianatlas.com.au/for-venues',
+    url: 'https://www.australianatlas.com.au/for-venues',
   },
   twitter: {
     card: 'summary',

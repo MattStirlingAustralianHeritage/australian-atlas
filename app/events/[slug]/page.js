@@ -63,14 +63,14 @@ export async function generateMetadata({ params }) {
     openGraph: {
       title: event.title,
       description,
-      url: `https://australianatlas.com.au/events/${slug}`,
+      url: `https://www.australianatlas.com.au/events/${slug}`,
       siteName: 'Australian Atlas',
       locale: ogLocale(locale),
       type: 'article',
       images: event.hero_image_url ? [{ url: event.hero_image_url, width: 1200, height: 630 }] : [],
     },
     alternates: {
-      canonical: `https://australianatlas.com.au/events/${slug}`,
+      canonical: `https://www.australianatlas.com.au/events/${slug}`,
     },
   }
 }

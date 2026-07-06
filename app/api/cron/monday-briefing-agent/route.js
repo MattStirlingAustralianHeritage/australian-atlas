@@ -480,9 +480,9 @@ function buildEmailHtml({ briefingHtml, signals, errors, totalActive, dateLabel 
   // Admin links
   sections.push(`
     <div style="margin-top: 24px; display: flex; gap: 8px; flex-wrap: wrap;">
-      <a href="https://australianatlas.com.au/admin/agents" style="display: inline-block; padding: 8px 16px; background: #2d2a24; color: #fff; text-decoration: none; border-radius: 6px; font-size: 13px;">Agent Runs</a>
-      <a href="https://australianatlas.com.au/admin/enrichment-review" style="display: inline-block; padding: 8px 16px; background: #2d2a24; color: #fff; text-decoration: none; border-radius: 6px; font-size: 13px;">Enrichment Review</a>
-      <a href="https://australianatlas.com.au/admin/staleness" style="display: inline-block; padding: 8px 16px; background: #2d2a24; color: #fff; text-decoration: none; border-radius: 6px; font-size: 13px;">Staleness</a>
+      <a href="https://www.australianatlas.com.au/admin/agents" style="display: inline-block; padding: 8px 16px; background: #2d2a24; color: #fff; text-decoration: none; border-radius: 6px; font-size: 13px;">Agent Runs</a>
+      <a href="https://www.australianatlas.com.au/admin/enrichment-review" style="display: inline-block; padding: 8px 16px; background: #2d2a24; color: #fff; text-decoration: none; border-radius: 6px; font-size: 13px;">Enrichment Review</a>
+      <a href="https://www.australianatlas.com.au/admin/staleness" style="display: inline-block; padding: 8px 16px; background: #2d2a24; color: #fff; text-decoration: none; border-radius: 6px; font-size: 13px;">Staleness</a>
     </div>
   `)
 
@@ -574,7 +574,7 @@ function renderAgentSummary(title, summary, adminPath) {
     ${sectionHeader(title)}
     <table style="width: 100%; border-collapse: collapse;">${rows}</table>
     <div style="margin-top: 6px;">
-      <a href="https://australianatlas.com.au${adminPath}" style="font-size: 12px; color: #b8862b; text-decoration: none;">View details &rarr;</a>
+      <a href="https://www.australianatlas.com.au${adminPath}" style="font-size: 12px; color: #b8862b; text-decoration: none;">View details &rarr;</a>
     </div>
   `
 }
@@ -588,7 +588,7 @@ function renderEnrichment(count) {
       <span style="font-size: 20px; font-weight: 700; color: ${count > 0 ? '#f59e0b' : '#2d2a24'};">${count.toLocaleString()}</span>
       <span style="font-size: 13px; color: #6b7280; margin-left: 8px;">listings pending review</span>
     </div>
-    ${count > 0 ? `<div style="margin-top: 6px;"><a href="https://australianatlas.com.au/admin/enrichment-review" style="font-size: 12px; color: #b8862b; text-decoration: none;">Review now &rarr;</a></div>` : ''}
+    ${count > 0 ? `<div style="margin-top: 6px;"><a href="https://www.australianatlas.com.au/admin/enrichment-review" style="font-size: 12px; color: #b8862b; text-decoration: none;">Review now &rarr;</a></div>` : ''}
   `
 }
 

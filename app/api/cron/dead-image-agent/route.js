@@ -302,7 +302,7 @@ function buildEmailHtml(counts, deadListings) {
       </table>
       ${deadSection}
       <div style="margin-top: 20px;">
-        <a href="https://australianatlas.com.au/admin/dead-images" style="display: inline-block; padding: 10px 20px; background: #1a1a1a; color: #fff; text-decoration: none; border-radius: 6px; font-size: 14px;">
+        <a href="https://www.australianatlas.com.au/admin/dead-images" style="display: inline-block; padding: 10px 20px; background: #1a1a1a; color: #fff; text-decoration: none; border-radius: 6px; font-size: 14px;">
           Review in Admin
         </a>
       </div>

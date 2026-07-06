@@ -47,7 +47,7 @@ export async function generateMetadata({ params }) {
     title,
     description,
     robots,
-    openGraph: { title, description, url: `https://australianatlas.com.au/claim/${listing.slug}` },
+    openGraph: { title, description, url: `https://www.australianatlas.com.au/claim/${listing.slug}` },
     twitter: { card: 'summary', title, description },
   }
 }

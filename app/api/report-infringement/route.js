@@ -19,7 +19,7 @@ async function sendNotification(report) {
     console.warn('[report-infringement] RESEND_API_KEY not set — skipping notification email')
     return
   }
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://australianatlas.com.au'
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.australianatlas.com.au'
   const rows = [
     ['Listing', report.listing_slug ? `${baseUrl}/place/${report.listing_slug}` : '—'],
     ['Reporter', `${report.reporter_name || '—'} (${report.reporter_email || 'no email'})`],

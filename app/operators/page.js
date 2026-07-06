@@ -9,7 +9,7 @@ export const metadata = {
   openGraph: {
     title: 'For Operators | Australian Atlas',
     description: 'Claim your free listing on Australian Atlas — the independent guide to independent Australia. Keep your details accurate, reach travellers looking for places like yours, and connect with other operators across the network.',
-    url: 'https://australianatlas.com.au/operators',
+    url: 'https://www.australianatlas.com.au/operators',
   },
 }
 

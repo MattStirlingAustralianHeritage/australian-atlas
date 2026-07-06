@@ -93,7 +93,7 @@ export async function GET(request) {
   }
 
   // Send approval email to submitter
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://australianatlas.com.au'
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.australianatlas.com.au'
   await sendEmail(
     event.submitter_email,
     `Your event is live: ${event.name}`,

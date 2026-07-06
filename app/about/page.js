@@ -24,7 +24,7 @@ export async function generateMetadata() {
     openGraph: {
       title,
       description,
-      url: 'https://australianatlas.com.au/about',
+      url: 'https://www.australianatlas.com.au/about',
     },
   }
 }
@@ -33,8 +33,8 @@ const aboutJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
   name: 'Australian Atlas',
-  url: 'https://australianatlas.com.au',
-  logo: 'https://australianatlas.com.au/favicon-512.png',
+  url: 'https://www.australianatlas.com.au',
+  logo: 'https://www.australianatlas.com.au/favicon-512.png',
   description: 'An independently operated guide to independent Australia. Ten curated atlases mapping makers, producers, cultural spaces, and natural places across the country.',
   foundingLocation: {
     '@type': 'Country',

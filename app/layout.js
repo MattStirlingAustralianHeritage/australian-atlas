@@ -62,11 +62,11 @@ export async function generateMetadata() {
   return {
   title,
   description,
-  metadataBase: new URL("https://australianatlas.com.au"),
+  metadataBase: new URL("https://www.australianatlas.com.au"),
   openGraph: {
     title,
     description,
-    url: "https://australianatlas.com.au",
+    url: "https://www.australianatlas.com.au",
     siteName: "Australian Atlas",
     locale: ogLocale(locale),
     type: "website",

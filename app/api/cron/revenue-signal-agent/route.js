@@ -483,7 +483,7 @@ function buildEmailHtml({ signals, claudeSummary, errors, weekEnd, stripeConfigu
       rows += `
         <tr style="border-bottom: 1px solid #f3f4f6;">
           <td style="padding: 6px 0; font-size: 13px;">
-            <a href="https://australianatlas.com.au/place/${esc(l.slug)}" style="color: #b8862b; text-decoration: none;">${esc(l.name)}</a>
+            <a href="https://www.australianatlas.com.au/place/${esc(l.slug)}" style="color: #b8862b; text-decoration: none;">${esc(l.name)}</a>
           </td>
           <td style="padding: 6px 8px; font-size: 12px; color: #6b7280;">${esc(VERTICAL_LABELS[l.vertical] || l.vertical)}</td>
           <td style="padding: 6px 8px; font-size: 12px; color: #6b7280;">${esc(getListingRegion(l)?.name || '')}${l.state ? `, ${esc(l.state)}` : ''}</td>

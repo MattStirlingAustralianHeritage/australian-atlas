@@ -105,7 +105,7 @@ export default async function SeoPage({ params }) {
       item: {
         '@type': 'LocalBusiness',
         name: l.name,
-        url: `https://australianatlas.com.au/place/${l.slug}`,
+        url: `https://www.australianatlas.com.au/place/${l.slug}`,
         address: {
           '@type': 'PostalAddress',
           addressLocality: l.suburb || getListingRegion(l)?.name,

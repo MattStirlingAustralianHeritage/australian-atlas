@@ -7,6 +7,6 @@ export default function robots() {
         disallow: ['/admin/', '/api/', '/dashboard/', '/vendor/', '/account/', '/claim/'],
       },
     ],
-    sitemap: 'https://australianatlas.com.au/sitemap.xml',
+    sitemap: 'https://www.australianatlas.com.au/sitemap.xml',
   }
 }

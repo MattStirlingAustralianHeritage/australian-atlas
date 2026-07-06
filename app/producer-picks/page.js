@@ -8,7 +8,7 @@ import ListingCard from '@/components/ListingCard'
 
 export const revalidate = 3600
 
-const SITE_URL = 'https://australianatlas.com.au'
+const SITE_URL = 'https://www.australianatlas.com.au'
 
 export async function generateMetadata() {
   const locale = await getLocale()

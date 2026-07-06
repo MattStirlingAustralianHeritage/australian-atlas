@@ -5,7 +5,7 @@ import { dateLocale } from '@/lib/i18n/config'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
 
-const SITE_URL = 'https://australianatlas.com.au'
+const SITE_URL = 'https://www.australianatlas.com.au'
 
 const VERTICAL_COLORS = VERTICAL_ACCENTS
 

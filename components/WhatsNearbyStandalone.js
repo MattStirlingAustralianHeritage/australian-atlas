@@ -22,7 +22,7 @@
  *   sba | collection | craft | fine_grounds | rest | field | corner | found | table
  *
  * OPTIONAL PROPS:
- *   portalUrl        — Override portal base URL (default: 'https://australianatlas.com.au')
+ *   portalUrl        — Override portal base URL (default: 'https://www.australianatlas.com.au')
  *   limitPerVertical — Max listings per vertical group (default: 3)
  *
  * STYLING:
@@ -39,7 +39,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 
-const PORTAL_URL = 'https://australianatlas.com.au'
+const PORTAL_URL = 'https://www.australianatlas.com.au'
 
 const VERTICAL_STYLES = {
   sba:          { bg: '#EEEDFE', text: '#3C3489', label: 'Small Batch Atlas' },

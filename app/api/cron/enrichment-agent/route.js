@@ -185,7 +185,7 @@ export async function GET(request) {
               ${listItems}
             </ul>
             <p style="margin-top: 24px;">
-              <a href="https://australianatlas.com.au/admin/enrichment-review"
+              <a href="https://www.australianatlas.com.au/admin/enrichment-review"
                  style="display: inline-block; padding: 10px 20px; background: #4A7C59; color: #fff; text-decoration: none; border-radius: 6px; font-size: 13px;">
                 Review Descriptions
               </a>
@@ -239,7 +239,7 @@ async function scrapeWebsite(url) {
     const res = await fetch(normalised, {
       signal: controller.signal,
       headers: {
-        'User-Agent': 'AustralianAtlasBot/1.0 (+https://australianatlas.com.au)',
+        'User-Agent': 'AustralianAtlasBot/1.0 (+https://www.australianatlas.com.au)',
         'Accept': 'text/html',
       },
       redirect: 'follow',

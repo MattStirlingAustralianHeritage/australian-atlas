@@ -45,13 +45,13 @@ export async function generateMetadata({ params }) {
     openGraph: {
       title: trail.title,
       description,
-      url: `https://australianatlas.com.au/trails/${slug}`,
+      url: `https://www.australianatlas.com.au/trails/${slug}`,
       siteName: 'Australian Atlas',
       locale: ogLocale(locale),
       type: 'article',
     },
     alternates: {
-      canonical: `https://australianatlas.com.au/trails/${slug}`,
+      canonical: `https://www.australianatlas.com.au/trails/${slug}`,
     },
   }
 }

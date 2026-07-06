@@ -363,7 +363,7 @@ function buildEmailHtml(counts, pages) {
       </table>
 
       <div style="text-align:center;margin-top:20px">
-        <a href="https://australianatlas.com.au/admin/seo-content" style="display:inline-block;padding:10px 24px;background:#2d2a24;color:#d4a843;font-family:sans-serif;font-size:13px;font-weight:500;text-decoration:none;border-radius:6px">
+        <a href="https://www.australianatlas.com.au/admin/seo-content" style="display:inline-block;padding:10px 24px;background:#2d2a24;color:#d4a843;font-family:sans-serif;font-size:13px;font-weight:500;text-decoration:none;border-radius:6px">
           Review & Publish
         </a>
       </div>

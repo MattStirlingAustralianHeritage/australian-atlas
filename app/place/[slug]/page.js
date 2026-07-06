@@ -651,8 +651,8 @@ export async function generateMetadata({ params }) {
     || t('placeFallback')
   const region = getListingRegion(listing)
   const location = [localizeRegionName(region?.name, locale), listing.state].filter(Boolean).join(', ')
-  const enUrl = `https://australianatlas.com.au/place/${slug}`
-  const localizedUrl = `https://australianatlas.com.au${localizePath(`/place/${slug}`, locale)}`
+  const enUrl = `https://www.australianatlas.com.au/place/${slug}`
+  const localizedUrl = `https://www.australianatlas.com.au${localizePath(`/place/${slug}`, locale)}`
   const title = location
     ? t('metaTitleWithLocation', { name: listing.name, category: vertLabel, location })
     : t('metaTitle', { name: listing.name, category: vertLabel })
@@ -677,7 +677,7 @@ export async function generateMetadata({ params }) {
         // not leak into social-share cards either; fall back to the generated OG.
         isApprovedImageSource(listing.hero_image_url) && isHeroDisplayable(listing)
           ? { url: listing.hero_image_url, width: 1200, height: 630, alt: listing.name }
-          : { url: `https://australianatlas.com.au/og/${slug}`, width: 1200, height: 630, alt: listing.name },
+          : { url: `https://www.australianatlas.com.au/og/${slug}`, width: 1200, height: 630, alt: listing.name },
       ],
     },
     alternates: {
@@ -687,7 +687,7 @@ export async function generateMetadata({ params }) {
         ...Object.fromEntries(
           PREFIXED_LOCALES.map((loc) => [
             loc,
-            `https://australianatlas.com.au${localizePath(`/place/${slug}`, loc)}`,
+            `https://www.australianatlas.com.au${localizePath(`/place/${slug}`, loc)}`,
           ])
         ),
         'x-default': enUrl,

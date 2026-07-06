@@ -116,7 +116,7 @@ function buildEmailHtml({ total, verticalsCount, reasonEntries, verticalEntries,
           No quarantined listings today. All syncs passed validation.
         </p>
         <div style="margin-top: 20px;">
-          <a href="https://australianatlas.com.au/admin" style="display: inline-block; padding: 10px 20px; background: #1a1a1a; color: #fff; text-decoration: none; border-radius: 6px; font-size: 14px;">
+          <a href="https://www.australianatlas.com.au/admin" style="display: inline-block; padding: 10px 20px; background: #1a1a1a; color: #fff; text-decoration: none; border-radius: 6px; font-size: 14px;">
             Open Admin
           </a>
         </div>
@@ -183,7 +183,7 @@ function buildEmailHtml({ total, verticalsCount, reasonEntries, verticalEntries,
       ${verticalTable}
       ${recentTable}
       <div style="margin-top: 20px;">
-        <a href="https://australianatlas.com.au/admin" style="display: inline-block; padding: 10px 20px; background: #1a1a1a; color: #fff; text-decoration: none; border-radius: 6px; font-size: 14px;">
+        <a href="https://www.australianatlas.com.au/admin" style="display: inline-block; padding: 10px 20px; background: #1a1a1a; color: #fff; text-decoration: none; border-radius: 6px; font-size: 14px;">
           Open Admin
         </a>
       </div>

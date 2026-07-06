@@ -6,7 +6,7 @@ import VerticalBadge, { VERTICAL_STYLES } from '@/components/VerticalBadge'
 
 export const revalidate = 7200
 
-const SITE_URL = 'https://australianatlas.com.au'
+const SITE_URL = 'https://www.australianatlas.com.au'
 
 const VERTICAL_LABELS = {
   sba: 'Small Batch', fine_grounds: 'Fine Grounds', collection: 'Culture',

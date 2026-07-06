@@ -396,7 +396,7 @@ function renderSignal1(data) {
     rows += `
       <tr>
         <td style="padding: 6px 8px; font-size: 13px;">
-          <a href="https://australianatlas.com.au/place/${esc(l.slug)}" style="color: #b8862b; text-decoration: none;">${esc(l.name)}</a>
+          <a href="https://www.australianatlas.com.au/place/${esc(l.slug)}" style="color: #b8862b; text-decoration: none;">${esc(l.name)}</a>
         </td>
         <td style="padding: 6px 8px; font-size: 12px; color: #6b7280;">${esc(VERTICAL_LABELS[l.vertical] || l.vertical)}</td>
         <td style="padding: 6px 8px; font-size: 12px; color: #6b7280;">${esc(getListingRegion(l)?.name || '')}${l.state ? `, ${esc(l.state)}` : ''}</td>
@@ -471,7 +471,7 @@ function renderSignal3(data) {
       regionRows += `
         <tr>
           <td style="padding: 4px 8px; font-size: 13px;">
-            <a href="https://australianatlas.com.au/regions/${esc(r.slug)}" style="color: #b8862b; text-decoration: none;">${esc(r.name)}</a>
+            <a href="https://www.australianatlas.com.au/regions/${esc(r.slug)}" style="color: #b8862b; text-decoration: none;">${esc(r.name)}</a>
           </td>
           <td style="padding: 4px 8px; font-size: 12px; color: #6b7280;">${esc(r.state || '')}</td>
           <td style="padding: 4px 8px; font-size: 12px; text-align: right;">${r.listing_count}</td>
@@ -517,7 +517,7 @@ function renderSignal4(data) {
     rows += `
       <tr>
         <td style="padding: 6px 8px; font-size: 13px;">
-          <a href="https://australianatlas.com.au/place/${esc(a.slug)}" style="color: #b8862b; text-decoration: none;">${esc(a.name)}</a>
+          <a href="https://www.australianatlas.com.au/place/${esc(a.slug)}" style="color: #b8862b; text-decoration: none;">${esc(a.name)}</a>
         </td>
         <td style="padding: 6px 8px; font-size: 12px; color: #6b7280;">${esc(VERTICAL_LABELS[a.vertical] || a.vertical)}</td>
         <td style="padding: 6px 8px; font-size: 12px; color: #6b7280;">${esc(a.state || '')}</td>
@@ -555,7 +555,7 @@ function renderSignal5(data) {
     rows += `
       <tr>
         <td style="padding: 6px 8px; font-size: 13px;">
-          <a href="https://australianatlas.com.au/admin" style="color: #b8862b; text-decoration: none;">${esc(s.name)}</a>
+          <a href="https://www.australianatlas.com.au/admin" style="color: #b8862b; text-decoration: none;">${esc(s.name)}</a>
         </td>
         <td style="padding: 6px 8px; font-size: 12px; color: #6b7280;">${esc(VERTICAL_LABELS[s.vertical] || s.vertical || '—')}</td>
         <td style="padding: 6px 8px; font-size: 12px; color: #6b7280;">${esc(s.suburb || '')}${s.state ? `, ${esc(s.state)}` : ''}</td>

@@ -12,13 +12,13 @@ export async function generateMetadata() {
     openGraph: {
       title,
       description,
-      url: 'https://australianatlas.com.au/on-this-road',
+      url: 'https://www.australianatlas.com.au/on-this-road',
       siteName: 'Australian Atlas',
       locale: 'en_AU',
       type: 'website',
     },
     alternates: {
-      canonical: 'https://australianatlas.com.au/on-this-road',
+      canonical: 'https://www.australianatlas.com.au/on-this-road',
     },
   }
 }

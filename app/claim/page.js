@@ -11,7 +11,7 @@ export const metadata = {
   openGraph: {
     title: 'Claim Your Listing — Australian Atlas',
     description: CLAIM_DESCRIPTION,
-    url: 'https://australianatlas.com.au/claim',
+    url: 'https://www.australianatlas.com.au/claim',
   },
   twitter: {
     card: 'summary',

@@ -4,7 +4,7 @@ import { getListingRegion } from '@/lib/regions'
 
 export async function generateMetadata({ params }) {
   const { token } = await params
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://australianatlas.com.au'
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.australianatlas.com.au'
 
   try {
     const res = await fetch(`${baseUrl}/api/operators/share/${token}`, { cache: 'no-store' })
@@ -21,7 +21,7 @@ export async function generateMetadata({ params }) {
 
 export default async function SharedPage({ params }) {
   const { token } = await params
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://australianatlas.com.au'
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.australianatlas.com.au'
 
   let data = null
   try {

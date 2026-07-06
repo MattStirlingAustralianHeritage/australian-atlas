@@ -30,7 +30,7 @@ export async function generateMetadata() {
     openGraph: {
       title,
       description,
-      url: 'https://australianatlas.com.au/events',
+      url: 'https://www.australianatlas.com.au/events',
     },
     twitter: {
       card: 'summary',

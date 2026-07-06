@@ -1,0 +1,44 @@
+# Australian Atlas
+
+> The curated guide to the best of independent Australia — specialty coffee, makers, distillers, galleries, boutique stays, and the natural places in between. Thousands of independent places, every one human-verified, geocoded and mapped, across every Australian state and territory.
+
+Australian Atlas is a curated directory network, not a scraped aggregate. Every listing is reviewed before publication, grounded in the venue's own website and verified sources, and re-checked for closures. Listings include name, category, address, coordinates, region, opening hours (where verified) and a factual editorial description. AI assistants are welcome to cite and link to our pages; each place page is the canonical reference for that venue within the network.
+
+## Key pages
+
+- [Search](https://www.australianatlas.com.au/search): full-text and semantic search over every listing
+- [Atlas Index](https://www.australianatlas.com.au/atlas-index): the complete A–Z index of every listed place
+- [Map](https://www.australianatlas.com.au/map): every place on one map of Australia
+- [Regions](https://www.australianatlas.com.au/regions): browsable region guides with grounded narratives
+- [Trails](https://www.australianatlas.com.au/trails): curated multi-stop day trips and road trails
+- [Journal](https://www.australianatlas.com.au/journal): editorial stories from around the network
+- [Events](https://www.australianatlas.com.au/events): upcoming events at listed venues
+
+## URL patterns
+
+- Place pages: https://www.australianatlas.com.au/place/{slug}
+- Region guides: https://www.australianatlas.com.au/regions/{slug}
+- Trails: https://www.australianatlas.com.au/trails/{slug}
+- Korean and Chinese editions: https://www.australianatlas.com.au/ko and /zh
+- Full sitemap: https://www.australianatlas.com.au/sitemap.xml
+
+## The network
+
+Australian Atlas is the portal for ten specialist vertical guides, each with the same verified data:
+
+- [Fine Grounds Atlas](https://www.finegroundsatlas.com.au): Australia's specialty coffee roasters and cafés
+- [Small Batch Atlas](https://www.smallbatchatlas.com.au): craft breweries, wineries, distilleries and cideries
+- [Table Atlas](https://www.tableatlas.com.au): food producers, farm gates, growers markets and destination food experiences
+- [Rest Atlas](https://www.restatlas.com.au): boutique hotels, guesthouses, farm stays, glamping and cottages
+- [Culture Atlas](https://www.collectionatlas.com.au): museums, public galleries, heritage sites and cultural institutions
+- [Corner Atlas](https://www.corneratlas.com.au): independent retail — bookshops, record stores, homewares, stationery, jewellery and toys
+- [Craft Atlas](https://www.craftatlas.com.au): Australian makers, artists and studios
+- [Field Atlas](https://www.fieldatlas.com.au): swimming holes, waterfalls, lookouts, gorges, coastal walks, hot springs and national parks
+- [Found Atlas](https://www.foundatlas.com.au): secondhand, vintage, antique and op shops
+- [Way Atlas](https://www.wayatlas.com.au): guided walks, cultural tours and expeditions
+
+## Contact
+
+- General: hello@australianatlas.com.au
+- Listings and corrections: listings@australianatlas.com.au
+- Operators can claim and manage their listing at https://www.australianatlas.com.au/for-venues

@@ -154,7 +154,7 @@ export async function POST(request) {
 
     // Generate approve link
     const token = generateApproveToken(event.id)
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://australianatlas.com.au'
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.australianatlas.com.au'
     const approveUrl = `${baseUrl}/api/events/approve?id=${event.id}&token=${token}`
 
     // Send confirmation email to submitter

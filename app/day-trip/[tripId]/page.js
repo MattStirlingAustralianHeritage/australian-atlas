@@ -90,13 +90,13 @@ export async function generateMetadata({ params }) {
       openGraph: {
         title: `${baseNameKo}에서 떠나는 ${dayCount}일 여행`,
         description: `${dayCount}일의 당일 여행, ${stopCount}개의 방문지 — ${baseNameKo}을(를) 기점으로 둘러보세요.`,
-        url: `https://australianatlas.com.au/day-trip/${tripId}`,
+        url: `https://www.australianatlas.com.au/day-trip/${tripId}`,
         siteName: 'Australian Atlas',
         locale: ogLocale(locale),
         type: 'article',
       },
       alternates: {
-        canonical: `https://australianatlas.com.au/day-trip/${tripId}`,
+        canonical: `https://www.australianatlas.com.au/day-trip/${tripId}`,
       },
     }
   }
@@ -109,13 +109,13 @@ export async function generateMetadata({ params }) {
       openGraph: {
         title: `以${baseNameZh}为起点的${dayCount}天行程`,
         description: `${dayCount}天当日往返行程，共${stopCount}个停靠点 —— 以${baseNameZh}为起点畅游。`,
-        url: `https://australianatlas.com.au/day-trip/${tripId}`,
+        url: `https://www.australianatlas.com.au/day-trip/${tripId}`,
         siteName: 'Australian Atlas',
         locale: ogLocale(locale),
         type: 'article',
       },
       alternates: {
-        canonical: `https://australianatlas.com.au/day-trip/${tripId}`,
+        canonical: `https://www.australianatlas.com.au/day-trip/${tripId}`,
       },
     }
   }
@@ -128,13 +128,13 @@ export async function generateMetadata({ params }) {
     openGraph: {
       title: `${dayCount} days from ${baseName}`,
       description: `${dayCount} day trips, ${stopCount} stops — explore from ${baseName}.`,
-      url: `https://australianatlas.com.au/day-trip/${tripId}`,
+      url: `https://www.australianatlas.com.au/day-trip/${tripId}`,
       siteName: 'Australian Atlas',
       locale: ogLocale(locale),
       type: 'article',
     },
     alternates: {
-      canonical: `https://australianatlas.com.au/day-trip/${tripId}`,
+      canonical: `https://www.australianatlas.com.au/day-trip/${tripId}`,
     },
   }
 }

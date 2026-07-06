@@ -749,7 +749,7 @@ function ResultsView({ result, formRef, onRegenerate, isSurpriseMode, revealPhas
         body: JSON.stringify(result),
       })
       const data = await res.json()
-      if (data.url) setSavedUrl(`https://australianatlas.com.au${data.url}`)
+      if (data.url) setSavedUrl(`https://www.australianatlas.com.au${data.url}`)
     } catch { /* silent */ }
     setSaving(false)
   }

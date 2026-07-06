@@ -12,11 +12,11 @@ export async function generateMetadata() {
   return {
     title,
     description,
-    alternates: { canonical: 'https://australianatlas.com.au/plan-a-stay-v2' },
+    alternates: { canonical: 'https://www.australianatlas.com.au/plan-a-stay-v2' },
     openGraph: {
       title,
       description,
-      url: 'https://australianatlas.com.au/plan-a-stay-v2',
+      url: 'https://www.australianatlas.com.au/plan-a-stay-v2',
       siteName: 'Australian Atlas',
       locale: ogLocale(locale),
       type: 'website',

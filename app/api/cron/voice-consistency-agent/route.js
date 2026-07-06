@@ -283,7 +283,7 @@ function buildEmailHtml({ avgScore, trendText, bottom5, counts }) {
     listingsHtml += `
       <div style="margin-bottom: 20px; padding: 16px; border: 1px solid #e5e0d5; border-radius: 8px;">
         <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;">
-          <a href="https://australianatlas.com.au/place/${esc(item.slug)}" style="font-size: 14px; font-weight: 600; color: #b8862b; text-decoration: none;">
+          <a href="https://www.australianatlas.com.au/place/${esc(item.slug)}" style="font-size: 14px; font-weight: 600; color: #b8862b; text-decoration: none;">
             ${esc(item.name)}
           </a>
           <span style="font-size: 12px; font-weight: 600; color: ${item.score < 4 ? '#dc2626' : item.score <= 6 ? '#d97706' : '#16a34a'}; background: ${item.score < 4 ? '#fef2f2' : item.score <= 6 ? '#fffbeb' : '#f0fdf4'}; padding: 2px 10px; border-radius: 10px;">
@@ -348,7 +348,7 @@ function buildEmailHtml({ avgScore, trendText, bottom5, counts }) {
 
         <!-- CTA -->
         <div style="margin-top: 20px;">
-          <a href="https://australianatlas.com.au/admin/voice-review" style="display: inline-block; padding: 10px 20px; background: #1a1a1a; color: #fff; text-decoration: none; border-radius: 6px; font-size: 14px;">
+          <a href="https://www.australianatlas.com.au/admin/voice-review" style="display: inline-block; padding: 10px 20px; background: #1a1a1a; color: #fff; text-decoration: none; border-radius: 6px; font-size: 14px;">
             Review in Admin
           </a>
         </div>

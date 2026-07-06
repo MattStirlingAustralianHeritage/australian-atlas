@@ -13,7 +13,7 @@ import { LISTING_REGION_SELECT } from '@/lib/regions'
 
 export const revalidate = 7200
 
-const SITE_URL = 'https://australianatlas.com.au'
+const SITE_URL = 'https://www.australianatlas.com.au'
 
 const getCollection = cache(async function getCollection(slug) {
   const sb = getSupabaseAdmin()

@@ -95,7 +95,7 @@ export default async function DevelopersPage() {
             borderRadius: 6, fontFamily: 'monospace', fontSize: 13, lineHeight: 1.6,
             overflowX: 'auto',
           }}>
-            <span style={{ color: '#6b9' }}>curl</span> https://australianatlas.com.au/api/v1/venues \<br />
+            <span style={{ color: '#6b9' }}>curl</span> https://www.australianatlas.com.au/api/v1/venues \<br />
             &nbsp;&nbsp;-H <span style={{ color: '#fc6' }}>"x-api-key: atlas_pk_your_key_here"</span>
           </div>
         </div>

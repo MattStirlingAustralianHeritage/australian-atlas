@@ -8,7 +8,7 @@ import { dateLocale, ogLocale } from '@/lib/i18n/config'
 
 export const revalidate = 3600
 
-const SITE_URL = 'https://australianatlas.com.au'
+const SITE_URL = 'https://www.australianatlas.com.au'
 
 // Curated explore ordering (sba + coffee lead), filtered through the go-live
 // gate so gated verticals (e.g. Way) drop out of the grid and count until launch.
