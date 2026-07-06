@@ -1040,3 +1040,84 @@ nav a, .inline-link { min-height: unset; }
 @media (prefers-reduced-motion: reduce) {
   .council-card-hover:hover { transform: none; box-shadow: none; }
 }
+
+/* ============================================================
+   Invite card — the corner invitation to share a location and
+   create an account (components/AtlasInviteCard.js). A small
+   non-blocking aside, never a content-covering interstitial.
+   ============================================================ */
+.invite-card {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 800; /* above page chrome (nav z-50/100), below AuthModal (9999) */
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+  padding: 18px 20px 20px;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.invite-card-entered { opacity: 1; transform: translateY(0); }
+@media (max-width: 639px) {
+  .invite-card { left: 12px; right: 12px; bottom: 12px; width: auto; }
+}
+.invite-card-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.invite-card-kicker {
+  font-family: var(--font-body); font-size: 10px; font-weight: 600;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--color-gold); margin: 0; line-height: 1;
+}
+.invite-card-close {
+  background: none; border: none; cursor: pointer;
+  color: var(--color-muted); padding: 6px; margin: -6px -6px -6px 0;
+  min-height: 0; display: flex; align-items: center; justify-content: center;
+  border-radius: 6px;
+}
+.invite-card-close:hover { color: var(--color-ink); }
+.invite-card-title {
+  font-family: var(--font-display); font-weight: 400;
+  font-size: 20px; line-height: 1.25;
+  color: var(--color-ink); margin: 0 0 6px;
+}
+.invite-card-body {
+  font-family: var(--font-body); font-weight: 300;
+  font-size: 13.5px; line-height: 1.55;
+  color: var(--color-muted); margin: 0;
+}
+.invite-card-actions {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: 10px 16px; margin-top: 14px;
+}
+.invite-card-primary {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 18px; border-radius: 999px; border: none;
+  background: var(--color-ink); color: #faf8f4;
+  font-family: var(--font-body); font-weight: 500; font-size: 13px;
+  cursor: pointer; text-decoration: none;
+  transition: opacity 0.15s ease;
+}
+.invite-card-primary:hover { opacity: 0.9; }
+.invite-card-secondary {
+  background: none; border: none; padding: 0; cursor: pointer;
+  font-family: var(--font-body); font-weight: 500; font-size: 13px;
+  color: var(--color-gold); text-decoration: none;
+  min-height: 0;
+}
+.invite-card-secondary:hover { text-decoration: underline; }
+.invite-card-note {
+  font-family: var(--font-body); font-weight: 400;
+  font-size: 11.5px; line-height: 1.5;
+  color: var(--color-muted); opacity: 0.85;
+  margin: 10px 0 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .invite-card { transition: none; transform: none; }
+}

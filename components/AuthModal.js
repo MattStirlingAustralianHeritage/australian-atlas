@@ -22,9 +22,10 @@ import { getAuthSupabase } from '@/lib/supabase/auth-clients'
  *   onAuthSuccess – fired after synchronous email/password sign-in
  *   returnTo      – absolute URL to land on after Google OAuth
  *                   (should encode any "resume save" intent)
+ *   initialMode   – 'login' (default) or 'signup'; which face opens first
  */
-export default function AuthModal({ open, onClose, onAuthSuccess, returnTo }) {
-  const [mode, setMode] = useState('login')
+export default function AuthModal({ open, onClose, onAuthSuccess, returnTo, initialMode = 'login' }) {
+  const [mode, setMode] = useState(initialMode)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')

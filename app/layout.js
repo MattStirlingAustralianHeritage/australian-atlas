@@ -7,6 +7,7 @@ import PageTracker from "@/components/PageTracker";
 import { websiteJsonLd, organizationJsonLd } from "@/lib/jsonLd";
 import GlobalErrorReporter from "@/components/GlobalErrorReporter";
 import LocationWrapper from "@/components/LocationWrapper";
+import AtlasInviteCard from "@/components/AtlasInviteCard";
 import { createAuthServerClient } from "@/lib/supabase/auth-clients";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
@@ -156,6 +157,7 @@ export default async function RootLayout({ children }) {
             <Nav />
             <main id="main-content" className="flex-1">{children}</main>
             <Footer />
+            <AtlasInviteCard />
           </LocationWrapper>
           <AtlasAnalytics />
           <PageTracker vertical="portal" />
