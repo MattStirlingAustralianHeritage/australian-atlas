@@ -1,6 +1,5 @@
 import LocalizedLink from '@/components/LocalizedLink'
 import { getTranslations } from 'next-intl/server'
-import { VERTICAL_ACCENTS, getVerticalBadge, getPublicVerticals } from '@/lib/verticalUrl'
 import { projectToImagePct } from '@/lib/map/homeAtlasProjection'
 
 // The homepage "atlas plate" — the living atlas as the hero's ground.
@@ -43,8 +42,6 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
     .filter(l => l && l.slug && Number.isFinite(parseFloat(l.lng)) && Number.isFinite(parseFloat(l.lat)))
     .slice(0, 6)
 
-  const verticals = getPublicVerticals()
-
   return (
     <section className="atlas-plate" aria-label={t('mapSectionAria')}>
       {/* Editorial copy — absolute over the open ocean on wide screens,
@@ -55,26 +52,6 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
           {count ? t('verifiedPlacesMapped', { count }) : t('everyPlaceMapped')}
         </h2>
         <p className="atlas-plate-sub">{t('atlasPlateSub')}</p>
-
-        {/* Legend — keys the dot colours and doubles as category nav */}
-        <ul className="atlas-plate-legend">
-          {verticals.map((v) => (
-            <li key={v}>
-              <LocalizedLink href={`/search?vertical=${v}`} className="atlas-legend-chip">
-                <span className="atlas-legend-dot" style={{ backgroundColor: VERTICAL_ACCENTS[v] }} />
-                {getVerticalBadge(v)}
-              </LocalizedLink>
-            </li>
-          ))}
-          {fresh.length > 0 && (
-            <li>
-              <span className="atlas-legend-chip atlas-legend-chip-static">
-                <span className="atlas-legend-dot atlas-legend-dot-fresh" />
-                {t('justAdded')}
-              </span>
-            </li>
-          )}
-        </ul>
 
         <div className="atlas-plate-actions">
           <LocalizedLink href="/map" className="atlas-plate-cta">
@@ -98,23 +75,25 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
         )}
       </div>
 
-      {/* The chart — image box; every overlay is positioned in % of this box */}
+      {/* The chart — image box; every overlay is positioned in % of this box.
+          The base link blankets the whole frame (not just the picture), so a
+          click anywhere on the map surface opens /map; markers and pins sit
+          above it on higher z-layers. */}
       <div className="atlas-plate-frame">
+        <LocalizedLink href="/map" aria-label={t('heroMapAria')} className="atlas-plate-baselink" />
         <div className="atlas-plate-canvas">
-          <LocalizedLink href="/map" aria-label={t('heroMapAria')} className="atlas-plate-baselink">
-            <picture>
-              <source srcSet="/maps/home-map-atlas.webp" type="image/webp" />
-              <img
-                src="/maps/home-map-atlas.jpg"
-                alt={t('mapSectionAlt')}
-                width={2560}
-                height={1040}
-                loading="eager"
-                fetchPriority="low"
-                decoding="async"
-              />
-            </picture>
-          </LocalizedLink>
+          <picture>
+            <source srcSet="/maps/home-map-atlas.webp" type="image/webp" />
+            <img
+              src="/maps/home-map-atlas.jpg"
+              alt={t('mapSectionAlt')}
+              width={2560}
+              height={1040}
+              loading="eager"
+              fetchPriority="low"
+              decoding="async"
+            />
+          </picture>
 
           {CITIES.map((c) => {
             const { leftPct, topPct } = projectToImagePct(c.lng, c.lat)
@@ -176,14 +155,18 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
            min-height floor guards the copy column at narrower desktop widths.
            Any extra frame height reads as more southern ocean — the image's
            sea is the exact section background, so the seam is invisible. */
-        .atlas-plate-frame { position: relative; min-height: 520px; }
-        .atlas-plate-canvas { position: relative; width: 100%; }
+        .atlas-plate-frame { position: relative; min-height: 460px; }
+        .atlas-plate-canvas { position: relative; width: 100%; pointer-events: none; }
         .atlas-plate-canvas img {
           display: block; width: 100%; height: auto;
           -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 14%, #000 100%);
           mask-image: linear-gradient(180deg, transparent 0%, #000 14%, #000 100%);
         }
-        .atlas-plate-baselink { display: block; }
+        /* One link under everything: any click on the map surface (including
+           the ocean and the min-height slack) opens /map. The canvas passes
+           pointer events through; markers/pins re-enable their own. */
+        .atlas-plate-baselink { position: absolute; inset: 0; z-index: 1; }
+        .atlas-city, .atlas-fresh { pointer-events: auto; }
 
         /* ── editorial copy over the open ocean ────────────── */
         .atlas-plate-copy {
@@ -214,26 +197,7 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
           font-family: var(--font-body); font-weight: 300; font-size: 14px;
           line-height: 1.55; color: var(--color-muted, #6B645A); max-width: 38ch;
         }
-        .atlas-plate-legend {
-          margin-top: 16px; padding: 0; list-style: none;
-          display: grid; grid-template-columns: repeat(2, minmax(0, max-content));
-          gap: 6px 22px;
-        }
-        .atlas-legend-chip {
-          display: inline-flex; align-items: center; gap: 8px;
-          min-height: unset;                /* global link tap-target rule
-             inflates each row to ~50px and blows the column out of the plate */
-          font-family: var(--font-body); font-weight: 500; font-size: 12.5px;
-          line-height: 1.2; color: var(--color-ink, #1C1A17); white-space: nowrap;
-          border-bottom: 1px solid transparent; transition: border-color 160ms ease;
-        }
-        a.atlas-legend-chip:hover { border-bottom-color: rgba(28,26,23,0.45); }
-        .atlas-legend-dot {
-          width: 9px; height: 9px; border-radius: 999px; flex: none;
-          box-shadow: 0 0 0 2px rgba(251,248,242,0.7);
-        }
-        .atlas-legend-dot-fresh { background: #C49A3C; animation: atlas-key-pulse 2.4s ease-out infinite; }
-        .atlas-plate-actions { margin-top: 18px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+        .atlas-plate-actions { margin-top: 22px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
         .atlas-plate-cta {
           display: inline-flex; align-items: center; gap: 8px;
           padding: 11px 21px; border-radius: 999px;
@@ -323,11 +287,6 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
           0% { transform: scale(1); opacity: 0.9; }
           70%, 100% { transform: scale(3.4); opacity: 0; }
         }
-        @keyframes atlas-key-pulse {
-          0%, 100% { box-shadow: 0 0 0 2px rgba(251,248,242,0.7), 0 0 0 2px rgba(196,154,60,0); }
-          45% { box-shadow: 0 0 0 2px rgba(251,248,242,0.7), 0 0 0 6px rgba(196,154,60,0.25); }
-        }
-
         /* ── responsive ────────────────────────────────────── */
         @media (max-width: 1280px) {
           .atlas-plate-sub { display: none; }
@@ -342,7 +301,6 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
           }
           .atlas-plate-headline { max-width: none; }
           .atlas-plate-sub { display: block; }
-          .atlas-plate-legend { display: none; }
           .atlas-plate-actions { justify-content: center; margin-top: 20px; }
           .atlas-plate-stats { margin-top: 10px; }
           .atlas-plate-frame { height: min(97vw, 430px); min-height: 0; overflow: hidden; }
@@ -354,8 +312,7 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
           .atlas-city-name { font-size: 9.5px; letter-spacing: 0.1em; }
         }
         @media (prefers-reduced-motion: reduce) {
-          .atlas-fresh-ping, .atlas-legend-dot-fresh { animation: none; }
-          .atlas-fresh-ping { opacity: 0; }
+          .atlas-fresh-ping { animation: none; opacity: 0; }
           .atlas-plate-cta, .atlas-plate-cta-alt, .atlas-city-dot, .atlas-city-name { transition: none; }
         }
       ` }} />
