@@ -514,12 +514,18 @@ export default async function Home() {
       <section
         className="relative text-center flex flex-col items-center justify-center px-6 sm:px-12"
         style={{
-          minHeight: 'clamp(360px, 60vh, 640px)',
+          minHeight: 'clamp(420px, 68vh, 720px)',
           paddingTop: '3rem',
-          paddingBottom: 'clamp(20px, 3vh, 40px)',
-          // Soft gold spotlight pooled around the search bar — the one warm
-          // light on the page, so the eye lands on the tool before the map.
-          background: 'radial-gradient(52% 44% at 50% 62%, rgba(196,154,60,0.09), rgba(196,154,60,0) 72%), linear-gradient(180deg, #FAF8F4 0%, #F0EBE3 100%)',
+          paddingBottom: 'clamp(28px, 4vh, 56px)',
+          // The atlas as paper: the living-atlas chart sits UNDER the hero as
+          // a watermark (a dedicated whisper-quiet ghost asset), washed with
+          // the cream→stone gradient and warmed by the gold spotlight around
+          // the search bar. Identity without weight — the interactive plate
+          // itself now lives further down the page.
+          background:
+            'radial-gradient(52% 44% at 50% 62%, rgba(196,154,60,0.09), rgba(196,154,60,0) 72%), ' +
+            'linear-gradient(180deg, rgba(250,248,244,0.94) 0%, rgba(245,240,230,0.82) 55%, rgba(239,231,216,0.96) 100%), ' +
+            'url(/maps/home-map-atlas-ghost.webp) center 38% / cover no-repeat, #EFE7D8',
         }}
       >
         <svg
@@ -597,19 +603,6 @@ export default async function Home() {
             its microline the categories × regions pair. */}
       </section>
 
-      {/* ── 1a. The atlas plate — the living atlas as a navigable chart ── */}
-      {/* Every verified place as a dot in its vertical's colour on a parchment
-          Australia, with server-projected overlays: city markers deep-link into
-          the interactive map, the newest places pulse gold and link to their
-          pages, and the legend keys the colours while filtering search. The
-          hero's old map CTAs live inside the plate now. Zero client JS. */}
-      <HomeAtlasMap
-        listingCount={stats.listings}
-        categoryCount={verticalCount}
-        regionCount={stats.regions}
-        freshListings={freshPins}
-      />
-
       {/* ── 1b. Living spectrum spine — full-bleed colour masthead ── */}
       {/* The ten saturated grounds as one thin 100vw bar in journey order; each
           segment links to its filtered search and peels open on hover (wide
@@ -681,6 +674,20 @@ export default async function Home() {
           visitors who already shared a location (see WorthFindingSection).
           Everyone else gets the editorial band exactly as before. */}
       <WorthFindingSection featured={featured} locale={locale} editionDate={editionDate} />
+
+      {/* ── 3b. The atlas plate — the living atlas as a navigable chart ── */}
+      {/* Mid-page on purpose: three rounds of feedback said the map crowded
+          the hero, so the first screen belongs to the masthead + search (with
+          the chart as its ghost watermark) and the full interactive plate is
+          a chapter you arrive at. City markers deep-link into /map, the
+          newest places pulse gold and link to their pages, the whole surface
+          opens the map. Zero client JS. */}
+      <HomeAtlasMap
+        listingCount={stats.listings}
+        categoryCount={verticalCount}
+        regionCount={stats.regions}
+        freshListings={freshPins}
+      />
 
       {/* ── 4. Journal Feature ──────────────────────────── */}
       {featuredArticle && (

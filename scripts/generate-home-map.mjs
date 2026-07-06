@@ -29,16 +29,26 @@ import sharp from 'sharp'
 const TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
 if (!TOKEN) { console.error('NEXT_PUBLIC_MAPBOX_TOKEN missing — run with --env-file=.env.local'); process.exit(1) }
 
+// Two variants share the pipeline:
+//   plate (default) — the interactive exhibit: full-strength dots, graticule,
+//     paper-cut shadow, Australia pinned right of a caption band. Also emits
+//     lib/map/homeAtlasProjection.js for the overlay component.
+//   ghost (--ghost) — the hero's watermark: Australia centred, dots and
+//     coast at a whisper, no graticule/shadow/borders. Sits UNDER a cream
+//     wash behind the masthead + search, so it must murmur, not speak.
+//     Never touches the projection module.
+const GHOST = process.argv.includes('--ghost')
+
 // ── Canvas + composition ────────────────────────────────────────────────
-// 1180x520 (was 1280): the caption band on the left was reading as dead
-// space at wide viewports — a narrower canvas gives the continent a larger
-// share of the frame (~42% of the width, up from 38%) while the band keeps
-// room for the centred copy column.
-const W = 1180, H = 520, SCALE = 2            // output = 2360x1040
+// Plate: 1180x520 — the continent takes ~42% of the frame width; the left
+// band keeps room for the centred copy column.
+// Ghost: 1280x680 — hero-ish aspect, continent centred with breathing room
+// (it gets cover-cropped as a CSS background, so composition is loose).
+const W = GHOST ? 1280 : 1180, H = GHOST ? 680 : 520, SCALE = 2
 const AU = { west: 112.8, south: -43.9, east: 154.2, north: -9.8 }
 // Vertical padding at 1x; horizontally Australia is pinned toward the right
-// edge so the left band stays open for the editorial caption.
-const PAD = { top: 24, bottom: 26, oceanRight: 44 }
+// edge (plate) or centred (ghost).
+const PAD = GHOST ? { top: 56, bottom: 56, oceanRight: null } : { top: 24, bottom: 26, oceanRight: 44 }
 
 // Web Mercator helpers (worldSize = 512 * 2^zoom, the maths verified against
 // city positions when the original asset shipped).
@@ -58,7 +68,7 @@ const worldSize = 512 * Math.pow(2, zoom)
 const auW = worldSize * dx                     // Australia's pixel width @1x
 const midX = (mercX(AU.west) + mercX(AU.east)) / 2
 const midY = (mercY(AU.north) + mercY(AU.south)) / 2
-const auMidPx = W - PAD.oceanRight - auW / 2   // bounds midpoint, x target
+const auMidPx = GHOST ? W / 2 : W - PAD.oceanRight - auW / 2   // bounds midpoint, x target
 const auMidPy = PAD.top + boxH / 2
 const centerX = midX + (W / 2 - auMidPx) / worldSize
 const centerY = midY + (H / 2 - auMidPy) / worldSize
@@ -74,12 +84,18 @@ function project(lng, lat) {
 }
 
 // ── Palette ─────────────────────────────────────────────────────────────
-const OCEAN = { r: 0xF0, g: 0xEB, b: 0xE3 }      // matches the hero gradient end
-const LAND  = { r: 0xE9, g: 0xDF, b: 0xC9 }      // warm parchment
-const COAST = { r: 0xA9, g: 0x8F, b: 0x66 }      // ink-gold coastline
+// Ghost tones sit barely apart — under the hero wash the land should read
+// as a pressure mark in the paper, not a shape with edges.
+const OCEAN = GHOST ? { r: 0xF3, g: 0xEE, b: 0xE4 } : { r: 0xF0, g: 0xEB, b: 0xE3 }
+const LAND  = GHOST ? { r: 0xEC, g: 0xE4, b: 0xD2 } : { r: 0xE9, g: 0xDF, b: 0xC9 }
+const COAST = GHOST ? { r: 0xC9, g: 0xB5, b: 0x92 } : { r: 0xA9, g: 0x8F, b: 0x66 }
 const SHADOW = '#A38B62'
 const BORDER = '#B7A17B'
 const PAPER = '#FBF8F2'
+const DOT_HALO_OPACITY = GHOST ? 0 : 0.15
+const DOT_CORE_R = GHOST ? 3.0 : 3.6
+const DOT_CORE_OPACITY = GHOST ? 0.4 : 0.94
+const DOT_STROKE_OPACITY = GHOST ? 0 : 0.9
 
 const VERTICAL_COLORS = {
   sba: '#C49A3C', collection: '#7A6B8A', craft: '#C1603A', fine_grounds: '#8A7055',
@@ -111,7 +127,7 @@ async function main() {
 
   // 1 ── base raster
   const staticUrl = `https://api.mapbox.com/styles/v1/mapbox/light-v11/static/${centerLng.toFixed(6)},${centerLat.toFixed(6)},${zoom.toFixed(4)},0/${W}x${H}@2x?access_token=${TOKEN}&logo=false&attribution=false`
-  const base = await cachedFetch('base-light-v11.png', staticUrl, { headers: { Referer: 'https://australianatlas.com.au/' } })
+  const base = await cachedFetch(GHOST ? 'base-light-v11-ghost.png' : 'base-light-v11.png', staticUrl, { headers: { Referer: 'https://australianatlas.com.au/' } })
 
   const { data: px, info } = await sharp(base).removeAlpha().raw().toBuffer({ resolveWithObject: true })
   const OW = info.width, OH = info.height
@@ -291,8 +307,8 @@ async function main() {
     const c = VERTICAL_COLORS[l.vertical]
     if (!c) continue
     const [x, y] = project(lng, lat)
-    halos.push(`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="7.5" fill="${c}" fill-opacity="0.15"/>`)
-    cores.push(`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.6" fill="${c}" fill-opacity="0.94" stroke="${PAPER}" stroke-width="0.9" stroke-opacity="0.9"/>`)
+    if (DOT_HALO_OPACITY > 0) halos.push(`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="7.5" fill="${c}" fill-opacity="${DOT_HALO_OPACITY}"/>`)
+    cores.push(`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${DOT_CORE_R}" fill="${c}" fill-opacity="${DOT_CORE_OPACITY}"${DOT_STROKE_OPACITY > 0 ? ` stroke="${PAPER}" stroke-width="0.9" stroke-opacity="${DOT_STROKE_OPACITY}"` : ''}/>`)
     plotted++
   }
   console.log(`dots plotted: ${plotted}/${listings.length}`)
@@ -327,23 +343,29 @@ async function main() {
   })
   const composed = await oceanBase
     .composite([
-      { input: gratSvg, blend: 'over' },
-      { input: shadow, left: Math.round(2.5 * SCALE), top: Math.round(3 * SCALE), blend: 'over' },
+      // The ghost carries no chart furniture — no graticule, shadow, or
+      // borders; just the pressure-mark continent and whisper dots.
+      ...(GHOST ? [] : [
+        { input: gratSvg, blend: 'over' },
+        { input: shadow, left: Math.round(2.5 * SCALE), top: Math.round(3 * SCALE), blend: 'over' },
+      ]),
       { input: landPng, blend: 'over' },
-      { input: borderSvg, blend: 'over' },
+      ...(GHOST ? [] : [{ input: borderSvg, blend: 'over' }]),
       { input: dotSvg, blend: 'over' },
     ])
     .png().toBuffer()
 
   const outDir = path.join(ROOT, 'public', 'maps')
   fs.mkdirSync(outDir, { recursive: true })
-  // "-plate" suffix: do NOT write to home-map-atlas.{jpg,webp} — the retired
+  // Suffixed names: never write to home-map-atlas.{jpg,webp} — the retired
   // hero layout's HTML still references that path with cover-crop CSS, and
-  // any cached copy of it rendering these taller bytes looks broken.
-  await sharp(composed).webp({ quality: 84 }).toFile(path.join(outDir, 'home-map-atlas-plate.webp'))
-  await sharp(composed).jpeg({ quality: 82, mozjpeg: true }).toFile(path.join(outDir, 'home-map-atlas-plate.jpg'))
-  const sizes = ['webp', 'jpg'].map(ext => `${ext} ${(fs.statSync(path.join(outDir, `home-map-atlas-plate.${ext}`)).size / 1024).toFixed(0)}KB`)
-  console.log(`written: ${sizes.join(', ')}`)
+  // any cached copy of it rendering different bytes looks broken.
+  const stem = GHOST ? 'home-map-atlas-ghost' : 'home-map-atlas-plate'
+  await sharp(composed).webp({ quality: 84 }).toFile(path.join(outDir, `${stem}.webp`))
+  await sharp(composed).jpeg({ quality: 82, mozjpeg: true }).toFile(path.join(outDir, `${stem}.jpg`))
+  const sizes = ['webp', 'jpg'].map(ext => `${ext} ${(fs.statSync(path.join(outDir, `${stem}.${ext}`)).size / 1024).toFixed(0)}KB`)
+  console.log(`written (${stem}): ${sizes.join(', ')}`)
+  if (GHOST) return   // the ghost never writes the projection module
 
   // 6 ── projection constants for the overlay component
   const projModule = `// AUTO-GENERATED by scripts/generate-home-map.mjs — do not edit by hand.

@@ -95,8 +95,7 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
               alt={t('mapSectionAlt')}
               width={HOME_MAP.width * HOME_MAP.scale}
               height={HOME_MAP.height * HOME_MAP.scale}
-              loading="eager"
-              fetchPriority="low"
+              loading="lazy"
               decoding="async"
             />
           </picture>
@@ -155,7 +154,9 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
       {/* dangerouslySetInnerHTML (not a text child) — hydration compares style
           text nodes character-for-character; innerHTML-set CSS skips that. */}
       <style dangerouslySetInnerHTML={{ __html: `
-        .atlas-plate { position: relative; background: #F0EBE3; overflow: hidden; }
+        /* Mid-page chapter — the section sits directly on the page's stone
+           ground; only the framed chart carries the chart's own cream sea. */
+        .atlas-plate { position: relative; overflow: hidden; padding-top: clamp(24px, 4vw, 56px); }
 
         /* ── the mat + framed chart ────────────────────────── */
         /* The map used to be the full-bleed ground of the first screen and
@@ -170,9 +171,9 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
         }
         .atlas-plate-frame {
           position: relative; min-height: 460px;
-          border-radius: 18px; overflow: hidden;
+          border-radius: var(--radius-lg, 18px); overflow: hidden;
           border: 1px solid rgba(28,26,23,0.10);
-          box-shadow: 0 22px 60px rgba(28,26,23,0.09), 0 3px 12px rgba(28,26,23,0.05);
+          box-shadow: var(--shadow-md, 0 10px 28px rgba(82,58,30,0.10));
           background: #F0EBE3;
         }
         .atlas-plate-canvas { position: relative; width: 100%; pointer-events: none; }
