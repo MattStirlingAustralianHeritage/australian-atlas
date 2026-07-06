@@ -960,10 +960,10 @@ export default async function Home() {
 
                 {/* compass corner-mark */}
                 <svg aria-hidden="true" viewBox="0 0 48 48" width="44" height="44"
-                  style={{ position: 'absolute', top: 20, right: 20, opacity: 0.55, pointerEvents: 'none' }}>
-                  <circle cx="24" cy="24" r="21" fill="none" stroke="rgba(120,92,44,0.32)" strokeWidth="1" />
-                  <path d="M24 5 L27.5 24 L24 43 L20.5 24 Z" fill="rgba(196,151,59,0.9)" />
-                  <path d="M5 24 L24 20.5 L43 24 L24 27.5 Z" fill="none" stroke="rgba(120,92,44,0.38)" strokeWidth="1" />
+                  style={{ position: 'absolute', top: 20, right: 20, opacity: 0.7, pointerEvents: 'none' }}>
+                  <circle cx="24" cy="24" r="21" fill="none" stroke="rgba(120,92,44,0.42)" strokeWidth="1" />
+                  <path d="M24 5 L27.5 24 L24 43 L20.5 24 Z" fill="rgba(196,151,59,0.95)" />
+                  <path d="M5 24 L24 20.5 L43 24 L24 27.5 Z" fill="none" stroke="rgba(120,92,44,0.46)" strokeWidth="1" />
                   <circle cx="24" cy="24" r="1.6" fill="#8a6a2c" />
                 </svg>
 
@@ -1067,13 +1067,13 @@ export default async function Home() {
                           <svg viewBox={`0 0 ${outline.w} ${outline.h}`}
                             style={{ height: `${SVG_PX}px`, width: 'auto', maxWidth: '72px', flexShrink: 0, marginTop: 2 }}
                             aria-hidden="true">
-                            <path d={outline.d} fill="rgba(196,151,59,0.08)"
-                              stroke="rgba(90,78,58,0.34)" strokeWidth="1"
+                            <path d={outline.d} fill="rgba(196,151,59,0.12)"
+                              stroke="rgba(78,66,48,0.5)" strokeWidth="1.1"
                               vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
                             {dot && (
                               <>
-                                <circle cx={dot.x} cy={dot.y} r={6.5 * rUnit} fill="rgba(196,151,59,0.28)" />
-                                <circle cx={dot.x} cy={dot.y} r={3 * rUnit} fill="#C4973B" />
+                                <circle cx={dot.x} cy={dot.y} r={6.5 * rUnit} fill="rgba(196,151,59,0.34)" />
+                                <circle cx={dot.x} cy={dot.y} r={3 * rUnit} fill="#B8862B" />
                               </>
                             )}
                           </svg>
