@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 import { getPublicVerticals, isVerticalPublic } from '@/lib/verticalUrl'
 import { excludeNeedsReview, excludeTestListings, isPublicListing } from '@/lib/listings/publicFilter'
+import { nameMatchesQuery } from '@/lib/search/nameMatch'
 
 // Nicely-pluralised labels for the common categories; everything else falls back
 // to a title-cased "<words>s". Used for the category suggestion chips.
@@ -118,6 +119,10 @@ export async function GET(request) {
 
     // Typo-tolerant fallback: when the prefix match is thin, reuse the hybrid
     // RPC's trigram fuzzy arm so a misspelt name ("Breww") still suggests venues.
+    // Its lexical arm is OR-recall, so each candidate must ALSO pass the
+    // all-tokens name gate — otherwise "australiana themed earrings" pads the
+    // dropdown with single-token flukes (Australiana Pioneer Village, a Theme
+    // Park…) that read as name matches. No genuine match → no Places section.
     if (places.length < 3) {
       const { data: fuzzy } = await sb.rpc('search_listings_hybrid', {
         query_embedding: null, query_text: safe, match_count: 6,
@@ -127,6 +132,7 @@ export async function GET(request) {
       for (const l of (fuzzy || [])) {
         if (places.length >= 4) break
         if (seen.has(l.id) || !isPublicListing(l) || !publicVerticals.includes(l.vertical)) continue
+        if (!nameMatchesQuery(prefix, l.name, { suburb: l.suburb, state: l.state })) continue
         seen.add(l.id)
         places.push({
           type: 'place', id: l.id, label: l.name, slug: l.slug, vertical: l.vertical,
