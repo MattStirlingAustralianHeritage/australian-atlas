@@ -8,12 +8,12 @@ import { checkRateLimit } from '@/lib/rate-limit'
  *
  * The operator's browser uploads the (compressed) image straight to Supabase
  * Storage, bypassing Vercel's ~4.5MB function request-body limit entirely. This
- * route only does authz + the upload-warranty gate, then mints a one-time signed
- * upload token to a per-user STAGING path. The raw bytes never transit our
- * function. Step 2 (.../finalize) processes and publishes the staged object.
+ * route only does authz, then mints a one-time signed upload token to a per-user
+ * STAGING path. The raw bytes never transit our function. Step 2 (.../finalize)
+ * processes and publishes the staged object.
  *
  * Auth: Bearer atlas shared JWT (vendor or admin). JSON body:
- *   { listingId, assetKind?, uploadWarrantyAccepted }
+ *   { listingId, assetKind? }
  * Returns: { bucket, path, token }
  */
 
@@ -35,14 +35,7 @@ export async function POST(request) {
   let body
   try { body = await request.json() } catch { body = {} }
   const listingId = (body.listingId || '').toString().trim()
-  const warrantyAccepted = body.uploadWarrantyAccepted === true || body.uploadWarrantyAccepted === 'true'
 
-  if (!warrantyAccepted) {
-    return NextResponse.json(
-      { error: 'You must confirm you have the rights to upload this image (ownership/licence, no infringement, consent of anyone identifiable).' },
-      { status: 400 }
-    )
-  }
   if (!listingId) {
     return NextResponse.json({ error: 'Missing listing reference for the upload.' }, { status: 400 })
   }

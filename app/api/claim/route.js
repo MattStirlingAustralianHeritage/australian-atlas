@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { createHash } from 'crypto'
-import { getCurrentLegalDocuments, recordLegalAcceptances, CLAIM_REQUIRED_DOC_TYPES } from '@/lib/legal/documents'
 
 // Minimal HTML-entity escape for values interpolated into outbound email HTML.
 // Claimant-supplied name/role/domain land in the admin notification inbox — an
@@ -72,27 +71,6 @@ export async function POST(request) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       return NextResponse.json(
         { error: 'Please provide a valid email address.' },
-        { status: 400 }
-      )
-    }
-
-    // ── Legal acceptance gate ─────────────────────────────────
-    // The operator must affirm the current Operator Agreement + Upload Terms
-    // (rendered from legal_documents). Fail CLOSED: if the docs can't be loaded
-    // we never complete a claim without recordable consent.
-    const requiredDocs = await getCurrentLegalDocuments(sb, CLAIM_REQUIRED_DOC_TYPES)
-    const operatorDoc = requiredDocs.operator_agreement
-    const uploadDoc = requiredDocs.upload_terms
-    if (!operatorDoc || !uploadDoc) {
-      console.error('[claim] Required legal documents missing/unloadable — blocking claim (fail closed)')
-      return NextResponse.json(
-        { error: 'Our terms are being updated and claims are paused momentarily. Please try again shortly.' },
-        { status: 503 }
-      )
-    }
-    if (body.acceptOperatorAgreement !== true || body.acceptUploadTerms !== true) {
-      return NextResponse.json(
-        { error: 'You must accept the Operator Agreement and the Upload Terms to claim a listing.' },
         { status: 400 }
       )
     }
@@ -171,20 +149,6 @@ export async function POST(request) {
         { error: 'Failed to submit claim. Please try again.' },
         { status: 500 }
       )
-    }
-
-    // ── Record legal acceptances (audit trail of the consent) ─
-    // The gate above is the enforcement; these rows are the durable record,
-    // tied to the claim (pre-account: operator_id is back-filled on approval).
-    const { error: acceptErr } = await recordLegalAcceptances(sb, {
-      documents: [operatorDoc, uploadDoc],
-      claimId: insertedClaim?.id || null,
-      subjectEmail: email.trim(),
-      ipAddress: ip,
-      userAgent: request.headers.get('user-agent') || null,
-    })
-    if (acceptErr) {
-      console.error('[claim] CRITICAL: claim', insertedClaim?.id, 'created but legal_acceptances write failed:', acceptErr.message)
     }
 
     // ── Audit log (non-blocking) ─────────────────────────────

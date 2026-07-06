@@ -18,11 +18,10 @@ import { recordAssetProvenance } from '@/lib/assetProvenance'
  *   file                     (required) the image
  *   listingId                (required) the listing the asset belongs to
  *   assetKind                'hero' | 'gallery' (default 'hero')
- *   uploadWarrantyAccepted   'true' — REQUIRED upload-rights affirmation
  *   sourceDeclaration        optional free text
  *
  * Stores a normalised WebP in the public 'listing-images' bucket, logs the
- * warranty to asset_provenance (fail-closed), and returns { url }.
+ * asset to asset_provenance (best-effort audit trail), and returns { url }.
  */
 
 const BUCKET = 'listing-images'
@@ -50,18 +49,10 @@ export async function POST(request) {
     return NextResponse.json({ error: 'No file provided' }, { status: 400 })
   }
 
-  // ── Upload warranty gate ──────────────────────────────────
   const listingId = (formData.get('listingId') || '').toString().trim()
   const assetKind = formData.get('assetKind') === 'gallery' ? 'gallery' : 'hero'
-  const warrantyAccepted = formData.get('uploadWarrantyAccepted') === 'true'
   const sourceDeclaration = (formData.get('sourceDeclaration') || '').toString().trim() || null
 
-  if (!warrantyAccepted) {
-    return NextResponse.json(
-      { error: 'You must confirm you have the rights to upload this image (ownership/licence, no infringement, consent of anyone identifiable).' },
-      { status: 400 }
-    )
-  }
   if (!listingId) {
     return NextResponse.json({ error: 'Missing listing reference for the upload.' }, { status: 400 })
   }
@@ -107,7 +98,9 @@ export async function POST(request) {
 
   const { data: urlData } = sb.storage.from(BUCKET).getPublicUrl(filePath)
 
-  // ── Record the upload consent/warranty (fail closed) ──
+  // ── Record asset provenance (best-effort audit trail for takedowns) ──
+  // Non-blocking: a provenance write hiccup must never reject an otherwise-valid
+  // upload.
   const prov = await recordAssetProvenance(sb, {
     listingId,
     assetKind,
@@ -117,12 +110,7 @@ export async function POST(request) {
     sourceDeclaration,
   })
   if (!prov.ok) {
-    console.error('[listing/upload] asset_provenance write failed — rolling back:', prov.error)
-    if (!alreadyExisted) await sb.storage.from(BUCKET).remove([filePath]).catch(() => {})
-    return NextResponse.json(
-      { error: 'Could not record the image-rights confirmation. Please try again.' },
-      { status: 500 }
-    )
+    console.warn('[listing/upload] asset_provenance write failed (non-blocking):', prov.error)
   }
 
   return NextResponse.json({ url: urlData.publicUrl })

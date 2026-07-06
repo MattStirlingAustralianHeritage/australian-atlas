@@ -12,10 +12,10 @@ import { recordAssetProvenance } from '@/lib/assetProvenance'
  * signed URL from step 1. We now fetch those bytes SERVER-SIDE (not subject to
  * the request-body limit), validate + normalise them with sharp (content sniff,
  * EXIF strip, re-encode to WebP), publish under a content-addressed key, log the
- * upload-warranty (fail closed), and delete the staging object.
+ * asset to asset_provenance (best-effort), and delete the staging object.
  *
  * Auth: Bearer atlas shared JWT (vendor or admin). JSON body:
- *   { path, listingId, assetKind?, uploadWarrantyAccepted, sourceDeclaration? }
+ *   { path, listingId, assetKind?, sourceDeclaration? }
  * Returns: { url }
  */
 
@@ -39,15 +39,8 @@ export async function POST(request) {
   const stagingPath = (body.path || '').toString()
   const listingId = (body.listingId || '').toString().trim()
   const assetKind = body.assetKind === 'gallery' ? 'gallery' : 'hero'
-  const warrantyAccepted = body.uploadWarrantyAccepted === true || body.uploadWarrantyAccepted === 'true'
   const sourceDeclaration = (body.sourceDeclaration || '').toString().trim() || null
 
-  if (!warrantyAccepted) {
-    return NextResponse.json(
-      { error: 'You must confirm you have the rights to upload this image (ownership/licence, no infringement, consent of anyone identifiable).' },
-      { status: 400 }
-    )
-  }
   if (!listingId) {
     return NextResponse.json({ error: 'Missing listing reference for the upload.' }, { status: 400 })
   }
@@ -105,13 +98,9 @@ export async function POST(request) {
     sourceDeclaration,
   })
   if (!prov.ok) {
-    console.error('[listing/upload/finalize] asset_provenance write failed — rolling back:', prov.error)
-    if (!alreadyExisted) await sb.storage.from(BUCKET).remove([filePath]).catch(() => {})
-    await sb.storage.from(BUCKET).remove([stagingPath]).catch(() => {})
-    return NextResponse.json(
-      { error: 'Could not record the image-rights confirmation. Please try again.' },
-      { status: 500 }
-    )
+    // Non-blocking: a provenance-log hiccup must never reject an otherwise-valid
+    // upload (best-effort audit trail for takedowns).
+    console.warn('[listing/upload/finalize] asset_provenance write failed (non-blocking):', prov.error)
   }
 
   // Best-effort staging cleanup (publish already succeeded — never fail here).
