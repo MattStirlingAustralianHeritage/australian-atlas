@@ -1,4 +1,5 @@
 import LocalizedLink from '@/components/LocalizedLink'
+import { unstable_cache } from 'next/cache'
 import { getTranslations, getLocale } from 'next-intl/server'
 import { overlayListingTranslations } from '@/lib/i18n/overlayListings'
 import { localizeVerticalKicker } from '@/lib/i18n/listingLabels'
@@ -400,14 +401,45 @@ async function getUpcomingEvents() {
   }
 }
 
+async function assembleHomeData(publicVerticals) {
+  const [stats, articles, clusters, featured, upcomingEvents, recentListings] = await Promise.all([
+    getStats(publicVerticals), getLatestArticles(), getDiscoverClusters(), getFeaturedListings(), getUpcomingEvents(), getRecentListings(),
+  ])
+  return { stats, articles, clusters, featured, upcomingEvents, recentListings }
+}
+
+// The root layout reads auth cookies, so this route renders dynamically and
+// the page-level `revalidate` above never yields a cached HTML copy — every
+// request used to re-run the ~25 count/list queries in assembleHomeData.
+// unstable_cache amortises that data assembly across requests (15 min TTL);
+// the locale overlays below stay per-request, outside the cache.
+const getHomeDataCached = unstable_cache(
+  async (publicVerticals) => {
+    const data = await assembleHomeData(publicVerticals)
+    // A transient DB failure must not poison the cache with an empty page
+    // (same guard as atlas-index): throwing skips the cache write and this
+    // request falls back to the uncached assembly.
+    if (!data.stats.listings && data.featured.length === 0 && data.recentListings.length === 0) {
+      throw new Error('empty home data — refusing to cache')
+    }
+    return data
+  },
+  ['home-data'],
+  { revalidate: 900 }
+)
+
 export default async function Home() {
   const t = await getTranslations('home')
   const locale = await getLocale()
   const publicVerticals = getPublicVerticals()
   const verticalCount = publicVerticals.length
-  const [stats, articlesRaw, clustersRaw, featuredRaw, upcomingEvents, recentListingsRaw] = await Promise.all([
-    getStats(publicVerticals), getLatestArticles(), getDiscoverClusters(), getFeaturedListings(), getUpcomingEvents(), getRecentListings(),
-  ])
+  let homeData
+  try {
+    homeData = await getHomeDataCached(publicVerticals)
+  } catch {
+    homeData = await assembleHomeData(publicVerticals)
+  }
+  const { stats, articles: articlesRaw, clusters: clustersRaw, featured: featuredRaw, upcomingEvents, recentListings: recentListingsRaw } = homeData
   // Render listing lists in the active locale (English falls through unchanged).
   const featured = await overlayListingTranslations(featuredRaw, locale)
   const recentListings = await overlayListingTranslations(recentListingsRaw, locale)
