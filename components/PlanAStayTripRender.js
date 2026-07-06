@@ -57,11 +57,14 @@ function prettySubtype(s, t) {
 }
 
 /* ─── Distance / drive-time estimates ────────────────────────────────────
-   All figures are straight-line haversine dressed with a standard 1.3
-   winding factor and a 60 km/h regional average — always rendered with an
-   "≈" so they read as the estimates they are, never as routed times.     */
+   All figures are straight-line haversine dressed with a 1.3 winding
+   factor and a 48 km/h effective average — always rendered with an "≈" so
+   they read as the estimates they are, never as routed times. Calibrated
+   2026-07-06 against 32 Mapbox-routed legs across three real trips:
+   distance mean error −5.6% at winding 1.3; time was −19.8% at 60 km/h,
+   ≈0% at 48 km/h (towns, turns and access roads eat the difference).    */
 const WINDING_FACTOR = 1.3
-const DRIVE_KMH = 60
+const DRIVE_KMH = 48
 const WALK_CUTOFF_KM = 1.2
 const WALK_MIN_PER_KM = 12
 
