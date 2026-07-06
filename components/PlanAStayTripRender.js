@@ -732,7 +732,7 @@ function returnToAlternates(day, stop) {
 
 
 /* ─── Normal trip render ─────────────────────────────────────────────── */
-export function TripRender({ trip, onAccommodationChange, onDaysChange, editable = false }) {
+export function TripRender({ trip, onAccommodationChange, onDaysChange, editable = false, personalised = false }) {
   const t = useTranslations('plan')
   const [days, setDays] = useState(() => cloneDays(trip.days || []))
   const initial = initAccommodation(trip.days || [])
@@ -918,6 +918,20 @@ export function TripRender({ trip, onAccommodationChange, onDaysChange, editable
         )}
       </div>
 
+      {/* ── Taste personalisation note (planner only) ──────────── */}
+      {personalised && (
+        <p style={{
+          fontFamily: 'var(--font-body)',
+          fontSize: 12.5,
+          fontStyle: 'italic',
+          textAlign: 'center',
+          color: 'var(--color-gold, #C4973B)',
+          margin: '0 0 24px',
+        }}>
+          ✦ {t('personalisedNote')}
+        </p>
+      )}
+
       {/* ── Trip disclosures ──────────────────────────────────── */}
       {trip.trip_disclosures?.length > 0 && (
         <div style={{ marginBottom: 40, textAlign: 'center' }}>
@@ -1057,13 +1071,14 @@ export function TripRender({ trip, onAccommodationChange, onDaysChange, editable
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{
+                    display: 'inline-block',
                     fontFamily: 'var(--font-body)',
                     fontSize: 12.5,
                     fontWeight: 500,
                     color: 'var(--color-muted, #6B6760)',
                     textDecoration: 'none',
                     borderBottom: '1px solid rgba(28,26,23,0.2)',
-                    paddingBottom: 1,
+                    padding: '8px 0 4px',
                   }}
                 >
                   {t('openDayInGoogleMaps')} ↗

@@ -1015,7 +1015,8 @@
     "moveLater": "Move later in the day",
     "addAStop": "Add a stop",
     "addAStopNearby": "{count, plural, one {# more listed place nearby} other {# more listed places nearby}}",
-    "tripMapCaption": "Every stop, coloured by day — tap a pin to jump to it"
+    "tripMapCaption": "Every stop, coloured by day — tap a pin to jump to it",
+    "personalisedNote": "Leaning toward the kinds of places you've been picking."
   },
   "discovery2": {
     "eventsKicker": "On the calendar",

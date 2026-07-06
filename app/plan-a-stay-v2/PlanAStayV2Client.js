@@ -287,6 +287,7 @@ function OptionCard({ label, sub, selected, onClick, index }) {
   return (
     <button
       onClick={onClick}
+      aria-pressed={selected}
       style={{
         display: 'flex',
         alignItems: 'flex-start',
@@ -396,6 +397,7 @@ function DurationPill({ label, selected, onClick, index }) {
   return (
     <button
       onClick={onClick}
+      aria-pressed={selected}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -484,6 +486,7 @@ function RegionRow({ name, stateAbbr, selected, onClick, index }) {
   return (
     <button
       onClick={onClick}
+      aria-pressed={selected}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -589,6 +592,7 @@ function SeasonCard({ label, selected, onClick, index }) {
   return (
     <button
       onClick={onClick}
+      aria-pressed={selected}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -924,13 +928,16 @@ function LoadingScreen({ state, onComplete, onError }) {
           }).then(res => {
             if (!res.ok) throw new Error(`Assemble failed: ${res.status}`)
             return res.json()
-          })
+          }).then(assembled => ({
+            assembled,
+            personalised: !!retrieval.coverage?.personalised,
+          }))
         })
-        .then(assembled => {
+        .then(({ assembled, personalised }) => {
           // Show line 3 — done
           setVisibleCount()
           // Brief pause so the user sees "Writing the trip…" before output
-          setTimeout(() => onComplete(assembled, answers), 600)
+          setTimeout(() => onComplete(assembled, answers, personalised), 600)
         })
         .catch(err => {
           console.error('[plan-a-stay] Pipeline error:', err)
@@ -1101,6 +1108,7 @@ function OutputScreen({ tripData, error, onReset, resumePayload }) {
         onAccommodationChange={setAccommodationByDay}
         onDaysChange={setEditedDays}
         editable
+        personalised={!!tripData._personalised}
       />
       <ActionButtons
         tripData={tripData}
@@ -1462,9 +1470,10 @@ export default function PlanAStayV2Client({ regions = [] }) {
   }
 
   /* ── Loading complete callback ───────────────────────────────────── */
-  const handleLoadingComplete = useCallback((assembled, answers) => {
-    // Attach answers so the Share button can send them to the share endpoint
-    setTripData({ ...assembled, _answers: answers })
+  const handleLoadingComplete = useCallback((assembled, answers, personalised) => {
+    // Attach answers so the Share button can send them to the share endpoint.
+    // _personalised is display-only (buildTripPayload never reads it).
+    setTripData({ ...assembled, _answers: answers, _personalised: !!personalised })
     setTripError(null)
     setResumePayload(null)   // a fresh trip is not a resume
     dispatch({ type: 'GO_TO_STEP', value: 'output' })

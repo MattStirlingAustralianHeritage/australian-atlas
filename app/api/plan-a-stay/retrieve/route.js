@@ -446,6 +446,7 @@ export async function POST(request) {
           clusters_requested: duration,
           intent_match_rate: 0,
           binding_constraint: 'vertical_coverage',
+          personalised: !!tasteProfile,
           fallbacks_used: fallbacksUsed,
         },
         diagnostics: {
@@ -588,6 +589,7 @@ export async function POST(request) {
         intent_match_rate: intentMatchRate,
         binding_constraint: bindingConstraint,
         region_compact: regionCompact,
+        personalised: !!tasteProfile,
         fallbacks_used: fallbacksUsed,
       },
       diagnostics: {

@@ -96,10 +96,16 @@ export default function PlanAStayTripMap({ days, accommodationByDay }) {
     const size = isMobile ? 30 : 26
     const font = isMobile ? 13 : 12
 
+    const reducedMotion = typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
     for (const p of pts) {
       const color = dayColor(p.day)
       const wrapper = document.createElement('div')
       wrapper.style.cssText = 'display:flex;flex-direction:column;align-items:center;cursor:pointer;'
+      wrapper.setAttribute('role', 'button')
+      wrapper.setAttribute('tabindex', '0')
+      wrapper.setAttribute('aria-label', `${p.name || ''} — Day ${p.day}, stop ${p.indexInDay + 1}`)
 
       const el = document.createElement('div')
       el.style.cssText = `width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2.5px solid #fff;color:#fff;font-weight:700;font-size:${font}px;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.25);font-family:system-ui,-apple-system,sans-serif;transition:transform 0.2s ease;`
@@ -118,9 +124,13 @@ export default function PlanAStayTripMap({ days, accommodationByDay }) {
       const popup = new mapboxgl.Popup({ offset: 18, closeButton: false })
         .setHTML(`<div style="font-family:system-ui,sans-serif;padding:5px 4px;"><p style="font-weight:600;margin:0;font-size:13px;">${(p.name || '').replace(/</g, '&lt;')}</p></div>`)
 
-      wrapper.addEventListener('click', () => {
+      const jumpToCard = () => {
         const card = document.getElementById(`pas-stop-${p.listing_id}`)
-        if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        if (card) card.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'center' })
+      }
+      wrapper.addEventListener('click', jumpToCard)
+      wrapper.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); jumpToCard() }
       })
 
       const marker = new mapboxgl.Marker({ element: wrapper, anchor: 'bottom' })
@@ -213,11 +223,15 @@ export default function PlanAStayTripMap({ days, accommodationByDay }) {
 
   return (
     <div className="pas-no-print" style={{ marginBottom: 40 }}>
-      <div style={{
-        borderRadius: 10,
-        overflow: 'hidden',
-        border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
-      }}>
+      <div
+        role="region"
+        aria-label={t('tripMapCaption')}
+        style={{
+          borderRadius: 10,
+          overflow: 'hidden',
+          border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
+        }}
+      >
         <div ref={containerRef} style={{ height: 'min(420px, 55vh)', width: '100%', background: '#E8E2D6' }} />
       </div>
       <p style={{

@@ -1015,7 +1015,8 @@
     "moveLater": "在当天行程中后移",
     "addAStop": "添加一站",
     "addAStopNearby": "{count, plural, other {附近还有#个已收录的地方}}",
-    "tripMapCaption": "所有站点按天着色 — 点击图钉即可跳转"
+    "tripMapCaption": "所有站点按天着色 — 点击图钉即可跳转",
+    "personalisedNote": "已根据您挑选过的地方进行调整。"
   },
   "discovery2": {
     "eventsKicker": "日历上的活动",
