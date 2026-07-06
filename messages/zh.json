@@ -233,6 +233,8 @@
     "backToMap": "返回地图",
     "photoLibrary": "照片集",
     "photosSuppliedBy": "照片由 {name} 提供。",
+    "video": "视频",
+    "videoSharedBy": "视频由 {name} 分享。",
     "claimedByOwner": "由店主打理"
   },
   "search": {

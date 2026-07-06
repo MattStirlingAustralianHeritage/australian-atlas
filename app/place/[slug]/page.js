@@ -20,6 +20,7 @@ import { isMobileListing, hasPreciseLocation, mobileLocationLine, MOBILE_LABEL }
 import { stripTrackingParams } from '@/lib/urlHygiene'
 import { listOutgoing, listIncoming } from '@/lib/picks/producerPicks'
 import { readGallery, filterPaidListingIds } from '@/lib/listing-gallery'
+import { parseVideoUrl } from '@/lib/video-embed'
 import { readHighlights } from '@/lib/operator-highlights/read'
 import { getHighlightDef, hiringIsActive, fieldHasValue } from '@/lib/operator-highlights/config'
 import { listEventsForListing } from '@/lib/events'
@@ -147,7 +148,7 @@ const getListing = cache(async function getListing(slug, locale = 'en') {
   const hasVerticals = await relationHasVerticals(sb, 'listings')
   const { data, error } = await sb
     .from('listings')
-    .select(`id, vertical, name, slug, description, region, state, suburb, lat, lng, website, phone, address, address_on_request, visitable, presence_type, service_area, data_source, hero_image_url, is_featured, is_claimed, editors_pick, status, hours, verified, sub_type, sub_types, ${hasVerticals ? 'verticals, ' : ''}${LISTING_REGION_SELECT}`)
+    .select(`id, vertical, name, slug, description, region, state, suburb, lat, lng, website, phone, address, address_on_request, visitable, presence_type, service_area, data_source, hero_image_url, video_url, is_featured, is_claimed, editors_pick, status, hours, verified, sub_type, sub_types, ${hasVerticals ? 'verticals, ' : ''}${LISTING_REGION_SELECT}`)
     .eq('slug', slug)
     .eq('status', 'active')
     // CLAUDE.md hard rule: needs_review=true venues 404 (never render publicly).
@@ -778,6 +779,12 @@ export default async function PlacePage({ params }) {
   const galleryUrls = isPaid
     ? (await readGallery(sbMem, listing.id)).filter(isApprovedImageSource)
     : []
+
+  // Featured video (migration 225) — operator-supplied YouTube / TikTok /
+  // Instagram link, paid-gated like the blocks below so it fails safe when a
+  // subscription lapses. parseVideoUrl re-validates the stored value and the
+  // iframe src is BUILT from the parsed video id, never the raw column.
+  const video = isPaid ? parseVideoUrl(listing.video_url) : null
 
   // Current offers + Recognition — operator-authored paid perks (migration
   // 208). Rendered only while the listing is paid, so a lapsed subscription
@@ -1450,6 +1457,50 @@ export default async function PlacePage({ params }) {
               </p>
             </div>
             <PlacePhotoLibrary images={galleryUrls} name={listing.name} />
+          </section>
+        )}
+
+        {/* ── Featured video — operator-embedded YouTube / TikTok / Instagram
+            video (a paid perk, migration 225). One per listing; clearly
+            attributed to the operator like the photo library above. The
+            iframe src comes from parseVideoUrl (allowlist + id extraction),
+            never from the stored string. ── */}
+        {video && (
+          <section className="mb-12" aria-labelledby="video-heading">
+            <div className="mb-4">
+              <h2 id="video-heading" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)', margin: 0 }}>
+                {t('video')}
+              </h2>
+              <p style={{ fontFamily: 'var(--font-display)', fontStyle: 'italic', fontSize: '15px', color: 'var(--color-muted)', margin: '4px 0 0' }}>
+                {t('videoSharedBy', { name: listing.name })}
+              </p>
+            </div>
+            {video.provider === 'youtube' ? (
+              <div style={{ position: 'relative', width: '100%', aspectRatio: '16 / 9', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--color-border)', background: '#000' }}>
+                <iframe
+                  src={video.embedUrl}
+                  title={`${listing.name} — ${t('video')}`}
+                  loading="lazy"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
+                />
+              </div>
+            ) : (
+              /* TikTok / Instagram are portrait embeds — a centred column, not full-bleed. */
+              <div style={{ width: video.provider === 'tiktok' ? 325 : 400, maxWidth: '100%' }}>
+                <iframe
+                  src={video.embedUrl}
+                  title={`${listing.name} — ${t('video')}`}
+                  loading="lazy"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  style={{ width: '100%', height: video.provider === 'tiktok' ? 578 : 480, border: '1px solid var(--color-border)', borderRadius: 12, background: '#fff' }}
+                />
+              </div>
+            )}
           </section>
         )}
 

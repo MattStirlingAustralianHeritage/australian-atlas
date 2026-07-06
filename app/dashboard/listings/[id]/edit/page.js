@@ -7,6 +7,7 @@ import { getDashboardToken } from '@/lib/dashboard-token'
 import { uploadOperatorImage } from '@/lib/uploadOperatorImage'
 import { getListingRegion } from '@/lib/regions'
 import { getVerticalLabel, getVerticalBrandColour } from '@/lib/verticalUrl'
+import { parseVideoUrl, VIDEO_PROVIDER_LABELS } from '@/lib/video-embed'
 import HighlightsEditor from './HighlightsEditor'
 import KeywordsEditor from './KeywordsEditor'
 import TradeReadinessEditor from './TradeReadinessEditor'
@@ -146,6 +147,7 @@ const ICONS = {
   trash: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" /><path d="M10 11v6M14 11v6" /></svg>,
   lock: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>,
   check: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>,
+  play: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polygon points="10 8 16 12 10 16 10 8" /></svg>,
 }
 
 // ── Shared styles for inline-edit primitives ─────────────────
@@ -302,6 +304,7 @@ export default function EditListingPage() {
   const [phone, setPhone] = useState('')
   const [heroImageUrl, setHeroImageUrl] = useState('')
   const [gallery, setGallery] = useState([])
+  const [videoUrl, setVideoUrl] = useState('')
   const [days, setDays] = useState(defaultDays)
   const [hoursEditing, setHoursEditing] = useState(false)
 
@@ -318,10 +321,10 @@ export default function EditListingPage() {
   const [pollTimedOut, setPollTimedOut] = useState(false)
   const [pollNonce, setPollNonce] = useState(0)
 
-  const baselineRef = useRef({ website: '', phone: '', heroImageUrl: '', hoursKey: 'null', galleryKey: '[]' })
+  const baselineRef = useRef({ website: '', phone: '', heroImageUrl: '', hoursKey: 'null', galleryKey: '[]', videoUrl: '' })
 
-  const setBaseline = useCallback((w, p, h, d, g) => {
-    baselineRef.current = { website: w, phone: p, heroImageUrl: h, hoursKey: JSON.stringify(daysToHours(d)), galleryKey: JSON.stringify(g || []) }
+  const setBaseline = useCallback((w, p, h, d, g, v) => {
+    baselineRef.current = { website: w, phone: p, heroImageUrl: h, hoursKey: JSON.stringify(daysToHours(d)), galleryKey: JSON.stringify(g || []), videoUrl: v || '' }
   }, [])
 
   useEffect(() => { setMounted(true) }, [])
@@ -356,16 +359,18 @@ export default function EditListingPage() {
               const w = l.website || '', p = l.phone || '', h = l.hero_image_url || ''
               const d = hoursToDays(l.hours)
               const g = Array.isArray(l.gallery_image_urls) ? l.gallery_image_urls : []
+              const v = l.video_url || ''
               setListing(l)
               setWebsite(w)
               setPhone(p)
               setHeroImageUrl(h)
               setGallery(g)
+              setVideoUrl(v)
               if (Array.isArray(l.gallery_moderation)) {
                 setGalleryStatus(Object.fromEntries(l.gallery_moderation.map(s => [s.url, { status: s.status, reason: s.reason }])))
               }
               setDays(d)
-              setBaseline(w, p, h, d, g)
+              setBaseline(w, p, h, d, g, v)
             }
           }
           setLoading(false)
@@ -496,6 +501,7 @@ export default function EditListingPage() {
     setPhone(b.phone)
     setHeroImageUrl(b.heroImageUrl)
     setGallery(JSON.parse(b.galleryKey))
+    setVideoUrl(b.videoUrl)
     setDays(hoursToDays(JSON.parse(b.hoursKey)))
     setHoursEditing(false)
     setSaveError(null)
@@ -519,6 +525,7 @@ export default function EditListingPage() {
       if (listing?.paid || isAdmin) {
         payload.hero_image_url = heroImageUrl || null
         payload.gallery_image_urls = gallery
+        payload.video_url = videoUrl.trim() || null
       }
       const res = await fetch('/api/dashboard/listing', {
         method: 'PATCH',
@@ -533,11 +540,14 @@ export default function EditListingPage() {
           const w = data.listing.website || '', p = data.listing.phone || '', h = data.listing.hero_image_url || ''
           const d = hoursToDays(data.listing.hours)
           const g = Array.isArray(data.listing.gallery_image_urls) ? data.listing.gallery_image_urls : gallery
+          // video_url rides the fresh listing only when it was part of the save
+          // (the PATCH overlays savedVideo); otherwise keep the local value.
+          const v = data.listing.video_url !== undefined ? (data.listing.video_url || '') : videoUrl
           setListing(prev => ({ ...prev, ...data.listing }))
-          setWebsite(w); setPhone(p); setHeroImageUrl(h); setGallery(g); setDays(d)
-          setBaseline(w, p, h, d, g)
+          setWebsite(w); setPhone(p); setHeroImageUrl(h); setGallery(g); setVideoUrl(v); setDays(d)
+          setBaseline(w, p, h, d, g, v)
         } else {
-          setBaseline(website, phone, heroImageUrl, days, gallery)
+          setBaseline(website, phone, heroImageUrl, days, gallery, videoUrl)
         }
         // Image-moderation feedback for hero + gallery: anything flagged or held
         // won't appear publicly until it passes / an admin approves it.
@@ -614,9 +624,14 @@ export default function EditListingPage() {
     phone !== baselineRef.current.phone ||
     heroImageUrl !== baselineRef.current.heroImageUrl ||
     JSON.stringify(daysToHours(days)) !== baselineRef.current.hoursKey ||
-    JSON.stringify(gallery) !== baselineRef.current.galleryKey
+    JSON.stringify(gallery) !== baselineRef.current.galleryKey ||
+    videoUrl !== baselineRef.current.videoUrl
 
   const showBar = dirty || saving || justSaved || saveError
+
+  // Live-parsed video link (null while empty or not yet a recognisable
+  // YouTube / TikTok / Instagram video) — drives the inline preview + notice.
+  const videoParsed = parseVideoUrl(videoUrl)
 
   return (
     <>
@@ -987,6 +1002,71 @@ export default function EditListingPage() {
             )}
           </div>
 
+          {/* ── Video (paid perk, migration 225) — one featured YouTube /
+              TikTok / Instagram embed. Saved through the main save bar; the
+              PATCH route allowlist-validates and stores the canonical watch
+              URL. canEditAll (not isPaid) so admins can stage on any listing,
+              matching what handleSave sends. ── */}
+          <div style={{ marginTop: 36, paddingTop: 28, borderTop: '1px solid var(--color-border)' }}>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)', margin: '0 0 4px' }}>Video</h2>
+            {canEditAll ? (
+              <>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '0 0 14px', lineHeight: 1.5 }}>
+                  Feature one video on your public listing — paste the link to a YouTube, TikTok or Instagram video and it plays right on your page.
+                </p>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <input
+                    type="url"
+                    value={videoUrl}
+                    onChange={e => setVideoUrl(e.target.value)}
+                    placeholder="e.g. https://www.youtube.com/watch?v=… or https://www.tiktok.com/@you/video/…"
+                    style={videoInput}
+                  />
+                  {videoUrl && (
+                    <button type="button" onClick={() => setVideoUrl('')} style={videoClearBtn}>Remove</button>
+                  )}
+                </div>
+                {videoParsed ? (
+                  <>
+                    <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600, color: 'var(--color-sage)', margin: '10px 0 0' }}>
+                      <span style={{ display: 'inline-flex' }}>{ICONS.check}</span>
+                      {VIDEO_PROVIDER_LABELS[videoParsed.provider]} video — this is how it will appear.
+                    </p>
+                    <div style={{ marginTop: 12, ...(videoParsed.provider === 'youtube'
+                      ? { position: 'relative', width: '100%', maxWidth: 560, aspectRatio: '16 / 9' }
+                      : { width: videoParsed.provider === 'tiktok' ? 325 : 400, maxWidth: '100%', height: videoParsed.provider === 'tiktok' ? 578 : 480 }) }}>
+                      <iframe
+                        key={videoParsed.embedUrl}
+                        src={videoParsed.embedUrl}
+                        title="Video preview"
+                        loading="lazy"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen
+                        referrerPolicy="strict-origin-when-cross-origin"
+                        style={{ width: '100%', height: '100%', border: '1px solid var(--color-border)', borderRadius: 10, background: '#000', display: 'block' }}
+                      />
+                    </div>
+                  </>
+                ) : videoUrl.trim() ? (
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: '#92400e', margin: '10px 0 0' }}>
+                    That doesn’t look like a YouTube, TikTok or Instagram video link yet — paste the video’s own page URL.
+                  </p>
+                ) : null}
+              </>
+            ) : (
+              <div style={{ ...galleryLockCard, marginTop: 12 }}>
+                <span style={{ display: 'inline-flex', color: 'var(--color-sage)', flexShrink: 0 }}>{ICONS.play}</span>
+                <div>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600, color: 'var(--color-ink)', margin: 0 }}>Show your place in motion</p>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '4px 0 0', lineHeight: 1.5 }}>
+                    A featured video is part of a paid listing. Embed a YouTube, TikTok or Instagram video on your public page.
+                  </p>
+                  <Link href="/dashboard/subscription" style={{ display: 'inline-block', marginTop: 10, fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600, color: 'var(--color-sage)', textDecoration: 'none' }}>View subscription options →</Link>
+                </div>
+              </div>
+            )}
+          </div>
+
           <EventsSection listingId={id} token={token} isPaid={isPaid} listingSlug={listing.slug} />
           {/* ── Offers & Recognition (paid perks, migration 208) ── */}
           <OffersSection listingId={id} token={token} isPaid={isPaid} />
@@ -1031,3 +1111,7 @@ const gBtn = { display: 'inline-flex', alignItems: 'center', justifyContent: 'ce
 const galleryIndex = { position: 'absolute', top: 6, left: 6, minWidth: 18, height: 18, padding: '0 5px', borderRadius: 9, background: 'rgba(28,26,23,0.62)', color: '#fff', fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }
 const galleryAddTile = { aspectRatio: '4 / 3', borderRadius: 10, border: '1.5px dashed var(--color-border)', background: 'transparent', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--color-muted)', transition: 'all 0.12s ease' }
 const galleryLockCard = { display: 'flex', gap: 14, alignItems: 'flex-start', padding: 18, borderRadius: 12, border: '1px solid var(--color-border)', background: 'var(--color-card-bg)' }
+
+// ── Video styles ──
+const videoInput = { flex: 1, minWidth: 260, maxWidth: 560, padding: '10px 14px', borderRadius: 8, border: '1px solid var(--color-border)', background: '#fff', fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--color-ink)', outline: 'none' }
+const videoClearBtn = { padding: '9px 14px', borderRadius: 8, border: '1px solid var(--color-border)', background: '#fff', color: 'var(--color-muted)', fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500, cursor: 'pointer' }

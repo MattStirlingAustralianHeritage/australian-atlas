@@ -233,6 +233,8 @@
     "backToMap": "지도로 돌아가기",
     "photoLibrary": "포토 라이브러리",
     "photosSuppliedBy": "{name}에서 제공한 사진입니다.",
+    "video": "영상",
+    "videoSharedBy": "{name}에서 공유한 영상입니다.",
     "claimedByOwner": "주인이 직접 관리"
   },
   "search": {

@@ -233,6 +233,8 @@
     "backToMap": "Back to map",
     "photoLibrary": "Photo library",
     "photosSuppliedBy": "Photographs supplied by {name}.",
+    "video": "Video",
+    "videoSharedBy": "Video shared by {name}.",
     "claimedByOwner": "Claimed by the owner"
   },
   "search": {

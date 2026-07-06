@@ -7,6 +7,7 @@ import { readGalleryEntries, writeGalleryEntries, galleryModerationStatus, isLis
 import { normalizeHighlights } from '@/lib/operator-highlights/normalize'
 import { normalizeSearchKeywords } from '@/lib/search-keywords/normalize'
 import { normalizeTradeReadiness, normalizeTradeProfile } from '@/lib/trade-readiness/normalize'
+import { parseVideoUrl } from '@/lib/video-embed'
 import { upsertTradeProfile } from '@/lib/trade/profile'
 import { regenerateListingEmbedding } from '@/lib/embeddings/regenerateOne'
 import { moderateImageUrl } from '@/lib/moderation/imageModeration'
@@ -19,7 +20,7 @@ import { moderateImageUrl } from '@/lib/moderation/imageModeration'
  * user. Vertical membership no longer grants edit rights (that let any vendor in
  * a vertical edit every claimed listing in it). Admins bypass the ownership check.
  *
- * Body: { listing_id, website?, phone?, hours?, hero_image_url?, gallery_image_urls? }
+ * Body: { listing_id, website?, phone?, hours?, hero_image_url?, gallery_image_urls?, video_url? }
  *
  * Tiering ("keeper of the facts"): a FREE claim verifies ownership and lets the
  * owner keep the facts current — ONLY website, phone and hours (the
@@ -401,6 +402,43 @@ export async function PATCH(request) {
     savedKeywords = norm.value
   }
 
+  // ── video_url → master-only write (paid perk, migration 225). One featured
+  //    video from an allowlisted platform — YouTube, TikTok or Instagram. The
+  //    tier gate above already 403s this field on a free claim; here the link
+  //    is allowlist-validated and normalised to its canonical watch URL (null
+  //    clears it). Never synced to a vertical (absent from lib/sync/fieldMaps)
+  //    — the same sync-safe-by-omission contract as hours/highlights. ──
+  let savedVideo
+  if ('video_url' in body) {
+    const raw = body.video_url
+    let canonical = null
+    if (raw != null && raw !== '') {
+      if (typeof raw !== 'string') {
+        return NextResponse.json({ error: 'video_url must be a URL string' }, { status: 400 })
+      }
+      const parsedVideo = parseVideoUrl(raw)
+      if (!parsedVideo) {
+        return NextResponse.json(
+          { error: 'That link doesn’t look like a YouTube, TikTok or Instagram video. Paste the video’s own page link — e.g. youtube.com/watch?v=…, tiktok.com/@you/video/… or instagram.com/reel/….' },
+          { status: 400 }
+        )
+      }
+      canonical = parsedVideo.watchUrl
+    }
+    const { error: vErr } = await sb
+      .from('listings')
+      .update({ video_url: canonical, updated_at: new Date().toISOString() })
+      .eq('id', listingId)
+    if (vErr) {
+      // Forward-compat: column absent until migration 225 is applied.
+      if (vErr.code === '42703') {
+        return NextResponse.json({ error: 'Video isn’t switched on yet — please try again shortly.' }, { status: 503 })
+      }
+      return NextResponse.json({ error: `Failed to save video: ${vErr.message}` }, { status: 400 })
+    }
+    savedVideo = canonical
+  }
+
   // ── trade_readiness → master-only write (Atlas Trade operator profile).
   //    Never synced to a vertical (not in lib/sync/fieldMaps) and never search-
   //    indexed — operator metadata only, sync-safe by omission like hours /
@@ -455,6 +493,7 @@ export async function PATCH(request) {
     .eq('id', listingId)
     .single()
 
+  if (fresh && savedVideo !== undefined) fresh.video_url = savedVideo
   if (fresh && savedGallery !== undefined) fresh.gallery_image_urls = savedGallery
   if (fresh && savedHighlights !== undefined) fresh.operator_highlights = savedHighlights
   if (fresh && savedKeywords !== undefined) fresh.search_keywords = savedKeywords

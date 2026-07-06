@@ -20,7 +20,7 @@ import { getTradeProfiles } from '@/lib/trade/profile'
  */
 
 // Columns the dashboard renders per listing (+ resolved region fields).
-const LISTING_SELECT = `id, name, slug, vertical, sub_type, sub_types, region, state, lat, lng, website, phone, address, hero_image_url, is_claimed, is_featured, status, description, hours, search_keywords, trade_welcome, trade_bespoke, trade_group, trade_group_size_max, trade_contact_before_booking, trade_rates_available, created_at, updated_at, ${LISTING_REGION_SELECT}`
+const LISTING_SELECT = `id, name, slug, vertical, sub_type, sub_types, region, state, lat, lng, website, phone, address, hero_image_url, video_url, is_claimed, is_featured, status, description, hours, search_keywords, trade_welcome, trade_bespoke, trade_group, trade_group_size_max, trade_contact_before_booking, trade_rates_available, created_at, updated_at, ${LISTING_REGION_SELECT}`
 
 // True if `userId` holds an active ownership claim on `listingId`.
 async function ownsListing(sb, listingId, userId) {
