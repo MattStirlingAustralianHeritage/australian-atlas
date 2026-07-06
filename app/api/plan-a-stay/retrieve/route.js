@@ -2,6 +2,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { createAuthServerClient } from '@/lib/supabase/auth-clients'
 import { NextResponse } from 'next/server'
 import { isCoffeeListing, isLunchListing } from '@/lib/plan-a-stay/assemble-days'
+import { resolveVerticals } from '@/lib/plan-a-stay/intent-verticals'
 import { tasteAffinity, buildTasteProfileFromListingIds, mergeTasteProfiles } from '@/lib/discover/tasteProfile'
 import { getTasteProfile } from '@/lib/discover/getTasteProfile'
 
@@ -12,31 +13,8 @@ const TASTE_WEIGHT = 0.35
 
 export const runtime = 'nodejs'
 
-/* ═══════════════════════════════════════════════════════════════════════
-   Intent → vertical mapping
-   ═══════════════════════════════════════════════════════════════════════ */
-const INTENT_VERTICAL_MAP = {
-  'food-and-producers': {
-    primary: ['sba', 'table'],
-    secondary: ['field'],
-  },
-  'landscape-and-walking': {
-    primary: ['field'],
-    secondary: [],
-  },
-  'makers-and-craft': {
-    primary: ['craft', 'collection'],
-    secondary: [],
-  },
-  'quiet-and-slow': {
-    primary: ['rest', 'found', 'corner'],
-    secondary: [],
-  },
-  'a-bit-of-everything': {
-    primary: ['table', 'craft', 'field', 'sba', 'rest'],
-    secondary: ['collection', 'found', 'corner', 'fine_grounds'],
-  },
-}
+/* Intent → vertical mapping lives in lib/plan-a-stay/intent-verticals
+   (shared with /api/plan-a-stay/recommend). */
 
 /* ═══════════════════════════════════════════════════════════════════════
    Pacing → distance budgets
@@ -163,21 +141,6 @@ function kMeansCluster(points, k, maxIter = 20) {
   assignments.forEach((c, i) => clusters[c].members.push(i))
 
   return clusters
-}
-
-/* ═══════════════════════════════════════════════════════════════════════
-   Resolve verticals from intent array
-   ═══════════════════════════════════════════════════════════════════════ */
-function resolveVerticals(intents) {
-  const primary = new Set()
-  const secondary = new Set()
-  for (const intent of intents) {
-    const mapping = INTENT_VERTICAL_MAP[intent]
-    if (!mapping) continue
-    mapping.primary.forEach(v => primary.add(v))
-    mapping.secondary.forEach(v => { if (!primary.has(v)) secondary.add(v) })
-  }
-  return { primary: [...primary], secondary: [...secondary] }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════

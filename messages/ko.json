@@ -1014,7 +1014,8 @@
     "moveEarlier": "일정에서 앞으로 이동",
     "moveLater": "일정에서 뒤로 이동",
     "addAStop": "장소 추가",
-    "addAStopNearby": "{count, plural, other {근처에 등록된 장소 #곳 더 있음}}"
+    "addAStopNearby": "{count, plural, other {근처에 등록된 장소 #곳 더 있음}}",
+    "tripMapCaption": "모든 정류장을 날짜별 색상으로 표시 — 핀을 누르면 해당 장소로 이동합니다"
   },
   "discovery2": {
     "eventsKicker": "캘린더에",
@@ -1436,7 +1437,12 @@
     "saveToAccount": "계정에 저장",
     "savedToAccount": "계정에 저장됨 — <link>My Trails에서 보기</link>",
     "openOnMap": "지도에서 열기",
-    "printTrip": "인쇄 또는 PDF로 저장"
+    "printTrip": "인쇄 또는 PDF로 저장",
+    "recommendTitle": "어디로 갈지 고민된다면? Atlas의 추천을 받아보세요",
+    "recommendSub": "말씀해주신 여행에 맞춰 모든 지역의 커버리지를 점수화합니다.",
+    "recommendLoading": "지역별 커버리지를 확인하는 중…",
+    "recommendHeader": "이 여행에 가장 잘 맞는 지역",
+    "recommendError": "지금은 지역 추천을 불러올 수 없습니다 — 아래 목록에서 선택해주세요."
   },
   "developers": {
     "metaTitle": "개발자용 API — Australian Atlas",

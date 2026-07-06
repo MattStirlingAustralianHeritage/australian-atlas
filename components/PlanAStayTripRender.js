@@ -19,6 +19,7 @@
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
+import PlanAStayTripMap from '@/components/PlanAStayTripMap'
 
 /* ─── Vertical badge labels ──────────────────────────────────────────── */
 export const VERTICAL_LABELS = {
@@ -935,6 +936,9 @@ export function TripRender({ trip, onAccommodationChange, onDaysChange, editable
         </div>
       )}
 
+      {/* ── Interactive overview map ──────────────────────────── */}
+      <PlanAStayTripMap days={days} accommodationByDay={accommodationByDay} />
+
       {/* ── Days ──────────────────────────────────────────────── */}
       {days.map((day, dayIdx) => {
         const dayKm = dayLegsKm(day.stops)
@@ -1020,19 +1024,20 @@ export function TripRender({ trip, onAccommodationChange, onDaysChange, editable
             {/* Stop cards */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
               {day.stops?.map((stop, stopIdx) => (
-                <StopCard
-                  key={stop.listing_id}
-                  stop={stop}
-                  index={stopIdx}
-                  prevStop={stopIdx > 0 ? day.stops[stopIdx - 1] : null}
-                  editable={editable}
-                  alternates={editable ? (day.alternates?.[bucketFor(stop)] || []) : []}
-                  canMoveUp={editable && stopIdx > 0}
-                  canMoveDown={editable && stopIdx < day.stops.length - 1}
-                  onSwap={(alt) => swapStop(day.day_number, stopIdx, alt)}
-                  onRemove={() => removeStop(day.day_number, stopIdx)}
-                  onMove={(dir) => moveStop(day.day_number, stopIdx, dir)}
-                />
+                <div key={stop.listing_id} id={`pas-stop-${stop.listing_id}`}>
+                  <StopCard
+                    stop={stop}
+                    index={stopIdx}
+                    prevStop={stopIdx > 0 ? day.stops[stopIdx - 1] : null}
+                    editable={editable}
+                    alternates={editable ? (day.alternates?.[bucketFor(stop)] || []) : []}
+                    canMoveUp={editable && stopIdx > 0}
+                    canMoveDown={editable && stopIdx < day.stops.length - 1}
+                    onSwap={(alt) => swapStop(day.day_number, stopIdx, alt)}
+                    onRemove={() => removeStop(day.day_number, stopIdx)}
+                    onMove={(dir) => moveStop(day.day_number, stopIdx, dir)}
+                  />
+                </div>
               ))}
             </div>
 

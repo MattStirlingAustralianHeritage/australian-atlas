@@ -1014,7 +1014,8 @@
     "moveEarlier": "在当天行程中前移",
     "moveLater": "在当天行程中后移",
     "addAStop": "添加一站",
-    "addAStopNearby": "{count, plural, other {附近还有#个已收录的地方}}"
+    "addAStopNearby": "{count, plural, other {附近还有#个已收录的地方}}",
+    "tripMapCaption": "所有站点按天着色 — 点击图钉即可跳转"
   },
   "discovery2": {
     "eventsKicker": "日历上的活动",
@@ -1436,7 +1437,12 @@
     "saveToAccount": "保存到账户",
     "savedToAccount": "已保存到您的账户 — <link>在我的行程中查看</link>",
     "openOnMap": "在地图上打开",
-    "printTrip": "打印或保存为PDF"
+    "printTrip": "打印或保存为PDF",
+    "recommendTitle": "还没想好去哪里？让 Atlas 为您推荐",
+    "recommendSub": "我们会根据您描述的行程为每个覆盖地区打分。",
+    "recommendLoading": "正在查看各地区的覆盖情况…",
+    "recommendHeader": "最适合此行程的地区",
+    "recommendError": "暂时无法获取地区推荐 — 请从下方列表中选择。"
   },
   "developers": {
     "metaTitle": "开发者 API — Australian Atlas",

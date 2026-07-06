@@ -670,6 +670,153 @@ function SeasonCard({ label, selected, onClick, index }) {
   )
 }
 
+/* ─── Region recommendations ("Not sure where yet") ──────────────────────
+   Scores every qualifying region against the intent + duration answered so
+   far (/api/plan-a-stay/recommend) and offers the top three. The "why" is
+   the live counts themselves — nothing editorial is asserted.            */
+function RecommendRegions({ intent, duration, onSelect }) {
+  const t = useTranslations('planStay')
+  const tr = useTranslations('regions')
+  const [state, setState] = useState('idle') // idle | loading | done | error
+  const [recs, setRecs] = useState([])
+
+  async function load() {
+    setState('loading')
+    try {
+      const res = await fetch('/api/plan-a-stay/recommend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ intent, duration }),
+      })
+      if (!res.ok) throw new Error(`recommend failed: ${res.status}`)
+      const data = await res.json()
+      setRecs(data.recommendations || [])
+      setState('done')
+    } catch (err) {
+      console.error('[plan-a-stay] recommend error:', err)
+      setState('error')
+    }
+  }
+
+  if (state === 'idle') {
+    return (
+      <button
+        onClick={load}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left',
+          fontFamily: 'var(--font-body)',
+          background: 'rgba(196,151,59,0.04)',
+          border: '1px dashed rgba(196,151,59,0.45)',
+          borderRadius: 10, padding: '13px 18px', cursor: 'pointer', marginBottom: 22,
+          transition: 'background 0.18s ease, border-color 0.18s ease',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(196,151,59,0.08)'; e.currentTarget.style.borderColor = 'rgba(196,151,59,0.65)' }}
+        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(196,151,59,0.04)'; e.currentTarget.style.borderColor = 'rgba(196,151,59,0.45)' }}
+      >
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: 28, height: 28, borderRadius: 999, flexShrink: 0,
+          background: 'rgba(196,151,59,0.14)', color: 'var(--color-gold, #C4973B)',
+          fontSize: 15, lineHeight: 1,
+        }}>✦</span>
+        <span style={{ display: 'flex', flexDirection: 'column' }}>
+          <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-ink, #1C1A17)' }}>
+            {t('recommendTitle')}
+          </span>
+          <span style={{ fontSize: 12, color: 'var(--color-muted, #6B6760)', marginTop: 1 }}>
+            {t('recommendSub')}
+          </span>
+        </span>
+      </button>
+    )
+  }
+
+  if (state === 'loading') {
+    return (
+      <p style={{
+        fontFamily: 'var(--font-body)', fontSize: 13, fontStyle: 'italic',
+        color: 'var(--color-muted, #6B6760)', margin: '0 0 22px', padding: '13px 18px',
+      }}>
+        {t('recommendLoading')}
+      </p>
+    )
+  }
+
+  if (state === 'error' || recs.length === 0) {
+    return (
+      <p style={{
+        fontFamily: 'var(--font-body)', fontSize: 13,
+        color: 'var(--color-muted, #6B6760)', margin: '0 0 22px', padding: '13px 18px',
+      }}>
+        {t('recommendError')}
+      </p>
+    )
+  }
+
+  return (
+    <div style={{
+      border: '1px solid rgba(196,151,59,0.35)',
+      borderRadius: 10, overflow: 'hidden', background: '#fff', marginBottom: 26,
+    }}>
+      <div style={{
+        padding: '10px 16px', background: 'rgba(196,151,59,0.07)',
+        borderBottom: '1px solid rgba(28,26,23,0.08)',
+        fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 700,
+        letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--color-gold, #C4973B)',
+      }}>
+        {t('recommendHeader')}
+      </div>
+      {recs.map((r, i) => (
+        <button
+          key={r.name}
+          onClick={() => onSelect(r.name)}
+          style={{
+            display: 'flex', flexDirection: 'column', gap: 4,
+            width: '100%', textAlign: 'left', padding: '14px 16px',
+            background: 'transparent', cursor: 'pointer', border: 'none',
+            borderTop: i === 0 ? 'none' : '1px solid rgba(28,26,23,0.06)',
+            transition: 'background 0.15s ease',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(196,151,59,0.06)' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+        >
+          <span style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+            <span style={{
+              fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 400,
+              color: 'var(--color-ink, #1C1A17)', flex: 1,
+            }}>
+              {r.name}
+            </span>
+            <span style={{
+              fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600,
+              letterSpacing: '0.14em', textTransform: 'uppercase',
+              color: 'var(--color-muted, #6B6760)', opacity: 0.6,
+            }}>
+              {r.state}
+            </span>
+          </span>
+          <span style={{
+            display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+            fontFamily: 'var(--font-body)', fontSize: 12,
+            color: 'var(--color-muted, #6B6760)',
+          }}>
+            <span>{tr('stayCount', { count: r.stays })}</span>
+            {r.breakdown.map(b => (
+              <span key={b.vertical} style={{
+                padding: '2px 9px', borderRadius: 999,
+                background: 'rgba(196,151,59,0.09)', color: '#8a6a25',
+                fontWeight: 600, fontSize: 11.5,
+              }}>
+                {VERTICAL_LABELS[b.vertical] || b.vertical} {b.count}
+              </span>
+            ))}
+          </span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
 /* ─── Continue button ────────────────────────────────────────────────── */
 function ContinueButton({ onClick, visible }) {
   const t = useTranslations('planStay')
@@ -1510,6 +1657,14 @@ export default function PlanAStayV2Client({ regions = [] }) {
           }}>
             {t('regionSubhead')}
           </p>
+          <RecommendRegions
+            intent={state.intent}
+            duration={state.duration || 3}
+            onSelect={(name) => {
+              dispatch({ type: 'SET_REGION', value: name })
+              autoAdvance()
+            }}
+          />
           <RegionMapSelect
             regions={regions}
             selectedRegion={state.region}
