@@ -45,6 +45,18 @@ function buildTripPayload(tripData, accommodationByDay, editedDays) {
 const RESUME_SAVE_KEY = 'pas:resumeSave'
 const RESUME_QUERY = 'save'
 
+/* ─── Funnel events (fire-and-forget, never blocks the UI) ─────────────── */
+function trackPlannerEvent(event_type, payload = {}) {
+  try {
+    fetch('/api/plan-a-stay/events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event_type, ...payload }),
+      keepalive: true,
+    }).catch(() => {})
+  } catch { /* analytics must never break planning */ }
+}
+
 /* ─── Region data ────────────────────────────────────────────────────────
    Regions with ≥5 active Rest listings, derived live from threshold
    query. Passed as prop from the server page component.
@@ -773,7 +785,10 @@ function RecommendRegions({ intent, duration, onSelect }) {
       {recs.map((r, i) => (
         <button
           key={r.name}
-          onClick={() => onSelect(r.name)}
+          onClick={() => {
+            trackPlannerEvent('pas_recommend_used', { region: r.name, intent, duration })
+            onSelect(r.name)
+          }}
           style={{
             display: 'flex', flexDirection: 'column', gap: 4,
             width: '100%', textAlign: 'left', padding: '14px 16px',
@@ -991,6 +1006,14 @@ function OutputScreen({ tripData, error, onReset, resumePayload }) {
   // The days as edited in the renderer (swap/remove/add/reorder) — Share and
   // Save persist exactly what's on screen.
   const [editedDays, setEditedDays] = useState(null)
+  // First onDaysChange is the initial render, not an edit.
+  const daysChangeCount = useRef(0)
+  const handleDaysChange = useCallback((days) => {
+    setEditedDays(days)
+    if (daysChangeCount.current++ > 0) {
+      trackPlannerEvent('pas_trip_edited', { region: tripData?._answers?.region })
+    }
+  }, [tripData])
 
   // Error state
   if (error) {
@@ -1106,7 +1129,7 @@ function OutputScreen({ tripData, error, onReset, resumePayload }) {
       <TripRender
         trip={tripData.trip}
         onAccommodationChange={setAccommodationByDay}
-        onDaysChange={setEditedDays}
+        onDaysChange={handleDaysChange}
         editable
         personalised={!!tripData._personalised}
       />
@@ -1152,6 +1175,7 @@ function ActionButtons({ tripData, accommodationByDay, editedDays, onReset, shar
       const result = await res.json()
       const fullUrl = `${window.location.origin}${result.url}`
       setShareUrl(fullUrl)
+      trackPlannerEvent('pas_trip_shared', { region: tripData?._answers?.region })
 
       // Copy to clipboard
       try {
@@ -1194,6 +1218,7 @@ function ActionButtons({ tripData, accommodationByDay, editedDays, onReset, shar
       const result = await res.json()
       setSavedUrl(`${window.location.origin}${result.url}`)
       setSaveState('saved')
+      trackPlannerEvent('pas_trip_saved', { region: tripData?._answers?.region })
     } catch (err) {
       console.error('[plan-a-stay] Save error:', err)
       setSaveState('error')
@@ -1477,6 +1502,14 @@ export default function PlanAStayV2Client({ regions = [] }) {
     setTripError(null)
     setResumePayload(null)   // a fresh trip is not a resume
     dispatch({ type: 'GO_TO_STEP', value: 'output' })
+    if (assembled?.trip) {
+      trackPlannerEvent('pas_trip_generated', {
+        region: answers.region,
+        intent: answers.intent,
+        duration: answers.duration,
+        meta: { personalised: !!personalised, days: assembled.trip.days?.length || 0 },
+      })
+    }
   }, [])
 
   const handleLoadingError = useCallback((errMsg) => {
