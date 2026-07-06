@@ -85,6 +85,81 @@ const LOADING_MESSAGE_KEYS = [
   'loadingMsg1', 'loadingMsg2', 'loadingMsg3', 'loadingMsg4', 'loadingMsg5',
 ]
 
+/* ─── Funnel events (fire-and-forget, never blocks the UI) ──────────── */
+function trackPlannerEvent(event_type, payload = {}) {
+  try {
+    fetch('/api/plan-a-stay/events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event_type, ...payload }),
+      keepalive: true,
+    }).catch(() => {})
+  } catch { /* analytics must never break planning */ }
+}
+
+/* ─── Leg estimates ──────────────────────────────────────────────────────
+   Between consecutive stops we prefer the difference of their real
+   along-route positions (position_km comes from projecting each venue
+   onto the Mapbox-routed corridor), falling back to straight-line
+   haversine dressed with a 1.3 winding factor. Times use the 48 km/h
+   effective average calibrated for Plan a Stay on 2026-07-06 against 32
+   Mapbox-routed legs (≈0% bias — towns, turns and access roads eat the
+   nominal speed). Cycling legs assume a 15 km/h touring pace. Everything
+   renders with an "≈" so it reads as the estimate it is.               */
+const WINDING_FACTOR = 1.3
+const DRIVE_KMH = 48
+const CYCLE_KMH = 15
+const WALK_CUTOFF_KM = 1.2
+const WALK_MIN_PER_KM = 12
+
+function haversineKm(lat1, lng1, lat2, lng2) {
+  if (lat1 == null || lng1 == null || lat2 == null || lng2 == null) return 0
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLng = (lng2 - lng1) * Math.PI / 180
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+function legEstimateKm(prev, stop) {
+  if (!prev || !stop) return 0
+  const a = prev.position_km
+  const b = stop.position_km
+  if (a != null && b != null && a !== b) return Math.abs(b - a)
+  return haversineKm(prev.lat, prev.lng, stop.lat, stop.lng) * WINDING_FACTOR
+}
+
+function dayLegsKm(stops) {
+  if (!stops || stops.length < 2) return 0
+  let total = 0
+  for (let i = 1; i < stops.length; i++) {
+    total += legEstimateKm(stops[i - 1], stops[i])
+  }
+  return total
+}
+
+function formatDriveTime(mins, t) {
+  if (mins < 60) return t('timeMins', { mins })
+  return t('timeHoursMins', { hours: Math.floor(mins / 60), mins: mins % 60 })
+}
+
+/* Estimated label for one leg; walk for short hops, drive/ride otherwise. */
+function legTimeLabel(km, isCycling, t) {
+  if (km < 0.05) return null
+  if (km < WALK_CUTOFF_KM) {
+    const mins = Math.max(1, Math.round(km * WALK_MIN_PER_KM))
+    return t('legWalk', { mins })
+  }
+  const mins = Math.max(2, Math.round((km / (isCycling ? CYCLE_KMH : DRIVE_KMH)) * 60))
+  if (mins >= 60) {
+    return t(isCycling ? 'legRideLong' : 'legDriveLong', { km: Math.round(km), time: formatDriveTime(mins, t) })
+  }
+  return t(isCycling ? 'legRide' : 'legDrive', { km: Math.round(km), mins })
+}
+
 const SURPRISE_LOADING_MESSAGE_KEYS = [
   'surpriseLoadingMsg1', 'surpriseLoadingMsg2', 'surpriseLoadingMsg3',
   'surpriseLoadingMsg4', 'surpriseLoadingMsg5',
@@ -279,6 +354,20 @@ export default function OnThisRoadClient() {
       }
       const data = await res.json()
 
+      if (!data.short_trip) {
+        trackPlannerEvent('otr_trip_generated', {
+          region: [data.start_name, data.end_name].filter(Boolean).join(' → ').slice(0, 120),
+          duration: data.trip_days || (data.days?.length ?? 1),
+          meta: {
+            km: data.route_distance_km || 0,
+            stops: (data.stops || []).length,
+            transport: data.transport_mode || 'driving',
+            surprise: !!data.is_surprise_loop,
+            personalised: !!data.personalised,
+          },
+        })
+      }
+
       // Surprise mode: trigger reveal animation sequence
       if (isSurpriseMode && data.surprise_direction) {
         setSurpriseDirection(data.surprise_direction)
@@ -362,12 +451,14 @@ export default function OnThisRoadClient() {
             <div className="otr-mode-toggle">
               <button type="button"
                 className={`otr-mode-btn ${mode === 'plan' ? 'active' : ''}`}
+                aria-pressed={mode === 'plan'}
                 onClick={() => setMode('plan')}>
                 <Route size={14} strokeWidth={1.5} />
                 {t('modePlanTrip')}
               </button>
               <button type="button"
                 className={`otr-mode-btn ${mode === 'surprise' ? 'active' : ''}`}
+                aria-pressed={mode === 'surprise'}
                 onClick={() => setMode('surprise')}>
                 <Compass size={14} strokeWidth={1.5} />
                 {t('modeSurpriseMe')}
@@ -397,11 +488,13 @@ export default function OnThisRoadClient() {
               <div className="otr-pill-row">
                 <button type="button"
                   className={`otr-pill ${transportMode === 'driving' ? 'active' : ''}`}
+                  aria-pressed={transportMode === 'driving'}
                   onClick={() => { setTransportMode('driving'); setTripLength('day_trip') }}>
                   <Car size={14} strokeWidth={1.5} style={{ marginRight: 4 }} /> {t('transportCar')}
                 </button>
                 <button type="button"
                   className={`otr-pill ${transportMode === 'cycling' ? 'active' : ''}`}
+                  aria-pressed={transportMode === 'cycling'}
                   onClick={() => { setTransportMode('cycling'); setTripLength('full_day') }}>
                   <Bike size={14} strokeWidth={1.5} style={{ marginRight: 4 }} /> {t('transportBike')}
                 </button>
@@ -416,6 +509,7 @@ export default function OnThisRoadClient() {
                   {DEPARTURE_OPTIONS.map(opt => (
                     <button key={opt.value} type="button"
                       className={`otr-pill ${departureTiming === opt.value ? 'active' : ''}`}
+                      aria-pressed={departureTiming === opt.value}
                       onClick={() => setDepartureTiming(opt.value)}>
                       {t(opt.labelKey)}
                     </button>
@@ -431,6 +525,7 @@ export default function OnThisRoadClient() {
                 {(transportMode === 'cycling' ? BIKE_TRIP_LENGTH_OPTIONS : TRIP_LENGTH_OPTIONS).map(opt => (
                   <button key={opt.value} type="button"
                     className={`otr-pill ${opt.sublabelKey ? 'otr-pill--detour' : ''} ${tripLength === opt.value ? 'active' : ''}`}
+                    aria-pressed={tripLength === opt.value}
                     onClick={() => setTripLength(opt.value)}>
                     <span>{t(opt.labelKey)}</span>
                     {opt.sublabelKey && <span className="otr-pill__sublabel">{t(opt.sublabelKey)}</span>}
@@ -448,6 +543,7 @@ export default function OnThisRoadClient() {
                     {BIKE_TYPE_OPTIONS.map(opt => (
                       <button key={opt.value} type="button"
                         className={`otr-pill ${bikeType === opt.value ? 'active' : ''}`}
+                        aria-pressed={bikeType === opt.value}
                         onClick={() => setBikeType(opt.value)}>
                         {t(opt.labelKey)}
                       </button>
@@ -460,6 +556,7 @@ export default function OnThisRoadClient() {
                     {FITNESS_OPTIONS.map(opt => (
                       <button key={opt.value} type="button"
                         className={`otr-pill otr-pill--detour ${fitness === opt.value ? 'active' : ''}`}
+                        aria-pressed={fitness === opt.value}
                         onClick={() => setFitness(opt.value)}>
                         <span>{t(opt.labelKey)}</span>
                         <span className="otr-pill__sublabel">{t(opt.sublabelKey)}</span>
@@ -478,6 +575,7 @@ export default function OnThisRoadClient() {
                   {DETOUR_OPTIONS.map(opt => (
                     <button key={opt.value} type="button"
                       className={`otr-pill otr-pill--detour ${detourTolerance === opt.value ? 'active' : ''}`}
+                      aria-pressed={detourTolerance === opt.value}
                       onClick={() => setDetourTolerance(opt.value)}>
                       <span>{t(opt.labelKey)}</span>
                       <span className="otr-pill__sublabel">{t(opt.sublabelKey)}</span>
@@ -496,6 +594,7 @@ export default function OnThisRoadClient() {
                   return (
                     <button key={chip.key} type="button"
                       className={`otr-chip ${isActive ? 'active' : ''}`}
+                      aria-pressed={isActive}
                       onClick={() => togglePref(chip.key)}>
                       <span className="otr-chip-icon">
                         <chip.Icon size={16} strokeWidth={1.5} />
@@ -511,6 +610,7 @@ export default function OnThisRoadClient() {
             {isMultiDay && mode === 'plan' && (
               <button type="button"
                 className={`otr-return-toggle ${returnDifferent ? 'active' : ''}`}
+                aria-pressed={returnDifferent}
                 onClick={() => setReturnDifferent(!returnDifferent)}>
                 <span className="otr-return-checkbox">
                   {returnDifferent && <Check size={14} strokeWidth={2.5} />}
@@ -612,7 +712,7 @@ export default function OnThisRoadClient() {
 
       {/* ── Results ─────────────────────────────────────────── */}
       {result && !result.short_trip && !loading && (
-        <div ref={resultsRef} className="otr-results">
+        <div ref={resultsRef} className="otr-results otr-print-root">
           <ResultsView
             result={result}
             formRef={formRef}
@@ -628,6 +728,25 @@ export default function OnThisRoadClient() {
 }
 
 // ── Results view ────────────────────────────────────────────────────
+
+/* Editable working copy of the days. Every swap/add option the visitor
+   ever sees comes from the server-attached `alternate_stops` — real
+   corridor listings the retrieval step vetted — so nothing is invented
+   client-side. */
+function cloneEditDays(days) {
+  return (days || []).map(d => ({ ...d, stops: [...(d.stops || [])] }))
+}
+
+/* Returning a stop to the pool strips its slot flags — back in the pool
+   it's just a place on this road again. */
+function poolEntryFor(stop) {
+  const entry = { ...stop }
+  delete entry.is_dinner
+  delete entry.is_morning_coffee
+  delete entry.is_overnight
+  delete entry.globalIndex
+  return entry
+}
 
 function ResultsView({ result, formRef, onRegenerate, isSurpriseMode, revealPhase, onRevealComplete }) {
   const t = useTranslations('onThisRoad')
@@ -655,14 +774,104 @@ function ResultsView({ result, formRef, onRegenerate, isSurpriseMode, revealPhas
   const revealRef = useRef(null)
   const [overnightSwaps, setOvernightSwaps] = useState({}) // { dayNumber: swappedStop }
 
-  const hasDays = is_multi_day && days && days.length > 1
+  // ── Editable itinerary state (ResultsView remounts per result) ─────
+  const [editDays, setEditDays] = useState(() => cloneEditDays(days))
+  const [altPool, setAltPool] = useState(() => [...(result.alternate_stops || [])])
+
+  const hasDays = is_multi_day && editDays && editDays.length > 1
+  const originallyEmpty = !((stops?.length || 0) > 0 || (days || []).some(d => (d.stops?.length || 0) > 0))
+
+  const eventRegion = [start_name, end_name].filter(Boolean).join(' → ').slice(0, 120)
+
+  const noteEdit = useCallback((kind) => {
+    setSavedUrl(null) // an edited trip is a new trip — allow re-saving
+    trackPlannerEvent('otr_trip_edited', { region: eventRegion, meta: { kind } })
+  }, [eventRegion])
+
+  /* ── Stop editing (swap / remove / add / reorder) ───────────────────
+     Placing an alternate retires it from the pool; a displaced or
+     removed stop returns to the pool, so it stays offerable. Edits are
+     click-driven, so computing eagerly from current state is safe. */
+  function returnToPool(pool, stop) {
+    if (!stop?.listing_id || pool.some(p => p.listing_id === stop.listing_id)) return pool
+    return [...pool, poolEntryFor(stop)].sort((a, b) => (a.position_km || 0) - (b.position_km || 0))
+  }
+
+  function swapStop(dayNumber, stopIdx, alt) {
+    const next = cloneEditDays(editDays)
+    const day = next.find(d => d.day_number === dayNumber)
+    if (!day || !day.stops[stopIdx]) return
+    const old = day.stops[stopIdx]
+    day.stops[stopIdx] = { ...alt }
+    setEditDays(next)
+    setAltPool(returnToPool(altPool.filter(p => p.listing_id !== alt.listing_id), old))
+    noteEdit('swap')
+  }
+
+  function removeStop(dayNumber, stopIdx) {
+    const next = cloneEditDays(editDays)
+    const day = next.find(d => d.day_number === dayNumber)
+    if (!day || !day.stops[stopIdx]) return
+    const [old] = day.stops.splice(stopIdx, 1)
+    setEditDays(next)
+    setAltPool(returnToPool(altPool, old))
+    noteEdit('remove')
+  }
+
+  function addStop(dayNumber, alt) {
+    const next = cloneEditDays(editDays)
+    const day = next.find(d => d.day_number === dayNumber)
+    if (!day) return
+    // Insert in along-route order so the day still reads as a drive
+    let insertAt = day.stops.findIndex(s => (s.position_km ?? Infinity) > (alt.position_km ?? 0))
+    if (insertAt === -1) insertAt = day.stops.length
+    day.stops.splice(insertAt, 0, { ...alt })
+    setEditDays(next)
+    setAltPool(altPool.filter(p => p.listing_id !== alt.listing_id))
+    noteEdit('add')
+  }
+
+  function moveStop(dayNumber, stopIdx, dir) {
+    const next = cloneEditDays(editDays)
+    const day = next.find(d => d.day_number === dayNumber)
+    if (!day) return
+    const target = stopIdx + dir
+    if (target < 0 || target >= day.stops.length) return
+    const tmp = day.stops[stopIdx]
+    day.stops[stopIdx] = day.stops[target]
+    day.stops[target] = tmp
+    setEditDays(next)
+    noteEdit('reorder')
+  }
+
+  /* Swap options: the pool's nearest real listings to this stop. */
+  function alternatesFor(stop, cap = 6) {
+    return [...altPool]
+      .sort((a, b) =>
+        Math.abs((a.position_km ?? 0) - (stop.position_km ?? 0)) -
+        Math.abs((b.position_km ?? 0) - (stop.position_km ?? 0))
+      )
+      .slice(0, cap)
+  }
+
+  /* Add options: pool entries inside (or near) this day's km range. */
+  function addOptionsFor(day, cap = 8) {
+    let options = altPool
+    if (Array.isArray(day.km_range) && day.km_range.length === 2) {
+      const [lo, hi] = day.km_range
+      options = altPool.filter(p =>
+        p.position_km != null && p.position_km >= lo - 15 && p.position_km <= hi + 15
+      )
+    }
+    return options.slice(0, cap)
+  }
 
   // Sequential stop reveal for surprise mode
   useEffect(() => {
     if (!isSurpriseMode || revealPhase !== 'stops') return
     const totalItems = hasDays
-      ? days.reduce((n, d) => n + (d.stops?.length || 0) + (d.overnight ? 1 : 0), 0) + days.length
-      : (stops?.length || 0)
+      ? editDays.reduce((n, d) => n + (d.stops?.length || 0) + (d.overnight ? 1 : 0), 0) + editDays.length
+      : (editDays[0]?.stops?.length || 0)
     if (revealedCount >= totalItems) {
       onRevealComplete?.()
       return
@@ -671,7 +880,7 @@ function ResultsView({ result, formRef, onRegenerate, isSurpriseMode, revealPhas
       setRevealedCount(prev => prev + 1)
     }, 400) // 400ms between each reveal
     return () => clearTimeout(revealRef.current)
-  }, [isSurpriseMode, revealPhase, revealedCount, hasDays, days, stops, onRevealComplete])
+  }, [isSurpriseMode, revealPhase, revealedCount, hasDays, editDays, onRevealComplete])
 
   // Reset reveal when result changes
   useEffect(() => {
@@ -683,7 +892,7 @@ function ResultsView({ result, formRef, onRegenerate, isSurpriseMode, revealPhas
   const taggedStops = []
   let globalIdx = 1
   if (hasDays) {
-    for (const day of days) {
+    for (const day of editDays) {
       for (const stop of (day.stops || [])) {
         taggedStops.push({ ...stop, globalIndex: globalIdx++, day_number: day.day_number })
       }
@@ -694,7 +903,7 @@ function ResultsView({ result, formRef, onRegenerate, isSurpriseMode, revealPhas
       }
     }
   } else {
-    for (const stop of (stops || [])) {
+    for (const stop of (editDays[0]?.stops || [])) {
       taggedStops.push({ ...stop, globalIndex: globalIdx++, day_number: 1 })
     }
   }
@@ -739,27 +948,67 @@ function ResultsView({ result, formRef, onRegenerate, isSurpriseMode, revealPhas
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }, [])
 
+  /* Fold every visitor edit (stop swaps/removes/adds/reorders + overnight
+     swaps) into the payload so a saved or shared trip is the trip they
+     see, not the one the generator first proposed. */
+  const buildSavePayload = () => {
+    const foldedDays = editDays.map(d => {
+      const { overnight_alternatives, ...day } = d
+      const effectiveOvernight = overnightSwaps[d.day_number] || d.overnight || null
+      return { ...day, overnight: effectiveOvernight }
+    })
+    return {
+      title, intro,
+      start_name, end_name, start_coords, end_coords,
+      route_geometry,
+      return_route_geometry: result.return_route_geometry || null,
+      is_surprise_me: !!is_surprise_loop,
+      is_return_different: !!result.is_return_different,
+      days: foldedDays,
+      route_distance_km, route_duration_minutes,
+      total_listings_found: result.total_listings_found || 0,
+      coverage_gaps: coverage_gaps || null,
+    }
+  }
+
   // Save trip (anonymous by default, associated with account if authed)
-  const handleSave = async () => {
+  const handleSave = async ({ shared = false } = {}) => {
     setSaving(true)
+    let url = null
     try {
       const res = await fetch('/api/on-this-road/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(result),
+        body: JSON.stringify(buildSavePayload()),
       })
       const data = await res.json()
-      if (data.url) setSavedUrl(`https://www.australianatlas.com.au${data.url}`)
+      if (data.url) {
+        url = `https://www.australianatlas.com.au${data.url}`
+        setSavedUrl(url)
+        trackPlannerEvent(shared ? 'otr_trip_shared' : 'otr_trip_saved', { region: eventRegion })
+      }
     } catch { /* silent */ }
     setSaving(false)
+    return url
   }
 
-  const handleShare = () => {
+  const handleShare = async () => {
     if (savedUrl) {
       navigator.clipboard?.writeText(savedUrl)
+      trackPlannerEvent('otr_trip_shared', { region: eventRegion })
       return
     }
-    handleSave()
+    const url = await handleSave({ shared: true })
+    if (url) navigator.clipboard?.writeText(url)
+  }
+
+  const handlePrint = () => {
+    trackPlannerEvent('otr_export_used', { region: eventRegion, meta: { kind: 'print' } })
+    window.print()
+  }
+
+  const trackExport = (kind) => {
+    trackPlannerEvent('otr_export_used', { region: eventRegion, meta: { kind } })
   }
 
   const handleRegenerate = () => {
@@ -770,6 +1019,18 @@ function ResultsView({ result, formRef, onRegenerate, isSurpriseMode, revealPhas
   }
 
   const isCycling = result.transport_mode === 'cycling'
+
+  /* Google Maps directions for one day — stops in order + chosen stay.
+     Path-style URL (no 9-waypoint cap, no API cost). */
+  const googleMapsDayUrl = (day) => {
+    const pts = (day.stops || [])
+      .filter(s => s.lat != null && s.lng != null)
+      .map(s => `${s.lat},${s.lng}`)
+    const stay = overnightSwaps[day.day_number] || day.overnight
+    if (stay && stay.lat != null && stay.lng != null) pts.push(`${stay.lat},${stay.lng}`)
+    if (pts.length < 2) return null
+    return `https://www.google.com/maps/dir/${pts.join('/')}`
+  }
 
   // Build Google Maps URL with waypoints
   const buildGoogleMapsUrl = () => {
@@ -787,6 +1048,7 @@ function ResultsView({ result, formRef, onRegenerate, isSurpriseMode, revealPhas
   }
 
   const handleDownloadGpx = () => {
+    trackExport('gpx')
     const coords = route_geometry?.coordinates || []
     const escXml = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
     const gpx = `<?xml version="1.0" encoding="UTF-8"?>
@@ -806,8 +1068,9 @@ ${taggedStops.filter(s => s.lat && s.lng).map(s => `  <wpt lat="${s.lat}" lon="$
     URL.revokeObjectURL(url)
   }
 
-  // Empty state
-  if (!taggedStops.length) {
+  // Empty state (only when the generator found nothing — not when the
+  // visitor has edited every stop away)
+  if (originallyEmpty) {
     return (
       <div className="otr-empty-state">
         <p className="otr-empty-title">{t('emptyTitle')}</p>
@@ -837,6 +1100,16 @@ ${taggedStops.filter(s => s.lat && s.lng).map(s => `  <wpt lat="${s.lat}" lon="$
 
   return (
     <>
+      {/* Print: show only the itinerary, hide planning chrome */}
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          .otr-print-root, .otr-print-root * { visibility: visible; }
+          .otr-print-root { position: absolute; left: 0; top: 0; width: 100%; padding: 0; }
+          .otr-no-print, .otr-no-print * { visibility: hidden !important; display: none !important; }
+        }
+      `}</style>
+
       {/* ── Trip header ───────────────────────────────────────── */}
       <div className="otr-results-header">
         <h2 className="otr-trip-title">{title}</h2>
@@ -856,6 +1129,10 @@ ${taggedStops.filter(s => s.lat && s.lng).map(s => `  <wpt lat="${s.lat}" lon="$
 
         {intro && <p className="otr-trip-intro">{intro}</p>}
 
+        {result.personalised && (
+          <p className="otr-personalised-note">✦ {t('personalisedNote')}</p>
+        )}
+
         {additional_stop_hours > 0 && (
           <p className="otr-trip-stop-hours">
             {t('addStopHours', { count: additional_stop_hours })}
@@ -864,20 +1141,25 @@ ${taggedStops.filter(s => s.lat && s.lng).map(s => `  <wpt lat="${s.lat}" lon="$
       </div>
 
       {/* ── Actions bar ───────────────────────────────────────── */}
-      <div className="otr-trip-actions">
-        <button type="button" className="otr-action-btn" onClick={handleSave} disabled={saving || !!savedUrl}>
+      <div className="otr-trip-actions otr-no-print">
+        <button type="button" className="otr-action-btn" onClick={() => handleSave()} disabled={saving || !!savedUrl}>
           <Upload size={14} strokeWidth={2} />
           {savedUrl ? t('actionSaved') : saving ? t('actionSaving') : t('actionSaveTrip')}
         </button>
         <button type="button" className="otr-action-btn" onClick={handleShare}>
           {t('actionShare')}
         </button>
-        <a className="otr-action-btn" href={buildGoogleMapsUrl()} target="_blank" rel="noopener noreferrer">
+        <a className="otr-action-btn" href={buildGoogleMapsUrl()} target="_blank" rel="noopener noreferrer"
+          onClick={() => trackExport('google_maps')}>
           {t('actionGoogleMaps')}
         </a>
-        <a className="otr-action-btn otr-action-btn--secondary" href={buildAppleMapsUrl()} target="_blank" rel="noopener noreferrer">
+        <a className="otr-action-btn otr-action-btn--secondary" href={buildAppleMapsUrl()} target="_blank" rel="noopener noreferrer"
+          onClick={() => trackExport('apple_maps')}>
           {t('actionAppleMaps')}
         </a>
+        <button type="button" className="otr-action-btn otr-action-btn--secondary" onClick={handlePrint}>
+          {t('actionPrint')}
+        </button>
         {isCycling && route_geometry && (
           <button type="button" className="otr-action-btn" onClick={handleDownloadGpx}>
             <Download size={14} strokeWidth={2} /> {t('actionDownloadGpx')}
@@ -906,7 +1188,7 @@ ${taggedStops.filter(s => s.lat && s.lng).map(s => `  <wpt lat="${s.lat}" lon="$
       {/* ── Body: split layout ────────────────────────────────── */}
       <div className="otr-results-body">
         {/* Mobile map preview bar */}
-        <div className={`otr-mobile-map-bar ${mobileMapExpanded ? 'otr-mobile-map-bar--expanded' : ''}`}
+        <div className={`otr-mobile-map-bar otr-no-print ${mobileMapExpanded ? 'otr-mobile-map-bar--expanded' : ''}`}
           onClick={() => !mobileMapExpanded && setMobileMapExpanded(true)}>
           {mobileMapExpanded && (
             <button type="button" className="otr-mobile-map-close"
@@ -933,7 +1215,7 @@ ${taggedStops.filter(s => s.lat && s.lng).map(s => `  <wpt lat="${s.lat}" lon="$
             {hasDays ? (
               (() => {
                 let itemIdx = 0 // Tracks reveal index across all items
-                return days.map((day) => {
+                return editDays.map((day) => {
                   const { prefix, places } = parseDayLabel(day.label)
                   const dayStops = taggedStops.filter(s => s.day_number === day.day_number && !s.is_overnight)
                   const effectiveOvernight = overnightSwaps[day.day_number] || day.overnight
@@ -941,6 +1223,13 @@ ${taggedStops.filter(s => s.lat && s.lng).map(s => `  <wpt lat="${s.lat}" lon="$
                   const overnightAlts = (day.overnight_alternatives || []).filter(
                     a => a.listing_id !== (effectiveOvernight?.listing_id)
                   )
+                  // No swap/add on return-leg days: the alternates pool covers
+                  // the outbound corridor, whose km positions don't map here.
+                  const dayEditable = !day.is_return
+                  const dayKm = Math.round(dayLegsKm(dayStops))
+                  const dayMins = Math.round((dayLegsKm(dayStops) / (isCycling ? CYCLE_KMH : DRIVE_KMH)) * 60)
+                  const dayGmaps = googleMapsDayUrl(day)
+                  const addOptions = dayEditable ? addOptionsFor(day) : []
 
                   const dayRevealIdx = itemIdx++
                   const isRevealing = isSurpriseMode && revealPhase === 'stops'
@@ -956,23 +1245,54 @@ ${taggedStops.filter(s => s.lat && s.lng).map(s => `  <wpt lat="${s.lat}" lon="$
                         <span className="otr-day-number">{prefix}</span>
                         {places && <h3 className="otr-day-title">{places}</h3>}
                         {day.day_subtitle && <p className="otr-day-subtitle">{day.day_subtitle}</p>}
+                        {dayKm >= 2 && (
+                          <p className="otr-day-drive-meta">
+                            {t('dayDriveMeta', { km: dayKm, time: formatDriveTime(dayMins, t) })}
+                          </p>
+                        )}
                         <div className="otr-day-rule" />
                       </div>
 
-                      {dayStops.map((stop) => {
+                      {dayStops.map((stop, stopIdx) => {
                         const stopRevealIdx = itemIdx++
                         return (
                           <StopCard key={stop.listing_id || stop.globalIndex} stop={stop}
+                            prevStop={stopIdx > 0 ? dayStops[stopIdx - 1] : null}
+                            isCycling={isCycling}
                             onHover={setHighlightedStopIndex}
+                            editable={dayEditable}
+                            alternates={dayEditable ? alternatesFor(stop) : []}
+                            canMoveUp={stopIdx > 0}
+                            canMoveDown={stopIdx < dayStops.length - 1}
+                            onSwap={(alt) => swapStop(day.day_number, stopIdx, alt)}
+                            onRemove={() => removeStop(day.day_number, stopIdx)}
+                            onMove={(dir) => moveStop(day.day_number, stopIdx, dir)}
                             revealClass={isRevealing ? (stopRevealIdx < revealedCount ? 'reveal-visible' : 'reveal-hidden') : ''} />
                         )
                       })}
+
+                      {addOptions.length > 0 && (
+                        <AddStopControl options={addOptions}
+                          onPick={(alt) => addStop(day.day_number, alt)} />
+                      )}
+
+                      {dayGmaps && (
+                        <div className="otr-day-gmaps otr-no-print">
+                          <a href={dayGmaps} target="_blank" rel="noopener noreferrer"
+                            onClick={() => trackExport('day_google_maps')}>
+                            {t('openDayInGoogleMaps')} ↗
+                          </a>
+                        </div>
+                      )}
 
                       {overnight && (() => {
                         const onRevealIdx = itemIdx++
                         return <OvernightCard stop={overnight}
                           alternatives={overnightAlts}
-                          onSwap={(alt) => setOvernightSwaps(prev => ({ ...prev, [day.day_number]: { ...alt, is_overnight: true } }))}
+                          onSwap={(alt) => {
+                            setOvernightSwaps(prev => ({ ...prev, [day.day_number]: { ...alt, is_overnight: true } }))
+                            noteEdit('overnight_swap')
+                          }}
                           revealClass={isRevealing ? (onRevealIdx < revealedCount ? 'reveal-visible' : 'reveal-hidden') : ''} />
                       })()}
 
@@ -993,10 +1313,24 @@ ${taggedStops.filter(s => s.lat && s.lng).map(s => `  <wpt lat="${s.lat}" lon="$
                   const isRevealing = isSurpriseMode && revealPhase === 'stops'
                   return (
                     <StopCard key={stop.listing_id || stop.globalIndex} stop={stop}
+                      prevStop={idx > 0 ? taggedStops[idx - 1] : null}
+                      isCycling={isCycling}
                       onHover={setHighlightedStopIndex}
+                      editable
+                      alternates={alternatesFor(stop)}
+                      canMoveUp={idx > 0}
+                      canMoveDown={idx < taggedStops.length - 1}
+                      onSwap={(alt) => swapStop(1, idx, alt)}
+                      onRemove={() => removeStop(1, idx)}
+                      onMove={(dir) => moveStop(1, idx, dir)}
                       revealClass={isRevealing ? (idx < revealedCount ? 'reveal-visible' : 'reveal-hidden') : ''} />
                   )
                 })}
+
+                {addOptionsFor(editDays[0] || {}).length > 0 && (
+                  <AddStopControl options={addOptionsFor(editDays[0] || {})}
+                    onPick={(alt) => addStop(1, alt)} />
+                )}
               </section>
             )}
 
@@ -1007,7 +1341,7 @@ ${taggedStops.filter(s => s.lat && s.lng).map(s => `  <wpt lat="${s.lat}" lon="$
           </div>
 
           {/* Map column (desktop sticky) */}
-          <div className="otr-map-col">
+          <div className="otr-map-col otr-no-print">
             <RouteMap
               routeGeometry={route_geometry}
               stops={taggedStops}
@@ -1025,13 +1359,87 @@ ${taggedStops.filter(s => s.lat && s.lng).map(s => `  <wpt lat="${s.lat}" lon="$
   )
 }
 
+// ── Alternates panel (swap / add pickers share this) ────────────────
+// Every option is a real corridor listing attached server-side —
+// nothing is ever invented client-side.
+
+function AlternatesPanel({ title, options, onPick, onClose }) {
+  const t = useTranslations('onThisRoad')
+  return (
+    <div className="otr-alt-panel">
+      <div className="otr-alt-panel-head">
+        <span className="otr-alt-panel-title">{title}</span>
+        <button type="button" className="otr-edit-pill" onClick={onClose}>{t('panelClose')}</button>
+      </div>
+      <div>
+        {options.map(opt => (
+          <button key={opt.listing_id} type="button" className="otr-alt-row"
+            onClick={() => onPick(opt)}>
+            {isApprovedImageSource(opt.hero_image_url) && (
+              <img className="otr-alt-thumb" src={opt.hero_image_url} alt="" loading="lazy" />
+            )}
+            <span className="otr-alt-row-text">
+              <span className="otr-alt-row-name">{opt.listing_name}</span>
+              <span className="otr-alt-row-meta">
+                {[VERTICAL_NAMES[opt.vertical] || opt.vertical, opt.suburb, opt.position_km != null ? `${opt.position_km} km` : null]
+                  .filter(Boolean).join(' · ')}
+              </span>
+            </span>
+            <span className="otr-alt-row-select">{t('panelSelect')}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── "Add a stop" affordance ─────────────────────────────────────────
+
+function AddStopControl({ options, onPick }) {
+  const t = useTranslations('onThisRoad')
+  const [open, setOpen] = useState(false)
+
+  if (!open) {
+    return (
+      <button type="button" className="otr-add-stop otr-no-print" onClick={() => setOpen(true)}>
+        <span className="otr-add-stop-plus" aria-hidden="true">+</span>
+        <span className="otr-add-stop-text">
+          <span className="otr-add-stop-title">{t('addStopTitle')}</span>
+          <span className="otr-add-stop-sub">{t('addStopNearby', { count: options.length })}</span>
+        </span>
+      </button>
+    )
+  }
+
+  return (
+    <div className="otr-no-print">
+      <AlternatesPanel
+        title={t('addStopTitle')}
+        options={options}
+        onPick={(opt) => { setOpen(false); onPick(opt) }}
+        onClose={() => setOpen(false)}
+      />
+    </div>
+  )
+}
+
 // ── Stop card ───────────────────────────────────────────────────────
 
-function StopCard({ stop, onHover, revealClass = '' }) {
+function StopCard({
+  stop, onHover, revealClass = '',
+  prevStop = null, isCycling = false,
+  editable = false, alternates = [],
+  canMoveUp = false, canMoveDown = false,
+  onSwap, onRemove, onMove,
+}) {
   const t = useTranslations('onThisRoad')
+  const [swapOpen, setSwapOpen] = useState(false)
   const vertName = VERTICAL_NAMES[stop.vertical] || stop.vertical
   const hasImage = isApprovedImageSource(stop.hero_image_url)
   const isLast = false // spine continues unless explicitly marked
+
+  // ≈ leg estimate from the previous stop (edits recompute automatically)
+  const legLabel = prevStop ? legTimeLabel(legEstimateKm(prevStop, stop), isCycling, t) : null
 
   return (
     <div className={`otr-stop ${revealClass}`} data-stop-index={stop.globalIndex}
@@ -1042,6 +1450,7 @@ function StopCard({ stop, onHover, revealClass = '' }) {
         {!isLast && <div className="otr-stop-spine" />}
       </div>
       <div className="otr-stop-content">
+        {legLabel && <p className="otr-stop-leg">{legLabel}</p>}
         <a className="otr-stop-name" href={`/place/${stop.slug}`} target="_blank" rel="noopener noreferrer">
           {stop.listing_name}
         </a>
@@ -1051,12 +1460,46 @@ function StopCard({ stop, onHover, revealClass = '' }) {
             {stop.suburb}{stop.suburb && stop.position_km != null ? ' \u00b7 ' : ''}{stop.position_km != null ? `${stop.position_km} km` : ''}
           </span>
         </div>
-        {(stop.reason || stop.notes) && (
-          <p className="otr-stop-reason">{stop.reason || stop.notes}</p>
+        {(stop.reason || stop.notes || stop.description) && (
+          <p className="otr-stop-reason">{stop.reason || stop.notes || stop.description}</p>
         )}
-        <a className="otr-stop-link" href={`/place/${stop.slug}`} target="_blank" rel="noopener noreferrer">
-          {t('viewListing')} <ArrowRight size={12} strokeWidth={1.5} />
-        </a>
+        <div className="otr-stop-footer">
+          <a className="otr-stop-link" href={`/place/${stop.slug}`} target="_blank" rel="noopener noreferrer">
+            {t('viewListing')} <ArrowRight size={12} strokeWidth={1.5} />
+          </a>
+          {editable && (
+            <div className="otr-stop-edit-row otr-no-print">
+              {alternates.length > 0 && (
+                <button type="button" className="otr-edit-pill"
+                  aria-expanded={swapOpen}
+                  onClick={() => setSwapOpen(v => !v)}>
+                  {t('editSwap')}
+                </button>
+              )}
+              <button type="button" className="otr-edit-pill" onClick={onRemove}>
+                {t('editRemove')}
+              </button>
+              {canMoveUp && (
+                <button type="button" className="otr-edit-pill" aria-label={t('editMoveEarlier')}
+                  onClick={() => onMove?.(-1)}>↑</button>
+              )}
+              {canMoveDown && (
+                <button type="button" className="otr-edit-pill" aria-label={t('editMoveLater')}
+                  onClick={() => onMove?.(1)}>↓</button>
+              )}
+            </div>
+          )}
+        </div>
+        {editable && swapOpen && alternates.length > 0 && (
+          <div className="otr-no-print">
+            <AlternatesPanel
+              title={t('swapPanelTitle', { name: stop.listing_name })}
+              options={alternates}
+              onPick={(alt) => { setSwapOpen(false); onSwap?.(alt) }}
+              onClose={() => setSwapOpen(false)}
+            />
+          </div>
+        )}
       </div>
       {hasImage && (
         <div className="otr-stop-image">

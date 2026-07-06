@@ -61,6 +61,22 @@ const getTrip = cache(async function getTrip(slug) {
   return data
 })
 
+/* Road trips store no rendered map, so the unfurl image is a static map
+   built from the stored stops at metadata time — numbered pins on
+   light-v11, 720×300@2x (1440×600, the large-card aspect band). */
+function roadTripMapImage(trip) {
+  const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
+  if (!token) return null
+  const days = trip?.days || []
+  const day = days.find(d => (d.stops || d.listings || []).filter(s => s.lat != null && s.lng != null).length >= 2) || days[0]
+  const stops = (day?.stops || day?.listings || [])
+    .filter(s => s.lat != null && s.lng != null)
+    .slice(0, 10)
+  if (stops.length < 2) return null
+  const markers = stops.map((s, i) => `pin-s-${i + 1}+C4973B(${s.lng},${s.lat})`).join(',')
+  return `https://api.mapbox.com/styles/v1/mapbox/light-v11/static/${markers}/auto/720x300@2x?access_token=${token}&padding=56`
+}
+
 export async function generateMetadata({ params }) {
   const { slug } = await params
   const t = await getTranslations('tripShare')
@@ -97,6 +113,7 @@ export async function generateMetadata({ params }) {
   const trip = await getTrip(slug)
   if (!trip) return {}
   const description = trip.intro || t('roadTripIntroFallback', { start: trip.start_name, end: trip.end_name })
+  const mapImage = roadTripMapImage(trip)
   return {
     title: t('metaTitle', { title: trip.title }),
     description,
@@ -107,7 +124,9 @@ export async function generateMetadata({ params }) {
       siteName: 'Australian Atlas',
       locale: 'en_AU',
       type: 'article',
+      ...(mapImage ? { images: [{ url: mapImage, width: 1440, height: 600 }] } : {}),
     },
+    ...(mapImage ? { twitter: { card: 'summary_large_image', images: [mapImage] } } : {}),
     alternates: {
       canonical: `https://www.australianatlas.com.au/trip/${slug}`,
     },

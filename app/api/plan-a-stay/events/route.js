@@ -5,9 +5,9 @@ import { isBotUA } from '@/lib/analytics/aggregate'
 export const runtime = 'nodejs'
 
 /* ═══════════════════════════════════════════════════════════════════════
-   Plan-a-Stay — funnel events
+   Planner funnel events (Plan a Stay + On This Road)
    ═══════════════════════════════════════════════════════════════════════
-   Fire-and-forget sink for the planner's outcome funnel. Writes to
+   Fire-and-forget sink for the planners' outcome funnels. Writes to
    planner_events (migration 224, service-role only). The client never
    blocks on this; a failure is logged loudly and returns non-2xx so it
    can't silently rot (same discipline as /api/track).                   */
@@ -18,6 +18,11 @@ const ALLOWED_EVENTS = new Set([
   'pas_trip_shared',
   'pas_trip_saved',
   'pas_recommend_used',
+  'otr_trip_generated',
+  'otr_trip_edited',
+  'otr_trip_shared',
+  'otr_trip_saved',
+  'otr_export_used',
 ])
 
 export async function POST(request) {
