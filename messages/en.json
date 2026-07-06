@@ -602,7 +602,12 @@
     "nearbyTitle": "Nearby regions",
     "nearbySub": "Keep exploring beyond {region}",
     "kmAway": "≈ {km} km away",
-    "viewOnAtlasMap": "View on the Atlas map"
+    "viewOnAtlasMap": "View on the Atlas map",
+    "whereToStart": "Where to start",
+    "atAGlance": "At a glance",
+    "townCount": "{count, plural, one {# town} other {# towns & localities}}",
+    "kmFromCity": "≈ {km} km from {city}",
+    "moreTowns": "+{count} more"
   },
   "discover": {
     "kicker": "Discover",

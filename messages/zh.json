@@ -602,7 +602,12 @@
     "nearbyTitle": "附近地区",
     "nearbySub": "继续探索{region}之外的去处",
     "kmAway": "距此约 {km} 公里",
-    "viewOnAtlasMap": "在阿特拉斯地图上查看"
+    "viewOnAtlasMap": "在阿特拉斯地图上查看",
+    "whereToStart": "从这里开始",
+    "atAGlance": "一目了然",
+    "townCount": "{count, plural, other {#个城镇}}",
+    "kmFromCity": "距{city}约 {km} 公里",
+    "moreTowns": "还有{count}个"
   },
   "discover": {
     "kicker": "发现",

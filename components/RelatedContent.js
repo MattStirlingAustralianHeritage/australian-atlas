@@ -61,12 +61,16 @@ export async function RelatedCollections({ region, vertical, limit = 3, excludeS
           <Link key={c.id} href={`/collections/${c.slug}`} style={{ textDecoration: 'none' }}>
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              gap: '0.75rem',
               padding: '0.875rem 1.125rem', borderRadius: 3,
               border: '1px solid var(--color-border)',
               background: 'var(--color-card-bg, #fff)',
               transition: 'border-color 0.2s',
             }}>
-              <div>
+              {/* minWidth 0 lets the text column shrink inside the flex row —
+                  without it the nowrap description pushes the count span past
+                  the viewport edge on mobile. */}
+              <div style={{ minWidth: 0, overflow: 'hidden' }}>
                 <div style={{
                   fontFamily: 'var(--font-display)', fontSize: '15px', fontWeight: 400,
                   color: 'var(--color-ink)', lineHeight: 1.3,

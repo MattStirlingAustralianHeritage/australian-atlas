@@ -78,7 +78,8 @@ HARD RULES — violating any of these makes the output unusable:
 2. The ONLY proper nouns allowed in those three fields are: the region name, its state, Australia, and town/locality names copied from the provided TOWNS list.
 3. vertical_highlights: 3 or 4 entries, each listing_name copied EXACTLY (character for character) from the provided listing data, each from a different category where possible.
 4. Notes must restate facts from the provided description — no new claims, no invented history, awards or specialties.
-5. No superlatives without substance. Do not guess at anything.`
+5. No superlatives without substance. Do not guess at anything.
+6. Output mechanics: double quotes only as JSON delimiters. Inside string values never emit a raw double-quote — rephrase or use curly quotes. Keep each string on a single line.`
 
 function hashContext(contextObj) {
   return crypto.createHash('md5').update(PROMPT_VERSION + JSON.stringify(contextObj)).digest('hex')

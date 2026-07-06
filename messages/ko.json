@@ -602,7 +602,12 @@
     "nearbyTitle": "주변 지역",
     "nearbySub": "{region} 너머로 계속 둘러보세요",
     "kmAway": "약 {km}km 거리",
-    "viewOnAtlasMap": "아틀라스 지도에서 보기"
+    "viewOnAtlasMap": "아틀라스 지도에서 보기",
+    "whereToStart": "먼저 가볼 곳",
+    "atAGlance": "한눈에 보기",
+    "townCount": "{count, plural, other {마을 · 동네 #곳}}",
+    "kmFromCity": "{city}에서 약 {km}km",
+    "moreTowns": "+{count}곳 더"
   },
   "discover": {
     "kicker": "발견",

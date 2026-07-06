@@ -9,7 +9,7 @@ import { localizeVerticalDescription, localizeVerticalKicker, localizeRegionName
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { dateLocale, ogLocale } from '@/lib/i18n/config'
 import { regionJsonLd, breadcrumbJsonLd, regionItemListJsonLd } from '@/lib/jsonLd'
-import { getLiveRegionsCached, nearbyRegions } from '@/lib/regions/liveRegions'
+import { getLiveRegionsCached, nearbyRegions, nearestCapital } from '@/lib/regions/liveRegions'
 import RegionMapHero from '@/components/RegionMapHero'
 import RegionSearchBar from '@/components/RegionSearchBar'
 import { hasPreciseLocation } from '@/lib/listings/presence'
@@ -359,9 +359,20 @@ export default async function RegionPage({ params }) {
     if (!town || town.toLowerCase() === region.name.toLowerCase()) continue
     townCounts[town] = (townCounts[town] || 0) + 1
   }
+  const townTotal = Object.keys(townCounts).length
   const towns = Object.entries(townCounts)
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .slice(0, 14)
+
+  // At-a-glance facts: straight-line distance to the nearest capital
+  // (suppressed inside metro regions) + how the narrative highlights link
+  // through to their venue pages (matched on the raw English name).
+  const capital = nearestCapital(bundle.region)
+  const roundKm = (km) => km < 100 ? Math.round(km / 10) * 10 : km < 300 ? Math.round(km / 25) * 25 : Math.round(km / 50) * 50
+  const slugByName = new Map(bundle.listings.filter(l => l.slug && l.name).map(l => [l.name.trim(), l.slug]))
+  for (const l of [...bundle.way.based, ...bundle.way.runs]) {
+    if (l.slug && l.name && !slugByName.has(l.name.trim())) slugByName.set(l.name.trim(), l.slug)
+  }
 
   // Group by vertical
   const grouped = {}
@@ -615,35 +626,89 @@ export default async function RegionPage({ params }) {
                       </p>
                     </div>
                   )}
-                </div>
 
-                {/* Vertical highlights */}
-                {narrative.vertical_highlights && narrative.vertical_highlights.length > 0 && (
-                  <div style={{ marginBottom: '1.5rem' }}>
+                  {/* At a glance — counts + distance, all derived from real rows */}
+                  <div>
                     <h2 style={{
                       fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
                       letterSpacing: '0.1em', textTransform: 'uppercase',
                       color: 'var(--color-muted)', marginBottom: '0.75rem',
                     }}>
-                      {t('highlights')}
+                      {t('atAGlance')}
                     </h2>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+                    <ul style={{
+                      listStyle: 'none', padding: 0, margin: 0,
+                      fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px',
+                      lineHeight: 2, color: 'var(--color-ink)',
+                    }}>
+                      <li>{t('placeCount', { count: listings.length + wayCount })}</li>
+                      {townTotal > 1 && <li>{t('townCount', { count: townTotal })}</li>}
+                      {capital && capital.km >= 25 && (
+                        <li>{t('kmFromCity', { km: roundKm(capital.km), city: capital.city })}</li>
+                      )}
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Vertical highlights — linked cards, one accent per vertical */}
+                {narrative.vertical_highlights && narrative.vertical_highlights.length > 0 && (
+                  <div style={{ marginBottom: '1.5rem' }}>
+                    <h2 style={{
+                      fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
+                      letterSpacing: '0.1em', textTransform: 'uppercase',
+                      color: 'var(--color-muted)', marginBottom: '0.85rem',
+                    }}>
+                      {t('whereToStart')}
+                    </h2>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                      gap: '0.75rem',
+                    }}>
                       {narrative.vertical_highlights.map((h, i) => {
                         const color = VERTICAL_COLORS[h.vertical] || 'var(--color-muted)'
-                        return (
-                          <div key={i} style={{
-                            display: 'flex', alignItems: 'baseline', gap: '0.5rem',
-                            fontFamily: 'var(--font-body)', fontSize: '14px', lineHeight: 1.6,
-                          }}>
+                        const slug = slugByName.get(String(h.listing_name || '').trim())
+                        const inner = (
+                          <>
                             <span style={{
-                              fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em',
-                              textTransform: 'uppercase', color: color, flexShrink: 0,
+                              fontFamily: 'var(--font-body)', fontSize: '9.5px', fontWeight: 600,
+                              letterSpacing: '0.12em', textTransform: 'uppercase', color: color,
                             }}>
                               {vLabel(h.vertical)}
                             </span>
-                            <span style={{ color: 'var(--color-ink)', fontWeight: 400 }}>{h.listing_name}</span>
-                            {h.note && <span style={{ color: 'var(--color-muted)', fontWeight: 300 }}>&mdash; {h.note}</span>}
-                          </div>
+                            <span style={{
+                              display: 'block',
+                              fontFamily: 'var(--font-display)', fontWeight: 400,
+                              fontSize: '1.05rem', lineHeight: 1.3,
+                              color: 'var(--color-ink)', margin: '0.3rem 0 0.3rem',
+                            }}>
+                              {h.listing_name}
+                              {slug && <span aria-hidden="true" style={{ color: color, marginLeft: '0.35rem', fontSize: '0.85em' }}>&rarr;</span>}
+                            </span>
+                            {h.note && (
+                              <span style={{
+                                display: 'block',
+                                fontFamily: 'var(--font-body)', fontSize: '13px', fontWeight: 300,
+                                color: 'var(--color-muted)', lineHeight: 1.55,
+                              }}>
+                                {h.note}
+                              </span>
+                            )}
+                          </>
+                        )
+                        const cardStyle = {
+                          display: 'block',
+                          padding: '0.9rem 1.05rem',
+                          borderRadius: '10px',
+                          border: '1px solid var(--color-border)',
+                          borderLeft: `3px solid ${color}`,
+                          background: 'var(--color-surface, #faf6ee)',
+                          textDecoration: 'none',
+                        }
+                        return slug ? (
+                          <Link key={i} href={`/place/${slug}`} style={cardStyle}>{inner}</Link>
+                        ) : (
+                          <div key={i} style={cardStyle}>{inner}</div>
                         )
                       })}
                     </div>
@@ -703,6 +768,20 @@ export default async function RegionPage({ params }) {
                   <span style={{ color: 'var(--color-muted)', fontWeight: 400, fontSize: '11px' }}>{count}</span>
                 </Link>
               ))}
+              {townTotal > towns.length && (
+                <Link
+                  href={`/search?region=${encodeURIComponent(region.name)}`}
+                  style={{
+                    display: 'inline-flex', alignItems: 'baseline',
+                    padding: '0.35rem 0.8rem', borderRadius: '100px',
+                    border: '1px dashed var(--color-border)',
+                    fontFamily: 'var(--font-body)', fontSize: '12.5px', fontWeight: 400,
+                    color: 'var(--color-muted)', textDecoration: 'none',
+                  }}
+                >
+                  {t('moreTowns', { count: townTotal - towns.length })}
+                </Link>
+              )}
             </div>
           </section>
         )}
