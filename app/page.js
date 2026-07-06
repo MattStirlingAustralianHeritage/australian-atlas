@@ -15,6 +15,7 @@ import CategoryGuideSection from '@/components/CategoryGuideSection'
 import { getListingRegion, LISTING_REGION_SELECT, resolveRegionParam } from '@/lib/regions'
 import { getPublicVerticals, VERTICAL_CARD_TOKENS } from '@/lib/verticalUrl'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
+import { subTypeLabel } from '@/lib/subTypeLabels'
 import { Coffee, Wine, UtensilsCrossed, BedDouble, Mountain, Compass, Hammer, Landmark, ShoppingBag, Clock } from 'lucide-react'
 
 export const revalidate = 1800
@@ -44,6 +45,55 @@ const CLUSTER_REGION_SLUGS = {
   'Byron Bay': 'byron-bay',
   'Adelaide': null,
   'Melbourne': null,
+}
+
+// The cluster section renders each region as a plottable day, not a flat
+// sample: one venue per slot, slots in day order. A slot takes the first
+// preference [vertical, allowedSubTypes?] that still has an unused
+// candidate, so a region without (say) a stay still fills a coherent
+// shorter day. Labels are time-of-day only, and any sub_type constraint
+// exists to keep the label honest — the morning slot accepts coffee, a
+// bakery-ish table venue, or a tour, never a straight restaurant.
+const CLUSTER_DAY_SLOTS = [
+  { slot: 'morning',   prefs: [['fine_grounds'], ['table', ['bakery', 'market', 'farm_gate', 'providore']], ['way']] },
+  { slot: 'midday',    prefs: [['table'], ['way'], ['field'], ['found'], ['corner']] },
+  { slot: 'afternoon', prefs: [['craft'], ['collection'], ['corner'], ['found'], ['field'], ['way']] },
+  { slot: 'tasting',   prefs: [['sba'], ['fine_grounds']] },
+  { slot: 'stay',      prefs: [['rest']] },
+]
+
+const CLUSTER_SLOT_LABEL_KEYS = {
+  morning: 'clusterStopMorning',
+  midday: 'clusterStopMidday',
+  afternoon: 'clusterStopAfternoon',
+  tasting: 'clusterStopTasting',
+  stay: 'clusterStopStay',
+}
+
+// Fallback art for unphotographed stops: the vertical's dark ground + icon.
+const CLUSTER_VERTICAL_ICONS = {
+  fine_grounds: Coffee, sba: Wine, table: UtensilsCrossed, rest: BedDouble,
+  field: Mountain, way: Compass, craft: Hammer, collection: Landmark,
+  corner: ShoppingBag, found: Clock,
+}
+
+// Widest gap between any two stops (equirectangular, fine at region scale),
+// rounded up to 5 km — the "all within N km" proof that the day is drivable.
+// Null unless EVERY stop carries coordinates: a locality-only pin (NULL
+// lat/lng) silently dropped from the pairwise max would let the line
+// under-claim the true spread, and the span must stay honest.
+function clusterSpanKm(stops) {
+  const pts = stops.filter(s => Number.isFinite(s.lat) && Number.isFinite(s.lng))
+  if (pts.length < stops.length || pts.length < 2) return null
+  let max = 0
+  for (let i = 0; i < pts.length; i++) {
+    for (let j = i + 1; j < pts.length; j++) {
+      const dLat = (pts[i].lat - pts[j].lat) * 111
+      const dLng = (pts[i].lng - pts[j].lng) * 111 * Math.cos(((pts[i].lat + pts[j].lat) / 2) * Math.PI / 180)
+      max = Math.max(max, Math.hypot(dLat, dLng))
+    }
+  }
+  return Math.max(5, Math.ceil(max / 5) * 5)
 }
 
 const REGION_GEO = {
@@ -203,7 +253,13 @@ async function getLatestArticles() {
 async function getDiscoverClusters() {
   try {
     const sb = getSupabaseAdmin()
-    const clusterRegions = ['Barossa Valley', 'Mornington Peninsula', 'Hobart & Southern Tasmania', 'Byron Bay', 'Adelaide', 'Melbourne']
+    // Pool rotates weekly (same seed as the cover story) so returning
+    // readers get a different trio of days without the section ever
+    // rendering an unqualified region.
+    const clusterRegions = seededShuffle(
+      ['Barossa Valley', 'Mornington Peninsula', 'Hobart & Southern Tasmania', 'Byron Bay', 'Adelaide', 'Melbourne'],
+      getWeeklySeed()
+    )
     const results = await Promise.all(
       clusterRegions.map(async (region) => {
         // Override-wins resolution per docs/regions.md, via the
@@ -213,30 +269,49 @@ async function getDiscoverClusters() {
         const fromTable = resolved ? 'listings_with_region' : 'listings'
         let query = sb
           .from(fromTable)
-          .select(`id, name, vertical, slug, region, hero_image_url, ${LISTING_REGION_SELECT}`)
+          .select(`id, name, vertical, sub_type, slug, region, suburb, lat, lng, hero_image_url, ${LISTING_REGION_SELECT}`, { count: 'exact' })
           .eq('status', 'active')
           .order('is_featured', { ascending: false })
           .order('editors_pick', { ascending: false })
-          .limit(12)
+          .limit(24)
         if (resolved) {
           query = query.eq('region_id', resolved.id)
         } else {
           query = query.eq('region', region)
         }
-        const { data } = await query
+        const { data, count } = await query
         if (!data || data.length < 4) return null
         const verticalSet = new Set(data.map(d => d.vertical))
         if (verticalSet.size < 3) return null
-        const picks = []
+
+        // Fill the day arc. Within a vertical a photographed venue outranks
+        // the featured ordering — these cards are photo-first.
+        const usedIds = new Set()
         const usedVerticals = new Set()
-        for (const l of data) {
-          if (!usedVerticals.has(l.vertical) && picks.length < 4 && l.slug) {
-            picks.push(l)
-            usedVerticals.add(l.vertical)
+        const stops = []
+        for (const { slot, prefs } of CLUSTER_DAY_SLOTS) {
+          for (const [v, subTypes] of prefs) {
+            if (usedVerticals.has(v)) continue
+            const candidates = data.filter(l =>
+              l.vertical === v && l.slug && !usedIds.has(l.id) &&
+              (!subTypes || subTypes.includes(l.sub_type))
+            )
+            if (!candidates.length) continue
+            const pick = candidates.find(l => l.hero_image_url) || candidates[0]
+            stops.push({ ...pick, slot })
+            usedIds.add(pick.id)
+            usedVerticals.add(v)
+            break
           }
         }
-        if (picks.length < 3) return null
-        return { region, verticalCount: verticalSet.size, total: data.length, picks }
+        if (stops.length < 3) return null
+        return {
+          region,
+          verticalCount: verticalSet.size,
+          total: count || data.length,
+          spanKm: clusterSpanKm(stops),
+          picks: stops,
+        }
       })
     )
     return results.filter(Boolean).slice(0, 3)
@@ -382,7 +457,9 @@ const getHomeDataCached = unstable_cache(
     }
     return data
   },
-  ['home-data'],
+  // Key bumped with the cluster day-arc reshape so a deploy fills fresh
+  // (old cached picks lack slot/sub_type/suburb/spanKm).
+  ['home-data-v2'],
   { revalidate: 900 }
 )
 
@@ -986,11 +1063,13 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* ── 5. Cross-Vertical Cluster ──────────────────── */}
+      {/* ── 5. Cross-Vertical Cluster — a day, plotted ── */}
       {/* The intermediate kraft band — one oatmeal third surface between the
-          binary cream/near-black rhythm. It breaks the long cream run that
-          follows the dark Journal and lets the now-saturated vertical cards
-          (dark-on-kraft) read at their strongest. */}
+          binary cream/near-black rhythm. Each qualifying region renders as a
+          numbered day arc (coffee → lunch → maker → tasting → bed) of paper
+          itinerary cards — photo-first, vertical-ground fallback — with a
+          coordinate-grounded "all within N km" span and a region-guide CTA,
+          so the section reads as a plan to follow, not a swatch collage. */}
       {clusters.length > 0 && (
         <ScrollReveal as="section" style={{
           paddingBlock: '96px',
@@ -1017,69 +1096,117 @@ export default async function Home() {
               </p>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '56px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '64px' }}>
               {clusters.map((cluster, ci) => {
                 const regionSlug = CLUSTER_REGION_SLUGS[cluster.region]
+                const metaLine = [
+                  t('clusterCounts', { total: cluster.total, categories: cluster.verticalCount }),
+                  cluster.spanKm && cluster.spanKm <= 90 ? t('clusterSpan', { km: cluster.spanKm }) : null,
+                ].filter(Boolean).join('  ·  ')
+                // Static class strings so Tailwind sees them at build time.
+                const gridCols = {
+                  3: 'grid-cols-1 sm:grid-cols-3',
+                  4: 'grid-cols-2 lg:grid-cols-4',
+                  5: 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5',
+                }[cluster.picks.length] || 'grid-cols-2 lg:grid-cols-4'
                 return (
                   <div key={cluster.region} className="reveal" data-reveal-index={ci + 1}>
-                    <div style={{ marginBottom: '16px', maxWidth: '520px' }}>
-                      {regionSlug ? (
-                        <LocalizedLink href={`/regions/${regionSlug}`} className="group inline-block">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-8 gap-y-2" style={{ marginBottom: '20px' }}>
+                      <div style={{ maxWidth: '520px' }}>
+                        {regionSlug ? (
+                          <LocalizedLink href={`/regions/${regionSlug}`} className="group inline-block">
+                            <h3 style={{
+                              fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 26,
+                              color: 'var(--color-ink)', lineHeight: 1.25,
+                            }}>
+                              {cluster.region}
+                              <span className="inline-block ml-2 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: GOLD, fontSize: 18 }}>&rarr;</span>
+                            </h3>
+                          </LocalizedLink>
+                        ) : (
                           <h3 style={{
                             fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 26,
                             color: 'var(--color-ink)', lineHeight: 1.25,
                           }}>
                             {cluster.region}
-                            <span className="inline-block ml-2 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: GOLD, fontSize: 18 }}>&rarr;</span>
                           </h3>
-                        </LocalizedLink>
-                      ) : (
-                        <h3 style={{
-                          fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 26,
-                          color: 'var(--color-ink)', lineHeight: 1.25,
+                        )}
+                        <p style={{
+                          fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13,
+                          color: 'var(--color-muted)', marginTop: 4,
                         }}>
-                          {cluster.region}
-                        </h3>
+                          {metaLine}
+                        </p>
+                      </div>
+                      {regionSlug && (
+                        <LocalizedLink href={`/regions/${regionSlug}`} className="group inline-flex items-center gap-1.5 hover:opacity-80 transition-opacity" style={{
+                          fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500,
+                          color: 'var(--color-ink)', borderBottom: '1px solid var(--color-gold)',
+                          paddingBottom: 2, whiteSpace: 'nowrap',
+                        }}>
+                          {t('clusterSeeRegion')} <span style={{ color: GOLD }}>&rarr;</span>
+                        </LocalizedLink>
                       )}
-                      <p style={{
-                        fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13,
-                        color: 'var(--color-muted)', marginTop: 4,
-                      }}>
-                        {t('clusterCounts', { total: cluster.total, categories: cluster.verticalCount })}
-                      </p>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {cluster.picks.map(pick => {
+                    <div className={`grid gap-3 sm:gap-4 ${gridCols}`}>
+                      {cluster.picks.map((pick, pi) => {
                         const colors = VERTICAL_CARD_COLORS[pick.vertical] || { bg: '#333', text: '#FAF8F4' }
+                        const StopIcon = CLUSTER_VERTICAL_ICONS[pick.vertical] || Compass
+                        const stopMeta = [
+                          subTypeLabel(pick.vertical, pick.sub_type) || localizeVerticalKicker(pick.vertical, VERTICAL_LABELS[pick.vertical] || pick.vertical, locale),
+                          pick.suburb,
+                        ].filter(Boolean).join(' · ')
                         return (
                           <LocalizedLink
                             key={pick.id}
                             href={`/place/${pick.slug}`}
-                            className="listing-card block overflow-hidden"
+                            className="listing-card group block overflow-hidden"
                             style={{
-                              background: colors.bg,
+                              background: '#FBF8F2',
+                              border: '1px solid rgba(28,26,23,0.08)',
                               borderRadius: 'var(--radius-card)',
-                              padding: '20px 16px',
-                              minHeight: '140px',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              justifyContent: 'space-between',
+                              display: 'flex', flexDirection: 'column',
                             }}
                           >
-                            <span style={{
-                              fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 600,
-                              letterSpacing: '0.12em', textTransform: 'uppercase',
-                              color: 'rgba(250,248,244,0.45)',
-                            }}>
-                              {localizeVerticalKicker(pick.vertical, VERTICAL_LABELS[pick.vertical] || pick.vertical, locale)}
-                            </span>
-                            <span style={{
-                              fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 400,
-                              color: colors.text, lineHeight: 1.3, marginTop: 'auto',
-                            }}>
-                              {pick.name}
-                            </span>
+                            <div className="overflow-hidden" style={{ aspectRatio: '4 / 3', background: colors.bg, flexShrink: 0 }}>
+                              {pick.hero_image_url ? (
+                                <img
+                                  src={pick.hero_image_url}
+                                  alt=""
+                                  loading="lazy"
+                                  className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <StopIcon size={28} strokeWidth={1.25} style={{ color: 'rgba(250,248,244,0.5)' }} aria-hidden="true" />
+                                </div>
+                              )}
+                            </div>
+                            <div style={{ padding: '14px 16px 16px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                              <p style={{
+                                fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 600,
+                                letterSpacing: '0.14em', textTransform: 'uppercase',
+                                color: GOLD, margin: 0,
+                              }}>
+                                {String(pi + 1).padStart(2, '0')} · {t(CLUSTER_SLOT_LABEL_KEYS[pick.slot] || 'clusterStopAfternoon')}
+                              </p>
+                              <h4 style={{
+                                fontFamily: 'var(--font-display)', fontWeight: 400,
+                                fontSize: '17px', lineHeight: 1.25,
+                                color: 'var(--color-ink)', margin: '6px 0 0',
+                              }}>
+                                {pick.name}
+                              </h4>
+                              {stopMeta && (
+                                <p style={{
+                                  fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '12px',
+                                  color: 'var(--color-muted)', margin: '6px 0 0',
+                                }}>
+                                  {stopMeta}
+                                </p>
+                              )}
+                            </div>
                           </LocalizedLink>
                         )
                       })}
@@ -1087,6 +1214,15 @@ export default async function Home() {
                   </div>
                 )
               })}
+            </div>
+
+            <div className="reveal" style={{ marginTop: '52px' }}>
+              <LocalizedLink href="/regions" className="inline-flex items-center gap-1.5 hover:opacity-80 transition-opacity" style={{
+                fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500,
+                color: 'var(--color-ink)', borderBottom: '1px solid var(--color-gold)', paddingBottom: 2,
+              }}>
+                {t('clusterAllRegions')} <span style={{ color: GOLD }}>&rarr;</span>
+              </LocalizedLink>
             </div>
           </div>
         </ScrollReveal>
