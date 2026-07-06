@@ -5,10 +5,11 @@
 
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { secureEquals } from '@/lib/secure-compare'
 
 export async function POST(request) {
   const secret = request.headers.get('x-api-secret')
-  if (!secret || secret !== process.env.SHARED_API_SECRET) {
+  if (!secureEquals(secret, process.env.SHARED_API_SECRET)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

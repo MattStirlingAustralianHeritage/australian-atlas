@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { promoteRole } from '@/lib/auth/promoteRole'
+import { secureEquals } from '@/lib/secure-compare'
 
 /**
  * POST /api/auth/promote-role
@@ -24,7 +25,7 @@ export async function POST(request) {
     const authHeader = request.headers.get('x-api-secret')
     const apiSecret = process.env.SHARED_API_SECRET || process.env.SHARED_AUTH_SECRET
 
-    if (!authHeader || authHeader !== apiSecret) {
+    if (!secureEquals(authHeader, apiSecret)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

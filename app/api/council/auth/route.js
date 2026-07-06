@@ -5,6 +5,13 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { createSessionValue } from '@/lib/council-session'
 import crypto from 'crypto'
 
+// A single issued OTP may be guessed at most this many times before it is
+// burned (invalidated). Tied to the account, not the request IP, so it can't
+// be defeated by spoofing X-Forwarded-For. 6-digit space (1e6) with ≤5 guesses
+// per code makes the per-code hit probability ≤5e-6, and each new code is a
+// fresh random — so guesses never accumulate against one target.
+const MAX_OTP_ATTEMPTS = 5
+
 // Log auth attempt (silently fails if table doesn't exist)
 async function logAuthAttempt(sb, { email, success, failureReason, ip }) {
   try {
@@ -105,6 +112,8 @@ export async function POST(req) {
         .update({
           magic_link_token: magicToken,
           magic_link_expires_at: expiresAt.toISOString(),
+          // Fresh code → reset the per-code guess counter.
+          magic_link_attempts: 0,
         })
         .eq('id', council.id)
 
@@ -158,7 +167,7 @@ export async function POST(req) {
 
       const { data: council } = await sb
         .from('council_accounts')
-        .select('id, name, slug, tier, status, approved, magic_link_token, magic_link_expires_at')
+        .select('id, name, slug, tier, status, approved, magic_link_token, magic_link_expires_at, magic_link_attempts')
         .eq('contact_email', email.toLowerCase().trim())
         .single()
 
@@ -173,6 +182,20 @@ export async function POST(req) {
         && expectedToken.length === providedToken.length
         && crypto.timingSafeEqual(Buffer.from(expectedToken), Buffer.from(providedToken))
       if (!tokenMatches) {
+        // Count this wrong guess against the issued code. Once the cap is hit,
+        // burn the code so a brute-force run can't keep guessing it — the user
+        // must request a fresh one. Only counts when a live code exists.
+        if (expectedToken.length > 0) {
+          const attempts = (council.magic_link_attempts || 0) + 1
+          const burn = attempts >= MAX_OTP_ATTEMPTS
+          await sb
+            .from('council_accounts')
+            .update(burn
+              ? { magic_link_token: null, magic_link_expires_at: null, magic_link_attempts: 0 }
+              : { magic_link_attempts: attempts })
+            .eq('id', council.id)
+        }
+        await logAuthAttempt(sb, { email: email.toLowerCase().trim(), success: false, failureReason: 'invalid_token', ip })
         return NextResponse.json({ error: 'Invalid code' }, { status: 401 })
       }
 

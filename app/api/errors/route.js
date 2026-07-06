@@ -1,13 +1,19 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 /**
  * POST /api/errors — client-side error reporting (no auth required)
  *
  * Body: { route, error_message, error_stack, user_agent }
- * Rate limit: skip insert if >10 errors from same user_agent in last minute.
+ * Rate limit: per-IP (below) plus a per-user_agent DB throttle. The IP limit is
+ * the real guard — the user_agent one is client-controllable (body field) and
+ * was trivially bypassable by rotating the value.
  */
 export async function POST(request) {
+  const rl = checkRateLimit(request, { keyPrefix: 'errors', maxRequests: 30, windowMs: 60_000 })
+  if (rl) return rl
+
   let body
   try {
     body = await request.json()

@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { checkAdmin } from '@/lib/admin-auth'
 
 /** Lightweight humanisation stats for the admin nav bar */
 export async function GET() {
+  const cookieStore = await cookies()
+  if (!(await checkAdmin(cookieStore))) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
   try {
     const sb = getSupabaseAdmin()
     const [humanisedRes, totalRes] = await Promise.all([

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { validateApiKey, logApiRequest } from '@/lib/api-auth'
+import { excludeNeedsReview, excludeTestListings } from '@/lib/listings/publicFilter'
 
 const PUBLIC_FIELDS = [
   'id', 'name', 'slug', 'vertical', 'category',
@@ -30,12 +31,15 @@ export async function GET(request, { params }) {
 
   const { id } = await params
   const sb = getSupabaseAdmin()
-  const { data, error } = await sb
+  let detailQuery = sb
     .from('listings')
     .select(PUBLIC_FIELDS)
     .eq('id', id)
     .eq('status', 'active')
-    .single()
+  // Public-surface hard rule: never return a needs_review venue or QA fixture,
+  // even by direct id lookup.
+  detailQuery = excludeNeedsReview(excludeTestListings(detailQuery))
+  const { data, error } = await detailQuery.single()
 
   const responseTime = Date.now() - startTime
   logApiRequest(keyRecord.id, `/api/v1/venues/${id}`, 'GET', data ? 200 : 404, responseTime).catch(() => {})

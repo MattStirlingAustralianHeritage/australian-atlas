@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
+import { secureEquals } from '@/lib/secure-compare'
 
 export async function POST(request) {
   // ── Auth: admin cookie or shared secret ────────────────────
@@ -14,7 +15,7 @@ export async function POST(request) {
   const expected = process.env.SHARED_API_SECRET || process.env.SHARED_AUTH_SECRET
   let isAdmin = false
 
-  if (secret && secret === expected) {
+  if (secureEquals(secret, expected)) {
     isAdmin = true
   } else {
     const cookieStore = await cookies()

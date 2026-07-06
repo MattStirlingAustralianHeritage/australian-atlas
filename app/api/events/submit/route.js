@@ -14,6 +14,15 @@ function slugify(text) {
     .replace(/(^-|-$)/g, '')
 }
 
+// Escape user-supplied values before interpolating into notification email
+// HTML (prevents markup/script injection into the admin inbox, which also
+// carries a one-click approve link).
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ))
+}
+
 async function geocode(address, suburb, state) {
   try {
     const query = `${address}, ${suburb}, ${state}, Australia`
@@ -156,7 +165,7 @@ export async function POST(request) {
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 0;">
           <h2 style="font-size: 22px; color: #1a1614; margin-bottom: 16px;">Thanks for submitting your event</h2>
           <p style="color: #6b6560; line-height: 1.6;">
-            We've received <strong>${name}</strong> and will review it within 48 hours.
+            We've received <strong>${esc(name)}</strong> and will review it within 48 hours.
             You'll receive another email once it's been approved and is live on Australian Atlas.
           </p>
           <hr style="border: none; border-top: 1px solid #e8e4df; margin: 24px 0;" />
@@ -173,11 +182,11 @@ export async function POST(request) {
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 0;">
           <h2 style="font-size: 22px; color: #1a1614; margin-bottom: 16px;">New event submission</h2>
           <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
-            <tr><td style="padding: 8px 0; color: #6b6560; width: 120px;">Event</td><td style="padding: 8px 0; color: #1a1614;"><strong>${name}</strong></td></tr>
-            <tr><td style="padding: 8px 0; color: #6b6560;">Category</td><td style="padding: 8px 0; color: #1a1614;">${category}</td></tr>
-            <tr><td style="padding: 8px 0; color: #6b6560;">Dates</td><td style="padding: 8px 0; color: #1a1614;">${startDate} to ${endDate}</td></tr>
-            <tr><td style="padding: 8px 0; color: #6b6560;">Location</td><td style="padding: 8px 0; color: #1a1614;">${locationName}, ${suburb} ${state}</td></tr>
-            <tr><td style="padding: 8px 0; color: #6b6560;">Submitted by</td><td style="padding: 8px 0; color: #1a1614;">${submitterName} (${submitterEmail})</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b6560; width: 120px;">Event</td><td style="padding: 8px 0; color: #1a1614;"><strong>${esc(name)}</strong></td></tr>
+            <tr><td style="padding: 8px 0; color: #6b6560;">Category</td><td style="padding: 8px 0; color: #1a1614;">${esc(category)}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b6560;">Dates</td><td style="padding: 8px 0; color: #1a1614;">${esc(startDate)} to ${esc(endDate)}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b6560;">Location</td><td style="padding: 8px 0; color: #1a1614;">${esc(locationName)}, ${esc(suburb)} ${esc(state)}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b6560;">Submitted by</td><td style="padding: 8px 0; color: #1a1614;">${esc(submitterName)} (${esc(submitterEmail)})</td></tr>
             <tr><td style="padding: 8px 0; color: #6b6560;">Payment</td><td style="padding: 8px 0; color: #1a1614;">$49 AUD — paid</td></tr>
           </table>
           <a href="${approveUrl}" style="display: inline-block; background: #5f8a7e; color: white; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 500;">Approve event</a>

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 function getStripe() {
   const Stripe = require('stripe')
@@ -6,6 +7,10 @@ function getStripe() {
 }
 
 export async function POST(request) {
+  // Unauthenticated → throttle to stop PaymentIntent-creation spam against the
+  // Stripe account.
+  const rl = checkRateLimit(request, { keyPrefix: 'event-pi', maxRequests: 10, windowMs: 60_000 })
+  if (rl) return rl
   try {
     const body = await request.json()
     const { eventName, submitterEmail } = body

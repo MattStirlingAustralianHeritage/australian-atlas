@@ -42,10 +42,13 @@ async function sendReportEmail({ listing, reportType, details, contactEmail }) {
     details ? ['Details', details] : null,
   ].filter(Boolean)
 
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ))
   const tableRows = rows
     .map(
       ([k, v]) =>
-        `<tr><td style="padding:8px 0;color:#6b6560;width:120px;vertical-align:top;">${k}</td><td style="padding:8px 0;color:#1a1614;">${String(v).replace(/</g, '&lt;')}</td></tr>`
+        `<tr><td style="padding:8px 0;color:#6b6560;width:120px;vertical-align:top;">${esc(k)}</td><td style="padding:8px 0;color:#1a1614;">${esc(v)}</td></tr>`
     )
     .join('')
 

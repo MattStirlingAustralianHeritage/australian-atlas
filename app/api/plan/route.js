@@ -4,6 +4,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { guardedAnthropicMessage } from '@/lib/ai/guardedAnthropic'
 import { embedQuery } from '@/lib/embeddings/voyage'
 import { logSearchEvent } from '@/lib/search/log'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 export const maxDuration = 60
 
@@ -260,6 +261,9 @@ async function generateResponse(client, messages, venues, collections, intent) {
 }
 
 export async function POST(request) {
+  // Public + LLM-backed — throttle to protect the shared AI budget.
+  const rl = checkRateLimit(request, { keyPrefix: 'plan', maxRequests: 15, windowMs: 60_000 })
+  if (rl) return rl
   try {
     const { messages } = await request.json()
 

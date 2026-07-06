@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { validateApiKey, logApiRequest } from '@/lib/api-auth'
 import { LISTING_REGION_SELECT } from '@/lib/regions'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
+import { excludeNeedsReview, excludeTestListings } from '@/lib/listings/publicFilter'
 
 const PUBLIC_FIELDS = [
   'id', 'name', 'slug', 'vertical', 'category',
@@ -56,6 +57,8 @@ export async function GET(request, { params }) {
     .select(PUBLIC_FIELDS, { count: 'exact' })
     .eq('status', 'active')
     .eq('region_id', region.id)
+  // Public-surface hard rule: exclude needs_review + admin QA fixtures.
+  query = excludeNeedsReview(excludeTestListings(query))
 
   if (vertical) query = filterByVertical(query, vertical, await relationHasVerticals(sb, 'listings_with_region'))
   query = query.order('is_featured', { ascending: false }).order('name').range(offset, offset + limit - 1)

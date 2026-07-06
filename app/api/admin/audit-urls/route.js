@@ -1,6 +1,7 @@
 import { getSupabaseAdmin, getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+import { checkAdmin } from '@/lib/admin-auth'
 
 // ============================================================
 // URL Audit & Fix endpoint
@@ -84,7 +85,7 @@ async function fixTable(client, table, col, label) {
 
 export async function GET(request) {
   const cookieStore = await cookies()
-  if (cookieStore.get('admin_auth')?.value !== 'admin_authenticated') {
+  if (!(await checkAdmin(cookieStore))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -122,7 +123,7 @@ export async function GET(request) {
 
 export async function POST(request) {
   const cookieStore = await cookies()
-  if (cookieStore.get('admin_auth')?.value !== 'admin_authenticated') {
+  if (!(await checkAdmin(cookieStore))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

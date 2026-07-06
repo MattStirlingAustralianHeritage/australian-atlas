@@ -8,6 +8,7 @@ import { tasteAffinity, buildTasteProfileFromListingIds, mergeTasteProfiles } fr
 import { getTasteProfile } from '@/lib/discover/getTasteProfile'
 import { reserveAnthropicBudget, reconcileAnthropicBudget } from '@/lib/ai/guardedAnthropic'
 import { estimateTokens } from '@/lib/budget/governor'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 // Soft bonus toward the kinds of place the signed-in user keeps saving in
 // Discover, added to a route stop's selection score (terms are roughly in the
@@ -474,6 +475,10 @@ function envCheck() {
 // ── Main handler ────────────────────────────────────────────────────
 
 export async function POST(request) {
+  // Public + LLM-backed + long maxDuration — throttle to stop a single client
+  // draining the shared AI budget or tying up function time.
+  const rl = checkRateLimit(request, { keyPrefix: 'on-this-road', maxRequests: 10, windowMs: 60_000 })
+  if (rl) return rl
   const rid = requestId()
   try {
     // Check env vars upfront

@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { validateApiKey, logApiRequest } from '@/lib/api-auth'
 import { LISTING_REGION_SELECT, resolveRegionParam } from '@/lib/regions'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
+import { excludeNeedsReview, excludeTestListings } from '@/lib/listings/publicFilter'
 
 /**
  * Public API: GET /api/v1/venues
@@ -64,6 +65,9 @@ export async function GET(request) {
     .from('listings_with_region')
     .select(PUBLIC_FIELDS, { count: 'exact' })
     .eq('status', 'active')
+  // Same public-surface hard rule as every other reader: never expose
+  // needs_review=true (unvetted) venues or the admin QA fixtures.
+  query = excludeNeedsReview(excludeTestListings(query))
 
   if (vertical) query = filterByVertical(query, vertical, await relationHasVerticals(sb, 'listings_with_region'))
   if (resolvedRegion) {

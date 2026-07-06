@@ -9,8 +9,10 @@
  * GET /api/admin/candidates/cross-check?name=...&vertical=...
  */
 
+import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
+import { checkAdmin } from '@/lib/admin-auth'
 
 // Define which verticals to cross-check for each vertical
 const CROSS_CHECK_MAP = {
@@ -22,6 +24,11 @@ const CROSS_CHECK_MAP = {
 }
 
 export async function GET(request) {
+  const cookieStore = await cookies()
+  if (!(await checkAdmin(cookieStore))) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const { searchParams } = new URL(request.url)
   const name = searchParams.get('name')
   const vertical = searchParams.get('vertical')
