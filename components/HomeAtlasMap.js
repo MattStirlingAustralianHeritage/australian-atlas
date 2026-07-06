@@ -44,6 +44,7 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
 
   return (
     <section className="atlas-plate" aria-label={t('mapSectionAria')}>
+      <div className="atlas-plate-mat">
       {/* Editorial copy — absolute over the open ocean on wide screens,
           normal flow above the chart on small ones. */}
       <div className="atlas-plate-copy">
@@ -149,24 +150,33 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
           })()}
         </div>
       </div>
+      </div>
 
       {/* dangerouslySetInnerHTML (not a text child) — hydration compares style
           text nodes character-for-character; innerHTML-set CSS skips that. */}
       <style dangerouslySetInnerHTML={{ __html: `
         .atlas-plate { position: relative; background: #F0EBE3; overflow: hidden; }
 
-        /* ── the chart ─────────────────────────────────────── */
-        /* The frame's natural height comes from the image's aspect ratio; the
-           min-height floor guards the copy column at narrower desktop widths.
-           Any extra frame height reads as more southern ocean — the image's
-           sea is the exact section background, so the seam is invisible. */
-        .atlas-plate-frame { position: relative; min-height: 460px; }
-        .atlas-plate-canvas { position: relative; width: 100%; pointer-events: none; }
-        .atlas-plate-canvas img {
-          display: block; width: 100%; height: auto;
-          -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 14%, #000 100%);
-          mask-image: linear-gradient(180deg, transparent 0%, #000 14%, #000 100%);
+        /* ── the mat + framed chart ────────────────────────── */
+        /* The map used to be the full-bleed ground of the first screen and
+           out-shouted the search bar. Contained on a mat with a hairline
+           frame, it reads as an exhibit IN the page — the search stays the
+           tool, the chart becomes the proof. Sub-981px keeps the edge-to-edge
+           stacked crop (the frame treatment is desktop-only). */
+        .atlas-plate-mat {
+          position: relative;
+          max-width: 1240px; margin: 0 auto;
+          padding: clamp(6px, 1.5vw, 18px) clamp(18px, 3vw, 36px) clamp(30px, 4vw, 52px);
         }
+        .atlas-plate-frame {
+          position: relative; min-height: 460px;
+          border-radius: 18px; overflow: hidden;
+          border: 1px solid rgba(28,26,23,0.10);
+          box-shadow: 0 22px 60px rgba(28,26,23,0.09), 0 3px 12px rgba(28,26,23,0.05);
+          background: #F0EBE3;
+        }
+        .atlas-plate-canvas { position: relative; width: 100%; pointer-events: none; }
+        .atlas-plate-canvas img { display: block; width: 100%; height: auto; }
         /* One link under everything: any click on the map surface (including
            the ocean and the min-height slack) opens /map. The canvas passes
            pointer events through; markers/pins re-enable their own. */
@@ -176,13 +186,13 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
         /* ── editorial copy over the open ocean ────────────── */
         .atlas-plate-copy {
           position: absolute;
-          left: clamp(24px, 7vw, 140px);
+          left: clamp(28px, 4.5vw, 72px);
           top: 50%;
           transform: translateY(-50%);     /* centred in the band — since the
              legend went, the column is short enough to centre everywhere,
              and top-anchoring left a dead field under the text (Matt) */
           z-index: 4;
-          max-width: min(34vw, 480px);
+          max-width: min(34vw, 430px);
           display: flex; flex-direction: column; align-items: flex-start;
         }
         .atlas-plate-overline {
@@ -194,9 +204,11 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
         .atlas-plate-headline {
           margin-top: 12px;
           font-family: var(--font-display); font-weight: 400;
-          font-size: clamp(24px, 3vw, 46px); line-height: 1.06;
-          letter-spacing: -0.015em; color: var(--color-ink, #1C1A17);
-          max-width: 10em; text-wrap: balance;
+          /* quieter than the masthead + search on purpose — the map is the
+             supporting exhibit, not the page's second headline */
+          font-size: clamp(22px, 2.3vw, 34px); line-height: 1.1;
+          letter-spacing: -0.012em; color: var(--color-ink, #1C1A17);
+          max-width: 11em; text-wrap: balance;
         }
         .atlas-plate-sub {
           margin-top: 11px;
@@ -301,6 +313,10 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
            the chart cropped to Australia (ocean band trimmed) and anchored
            right so the continent fills the viewport. */
         @media (max-width: 980px) {
+          .atlas-plate-mat { max-width: none; padding: 0; }
+          .atlas-plate-frame {
+            border-radius: 0; border: none; box-shadow: none;
+          }
           .atlas-plate-copy {
             position: static; transform: none; max-width: none;
             padding: 34px 24px 6px; align-items: center; text-align: center;

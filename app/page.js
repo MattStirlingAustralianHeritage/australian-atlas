@@ -516,8 +516,10 @@ export default async function Home() {
         style={{
           minHeight: 'clamp(360px, 60vh, 640px)',
           paddingTop: '3rem',
-          paddingBottom: 0,
-          background: 'linear-gradient(180deg, #FAF8F4 0%, #F0EBE3 100%)',
+          paddingBottom: 'clamp(20px, 3vh, 40px)',
+          // Soft gold spotlight pooled around the search bar — the one warm
+          // light on the page, so the eye lands on the tool before the map.
+          background: 'radial-gradient(52% 44% at 50% 62%, rgba(196,154,60,0.09), rgba(196,154,60,0) 72%), linear-gradient(180deg, #FAF8F4 0%, #F0EBE3 100%)',
         }}
       >
         <svg

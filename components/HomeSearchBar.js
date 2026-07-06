@@ -13,7 +13,7 @@ const ROLL_MS = 3200
 const HINT_TEXT_STYLE = {
   fontFamily: 'var(--font-body)',
   fontWeight: 300,
-  fontSize: '16px',
+  fontSize: '17px',
   color: 'var(--color-muted)',
 }
 
@@ -98,15 +98,15 @@ export default function HomeSearchBar() {
   )
 
   return (
-    <form onSubmit={handleSubmit} className="mt-4 w-full mx-auto" style={{ maxWidth: '720px' }}>
+    <form onSubmit={handleSubmit} className="mt-4 w-full mx-auto" style={{ maxWidth: '780px' }}>
       {/* Border, shadow, and the gold focus-within glow live on the
           .home-search-shell class — inline border/shadow here would beat the
           :focus-within rule and kill the glow. */}
       <div
         className="home-search-shell flex items-center gap-3 rounded-2xl px-5 sm:px-6 group"
-        style={{ height: '62px' }}
+        style={{ height: '68px' }}
       >
-        <svg className="search-shell-icon w-[22px] h-[22px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--color-gold)' }} aria-hidden="true">
+        <svg className="search-shell-icon w-[24px] h-[24px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--color-gold)' }} aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
         <SearchAutocomplete
@@ -115,16 +115,16 @@ export default function HomeSearchBar() {
           onSelect={handleAutocompleteSelect}
           placeholder=""
           overlay={hintOverlay}
-          inputStyle={{ fontSize: '16px', border: 'none', background: 'transparent', padding: 0, borderRadius: 0 }}
+          inputStyle={{ fontSize: '17px', border: 'none', background: 'transparent', padding: 0, borderRadius: 0 }}
           ariaLabel={t('searchAriaLabel')}
         />
         <button
           type="submit"
           className="search-shell-submit shrink-0 rounded-full"
           style={{
-            fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px',
+            fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14.5px',
             background: 'var(--color-gold)', color: '#FAF8F4',
-            padding: '10px 22px',
+            padding: '12px 26px',
           }}
         >
           {t('searchButton')}
