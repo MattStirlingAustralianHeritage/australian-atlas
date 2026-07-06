@@ -26,8 +26,10 @@ import path from 'path'
 import url from 'url'
 import { createClient } from '@supabase/supabase-js'
 import {
-  checkGate1Web, checkGate2Location, checkGate3Activity, checkGate4Vertical, summariseFailures,
+  checkGate1Web, checkGate2Location, checkGate3Activity, checkGate4Vertical,
+  checkGate5ServiceBusiness, summariseFailures,
 } from '../lib/gate-check/gates.js'
+import { checkCharacterGate } from '../lib/gate-check/character.js'
 
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url))
 function loadEnv() {
@@ -89,16 +91,20 @@ async function fetchExistingRows() {
 }
 
 // Evaluate one listing → row payload | null.
-async function evaluate(listing) {
+async function evaluate(listing, groups) {
   const failures = []
   failures.push(checkGate2Location(listing))
   failures.push(checkGate4Vertical(listing))
+  // Character (commercial-group denylist) — computed here too so a deep re-sweep
+  // is a SUPERSET of sweep-character-gate.mjs and can't clobber its findings.
+  failures.push(checkCharacterGate(listing, groups))
 
-  let text = null, lastModified = null, http_status = null
+  let text = null, title = null, lastModified = null, http_status = null
   if (LIVE_FETCH && listing.website) {
     const g1 = await checkGate1Web(listing, { timeoutMs: TIMEOUT, retries: 1 })
     if (g1.failure) failures.push(g1.failure)
     text = g1.text
+    title = g1.title ?? null
     lastModified = g1.lastModified
     http_status = g1.http_status
   } else if (listing.website) {
@@ -116,6 +122,8 @@ async function evaluate(listing) {
   // Gate 3 from whatever text we have (live or cached).
   if (!text && listing.site_text) text = listing.site_text
   failures.push(checkGate3Activity(text, lastModified, CURRENT_YEAR))
+  // Gate 5 (character) — service business judged from the site's own title/content.
+  failures.push(checkGate5ServiceBusiness(listing, { title, text }))
 
   const summary = summariseFailures(failures, { website: listing.website || null, http_status })
   if (!summary) return null
@@ -145,9 +153,14 @@ async function upsertChunk(rows) {
 async function main() {
   const t0 = Date.now()
   console.log(`[gate-check] loading active listings…`)
-  const [listings, existing] = await Promise.all([fetchAllActive(), fetchExistingRows()])
+  const [listings, existing, groupsRes] = await Promise.all([
+    fetchAllActive(), fetchExistingRows(),
+    sb.from('commercial_groups').select('group_name, category, brands, brands_json, domains, vertical_scope, verify_case_by_case, parent_entity, notes'),
+  ])
+  if (groupsRes.error) throw new Error(`commercial_groups read failed: ${groupsRes.error.message}`)
+  const groups = groupsRes.data || []
   const resolved = new Set([...existing.entries()].filter(([, s]) => s !== 'pending').map(([id]) => id))
-  console.log(`[gate-check] ${listings.length} active listings · ${existing.size} existing rows (${resolved.size} already actioned) · live-fetch=${LIVE_FETCH} · concurrency=${CONCURRENCY}`)
+  console.log(`[gate-check] ${listings.length} active listings · ${existing.size} existing rows (${resolved.size} already actioned) · ${groups.length} commercial groups · live-fetch=${LIVE_FETCH} · concurrency=${CONCURRENCY}`)
 
   const buffer = []
   const failingIds = new Set()
@@ -171,7 +184,7 @@ async function main() {
     while (idx < listings.length && !interrupted) {
       const listing = listings[idx++]
       let row = null
-      try { row = await evaluate(listing) } catch (e) { /* per-listing failure is non-fatal */ }
+      try { row = await evaluate(listing, groups) } catch (e) { /* per-listing failure is non-fatal */ }
       processed++
       if (row) {
         failingIds.add(listing.id)

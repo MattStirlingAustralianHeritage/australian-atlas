@@ -375,10 +375,11 @@ async function runQuickScan(sb) {
     const prev = existing.get(l.id)
     if (prev && prev.status !== 'pending') continue // already actioned — leave it
     // Preserve every finding this fast path does NOT recompute — the deep sweep's
-    // web/activity findings AND any on-demand AI vertical finding (code *_ai) —
-    // and refresh only the deterministic location/fit gates on top.
+    // web/activity findings, character findings (commercial-group AND
+    // site-content service-business), and any on-demand AI vertical finding
+    // (code *_ai) — and refresh only the deterministic location/fit gates on top.
     const kept = (prev?.gate_details || [])
-      .filter(d => d.gate === 'gate1_web' || d.gate === 'gate3_activity' || String(d.code || '').endsWith('_ai'))
+      .filter(d => d.gate === 'gate1_web' || d.gate === 'gate3_activity' || d.gate === 'gate5_character' || String(d.code || '').endsWith('_ai'))
       .map(d => ({ gate: d.gate, code: d.code, severity: d.severity, reason: d.reason }))
     const summary = summariseFailures([...kept, ...failures], { website: l.website || prev?.website || null, http_status: prev?.http_status ?? null })
     toUpsert.push({ listing_id: l.id, scanned_at: new Date().toISOString(), status: 'pending', reviewed_at: null, reviewed_by: null, ...summary })
