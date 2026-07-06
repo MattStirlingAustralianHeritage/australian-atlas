@@ -2,7 +2,10 @@ import Link from 'next/link'
 import { getTranslations, getLocale } from 'next-intl/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { VERTICAL_STYLES } from '@/lib/verticalStyles'
-import RegionMapCard from '@/components/RegionMapCard'
+import RegionIndexCard from '@/components/RegionIndexCard'
+import { getLiveRegionsCached } from '@/lib/regions/liveRegions'
+import { getRegionVerticalMixCached, regionCardChips } from '@/lib/regions/verticalMix'
+import { localizeRegionName } from '@/lib/i18n/listingLabels'
 import { isVerticalPublic } from '@/lib/verticalUrl'
 import { dateLocale, ogLocale } from '@/lib/i18n/config'
 
@@ -91,13 +94,11 @@ export async function generateMetadata() {
 export default async function ExplorePage() {
   const sb = getSupabaseAdmin()
   const t = await getTranslations('explore')
+  const tRegions = await getTranslations('regions')
   const locale = await getLocale()
 
-  const [regionsRes, collectionsRes, articlesRes] = await Promise.all([
-    sb.from('regions')
-      .select('id, name, slug, state, listing_count, center_lat, center_lng, map_zoom')
-      .order('listing_count', { ascending: false })
-      .limit(12),
+  const [allRegions, collectionsRes, articlesRes, verticalMix] = await Promise.all([
+    getLiveRegionsCached().catch(() => []),
     sb.from('collections')
       .select('id, title, slug, description, listing_ids, vertical, region, author')
       .eq('published', true)
@@ -108,17 +109,15 @@ export default async function ExplorePage() {
       .eq('status', 'published')
       .order('published_at', { ascending: false })
       .limit(4),
+    getRegionVerticalMixCached().catch(() => ({})), // cards render without chips
   ])
 
-  const regions = regionsRes.data || []
+  // Featured = the nine biggest live regions by listing count.
+  const regions = [...allRegions]
+    .sort((a, b) => (b.listing_count || 0) - (a.listing_count || 0))
+    .slice(0, 9)
   const collections = collectionsRes.data || []
   const articles = articlesRes.data || []
-
-  const byState = {}
-  for (const r of regions) {
-    if (!byState[r.state]) byState[r.state] = []
-    byState[r.state].push(r)
-  }
 
   return (
     <div style={{ background: 'var(--color-bg)', minHeight: '100vh' }}>
@@ -138,6 +137,11 @@ export default async function ExplorePage() {
         }
         .explore-article-card:hover { border-color: rgba(184, 134, 43, 0.4); }
         .explore-vertical-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+        .region-index-card:hover {
+          transform: translateY(-2px);
+          border-color: rgba(184, 134, 43, 0.55) !important;
+          box-shadow: 0 6px 18px rgba(40, 30, 15, 0.08);
+        }
       `}</style>
 
       {/* Hero */}
@@ -186,8 +190,13 @@ export default async function ExplorePage() {
             </Link>
           </div>
           <div className="explore-grid" style={{ paddingTop: '8px' }}>
-            {regions.slice(0, 9).map(region => (
-              <RegionMapCard key={region.id} region={region} />
+            {regions.map(region => (
+              <RegionIndexCard
+                key={region.id}
+                region={{ ...region, name: localizeRegionName(region.name, locale) }}
+                chips={regionCardChips(region, verticalMix, locale)}
+                placeLabel={tRegions('placeCount', { count: region.listing_count || 0 })}
+              />
             ))}
           </div>
         </section>

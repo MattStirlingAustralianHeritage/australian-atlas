@@ -111,15 +111,9 @@ Before applying any migration to production:
 ## Regions
 
 - `regions` table: ~46 Australian regions with slug, state, description, hero image, editorial content
-- **Region card maps**: Inline Mapbox GL JS instances with custom dark cartographic style
-  - Style defined in `lib/atlas-map-style.js` (code object, not Mapbox Studio hosted)
-  - Palette: land `#2d2a24`, water `#3d5a6e`, motorways/primary `#b8862b` (amber, 1.5px max), secondary/tertiary `#8a6520`, minor roads `#4a3a1a` (texture only), parks `#352f24`, railways `#6b5218` dashed, no boundaries, no labels
-  - Component: `components/RegionMapCard.js` (client component, IntersectionObserver for lazy init/destroy)
-  - `interactive: false` — cards are links, not pannable maps
-  - Card text: white serif italic region name (bottom-left), muted warm grey `#8a7a5a` small-caps state label, amber listing count pill (top-right)
-  - Bottom gradient overlay: `rgba(20,18,14,0.85)` → transparent for text legibility
-  - Hover: `scale(1.02)` + amber border `rgba(184, 134, 43, 0.4)`
-  - Fallback (no coords): dark background `#2d2a24` with centered amber serif italic region name
+- **Region index cards** (`components/RegionIndexCard.js`, used on `/regions` and `/explore`): server-rendered — inline SVG state silhouette (`lib/regions/stateOutlines.js`) with the region centroid dot, place count, and top-3 category chips (`lib/regions/verticalMix.js`, hourly `unstable_cache` key `regions-index-vertical-mix`)
+  - Replaced the old per-card live Mapbox GL maps (`RegionMapCard`, deleted) which each cost a WebGL context and rendered as blank dark boxes when GL was capped/blocked
+  - The dark cartographic style those cards used lives on in `lib/atlas-map-style.js` (still used by `/on-this-road`)
 - **Detail hero images**: Mapbox Static Images API
   - `hero_image_url` at 1280×500 @2x (Mapbox API max width is 1280)
   - `hero_image_source` = 'mapbox_static' (will change to 'operator' when claimed listings provide real photography)

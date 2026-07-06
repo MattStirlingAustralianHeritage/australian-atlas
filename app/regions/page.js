@@ -1,52 +1,8 @@
-import { unstable_cache } from 'next/cache'
 import { getTranslations, getLocale } from 'next-intl/server'
-import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getLiveRegionsCached } from '@/lib/regions/liveRegions'
-import { localizeRegionName, localizeVerticalKicker } from '@/lib/i18n/listingLabels'
-import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
+import { localizeRegionName } from '@/lib/i18n/listingLabels'
+import { getRegionVerticalMixCached, regionCardChips } from '@/lib/regions/verticalMix'
 import RegionIndexCard from '@/components/RegionIndexCard'
-
-const VERTICAL_SHORT_LABELS = {
-  sba: 'Small Batch',
-  fine_grounds: 'Fine Grounds',
-  collection: 'Culture',
-  craft: 'Craft',
-  rest: 'Rest',
-  field: 'Field',
-  corner: 'Corner',
-  found: 'Found',
-  table: 'Table',
-  way: 'Way',
-}
-
-// Per-region category mix for the index cards — one paged sweep over active
-// listings (PostgREST caps responses at 1000 rows), aggregated to
-// { region_id: { vertical: count } } and cached for an hour.
-const getRegionVerticalMixCached = unstable_cache(
-  async () => {
-    const sb = getSupabaseAdmin()
-    const mix = {}
-    for (let page = 0; page < 20; page++) {
-      const { data, error } = await sb
-        .from('listings_with_region')
-        .select('region_id, vertical')
-        .eq('status', 'active')
-        .not('region_id', 'is', null)
-        .order('id', { ascending: true })
-        .range(page * 1000, page * 1000 + 999)
-      if (error) throw error
-      for (const row of data || []) {
-        if (!mix[row.region_id]) mix[row.region_id] = {}
-        mix[row.region_id][row.vertical] = (mix[row.region_id][row.vertical] || 0) + 1
-      }
-      if (!data || data.length < 1000) break
-    }
-    if (Object.keys(mix).length === 0) throw new Error('empty vertical mix — refusing to cache')
-    return mix
-  },
-  ['regions-index-vertical-mix'],
-  { revalidate: 3600 }
-)
 
 export const revalidate = 3600
 
@@ -95,19 +51,6 @@ export default async function RegionsPage() {
   try {
     verticalMix = await getRegionVerticalMixCached()
   } catch { /* cards render without category chips */ }
-
-  const chipsFor = (region) => {
-    const counts = verticalMix[region.id] || {}
-    return Object.entries(counts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([v, count]) => ({
-        key: v,
-        label: localizeVerticalKicker(v, VERTICAL_SHORT_LABELS[v] || v, locale),
-        count,
-        color: VERTICAL_ACCENTS[v] || '#888',
-      }))
-  }
 
   // Group by state
   const byState = {}
@@ -261,7 +204,7 @@ export default async function RegionsPage() {
                   <RegionIndexCard
                     key={region.id}
                     region={{ ...region, name: localizeRegionName(region.name, locale) }}
-                    chips={chipsFor(region)}
+                    chips={regionCardChips(region, verticalMix, locale)}
                     placeLabel={t('placeCount', { count: region.listing_count || 0 })}
                   />
                 ))}

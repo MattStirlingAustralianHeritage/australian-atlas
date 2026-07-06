@@ -1,8 +1,9 @@
-import Link from 'next/link'
+import LocalizedLink from '@/components/LocalizedLink'
 import { STATE_OUTLINES, projectPoint } from '@/lib/regions/stateOutlines'
 
 /**
- * Region card for the /regions index — server-rendered, no client JS.
+ * Region card for the /regions and /explore indexes — server-rendered card
+ * content (the LocalizedLink wrapper is the only client boundary).
  *
  * Replaces the per-card live Mapbox GL maps (RegionMapCard), which cost a
  * WebGL context each and rendered as blank dark boxes whenever GL was
@@ -25,7 +26,7 @@ export default function RegionIndexCard({ region, chips = [], placeLabel }) {
   const rUnit = outline ? outline.h / SVG_PX : 1
 
   return (
-    <Link
+    <LocalizedLink
       href={`/regions/${region.slug}`}
       className="region-index-card"
       style={{
@@ -120,6 +121,6 @@ export default function RegionIndexCard({ region, chips = [], placeLabel }) {
           ))}
         </div>
       )}
-    </Link>
+    </LocalizedLink>
   )
 }
