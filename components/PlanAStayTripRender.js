@@ -7,6 +7,11 @@
    1. The planner UI (OutputScreen in PlanAStayV2Client) — editable
    2. The public share page (/trip/[slug]) — read-only
 
+   Design system: layered white cards on the warm page. Each day is a card
+   topped with its day colour; stop numerals wear the same colour as that
+   day's pins on the overview map, so the list and the map read as one
+   diagram. Leg estimates render as dotted connectors between stops.
+
    State lives here for the two visitor-adjustable layers:
    - accommodation: each day offers a "need somewhere to stay?" picker
    - the days themselves (editable mode only): stops can be swapped for a
@@ -19,7 +24,7 @@
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
-import PlanAStayTripMap from '@/components/PlanAStayTripMap'
+import PlanAStayTripMap, { dayColor } from '@/components/PlanAStayTripMap'
 
 /* ─── Vertical badge labels ──────────────────────────────────────────── */
 export const VERTICAL_LABELS = {
@@ -41,7 +46,14 @@ const MEAL_SLOT_KEYS = {
   lunch: 'mealSlotLunch',
 }
 
+const INK = '#1C1A17'
+const MUTED = '#6B6760'
+const GOLD = '#B98A2F'
 const REST_ACCENT = '#8a5a6b'
+const CARD_BG = '#FFFCF7'
+const CARD_BORDER = 'rgba(28,26,23,0.1)'
+const HAIRLINE = 'rgba(28,26,23,0.08)'
+const CARD_SHADOW = '0 1px 2px rgba(28,26,23,0.04), 0 10px 28px rgba(28,26,23,0.06)'
 
 const SUBTYPE_KEYS = {
   boutique_hotel: 'subtypeBoutiqueHotel',
@@ -133,8 +145,19 @@ function googleMapsDayUrl(stops, accommodation) {
   return `https://www.google.com/maps/dir/${pts.join('/')}`
 }
 
+/* ─── Day heading parsing ─────────────────────────────────────────────────
+   Stored headings read "Day 2 — North of centre." — the day number moves
+   into the coloured plate, so pull the descriptive tail out for the card
+   title. Falls back gracefully for headings with no descriptor. */
+function headingTail(heading) {
+  if (!heading) return null
+  const m = heading.match(/^Day\s+\d+\s*(?:—\s*(.+?))?\.?\s*$/)
+  if (!m) return heading
+  return m[1] ? m[1].replace(/\.$/, '') : null
+}
+
 /* ─── Photo thumbnail (renders nothing if absent or broken) ──────────── */
-function StopThumb({ src, alt, size = 76 }) {
+function StopThumb({ src, alt, size = 72 }) {
   const [failed, setFailed] = useState(false)
   if (!src || failed) return null
   return (
@@ -146,11 +169,11 @@ function StopThumb({ src, alt, size = 76 }) {
       style={{
         width: size,
         height: size,
-        borderRadius: 8,
+        borderRadius: 10,
         objectFit: 'cover',
         flexShrink: 0,
-        border: '1px solid rgba(28,26,23,0.08)',
-        background: '#E8E2D6',
+        border: `1px solid ${HAIRLINE}`,
+        background: '#EDE7DC',
       }}
     />
   )
@@ -159,9 +182,9 @@ function StopThumb({ src, alt, size = 76 }) {
 /* ─── Small editing pill button ──────────────────────────────────────── */
 const editPillStyle = {
   fontFamily: 'var(--font-body)', fontSize: 11.5, fontWeight: 500,
-  color: 'var(--color-muted, #6B6760)', background: 'transparent',
+  color: MUTED, background: 'transparent',
   border: '1px solid rgba(28,26,23,0.14)',
-  borderRadius: 999, padding: '3px 11px', cursor: 'pointer', lineHeight: 1.5,
+  borderRadius: 999, padding: '3px 12px', cursor: 'pointer', lineHeight: 1.6,
 }
 
 /* ─── Alternates panel (swap / add pickers share this) ───────────────── */
@@ -169,18 +192,19 @@ function AlternatesPanel({ title, options, onPick, onClose }) {
   const t = useTranslations('plan')
   return (
     <div style={{
-      border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
-      borderRadius: 10, overflow: 'hidden', background: '#fff',
+      border: `1px solid ${CARD_BORDER}`,
+      borderRadius: 12, overflow: 'hidden', background: '#fff',
       marginTop: 12,
+      boxShadow: '0 6px 18px rgba(28,26,23,0.07)',
     }}>
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '10px 16px', background: 'rgba(196,151,59,0.06)',
-        borderBottom: '1px solid rgba(28,26,23,0.08)',
+        padding: '10px 16px', background: 'rgba(185,138,47,0.07)',
+        borderBottom: `1px solid ${HAIRLINE}`,
       }}>
         <span style={{
           fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 700,
-          letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--color-gold, #C4973B)',
+          letterSpacing: '0.14em', textTransform: 'uppercase', color: GOLD,
         }}>
           {title}
         </span>
@@ -198,21 +222,21 @@ function AlternatesPanel({ title, options, onPick, onClose }) {
               borderTop: i === 0 ? 'none' : '1px solid rgba(28,26,23,0.06)',
               transition: 'background 0.15s ease',
             }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(196,151,59,0.06)' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(185,138,47,0.06)' }}
             onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
           >
             <span style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
               <StopThumb src={opt.image_url} alt="" size={44} />
               <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                 <span style={{
-                  fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500,
-                  color: 'var(--color-ink, #1C1A17)',
+                  fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600,
+                  color: INK,
                 }}>
                   {opt.name}
                 </span>
                 <span style={{
                   fontFamily: 'var(--font-body)', fontSize: 12,
-                  color: 'var(--color-muted, #6B6760)', marginTop: 1,
+                  color: MUTED, marginTop: 1,
                 }}>
                   {[VERTICAL_LABELS[opt.vertical] || opt.vertical, opt.sub_type ? opt.sub_type.replace(/_/g, ' ') : null, opt.suburb]
                     .filter(Boolean).join(' · ')}
@@ -220,9 +244,9 @@ function AlternatesPanel({ title, options, onPick, onClose }) {
               </span>
             </span>
             <span style={{
-              fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600,
-              letterSpacing: '0.06em', textTransform: 'uppercase',
-              color: 'var(--color-gold, #C4973B)', whiteSpace: 'nowrap', flexShrink: 0,
+              fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 700,
+              letterSpacing: '0.08em', textTransform: 'uppercase',
+              color: GOLD, whiteSpace: 'nowrap', flexShrink: 0,
             }}>
               {t('select')}
             </span>
@@ -235,7 +259,7 @@ function AlternatesPanel({ title, options, onPick, onClose }) {
 
 /* ─── Stop card ──────────────────────────────────────────────────────── */
 export function StopCard({
-  stop, index, prevStop,
+  stop, index, prevStop, color = GOLD,
   editable = false, alternates = [],
   canMoveUp = false, canMoveDown = false,
   onSwap, onRemove, onMove,
@@ -243,58 +267,69 @@ export function StopCard({
   const t = useTranslations('plan')
   const [swapOpen, setSwapOpen] = useState(false)
 
-  // Distance + estimated time from the previous stop
-  let distLabel = null
-  let timeLabel = null
+  // Distance + estimated time from the previous stop → dotted connector
+  let legLabel = null
   if (prevStop) {
     const km = haversineKm(prevStop.lat, prevStop.lng, stop.lat, stop.lng)
-    if (km >= 1) distLabel = t('kmFromPrevious', { distance: Math.round(km) })
-    else distLabel = t('mFromPrevious', { distance: Math.round(km * 1000) })
-    timeLabel = legTimeLabel(km, t)
+    const dist = km >= 1
+      ? t('kmFromPrevious', { distance: Math.round(km) })
+      : t('mFromPrevious', { distance: Math.round(km * 1000) })
+    const time = legTimeLabel(km, t)
+    legLabel = time ? `${dist} · ${time}` : dist
   }
 
-  const numeral = String(index + 1).padStart(2, '0')
   const mealLabel = MEAL_SLOT_KEYS[stop.meal_slot] ? t(MEAL_SLOT_KEYS[stop.meal_slot]) : null
 
   return (
-    <div style={{
-      padding: '20px 0',
-      background: 'transparent',
-      borderBottom: '1px solid rgba(28,26,23,0.08)',
-    }}>
-      {mealLabel && (
+    <div>
+      {/* Leg connector from the previous stop */}
+      {legLabel && (
         <div style={{
-          marginLeft: 42,
-          marginBottom: 6,
+          marginLeft: 13,
+          borderLeft: '2px dotted rgba(28,26,23,0.18)',
+          padding: '7px 0 7px 25px',
           fontFamily: 'var(--font-body)',
-          fontSize: 10,
-          fontWeight: 700,
-          letterSpacing: '0.14em',
-          textTransform: 'uppercase',
-          color: 'var(--color-gold)',
+          fontSize: 11.5,
+          color: MUTED,
         }}>
-          {mealLabel}
+          {legLabel}
         </div>
       )}
+
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-        <span style={{
-          fontFamily: 'var(--font-display)',
-          fontSize: 14,
-          color: 'var(--color-muted, #6B6760)',
-          opacity: 0.4,
-          minWidth: 28,
-          lineHeight: 1.6,
+        {/* Day-coloured numeral badge — same language as the map pins */}
+        <span aria-hidden="true" style={{
+          width: 26, height: 26, borderRadius: '50%',
+          background: color, color: '#fff',
+          fontFamily: 'var(--font-body)', fontSize: 12.5, fontWeight: 700,
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0, marginTop: 2,
+          boxShadow: '0 1px 3px rgba(28,26,23,0.2)',
         }}>
-          {numeral}
+          {index + 1}
         </span>
+
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ marginBottom: 6 }}>
+          {mealLabel && (
+            <div style={{
+              fontFamily: 'var(--font-body)',
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: '0.15em',
+              textTransform: 'uppercase',
+              color: GOLD,
+              marginBottom: 3,
+            }}>
+              {mealLabel}
+            </div>
+          )}
+          <div style={{ marginBottom: 4 }}>
             {stop.slug ? (
               <Link href={`/place/${stop.slug}`} style={{
                 fontFamily: 'var(--font-display)',
-                fontWeight: 400,
-                fontSize: 17,
-                color: 'var(--color-ink, #1C1A17)',
+                fontWeight: 500,
+                fontSize: 17.5,
+                color: INK,
                 lineHeight: 1.3,
                 textDecoration: 'none',
               }}>
@@ -303,59 +338,45 @@ export function StopCard({
             ) : (
               <span style={{
                 fontFamily: 'var(--font-display)',
-                fontWeight: 400,
-                fontSize: 17,
-                color: 'var(--color-ink, #1C1A17)',
+                fontWeight: 500,
+                fontSize: 17.5,
+                color: INK,
                 lineHeight: 1.3,
               }}>
                 {stop.name}
               </span>
             )}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: stop.description_excerpt ? 8 : 0 }}>
+          <div style={{
+            display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap',
+            marginBottom: stop.description_excerpt ? 6 : 0,
+            fontFamily: 'var(--font-body)', fontSize: 11.5, color: MUTED,
+          }}>
             <span style={{
-              fontFamily: 'var(--font-body)',
-              fontSize: 11,
-              fontWeight: 600,
-              letterSpacing: '0.06em',
+              fontWeight: 700,
+              letterSpacing: '0.08em',
               textTransform: 'uppercase',
-              color: 'var(--color-gold)',
+              fontSize: 10.5,
+              color: GOLD,
             }}>
               {VERTICAL_LABELS[stop.vertical] || stop.vertical}
             </span>
-            {stop.sub_type && (
-              <span style={{
-                fontFamily: 'var(--font-body)',
-                fontSize: 11,
-                color: 'var(--color-muted, #6B6760)',
-              }}>
-                {stop.sub_type.replace(/_/g, ' ')}
-              </span>
-            )}
-            {distLabel && (
-              <span style={{
-                fontFamily: 'var(--font-body)',
-                fontSize: 11,
-                color: 'var(--color-muted, #6B6760)',
-                opacity: 0.7,
-              }}>
-                · {distLabel}{timeLabel ? ` · ${timeLabel}` : ''}
-              </span>
-            )}
+            {stop.sub_type && <span>{stop.sub_type.replace(/_/g, ' ')}</span>}
+            {stop.suburb && <span style={{ opacity: 0.8 }}>· {stop.suburb}</span>}
           </div>
           {stop.description_excerpt && (
             <p style={{
               fontFamily: 'var(--font-body)',
-              fontSize: 13,
-              color: 'var(--color-muted, #6B6760)',
-              lineHeight: 1.5,
+              fontSize: 13.5,
+              color: MUTED,
+              lineHeight: 1.55,
               margin: 0,
             }}>
               {stop.description_excerpt}
             </p>
           )}
           {editable && (
-            <div className="pas-no-print" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+            <div className="pas-no-print" style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 9, flexWrap: 'wrap' }}>
               {alternates.length > 0 && (
                 <button onClick={() => setSwapOpen(v => !v)} style={editPillStyle}>
                   {t('swapStop')}
@@ -395,15 +416,21 @@ export function StaysOnlyRender({ staysOnly }) {
       <p style={{
         fontFamily: 'var(--font-body)',
         fontSize: 15,
-        color: 'var(--color-ink, #1C1A17)',
+        color: INK,
         lineHeight: 1.6,
         marginBottom: 32,
       }}>
         {so.framing}
       </p>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-        {so.stays.map(stay => (
+      <div style={{
+        background: CARD_BG,
+        border: `1px solid ${CARD_BORDER}`,
+        borderRadius: 14,
+        boxShadow: CARD_SHADOW,
+        padding: '6px 22px',
+      }}>
+        {so.stays.map((stay, i) => (
           <a
             key={stay.id}
             href={`/place/${stay.slug}`}
@@ -412,16 +439,16 @@ export function StaysOnlyRender({ staysOnly }) {
               alignItems: 'baseline',
               gap: 8,
               padding: '14px 0',
-              borderBottom: '1px solid var(--color-border, rgba(28,26,23,0.08))',
+              borderBottom: i === so.stays.length - 1 ? 'none' : `1px solid ${HAIRLINE}`,
               textDecoration: 'none',
               color: 'inherit',
             }}
           >
             <span style={{
-              fontFamily: 'var(--font-body)',
+              fontFamily: 'var(--font-display)',
               fontWeight: 500,
-              fontSize: 15,
-              color: 'var(--color-ink, #1C1A17)',
+              fontSize: 16,
+              color: INK,
             }}>
               {stay.name}
             </span>
@@ -429,7 +456,7 @@ export function StaysOnlyRender({ staysOnly }) {
               <span style={{
                 fontFamily: 'var(--font-body)',
                 fontSize: 13,
-                color: 'var(--color-muted, #6B6760)',
+                color: MUTED,
               }}>
                 {[prettySubtype(stay.sub_type, t), stay.suburb].filter(Boolean).join(' · ')}
               </span>
@@ -441,7 +468,7 @@ export function StaysOnlyRender({ staysOnly }) {
       <p style={{
         fontFamily: 'var(--font-body)',
         fontSize: 13,
-        color: 'var(--color-muted, #6B6760)',
+        color: MUTED,
         lineHeight: 1.5,
         marginTop: 32,
         marginBottom: 0,
@@ -488,8 +515,8 @@ function DayAccommodation({ day, chosen, keepForAll, onChoose, onClear, onToggle
 
   const wrapStyle = {
     marginTop: 20,
-    paddingTop: 22,
-    borderTop: '1px solid rgba(28,26,23,0.1)',
+    paddingTop: 20,
+    borderTop: `1px solid ${HAIRLINE}`,
   }
 
   // ── Chosen state ───────────────────────────────────────────────────
@@ -498,10 +525,10 @@ function DayAccommodation({ day, chosen, keepForAll, onChoose, onClear, onToggle
       <div style={wrapStyle}>
         <AccommodationEyebrow everyNight={keepForAll} />
         <div style={{
-          background: 'linear-gradient(180deg, #F1ECE4 0%, #EBE4D9 100%)',
+          background: 'linear-gradient(180deg, #F7F1EA 0%, #F1E9DF 100%)',
           border: '1px solid rgba(138,90,107,0.18)',
           borderLeft: `3px solid ${REST_ACCENT}`,
-          borderRadius: 10,
+          borderRadius: 12,
           padding: '16px 18px',
         }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
@@ -510,15 +537,15 @@ function DayAccommodation({ day, chosen, keepForAll, onChoose, onClear, onToggle
               <div>
                 {chosen.slug ? (
                   <Link href={`/place/${chosen.slug}`} style={{
-                    fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 400,
-                    color: 'var(--color-ink, #1C1A17)', textDecoration: 'none', lineHeight: 1.25,
+                    fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 500,
+                    color: INK, textDecoration: 'none', lineHeight: 1.25,
                   }}>
                     {chosen.name}
                   </Link>
                 ) : (
                   <span style={{
-                    fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 400,
-                    color: 'var(--color-ink, #1C1A17)', lineHeight: 1.25,
+                    fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 500,
+                    color: INK, lineHeight: 1.25,
                   }}>
                     {chosen.name}
                   </span>
@@ -526,7 +553,7 @@ function DayAccommodation({ day, chosen, keepForAll, onChoose, onClear, onToggle
                 {(chosen.sub_type || chosen.suburb) && (
                   <div style={{
                     fontFamily: 'var(--font-body)', fontSize: 12.5,
-                    color: 'var(--color-muted, #6B6760)', marginTop: 3,
+                    color: MUTED, marginTop: 3,
                   }}>
                     {[prettySubtype(chosen.sub_type, t), chosen.suburb].filter(Boolean).join(' · ')}
                   </div>
@@ -552,7 +579,7 @@ function DayAccommodation({ day, chosen, keepForAll, onChoose, onClear, onToggle
             <label style={{
               display: 'inline-flex', alignItems: 'center', gap: 7, marginLeft: 'auto',
               fontFamily: 'var(--font-body)', fontSize: 12.5,
-              color: keepForAll ? REST_ACCENT : 'var(--color-muted, #6B6760)',
+              color: keepForAll ? REST_ACCENT : MUTED,
               fontWeight: keepForAll ? 600 : 400, cursor: 'pointer',
             }}>
               <input
@@ -579,13 +606,13 @@ function DayAccommodation({ day, chosen, keepForAll, onChoose, onClear, onToggle
           style={{
             display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left',
             fontFamily: 'var(--font-body)',
-            background: 'rgba(138,90,107,0.05)',
-            border: '1px dashed rgba(138,90,107,0.4)',
-            borderRadius: 10, padding: '14px 18px', cursor: 'pointer',
+            background: 'rgba(138,90,107,0.04)',
+            border: '1px dashed rgba(138,90,107,0.38)',
+            borderRadius: 12, padding: '13px 18px', cursor: 'pointer',
             transition: 'background 0.18s ease, border-color 0.18s ease',
           }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(138,90,107,0.09)'; e.currentTarget.style.borderColor = 'rgba(138,90,107,0.6)' }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(138,90,107,0.05)'; e.currentTarget.style.borderColor = 'rgba(138,90,107,0.4)' }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(138,90,107,0.08)'; e.currentTarget.style.borderColor = 'rgba(138,90,107,0.6)' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(138,90,107,0.04)'; e.currentTarget.style.borderColor = 'rgba(138,90,107,0.38)' }}
         >
           <span style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -594,23 +621,24 @@ function DayAccommodation({ day, chosen, keepForAll, onChoose, onClear, onToggle
             fontSize: 20, fontWeight: 300, lineHeight: 1, paddingBottom: 2,
           }}>+</span>
           <span style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-ink, #1C1A17)' }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: INK }}>
               {t('addSomewhereToStay')}
             </span>
-            <span style={{ fontSize: 12, color: 'var(--color-muted, #6B6760)', marginTop: 1 }}>
+            <span style={{ fontSize: 12, color: MUTED, marginTop: 1 }}>
               {t('independentPlacesNearby', { count: options.length })}
             </span>
           </span>
         </button>
       ) : (
         <div style={{
-          border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
-          borderRadius: 10, overflow: 'hidden', background: '#fff',
+          border: `1px solid ${CARD_BORDER}`,
+          borderRadius: 12, overflow: 'hidden', background: '#fff',
+          boxShadow: '0 6px 18px rgba(28,26,23,0.07)',
         }}>
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             padding: '10px 16px', background: 'rgba(138,90,107,0.05)',
-            borderBottom: '1px solid rgba(28,26,23,0.08)',
+            borderBottom: `1px solid ${HAIRLINE}`,
           }}>
             <span style={{
               fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 700,
@@ -639,15 +667,15 @@ function DayAccommodation({ day, chosen, keepForAll, onChoose, onClear, onToggle
                   <StopThumb src={opt.image_url} alt="" size={44} />
                   <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                     <span style={{
-                      fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500,
-                      color: 'var(--color-ink, #1C1A17)',
+                      fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600,
+                      color: INK,
                     }}>
                       {opt.name}
                     </span>
                     {(opt.sub_type || opt.suburb) && (
                       <span style={{
                         fontFamily: 'var(--font-body)', fontSize: 12,
-                        color: 'var(--color-muted, #6B6760)', marginTop: 1,
+                        color: MUTED, marginTop: 1,
                       }}>
                         {[prettySubtype(opt.sub_type, t), opt.suburb].filter(Boolean).join(' · ')}
                       </span>
@@ -655,8 +683,8 @@ function DayAccommodation({ day, chosen, keepForAll, onChoose, onClear, onToggle
                   </span>
                 </span>
                 <span style={{
-                  fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600,
-                  letterSpacing: '0.06em', textTransform: 'uppercase',
+                  fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 700,
+                  letterSpacing: '0.08em', textTransform: 'uppercase',
                   color: REST_ACCENT, whiteSpace: 'nowrap', flexShrink: 0,
                 }}>
                   {t('select')}
@@ -672,8 +700,8 @@ function DayAccommodation({ day, chosen, keepForAll, onChoose, onClear, onToggle
 
 const pillBtnStyle = {
   fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500,
-  color: 'var(--color-ink, #1C1A17)', background: '#fff',
-  border: '1px solid var(--color-border, rgba(28,26,23,0.16))',
+  color: INK, background: '#fff',
+  border: '1px solid rgba(28,26,23,0.16)',
   borderRadius: 999, padding: '5px 14px', cursor: 'pointer',
 }
 
@@ -731,6 +759,30 @@ function returnToAlternates(day, stop) {
   if (!(day.alternates[key] || []).some(a => a.listing_id === stop.listing_id)) {
     day.alternates[key] = [stop, ...(day.alternates[key] || [])]
   }
+}
+
+
+/* ─── Summary chip ───────────────────────────────────────────────────── */
+function SummaryChip({ children }) {
+  return (
+    <span style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      background: CARD_BG,
+      border: `1px solid ${CARD_BORDER}`,
+      borderRadius: 999,
+      padding: '6px 15px',
+      fontFamily: 'var(--font-body)',
+      fontSize: 11.5,
+      fontWeight: 600,
+      letterSpacing: '0.07em',
+      textTransform: 'uppercase',
+      color: MUTED,
+      boxShadow: '0 1px 2px rgba(28,26,23,0.04)',
+    }}>
+      {children}
+    </span>
+  )
 }
 
 
@@ -856,7 +908,7 @@ export function TripRender({ trip, onAccommodationChange, onDaysChange, editable
 
   return (
     <div className="pas-print-root" style={{
-      padding: '48px 0 96px',
+      padding: '52px 0 96px',
       maxWidth: 720,
       margin: '0 auto',
     }}>
@@ -870,235 +922,260 @@ export function TripRender({ trip, onAccommodationChange, onDaysChange, editable
         }
       `}</style>
 
-      {/* ── Title ─────────────────────────────────────────────── */}
-      <h2 style={{
-        fontFamily: 'var(--font-display)',
-        fontWeight: 400,
-        fontSize: 'clamp(26px, 5vw, 40px)',
-        color: 'var(--color-ink, #1C1A17)',
-        lineHeight: 1.1,
-        textAlign: 'center',
-        marginBottom: 12,
-      }}>
-        {trip.title}
-      </h2>
+      {/* ── Masthead ───────────────────────────────────────────── */}
+      <header style={{ textAlign: 'center', marginBottom: 36 }}>
+        <div aria-hidden="true" style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14,
+          marginBottom: 18,
+        }}>
+          <span style={{ height: 1, width: 44, background: 'rgba(28,26,23,0.2)' }} />
+          <span style={{
+            fontFamily: 'var(--font-body)', fontSize: 10.5, fontWeight: 700,
+            letterSpacing: '0.22em', textTransform: 'uppercase', color: GOLD,
+          }}>
+            {t('tripKicker')}
+          </span>
+          <span style={{ height: 1, width: 44, background: 'rgba(28,26,23,0.2)' }} />
+        </div>
 
-      {/* ── Intro ─────────────────────────────────────────────── */}
-      <p style={{
-        fontFamily: 'var(--font-body)',
-        fontSize: 15,
-        color: 'var(--color-muted, #6B6760)',
-        lineHeight: 1.6,
-        textAlign: 'center',
-        marginBottom: 16,
-      }}>
-        {trip.intro}
-      </p>
+        <h2 style={{
+          fontFamily: 'var(--font-display)',
+          fontWeight: 500,
+          fontSize: 'clamp(28px, 5vw, 42px)',
+          color: INK,
+          lineHeight: 1.12,
+          margin: '0 auto 14px',
+          maxWidth: 640,
+        }}>
+          {trip.title}
+        </h2>
 
-      {/* ── Summary strip ─────────────────────────────────────── */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'baseline',
-        gap: 10,
-        flexWrap: 'wrap',
-        fontFamily: 'var(--font-body)',
-        fontSize: 11,
-        fontWeight: 600,
-        letterSpacing: '0.1em',
-        textTransform: 'uppercase',
-        color: 'var(--color-muted, #6B6760)',
-        marginBottom: trip.trip_disclosures?.length > 0 ? 16 : 40,
-      }}>
-        <span>{t('dayCount', { count: days.length })}</span>
-        <span style={{ color: 'var(--color-gold, #C4973B)' }}>·</span>
-        <span>{t('stopCount', { count: totalStops })}</span>
-        {totalRoadKm >= 2 && (
-          <>
-            <span style={{ color: 'var(--color-gold, #C4973B)' }}>·</span>
-            <span>{t('summaryDriving', { km: totalRoadKm })}</span>
-          </>
-        )}
-      </div>
-
-      {/* ── Taste personalisation note (planner only) ──────────── */}
-      {personalised && (
         <p style={{
           fontFamily: 'var(--font-body)',
-          fontSize: 12.5,
-          fontStyle: 'italic',
-          textAlign: 'center',
-          color: 'var(--color-gold, #C4973B)',
-          margin: '0 0 24px',
+          fontSize: 14.5,
+          color: MUTED,
+          lineHeight: 1.6,
+          margin: '0 0 20px',
         }}>
-          ✦ {t('personalisedNote')}
+          {trip.intro}
         </p>
-      )}
 
-      {/* ── Trip disclosures ──────────────────────────────────── */}
-      {trip.trip_disclosures?.length > 0 && (
-        <div style={{ marginBottom: 40, textAlign: 'center' }}>
-          {trip.trip_disclosures.map((d, i) => (
-            <p key={i} style={{
-              fontFamily: 'var(--font-body)',
-              fontSize: 13,
-              fontStyle: 'italic',
-              color: 'var(--color-muted, #6B6760)',
-              lineHeight: 1.5,
-              margin: '4px 0',
-            }}>
-              {d}
-            </p>
-          ))}
+        {/* Summary chips */}
+        <div style={{
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          gap: 8, flexWrap: 'wrap', marginBottom: personalised || trip.trip_disclosures?.length ? 18 : 0,
+        }}>
+          <SummaryChip>{t('dayCount', { count: days.length })}</SummaryChip>
+          <SummaryChip>{t('stopCount', { count: totalStops })}</SummaryChip>
+          {totalRoadKm >= 2 && <SummaryChip>{t('summaryDriving', { km: totalRoadKm })}</SummaryChip>}
         </div>
-      )}
+
+        {/* Taste personalisation note (planner only) */}
+        {personalised && (
+          <p style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: 12.5,
+            fontStyle: 'italic',
+            color: GOLD,
+            margin: '0 0 14px',
+          }}>
+            ✦ {t('personalisedNote')}
+          </p>
+        )}
+
+        {/* Trip disclosures — one quiet note panel, not floating lines */}
+        {trip.trip_disclosures?.length > 0 && (
+          <div style={{
+            maxWidth: 560,
+            margin: '0 auto',
+            background: CARD_BG,
+            border: `1px solid ${CARD_BORDER}`,
+            borderLeft: `3px solid ${GOLD}`,
+            borderRadius: 10,
+            padding: '12px 18px',
+            textAlign: 'left',
+          }}>
+            {trip.trip_disclosures.map((d, i) => (
+              <p key={i} style={{
+                fontFamily: 'var(--font-body)',
+                fontSize: 12.5,
+                fontStyle: 'italic',
+                color: MUTED,
+                lineHeight: 1.55,
+                margin: i === 0 ? 0 : '6px 0 0',
+              }}>
+                {d}
+              </p>
+            ))}
+          </div>
+        )}
+      </header>
 
       {/* ── Interactive overview map ──────────────────────────── */}
       <PlanAStayTripMap days={days} accommodationByDay={accommodationByDay} />
 
       {/* ── Days ──────────────────────────────────────────────── */}
       {days.map((day, dayIdx) => {
+        const color = dayColor(day.day_number)
         const dayKm = dayLegsKm(day.stops)
         const dayRoadKm = Math.round(dayKm * WINDING_FACTOR)
         const dayMins = Math.round((dayKm * WINDING_FACTOR / DRIVE_KMH) * 60)
         const gmapsUrl = googleMapsDayUrl(day.stops, accommodationByDay[day.day_number])
         const addOptions = (day.alternates?.activities || [])
+        const tail = headingTail(day.heading)
 
         return (
-          <div key={day.day_number} style={{ marginBottom: 48 }}>
-            {/* Day heading */}
-            <h3 style={{
-              fontFamily: 'var(--font-display)',
-              fontWeight: 400,
-              fontSize: 24,
-              color: 'var(--color-ink, #1C1A17)',
-              lineHeight: 1.3,
-              marginBottom: 4,
+          <article key={day.day_number} style={{
+            background: CARD_BG,
+            border: `1px solid ${CARD_BORDER}`,
+            borderTop: `3px solid ${color}`,
+            borderRadius: 14,
+            boxShadow: CARD_SHADOW,
+            overflow: 'hidden',
+            marginBottom: 28,
+          }}>
+            {/* Day header band */}
+            <header style={{
+              padding: '18px 22px 15px',
+              borderBottom: day.map_url ? `1px solid ${HAIRLINE}` : 'none',
             }}>
-              {day.heading}
-            </h3>
-
-            {/* Day theme + driving estimate */}
-            {(day.theme || dayRoadKm >= 2) && (
-              <p style={{
-                fontFamily: 'var(--font-body)',
-                fontSize: 14,
-                fontStyle: 'italic',
-                color: 'var(--color-muted, #6B6760)',
-                lineHeight: 1.5,
-                marginBottom: day.day_disclosures?.length > 0 ? 8 : 16,
-              }}>
-                {day.theme}
-                {dayRoadKm >= 2 && (
-                  <span style={{ fontStyle: 'normal', opacity: 0.85 }}>
-                    {day.theme ? ' ' : ''}{t('dayDriveMeta', { km: dayRoadKm, time: formatDriveTime(dayMins, t) })}
-                  </span>
-                )}
-              </p>
-            )}
-
-            {/* Day disclosures */}
-            {day.day_disclosures?.length > 0 && (
-              <div style={{ marginBottom: 16 }}>
-                {day.day_disclosures.map((d, i) => (
-                  <p key={i} style={{
-                    fontFamily: 'var(--font-body)',
-                    fontSize: 12,
-                    color: 'var(--color-muted, #6B6760)',
-                    lineHeight: 1.5,
-                    margin: '2px 0',
-                    opacity: 0.8,
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <span style={{
+                  background: color, color: '#fff',
+                  fontFamily: 'var(--font-body)', fontSize: 10.5, fontWeight: 700,
+                  letterSpacing: '0.14em', textTransform: 'uppercase',
+                  borderRadius: 7, padding: '4px 11px', whiteSpace: 'nowrap',
+                }}>
+                  {t('dayLabel', { n: day.day_number })}
+                </span>
+                {tail && (
+                  <h3 style={{
+                    fontFamily: 'var(--font-display)',
+                    fontWeight: 500,
+                    fontSize: 20,
+                    color: INK,
+                    lineHeight: 1.25,
+                    margin: 0,
                   }}>
-                    {d}
-                  </p>
-                ))}
+                    {tail}
+                  </h3>
+                )}
               </div>
-            )}
-
-            {/* Static map */}
-            {day.map_url && (
-              <div style={{
-                marginBottom: 16,
-                borderRadius: 10,
-                overflow: 'hidden',
-                border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
-              }}>
-                <img
-                  src={day.map_url}
-                  alt={t('mapForDay', { heading: day.heading })}
-                  loading={dayIdx === 0 ? 'eager' : 'lazy'}
-                  style={{
-                    width: '100%',
-                    height: 'auto',
-                    display: 'block',
-                    minHeight: 160,
-                    background: '#E8E2D6',
-                  }}
-                />
-              </div>
-            )}
-
-            {/* Stop cards */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-              {day.stops?.map((stop, stopIdx) => (
-                <div key={stop.listing_id} id={`pas-stop-${stop.listing_id}`}>
-                  <StopCard
-                    stop={stop}
-                    index={stopIdx}
-                    prevStop={stopIdx > 0 ? day.stops[stopIdx - 1] : null}
-                    editable={editable}
-                    alternates={editable ? (day.alternates?.[bucketFor(stop)] || []) : []}
-                    canMoveUp={editable && stopIdx > 0}
-                    canMoveDown={editable && stopIdx < day.stops.length - 1}
-                    onSwap={(alt) => swapStop(day.day_number, stopIdx, alt)}
-                    onRemove={() => removeStop(day.day_number, stopIdx)}
-                    onMove={(dir) => moveStop(day.day_number, stopIdx, dir)}
-                  />
+              {(day.theme || dayRoadKm >= 2) && (
+                <p style={{
+                  fontFamily: 'var(--font-body)',
+                  fontSize: 13,
+                  color: MUTED,
+                  lineHeight: 1.55,
+                  margin: '8px 0 0',
+                }}>
+                  <span style={{ fontStyle: 'italic' }}>{day.theme}</span>
+                  {dayRoadKm >= 2 && (
+                    <span style={{ opacity: 0.85 }}>
+                      {day.theme ? ' ' : ''}{t('dayDriveMeta', { km: dayRoadKm, time: formatDriveTime(dayMins, t) })}
+                    </span>
+                  )}
+                </p>
+              )}
+              {day.day_disclosures?.length > 0 && (
+                <div style={{ marginTop: 6 }}>
+                  {day.day_disclosures.map((d, i) => (
+                    <p key={i} style={{
+                      fontFamily: 'var(--font-body)',
+                      fontSize: 12,
+                      color: MUTED,
+                      lineHeight: 1.5,
+                      margin: '2px 0 0',
+                      opacity: 0.8,
+                    }}>
+                      {d}
+                    </p>
+                  ))}
                 </div>
-              ))}
-            </div>
+              )}
+            </header>
 
-            {/* Add a stop (editable, when real alternates remain) */}
-            {editable && addOptions.length > 0 && (
-              <AddStopControl
-                options={addOptions}
-                onPick={(alt) => addStop(day.day_number, alt)}
+            {/* Static day map — full bleed inside the card */}
+            {day.map_url && (
+              <img
+                src={day.map_url}
+                alt={t('mapForDay', { heading: day.heading })}
+                loading={dayIdx === 0 ? 'eager' : 'lazy'}
+                style={{
+                  width: '100%',
+                  height: 'auto',
+                  display: 'block',
+                  minHeight: 150,
+                  background: '#EDE7DC',
+                  borderBottom: `1px solid ${HAIRLINE}`,
+                }}
               />
             )}
 
-            {/* Open the day in Google Maps */}
-            {gmapsUrl && (
-              <div className="pas-no-print" style={{ marginTop: 14 }}>
-                <a
-                  href={gmapsUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    display: 'inline-block',
-                    fontFamily: 'var(--font-body)',
-                    fontSize: 12.5,
-                    fontWeight: 500,
-                    color: 'var(--color-muted, #6B6760)',
-                    textDecoration: 'none',
-                    borderBottom: '1px solid rgba(28,26,23,0.2)',
-                    padding: '8px 0 4px',
-                  }}
-                >
-                  {t('openDayInGoogleMaps')} ↗
-                </a>
+            {/* Stops */}
+            <div style={{ padding: '20px 22px 22px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                {day.stops?.map((stop, stopIdx) => (
+                  <div key={stop.listing_id} id={`pas-stop-${stop.listing_id}`}>
+                    <StopCard
+                      stop={stop}
+                      index={stopIdx}
+                      prevStop={stopIdx > 0 ? day.stops[stopIdx - 1] : null}
+                      color={color}
+                      editable={editable}
+                      alternates={editable ? (day.alternates?.[bucketFor(stop)] || []) : []}
+                      canMoveUp={editable && stopIdx > 0}
+                      canMoveDown={editable && stopIdx < day.stops.length - 1}
+                      onSwap={(alt) => swapStop(day.day_number, stopIdx, alt)}
+                      onRemove={() => removeStop(day.day_number, stopIdx)}
+                      onMove={(dir) => moveStop(day.day_number, stopIdx, dir)}
+                    />
+                  </div>
+                ))}
               </div>
-            )}
 
-            {/* Accommodation */}
-            <DayAccommodation
-              day={day}
-              chosen={accommodationByDay[day.day_number] || null}
-              keepForAll={keepForAll}
-              onChoose={(stay) => chooseForDay(day.day_number, stay)}
-              onClear={() => clearForDay(day.day_number)}
-              onToggleKeepForAll={(checked) => toggleKeepForAll(day.day_number, checked)}
-            />
-          </div>
+              {/* Add a stop (editable, when real alternates remain) */}
+              {editable && addOptions.length > 0 && (
+                <AddStopControl
+                  options={addOptions}
+                  onPick={(alt) => addStop(day.day_number, alt)}
+                />
+              )}
+
+              {/* Open the day in Google Maps */}
+              {gmapsUrl && (
+                <div className="pas-no-print" style={{ marginTop: 12 }}>
+                  <a
+                    href={gmapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-block',
+                      fontFamily: 'var(--font-body)',
+                      fontSize: 12.5,
+                      fontWeight: 600,
+                      color: MUTED,
+                      textDecoration: 'none',
+                      borderBottom: '1px solid rgba(28,26,23,0.22)',
+                      padding: '8px 0 3px',
+                    }}
+                  >
+                    {t('openDayInGoogleMaps')} ↗
+                  </a>
+                </div>
+              )}
+
+              {/* Accommodation */}
+              <DayAccommodation
+                day={day}
+                chosen={accommodationByDay[day.day_number] || null}
+                keepForAll={keepForAll}
+                onChoose={(stay) => chooseForDay(day.day_number, stay)}
+                onClear={() => clearForDay(day.day_number)}
+                onToggleKeepForAll={(checked) => toggleKeepForAll(day.day_number, checked)}
+              />
+            </div>
+          </article>
         )
       })}
     </div>
@@ -1119,25 +1196,25 @@ function AddStopControl({ options, onPick }) {
         style={{
           display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left',
           fontFamily: 'var(--font-body)',
-          background: 'rgba(196,151,59,0.04)',
-          border: '1px dashed rgba(196,151,59,0.45)',
-          borderRadius: 10, padding: '12px 18px', cursor: 'pointer', marginTop: 14,
+          background: 'rgba(185,138,47,0.04)',
+          border: '1px dashed rgba(185,138,47,0.42)',
+          borderRadius: 12, padding: '11px 18px', cursor: 'pointer', marginTop: 14,
           transition: 'background 0.18s ease, border-color 0.18s ease',
         }}
-        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(196,151,59,0.08)'; e.currentTarget.style.borderColor = 'rgba(196,151,59,0.65)' }}
-        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(196,151,59,0.04)'; e.currentTarget.style.borderColor = 'rgba(196,151,59,0.45)' }}
+        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(185,138,47,0.08)'; e.currentTarget.style.borderColor = 'rgba(185,138,47,0.65)' }}
+        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(185,138,47,0.04)'; e.currentTarget.style.borderColor = 'rgba(185,138,47,0.42)' }}
       >
         <span style={{
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           width: 26, height: 26, borderRadius: 999, flexShrink: 0,
-          background: 'rgba(196,151,59,0.14)', color: 'var(--color-gold, #C4973B)',
+          background: 'rgba(185,138,47,0.14)', color: GOLD,
           fontSize: 18, fontWeight: 300, lineHeight: 1, paddingBottom: 2,
         }}>+</span>
         <span style={{ display: 'flex', flexDirection: 'column' }}>
-          <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--color-ink, #1C1A17)' }}>
+          <span style={{ fontSize: 13.5, fontWeight: 600, color: INK }}>
             {t('addAStop')}
           </span>
-          <span style={{ fontSize: 12, color: 'var(--color-muted, #6B6760)', marginTop: 1 }}>
+          <span style={{ fontSize: 12, color: MUTED, marginTop: 1 }}>
             {t('addAStopNearby', { count: options.length })}
           </span>
         </span>
