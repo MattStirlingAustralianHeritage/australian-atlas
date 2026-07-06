@@ -80,6 +80,51 @@ const PREFERENCE_MAP = {
   scenic:          { verticals: ['field', 'collection'], visit_types: ['attraction'], sub_types: [], label: 'Scenic stops & lookouts' },
 }
 
+// ── Capital-city avoidance ──────────────────────────────────────────
+// On This Road is a regional product: an A→B route should not funnel the
+// traveller through a capital's inner metro, and no stop should ever sit
+// inside one. Core radii are per-city — Adelaide and Perth are kept small
+// so the adjacent wine country (Adelaide Hills, McLaren Vale, Swan Valley)
+// stays in play. Cycling routes are left alone entirely: rides are local
+// by nature and a city café run is a legitimate ride.
+const CAPITAL_CITIES = [
+  { name: 'Sydney',    lat: -33.8688, lng: 151.2093, coreKm: 25 },
+  { name: 'Melbourne', lat: -37.8136, lng: 144.9631, coreKm: 22 },
+  { name: 'Brisbane',  lat: -27.4698, lng: 153.0251, coreKm: 22 },
+  { name: 'Canberra',  lat: -35.2809, lng: 149.1300, coreKm: 15 },
+  { name: 'Darwin',    lat: -12.4634, lng: 130.8456, coreKm: 15 },
+  { name: 'Hobart',    lat: -42.8821, lng: 147.3272, coreKm: 12 },
+  { name: 'Perth',     lat: -31.9505, lng: 115.8605, coreKm: 11 },
+  { name: 'Adelaide',  lat: -34.9285, lng: 138.6007, coreKm: 10 },
+]
+
+// A bypass reroute is accepted only if it stays within this factor of the
+// original route distance AND actually clears the capital's core.
+const BYPASS_MAX_DISTANCE_FACTOR = 1.6
+// The bypass waypoint sits this far out from the capital centre (× coreKm),
+// perpendicular to the direct line of travel, so the reroute clears the metro.
+const BYPASS_CLEARANCE_FACTOR = 1.5
+
+function capitalCoreContaining(lat, lng) {
+  if (lat == null || lng == null) return null
+  for (const c of CAPITAL_CITIES) {
+    if (haversineKm(lat, lng, c.lat, c.lng) <= c.coreKm) return c
+  }
+  return null
+}
+
+// ── Coffee-first openings ───────────────────────────────────────────
+// A road-trip day opens with coffee. Cafés and roasters near the start of
+// Day 1 get a scoring leg-up in segment distribution and are flagged to the
+// prompt as opening candidates. Entirely data-dependent — if no café or
+// roaster exists early on the route, nothing is forced and nothing invented.
+const OPENING_BOOST = 30
+
+function isOpeningCandidate(listing) {
+  if (listing.vertical === 'fine_grounds') return true
+  return listing.vertical === 'table' && listing.sub_type === 'cafe'
+}
+
 // ── Multi-day overnight clustering ─────────────────────────────────
 // Verticals that cluster at overnight waypoints (evening + morning)
 const OVERNIGHT_VERTICALS = new Set(['rest', 'table', 'fine_grounds'])
@@ -345,6 +390,60 @@ async function getRoute(startCoords, endCoords, waypoints = [], profile = 'drivi
   const data = await res.json()
   if (!data.routes || data.routes.length === 0) return null
   return data.routes[0]
+}
+
+/**
+ * Route an A→B trip around any capital core that sits between the endpoints.
+ * For each capital the route passes through (and that is not itself an
+ * endpoint), try a waypoint placed perpendicular to the direct line of
+ * travel on either side of the city, and accept the shorter reroute that
+ * BOTH clears the metro AND stays ≤ BYPASS_MAX_DISTANCE_FACTOR × the
+ * original distance. Anything else keeps the original route. Cycling
+ * routes are never rerouted.
+ */
+async function applyCapitalBypass(startCoords, endCoords, route, transportMode, rid) {
+  if (transportMode === 'cycling') return route
+  if (!route?.geometry?.coordinates?.length) return route
+  const originalKm = route.distance / 1000
+  let current = route
+
+  for (const capital of CAPITAL_CITIES) {
+    // Endpoint inside the core → the capital IS the origin/destination area
+    const startDist = haversineKm(startCoords.lat, startCoords.lng, capital.lat, capital.lng)
+    const endDist = haversineKm(endCoords.lat, endCoords.lng, capital.lat, capital.lng)
+    if (startDist <= capital.coreKm || endDist <= capital.coreKm) continue
+
+    const passDist = projectOntoRoute(capital.lat, capital.lng, current.geometry.coordinates).distance
+    if (passDist >= capital.coreKm) continue
+
+    const travelBearing = bearingDeg(startCoords.lat, startCoords.lng, endCoords.lat, endCoords.lng)
+    const offsetKm = capital.coreKm * BYPASS_CLEARANCE_FACTOR
+    let accepted = null
+    for (const side of [90, -90]) {
+      const b = ((travelBearing + side) * Math.PI) / 180
+      const waypoint = {
+        lat: capital.lat + (offsetKm / 111) * Math.cos(b),
+        lng: capital.lng + (offsetKm / (111 * Math.cos(capital.lat * Math.PI / 180))) * Math.sin(b),
+      }
+      let candidate = null
+      try {
+        candidate = await getRoute(startCoords, endCoords, [waypoint], transportMode)
+      } catch { /* directions failure on one side — try the other */ }
+      if (!candidate?.geometry?.coordinates?.length) continue
+      const clearsMetro = projectOntoRoute(capital.lat, capital.lng, candidate.geometry.coordinates).distance >= capital.coreKm
+      const withinBudget = candidate.distance / 1000 <= originalKm * BYPASS_MAX_DISTANCE_FACTOR
+      if (!clearsMetro || !withinBudget) continue
+      if (!accepted || candidate.distance < accepted.distance) accepted = candidate
+    }
+
+    if (accepted) {
+      console.log(`[on-this-road] [${rid}] Capital bypass: routing around ${capital.name} (was ${Math.round(passDist)}km from centre, +${Math.round(accepted.distance / 1000 - current.distance / 1000)}km)`)
+      current = accepted
+    } else {
+      console.log(`[on-this-road] [${rid}] Capital bypass for ${capital.name} rejected (no reroute cleared the metro within ${BYPASS_MAX_DISTANCE_FACTOR}× distance) — keeping original route`)
+    }
+  }
+  return current
 }
 
 // ── Preference scoring ──────────────────────────────────────────────
@@ -613,10 +712,13 @@ export async function POST(request) {
 
     // 4. Get outbound route
     console.log(`[on-this-road] [${rid}] Directions request (${transportMode}): ${startCoords.lng},${startCoords.lat} → ${endCoords.lng},${endCoords.lat}`)
-    const route = await getRoute(startCoords, endCoords, [], transportMode)
+    let route = await getRoute(startCoords, endCoords, [], transportMode)
     if (!route) {
       return NextResponse.json({ error: `No ${isCycling ? 'cycling' : 'driving'} route found between these locations.` }, { status: 400 })
     }
+
+    // Route around any capital core sitting between the endpoints (driving only)
+    route = await applyCapitalBypass(startCoords, endCoords, route, transportMode, rid)
 
     // 5. Build outbound itinerary
     const result = await buildItinerary({
@@ -631,8 +733,9 @@ export async function POST(request) {
     // 6. If return different road requested, build return route
     if (returnDifferentRoad && result.status !== 400) {
       const resultData = await result.json()
-      const returnRoute = await getRoute(endCoords, startCoords, [], transportMode)
+      let returnRoute = await getRoute(endCoords, startCoords, [], transportMode)
       if (returnRoute) {
+        returnRoute = await applyCapitalBypass(endCoords, startCoords, returnRoute, transportMode, rid)
         const returnResult = await buildItinerary({
           startCoords: endCoords, endCoords: startCoords, route: returnRoute,
           detourConfig, tripConfig: { ...tripConfig, days: Math.max(1, tripConfig.days - 1) },
@@ -869,6 +972,11 @@ async function buildItinerary({
       console.log(`[on-this-road] After expansion: ${restCandidates.length} rest listings`)
     }
 
+    // Overnights follow the same rule as stops: never inside a capital core
+    if (!isCycling) {
+      restCandidates = restCandidates.filter(l => !capitalCoreContaining(l.lat, l.lng))
+    }
+
     // Project onto route
     restCandidates = restCandidates.map(l => {
       const proj = projectOntoRoute(l.lat, l.lng, routeCoords)
@@ -881,6 +989,7 @@ async function buildItinerary({
   const preSelectedIds = preSelectedListings ? new Set(preSelectedListings.map(l => l.id)) : new Set()
   const corridorKm = (isSurpriseLoop && isCycling) ? Math.max(effectiveBufferKm, 15) : effectiveBufferKm
   let prefExcludedCount = 0
+  let capitalExcludedCount = 0
   const routeListings = allListings
     .map(listing => {
       const proj = projectOntoRoute(listing.lat, listing.lng, routeCoords)
@@ -897,6 +1006,8 @@ async function buildItinerary({
     .filter(l => {
       const maxBuffer = preSelectedIds.has(l.id) ? corridorKm : effectiveBufferKm
       if (l.distanceFromRoute > maxBuffer) return false
+      // Capital cores are never stops — the route bypasses them (driving only)
+      if (!isCycling && capitalCoreContaining(l.lat, l.lng)) { capitalExcludedCount++; return false }
       const effectiveQuality = l.quality_score > 0 ? l.quality_score : 50
       if (effectiveQuality < detourConfig.minQuality) return false
       if (isExcludedByPreferences(l, preferences)) { prefExcludedCount++; return false }
@@ -906,6 +1017,9 @@ async function buildItinerary({
 
   if (prefExcludedCount > 0) {
     console.log(`[on-this-road] Interest filter excluded ${prefExcludedCount} listings not matching selected preferences`)
+  }
+  if (capitalExcludedCount > 0) {
+    console.log(`[on-this-road] Capital-core exclusion removed ${capitalExcludedCount} listings inside capital city cores`)
   }
 
 
@@ -1023,8 +1137,11 @@ async function buildItinerary({
         const prefB = Math.min(b.preferenceScore || 0, 3)
         const phaseA = scoreDayPhase(a, dayPhase)
         const phaseB = scoreDayPhase(b, dayPhase)
-        const scoreA = (a.quality_score > 0 ? a.quality_score : 50) + (prefA * 15) + (a.seasonalScore * 5) - a.zonePenalty + (phaseA * 8) + ((a.tasteScore || 0) * TASTE_BONUS)
-        const scoreB = (b.quality_score > 0 ? b.quality_score : 50) + (prefB * 15) + (b.seasonalScore * 5) - b.zonePenalty + (phaseB * 8) + ((b.tasteScore || 0) * TASTE_BONUS)
+        // Coffee-first: the trip's first segment leads with a café/roaster when one exists
+        const openA = i === 0 && isOpeningCandidate(a) ? OPENING_BOOST : 0
+        const openB = i === 0 && isOpeningCandidate(b) ? OPENING_BOOST : 0
+        const scoreA = (a.quality_score > 0 ? a.quality_score : 50) + (prefA * 15) + (a.seasonalScore * 5) - a.zonePenalty + (phaseA * 8) + openA + ((a.tasteScore || 0) * TASTE_BONUS)
+        const scoreB = (b.quality_score > 0 ? b.quality_score : 50) + (prefB * 15) + (b.seasonalScore * 5) - b.zonePenalty + (phaseB * 8) + openB + ((b.tasteScore || 0) * TASTE_BONUS)
         return scoreB - scoreA
       })
       for (const listing of seg) {
@@ -1075,6 +1192,7 @@ async function buildItinerary({
         quality_score: l.quality_score || 0, position_km: l.positionKm,
         region: getListingRegion(l)?.name ?? null, description: l.description ? l.description.slice(0, 150) : '',
         preference_match: l.preferenceScore > 0, is_segment_pick: distributedIds.has(l.id),
+        opening_candidate: isOpeningCandidate(l) && l.positionKm <= segmentLengthKm,
       }))
 
   }
@@ -1103,8 +1221,11 @@ async function buildItinerary({
         const prefB = Math.min(b.preferenceScore || 0, 3)
         const phaseA = scoreDayPhase(a, dayPhase)
         const phaseB = scoreDayPhase(b, dayPhase)
-        const scoreA = (a.quality_score > 0 ? a.quality_score : 50) + (prefA * 15) + (a.seasonalScore * 5) + (phaseA * 8)
-        const scoreB = (b.quality_score > 0 ? b.quality_score : 50) + (prefB * 15) + (b.seasonalScore * 5) + (phaseB * 8)
+        // Coffee-first: the day's first segment leads with a café/roaster when one exists
+        const openA = i === 0 && isOpeningCandidate(a) ? OPENING_BOOST : 0
+        const openB = i === 0 && isOpeningCandidate(b) ? OPENING_BOOST : 0
+        const scoreA = (a.quality_score > 0 ? a.quality_score : 50) + (prefA * 15) + (a.seasonalScore * 5) + (phaseA * 8) + openA
+        const scoreB = (b.quality_score > 0 ? b.quality_score : 50) + (prefB * 15) + (b.seasonalScore * 5) + (phaseB * 8) + openB
         return scoreB - scoreA
       })
       for (const listing of seg) {
@@ -1154,6 +1275,7 @@ async function buildItinerary({
         description: l.description ? l.description.slice(0, 150) : '',
         best_season: l.best_season || null, is_segment_pick: distributedIds.has(l.id),
         preference_match: l.preferenceScore > 0,
+        opening_candidate: isOpeningCandidate(l) && l.positionKm <= segmentLengthKm,
       }))
   }
 
@@ -1348,6 +1470,8 @@ EXEMPLAR STOP DESCRIPTIONS (match this voice):
 
 const DAY_RHYTHM = `DAY RHYTHM: Order stops to match the natural rhythm of a road trip day — coffee and nature walks in the morning, culture and producers at midday, breweries and markets in the afternoon. A brewery or distillery should not be the first stop of the day.`
 
+const OPENING_STOP = `OPENING STOP: A road trip opens with coffee. If any listing is marked "opening_candidate": true (a café or coffee roaster near the start of the route), make one of those the FIRST stop of Day 1. If no listing carries that mark, open the day with whatever the data supports — never invent a café to fill the slot.`
+
 function buildSingleDayPrompt({
   startNameFull, endNameFull, routeDistanceKm, routeDurationMinutes,
   detourConfig, tripConfig, prefContext, departureContext, seasonContext,
@@ -1374,6 +1498,8 @@ ${EDITORIAL_VOICE}
 GROUNDING RULE: Only reference details that are directly stated or clearly implied by the listing's name, description, vertical, or region. You MUST NOT invent specific details about a venue's menu items, tasting experiences, interior atmosphere, staff behaviour, or service style. If the listing description says "family winery" you can say it's a family winery — you cannot say "the cheese plate arrives without ceremony" unless cheese is mentioned in the description. When the description is too sparse to write specifically about the venue itself, write about the landscape, the location on the route, or why this stop matters geographically at this point in the journey. The land is always true — the venue details might not be.
 
 ${DAY_RHYTHM}
+
+${OPENING_STOP}
 
 CRITICAL: Select stops that are geographically distributed along the FULL LENGTH of the route. The route is ${routeDistanceKm}km — aim for stops approximately every ${targetSpacingKm}km. Listings marked "is_segment_pick: true" are pre-selected for their route segment — strongly prefer these.
 
@@ -1460,6 +1586,8 @@ ${EDITORIAL_VOICE}
 GROUNDING RULE: Only reference details that are directly stated or clearly implied by the listing's name, description, vertical, or region. You MUST NOT invent specific details about a venue's menu items, tasting experiences, interior atmosphere, staff behaviour, or service style. If the listing description says "family winery" you can say it's a family winery — you cannot say "the cheese plate arrives without ceremony" unless cheese is mentioned in the description. When the description is too sparse to write specifically about the venue itself, write about the landscape, the location on the route, or why this stop matters geographically at this point in the journey. The land is always true — the venue details might not be.
 
 ${DAY_RHYTHM}
+
+${OPENING_STOP}
 
 This is a ${tripConfig.days}-day trip. The route is ${routeDistanceKm}km total.
 ${dayTargetsSection}
