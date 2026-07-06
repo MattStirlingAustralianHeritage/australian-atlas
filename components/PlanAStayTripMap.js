@@ -21,10 +21,10 @@ import { useTranslations } from 'next-intl'
 
 const MAP_STYLE = 'mapbox://styles/mattstirlingaustralianheritage/cmn32b0iz003401swccb7d21k'
 
-const DAY_COLORS = ['#C4973B', '#8a5a6b', '#5F8A7E', '#A0562B', '#54718a', '#7d6b9e', '#997f4a']
+export const DAY_COLORS = ['#B98A2F', '#8a5a6b', '#5F8A7E', '#A0562B', '#54718a', '#7d6b9e', '#997f4a']
 const REST_ACCENT = '#8a5a6b'
 
-function dayColor(dayNumber) {
+export function dayColor(dayNumber) {
   return DAY_COLORS[(dayNumber - 1) % DAY_COLORS.length]
 }
 
@@ -81,11 +81,37 @@ export default function PlanAStayTripMap({ days, accommodationByDay }) {
     Object.entries(accommodationByDay || {}).map(([k, v]) => [k, v?.listing_id]),
   ])
 
-  /* Rebuild markers + lines from current data. Idempotent. */
+  /* Add the day-lines source/layer once the style is available. Idempotent. */
+  function ensureLayers(map) {
+    if (map.getSource('pas-day-lines')) return
+    map.addSource('pas-day-lines', { type: 'geojson', data: lineFeatures(dataRef.current.days) })
+    map.addLayer({
+      id: 'pas-day-lines-layer', type: 'line', source: 'pas-day-lines',
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+      paint: {
+        'line-color': ['get', 'color'],
+        'line-width': 2,
+        'line-opacity': 0.65,
+        'line-dasharray': [2, 2],
+      },
+    })
+  }
+
+  /* Rebuild markers + lines from current data. Idempotent. Self-heals if the
+     'load' event was missed (mount races abort in-flight style fetches in
+     dev): any later refresh promotes the map to ready once the style is in. */
   function refresh() {
     const map = mapRef.current
     const mapboxgl = mapboxRef.current
-    if (!map || !mapboxgl || !loadedRef.current) return
+    if (!map || !mapboxgl) return
+    if (!loadedRef.current) {
+      if (typeof map.isStyleLoaded === 'function' && map.isStyleLoaded()) {
+        try { ensureLayers(map) } catch { return }
+        loadedRef.current = true
+      } else {
+        return
+      }
+    }
     const { days: d, accommodationByDay: a } = dataRef.current
     const { stops: pts, stays } = collectPoints(d, a)
 
@@ -191,21 +217,16 @@ export default function PlanAStayTripMap({ days, accommodationByDay }) {
       mapRef.current = map
       map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right')
 
-      map.on('load', () => {
+      // 'load' can be missed when dev-mode mount races abort a style fetch;
+      // 'idle' re-fires after every settle, so ready() always runs eventually.
+      const ready = () => {
+        if (loadedRef.current) { refresh(); return }
+        try { ensureLayers(map) } catch { return }
         loadedRef.current = true
-        map.addSource('pas-day-lines', { type: 'geojson', data: lineFeatures(dataRef.current.days) })
-        map.addLayer({
-          id: 'pas-day-lines-layer', type: 'line', source: 'pas-day-lines',
-          layout: { 'line-join': 'round', 'line-cap': 'round' },
-          paint: {
-            'line-color': ['get', 'color'],
-            'line-width': 2,
-            'line-opacity': 0.65,
-            'line-dasharray': [2, 2],
-          },
-        })
         refresh()
-      })
+      }
+      map.on('load', ready)
+      map.on('idle', () => { if (!loadedRef.current) ready() })
     })
 
     return () => {
@@ -222,27 +243,31 @@ export default function PlanAStayTripMap({ days, accommodationByDay }) {
   if (!process.env.NEXT_PUBLIC_MAPBOX_TOKEN || stops.length < 2) return null
 
   return (
-    <div className="pas-no-print" style={{ marginBottom: 40 }}>
+    <div className="pas-no-print" style={{ marginBottom: 44 }}>
       <div
         role="region"
         aria-label={t('tripMapCaption')}
         style={{
-          borderRadius: 10,
+          borderRadius: 14,
           overflow: 'hidden',
-          border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
+          border: '1px solid rgba(28,26,23,0.1)',
+          background: '#FFFCF7',
+          boxShadow: '0 1px 2px rgba(28,26,23,0.04), 0 10px 28px rgba(28,26,23,0.06)',
         }}
       >
         <div ref={containerRef} style={{ height: 'min(420px, 55vh)', width: '100%', background: '#E8E2D6' }} />
+        <p style={{
+          fontFamily: 'var(--font-body)',
+          fontSize: 11.5,
+          color: 'var(--color-muted, #6B6760)',
+          textAlign: 'center',
+          margin: 0,
+          padding: '9px 16px',
+          borderTop: '1px solid rgba(28,26,23,0.08)',
+        }}>
+          {t('tripMapCaption')}
+        </p>
       </div>
-      <p style={{
-        fontFamily: 'var(--font-body)',
-        fontSize: 11.5,
-        color: 'var(--color-muted, #6B6760)',
-        textAlign: 'center',
-        margin: '8px 0 0',
-      }}>
-        {t('tripMapCaption')}
-      </p>
     </div>
   )
 }

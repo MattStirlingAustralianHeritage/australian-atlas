@@ -307,7 +307,7 @@ function OptionCard({ label, sub, selected, onClick, index }) {
         width: '100%',
         textAlign: 'left',
         padding: '16px 0',
-        background: 'transparent',
+        background: selected ? 'rgba(196,96,58,0.05)' : 'transparent',
         border: 'none',
         borderBottom: '1px solid rgba(28,26,23,0.08)',
         borderLeft: selected ? '2px solid var(--color-accent, #C4603A)' : '2px solid transparent',
@@ -417,7 +417,7 @@ function DurationPill({ label, selected, onClick, index }) {
         width: '100%',
         textAlign: 'left',
         padding: '16px 0',
-        background: 'transparent',
+        background: selected ? 'rgba(196,96,58,0.05)' : 'transparent',
         border: 'none',
         borderBottom: '1px solid rgba(28,26,23,0.08)',
         borderLeft: selected ? '2px solid var(--color-accent, #C4603A)' : '2px solid transparent',
@@ -506,7 +506,7 @@ function RegionRow({ name, stateAbbr, selected, onClick, index }) {
         width: '100%',
         textAlign: 'left',
         padding: '16px 0',
-        background: 'transparent',
+        background: selected ? 'rgba(196,96,58,0.05)' : 'transparent',
         border: 'none',
         borderBottom: '1px solid rgba(28,26,23,0.08)',
         borderLeft: selected ? '2px solid var(--color-accent, #C4603A)' : '2px solid transparent',
@@ -612,7 +612,7 @@ function SeasonCard({ label, selected, onClick, index }) {
         width: '100%',
         textAlign: 'left',
         padding: '16px 0',
-        background: 'transparent',
+        background: selected ? 'rgba(196,96,58,0.05)' : 'transparent',
         border: 'none',
         borderBottom: '1px solid rgba(28,26,23,0.08)',
         borderLeft: selected ? '2px solid var(--color-accent, #C4603A)' : '2px solid transparent',
@@ -973,6 +973,13 @@ function LoadingScreen({ state, onComplete, onError }) {
       gap: 12,
       padding: '64px 24px',
     }}>
+      <style>{`@keyframes pas-pulse { 0%,100% { opacity: 0.35; transform: scale(0.94); } 50% { opacity: 1; transform: scale(1.06); } }`}</style>
+      <span aria-hidden="true" style={{
+        fontSize: 22,
+        color: 'var(--color-gold, #B98A2F)',
+        animation: 'pas-pulse 1.6s ease-in-out infinite',
+        marginBottom: 6,
+      }}>✦</span>
       {lines.map((line, i) => (
         <p
           key={i}
@@ -1276,22 +1283,24 @@ function ActionButtons({ tripData, accommodationByDay, editedDays, onReset, shar
         paddingTop: 24,
         borderTop: '1px solid var(--color-border, rgba(28,26,23,0.12))',
       }}>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
           <button
             onClick={() => doSave()}
             disabled={saveState === 'saving' || saveState === 'saved'}
             style={{
               fontFamily: 'var(--font-body)',
-              fontWeight: 500,
+              fontWeight: 600,
               fontSize: 14,
-              color: saveState === 'saved' ? '#5a7c5a' : 'var(--color-ink, #1C1A17)',
-              background: 'transparent',
-              border: `1px solid ${saveState === 'saved' ? 'rgba(90,124,90,0.3)' : 'var(--color-border, rgba(28,26,23,0.12))'}`,
-              borderRadius: 8,
-              padding: '10px 24px',
+              color: '#FAF8F4',
+              background: saveState === 'saved' ? '#5a7c5a' : 'var(--color-ink, #1C1A17)',
+              border: '1px solid transparent',
+              borderRadius: 999,
+              padding: '11px 26px',
               cursor: saveState === 'saving' ? 'wait' : saveState === 'saved' ? 'default' : 'pointer',
-              transition: 'border-color 0.2s ease, color 0.2s ease',
+              transition: 'background 0.2s ease, opacity 0.2s ease',
             }}
+            onMouseEnter={e => { if (saveState === 'idle') e.currentTarget.style.opacity = '0.85' }}
+            onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}
           >
             {saveLabel}
           </button>
@@ -1305,13 +1314,15 @@ function ActionButtons({ tripData, accommodationByDay, editedDays, onReset, shar
               color: shareState === 'shared'
                 ? '#5a7c5a'
                 : 'var(--color-ink, #1C1A17)',
-              background: 'transparent',
-              border: `1px solid ${shareState === 'shared' ? 'rgba(90,124,90,0.3)' : 'var(--color-border, rgba(28,26,23,0.12))'}`,
-              borderRadius: 8,
-              padding: '10px 24px',
+              background: '#FFFCF7',
+              border: `1px solid ${shareState === 'shared' ? 'rgba(90,124,90,0.4)' : 'rgba(28,26,23,0.16)'}`,
+              borderRadius: 999,
+              padding: '11px 24px',
               cursor: shareState === 'sharing' ? 'wait' : 'pointer',
               transition: 'border-color 0.2s ease, color 0.2s ease',
             }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(28,26,23,0.34)' }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = shareState === 'shared' ? 'rgba(90,124,90,0.4)' : 'rgba(28,26,23,0.16)' }}
           >
             {shareLabel}
           </button>
@@ -1341,14 +1352,16 @@ function ActionButtons({ tripData, accommodationByDay, editedDays, onReset, shar
                 fontFamily: 'var(--font-body)',
                 fontWeight: 500,
                 fontSize: 14,
-                color: '#4a6e63',
-                background: 'rgba(95,138,126,0.08)',
-                border: '1px solid rgba(95,138,126,0.4)',
-                borderRadius: 8,
-                padding: '10px 24px',
+                color: 'var(--color-ink, #1C1A17)',
+                background: '#FFFCF7',
+                border: '1px solid rgba(28,26,23,0.16)',
+                borderRadius: 999,
+                padding: '11px 24px',
                 cursor: 'pointer',
                 transition: 'border-color 0.2s ease',
               }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(28,26,23,0.34)' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(28,26,23,0.16)' }}
             >
               {t('openOnMap')}
             </button>
@@ -1361,15 +1374,15 @@ function ActionButtons({ tripData, accommodationByDay, editedDays, onReset, shar
                 fontWeight: 500,
                 fontSize: 14,
                 color: 'var(--color-ink, #1C1A17)',
-                background: 'transparent',
-                border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
-                borderRadius: 8,
-                padding: '10px 24px',
+                background: '#FFFCF7',
+                border: '1px solid rgba(28,26,23,0.16)',
+                borderRadius: 999,
+                padding: '11px 24px',
                 cursor: 'pointer',
                 transition: 'border-color 0.2s ease',
               }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(28,26,23,0.3)' }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-border, rgba(28,26,23,0.12))' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(28,26,23,0.34)' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(28,26,23,0.16)' }}
             >
               {t('printTrip')}
             </button>
@@ -1380,16 +1393,16 @@ function ActionButtons({ tripData, accommodationByDay, editedDays, onReset, shar
               fontFamily: 'var(--font-body)',
               fontWeight: 500,
               fontSize: 14,
-              color: 'var(--color-ink, #1C1A17)',
+              color: 'var(--color-muted, #6B6760)',
               background: 'transparent',
-              border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
-              borderRadius: 8,
-              padding: '10px 24px',
+              border: '1px solid transparent',
+              borderRadius: 999,
+              padding: '11px 18px',
               cursor: 'pointer',
-              transition: 'border-color 0.2s ease',
+              transition: 'color 0.2s ease',
             }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(28,26,23,0.3)' }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-border, rgba(28,26,23,0.12))' }}
+            onMouseEnter={e => { e.currentTarget.style.color = 'var(--color-ink, #1C1A17)' }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'var(--color-muted, #6B6760)' }}
           >
             {t('startOver')}
           </button>

@@ -1028,7 +1028,9 @@
     "addAStop": "장소 추가",
     "addAStopNearby": "{count, plural, other {근처에 등록된 장소 #곳 더 있음}}",
     "tripMapCaption": "모든 정류장을 날짜별 색상으로 표시 — 핀을 누르면 해당 장소로 이동합니다",
-    "personalisedNote": "회원님이 골라온 장소 취향에 맞춰 조정했습니다."
+    "personalisedNote": "회원님이 골라온 장소 취향에 맞춰 조정했습니다.",
+    "tripKicker": "여행 일정",
+    "dayLabel": "{n}일차"
   },
   "discovery2": {
     "eventsKicker": "캘린더에",
