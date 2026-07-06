@@ -515,6 +515,8 @@
     "moreIn": "More in {region}",
     "scrollBackMoreIn": "Scroll back through more in {region}",
     "scrollForwardMoreIn": "Scroll forward through more in {region}",
+    "scrollBackNearby": "Scroll back through nearby places",
+    "scrollForwardNearby": "Scroll forward through nearby places",
     "worthFindingNearby": "Worth finding nearby",
     "worthFindingNear": "Worth finding near {town}",
     "nearbyPromptBody": "Share your location and the Atlas surfaces the independent places within reach — the roaster, the maker, the walk you didn't know was there.",

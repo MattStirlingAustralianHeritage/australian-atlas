@@ -515,6 +515,8 @@
     "moreIn": "{region}의 더보기",
     "scrollBackMoreIn": "{region}의 더보기를 뒤로 스크롤",
     "scrollForwardMoreIn": "{region}의 더보기를 앞으로 스크롤",
+    "scrollBackNearby": "근처 장소를 뒤로 스크롤",
+    "scrollForwardNearby": "근처 장소를 앞으로 스크롤",
     "worthFindingNearby": "근처에서 찾을 만한 곳",
     "worthFindingNear": "{town} 근처에서 찾을 만한 곳",
     "nearbyPromptBody": "위치를 공유하면 Atlas가 도시 로스터, 수공예 제작소, 미처 몰랐던 산책로 등 도달 가능한 독립적인 장소들을 보여줍니다.",

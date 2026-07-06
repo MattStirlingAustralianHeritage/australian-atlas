@@ -515,6 +515,8 @@
     "moreIn": "更多{region}中的内容",
     "scrollBackMoreIn": "向后滚动查看{region}中的更多内容",
     "scrollForwardMoreIn": "向前滚动查看{region}中的更多内容",
+    "scrollBackNearby": "向后滚动查看附近的地方",
+    "scrollForwardNearby": "向前滚动查看附近的地方",
     "worthFindingNearby": "值得在附近发现",
     "worthFindingNear": "值得在{town}附近发现",
     "nearbyPromptBody": "分享您的位置，Atlas 将为您推荐附近的独立商户——烘焙坊、工艺品店、您不知道的步行路线。",
