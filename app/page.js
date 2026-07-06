@@ -6,6 +6,7 @@ import { overlayListingTranslations } from '@/lib/i18n/overlayListings'
 import { localizeVerticalKicker } from '@/lib/i18n/listingLabels'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import HomeSearchBar from '@/components/HomeSearchBar'
+import HomeAtlasMap from '@/components/HomeAtlasMap'
 import NewsletterSignup from '@/components/NewsletterSignup'
 import ScrollReveal from '@/components/ScrollReveal'
 import NearbySection from '@/components/NearbySection'
@@ -325,7 +326,7 @@ async function getRecentListings() {
     const sb = getSupabaseAdmin()
     const { data } = await sb
       .from('listings')
-      .select('id, name, slug, region, state, vertical')
+      .select('id, name, slug, region, state, vertical, lat, lng, visitable, address_on_request')
       .eq('status', 'active')
       .not('name', 'ilike', '\\_%')
       .not('slug', 'is', null)
@@ -387,7 +388,10 @@ const getHomeDataCached = unstable_cache(
     }
     return data
   },
-  ['home-data'],
+  // v2: recentListings now carries lat/lng/visitable/address_on_request for
+  // the atlas plate's fresh pins — new key so a stale cached shape can't
+  // strand the pins until natural revalidation.
+  ['home-data-v2'],
   { revalidate: 900 }
 )
 
@@ -413,6 +417,13 @@ export default async function Home() {
   // chips (in fixed geographic order); the soonest six show as cards.
   const eventStates = EVENT_STATE_ORDER.filter(s => upcomingEvents.some(e => e.state === s))
   const eventCards = upcomingEvents.slice(0, 6)
+  // Newest mappable places for the atlas plate's pulsing "just added" pins —
+  // same pin-worthiness rules as /api/map (real coords, visitable, no
+  // address-on-request locality centroids).
+  const freshPins = recentListings.filter(l =>
+    Number.isFinite(parseFloat(l.lat)) && Number.isFinite(parseFloat(l.lng)) &&
+    l.visitable !== false && l.address_on_request !== true
+  ).slice(0, 6)
   // Edition stamp for the weekly picks — refreshed with the page's revalidate
   // window, so the dateline always carries today's date ("This week · 2 July").
   const editionDate = new Intl.DateTimeFormat('en-AU', { day: 'numeric', month: 'long' }).format(new Date())
@@ -506,78 +517,23 @@ export default async function Home() {
           ))}
         </div>
 
-        {stats.listings > 0 && (
-          <div className="mt-7 flex items-center justify-center gap-3 sm:gap-5 flex-wrap" style={{
-            fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '13.5px', letterSpacing: '0.01em',
-          }}>
-            <span>
-              <span style={{ color: GOLD, fontWeight: 500 }}>{stats.listings.toLocaleString()}</span>
-              <span style={{ color: 'var(--color-muted)' }}> {t('statPlaces')}</span>
-            </span>
-            <span aria-hidden="true" style={{ color: GOLD, fontSize: '5px' }}>●</span>
-            <span>
-              <span style={{ color: GOLD, fontWeight: 500 }}>{verticalCount}</span>
-              <span style={{ color: 'var(--color-muted)' }}> {t('statCategories')}</span>
-            </span>
-            <span aria-hidden="true" style={{ color: GOLD, fontSize: '5px' }}>●</span>
-            <span>
-              <span style={{ color: GOLD, fontWeight: 500 }}>{stats.regions || '71'}</span>
-              <span style={{ color: 'var(--color-muted)' }}> {t('statRegions')}</span>
-            </span>
-          </div>
-        )}
-
-        <div className="mt-6 flex items-center justify-center gap-4 flex-wrap">
-          <LocalizedLink
-            href="/map"
-            className="inline-flex items-center gap-2 px-7 py-3 rounded-full hover:opacity-90 transition-opacity"
-            style={{
-              fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px',
-              background: '#1A1A1A', color: '#FAF8F4',
-            }}
-          >
-            {t('exploreMap')}
-          </LocalizedLink>
-          <LocalizedLink
-            href="/near-me"
-            className="inline-flex items-center gap-2 px-7 py-3 rounded-full transition-colors hover:border-[var(--color-ink)]"
-            style={{
-              fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px',
-              color: 'var(--color-ink)', border: '1px solid var(--color-border)',
-            }}
-          >
-            {t('nearMe')}
-          </LocalizedLink>
-        </div>
-
-        {/* The living atlas, IN the masthead — every verified place as a dot in
-            its vertical's colour, rising out of the hero ground. One image, one
-            link, zero client JS; the former standalone map strip is absorbed
-            here so the first viewport IS the atlas. */}
-        <LocalizedLink
-          href="/map"
-          aria-label={t('heroMapAria')}
-          className="hero-map"
-        >
-          <picture>
-            <source srcSet="/maps/home-map-atlas.webp" type="image/webp" />
-            <img
-              src="/maps/home-map-atlas.jpg"
-              alt=""
-              width={2560}
-              height={680}
-              loading="eager"
-              decoding="async"
-            />
-          </picture>
-          <span className="hero-map-cta">
-            {t('openFullMap')}
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M9 5l7 7-7 7" />
-            </svg>
-          </span>
-        </LocalizedLink>
+        {/* The stats row that used to sit here is carried by the atlas plate
+            below — its headline is the places count, its legend the categories,
+            its microline the categories × regions pair. */}
       </section>
+
+      {/* ── 1a. The atlas plate — the living atlas as a navigable chart ── */}
+      {/* Every verified place as a dot in its vertical's colour on a parchment
+          Australia, with server-projected overlays: city markers deep-link into
+          the interactive map, the newest places pulse gold and link to their
+          pages, and the legend keys the colours while filtering search. The
+          hero's old map CTAs live inside the plate now. Zero client JS. */}
+      <HomeAtlasMap
+        listingCount={stats.listings}
+        categoryCount={verticalCount}
+        regionCount={stats.regions}
+        freshListings={freshPins}
+      />
 
       {/* ── 1b. Living spectrum spine — full-bleed colour masthead ── */}
       {/* The ten saturated grounds as one thin 100vw bar in journey order; each

@@ -344,58 +344,6 @@ h1 { letter-spacing: -0.015em; font-feature-settings: 'liga' 1, 'kern' 1; }
   pointer-events: none;
 }
 
-/* Hero map — the living atlas absorbed into the masthead. Full-bleed, masked
-   at the top so the dotted continent rises out of the hero ground; the whole
-   band is one link to /map with an explicit CTA pill. */
-.hero-map {
-  position: relative;
-  display: block;
-  width: 100vw;
-  margin-left: calc(50% - 50vw);
-  margin-top: clamp(28px, 5vh, 52px);
-  overflow: hidden;
-  min-height: unset;
-}
-.hero-map img {
-  display: block;
-  width: 100%;
-  height: clamp(220px, 28vw, 400px);
-  object-fit: cover;
-  object-position: center;
-  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 26%, #000 100%);
-  mask-image: linear-gradient(180deg, transparent 0%, #000 26%, #000 100%);
-  transition: transform 900ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.hero-map:hover img { transform: scale(1.015); }
-.hero-map-cta {
-  position: absolute;
-  bottom: clamp(14px, 2.4vw, 24px);
-  right: clamp(16px, 3vw, 32px);
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 10px 18px;
-  border-radius: 999px;
-  background: rgba(26, 24, 21, 0.9);
-  color: #FAF8F4;
-  font-family: var(--font-body);
-  font-weight: 500;
-  font-size: 12.5px;
-  line-height: 1;
-  box-shadow: 0 8px 24px rgba(28, 26, 23, 0.22);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  transition: transform 250ms ease, box-shadow 250ms ease;
-}
-.hero-map:hover .hero-map-cta {
-  transform: translateX(2px);
-  box-shadow: 0 10px 30px rgba(28, 26, 23, 0.32);
-}
-@media (prefers-reduced-motion: reduce) {
-  .hero-map img, .hero-map-cta { transition: none; }
-  .hero-map:hover img { transform: none; }
-}
-
 /* The living index ticker — the newest places drifting past in one slow,
    pausable line. The track holds two copies of the row; animating to -50%
    loops seamlessly. Hover (or focus inside) pauses; reduced motion turns the
