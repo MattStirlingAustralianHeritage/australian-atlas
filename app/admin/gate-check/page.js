@@ -14,12 +14,17 @@ export default async function GateCheckPage() {
   let loadError = null
   let pendingCount = 0
   let trashCount = 0
+  let hiddenCount = 0
   let lastScannedAt = null
 
   try {
     const res = await fetchGateCheckRows(sb, { status: 'pending' })
     initialRows = res.rows
     tableMissing = res.tableMissing
+    // Hidden count is listing-driven (every hidden listing, not just Gate-Check
+    // hides) so it stands even when the gate-check table is missing.
+    const hRes = await sb.from('listings').select('id', { count: 'exact', head: true }).eq('status', 'hidden')
+    hiddenCount = hRes.count || 0
     if (!tableMissing) {
       const [pRes, tRes, latest] = await Promise.all([
         sb.from('listing_gate_check').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
@@ -45,6 +50,7 @@ export default async function GateCheckPage() {
       loadError={loadError}
       pendingCount={pendingCount}
       trashCount={trashCount}
+      hiddenCount={hiddenCount}
       lastScannedAt={lastScannedAt}
       facets={{ verticals, gates }}
       mapboxToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN || ''}
