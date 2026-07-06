@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { useLocation } from './LocationProvider'
@@ -24,6 +24,207 @@ function distanceLabel(km, t) {
   return t('km', { distance: Math.round(km) })
 }
 
+function NearbyCard({ listing, t, compact }) {
+  const bg = VERTICAL_CARD_COLORS[listing.vertical] || '#333'
+  const Heading = compact ? 'h4' : 'h3'
+  return (
+    <Link
+      href={`/place/${listing.slug}`}
+      className="listing-card group block flex-shrink-0 overflow-hidden"
+      style={{
+        width: compact ? 'clamp(230px, 30vw, 260px)' : 'clamp(260px, 40vw, 300px)',
+        scrollSnapAlign: 'start',
+        background: listing.image_url ? '#1A1A1A' : bg,
+        border: '1px solid transparent',
+        borderRadius: 'var(--radius-card)',
+      }}
+    >
+      {listing.image_url && (
+        <div className="overflow-hidden" style={{ height: compact ? '120px' : '140px' }}>
+          <img
+            src={listing.image_url}
+            alt=""
+            loading="lazy"
+            className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700"
+          />
+        </div>
+      )}
+      <div style={{ padding: compact ? '14px 16px 18px' : '16px 16px 20px' }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          marginBottom: '6px',
+        }}>
+          <span style={{
+            fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 600,
+            letterSpacing: '0.15em', textTransform: 'uppercase',
+            color: listing.image_url ? GOLD : 'rgba(250,248,244,0.5)',
+          }}>
+            {VERTICAL_LABELS[listing.vertical] || listing.vertical}
+          </span>
+          {listing.distance_km != null && (
+            <span style={{
+              fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 400,
+              color: 'rgba(250,248,244,0.4)',
+            }}>
+              {distanceLabel(listing.distance_km, t)}
+            </span>
+          )}
+        </div>
+        <Heading style={{
+          fontFamily: 'var(--font-display)', fontWeight: 400,
+          fontSize: compact ? '16px' : '17px', lineHeight: 1.3,
+          color: '#FAF8F4', margin: 0,
+        }}>
+          {listing.name}
+        </Heading>
+        {!compact && (() => {
+          const r = getListingRegion(listing)
+          return r && (
+            <p style={{
+              fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '12px',
+              color: 'rgba(250,248,244,0.4)', margin: '4px 0 0',
+            }}>
+              {r.name}
+            </p>
+          )
+        })()}
+      </div>
+    </Link>
+  )
+}
+
+// Arrow-navigable card strip shared by both variants. Same chrome as
+// MoreInRow: arrows sit beside the heading, only render once the track
+// actually overflows, each disables at its end, and they hide on phones
+// where the peeking next card signals swipe. Snapping is `proximity`
+// (not `mandatory`) so trackpad scrolls glide instead of lurching between
+// snap points, and overscroll is contained so hitting either end doesn't
+// chain into the page or the browser's back gesture.
+function NearbyStrip({ listings, t, compact, header, headerMargin }) {
+  const trackRef = useRef(null)
+  const [canPrev, setCanPrev] = useState(false)
+  const [canNext, setCanNext] = useState(false)
+
+  const sync = useCallback(() => {
+    const el = trackRef.current
+    if (!el) return
+    const { scrollLeft, scrollWidth, clientWidth } = el
+    setCanPrev(scrollLeft > 2)
+    setCanNext(scrollLeft + clientWidth < scrollWidth - 2)
+  }, [])
+
+  // Re-measure after every render so the arrows stay correct when the card
+  // set changes without a remount. sync() only setStates on a real change,
+  // so this settles immediately rather than looping.
+  useEffect(() => { sync() })
+
+  useEffect(() => {
+    const el = trackRef.current
+    if (!el) return
+    el.addEventListener('scroll', sync, { passive: true })
+    window.addEventListener('resize', sync)
+    return () => {
+      el.removeEventListener('scroll', sync)
+      window.removeEventListener('resize', sync)
+    }
+  }, [sync])
+
+  const page = (direction) => {
+    const el = trackRef.current
+    if (!el) return
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    el.scrollBy({ left: direction * Math.max(el.clientWidth * 0.85, 260), behavior: reduceMotion ? 'auto' : 'smooth' })
+  }
+
+  const showArrows = canPrev || canNext
+
+  return (
+    <div style={{ minWidth: 0 }}>
+      <style>{`
+        .nearby-track {
+          display: flex;
+          overflow-x: auto;
+          scroll-snap-type: x proximity;
+          overscroll-behavior-x: contain;
+          scroll-behavior: smooth;
+          -webkit-overflow-scrolling: touch;
+          padding: 6px;
+          margin: -6px;
+          scroll-padding-inline: 6px;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+        }
+        .nearby-track::-webkit-scrollbar { display: none; }
+        @media (prefers-reduced-motion: reduce) {
+          .nearby-track { scroll-behavior: auto; }
+        }
+        .nearby-arrow {
+          width: 36px;
+          height: 36px;
+          border-radius: 9999px;
+          border: 1px solid var(--color-border);
+          background: var(--color-card-bg, #fff);
+          color: var(--color-ink);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 20px;
+          line-height: 1;
+          padding-bottom: 2px;
+          box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+          cursor: pointer;
+          transition: opacity .2s ease, background .2s ease, border-color .2s ease, color .2s ease;
+        }
+        .nearby-arrow:hover:not(:disabled) {
+          background: var(--color-accent);
+          border-color: var(--color-accent);
+          color: #fff;
+        }
+        .nearby-arrow:disabled { opacity: .3; cursor: default; }
+        .nearby-arrows { display: flex; gap: 8px; flex: 0 0 auto; }
+        /* On phones the peeking next card signals swipe; arrows would crowd
+           the heading, so hide them and let the native gesture do the work. */
+        @media (max-width: 639px) { .nearby-arrows { display: none; } }
+      `}</style>
+
+      <div style={{
+        display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between',
+        gap: '16px', marginBottom: headerMargin,
+      }}>
+        <div style={{ minWidth: 0 }}>{header}</div>
+        {showArrows && (
+          <div className="nearby-arrows">
+            <button
+              type="button"
+              className="nearby-arrow"
+              aria-label={t('scrollBackNearby')}
+              onClick={() => page(-1)}
+              disabled={!canPrev}
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              className="nearby-arrow"
+              aria-label={t('scrollForwardNearby')}
+              onClick={() => page(1)}
+              disabled={!canNext}
+            >
+              ›
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div ref={trackRef} className="nearby-track" style={{ gap: compact ? '14px' : '16px' }}>
+        {listings.map((listing) => (
+          <NearbyCard key={listing.id} listing={listing} t={t} compact={compact} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // variant: 'standalone' (its own homepage band — legacy) | 'embedded' (a column
 // inside the "Make it yours" band: compact card chrome, h3-level headings, no
 // <section> wrapper of its own).
@@ -37,7 +238,6 @@ export default function NearbySection({ variant = 'standalone' }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
   const fetchedRef = useRef(null) // track which coords we've fetched for
-  const scrollRef = useRef(null)
 
   // Fetch nearby listings when location becomes available
   useEffect(() => {
@@ -301,238 +501,82 @@ export default function NearbySection({ variant = 'standalone' }) {
 
   if (embedded) {
     return (
-      <div style={{ minWidth: 0 }}>
-        <div style={{ marginBottom: '20px' }}>
-          <h3 style={{
-            fontFamily: 'var(--font-display)', fontWeight: 400,
-            fontSize: 'clamp(21px, 2.2vw, 26px)', color: 'var(--color-ink)',
-            marginBottom: '6px',
-          }}>
-            {headerText}
-          </h3>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            <p style={{
-              fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '13.5px',
-              color: 'var(--color-muted)', margin: 0,
+      <NearbyStrip
+        listings={listings}
+        t={t}
+        compact
+        headerMargin="20px"
+        header={
+          <>
+            <h3 style={{
+              fontFamily: 'var(--font-display)', fontWeight: 400,
+              fontSize: 'clamp(21px, 2.2vw, 26px)', color: 'var(--color-ink)',
+              marginBottom: '6px',
             }}>
-              {subText}
-            </p>
-            <Link
-              href={`/near-me`}
-              style={{
-                fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
-                color: GOLD, textDecoration: 'none',
-              }}
-            >
-              {t('seeAll')}
-            </Link>
-          </div>
-        </div>
-        <div
-          className="nearby-scroll"
-          style={{
-            display: 'flex', gap: '14px', overflowX: 'auto',
-            scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch',
-            paddingBottom: '8px', marginInline: '-6px', paddingInline: '6px',
-            scrollbarWidth: 'thin', scrollbarColor: 'var(--color-border) transparent',
-          }}
-        >
-          {listings.map((listing) => {
-            const bg = VERTICAL_CARD_COLORS[listing.vertical] || '#333'
-            return (
+              {headerText}
+            </h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <p style={{
+                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '13.5px',
+                color: 'var(--color-muted)', margin: 0,
+              }}>
+                {subText}
+              </p>
               <Link
-                key={listing.id}
-                href={`/place/${listing.slug}`}
-                className="listing-card group block flex-shrink-0 overflow-hidden"
+                href={`/near-me`}
                 style={{
-                  width: 'clamp(230px, 30vw, 260px)',
-                  scrollSnapAlign: 'start',
-                  background: listing.image_url ? '#1A1A1A' : bg,
-                  border: '1px solid transparent',
-                  borderRadius: 'var(--radius-card)',
+                  fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
+                  color: GOLD, textDecoration: 'none',
                 }}
               >
-                {listing.image_url && (
-                  <div className="overflow-hidden" style={{ height: '120px' }}>
-                    <img
-                      src={listing.image_url}
-                      alt=""
-                      loading="lazy"
-                      className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700"
-                    />
-                  </div>
-                )}
-                <div style={{ padding: '14px 16px 18px' }}>
-                  <div style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    marginBottom: '6px',
-                  }}>
-                    <span style={{
-                      fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 600,
-                      letterSpacing: '0.15em', textTransform: 'uppercase',
-                      color: listing.image_url ? GOLD : 'rgba(250,248,244,0.5)',
-                    }}>
-                      {VERTICAL_LABELS[listing.vertical] || listing.vertical}
-                    </span>
-                    {listing.distance_km != null && (
-                      <span style={{
-                        fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 400,
-                        color: 'rgba(250,248,244,0.4)',
-                      }}>
-                        {distanceLabel(listing.distance_km, t)}
-                      </span>
-                    )}
-                  </div>
-                  <h4 style={{
-                    fontFamily: 'var(--font-display)', fontWeight: 400,
-                    fontSize: '16px', lineHeight: 1.3,
-                    color: '#FAF8F4', margin: 0,
-                  }}>
-                    {listing.name}
-                  </h4>
-                </div>
+                {t('seeAll')}
               </Link>
-            )
-          })}
-        </div>
-      </div>
+            </div>
+          </>
+        }
+      />
     )
   }
 
   return (
     <section style={{ paddingBlock: '72px' }}>
       <div className="max-w-6xl mx-auto px-6 sm:px-12">
-        {/* Header */}
-        <div style={{ marginBottom: '32px' }}>
-          <p className="section-dateline" style={{ marginBottom: '14px' }}>{t('nearYou')}</p>
-          <h2 style={{
-            fontFamily: 'var(--font-display)', fontWeight: 400,
-            fontSize: 'clamp(26px, 3.2vw, 40px)', color: 'var(--color-ink)',
-            marginBottom: '8px', lineHeight: 1.1,
-          }}>
-            {headerText}
-          </h2>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            <p style={{
-              fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px',
-              color: 'var(--color-muted)', margin: 0,
-            }}>
-              {subText}
-            </p>
-            <Link
-              href={`/near-me`}
-              style={{
-                fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
-                color: GOLD, textDecoration: 'none',
-              }}
-            >
-              {t('seeAll')}
-            </Link>
-          </div>
-        </div>
-
-        {/* Horizontal scroll strip */}
-        <div
-          ref={scrollRef}
-          className="nearby-scroll"
-          style={{
-            display: 'flex',
-            gap: '16px',
-            overflowX: 'auto',
-            scrollSnapType: 'x mandatory',
-            WebkitOverflowScrolling: 'touch',
-            paddingBottom: '8px',
-            marginInline: '-6px',
-            paddingInline: '6px',
-          }}
-        >
-          {listings.map((listing) => {
-            const bg = VERTICAL_CARD_COLORS[listing.vertical] || '#333'
-            return (
-              <Link
-                key={listing.id}
-                href={`/place/${listing.slug}`}
-                className="listing-card group block flex-shrink-0 overflow-hidden"
-                style={{
-                  width: 'clamp(260px, 40vw, 300px)',
-                  scrollSnapAlign: 'start',
-                  background: listing.image_url ? '#1A1A1A' : bg,
-                  border: '1px solid transparent',
-                  borderRadius: 'var(--radius-card)',
-                }}
-              >
-                {listing.image_url && (
-                  <div className="overflow-hidden" style={{ height: '140px' }}>
-                    <img
-                      src={listing.image_url}
-                      alt=""
-                      loading="lazy"
-                      className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700"
-                    />
-                  </div>
-                )}
-                <div style={{ padding: '16px 16px 20px' }}>
-                  <div style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    marginBottom: '6px',
-                  }}>
-                    <span style={{
-                      fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 600,
-                      letterSpacing: '0.15em', textTransform: 'uppercase',
-                      color: listing.image_url ? GOLD : 'rgba(250,248,244,0.5)',
-                    }}>
-                      {VERTICAL_LABELS[listing.vertical] || listing.vertical}
-                    </span>
-                    {listing.distance_km != null && (
-                      <span style={{
-                        fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 400,
-                        color: 'rgba(250,248,244,0.4)',
-                      }}>
-                        {distanceLabel(listing.distance_km, t)}
-                      </span>
-                    )}
-                  </div>
-                  <h3 style={{
-                    fontFamily: 'var(--font-display)', fontWeight: 400,
-                    fontSize: '17px', lineHeight: 1.3,
-                    color: '#FAF8F4', margin: 0,
-                  }}>
-                    {listing.name}
-                  </h3>
-                  {(() => {
-                    const r = getListingRegion(listing)
-                    return r && (
-                      <p style={{
-                        fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '12px',
-                        color: 'rgba(250,248,244,0.4)', marginTop: '4px', margin: '4px 0 0',
-                      }}>
-                        {r.name}
-                      </p>
-                    )
-                  })()}
-                </div>
-              </Link>
-            )
-          })}
-        </div>
+        <NearbyStrip
+          listings={listings}
+          t={t}
+          compact={false}
+          headerMargin="32px"
+          header={
+            <>
+              <p className="section-dateline" style={{ marginBottom: '14px' }}>{t('nearYou')}</p>
+              <h2 style={{
+                fontFamily: 'var(--font-display)', fontWeight: 400,
+                fontSize: 'clamp(26px, 3.2vw, 40px)', color: 'var(--color-ink)',
+                marginBottom: '8px', lineHeight: 1.1,
+              }}>
+                {headerText}
+              </h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <p style={{
+                  fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px',
+                  color: 'var(--color-muted)', margin: 0,
+                }}>
+                  {subText}
+                </p>
+                <Link
+                  href={`/near-me`}
+                  style={{
+                    fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
+                    color: GOLD, textDecoration: 'none',
+                  }}
+                >
+                  {t('seeAll')}
+                </Link>
+              </div>
+            </>
+          }
+        />
       </div>
-
-      <style jsx>{`
-        .nearby-scroll::-webkit-scrollbar {
-          height: 4px;
-        }
-        .nearby-scroll::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .nearby-scroll::-webkit-scrollbar-thumb {
-          background: var(--color-border);
-          border-radius: 4px;
-        }
-        .nearby-scroll {
-          scrollbar-width: thin;
-          scrollbar-color: var(--color-border) transparent;
-        }
-      `}</style>
     </section>
   )
 }

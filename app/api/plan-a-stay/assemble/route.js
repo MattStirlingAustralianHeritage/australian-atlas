@@ -4,6 +4,7 @@ import { generateTripTitle } from '@/lib/plan-a-stay/title-generation'
 import { computeCentroid } from '@/lib/plan-a-stay/day-theme'
 import { generateTripDisclosures } from '@/lib/plan-a-stay/disclosures'
 import { buildDays, isActivityListing } from '@/lib/plan-a-stay/assemble-days'
+import { isApprovedImageSource, isHeroDisplayable } from '@/lib/image-utils'
 
 export const runtime = 'nodejs'
 
@@ -43,19 +44,30 @@ function buildStaticMapUrl(stops, width = 720, height = 300) {
 }
 
 
-/* ─── Fetch full listing descriptions for excerpting ────────────────── */
-async function fetchDescriptions(ids) {
+/* ─── Fetch listing descriptions + display-safe hero images ──────────
+   Images pass the same two gates every public card uses: approved host
+   allowlist + the moderation veto. Anything else renders imageless.    */
+async function fetchListingAssets(ids) {
   const unique = [...new Set((ids || []).filter(Boolean))]
-  const descMap = new Map()
-  if (unique.length === 0) return descMap
+  const assetMap = new Map()
+  if (unique.length === 0) return assetMap
 
   const sb = getSupabaseAdmin()
   for (let i = 0; i < unique.length; i += 200) {
     const chunk = unique.slice(i, i + 200)
-    const { data } = await sb.from('listings').select('id, description').in('id', chunk)
-    for (const row of data || []) descMap.set(row.id, row.description || '')
+    const { data } = await sb
+      .from('listings')
+      .select('id, description, hero_image_url, image_moderation_status')
+      .in('id', chunk)
+    for (const row of data || []) {
+      const imageOk = isApprovedImageSource(row.hero_image_url) && isHeroDisplayable(row)
+      assetMap.set(row.id, {
+        description: row.description || '',
+        image_url: imageOk ? row.hero_image_url : null,
+      })
+    }
   }
-  return descMap
+  return assetMap
 }
 
 
@@ -145,11 +157,12 @@ export async function POST(request) {
       return staysOnlyResponse(restPool, answers)
     }
 
-    // ── Descriptions for excerpts (activities + meal anchors) ─────────
-    const descMap = await fetchDescriptions([
+    // ── Descriptions + images (activities, meal anchors, stays) ───────
+    const descMap = await fetchListingAssets([
       ...allCandidates.map(c => c.id),
       ...coffeePool.map(c => c.id),
       ...lunchPool.map(c => c.id),
+      ...restPool.map(c => c.id),
     ])
 
     // ── Trip centre from cluster candidates (for directional headings) ─

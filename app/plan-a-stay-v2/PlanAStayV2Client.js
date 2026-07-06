@@ -15,20 +15,26 @@ import { writeDraft, stopsFromPlanAStayTrip } from '@/lib/trail/draft'
 
 /* ─── Trip persistence helpers ───────────────────────────────────────────
    Build the exact payload sent to /share and /save. Visitor accommodation
-   picks (lifted into OutputScreen) are folded into the trip's days so the
-   stored trip matches what was on screen.                                */
-function buildTripPayload(tripData, accommodationByDay) {
+   picks AND any stop edits (swap/remove/add/reorder — lifted into
+   OutputScreen) are folded into the trip's days so the stored trip matches
+   what was on screen. The unplaced `alternates` are stripped: a shared
+   trip is frozen, and identical visible trips should fingerprint alike. */
+function buildTripPayload(tripData, accommodationByDay, editedDays) {
   const payload = { answers: tripData._answers || {} }
   if (tripData.stays_only) {
     payload.stays_only = tripData.stays_only
   } else {
     const byDay = accommodationByDay || {}
+    const sourceDays = editedDays || tripData.trip.days || []
     payload.trip = {
       ...tripData.trip,
-      days: (tripData.trip.days || []).map(d => ({
-        ...d,
-        accommodation: byDay[d.day_number] || null,
-      })),
+      days: sourceDays.map(d => {
+        const { alternates, ...rest } = d
+        return {
+          ...rest,
+          accommodation: byDay[d.day_number] || null,
+        }
+      }),
     }
   }
   return payload
@@ -38,6 +44,18 @@ function buildTripPayload(tripData, accommodationByDay) {
 // (the trip lives only in client state, so we carry it through sessionStorage).
 const RESUME_SAVE_KEY = 'pas:resumeSave'
 const RESUME_QUERY = 'save'
+
+/* ─── Funnel events (fire-and-forget, never blocks the UI) ─────────────── */
+function trackPlannerEvent(event_type, payload = {}) {
+  try {
+    fetch('/api/plan-a-stay/events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event_type, ...payload }),
+      keepalive: true,
+    }).catch(() => {})
+  } catch { /* analytics must never break planning */ }
+}
 
 /* ─── Region data ────────────────────────────────────────────────────────
    Regions with ≥5 active Rest listings, derived live from threshold
@@ -281,6 +299,7 @@ function OptionCard({ label, sub, selected, onClick, index }) {
   return (
     <button
       onClick={onClick}
+      aria-pressed={selected}
       style={{
         display: 'flex',
         alignItems: 'flex-start',
@@ -390,6 +409,7 @@ function DurationPill({ label, selected, onClick, index }) {
   return (
     <button
       onClick={onClick}
+      aria-pressed={selected}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -478,6 +498,7 @@ function RegionRow({ name, stateAbbr, selected, onClick, index }) {
   return (
     <button
       onClick={onClick}
+      aria-pressed={selected}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -583,6 +604,7 @@ function SeasonCard({ label, selected, onClick, index }) {
   return (
     <button
       onClick={onClick}
+      aria-pressed={selected}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -661,6 +683,156 @@ function SeasonCard({ label, selected, onClick, index }) {
         {'→'}
       </span>
     </button>
+  )
+}
+
+/* ─── Region recommendations ("Not sure where yet") ──────────────────────
+   Scores every qualifying region against the intent + duration answered so
+   far (/api/plan-a-stay/recommend) and offers the top three. The "why" is
+   the live counts themselves — nothing editorial is asserted.            */
+function RecommendRegions({ intent, duration, onSelect }) {
+  const t = useTranslations('planStay')
+  const tr = useTranslations('regions')
+  const [state, setState] = useState('idle') // idle | loading | done | error
+  const [recs, setRecs] = useState([])
+
+  async function load() {
+    setState('loading')
+    try {
+      const res = await fetch('/api/plan-a-stay/recommend', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ intent, duration }),
+      })
+      if (!res.ok) throw new Error(`recommend failed: ${res.status}`)
+      const data = await res.json()
+      setRecs(data.recommendations || [])
+      setState('done')
+    } catch (err) {
+      console.error('[plan-a-stay] recommend error:', err)
+      setState('error')
+    }
+  }
+
+  if (state === 'idle') {
+    return (
+      <button
+        onClick={load}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left',
+          fontFamily: 'var(--font-body)',
+          background: 'rgba(196,151,59,0.04)',
+          border: '1px dashed rgba(196,151,59,0.45)',
+          borderRadius: 10, padding: '13px 18px', cursor: 'pointer', marginBottom: 22,
+          transition: 'background 0.18s ease, border-color 0.18s ease',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(196,151,59,0.08)'; e.currentTarget.style.borderColor = 'rgba(196,151,59,0.65)' }}
+        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(196,151,59,0.04)'; e.currentTarget.style.borderColor = 'rgba(196,151,59,0.45)' }}
+      >
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: 28, height: 28, borderRadius: 999, flexShrink: 0,
+          background: 'rgba(196,151,59,0.14)', color: 'var(--color-gold, #C4973B)',
+          fontSize: 15, lineHeight: 1,
+        }}>✦</span>
+        <span style={{ display: 'flex', flexDirection: 'column' }}>
+          <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--color-ink, #1C1A17)' }}>
+            {t('recommendTitle')}
+          </span>
+          <span style={{ fontSize: 12, color: 'var(--color-muted, #6B6760)', marginTop: 1 }}>
+            {t('recommendSub')}
+          </span>
+        </span>
+      </button>
+    )
+  }
+
+  if (state === 'loading') {
+    return (
+      <p style={{
+        fontFamily: 'var(--font-body)', fontSize: 13, fontStyle: 'italic',
+        color: 'var(--color-muted, #6B6760)', margin: '0 0 22px', padding: '13px 18px',
+      }}>
+        {t('recommendLoading')}
+      </p>
+    )
+  }
+
+  if (state === 'error' || recs.length === 0) {
+    return (
+      <p style={{
+        fontFamily: 'var(--font-body)', fontSize: 13,
+        color: 'var(--color-muted, #6B6760)', margin: '0 0 22px', padding: '13px 18px',
+      }}>
+        {t('recommendError')}
+      </p>
+    )
+  }
+
+  return (
+    <div style={{
+      border: '1px solid rgba(196,151,59,0.35)',
+      borderRadius: 10, overflow: 'hidden', background: '#fff', marginBottom: 26,
+    }}>
+      <div style={{
+        padding: '10px 16px', background: 'rgba(196,151,59,0.07)',
+        borderBottom: '1px solid rgba(28,26,23,0.08)',
+        fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 700,
+        letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--color-gold, #C4973B)',
+      }}>
+        {t('recommendHeader')}
+      </div>
+      {recs.map((r, i) => (
+        <button
+          key={r.name}
+          onClick={() => {
+            trackPlannerEvent('pas_recommend_used', { region: r.name, intent, duration })
+            onSelect(r.name)
+          }}
+          style={{
+            display: 'flex', flexDirection: 'column', gap: 4,
+            width: '100%', textAlign: 'left', padding: '14px 16px',
+            background: 'transparent', cursor: 'pointer', border: 'none',
+            borderTop: i === 0 ? 'none' : '1px solid rgba(28,26,23,0.06)',
+            transition: 'background 0.15s ease',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(196,151,59,0.06)' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+        >
+          <span style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
+            <span style={{
+              fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 400,
+              color: 'var(--color-ink, #1C1A17)', flex: 1,
+            }}>
+              {r.name}
+            </span>
+            <span style={{
+              fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600,
+              letterSpacing: '0.14em', textTransform: 'uppercase',
+              color: 'var(--color-muted, #6B6760)', opacity: 0.6,
+            }}>
+              {r.state}
+            </span>
+          </span>
+          <span style={{
+            display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+            fontFamily: 'var(--font-body)', fontSize: 12,
+            color: 'var(--color-muted, #6B6760)',
+          }}>
+            <span>{tr('stayCount', { count: r.stays })}</span>
+            {r.breakdown.map(b => (
+              <span key={b.vertical} style={{
+                padding: '2px 9px', borderRadius: 999,
+                background: 'rgba(196,151,59,0.09)', color: '#8a6a25',
+                fontWeight: 600, fontSize: 11.5,
+              }}>
+                {VERTICAL_LABELS[b.vertical] || b.vertical} {b.count}
+              </span>
+            ))}
+          </span>
+        </button>
+      ))}
+    </div>
   )
 }
 
@@ -771,13 +943,16 @@ function LoadingScreen({ state, onComplete, onError }) {
           }).then(res => {
             if (!res.ok) throw new Error(`Assemble failed: ${res.status}`)
             return res.json()
-          })
+          }).then(assembled => ({
+            assembled,
+            personalised: !!retrieval.coverage?.personalised,
+          }))
         })
-        .then(assembled => {
+        .then(({ assembled, personalised }) => {
           // Show line 3 — done
           setVisibleCount()
           // Brief pause so the user sees "Writing the trip…" before output
-          setTimeout(() => onComplete(assembled, answers), 600)
+          setTimeout(() => onComplete(assembled, answers, personalised), 600)
         })
         .catch(err => {
           console.error('[plan-a-stay] Pipeline error:', err)
@@ -828,6 +1003,17 @@ function OutputScreen({ tripData, error, onReset, resumePayload }) {
   // Accommodation the visitor picks per day (day_number → stay), lifted here
   // so the Share button can fold the choices into the saved trip.
   const [accommodationByDay, setAccommodationByDay] = useState({})
+  // The days as edited in the renderer (swap/remove/add/reorder) — Share and
+  // Save persist exactly what's on screen.
+  const [editedDays, setEditedDays] = useState(null)
+  // First onDaysChange is the initial render, not an edit.
+  const daysChangeCount = useRef(0)
+  const handleDaysChange = useCallback((days) => {
+    setEditedDays(days)
+    if (daysChangeCount.current++ > 0) {
+      trackPlannerEvent('pas_trip_edited', { region: tripData?._answers?.region })
+    }
+  }, [tripData])
 
   // Error state
   if (error) {
@@ -940,10 +1126,17 @@ function OutputScreen({ tripData, error, onReset, resumePayload }) {
 
   return (
     <div>
-      <TripRender trip={tripData.trip} onAccommodationChange={setAccommodationByDay} />
+      <TripRender
+        trip={tripData.trip}
+        onAccommodationChange={setAccommodationByDay}
+        onDaysChange={handleDaysChange}
+        editable
+        personalised={!!tripData._personalised}
+      />
       <ActionButtons
         tripData={tripData}
         accommodationByDay={accommodationByDay}
+        editedDays={editedDays}
         onReset={onReset}
         shareState={shareState}
         setShareState={setShareState}
@@ -956,8 +1149,8 @@ function OutputScreen({ tripData, error, onReset, resumePayload }) {
 }
 
 
-/* ─── Action buttons (Share / Save / Start over) ─────────────────────── */
-function ActionButtons({ tripData, accommodationByDay, onReset, shareState, setShareState, shareUrl, setShareUrl, resumePayload }) {
+/* ─── Action buttons (Save / Share / Print / Map / Start over) ───────── */
+function ActionButtons({ tripData, accommodationByDay, editedDays, onReset, shareState, setShareState, shareUrl, setShareUrl, resumePayload }) {
   const t = useTranslations('planStay')
   const [saveState, setSaveState] = useState('idle') // idle | saving | saved | error
   const [savedUrl, setSavedUrl] = useState(null)
@@ -969,7 +1162,7 @@ function ActionButtons({ tripData, accommodationByDay, onReset, shareState, setS
 
     setShareState('sharing')
     try {
-      const payload = buildTripPayload(tripData, accommodationByDay)
+      const payload = buildTripPayload(tripData, accommodationByDay, editedDays)
 
       const res = await fetch('/api/plan-a-stay/share', {
         method: 'POST',
@@ -982,6 +1175,7 @@ function ActionButtons({ tripData, accommodationByDay, onReset, shareState, setS
       const result = await res.json()
       const fullUrl = `${window.location.origin}${result.url}`
       setShareUrl(fullUrl)
+      trackPlannerEvent('pas_trip_shared', { region: tripData?._answers?.region })
 
       // Copy to clipboard
       try {
@@ -1006,7 +1200,7 @@ function ActionButtons({ tripData, accommodationByDay, onReset, shareState, setS
   const doSave = useCallback(async (explicitPayload) => {
     if (saveState === 'saving' || saveState === 'saved') return
     setSaveState('saving')
-    const payload = explicitPayload || buildTripPayload(tripData, accommodationByDay)
+    const payload = explicitPayload || buildTripPayload(tripData, accommodationByDay, editedDays)
     try {
       const res = await fetch('/api/plan-a-stay/save', {
         method: 'POST',
@@ -1024,12 +1218,13 @@ function ActionButtons({ tripData, accommodationByDay, onReset, shareState, setS
       const result = await res.json()
       setSavedUrl(`${window.location.origin}${result.url}`)
       setSaveState('saved')
+      trackPlannerEvent('pas_trip_saved', { region: tripData?._answers?.region })
     } catch (err) {
       console.error('[plan-a-stay] Save error:', err)
       setSaveState('error')
       setTimeout(() => setSaveState('idle'), 3000)
     }
-  }, [saveState, tripData, accommodationByDay])
+  }, [saveState, tripData, accommodationByDay, editedDays])
 
   // After a Google OAuth round-trip, the restored trip arrives as
   // resumePayload — fire the save once.
@@ -1069,7 +1264,7 @@ function ActionButtons({ tripData, accommodationByDay, onReset, shareState, setS
     t('saveToAccount')
 
   return (
-    <div style={{
+    <div className="pas-no-print" style={{
       maxWidth: 720,
       margin: '0 auto',
     }}>
@@ -1125,7 +1320,10 @@ function ActionButtons({ tripData, accommodationByDay, onReset, shareState, setS
           {tripData?.trip && (
             <button
               onClick={() => {
-                const stops = stopsFromPlanAStayTrip(tripData.trip)
+                const tripForMap = editedDays
+                  ? { ...tripData.trip, days: editedDays }
+                  : tripData.trip
+                const stops = stopsFromPlanAStayTrip(tripForMap)
                 if (stops.length < 2) return
                 writeDraft({
                   name: tripData.trip.title || '',
@@ -1153,6 +1351,27 @@ function ActionButtons({ tripData, accommodationByDay, onReset, shareState, setS
               }}
             >
               {t('openOnMap')}
+            </button>
+          )}
+          {tripData?.trip && (
+            <button
+              onClick={() => window.print()}
+              style={{
+                fontFamily: 'var(--font-body)',
+                fontWeight: 500,
+                fontSize: 14,
+                color: 'var(--color-ink, #1C1A17)',
+                background: 'transparent',
+                border: '1px solid var(--color-border, rgba(28,26,23,0.12))',
+                borderRadius: 8,
+                padding: '10px 24px',
+                cursor: 'pointer',
+                transition: 'border-color 0.2s ease',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(28,26,23,0.3)' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-border, rgba(28,26,23,0.12))' }}
+            >
+              {t('printTrip')}
             </button>
           )}
           <button
@@ -1276,12 +1495,21 @@ export default function PlanAStayV2Client({ regions = [] }) {
   }
 
   /* ── Loading complete callback ───────────────────────────────────── */
-  const handleLoadingComplete = useCallback((assembled, answers) => {
-    // Attach answers so the Share button can send them to the share endpoint
-    setTripData({ ...assembled, _answers: answers })
+  const handleLoadingComplete = useCallback((assembled, answers, personalised) => {
+    // Attach answers so the Share button can send them to the share endpoint.
+    // _personalised is display-only (buildTripPayload never reads it).
+    setTripData({ ...assembled, _answers: answers, _personalised: !!personalised })
     setTripError(null)
     setResumePayload(null)   // a fresh trip is not a resume
     dispatch({ type: 'GO_TO_STEP', value: 'output' })
+    if (assembled?.trip) {
+      trackPlannerEvent('pas_trip_generated', {
+        region: answers.region,
+        intent: answers.intent,
+        duration: answers.duration,
+        meta: { personalised: !!personalised, days: assembled.trip.days?.length || 0 },
+      })
+    }
   }, [])
 
   const handleLoadingError = useCallback((errMsg) => {
@@ -1471,6 +1699,14 @@ export default function PlanAStayV2Client({ regions = [] }) {
           }}>
             {t('regionSubhead')}
           </p>
+          <RecommendRegions
+            intent={state.intent}
+            duration={state.duration || 3}
+            onSelect={(name) => {
+              dispatch({ type: 'SET_REGION', value: name })
+              autoAdvance()
+            }}
+          />
           <RegionMapSelect
             regions={regions}
             selectedRegion={state.region}

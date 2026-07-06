@@ -4,6 +4,8 @@ import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
 import { getPublicVerticals, isVerticalPublic } from '@/lib/verticalUrl'
 import { excludeNeedsReview, excludeTestListings, isPublicListing } from '@/lib/listings/publicFilter'
 import { nameMatchesQuery } from '@/lib/search/nameMatch'
+import { filterPaidListingIds, readGallery } from '@/lib/listing-gallery'
+import { isApprovedImageSource, isHeroDisplayable } from '@/lib/image-utils'
 
 // Nicely-pluralised labels for the common categories; everything else falls back
 // to a title-cased "<words>s". Used for the category suggestion chips.
@@ -138,6 +140,43 @@ export async function GET(request) {
           type: 'place', id: l.id, label: l.name, slug: l.slug, vertical: l.vertical,
           region: l.region ?? null, state: l.state, suburb: l.suburb,
         })
+      }
+    }
+
+    // Claimed enrichment — a live standard claim (the same canonical
+    // listing_claims signal every paid perk uses; listings.is_claimed can lag
+    // it) promotes the suggestion to a photo card: the dropdown draws the hero
+    // image (or, failing that, the first clean gallery photo) so an owned
+    // listing reads unmistakably richer than its neighbours. Guarded so a
+    // hiccup here degrades to plain text rows rather than an empty dropdown.
+    if (places.length > 0) {
+      try {
+        const paidSet = await filterPaidListingIds(sb, places.map(p => p.id))
+        if (paidSet.size > 0) {
+          const claimedIds = places.filter(p => paidSet.has(p.id)).map(p => p.id)
+          const { data: heroRows } = await sb
+            .from('listings')
+            .select('id, hero_image_url, image_moderation_status')
+            .in('id', claimedIds)
+          const heroById = new Map((heroRows || []).map(r => [r.id, r]))
+          await Promise.all(places.filter(p => paidSet.has(p.id)).map(async p => {
+            p.claimed = true
+            const row = heroById.get(p.id)
+            let image = row && isApprovedImageSource(row.hero_image_url) && isHeroDisplayable(row)
+              ? row.hero_image_url
+              : null
+            if (!image) {
+              const gallery = await readGallery(sb, p.id).catch(() => [])
+              image = gallery.find(isApprovedImageSource) ?? null
+            }
+            p.image = image
+          }))
+          // Claimed suggestions lead the section — the precedence the name
+          // query already intends with its is_claimed secondary sort.
+          places = [...places.filter(p => p.claimed), ...places.filter(p => !p.claimed)]
+        }
+      } catch (err) {
+        console.error('[autocomplete] claimed enrichment failed:', err)
       }
     }
 

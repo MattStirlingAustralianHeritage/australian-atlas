@@ -396,6 +396,11 @@ export default function SearchAutocomplete({ value, onChange, onSelect, placehol
                 {items.map((item, idx) => {
                   const itemIndex = indexMap[`${type}-${idx}`]
                   const isActive = itemIndex === activeIndex
+                  // Claimed venue — the owner's page. Its hero photo bleeds
+                  // full-height to the dropdown's left edge like a magazine
+                  // row; the only marker is a small gold seal after the name
+                  // (the place page's claimed mark, wordless).
+                  const claimed = type === 'place' && item.claimed
 
                   return (
                     <button
@@ -407,11 +412,11 @@ export default function SearchAutocomplete({ value, onChange, onSelect, placehol
                       onMouseEnter={() => setActiveIndex(itemIndex)}
                       style={{
                         display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
+                        alignItems: claimed ? 'stretch' : 'center',
+                        gap: claimed ? 0 : '10px',
                         width: '100%',
-                        minHeight: '44px',
-                        padding: '8px 16px',
+                        minHeight: claimed ? '56px' : '44px',
+                        padding: claimed ? 0 : '8px 16px',
                         border: 'none',
                         background: isActive ? 'var(--color-cream)' : 'transparent',
                         cursor: 'pointer',
@@ -419,14 +424,51 @@ export default function SearchAutocomplete({ value, onChange, onSelect, placehol
                         transition: 'background 0.1s',
                       }}
                     >
-                      <span style={{ color: isActive ? 'var(--color-accent)' : 'var(--color-muted)' }}>
-                        <config.Icon />
-                      </span>
+                      {claimed ? (
+                        <span style={{ position: 'relative', width: '68px', flexShrink: 0, overflow: 'hidden' }}>
+                          {item.image ? (
+                            <img
+                              src={item.image}
+                              alt=""
+                              decoding="async"
+                              style={{
+                                position: 'absolute', inset: 0,
+                                width: '100%', height: '100%', objectFit: 'cover',
+                              }}
+                            />
+                          ) : (
+                            <span style={{
+                              position: 'absolute', inset: 0,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              background: 'linear-gradient(135deg, rgba(196,151,59,0.16), rgba(196,151,59,0.05))',
+                              color: 'var(--color-gold)',
+                            }}>
+                              <config.Icon />
+                            </span>
+                          )}
+                          {/* Whisper of the row background over the photo's right
+                              edge so it settles into the text instead of ending
+                              on a hard seam. */}
+                          <span aria-hidden="true" style={{
+                            position: 'absolute', inset: 0,
+                            background: `linear-gradient(to right, rgba(255,255,255,0) 72%, ${isActive ? 'var(--color-cream)' : '#fff'} 100%)`,
+                            pointerEvents: 'none',
+                          }} />
+                        </span>
+                      ) : (
+                        <span style={{ color: isActive ? 'var(--color-accent)' : 'var(--color-muted)' }}>
+                          <config.Icon />
+                        </span>
+                      )}
 
-                      <span style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{
+                        flex: 1, minWidth: 0,
+                        alignSelf: 'center',
+                        padding: claimed ? '10px 16px 10px 10px' : 0,
+                      }}>
                         <span style={{
                           fontFamily: 'var(--font-body)',
-                          fontWeight: 400,
+                          fontWeight: claimed ? 500 : 400,
                           fontSize: '14px',
                           color: 'var(--color-ink)',
                           display: 'block',
@@ -435,6 +477,21 @@ export default function SearchAutocomplete({ value, onChange, onSelect, placehol
                           whiteSpace: 'nowrap',
                         }}>
                           {item.label}
+                          {claimed && (
+                            <span
+                              aria-hidden="true"
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                width: '13px', height: '13px', borderRadius: '50%',
+                                background: 'var(--color-gold)', color: '#fff',
+                                marginLeft: '6px', verticalAlign: '-2px',
+                              }}
+                            >
+                              <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5">
+                                <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                            </span>
+                          )}
                         </span>
 
                         <span style={{

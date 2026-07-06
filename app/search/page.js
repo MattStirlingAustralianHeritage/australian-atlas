@@ -770,13 +770,22 @@ function SearchPageInner() {
     displayResults = [...withDistance].sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity))
   }
 
-  // ── Relevance-floor gating: only results clearing their vertical's calibrated
-  // floor earn the enlarged + badged "Top result" treatment (earned, not positional).
+  // ── Relevance gating: only results clearing the strength gate earn the
+  // enlarged + badged "Top result" treatment (earned, not positional).
   // Only in relevance sort — a re-sorted page has no "top relevance result" —
   // and only in the grid view (list is a straight ranked index; map is spatial).
+  // When the page LEADS with a detected atlas, the band must agree with the
+  // lead: only that atlas's strong rows may be featured — a strong cross-atlas
+  // row further down cannot leapfrog the atlas the banner says we lead with
+  // ("organic cheese" once put two wineries above the Table lead this way).
+  // No qualifying rows → no band at all, never a wrong band.
   const anyStrong = displayResults.some(isStrongMatch)
+  const leadVertical = !noVerticalBind ? detectedVertical : null
+  const featuredPool = leadVertical
+    ? displayResults.filter(r => r.vertical === leadVertical)
+    : displayResults
   const featured = (view === 'grid' && sortBy === 'relevance' && displayResults.length >= 3 && anyStrong)
-    ? displayResults.filter(isStrongMatch).slice(0, 3)
+    ? featuredPool.filter(isStrongMatch).slice(0, 3)
     : []
   const featuredIds = new Set(featured.map(f => f.id))
   const gridListings = featured.length > 0 ? displayResults.filter(r => !featuredIds.has(r.id)) : displayResults

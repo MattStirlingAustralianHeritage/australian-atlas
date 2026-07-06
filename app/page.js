@@ -10,11 +10,14 @@ import HomeAtlasMap from '@/components/HomeAtlasMap'
 import NewsletterSignup from '@/components/NewsletterSignup'
 import ScrollReveal from '@/components/ScrollReveal'
 import NearbySection from '@/components/NearbySection'
+import WorthFindingSection from '@/components/home/WorthFindingSection'
 import DiscoverDeck from '@/components/discover/DiscoverDeck'
 import CategoryGuideSection from '@/components/CategoryGuideSection'
 import { getListingRegion, LISTING_REGION_SELECT, resolveRegionParam } from '@/lib/regions'
+import { STATE_OUTLINES, projectPoint } from '@/lib/regions/stateOutlines'
 import { getPublicVerticals, VERTICAL_CARD_TOKENS } from '@/lib/verticalUrl'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
+import { subTypeLabel } from '@/lib/subTypeLabels'
 import { Coffee, Wine, UtensilsCrossed, BedDouble, Mountain, Compass, Hammer, Landmark, ShoppingBag, Clock } from 'lucide-react'
 
 export const revalidate = 1800
@@ -44,6 +47,55 @@ const CLUSTER_REGION_SLUGS = {
   'Byron Bay': 'byron-bay',
   'Adelaide': null,
   'Melbourne': null,
+}
+
+// The cluster section renders each region as a plottable day, not a flat
+// sample: one venue per slot, slots in day order. A slot takes the first
+// preference [vertical, allowedSubTypes?] that still has an unused
+// candidate, so a region without (say) a stay still fills a coherent
+// shorter day. Labels are time-of-day only, and any sub_type constraint
+// exists to keep the label honest — the morning slot accepts coffee, a
+// bakery-ish table venue, or a tour, never a straight restaurant.
+const CLUSTER_DAY_SLOTS = [
+  { slot: 'morning',   prefs: [['fine_grounds'], ['table', ['bakery', 'market', 'farm_gate', 'providore']], ['way']] },
+  { slot: 'midday',    prefs: [['table'], ['way'], ['field'], ['found'], ['corner']] },
+  { slot: 'afternoon', prefs: [['craft'], ['collection'], ['corner'], ['found'], ['field'], ['way']] },
+  { slot: 'tasting',   prefs: [['sba'], ['fine_grounds']] },
+  { slot: 'stay',      prefs: [['rest']] },
+]
+
+const CLUSTER_SLOT_LABEL_KEYS = {
+  morning: 'clusterStopMorning',
+  midday: 'clusterStopMidday',
+  afternoon: 'clusterStopAfternoon',
+  tasting: 'clusterStopTasting',
+  stay: 'clusterStopStay',
+}
+
+// Fallback art for unphotographed stops: the vertical's dark ground + icon.
+const CLUSTER_VERTICAL_ICONS = {
+  fine_grounds: Coffee, sba: Wine, table: UtensilsCrossed, rest: BedDouble,
+  field: Mountain, way: Compass, craft: Hammer, collection: Landmark,
+  corner: ShoppingBag, found: Clock,
+}
+
+// Widest gap between any two stops (equirectangular, fine at region scale),
+// rounded up to 5 km — the "all within N km" proof that the day is drivable.
+// Null unless EVERY stop carries coordinates: a locality-only pin (NULL
+// lat/lng) silently dropped from the pairwise max would let the line
+// under-claim the true spread, and the span must stay honest.
+function clusterSpanKm(stops) {
+  const pts = stops.filter(s => Number.isFinite(s.lat) && Number.isFinite(s.lng))
+  if (pts.length < stops.length || pts.length < 2) return null
+  let max = 0
+  for (let i = 0; i < pts.length; i++) {
+    for (let j = i + 1; j < pts.length; j++) {
+      const dLat = (pts[i].lat - pts[j].lat) * 111
+      const dLng = (pts[i].lng - pts[j].lng) * 111 * Math.cos(((pts[i].lat + pts[j].lat) / 2) * Math.PI / 180)
+      max = Math.max(max, Math.hypot(dLat, dLng))
+    }
+  }
+  return Math.max(5, Math.ceil(max / 5) * 5)
 }
 
 const REGION_GEO = {
@@ -114,12 +166,6 @@ function seededShuffle(arr, seed) {
     ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
   }
   return shuffled
-}
-
-function firstSentence(text) {
-  if (!text) return null
-  const match = text.match(/^(.+?[.!?])\s/)
-  return match ? match[1] : text.slice(0, 160)
 }
 
 const EVENT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -209,7 +255,13 @@ async function getLatestArticles() {
 async function getDiscoverClusters() {
   try {
     const sb = getSupabaseAdmin()
-    const clusterRegions = ['Barossa Valley', 'Mornington Peninsula', 'Hobart & Southern Tasmania', 'Byron Bay', 'Adelaide', 'Melbourne']
+    // Pool rotates weekly (same seed as the cover story) so returning
+    // readers get a different trio of days without the section ever
+    // rendering an unqualified region.
+    const clusterRegions = seededShuffle(
+      ['Barossa Valley', 'Mornington Peninsula', 'Hobart & Southern Tasmania', 'Byron Bay', 'Adelaide', 'Melbourne'],
+      getWeeklySeed()
+    )
     const results = await Promise.all(
       clusterRegions.map(async (region) => {
         // Override-wins resolution per docs/regions.md, via the
@@ -219,30 +271,49 @@ async function getDiscoverClusters() {
         const fromTable = resolved ? 'listings_with_region' : 'listings'
         let query = sb
           .from(fromTable)
-          .select(`id, name, vertical, slug, region, hero_image_url, ${LISTING_REGION_SELECT}`)
+          .select(`id, name, vertical, sub_type, slug, region, suburb, lat, lng, hero_image_url, ${LISTING_REGION_SELECT}`, { count: 'exact' })
           .eq('status', 'active')
           .order('is_featured', { ascending: false })
           .order('editors_pick', { ascending: false })
-          .limit(12)
+          .limit(24)
         if (resolved) {
           query = query.eq('region_id', resolved.id)
         } else {
           query = query.eq('region', region)
         }
-        const { data } = await query
+        const { data, count } = await query
         if (!data || data.length < 4) return null
         const verticalSet = new Set(data.map(d => d.vertical))
         if (verticalSet.size < 3) return null
-        const picks = []
+
+        // Fill the day arc. Within a vertical a photographed venue outranks
+        // the featured ordering — these cards are photo-first.
+        const usedIds = new Set()
         const usedVerticals = new Set()
-        for (const l of data) {
-          if (!usedVerticals.has(l.vertical) && picks.length < 4 && l.slug) {
-            picks.push(l)
-            usedVerticals.add(l.vertical)
+        const stops = []
+        for (const { slot, prefs } of CLUSTER_DAY_SLOTS) {
+          for (const [v, subTypes] of prefs) {
+            if (usedVerticals.has(v)) continue
+            const candidates = data.filter(l =>
+              l.vertical === v && l.slug && !usedIds.has(l.id) &&
+              (!subTypes || subTypes.includes(l.sub_type))
+            )
+            if (!candidates.length) continue
+            const pick = candidates.find(l => l.hero_image_url) || candidates[0]
+            stops.push({ ...pick, slot })
+            usedIds.add(pick.id)
+            usedVerticals.add(v)
+            break
           }
         }
-        if (picks.length < 3) return null
-        return { region, verticalCount: verticalSet.size, total: data.length, picks }
+        if (stops.length < 3) return null
+        return {
+          region,
+          verticalCount: verticalSet.size,
+          total: count || data.length,
+          spanKm: clusterSpanKm(stops),
+          picks: stops,
+        }
       })
     )
     return results.filter(Boolean).slice(0, 3)
@@ -388,10 +459,11 @@ const getHomeDataCached = unstable_cache(
     }
     return data
   },
-  // v2: recentListings now carries lat/lng/visitable/address_on_request for
-  // the atlas plate's fresh pins — new key so a stale cached shape can't
-  // strand the pins until natural revalidation.
-  ['home-data-v2'],
+  // v3: two concurrent shape changes (both had claimed v2) — recentListings
+  // now carries lat/lng/visitable/address_on_request for the atlas plate's
+  // fresh pins, and cluster picks carry slot/sub_type/suburb/spanKm for the
+  // day-arc reshape. Fresh key so neither stale shape can be served.
+  ['home-data-v3'],
   { revalidate: 900 }
 )
 
@@ -601,146 +673,11 @@ export default async function Home() {
       )}
 
       {/* ── 3. Worth Finding This Week ──────────────────── */}
-      {/* On its own pale cream band (with hairline edges) so it reads as a
-          distinct section from the stone-ground "Worth finding nearby" below —
-          and the dark lead/rail cards lift off the lighter surface. */}
-      {featured.length > 0 && (
-        <ScrollReveal as="section" style={{
-          paddingBlock: '80px',
-          background: 'linear-gradient(180deg, #FBF8F2 0%, #F8F4EB 100%)',
-          borderTop: '1px solid rgba(28,26,23,0.06)',
-          borderBottom: '1px solid rgba(28,26,23,0.08)',
-        }}>
-          <div className="max-w-5xl mx-auto px-6 sm:px-12">
-            <div className="reveal" style={{ marginBottom: '36px', maxWidth: '560px' }}>
-              <p className="section-dateline" style={{ marginBottom: '16px' }}>
-                {t('thisWeekDateline', { date: editionDate })}
-              </p>
-              <h2 style={{
-                fontFamily: 'var(--font-display)', fontWeight: 400,
-                fontSize: 'clamp(30px, 4vw, 50px)', color: 'var(--color-ink)',
-                lineHeight: 1.1, marginBottom: '12px',
-              }}>
-                {t('worthFindingTitle')}
-              </h2>
-              <p style={{
-                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
-                color: 'var(--color-muted)', margin: 0,
-              }}>
-                {t('worthFindingIntro')}
-              </p>
-            </div>
-
-            {/* LEAD + RAIL: the first featured listing is the dominant cover
-                story (1.6fr, full-bleed ground or its photo); the rest stack as
-                a compact coloured rail (1fr). Scale contrast carries hierarchy. */}
-            {(() => {
-              const lead = featured[0]
-              const rail = featured.slice(1, 4)
-              const leadColors = VERTICAL_CARD_COLORS[lead.vertical] || { bg: '#333', text: '#FAF8F4' }
-              const leadRegion = getListingRegion(lead)
-              return (
-                <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-6">
-                  {/* LEAD */}
-                  <LocalizedLink
-                    key={lead.id}
-                    href={`/place/${lead.slug}`}
-                    className="reveal group listing-card block overflow-hidden"
-                    data-reveal-index={1}
-                    style={{
-                      background: lead.hero_image_url ? '#1A1A1A' : leadColors.bg,
-                      border: '1px solid transparent',
-                      borderRadius: 'var(--radius-lg)',
-                      display: 'flex', flexDirection: 'column',
-                      minHeight: 'clamp(300px, 40vw, 440px)',
-                    }}
-                  >
-                    {lead.hero_image_url && (
-                      <div className="overflow-hidden" style={{ flex: '1 1 55%', minHeight: '180px' }}>
-                        <img
-                          src={lead.hero_image_url}
-                          alt=""
-                          loading="lazy"
-                          className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700"
-                        />
-                      </div>
-                    )}
-                    <div style={{ padding: '30px 30px 32px', display: 'flex', flexDirection: 'column', flex: lead.hero_image_url ? '0 0 auto' : 1 }}>
-                      <p style={{
-                        fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
-                        letterSpacing: '0.15em', textTransform: 'uppercase',
-                        color: GOLD, marginBottom: '10px',
-                      }}>
-                        {localizeVerticalKicker(lead.vertical, VERTICAL_LABELS[lead.vertical] || lead.vertical, locale)}
-                        {leadRegion ? `  ·  ${leadRegion.name}` : ''}
-                      </p>
-                      {!lead.hero_image_url && <div style={{ flex: 1, minHeight: 20 }} />}
-                      <h3 style={{
-                        fontFamily: 'var(--font-display)', fontWeight: 400,
-                        fontSize: 'clamp(26px, 3.2vw, 36px)', lineHeight: 1.12,
-                        color: '#FAF8F4', marginBottom: '12px',
-                      }}>
-                        {lead.name}
-                      </h3>
-                      {lead.description && (
-                        <p style={{
-                          fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px',
-                          lineHeight: 1.65, color: 'rgba(250,248,244,0.62)', margin: 0, maxWidth: '46ch',
-                          display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                        }}>
-                          {firstSentence(lead.description)}
-                        </p>
-                      )}
-                    </div>
-                  </LocalizedLink>
-
-                  {/* RAIL */}
-                  {rail.length > 0 && (
-                    <div className="flex flex-col gap-4">
-                      {rail.map((listing, ri) => {
-                        const colors = VERTICAL_CARD_COLORS[listing.vertical] || { bg: '#333', text: '#FAF8F4' }
-                        const r = getListingRegion(listing)
-                        return (
-                          <LocalizedLink
-                            key={listing.id}
-                            href={`/place/${listing.slug}`}
-                            className="reveal group listing-card block overflow-hidden"
-                            data-reveal-index={ri + 2}
-                            style={{
-                              background: colors.bg,
-                              border: '1px solid transparent',
-                              borderRadius: 'var(--radius-card)',
-                              padding: '18px 20px',
-                              display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-                              flex: '1 1 0', minHeight: '104px',
-                            }}
-                          >
-                            <p style={{
-                              fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 600,
-                              letterSpacing: '0.15em', textTransform: 'uppercase',
-                              color: 'rgba(250,248,244,0.5)', margin: 0,
-                            }}>
-                              {localizeVerticalKicker(listing.vertical, VERTICAL_LABELS[listing.vertical] || listing.vertical, locale)}
-                              {r ? `  ·  ${r.name}` : ''}
-                            </p>
-                            <h3 style={{
-                              fontFamily: 'var(--font-display)', fontWeight: 400,
-                              fontSize: '19px', lineHeight: 1.22,
-                              color: colors.text, margin: '8px 0 0',
-                            }}>
-                              {listing.name}
-                            </h3>
-                          </LocalizedLink>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              )
-            })()}
-          </div>
-        </ScrollReveal>
-      )}
+      {/* Server hands the cached editorial picks to a client section that
+          upgrades itself to within-100km, taste-weighted picks for signed-in
+          visitors who already shared a location (see WorthFindingSection).
+          Everyone else gets the editorial band exactly as before. */}
+      <WorthFindingSection featured={featured} locale={locale} editionDate={editionDate} />
 
       {/* ── 4. Journal Feature ──────────────────────────── */}
       {featuredArticle && (
@@ -927,13 +864,16 @@ export default async function Home() {
       </section>
 
       {/* ── 6 + 7. Plan a trip + Explore by region — paired columns ── */}
-      {/* Two formerly-stacked centered blocks become one alternating two-column
-          editorial row: a tall dark "Plan a trip" feature beside an offset
-          region mosaic. Breaks the stacked rhythm; all links/counts preserved. */}
+      {/* One editorial row on warm paper: a "Road trip" map-plate (drawn route,
+          gold neatline, compass) beside a mosaic of light region cards carrying
+          the /regions identity home — inline state silhouette + amber centroid
+          dot. No dark boxes; the cartography is the ornament. */}
       <ScrollReveal as="section" style={{ paddingBlock: '88px' }}>
         <div className="max-w-6xl mx-auto px-6 sm:px-12">
-          <div className="grid grid-cols-1 lg:grid-cols-[0.92fr_1.28fr] gap-10 lg:gap-14 items-start">
-            {/* LEFT — Plan a trip feature */}
+          <div className="grid grid-cols-1 lg:grid-cols-[0.96fr_1.24fr] gap-10 lg:gap-14 items-start">
+            {/* LEFT — "Road trip" map-plate. A warm plate rather than a dark
+                box: gold neatline, a compass corner-mark, and a dotted route
+                winding to its destination — the plan-a-trip idea, drawn. */}
             <div className="reveal" data-reveal-index={1}>
               <p className="section-dateline" style={{ marginBottom: '18px' }}>
                 {t('planATrip')}
@@ -942,30 +882,74 @@ export default async function Home() {
                 href="/on-this-road"
                 className="group listing-card block"
                 style={{
-                  background: '#2C2420',
-                  border: '1px solid transparent',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  background: 'linear-gradient(158deg, #FCFAF4 0%, #F5ECDA 60%, #EFE3CD 100%)',
+                  border: '1px solid rgba(120,92,44,0.20)',
                   borderRadius: 'var(--radius-lg)',
-                  padding: '32px 30px',
-                  minHeight: 'clamp(280px, 32vw, 380px)',
+                  padding: '34px 32px',
+                  minHeight: 'clamp(300px, 33vw, 400px)',
                   display: 'flex',
                   flexDirection: 'column',
                 }}
               >
+                {/* the drawn route — dotted road curving to a destination pin,
+                    with two faint elevation contours around the endpoint */}
+                <svg aria-hidden="true" viewBox="0 0 420 400" preserveAspectRatio="xMidYMid slice"
+                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+                  {/* faint elevation contours around the destination */}
+                  <g fill="none" stroke="rgba(196,151,59,0.18)" strokeWidth="1">
+                    <path d="M398 84 C 448 78, 466 120, 448 154 C 433 182, 390 182, 370 158" />
+                    <path d="M398 100 C 430 96, 446 120, 434 144 C 423 162, 396 164, 382 150" />
+                  </g>
+                  {/* the road — hugs the bottom, then climbs the right margin to
+                      its destination, keeping the top-left text column clear */}
+                  <path d="M26 374 C 120 368, 184 352, 250 322 S 346 278, 360 214 S 374 152, 398 122"
+                    fill="none" stroke="rgba(196,151,59,0.9)" strokeWidth="2.25"
+                    strokeLinecap="round" strokeDasharray="0.5 9" />
+                  {[[26, 374], [250, 322], [360, 214]].map(([cx, cy], i) => (
+                    <circle key={i} cx={cx} cy={cy} r="6" fill="#FCFAF4"
+                      stroke="rgba(196,151,59,0.95)" strokeWidth="2" />
+                  ))}
+                  <g transform="translate(398 122)">
+                    <circle r="9.5" fill="rgba(196,151,59,0.22)" />
+                    <circle r="5" fill="#C4973B" />
+                  </g>
+                </svg>
+
+                {/* compass corner-mark */}
+                <svg aria-hidden="true" viewBox="0 0 48 48" width="44" height="44"
+                  style={{ position: 'absolute', top: 20, right: 20, opacity: 0.55, pointerEvents: 'none' }}>
+                  <circle cx="24" cy="24" r="21" fill="none" stroke="rgba(120,92,44,0.32)" strokeWidth="1" />
+                  <path d="M24 5 L27.5 24 L24 43 L20.5 24 Z" fill="rgba(196,151,59,0.9)" />
+                  <path d="M5 24 L24 20.5 L43 24 L24 27.5 Z" fill="none" stroke="rgba(120,92,44,0.38)" strokeWidth="1" />
+                  <circle cx="24" cy="24" r="1.6" fill="#8a6a2c" />
+                </svg>
+
+                {/* map-plate neatline — the fine ruled frame of an atlas page */}
+                <div aria-hidden="true" style={{
+                  position: 'absolute', inset: 11, borderRadius: 12,
+                  border: '1px solid rgba(196,151,59,0.22)', pointerEvents: 'none',
+                }} />
+
                 <h3 style={{
-                  fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 'clamp(26px, 3vw, 34px)',
-                  color: '#FAF8F4', lineHeight: 1.18, marginBottom: 12,
+                  position: 'relative',
+                  fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 'clamp(28px, 3.2vw, 38px)',
+                  color: 'var(--color-ink)', lineHeight: 1.14, marginBottom: 14,
                 }}>
                   {t('roadTrip')}
                 </h3>
                 <p style={{
-                  fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px',
-                  color: 'rgba(250,248,244,0.62)', lineHeight: 1.6, maxWidth: '34ch',
+                  position: 'relative',
+                  fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '15px',
+                  color: 'var(--color-muted)', lineHeight: 1.62, maxWidth: '27ch',
                 }}>
                   {t('roadTripIntro')}
                 </p>
-                <div style={{ flex: 1, minHeight: 24 }} />
+                <div style={{ flex: 1, minHeight: 28 }} />
                 <span style={{
-                  fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', color: GOLD,
+                  position: 'relative',
+                  fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '13px', color: GOLD,
                 }}>
                   {t('planRoadTrip')} &rarr;
                 </span>
@@ -977,16 +961,16 @@ export default async function Home() {
               <div className="flex items-baseline justify-between" style={{ gap: '16px', marginBottom: '20px' }}>
                 <p className="section-dateline">{t('byRegion')}</p>
                 <LocalizedLink href="/regions" className="hover:opacity-80 transition-opacity" style={{
-                  fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', color: GOLD,
+                  fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '13px', color: GOLD,
                 }}>
                   {t('browseAll')} &rarr;
                 </LocalizedLink>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                {/* Dark cartographic cards — the /regions index identity
-                    (ink ground, serif italic name, warm small-caps state,
-                    amber count) brought home, so the region language is ONE
-                    language wherever regions appear. */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* The /regions & /explore card identity brought home: warm
+                    paper, serif name, an inline state silhouette with the
+                    region's centroid dot in cartographic amber. One region
+                    language everywhere it appears — no dark boxes. */}
                 {[
                   { name: 'Barossa Valley', slug: 'barossa-valley', state: 'SA' },
                   { name: 'Mornington Peninsula', slug: 'mornington-peninsula', state: 'VIC' },
@@ -996,6 +980,11 @@ export default async function Home() {
                   { name: 'Adelaide Hills', slug: 'adelaide-hills', state: 'SA' },
                 ].map((r, ri) => {
                   const count = stats.regionCounts[r.name]
+                  const outline = STATE_OUTLINES[r.state]
+                  const geo = REGION_GEO[r.name]
+                  const dot = outline && geo ? projectPoint(r.state, geo.lat, geo.lng) : null
+                  const SVG_PX = 58
+                  const rUnit = outline ? outline.h / SVG_PX : 1
                   return (
                     <LocalizedLink
                       key={r.slug}
@@ -1003,40 +992,50 @@ export default async function Home() {
                       className="reveal group listing-card block overflow-hidden"
                       data-reveal-index={(ri % 3) + 1}
                       style={{
-                        background: 'radial-gradient(120% 120% at 20% 0%, #33302A 0%, #2D2A24 55%, #262420 100%)',
-                        border: '1px solid rgba(184, 134, 43, 0.16)',
+                        background: 'linear-gradient(158deg, #FDFBF6 0%, #F6EFE1 100%)',
+                        border: '1px solid var(--color-border)',
                         borderRadius: 'var(--radius-card)',
-                        position: 'relative',
                       }}
                     >
-                      {/* faint survey-grid texture in the cartographic amber */}
-                      <div aria-hidden="true" style={{
-                        position: 'absolute', inset: 0, pointerEvents: 'none', opacity: 0.16,
-                        backgroundImage: 'linear-gradient(rgba(184,134,43,0.35) 0.5px, transparent 0.5px), linear-gradient(90deg, rgba(184,134,43,0.35) 0.5px, transparent 0.5px)',
-                        backgroundSize: '28px 28px',
-                      }} />
-                      <div className="flex flex-col" style={{ padding: '18px', minHeight: 116, position: 'relative' }}>
-                        <h3 style={{
-                          fontFamily: 'var(--font-display)', fontWeight: 400, fontStyle: 'italic',
-                          fontSize: 20, color: '#F3EDE1', lineHeight: 1.2, marginBottom: 5,
-                        }}>
-                          {r.name}
-                        </h3>
-                        <p style={{
-                          fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '10px',
-                          letterSpacing: '0.16em', textTransform: 'uppercase',
-                          color: '#8a7a5a', marginBottom: 0,
-                        }}>
-                          {r.state}
-                        </p>
-                        <div style={{ flex: 1, minHeight: 14 }} />
-                        {count > 0 && (
-                          <span style={{
-                            fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12,
-                            color: '#C9973F',
+                      <div className="flex" style={{ padding: '16px 17px', minHeight: 118, gap: 12 }}>
+                        <div className="flex flex-col" style={{ flex: 1, minWidth: 0 }}>
+                          <h3 style={{
+                            fontFamily: 'var(--font-display)', fontWeight: 400,
+                            fontSize: 19, color: 'var(--color-ink)', lineHeight: 1.18, marginBottom: 5,
                           }}>
-                            {t('countPlaces', { count })}
-                          </span>
+                            {r.name}
+                          </h3>
+                          <p style={{
+                            fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '10px',
+                            letterSpacing: '0.16em', textTransform: 'uppercase',
+                            color: 'var(--color-muted)', margin: 0,
+                          }}>
+                            {r.state}
+                          </p>
+                          <div style={{ flex: 1, minHeight: 12 }} />
+                          {count > 0 && (
+                            <span style={{
+                              fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 12,
+                              color: 'var(--color-gold)',
+                            }}>
+                              {t('countPlaces', { count })}
+                            </span>
+                          )}
+                        </div>
+                        {outline && (
+                          <svg viewBox={`0 0 ${outline.w} ${outline.h}`}
+                            style={{ height: `${SVG_PX}px`, width: 'auto', maxWidth: '72px', flexShrink: 0, marginTop: 2 }}
+                            aria-hidden="true">
+                            <path d={outline.d} fill="rgba(196,151,59,0.08)"
+                              stroke="rgba(90,78,58,0.34)" strokeWidth="1"
+                              vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+                            {dot && (
+                              <>
+                                <circle cx={dot.x} cy={dot.y} r={6.5 * rUnit} fill="rgba(196,151,59,0.28)" />
+                                <circle cx={dot.x} cy={dot.y} r={3 * rUnit} fill="#C4973B" />
+                              </>
+                            )}
+                          </svg>
                         )}
                       </div>
                     </LocalizedLink>
@@ -1082,11 +1081,13 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* ── 5. Cross-Vertical Cluster ──────────────────── */}
+      {/* ── 5. Cross-Vertical Cluster — a day, plotted ── */}
       {/* The intermediate kraft band — one oatmeal third surface between the
-          binary cream/near-black rhythm. It breaks the long cream run that
-          follows the dark Journal and lets the now-saturated vertical cards
-          (dark-on-kraft) read at their strongest. */}
+          binary cream/near-black rhythm. Each qualifying region renders as a
+          numbered day arc (coffee → lunch → maker → tasting → bed) of paper
+          itinerary cards — photo-first, vertical-ground fallback — with a
+          coordinate-grounded "all within N km" span and a region-guide CTA,
+          so the section reads as a plan to follow, not a swatch collage. */}
       {clusters.length > 0 && (
         <ScrollReveal as="section" style={{
           paddingBlock: '96px',
@@ -1113,69 +1114,117 @@ export default async function Home() {
               </p>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '56px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '64px' }}>
               {clusters.map((cluster, ci) => {
                 const regionSlug = CLUSTER_REGION_SLUGS[cluster.region]
+                const metaLine = [
+                  t('clusterCounts', { total: cluster.total, categories: cluster.verticalCount }),
+                  cluster.spanKm && cluster.spanKm <= 90 ? t('clusterSpan', { km: cluster.spanKm }) : null,
+                ].filter(Boolean).join('  ·  ')
+                // Static class strings so Tailwind sees them at build time.
+                const gridCols = {
+                  3: 'grid-cols-1 sm:grid-cols-3',
+                  4: 'grid-cols-2 lg:grid-cols-4',
+                  5: 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5',
+                }[cluster.picks.length] || 'grid-cols-2 lg:grid-cols-4'
                 return (
                   <div key={cluster.region} className="reveal" data-reveal-index={ci + 1}>
-                    <div style={{ marginBottom: '16px', maxWidth: '520px' }}>
-                      {regionSlug ? (
-                        <LocalizedLink href={`/regions/${regionSlug}`} className="group inline-block">
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-8 gap-y-2" style={{ marginBottom: '20px' }}>
+                      <div style={{ maxWidth: '520px' }}>
+                        {regionSlug ? (
+                          <LocalizedLink href={`/regions/${regionSlug}`} className="group inline-block">
+                            <h3 style={{
+                              fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 26,
+                              color: 'var(--color-ink)', lineHeight: 1.25,
+                            }}>
+                              {cluster.region}
+                              <span className="inline-block ml-2 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: GOLD, fontSize: 18 }}>&rarr;</span>
+                            </h3>
+                          </LocalizedLink>
+                        ) : (
                           <h3 style={{
                             fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 26,
                             color: 'var(--color-ink)', lineHeight: 1.25,
                           }}>
                             {cluster.region}
-                            <span className="inline-block ml-2 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: GOLD, fontSize: 18 }}>&rarr;</span>
                           </h3>
-                        </LocalizedLink>
-                      ) : (
-                        <h3 style={{
-                          fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 26,
-                          color: 'var(--color-ink)', lineHeight: 1.25,
+                        )}
+                        <p style={{
+                          fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13,
+                          color: 'var(--color-muted)', marginTop: 4,
                         }}>
-                          {cluster.region}
-                        </h3>
+                          {metaLine}
+                        </p>
+                      </div>
+                      {regionSlug && (
+                        <LocalizedLink href={`/regions/${regionSlug}`} className="group inline-flex items-center gap-1.5 hover:opacity-80 transition-opacity" style={{
+                          fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500,
+                          color: 'var(--color-ink)', borderBottom: '1px solid var(--color-gold)',
+                          paddingBottom: 2, whiteSpace: 'nowrap',
+                        }}>
+                          {t('clusterSeeRegion')} <span style={{ color: GOLD }}>&rarr;</span>
+                        </LocalizedLink>
                       )}
-                      <p style={{
-                        fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13,
-                        color: 'var(--color-muted)', marginTop: 4,
-                      }}>
-                        {t('clusterCounts', { total: cluster.total, categories: cluster.verticalCount })}
-                      </p>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {cluster.picks.map(pick => {
+                    <div className={`grid gap-3 sm:gap-4 ${gridCols}`}>
+                      {cluster.picks.map((pick, pi) => {
                         const colors = VERTICAL_CARD_COLORS[pick.vertical] || { bg: '#333', text: '#FAF8F4' }
+                        const StopIcon = CLUSTER_VERTICAL_ICONS[pick.vertical] || Compass
+                        const stopMeta = [
+                          subTypeLabel(pick.vertical, pick.sub_type) || localizeVerticalKicker(pick.vertical, VERTICAL_LABELS[pick.vertical] || pick.vertical, locale),
+                          pick.suburb,
+                        ].filter(Boolean).join(' · ')
                         return (
                           <LocalizedLink
                             key={pick.id}
                             href={`/place/${pick.slug}`}
-                            className="listing-card block overflow-hidden"
+                            className="listing-card group block overflow-hidden"
                             style={{
-                              background: colors.bg,
+                              background: '#FBF8F2',
+                              border: '1px solid rgba(28,26,23,0.08)',
                               borderRadius: 'var(--radius-card)',
-                              padding: '20px 16px',
-                              minHeight: '140px',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              justifyContent: 'space-between',
+                              display: 'flex', flexDirection: 'column',
                             }}
                           >
-                            <span style={{
-                              fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 600,
-                              letterSpacing: '0.12em', textTransform: 'uppercase',
-                              color: 'rgba(250,248,244,0.45)',
-                            }}>
-                              {localizeVerticalKicker(pick.vertical, VERTICAL_LABELS[pick.vertical] || pick.vertical, locale)}
-                            </span>
-                            <span style={{
-                              fontFamily: 'var(--font-display)', fontSize: '16px', fontWeight: 400,
-                              color: colors.text, lineHeight: 1.3, marginTop: 'auto',
-                            }}>
-                              {pick.name}
-                            </span>
+                            <div className="overflow-hidden" style={{ aspectRatio: '4 / 3', background: colors.bg, flexShrink: 0 }}>
+                              {pick.hero_image_url ? (
+                                <img
+                                  src={pick.hero_image_url}
+                                  alt=""
+                                  loading="lazy"
+                                  className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <StopIcon size={28} strokeWidth={1.25} style={{ color: 'rgba(250,248,244,0.5)' }} aria-hidden="true" />
+                                </div>
+                              )}
+                            </div>
+                            <div style={{ padding: '14px 16px 16px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                              <p style={{
+                                fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 600,
+                                letterSpacing: '0.14em', textTransform: 'uppercase',
+                                color: GOLD, margin: 0,
+                              }}>
+                                {String(pi + 1).padStart(2, '0')} · {t(CLUSTER_SLOT_LABEL_KEYS[pick.slot] || 'clusterStopAfternoon')}
+                              </p>
+                              <h4 style={{
+                                fontFamily: 'var(--font-display)', fontWeight: 400,
+                                fontSize: '17px', lineHeight: 1.25,
+                                color: 'var(--color-ink)', margin: '6px 0 0',
+                              }}>
+                                {pick.name}
+                              </h4>
+                              {stopMeta && (
+                                <p style={{
+                                  fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '12px',
+                                  color: 'var(--color-muted)', margin: '6px 0 0',
+                                }}>
+                                  {stopMeta}
+                                </p>
+                              )}
+                            </div>
                           </LocalizedLink>
                         )
                       })}
@@ -1183,6 +1232,15 @@ export default async function Home() {
                   </div>
                 )
               })}
+            </div>
+
+            <div className="reveal" style={{ marginTop: '52px' }}>
+              <LocalizedLink href="/regions" className="inline-flex items-center gap-1.5 hover:opacity-80 transition-opacity" style={{
+                fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500,
+                color: 'var(--color-ink)', borderBottom: '1px solid var(--color-gold)', paddingBottom: 2,
+              }}>
+                {t('clusterAllRegions')} <span style={{ color: GOLD }}>&rarr;</span>
+              </LocalizedLink>
             </div>
           </div>
         </ScrollReveal>

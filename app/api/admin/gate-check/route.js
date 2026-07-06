@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
-import { fetchGateCheckRows, applyGateCheckAction } from '@/lib/gate-check/queue'
+import { fetchGateCheckRows, fetchHiddenListings, applyGateCheckAction, restoreHiddenListings } from '@/lib/gate-check/queue'
 import { checkGate1Web, checkGate2Location, checkGate4Vertical, summariseFailures, stateFromCoords, normaliseState } from '@/lib/gate-check/gates'
 import { gate4VerticalFit } from '@/lib/prospector/gates'
 import { getRemediations, getAutoRemediations, DEAD_WEB_CODES, VERTICAL_LABELS } from '@/lib/gate-check/remediation'
@@ -35,6 +35,13 @@ export async function GET(request) {
 
   try {
     const sb = getSupabaseAdmin()
+    // 'hidden' is listing-driven (every hidden listing, not just Gate-Check
+    // hides) so it can surface — and restore — listings hidden by the dedupe
+    // merger or the editor too. All other views are gate-check-row-driven.
+    if (status === 'hidden') {
+      const { rows } = await fetchHiddenListings(sb, { vertical })
+      return NextResponse.json({ rows, tableMissing: false })
+    }
     const { rows, tableMissing } = await fetchGateCheckRows(sb, { status, vertical, gate, action, severity })
     return NextResponse.json({ rows, tableMissing })
   } catch (err) {
@@ -85,6 +92,17 @@ export async function POST(request) {
       return NextResponse.json({ success: true, ...result })
     } catch (err) {
       return NextResponse.json({ error: err.message || 'Quick scan failed' }, { status: 500 })
+    }
+  }
+
+  // ── Restore hidden listings by LISTING id (Hidden view) — reactivates the
+  //    listing even when it has no gate-check row (dedupe/editor hides). ──
+  if (body && Array.isArray(body.restoreListingIds)) {
+    try {
+      const result = await restoreHiddenListings(sb, { listingIds: body.restoreListingIds })
+      return NextResponse.json({ success: true, ...result })
+    } catch (err) {
+      return NextResponse.json({ error: err.message || 'Restore failed' }, { status: 400 })
     }
   }
 

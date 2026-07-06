@@ -37,21 +37,24 @@ const VERTICAL_NAMES = {
 }
 const font = { body: 'var(--font-body, system-ui)', display: 'var(--font-display, Georgia)' }
 
-export default function GateCheckClient({ initialRows, tableMissing, loadError, pendingCount, trashCount, lastScannedAt, facets, mapboxToken }) {
+export default function GateCheckClient({ initialRows, tableMissing, loadError, pendingCount, trashCount, hiddenCount, lastScannedAt, facets, mapboxToken }) {
   const [rows, setRows] = useState(initialRows || [])
   const [trashRows, setTrashRows] = useState([])
-  const [view, setView] = useState('queue') // 'queue' | 'trash'
+  const [hiddenRows, setHiddenRows] = useState([])
+  const [view, setView] = useState('queue') // 'queue' | 'trash' | 'hidden'
   const [filters, setFilters] = useState({ vertical: '', gate: '', severity: '', action: '' })
   const [loading, setLoading] = useState(false)
   const [busy, setBusy] = useState(false)
   const [missing, setMissing] = useState(!!tableMissing)
-  const [counts, setCounts] = useState({ pending: pendingCount || 0, trash: trashCount || 0 })
+  const [counts, setCounts] = useState({ pending: pendingCount || 0, trash: trashCount || 0, hidden: hiddenCount || 0 })
   const [session, setSession] = useState({ kept: 0, hidden: 0, deleted: 0, repaired: 0 })
   const [scan, setScan] = useState({ running: false, result: null, error: null })
   const [ai, setAi] = useState({}) // rowId -> { busy?, verdict?, error? }
   const [msg, setMsg] = useState(loadError ? { kind: 'error', text: loadError } : null)
 
   const isTrash = view === 'trash'
+  const isHidden = view === 'hidden'
+  const isQueue = view === 'queue'
   const current = rows[0] || null
   const sessionReviewed = session.kept + session.hidden + session.deleted + session.repaired
   const totalQueue = rows.length + sessionReviewed
@@ -71,9 +74,9 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
   const refetch = useCallback(async (nextView = view, nextFilters = filters) => {
     setLoading(true)
     try {
-      const status = nextView === 'trash' ? 'deleted' : 'pending'
+      const status = nextView === 'trash' ? 'deleted' : nextView === 'hidden' ? 'hidden' : 'pending'
       const params = new URLSearchParams({ status })
-      if (nextView !== 'trash') {
+      if (nextView === 'queue') {
         if (nextFilters.vertical) params.set('vertical', nextFilters.vertical)
         if (nextFilters.gate) params.set('gate', nextFilters.gate)
         if (nextFilters.severity) params.set('severity', nextFilters.severity)
@@ -84,6 +87,7 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
       if (!res.ok) throw new Error(data.error || 'Failed to load')
       if (data.tableMissing) { setMissing(true); return }
       if (nextView === 'trash') setTrashRows(data.rows || [])
+      else if (nextView === 'hidden') setHiddenRows(data.rows || [])
       else setRows(data.rows || [])
     } catch (err) {
       setMsg({ kind: 'error', text: err.message })
@@ -95,6 +99,7 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
   const changeView = (v) => {
     setView(v)
     if (v === 'trash') refetch('trash', filters)
+    else if (v === 'hidden') refetch('hidden', filters)
   }
   const changeFilter = (key, val) => {
     const next = { ...filters, [key]: (filters[key] === val ? '' : val) }
@@ -115,7 +120,8 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Action failed')
       setRows(prev => prev.filter(r => r.id !== id))
-      if (action === 'delete') setCounts(prev => ({ pending: Math.max(0, prev.pending - 1), trash: prev.trash + 1 }))
+      if (action === 'delete') setCounts(prev => ({ ...prev, pending: Math.max(0, prev.pending - 1), trash: prev.trash + 1 }))
+      else if (action === 'hide') setCounts(prev => ({ ...prev, pending: Math.max(0, prev.pending - 1), hidden: prev.hidden + 1 }))
       else setCounts(prev => ({ ...prev, pending: Math.max(0, prev.pending - 1) }))
       if (action === 'pass') setSession(s => ({ ...s, kept: s.kept + 1 }))
       else if (action === 'hide') setSession(s => ({ ...s, hidden: s.hidden + 1 }))
@@ -148,6 +154,34 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
       setBusy(false)
     }
   }, [trashRows])
+
+  // Restore a hidden listing (listing-driven: works with or without a gate-check row).
+  const restoreHidden = useCallback(async (listingId) => {
+    setBusy(true)
+    try {
+      const res = await fetch('/api/admin/gate-check', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ restoreListingIds: [listingId] }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Restore failed')
+      const restored = hiddenRows.find(r => r.listing_id === listingId)
+      setHiddenRows(prev => prev.filter(r => r.listing_id !== listingId))
+      // If it carried a gate-check row it goes back to pending (into the queue).
+      const backToQueue = !!restored?.id
+      setCounts(prev => ({
+        ...prev,
+        hidden: Math.max(0, prev.hidden - 1),
+        pending: backToQueue ? prev.pending + 1 : prev.pending,
+      }))
+      if (backToQueue) setRows(prev => [{ ...restored, status: 'pending' }, ...prev])
+      setMsg({ kind: 'ok', text: backToQueue ? 'Restored — live again and back in the review queue.' : 'Restored — the listing is live again.' })
+    } catch (err) {
+      setMsg({ kind: 'error', text: err.message })
+    } finally {
+      setBusy(false)
+    }
+  }, [hiddenRows])
 
   // ── AI fit check (LLM Gate 4) for the current card ───────────────────────────
   const runAi = useCallback(async (rowId) => {
@@ -227,7 +261,7 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
   // ── Keyboard shortcuts (queue view) — P keep · H hide · D delete · A ai ──────
   useEffect(() => {
     const onKey = (e) => {
-      if (isTrash || !current || busy) return
+      if (!isQueue || !current || busy) return
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable) return
       const k = e.key.toLowerCase()
       if (k === 'p' || e.key === 'ArrowRight') { e.preventDefault(); runAction(current.id, 'pass') }
@@ -238,7 +272,7 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [isTrash, current, busy, ai, runAction, runAi, doRepair, repairing])
+  }, [isQueue, current, busy, ai, runAction, runAi, doRepair, repairing])
 
   return (
     <div style={{ maxWidth: 860, margin: '0 auto', padding: '2rem 1.5rem 4rem' }}>
@@ -264,12 +298,15 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
 
       {/* Tabs */}
       <div style={{ display: 'flex', borderBottom: `1px solid ${BORDER}`, marginBottom: 16 }}>
-        <Tab active={!isTrash} onClick={() => changeView('queue')}>Review Queue ({counts.pending})</Tab>
+        <Tab active={isQueue} onClick={() => changeView('queue')}>Review Queue ({counts.pending})</Tab>
+        <Tab active={isHidden} onClick={() => changeView('hidden')}>Hidden ({counts.hidden})</Tab>
         <Tab active={isTrash} onClick={() => changeView('trash')}>Trash ({counts.trash})</Tab>
       </div>
 
       {isTrash ? (
         <TrashView rows={trashRows} loading={loading} busy={busy} onRestore={restore} />
+      ) : isHidden ? (
+        <HiddenView rows={hiddenRows} loading={loading} busy={busy} onRestore={restoreHidden} />
       ) : (
         <>
           {/* Controls: filters + quick re-scan */}
@@ -556,6 +593,52 @@ function TrashView({ rows, loading, busy, onRestore }) {
               </div>
             </div>
             <button onClick={() => onRestore(r.id)} disabled={busy} style={{
+              height: 32, padding: '0 14px', borderRadius: 8, background: '#fff', border: `1px solid ${KEEP}`,
+              fontFamily: font.body, fontSize: 12, fontWeight: 600, color: KEEP, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.5 : 1, flexShrink: 0,
+            }}>Restore</button>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Hidden — every listing currently hidden (Gate-Check, dedupe, or editor), with
+// its reason and a Restore. Listing-driven, so it surfaces hides that never
+// produced a gate-check row.
+// ════════════════════════════════════════════════════════════════════════════
+const HIDDEN_SOURCE_META = {
+  gate_check: { label: 'Gate Check', color: HIDE },
+  merge:      { label: 'Merged duplicate', color: '#a24d7a' },
+  other:      { label: 'Editor / other', color: MUTED },
+}
+function HiddenView({ rows, loading, busy, onRestore }) {
+  if (loading) return <Empty>Loading…</Empty>
+  if (!rows.length) return <Empty><div style={{ fontFamily: font.body, fontSize: 14, color: MUTED }}>No hidden listings — nothing to restore.</div></Empty>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <p style={{ fontFamily: font.body, fontSize: 12.5, color: MUTED, margin: '0 0 4px', lineHeight: 1.5 }}>
+        Every listing currently hidden from the public site — hidden here in the Gate Check, merged as a duplicate, or hidden in the editor.
+        Restore brings a listing back live (and, if it was a merged duplicate, un-merges it).
+      </p>
+      {rows.map(r => {
+        const l = r.listing || {}
+        const src = HIDDEN_SOURCE_META[r.hidden_source] || HIDDEN_SOURCE_META.other
+        const edit = l.name ? `/admin/listings?search=${encodeURIComponent(l.name)}` : '/admin/listings'
+        return (
+          <div key={r.listing_id} style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#fff', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '10px 14px' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                <span style={{ fontFamily: font.body, fontWeight: 600, fontSize: 13.5, color: INK, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l.name || '(listing)'}</span>
+                <span style={{ flexShrink: 0, fontFamily: font.body, fontSize: 9.5, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: '#fff', background: src.color, borderRadius: 4, padding: '2px 6px' }}>{src.label}</span>
+              </div>
+              <div style={{ fontFamily: font.body, fontSize: 11.5, color: MUTED, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {[VERTICAL_NAMES[l.vertical] || l.vertical, l.region || l.state].filter(Boolean).join(' · ')}  —  {r.reason_summary}
+              </div>
+              <a href={edit} target="_blank" rel="noreferrer" style={{ fontFamily: font.body, fontSize: 11, color: MUTED, textDecoration: 'none' }}>Open in editor ›</a>
+            </div>
+            <button onClick={() => onRestore(r.listing_id)} disabled={busy} style={{
               height: 32, padding: '0 14px', borderRadius: 8, background: '#fff', border: `1px solid ${KEEP}`,
               fontFamily: font.body, fontSize: 12, fontWeight: 600, color: KEEP, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.5 : 1, flexShrink: 0,
             }}>Restore</button>

@@ -51,6 +51,18 @@ const MIN_LEAD_ROWS = 3
 // precision stage). 80 covers the first ~3 pages; the tail keeps fused order.
 const RERANK_TOP_N = parseInt(process.env.SEARCH_RERANK_TOPN || '80', 10)
 
+// Global cross-encoder floor for a row to count as STRONG (the earned "Top
+// result" badge, bold map pins, weak-pool detection). One floor works across
+// every atlas because a cross-encoder scores query+document together — unlike
+// the per-vertical bi-encoder floors (relevanceFloor.js), whose gaps let a
+// low-floor atlas hijack the badge: "organic cheese" once badged two wineries
+// (sba floor 0.46) over the Table dairy rows (default floor 0.53) that were
+// deliberately LED first. Calibrated 2026-07-06 on live pools: true targets
+// scored 0.57–0.91 across five in-scope probes, junk pools maxed at 0.45, and
+// single-stray-token matches (a winery mentioning "organic") sat ≤0.48.
+// Overridable without a deploy via SEARCH_STRONG_RERANK_FLOOR.
+const RERANK_STRONG_FLOOR = parseFloat(process.env.SEARCH_STRONG_RERANK_FLOOR || '0.55')
+
 /** Lat/lng bounding box (degrees) for a radius in km around a centre point. */
 function boxAround(lat, lng, km) {
   const dLat = km / 111
@@ -163,7 +175,9 @@ function buildPins(rows) {
     pins.push({
       id: r.id, slug: r.slug, name: r.name, vertical: r.vertical,
       sub_type: r.sub_type || null, suburb: r.suburb || null, state: r.state || null,
-      lat: r.lat, lng: r.lng, strong: isStrongRow(r),
+      // Prefer the per-row strength computed after the rerank stage; browse
+      // rows (no text ranking) fall back to the bi-encoder floor gate.
+      lat: r.lat, lng: r.lng, strong: typeof r.strong === 'boolean' ? r.strong : isStrongRow(r),
     })
   }
   return pins
@@ -488,6 +502,19 @@ export async function GET(request) {
         all = rr.listings
         reranked = rr.reranked
       }
+      // ── Per-row strength ──────────────────────────────────────────────────
+      // `strong` drives the earned "Top result" treatment, bold map pins and
+      // weak-pool detection. When the cross-encoder ran, its calibrated score
+      // is the gate — comparable across atlases, so a tangential match riding
+      // one stray query token can't out-badge the rows that actually answer
+      // the query. Fallback (rerank disabled/failed): the original per-vertical
+      // bi-encoder floors. Proximity rows carry no text score → never strong.
+      all = all.map((r) => ({
+        ...r,
+        strong: reranked
+          ? typeof r.rerank_score === 'number' && r.rerank_score >= RERANK_STRONG_FLOOR
+          : isStrongRow(r),
+      }))
       // Drop the focus if the detected atlas is barely represented — the keyword
       // matched but the results are really cross-atlas, so don't lead/label it.
       if (detectedVertical &&
@@ -525,7 +552,7 @@ export async function GET(request) {
       // returned as `nameMatch` so the UI can surface the venue's card
       // directly; `didYouMean` (the bare name) is kept for the vertical
       // search proxies that still read it.
-      const weakPool = !proximityResult && all.length > 0 && !all.some(isStrongRow)
+      const weakPool = !proximityResult && all.length > 0 && !all.some((r) => r.strong)
       let nameMatch = (total === 0 || weakPool) ? await fuzzyNameMatch(sb, q) : null
       // Already on the first page → the card is right there; don't repeat it.
       if (nameMatch && listings.some((l) => l.id === nameMatch.id)) nameMatch = null
