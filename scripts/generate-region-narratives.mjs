@@ -139,6 +139,8 @@ const GENERIC_ALLOWED = new Set([
   'victoria', 'victorian', 'queensland', 'tasmania', 'tasmanian', 'nsw', 'wa', 'sa', 'nt', 'act',
   'new', 'south', 'wales', 'western', 'northern', 'territory', 'capital',
   'east', 'west', 'north', 'coast', 'coastal', 'inland', 'outback', 'hinterland',
+  'valley', 'ranges', 'river', 'bay', 'peninsula', 'island', 'alpine',
+  'thai', 'chinese', 'italian', 'japanese', 'vietnamese', 'greek', 'indian', 'korean', 'french', 'spanish', 'mexican', 'lebanese', 'turkish', 'mediterranean', 'asian', 'european',
   'indigenous', 'aboriginal', 'first', 'nations', 'country',
 ])
 
