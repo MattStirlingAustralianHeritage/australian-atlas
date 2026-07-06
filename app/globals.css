@@ -370,10 +370,11 @@ h1 { letter-spacing: -0.015em; font-feature-settings: 'liga' 1, 'kern' 1; }
   position: fixed;
   inset: 0;
   z-index: 90;
-  background: rgba(24, 21, 17, 0.34);
+  /* A veil, not a blackout — the page recedes but stays readable. */
+  background: rgba(24, 21, 17, 0.16);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.32s ease;
+  transition: opacity 0.35s ease;
 }
 .search-scrim.is-active {
   opacity: 1;
@@ -385,15 +386,15 @@ h1 { letter-spacing: -0.015em; font-feature-settings: 'liga' 1, 'kern' 1; }
 .search-spotlight.is-active {
   z-index: 91;
 }
-/* Under the spotlight the shell glows past its plain focus state — a gold
-   halo wide enough to read against the darkened page. */
+/* Under the spotlight the shell glows a step past its plain focus state —
+   a quiet halo, enough to read against the veiled page without shouting. */
 .search-spotlight.is-active .home-search-shell,
 .search-spotlight.is-active .search-shell {
   border-color: var(--color-gold);
   box-shadow:
-    0 0 0 5px rgba(196, 151, 59, 0.16),
-    0 0 46px rgba(196, 151, 59, 0.30),
-    0 22px 70px rgba(12, 10, 8, 0.42);
+    0 0 0 4px rgba(196, 151, 59, 0.10),
+    0 0 28px rgba(196, 151, 59, 0.18),
+    0 14px 44px rgba(12, 10, 8, 0.24);
 }
 @media (prefers-reduced-motion: reduce) {
   .search-scrim { transition: none; }
