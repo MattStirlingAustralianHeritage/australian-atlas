@@ -8,15 +8,10 @@ import { VERTICAL_ACCENTS, VERTICAL_CARD_TOKENS } from '@/lib/verticalUrl'
 import { articleBodyToHtml, readingTime } from '@/lib/journal/render'
 import ReadingProgress from './ReadingProgress'
 
+// Renders dynamically like every other portal route (getLocale/getTranslations
+// read request headers, which the on-demand ISR path forbids — pairing them
+// with generateStaticParams 500s in production with DYNAMIC_SERVER_USAGE).
 export const revalidate = 3600
-// supabase-js reads carry auth headers that Next would otherwise treat as
-// no-store, silently forcing this route dynamic. 'default-cache' lets ISR cache.
-export const fetchCache = 'default-cache'
-
-// Slugs live in the master DB — no build-time prerender, on-demand ISR fills.
-export async function generateStaticParams() {
-  return []
-}
 
 const SITE_URL = 'https://www.australianatlas.com.au'
 
