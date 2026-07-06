@@ -276,7 +276,7 @@
     "assistGroundedNote": "推荐只来自您当前的搜索结果，绝不虚构。",
     "assistUnavailable": "助手目前不可用 — 可以使用上方的筛选。",
     "assistNoPicks": "没有完全符合的 — 换个方向试试。",
-    "didYouMean": "您的意思是 <suggestion></suggestion>？",
+    "closestNameMatch": "名称最接近的结果",
     "cappedSuffix": "（显示最匹配的结果）",
     "sortLabel": "排序：",
     "sortResults": "排序结果",

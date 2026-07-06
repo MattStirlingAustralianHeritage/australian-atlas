@@ -276,7 +276,7 @@
     "assistGroundedNote": "아이디어는 현재 검색 결과에서만 고르며, 지어내지 않습니다.",
     "assistUnavailable": "지금은 어시스턴트를 사용할 수 없어요 — 위의 필터를 이용해 보세요.",
     "assistNoPicks": "딱 맞는 곳이 없네요 — 다른 방향을 시도해 보세요.",
-    "didYouMean": "<suggestion></suggestion>을(를) 찾으셨나요?",
+    "closestNameMatch": "이름이 가장 비슷한 곳",
     "cappedSuffix": "(상위 일치 항목 표시 중)",
     "sortLabel": "정렬:",
     "sortResults": "결과 정렬",

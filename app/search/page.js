@@ -219,6 +219,19 @@ function fmtCategory(cat) {
   return String(cat).replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
+// One-line concierge "why it fits" shown under a result card (shared by the
+// inquiry concierge's cards and the post-search brief's cards).
+function ReasonLine({ text }) {
+  return (
+    <p style={{ margin: '9px 2px 0', display: 'flex', gap: 7, alignItems: 'flex-start', fontFamily: 'var(--font-body)', fontSize: '12.5px', lineHeight: 1.5, color: 'var(--color-muted)' }}>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--color-gold)', flexShrink: 0, marginTop: 2 }} aria-hidden="true">
+        <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />
+      </svg>
+      <span>{text}</span>
+    </p>
+  )
+}
+
 const EVENT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 // Compact event card for the search "What's on" lane. Date block + title +
@@ -397,7 +410,8 @@ function SearchPageInner() {
   const [detectedPlace, setDetectedPlace] = useState(null) // town/suburb resolved from query (gazetteer/geocoded)
   const [noBind, setNoBind] = useState(false)          // user dismissed the detected-region/place chip
   const [noVerticalBind, setNoVerticalBind] = useState(false) // user broadened past the detected atlas
-  const [didYouMean, setDidYouMean] = useState(null)   // fuzzy suggestion on zero/weak results
+  const [nameMatch, setNameMatch] = useState(null)     // fuzzy full-listing match on zero/weak results
+  const [brief, setBrief] = useState(null)             // post-search concierge write-up { loading, answer, reasonById }
   const [facets, setFacets] = useState({ subTypes: [], regions: [] })
   const [subType, setSubType] = useState('')           // sub_type facet refine
   const [facetRegion, setFacetRegion] = useState('')   // region facet refine
@@ -407,6 +421,7 @@ function SearchPageInner() {
   const [forceExact, setForceExact] = useState(false)  // user opted out of the concierge for this query
 
   const { location } = useLocation()                   // { lat, lng, name } or null
+  const briefSeq = useRef(0)                           // stale-guard: only the latest search's brief lands
   const formRef = useRef(null)
   const viewRef = useRef(view)
   viewRef.current = view
@@ -481,6 +496,10 @@ function SearchPageInner() {
       setSlowSearch(false)
     }
     const slowTimer = append ? null : setTimeout(() => setSlowSearch(true), 4000)
+    // Every fresh search supersedes any in-flight concierge brief ("show more"
+    // appends don't — the brief covers the top results, which stay put).
+    if (!append) briefSeq.current += 1
+    const seq = briefSeq.current
 
     // A plain-language request (a gift, an occasion, "somewhere to take mum")
     // is answered by the concierge instead of ranked as a name/category lookup.
@@ -507,7 +526,7 @@ function SearchPageInner() {
           setAskAnswer({ answer: data.answer || null, intent: data.intent || null, atlas: data.atlas || null })
           setTotal(data.total || data.listings.length)
           setEvents([]); setCapped(false); setPage(1); setTotalPages(0)
-          setFacets({ subTypes: [], regions: [] }); setDidYouMean(null); setPins([])
+          setFacets({ subTypes: [], regions: [] }); setNameMatch(null); setBrief(null); setPins([])
           setDetectedVertical(data.atlas || null)
           setAutoState(data.detectedState && !state ? data.detectedState : '')
           setAutoSuburb(''); setAutoRegion(data.detectedRegion || null); setDetectedPlace(null)
@@ -553,7 +572,41 @@ function SearchPageInner() {
       setPage(data.page || 1)
       setTotalPages(data.totalPages || 0)
       setFacets(data.facets || { subTypes: [], regions: [] })
-      setDidYouMean(data.didYouMean || null)
+      if (!append) setNameMatch(data.nameMatch || null)
+
+      // ── Post-search concierge brief ─────────────────────────────────────
+      // Once a keyword search settles, the concierge writes a short grounded
+      // note about the results the visitor is looking at (one cheap, cached,
+      // fail-open call — see /api/search/brief). It reads the ranking; it
+      // never changes it. A fresh search supersedes an in-flight brief.
+      if (!append && p === 1 && query && Array.isArray(data.listings) && data.listings.length > 0) {
+        const weak = !data.listings.some(isStrongMatch) &&
+          !(data.detectedPlace && data.detectedPlace.proximity)
+        const ids = data.listings.slice(0, 10).map((l) => l.id)
+        setBrief({ loading: true, answer: null, reasonById: {} })
+        setTimeout(() => {
+          if (briefSeq.current !== seq) return
+          fetch('/api/search/brief', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query, ids, weak, locale }),
+          })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((d) => {
+              if (briefSeq.current !== seq) return
+              if (d && d.answer) {
+                const reasonById = {}
+                for (const rr of d.reasons || []) if (rr && rr.id && rr.why) reasonById[rr.id] = rr.why
+                setBrief({ loading: false, answer: d.answer, reasonById })
+              } else {
+                setBrief(null)   // fail-open: no panel, results stand alone
+              }
+            })
+            .catch(() => { if (briefSeq.current === seq) setBrief(null) })
+        }, 650)
+      } else if (!append) {
+        setBrief(null)
+      }
       // Sync auto-detected location from query text (for chip highlighting)
       if (data.detectedState && !state) {
         setAutoState(data.detectedState)
@@ -1201,23 +1254,47 @@ function SearchPageInner() {
         </div>
       )}
 
-      {/* Did you mean — offered inline when the pool is weak (typo'd venue
-          names usually still return "related" soup; this is the way out). */}
-      {!askMode && !loading && didYouMean && results.length > 0 && (
-        <div className="mt-5">
-          <p style={{ fontFamily: 'var(--font-body)', fontSize: '14px', color: 'var(--color-ink)', margin: 0 }}>
-            {t.rich('didYouMean', {
-              suggestion: (chunks) => (
-                <button
-                  type="button"
-                  onClick={() => { setNoBind(false); setQuery(didYouMean) }}
-                  style={{ color: 'var(--color-accent)', fontWeight: 600, textDecoration: 'underline', textUnderlineOffset: 3, background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 'inherit', fontFamily: 'inherit' }}
-                >
-                  {didYouMean}
-                </button>
-              ),
-            })}
+      {/* Concierge brief — once a keyword search settles, a short grounded
+          write-up of what came back frames the results (rendered only when an
+          answer actually arrived; the whole lane is fail-open). */}
+      {!askMode && brief && brief.answer && (
+        <div
+          className="mt-6"
+          style={{
+            padding: '1.1rem 1.4rem',
+            borderRadius: '1rem',
+            background: 'var(--color-cream)',
+            border: '1px solid var(--color-border)',
+            borderLeft: '3px solid var(--color-gold)',
+            animation: 'search-card-in 0.35s ease both',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--color-gold)' }} aria-hidden="true">
+              <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />
+            </svg>
+            <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--color-gold)' }}>
+              {t('atlasConcierge')}
+            </span>
+          </div>
+          <p style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 'clamp(1rem, 2.2vw, 1.2rem)', lineHeight: 1.5, color: 'var(--color-ink)', margin: '9px 0 0' }}>
+            {brief.answer}
           </p>
+        </div>
+      )}
+
+      {/* Closest name match — when the words matched no listing strongly but
+          ONE venue's name is clearly what was being typed, show that venue's
+          card outright (one click to the place) instead of a "did you mean?"
+          link that would just re-run the search. */}
+      {!askMode && !loading && nameMatch && results.length > 0 && (
+        <div className="mt-5" style={{ maxWidth: 640 }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--color-gold)', margin: '0 0 8px' }}>
+            {t('closestNameMatch')}
+          </p>
+          <div style={{ background: '#fff', borderRadius: 'var(--radius-card)', border: '0.5px solid var(--color-border)', padding: '6px 8px' }}>
+            <SearchResultCard variant="compact" listing={nameMatch} query={query} onClick={() => trackSearchClick(nameMatch, 0)} />
+          </div>
         </div>
       )}
 
@@ -1378,17 +1455,17 @@ function SearchPageInner() {
               : t('noResultsHelp')}
           </p>
 
-          {/* Did you mean — fuzzy correction of the raw query */}
-          {didYouMean && (
-            <p className="mb-5" style={{ fontFamily: 'var(--font-body)', fontSize: '15px', color: 'var(--color-ink)' }}>
-              {t.rich('didYouMean', {
-                suggestion: (chunks) => (
-                  <button type="button" onClick={() => { setNoBind(false); setQuery(didYouMean) }} style={{ color: 'var(--color-accent)', fontWeight: 600, textDecoration: 'underline', textUnderlineOffset: 3 }}>
-                    {didYouMean}
-                  </button>
-                ),
-              })}
-            </p>
+          {/* Closest name match — the venue the query was probably reaching
+              for, shown as its actual card (no re-search round-trip). */}
+          {nameMatch && (
+            <div className="mb-6 mx-auto text-left" style={{ maxWidth: 560 }}>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--color-gold)', margin: '0 0 8px' }}>
+                {t('closestNameMatch')}
+              </p>
+              <div style={{ background: '#fff', borderRadius: 'var(--radius-card)', border: '0.5px solid var(--color-border)', padding: '6px 8px' }}>
+                <SearchResultCard variant="compact" listing={nameMatch} query={query} onClick={() => trackSearchClick(nameMatch, 0)} />
+              </div>
+            </div>
           )}
 
           {/* Clear the filters that may be the culprit */}
@@ -1446,14 +1523,7 @@ function SearchPageInner() {
                 distanceKm={listing.distanceKm}
                 onClick={() => trackSearchClick(listing, idx + 1)}
               />
-              {listing.reason && (
-                <p style={{ margin: '9px 2px 0', display: 'flex', gap: 7, alignItems: 'flex-start', fontFamily: 'var(--font-body)', fontSize: '12.5px', lineHeight: 1.5, color: 'var(--color-muted)' }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--color-gold)', flexShrink: 0, marginTop: 2 }} aria-hidden="true">
-                    <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" />
-                  </svg>
-                  <span>{listing.reason}</span>
-                </p>
-              )}
+              {listing.reason && <ReasonLine text={listing.reason} />}
             </div>
           ))}
         </div>
@@ -1502,8 +1572,10 @@ function SearchPageInner() {
       ) : view === 'list' ? (
         /* ── List view: the ranked editorial index ── */
         <div className="mt-4" style={{ opacity: loading ? 0.5 : 1, transition: 'opacity 0.15s', pointerEvents: loading ? 'none' : 'auto' }}>
-          {/* Nothing cleared the floor (e.g. a nonsense query): no confident ranking claim */}
-          {weakOnly && (
+          {/* Nothing cleared the floor (e.g. a nonsense query): no confident
+              ranking claim. The concierge brief says this more helpfully, so
+              the banner only stands in while there's no write-up. */}
+          {weakOnly && !brief?.answer && (
             <div className="mb-3" style={{ padding: '0.9rem 1.2rem', borderRadius: '0.75rem', border: '0.5px solid var(--color-border)', background: '#fff' }}>
               <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px', color: 'var(--color-ink)', margin: 0 }}>
                 {t('noStrongMatches', { query })}
@@ -1514,6 +1586,11 @@ function SearchPageInner() {
             {displayResults.map((listing, idx) => (
               <div key={listing.id} style={{ animation: 'search-card-in 0.3s ease both', animationDelay: `${Math.min(idx, 10) * 25}ms`, borderTop: idx > 0 ? '1px solid var(--color-border)' : 'none' }}>
                 <SearchResultCard variant="list" rank={idx + 1} {...cardProps(listing, idx)} />
+                {brief?.reasonById?.[listing.id] && (
+                  <div style={{ padding: '0 14px 10px' }}>
+                    <ReasonLine text={brief.reasonById[listing.id]} />
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -1528,19 +1605,22 @@ function SearchPageInner() {
           {featured.length > 0 && (
             <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-5" style={{ opacity: loading ? 0.5 : 1, transition: 'opacity 0.15s', pointerEvents: loading ? 'none' : 'auto' }}>
               {featured.map((listing, idx) => (
-                <FeaturedCard
-                  key={listing.id}
-                  listing={listing}
-                  query={query}
-                  active={hoveredId === listing.id}
-                  onHover={setHoveredId}
-                  onClick={query ? () => trackSearchClick(listing, idx + 1) : undefined}
-                />
+                <div key={listing.id}>
+                  <FeaturedCard
+                    listing={listing}
+                    query={query}
+                    active={hoveredId === listing.id}
+                    onHover={setHoveredId}
+                    onClick={query ? () => trackSearchClick(listing, idx + 1) : undefined}
+                  />
+                  {brief?.reasonById?.[listing.id] && <ReasonLine text={brief.reasonById[listing.id]} />}
+                </div>
               ))}
             </div>
           )}
-          {/* Nothing cleared the floor (e.g. a nonsense query): no confident top-3 */}
-          {weakOnly && (
+          {/* Nothing cleared the floor (e.g. a nonsense query): no confident
+              top-3. Suppressed once the concierge brief frames it instead. */}
+          {weakOnly && !brief?.answer && (
             <div className="mt-4" style={{ padding: '0.9rem 1.2rem', borderRadius: '0.75rem', border: '0.5px solid var(--color-border)', background: '#fff' }}>
               <p style={{ fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px', color: 'var(--color-ink)', margin: 0 }}>
                 {t('noStrongMatches', { query })}
@@ -1551,6 +1631,7 @@ function SearchPageInner() {
             {gridListings.map((listing, idx) => (
               <div key={listing.id} style={{ animation: 'search-card-in 0.35s ease both', animationDelay: `${Math.min(idx % 24, 11) * 28}ms` }}>
                 <SearchResultCard variant="grid" {...cardProps(listing, featured.length + idx)} />
+                {brief?.reasonById?.[listing.id] && <ReasonLine text={brief.reasonById[listing.id]} />}
               </div>
             ))}
           </div>

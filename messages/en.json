@@ -276,7 +276,7 @@
     "assistGroundedNote": "Ideas are picked from your current results — never invented.",
     "assistUnavailable": "The assistant isn't available right now — the filters above can help narrow things down.",
     "assistNoPicks": "Nothing here fits that exactly — try another direction.",
-    "didYouMean": "Did you mean <suggestion></suggestion>?",
+    "closestNameMatch": "Closest name match",
     "cappedSuffix": "(showing top matches)",
     "sortLabel": "Sort:",
     "sortResults": "Sort results",

@@ -169,17 +169,21 @@ function buildPins(rows) {
   return pins
 }
 
-/** On a zero-result query, fuzzy-match the raw text (no filters) to suggest a
- *  correction — surfaces the venue a typo'd query was reaching for. */
-async function fuzzySuggest(sb, q) {
+/** On a zero/weak-result query, fuzzy-match the raw text (no filters) to find
+ *  the venue a typo'd query was reaching for. Returns the full public row so
+ *  the UI can show the venue itself (a card straight to the place) instead of
+ *  a "did you mean?" link that just re-runs the search. */
+async function fuzzyNameMatch(sb, q) {
   if (!q || q.length < 3) return null
   try {
     const { data } = await sb.rpc('search_listings_hybrid', {
       query_embedding: null, query_text: q, match_count: 1,
       include_way: isVerticalPublic('way'),
     })
-    const hit = (data || []).find(isPublicListing)
-    return hit ? hit.name : null
+    const hit = (data || []).find((r) => isPublicListing(r) && isVerticalPublic(r.vertical))
+    if (!hit) return null
+    const { fused_score, address, ...rest } = hit
+    return { ...rest, also_in: [] }
   } catch { return null }
 }
 
@@ -514,13 +518,19 @@ export async function GET(request) {
       listings = await overlayListingTranslations(listings, locale, sb)
       pins = await overlayListingTranslations(pins, locale, sb)
 
-      // Fuzzy "did you mean" against the raw query (no filters) — offered on
-      // zero results AND on weak-only pools (nothing cleared the relevance
-      // floor), which is where a typo'd venue name actually lands. Proximity
-      // results carry no similarity, so they never count as "weak".
+      // Fuzzy name-match against the raw query (no filters) — computed on zero
+      // results AND on weak-only pools (nothing cleared the relevance floor),
+      // which is where a typo'd venue name actually lands. Proximity results
+      // carry no similarity, so they never count as "weak". The full row is
+      // returned as `nameMatch` so the UI can surface the venue's card
+      // directly; `didYouMean` (the bare name) is kept for the vertical
+      // search proxies that still read it.
       const weakPool = !proximityResult && all.length > 0 && !all.some(isStrongRow)
-      let didYouMean = (total === 0 || weakPool) ? await fuzzySuggest(sb, q) : null
-      if (didYouMean && didYouMean.trim().toLowerCase() === q.trim().toLowerCase()) didYouMean = null
+      let nameMatch = (total === 0 || weakPool) ? await fuzzyNameMatch(sb, q) : null
+      // Already on the first page → the card is right there; don't repeat it.
+      if (nameMatch && listings.some((l) => l.id === nameMatch.id)) nameMatch = null
+      if (nameMatch) [nameMatch] = await overlayListingTranslations([nameMatch], locale, sb)
+      const didYouMean = nameMatch ? nameMatch.name : null
 
       trackSearchAppearances(listings)
       logSearch(request, { queryText: clampQuery(q), verticalFilter: vertical, resultCount: total })
@@ -535,7 +545,7 @@ export async function GET(request) {
       })
 
       return NextResponse.json({
-        listings, total, capped, facets, subType, facetRegion, didYouMean, page, limit, reranked, pins,
+        listings, total, capped, facets, subType, facetRegion, didYouMean, nameMatch, page, limit, reranked, pins,
         totalPages: Math.ceil(total / limit),
         detectedVertical, detectedState: detectedState || null, detectedRegion, detectedSuburb,
         // Place-aware search: the resolved town/suburb the results are scoped to
