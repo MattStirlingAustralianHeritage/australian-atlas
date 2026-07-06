@@ -1,6 +1,52 @@
+import { unstable_cache } from 'next/cache'
 import { getTranslations, getLocale } from 'next-intl/server'
+import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getLiveRegionsCached } from '@/lib/regions/liveRegions'
-import RegionMapCard from '@/components/RegionMapCard'
+import { localizeRegionName, localizeVerticalKicker } from '@/lib/i18n/listingLabels'
+import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
+import RegionIndexCard from '@/components/RegionIndexCard'
+
+const VERTICAL_SHORT_LABELS = {
+  sba: 'Small Batch',
+  fine_grounds: 'Fine Grounds',
+  collection: 'Culture',
+  craft: 'Craft',
+  rest: 'Rest',
+  field: 'Field',
+  corner: 'Corner',
+  found: 'Found',
+  table: 'Table',
+  way: 'Way',
+}
+
+// Per-region category mix for the index cards — one paged sweep over active
+// listings (PostgREST caps responses at 1000 rows), aggregated to
+// { region_id: { vertical: count } } and cached for an hour.
+const getRegionVerticalMixCached = unstable_cache(
+  async () => {
+    const sb = getSupabaseAdmin()
+    const mix = {}
+    for (let page = 0; page < 20; page++) {
+      const { data, error } = await sb
+        .from('listings_with_region')
+        .select('region_id, vertical')
+        .eq('status', 'active')
+        .not('region_id', 'is', null)
+        .order('id', { ascending: true })
+        .range(page * 1000, page * 1000 + 999)
+      if (error) throw error
+      for (const row of data || []) {
+        if (!mix[row.region_id]) mix[row.region_id] = {}
+        mix[row.region_id][row.vertical] = (mix[row.region_id][row.vertical] || 0) + 1
+      }
+      if (!data || data.length < 1000) break
+    }
+    if (Object.keys(mix).length === 0) throw new Error('empty vertical mix — refusing to cache')
+    return mix
+  },
+  ['regions-index-vertical-mix'],
+  { revalidate: 3600 }
+)
 
 export const revalidate = 3600
 
@@ -43,7 +89,25 @@ async function getRegions() {
 
 export default async function RegionsPage() {
   const t = await getTranslations('regions')
+  const locale = await getLocale()
   const regions = await getRegions()
+  let verticalMix = {}
+  try {
+    verticalMix = await getRegionVerticalMixCached()
+  } catch { /* cards render without category chips */ }
+
+  const chipsFor = (region) => {
+    const counts = verticalMix[region.id] || {}
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([v, count]) => ({
+        key: v,
+        label: localizeVerticalKicker(v, VERTICAL_SHORT_LABELS[v] || v, locale),
+        count,
+        color: VERTICAL_ACCENTS[v] || '#888',
+      }))
+  }
 
   // Group by state
   const byState = {}
@@ -140,7 +204,6 @@ export default async function RegionsPage() {
       <div style={{ maxWidth: '72rem', margin: '0 auto', padding: '2.5rem 1.5rem 4rem' }}>
         {presentStates.map(state => {
           const stateRegions = byState[state]
-          const isOrphan = stateRegions.length % 3 === 1
           const statePlaces = stateRegions.reduce((sum, r) => sum + (r.listing_count || 0), 0)
           return (
             <section
@@ -189,16 +252,17 @@ export default async function RegionsPage() {
                 style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(3, 1fr)',
-                  gap: '1.25rem',
-                  paddingTop: '16px',
+                  gap: '1.1rem',
+                  paddingTop: '4px',
                 }}
                 className="regions-grid"
               >
-                {stateRegions.map((region, idx) => (
-                  <RegionMapCard
+                {stateRegions.map(region => (
+                  <RegionIndexCard
                     key={region.id}
-                    region={region}
-                    isOrphanLast={isOrphan && idx === stateRegions.length - 1}
+                    region={{ ...region, name: localizeRegionName(region.name, locale) }}
+                    chips={chipsFor(region)}
+                    placeLabel={t('placeCount', { count: region.listing_count || 0 })}
                   />
                 ))}
               </div>
@@ -208,9 +272,10 @@ export default async function RegionsPage() {
       </div>
 
       <style>{`
-        .region-map-card:hover {
-          transform: scale(1.02);
-          border-color: rgba(184, 134, 43, 0.4) !important;
+        .region-index-card:hover {
+          transform: translateY(-2px);
+          border-color: rgba(184, 134, 43, 0.55) !important;
+          box-shadow: 0 6px 18px rgba(40, 30, 15, 0.08);
         }
         .regions-state-nav {
           scrollbar-width: none;

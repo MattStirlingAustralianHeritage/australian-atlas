@@ -135,6 +135,7 @@ const GENERIC_ALLOWED = new Set([
   'australia', 'australian', 'australians', 'the', 'a', 'an', 'it', 'its', 'this', 'that', 'these', 'those',
   'january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october',
   'november', 'december', 'summer', 'autumn', 'winter', 'spring', 'easter', 'christmas',
+  'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
   'victoria', 'victorian', 'queensland', 'tasmania', 'tasmanian', 'nsw', 'wa', 'sa', 'nt', 'act',
   'new', 'south', 'wales', 'western', 'northern', 'territory', 'capital',
   'east', 'west', 'north', 'coast', 'coastal', 'inland', 'outback', 'hinterland',
@@ -165,8 +166,11 @@ function findProseViolations(text, allowed) {
       const w = raw.replace(/^[^A-Za-z']+|[^A-Za-z']+$/g, '')
       if (!w || !/^[A-Z]/.test(w)) return
       if (i === 0) return // sentence-start capitalization is fine
-      const lower = w.toLowerCase().replace(/'s$/, '')
-      if (!allowed.has(lower)) violations.add(w)
+      // Judge hyphenated compounds part by part — "Aboriginal-owned" is fine
+      // when every capitalized part is whitelisted.
+      const parts = w.split('-').filter(Boolean)
+      const bad = parts.some(p => /^[A-Z]/.test(p) && !allowed.has(p.toLowerCase().replace(/'s$/, '')))
+      if (bad) violations.add(w)
     })
   }
   return [...violations]
@@ -222,7 +226,28 @@ ${feedback}` : ''}`
   if (response.stop_reason === 'max_tokens') throw new Error('response truncated at max_tokens')
   const text = (response.content.find(b => b.type === 'text')?.text || '').trim()
   const cleaned = text.replace(/^```json?\s*/i, '').replace(/\s*```$/i, '')
-  return { parsed: JSON.parse(sanitizeJson(cleaned)), usage: response.usage }
+  return { parsed: JSON.parse(sanitizeJson(extractJson(cleaned))), usage: response.usage }
+}
+
+// Take the first balanced JSON object — models occasionally append prose
+// after the closing brace.
+function extractJson(s) {
+  const start = s.indexOf('{')
+  if (start < 0) return s
+  let depth = 0, inStr = false, esc = false
+  for (let i = start; i < s.length; i++) {
+    const ch = s[i]
+    if (inStr) {
+      if (esc) esc = false
+      else if (ch === '\\') esc = true
+      else if (ch === '"') inStr = false
+      continue
+    }
+    if (ch === '"') inStr = true
+    else if (ch === '{') depth++
+    else if (ch === '}') { depth--; if (depth === 0) return s.slice(start, i + 1) }
+  }
+  return s.slice(start)
 }
 
 // Models sometimes emit raw line breaks inside JSON string values, which is
