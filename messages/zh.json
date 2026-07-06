@@ -146,7 +146,8 @@
     "rotatorTable": "{n} 个农场门前商店、食品杂货店和食品生产商",
     "rotatorCorner": "{n} 家独立书店和唱片店",
     "rotatorFallbackCount": "{n} 个澳大利亚独立地点",
-    "rotatorFallbackEmpty": "一张地图上的每一个列表"
+    "rotatorFallbackEmpty": "一张地图上的每一个列表",
+    "deckCollections": "从精酿酒厂到画廊 — 十个系列尽在其中"
   },
   "place": {
     "home": "首页",

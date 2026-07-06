@@ -146,7 +146,8 @@
     "rotatorTable": "{n}개의 팜게이트, 프로비더, 식품 생산자",
     "rotatorCorner": "{n}개의 독립 서점, 레코드 스토어",
     "rotatorFallbackCount": "호주 전역의 {n}개 독립 장소",
-    "rotatorFallbackEmpty": "한 지도 위의 모든 리스팅"
+    "rotatorFallbackEmpty": "한 지도 위의 모든 리스팅",
+    "deckCollections": "브루어리부터 갤러리까지 — 열 가지 컬렉션이 섞여 있어요"
   },
   "place": {
     "home": "홈",

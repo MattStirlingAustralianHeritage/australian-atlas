@@ -52,27 +52,57 @@
 }
 
 .dd-deck--band {
-  max-width: 340px;
+  max-width: 352px;
 }
 
-/* Hinted next cards peeking from behind (stacked-deck affordance).
-   Percentage offsets: scale(0.94) pulls the bottom edge up by 3% of the card,
-   so translateY must exceed that for the card to actually peek below. */
+/* Grounding shadow — the fanned stack reads as an object lying on the paper,
+   not a rectangle floating in space. Sits under everything in the deck. */
+.dd-deck::before {
+  content: '';
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  bottom: -30px;
+  height: 44px;
+  background: radial-gradient(50% 100% at 50% 42%, rgba(28, 22, 14, 0.20) 0%, rgba(28, 22, 14, 0.07) 55%, transparent 78%);
+  filter: blur(5px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Hinted next cards fanned behind the active one — a real hand of cards.
+   Visible rotation + offset is the affordance: there is a STACK here to
+   flick through, not a lone static tile. The active card's deal-in
+   animation starts from .dd-hint's exact pose, so each advance reads as
+   the next card sliding off the stack into your hand. */
 .dd-hint {
   position: absolute;
   inset: 0;
-  transform: translateY(5.5%) scale(0.94);
-  filter: saturate(0.9) brightness(0.97);
-  opacity: 0.55;
+  transform: translate(4.2%, 3.4%) rotate(3deg) scale(0.97);
+  transform-origin: 50% 90%;
+  filter: saturate(0.82) brightness(0.94);
+  opacity: 0.85;
   pointer-events: none;
   z-index: 0;
 }
 
-/* Second card down — fainter, deeper, so the deck reads as a real stack. */
+/* Second card down — swings the other way, deeper and fainter. */
 .dd-hint--2 {
-  transform: translateY(9.5%) scale(0.885);
-  opacity: 0.26;
-  filter: saturate(0.8) brightness(0.95);
+  transform: translate(-4.4%, 6.4%) rotate(-3.4deg) scale(0.94);
+  opacity: 0.5;
+  filter: saturate(0.7) brightness(0.9);
+}
+
+/* Narrow screens: tighten the fan so the swung corners stay inside the
+   viewport (body clips overflow-x, which would visibly slice the cards).
+   The deal-in keyframe is redefined to launch from the tightened pose. */
+@media (max-width: 480px) {
+  .dd-hint { transform: translate(2%, 3%) rotate(1.6deg) scale(0.975); }
+  .dd-hint--2 { transform: translate(-2.2%, 5.6%) rotate(-2deg) scale(0.95); }
+  @keyframes ddDealIn {
+    from { opacity: 0.85; transform: translate(2%, 3%) rotate(1.6deg) scale(0.975); filter: saturate(0.82) brightness(0.94); }
+    to   { opacity: 1; transform: translate(0, 0) rotate(0) scale(1); filter: saturate(1) brightness(1); }
+  }
 }
 
 .dd-card-wrap {
@@ -102,7 +132,7 @@
 }
 
 .dd-card--band {
-  height: 320px;
+  height: 336px;
 }
 
 /* Seeded topographic contours behind the typographic composition. */
@@ -357,9 +387,9 @@
   display: flex;
   gap: 12px;
   max-width: 420px;
-  margin: 18px auto 0;
+  margin: 26px auto 0;
 }
-.dd-actions--band { max-width: 340px; }
+.dd-actions--band { max-width: 352px; }
 
 .dd-btn {
   flex: 1;
@@ -370,7 +400,8 @@
   padding: 14px 20px;
   min-height: 50px;
   cursor: pointer;
-  transition: background-color 0.18s ease, border-color 0.18s ease, opacity 0.18s ease, color 0.18s ease;
+  transition: background-color 0.18s ease, border-color 0.18s ease, opacity 0.18s ease,
+    color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
   letter-spacing: 0.01em;
 }
 .dd-btn:disabled { opacity: 0.45; cursor: default; }
@@ -384,11 +415,31 @@
 .dd-btn-skip:not(:disabled):hover {
   border-color: var(--color-ink, #2a2218);
   color: var(--color-ink, #2a2218);
+  background: rgba(255, 255, 255, 0.45);
 }
 
+/* The verdict button — pressed gold plate, worth pressing. */
 .dd-btn-pick {
   color: #fff;
-  border: 1px solid transparent;
+  border: 1px solid rgba(140, 100, 26, 0.55);
+  background:
+    linear-gradient(180deg, #CA9B3E 0%, #B8862B 55%, #A9791F 100%);
+  box-shadow:
+    0 6px 16px rgba(184, 134, 43, 0.30),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  text-shadow: 0 1px 1px rgba(120, 84, 16, 0.35);
+}
+.dd-btn-pick:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 9px 22px rgba(184, 134, 43, 0.40),
+    inset 0 1px 0 rgba(255, 255, 255, 0.30);
+}
+.dd-btn-pick:not(:disabled):active {
+  transform: translateY(0);
+  box-shadow:
+    0 3px 10px rgba(184, 134, 43, 0.28),
+    inset 0 1px 2px rgba(120, 84, 16, 0.30);
 }
 
 /* Counter — small, persistent, non-blocking. */
@@ -409,6 +460,15 @@
 }
 .dd-counter--static { cursor: default; }
 .dd-counter b { font-weight: 600; color: var(--color-ink, #2a2218); }
+/* The tally lands with a small gold pop — picking should feel like scoring.
+   The <b> is keyed by count, so each pick remounts it and replays this. */
+@keyframes ddTallyPop {
+  0%   { transform: scale(1); color: var(--color-ink, #2a2218); }
+  35%  { transform: scale(1.45); color: var(--color-gold, #b8862b); }
+  100% { transform: scale(1); color: var(--color-ink, #2a2218); }
+}
+.dd-counter b { display: inline-block; animation: ddTallyPop 0.5s cubic-bezier(0.3, 1.4, 0.5, 1) both; }
+@media (prefers-reduced-motion: reduce) { .dd-counter b { animation: none; } }
 .dd-counter u {
   text-decoration: underline;
   text-decoration-color: var(--color-gold, #b8862b);
@@ -600,9 +660,27 @@
   margin: 0 0 24px;
 }
 
-/* Card transition states (driven by inline transform on .dd-card-wrap). */
-@keyframes ddFadeIn {
-  from { opacity: 0; transform: translateY(8px) scale(0.98); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
+/* Card transition states (driven by inline transform on .dd-card-wrap).
+   Deal-in starts from the top hint's exact fan pose so each advance reads
+   as the next card sliding off the stack; then a slow idle sway keeps the
+   card alive — the quiet "you can move me" signal. Drag and exit transforms
+   live on .dd-card-wrap (the parent), so both compose with these. */
+@keyframes ddDealIn {
+  from { opacity: 0.85; transform: translate(4.2%, 3.4%) rotate(3deg) scale(0.97); filter: saturate(0.82) brightness(0.94); }
+  to   { opacity: 1; transform: translate(0, 0) rotate(0) scale(1); filter: saturate(1) brightness(1); }
 }
-.dd-enter { animation: ddFadeIn 0.28s ease both; }
+@keyframes ddIdleSway {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  50%      { transform: rotate(0.8deg) translateY(-4px); }
+}
+.dd-enter {
+  transform-origin: 50% 90%;
+  animation:
+    ddDealIn 0.32s cubic-bezier(0.22, 0.9, 0.3, 1) both,
+    ddIdleSway 6.5s ease-in-out 2.2s infinite;
+}
+/* Hands-on = the card is spoken for; stop the idle sway. */
+.dd-card-wrap:hover .dd-enter,
+.dd-card-wrap:active .dd-enter {
+  animation-play-state: running, paused;
+}

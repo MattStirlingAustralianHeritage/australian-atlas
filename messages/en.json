@@ -146,7 +146,8 @@
     "rotatorTable": "{n} farm gates, providores and food producers",
     "rotatorCorner": "{n} independent bookshops and record stores",
     "rotatorFallbackCount": "{n} independent places across Australia",
-    "rotatorFallbackEmpty": "Every listing on one map"
+    "rotatorFallbackEmpty": "Every listing on one map",
+    "deckCollections": "Breweries to galleries — ten collections in the shuffle"
   },
   "place": {
     "home": "Home",

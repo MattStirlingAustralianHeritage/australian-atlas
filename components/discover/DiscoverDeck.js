@@ -479,10 +479,11 @@ export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hi
   const counterEl = (() => {
     if (isOnboarding) return null
     if (pickCount === 0) return null
+    // key={pickCount} remounts the tally each pick so its pop animation replays.
     if (authed) {
       return (
         <p className="dd-counter dd-counter--static">
-          <b>{pickCount}</b> {justKept ? t('kept') : t('saved')}
+          <b key={pickCount}>{pickCount}</b> {justKept ? t('kept') : t('saved')}
         </p>
       )
     }
@@ -490,7 +491,7 @@ export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hi
     // shown it carries the CTA, so here we drop to a plain tally.
     return (
       <button type="button" className="dd-counter" onClick={() => setAuthModalOpen(true)}>
-        <b>{pickCount}</b> {t('placesYoudVisit', { count: pickCount })}
+        <b key={pickCount}>{pickCount}</b> {t('placesYoudVisit', { count: pickCount })}
         {!showReflection && <> · <u>{t('signInToKeepThem')}</u></>}
       </button>
     )
@@ -618,7 +619,6 @@ export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hi
             className="dd-btn dd-btn-pick"
             onClick={handlePick}
             disabled={animating || loading}
-            style={{ background: 'var(--color-gold, #b8862b)' }}
           >
             {t('idVisitThis')}
           </button>

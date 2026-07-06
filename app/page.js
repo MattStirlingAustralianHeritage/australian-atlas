@@ -15,7 +15,8 @@ import DiscoverDeck from '@/components/discover/DiscoverDeck'
 import CategoryGuideSection from '@/components/CategoryGuideSection'
 import { getListingRegion, LISTING_REGION_SELECT, resolveRegionParam } from '@/lib/regions'
 import { STATE_OUTLINES, projectPoint } from '@/lib/regions/stateOutlines'
-import { getPublicVerticals, VERTICAL_CARD_TOKENS } from '@/lib/verticalUrl'
+import { getPublicVerticals, VERTICAL_CARD_TOKENS, VERTICAL_ACCENTS } from '@/lib/verticalUrl'
+import { buildContours } from '@/lib/discover/contours'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
 import { subTypeLabel } from '@/lib/subTypeLabels'
 import { Coffee, Wine, UtensilsCrossed, BedDouble, Mountain, Compass, Hammer, Landmark, ShoppingBag, Clock } from 'lucide-react'
@@ -826,14 +827,32 @@ export default async function Home() {
 
       {/* ── 6. Make it yours — the Discover taste engine ── */}
       {/* Masthead left, the live swipeable deck right. A stranger can flick a
-          real card in place — they're inside the feature, not reading about it. */}
+          real card in place — they're inside the feature, not reading about it.
+          The section ground carries the same seeded-contour terrain the cards
+          wear, so the deck sits in its own cartographic landscape. */}
       <section style={{
-        paddingBlock: '88px',
+        position: 'relative',
+        overflow: 'hidden',
+        paddingBlock: '96px',
         background: 'var(--color-kraft)',
         borderTop: '1px solid rgba(28,26,23,0.05)',
         borderBottom: '1px solid rgba(28,26,23,0.05)',
       }}>
-        <div className="max-w-6xl mx-auto px-6 sm:px-12">
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 420 460"
+          preserveAspectRatio="xMidYMid slice"
+          style={{
+            position: 'absolute', right: '-160px', top: '50%',
+            transform: 'translateY(-50%)', width: '880px', height: '130%',
+            pointerEvents: 'none',
+          }}
+        >
+          {buildContours('make-it-yours').map((d, i) => (
+            <path key={i} d={d} fill="none" stroke={GOLD} strokeWidth="1" strokeOpacity="0.07" />
+          ))}
+        </svg>
+        <div className="max-w-6xl mx-auto px-6 sm:px-12" style={{ position: 'relative' }}>
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_400px] gap-10 lg:gap-16 items-center">
             <div>
               <p className="section-dateline" style={{ marginBottom: '16px' }}>{t('makeItYours')}</p>
@@ -845,15 +864,37 @@ export default async function Home() {
               </h2>
               <p className="mt-3" style={{
                 fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
-                lineHeight: 1.65, color: 'var(--color-muted)', margin: '14px 0 26px', maxWidth: '44ch',
+                lineHeight: 1.65, color: 'var(--color-muted)', margin: '14px 0 18px', maxWidth: '44ch',
               }}>
                 {t('discoverIntro')}
               </p>
-              <LocalizedLink href="/discover" className="link-quiet" style={{
-                fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px',
-                color: GOLD, textDecoration: 'none',
-              }}>
-                {t('openDiscover')} &rarr;
+              {/* Every vertical's accent in one strip — the breadth of the
+                  shuffle at a glance, colour-matched to the cards themselves. */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '0 0 30px', flexWrap: 'wrap' }}>
+                <span style={{ display: 'inline-flex', flexShrink: 0 }}>
+                  {getPublicVerticals().map((v, i) => (
+                    <span key={v} style={{
+                      width: '12px', height: '12px', borderRadius: '999px',
+                      background: VERTICAL_ACCENTS[v] || GOLD,
+                      border: '2px solid var(--color-kraft)',
+                      marginLeft: i === 0 ? 0 : '-4px',
+                      display: 'inline-block',
+                    }} />
+                  ))}
+                </span>
+                <span style={{
+                  fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '12.5px',
+                  letterSpacing: '0.02em', color: 'var(--color-muted)',
+                }}>
+                  {t('deckCollections')}
+                </span>
+              </div>
+              <LocalizedLink href="/discover" className="discover-cta">
+                {t('openDiscover')}
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12h14" />
+                  <path d="M12 5l7 7-7 7" />
+                </svg>
               </LocalizedLink>
             </div>
             <div>
