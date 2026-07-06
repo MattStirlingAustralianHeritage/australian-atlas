@@ -6,6 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import ListingCard, { TypographicCard, VERTICAL_TOKENS } from '@/components/ListingCard'
 import SearchAutocomplete from '@/components/SearchAutocomplete'
+import SearchAssistant from '@/components/SearchAssistant'
 import SearchResultCard, { queryTerms, buildSnippet, highlightTerms } from '@/components/SearchResultCard'
 import VibeSearch from './VibeSearch'
 import { getListingRegion } from '@/lib/regions'
@@ -1339,6 +1340,21 @@ function SearchPageInner() {
             <p style={{ marginTop: 8, fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-muted)' }}>{t('stillSearching')}</p>
           )}
         </div>
+      )}
+
+      {/* Optional assistant — a lookup that returned a real set of places gets
+          an offer to whittle them down ("museums in hobart" → a few grounded
+          ideas). Keyed by query+filters so a new search starts a fresh offer;
+          never shown in concierge mode, which already answers in prose. */}
+      {!askMode && !initialLoad && query.trim().length >= 3 && results.length >= 5 && (
+        <SearchAssistant
+          key={`${query}|${vertical}|${state}`}
+          query={query}
+          listings={results}
+          placeLabel={autoRegion?.name || detectedPlace?.label || region || facetRegion || state || autoState || null}
+          dimmed={loading}
+          onTrackClick={trackSearchClick}
+        />
       )}
 
       {/* Results */}
