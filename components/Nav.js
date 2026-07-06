@@ -458,7 +458,7 @@ export default function Nav() {
           }}
         >
           <div style={{ padding: '0.375rem 1.5rem 0.625rem' }}>
-            <LanguageSwitcher />
+            <LanguageSwitcher align="left" />
           </div>
           {primaryLinks.map(link => (
             <LocalizedLink

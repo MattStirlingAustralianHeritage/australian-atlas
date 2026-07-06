@@ -159,6 +159,80 @@ h1 { letter-spacing: -0.015em; font-feature-settings: 'liga' 1, 'kern' 1; }
 }
 .nav-dropdown-item:hover { background: var(--color-cream); }
 
+/* Language switcher — collapsed globe pill that toggles a locale dropdown.
+   Shared by the desktop header and the mobile menu (see LanguageSwitcher.js). */
+.lang-switch { position: relative; display: inline-flex; }
+.lang-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  padding: 5px 10px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--color-muted);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.lang-trigger:hover,
+.lang-trigger[aria-expanded="true"] {
+  color: var(--color-ink);
+  background: var(--color-cream);
+  border-color: var(--color-border);
+}
+.lang-globe { color: var(--color-sage); flex: none; }
+.lang-caret { flex: none; opacity: 0.55; transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1); }
+.lang-trigger[aria-expanded="true"] .lang-caret { transform: rotate(180deg); }
+
+.lang-menu {
+  position: absolute;
+  top: 100%;
+  margin-top: 0.55rem;
+  min-width: 184px;
+  background: var(--color-card-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-md);
+  padding: 6px;
+  z-index: 120;
+  animation: dropdown-in 0.15s ease both;
+}
+.lang-menu[data-align="right"] { right: 0; transform-origin: top right; }
+.lang-menu[data-align="left"] { left: 0; transform-origin: top left; }
+
+.lang-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 8px 11px;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-body);
+  color: var(--color-ink);
+  transition: background 0.12s ease;
+}
+.lang-option:hover { background: var(--color-cream); }
+.lang-option[aria-current="true"] { cursor: default; }
+.lang-labels { display: flex; flex-direction: column; gap: 1px; }
+.lang-native { font-size: 14px; font-weight: 500; line-height: 1.15; }
+.lang-sub { font-size: 11px; letter-spacing: 0.02em; color: var(--color-muted); line-height: 1.15; }
+.lang-check { margin-left: auto; color: var(--color-sage); flex: none; opacity: 0; transition: opacity 0.12s ease; }
+.lang-option[aria-current="true"] .lang-check { opacity: 1; }
+.lang-option[aria-current="true"] .lang-native { color: var(--color-sage-dark); }
+
+@media (prefers-reduced-motion: reduce) {
+  .lang-caret { transition: none; }
+  .lang-menu { animation: none; }
+}
+
 /* Button system — shared classes for new and migrated surfaces. */
 .btn {
   display: inline-flex;
