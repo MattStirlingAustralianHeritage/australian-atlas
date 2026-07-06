@@ -1,5 +1,7 @@
 {
-  "regions": ["hnd1"],
+  "regions": [
+    "hnd1"
+  ],
   "crons": [
     {
       "path": "/api/cron/sync",
@@ -136,6 +138,10 @@
     {
       "path": "/api/cron/council-digest",
       "schedule": "0 21 1 * *"
+    },
+    {
+      "path": "/api/cron/indexnow",
+      "schedule": "20 4 * * *"
     }
   ]
 }
