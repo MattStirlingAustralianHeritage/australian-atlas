@@ -1125,90 +1125,92 @@ export default async function Home() {
       {/* ── 5. Cross-Vertical Cluster — a day, plotted ── */}
       {/* The intermediate kraft band — one oatmeal third surface between the
           binary cream/near-black rhythm. Each qualifying region renders as a
-          numbered day arc (coffee → lunch → maker → tasting → bed) of paper
-          itinerary cards — photo-first, vertical-ground fallback — with a
-          coordinate-grounded "all within N km" span and a region-guide CTA,
-          so the section reads as a plan to follow, not a swatch collage. */}
+          compact itinerary rail (coffee → lunch → maker → tasting → bed): small
+          photo-first stops threaded on a hairline route, numbered + time-of-day
+          kickered, with a coordinate-grounded "within N km" span and a region-
+          guide CTA. Deliberately restrained — a plan to skim and act on, not a
+          full-height photo wall that competes with the cover story above it. */}
       {clusters.length > 0 && (
         <ScrollReveal as="section" style={{
-          paddingBlock: '96px',
+          paddingBlock: '72px',
           background: 'var(--color-kraft)',
           borderTop: '1px solid rgba(28,26,23,0.05)',
           borderBottom: '1px solid rgba(28,26,23,0.05)',
         }}>
           <div className="max-w-5xl mx-auto px-6 sm:px-12">
-            <div className="reveal mb-14" style={{ maxWidth: '560px' }}>
-              <p className="section-dateline" style={{ marginBottom: '16px' }}>
+            <div className="reveal mb-9" style={{ maxWidth: '560px' }}>
+              <p className="section-dateline" style={{ marginBottom: '14px' }}>
                 {t('whereItOverlaps')}
               </p>
               <h2 style={{
                 fontFamily: 'var(--font-display)', fontWeight: 400,
-                fontSize: 'clamp(30px, 4vw, 50px)', color: 'var(--color-ink)', lineHeight: 1.1,
+                fontSize: 'clamp(25px, 3vw, 38px)', color: 'var(--color-ink)', lineHeight: 1.12,
               }}>
                 {t('discoverCluster')}
               </h2>
               <p className="mt-3" style={{
-                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
-                color: 'var(--color-muted)', margin: '12px 0 0',
+                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px',
+                color: 'var(--color-muted)', margin: '10px 0 0', lineHeight: 1.6,
               }}>
                 {t('clusterIntro')}
               </p>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '64px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '36px' }}>
               {clusters.map((cluster, ci) => {
                 const regionSlug = CLUSTER_REGION_SLUGS[cluster.region]
                 const metaLine = [
                   t('clusterCounts', { total: cluster.total, categories: cluster.verticalCount }),
                   cluster.spanKm && cluster.spanKm <= 90 ? t('clusterSpan', { km: cluster.spanKm }) : null,
                 ].filter(Boolean).join('  ·  ')
-                // Static class strings so Tailwind sees them at build time.
-                const gridCols = {
-                  3: 'grid-cols-1 sm:grid-cols-3',
-                  4: 'grid-cols-2 lg:grid-cols-4',
-                  5: 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5',
-                }[cluster.picks.length] || 'grid-cols-2 lg:grid-cols-4'
                 return (
                   <div key={cluster.region} className="reveal" data-reveal-index={ci + 1}>
-                    <div className="flex flex-wrap items-baseline justify-between gap-x-8 gap-y-2" style={{ marginBottom: '20px' }}>
-                      <div style={{ maxWidth: '520px' }}>
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1.5" style={{ marginBottom: '16px' }}>
+                      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5" style={{ maxWidth: '620px' }}>
                         {regionSlug ? (
-                          <LocalizedLink href={`/regions/${regionSlug}`} className="group inline-block">
+                          <LocalizedLink href={`/regions/${regionSlug}`} className="group inline-flex items-baseline hover:opacity-80 transition-opacity">
                             <h3 style={{
-                              fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 26,
-                              color: 'var(--color-ink)', lineHeight: 1.25,
+                              fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22,
+                              color: 'var(--color-ink)', lineHeight: 1.2,
                             }}>
                               {cluster.region}
-                              <span className="inline-block ml-2 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: GOLD, fontSize: 18 }}>&rarr;</span>
                             </h3>
                           </LocalizedLink>
                         ) : (
                           <h3 style={{
-                            fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 26,
-                            color: 'var(--color-ink)', lineHeight: 1.25,
+                            fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22,
+                            color: 'var(--color-ink)', lineHeight: 1.2,
                           }}>
                             {cluster.region}
                           </h3>
                         )}
-                        <p style={{
-                          fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: 13,
-                          color: 'var(--color-muted)', marginTop: 4,
+                        <span style={{
+                          fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '12.5px',
+                          color: 'var(--color-muted)',
                         }}>
                           {metaLine}
-                        </p>
+                        </span>
                       </div>
                       {regionSlug && (
                         <LocalizedLink href={`/regions/${regionSlug}`} className="group inline-flex items-center gap-1.5 hover:opacity-80 transition-opacity" style={{
-                          fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500,
+                          fontFamily: 'var(--font-body)', fontSize: '12.5px', fontWeight: 500,
                           color: 'var(--color-ink)', borderBottom: '1px solid var(--color-gold)',
-                          paddingBottom: 2, whiteSpace: 'nowrap',
+                          paddingBottom: 1, whiteSpace: 'nowrap',
                         }}>
                           {t('clusterSeeRegion')} <span style={{ color: GOLD }}>&rarr;</span>
                         </LocalizedLink>
                       )}
                     </div>
 
-                    <div className={`grid gap-3 sm:gap-4 ${gridCols}`}>
+                    {/* Itinerary rail — small photo-first stops threaded on a
+                        hairline route (numbered, time-of-day kickered). Fits one
+                        row on desktop; scrolls horizontally on narrow screens
+                        with the next stop peeking as the scroll affordance. */}
+                    <div className="cluster-rail" style={{
+                      display: 'flex', alignItems: 'flex-start',
+                      overflowX: 'auto', scrollSnapType: 'x proximity',
+                      paddingBottom: 4, scrollbarWidth: 'none',
+                    }}>
                       {cluster.picks.map((pick, pi) => {
                         const colors = VERTICAL_CARD_COLORS[pick.vertical] || { bg: '#333', text: '#FAF8F4' }
                         const StopIcon = CLUSTER_VERTICAL_ICONS[pick.vertical] || Compass
@@ -1216,57 +1218,63 @@ export default async function Home() {
                           subTypeLabel(pick.vertical, pick.sub_type) || localizeVerticalKicker(pick.vertical, VERTICAL_LABELS[pick.vertical] || pick.vertical, locale),
                           pick.suburb,
                         ].filter(Boolean).join(' · ')
+                        const isLast = pi === cluster.picks.length - 1
                         return (
-                          <LocalizedLink
-                            key={pick.id}
-                            href={`/place/${pick.slug}`}
-                            className="listing-card group block overflow-hidden"
-                            style={{
-                              background: '#FBF8F2',
-                              border: '1px solid rgba(28,26,23,0.08)',
-                              borderRadius: 'var(--radius-card)',
-                              display: 'flex', flexDirection: 'column',
-                            }}
-                          >
-                            <div className="overflow-hidden" style={{ aspectRatio: '4 / 3', background: colors.bg, flexShrink: 0 }}>
-                              {pick.hero_image_url ? (
-                                <img
-                                  src={pick.hero_image_url}
-                                  alt=""
-                                  loading="lazy"
-                                  className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
-                                />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <StopIcon size={28} strokeWidth={1.25} style={{ color: 'rgba(250,248,244,0.5)' }} aria-hidden="true" />
-                                </div>
-                              )}
-                            </div>
-                            <div style={{ padding: '14px 16px 16px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                          <div key={pick.id} style={{ display: 'flex', alignItems: 'flex-start', flexShrink: 0 }}>
+                            <LocalizedLink
+                              href={`/place/${pick.slug}`}
+                              className="group block"
+                              style={{ width: 'clamp(128px, 42vw, 148px)', scrollSnapAlign: 'start' }}
+                            >
+                              <div className="overflow-hidden" style={{
+                                height: 92, background: colors.bg,
+                                borderRadius: 'var(--radius-card)',
+                                border: '1px solid rgba(28,26,23,0.08)',
+                              }}>
+                                {pick.hero_image_url ? (
+                                  <img
+                                    src={pick.hero_image_url}
+                                    alt=""
+                                    loading="lazy"
+                                    className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-700"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center">
+                                    <StopIcon size={22} strokeWidth={1.25} style={{ color: 'rgba(250,248,244,0.5)' }} aria-hidden="true" />
+                                  </div>
+                                )}
+                              </div>
                               <p style={{
-                                fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 600,
-                                letterSpacing: '0.14em', textTransform: 'uppercase',
-                                color: GOLD, margin: 0,
+                                fontFamily: 'var(--font-body)', fontSize: '9.5px', fontWeight: 600,
+                                letterSpacing: '0.13em', textTransform: 'uppercase',
+                                color: GOLD, margin: '9px 0 0',
                               }}>
                                 {String(pi + 1).padStart(2, '0')} · {t(CLUSTER_SLOT_LABEL_KEYS[pick.slot] || 'clusterStopAfternoon')}
                               </p>
                               <h4 style={{
                                 fontFamily: 'var(--font-display)', fontWeight: 400,
-                                fontSize: '17px', lineHeight: 1.25,
-                                color: 'var(--color-ink)', margin: '6px 0 0',
+                                fontSize: '14.5px', lineHeight: 1.22,
+                                color: 'var(--color-ink)', margin: '3px 0 0',
                               }}>
                                 {pick.name}
                               </h4>
                               {stopMeta && (
                                 <p style={{
-                                  fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '12px',
-                                  color: 'var(--color-muted)', margin: '6px 0 0',
+                                  fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '11.5px',
+                                  color: 'var(--color-muted)', margin: '2px 0 0', lineHeight: 1.35,
                                 }}>
                                   {stopMeta}
                                 </p>
                               )}
-                            </div>
-                          </LocalizedLink>
+                            </LocalizedLink>
+                            {!isLast && (
+                              <div aria-hidden="true" style={{
+                                flexShrink: 0, height: 1, marginTop: 46,
+                                width: 'clamp(10px, 3vw, 22px)',
+                                background: 'rgba(184,134,43,0.35)',
+                              }} />
+                            )}
+                          </div>
                         )
                       })}
                     </div>
@@ -1275,7 +1283,7 @@ export default async function Home() {
               })}
             </div>
 
-            <div className="reveal" style={{ marginTop: '52px' }}>
+            <div className="reveal" style={{ marginTop: '36px' }}>
               <LocalizedLink href="/regions" className="inline-flex items-center gap-1.5 hover:opacity-80 transition-opacity" style={{
                 fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500,
                 color: 'var(--color-ink)', borderBottom: '1px solid var(--color-gold)', paddingBottom: 2,
