@@ -30,11 +30,15 @@ const TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
 if (!TOKEN) { console.error('NEXT_PUBLIC_MAPBOX_TOKEN missing — run with --env-file=.env.local'); process.exit(1) }
 
 // ── Canvas + composition ────────────────────────────────────────────────
-const W = 1280, H = 520, SCALE = 2            // output = 2560x1040
+// 1180x520 (was 1280): the caption band on the left was reading as dead
+// space at wide viewports — a narrower canvas gives the continent a larger
+// share of the frame (~42% of the width, up from 38%) while the band keeps
+// room for the centred copy column.
+const W = 1180, H = 520, SCALE = 2            // output = 2360x1040
 const AU = { west: 112.8, south: -43.9, east: 154.2, north: -9.8 }
 // Vertical padding at 1x; horizontally Australia is pinned toward the right
-// edge so the left band stays open for the editorial caption + legend.
-const PAD = { top: 26, bottom: 30, oceanRight: 56 }
+// edge so the left band stays open for the editorial caption.
+const PAD = { top: 24, bottom: 26, oceanRight: 44 }
 
 // Web Mercator helpers (worldSize = 512 * 2^zoom, the maths verified against
 // city positions when the original asset shipped).

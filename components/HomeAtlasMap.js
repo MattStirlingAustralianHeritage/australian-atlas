@@ -1,6 +1,6 @@
 import LocalizedLink from '@/components/LocalizedLink'
 import { getTranslations } from 'next-intl/server'
-import { projectToImagePct } from '@/lib/map/homeAtlasProjection'
+import { HOME_MAP, projectToImagePct } from '@/lib/map/homeAtlasProjection'
 
 // The homepage "atlas plate" — the living atlas as the hero's ground.
 //
@@ -92,8 +92,8 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
             <img
               src="/maps/home-map-atlas-plate.jpg"
               alt={t('mapSectionAlt')}
-              width={2560}
-              height={1040}
+              width={HOME_MAP.width * HOME_MAP.scale}
+              height={HOME_MAP.height * HOME_MAP.scale}
               loading="eager"
               fetchPriority="low"
               decoding="async"
@@ -176,12 +176,13 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
         /* ── editorial copy over the open ocean ────────────── */
         .atlas-plate-copy {
           position: absolute;
-          left: clamp(24px, 6vw, 96px);
-          top: clamp(24px, 4.5vh, 44px);   /* top-anchored: the column must
-             never outgrow the image-derived plate height, so overflow room
-             stays at the bottom ocean rather than clipping the dateline */
+          left: clamp(24px, 7vw, 140px);
+          top: 50%;
+          transform: translateY(-50%);     /* centred in the band — since the
+             legend went, the column is short enough to centre everywhere,
+             and top-anchoring left a dead field under the text (Matt) */
           z-index: 4;
-          max-width: min(34vw, 460px);
+          max-width: min(34vw, 480px);
           display: flex; flex-direction: column; align-items: flex-start;
         }
         .atlas-plate-overline {
@@ -193,7 +194,7 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
         .atlas-plate-headline {
           margin-top: 12px;
           font-family: var(--font-display); font-weight: 400;
-          font-size: clamp(24px, 2.8vw, 40px); line-height: 1.06;
+          font-size: clamp(24px, 3vw, 46px); line-height: 1.06;
           letter-spacing: -0.015em; color: var(--color-ink, #1C1A17);
           max-width: 10em; text-wrap: balance;
         }
@@ -311,7 +312,8 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
           .atlas-plate-frame { height: min(97vw, 430px); min-height: 0; overflow: hidden; }
           .atlas-plate-canvas {
             position: absolute; top: 0; right: -3vw;
-            height: 100%; width: auto; aspect-ratio: 2560 / 1040;
+            height: 100%; width: auto;
+            aspect-ratio: ${HOME_MAP.width} / ${HOME_MAP.height};
           }
           .atlas-plate-canvas img { width: auto; height: 100%; }
           .atlas-city-name { font-size: 9.5px; letter-spacing: 0.1em; }
