@@ -13,6 +13,7 @@ import WorthFindingSection from '@/components/home/WorthFindingSection'
 import DiscoverDeck from '@/components/discover/DiscoverDeck'
 import CategoryGuideSection from '@/components/CategoryGuideSection'
 import { getListingRegion, LISTING_REGION_SELECT, resolveRegionParam } from '@/lib/regions'
+import { STATE_OUTLINES, projectPoint } from '@/lib/regions/stateOutlines'
 import { getPublicVerticals, VERTICAL_CARD_TOKENS } from '@/lib/verticalUrl'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
 import { subTypeLabel } from '@/lib/subTypeLabels'
@@ -908,13 +909,16 @@ export default async function Home() {
       </section>
 
       {/* ── 6 + 7. Plan a trip + Explore by region — paired columns ── */}
-      {/* Two formerly-stacked centered blocks become one alternating two-column
-          editorial row: a tall dark "Plan a trip" feature beside an offset
-          region mosaic. Breaks the stacked rhythm; all links/counts preserved. */}
+      {/* One editorial row on warm paper: a "Road trip" map-plate (drawn route,
+          gold neatline, compass) beside a mosaic of light region cards carrying
+          the /regions identity home — inline state silhouette + amber centroid
+          dot. No dark boxes; the cartography is the ornament. */}
       <ScrollReveal as="section" style={{ paddingBlock: '88px' }}>
         <div className="max-w-6xl mx-auto px-6 sm:px-12">
-          <div className="grid grid-cols-1 lg:grid-cols-[0.92fr_1.28fr] gap-10 lg:gap-14 items-start">
-            {/* LEFT — Plan a trip feature */}
+          <div className="grid grid-cols-1 lg:grid-cols-[0.96fr_1.24fr] gap-10 lg:gap-14 items-start">
+            {/* LEFT — "Road trip" map-plate. A warm plate rather than a dark
+                box: gold neatline, a compass corner-mark, and a dotted route
+                winding to its destination — the plan-a-trip idea, drawn. */}
             <div className="reveal" data-reveal-index={1}>
               <p className="section-dateline" style={{ marginBottom: '18px' }}>
                 {t('planATrip')}
@@ -923,30 +927,74 @@ export default async function Home() {
                 href="/on-this-road"
                 className="group listing-card block"
                 style={{
-                  background: '#2C2420',
-                  border: '1px solid transparent',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  background: 'linear-gradient(158deg, #FCFAF4 0%, #F5ECDA 60%, #EFE3CD 100%)',
+                  border: '1px solid rgba(120,92,44,0.20)',
                   borderRadius: 'var(--radius-lg)',
-                  padding: '32px 30px',
-                  minHeight: 'clamp(280px, 32vw, 380px)',
+                  padding: '34px 32px',
+                  minHeight: 'clamp(300px, 33vw, 400px)',
                   display: 'flex',
                   flexDirection: 'column',
                 }}
               >
+                {/* the drawn route — dotted road curving to a destination pin,
+                    with two faint elevation contours around the endpoint */}
+                <svg aria-hidden="true" viewBox="0 0 420 400" preserveAspectRatio="xMidYMid slice"
+                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+                  {/* faint elevation contours around the destination */}
+                  <g fill="none" stroke="rgba(196,151,59,0.18)" strokeWidth="1">
+                    <path d="M398 84 C 448 78, 466 120, 448 154 C 433 182, 390 182, 370 158" />
+                    <path d="M398 100 C 430 96, 446 120, 434 144 C 423 162, 396 164, 382 150" />
+                  </g>
+                  {/* the road — hugs the bottom, then climbs the right margin to
+                      its destination, keeping the top-left text column clear */}
+                  <path d="M26 374 C 120 368, 184 352, 250 322 S 346 278, 360 214 S 374 152, 398 122"
+                    fill="none" stroke="rgba(196,151,59,0.9)" strokeWidth="2.25"
+                    strokeLinecap="round" strokeDasharray="0.5 9" />
+                  {[[26, 374], [250, 322], [360, 214]].map(([cx, cy], i) => (
+                    <circle key={i} cx={cx} cy={cy} r="6" fill="#FCFAF4"
+                      stroke="rgba(196,151,59,0.95)" strokeWidth="2" />
+                  ))}
+                  <g transform="translate(398 122)">
+                    <circle r="9.5" fill="rgba(196,151,59,0.22)" />
+                    <circle r="5" fill="#C4973B" />
+                  </g>
+                </svg>
+
+                {/* compass corner-mark */}
+                <svg aria-hidden="true" viewBox="0 0 48 48" width="44" height="44"
+                  style={{ position: 'absolute', top: 20, right: 20, opacity: 0.55, pointerEvents: 'none' }}>
+                  <circle cx="24" cy="24" r="21" fill="none" stroke="rgba(120,92,44,0.32)" strokeWidth="1" />
+                  <path d="M24 5 L27.5 24 L24 43 L20.5 24 Z" fill="rgba(196,151,59,0.9)" />
+                  <path d="M5 24 L24 20.5 L43 24 L24 27.5 Z" fill="none" stroke="rgba(120,92,44,0.38)" strokeWidth="1" />
+                  <circle cx="24" cy="24" r="1.6" fill="#8a6a2c" />
+                </svg>
+
+                {/* map-plate neatline — the fine ruled frame of an atlas page */}
+                <div aria-hidden="true" style={{
+                  position: 'absolute', inset: 11, borderRadius: 12,
+                  border: '1px solid rgba(196,151,59,0.22)', pointerEvents: 'none',
+                }} />
+
                 <h3 style={{
-                  fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 'clamp(26px, 3vw, 34px)',
-                  color: '#FAF8F4', lineHeight: 1.18, marginBottom: 12,
+                  position: 'relative',
+                  fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 'clamp(28px, 3.2vw, 38px)',
+                  color: 'var(--color-ink)', lineHeight: 1.14, marginBottom: 14,
                 }}>
                   {t('roadTrip')}
                 </h3>
                 <p style={{
-                  fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px',
-                  color: 'rgba(250,248,244,0.62)', lineHeight: 1.6, maxWidth: '34ch',
+                  position: 'relative',
+                  fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '15px',
+                  color: 'var(--color-muted)', lineHeight: 1.62, maxWidth: '27ch',
                 }}>
                   {t('roadTripIntro')}
                 </p>
-                <div style={{ flex: 1, minHeight: 24 }} />
+                <div style={{ flex: 1, minHeight: 28 }} />
                 <span style={{
-                  fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', color: GOLD,
+                  position: 'relative',
+                  fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '13px', color: GOLD,
                 }}>
                   {t('planRoadTrip')} &rarr;
                 </span>
@@ -958,16 +1006,16 @@ export default async function Home() {
               <div className="flex items-baseline justify-between" style={{ gap: '16px', marginBottom: '20px' }}>
                 <p className="section-dateline">{t('byRegion')}</p>
                 <LocalizedLink href="/regions" className="hover:opacity-80 transition-opacity" style={{
-                  fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', color: GOLD,
+                  fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '13px', color: GOLD,
                 }}>
                   {t('browseAll')} &rarr;
                 </LocalizedLink>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                {/* Dark cartographic cards — the /regions index identity
-                    (ink ground, serif italic name, warm small-caps state,
-                    amber count) brought home, so the region language is ONE
-                    language wherever regions appear. */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* The /regions & /explore card identity brought home: warm
+                    paper, serif name, an inline state silhouette with the
+                    region's centroid dot in cartographic amber. One region
+                    language everywhere it appears — no dark boxes. */}
                 {[
                   { name: 'Barossa Valley', slug: 'barossa-valley', state: 'SA' },
                   { name: 'Mornington Peninsula', slug: 'mornington-peninsula', state: 'VIC' },
@@ -977,6 +1025,11 @@ export default async function Home() {
                   { name: 'Adelaide Hills', slug: 'adelaide-hills', state: 'SA' },
                 ].map((r, ri) => {
                   const count = stats.regionCounts[r.name]
+                  const outline = STATE_OUTLINES[r.state]
+                  const geo = REGION_GEO[r.name]
+                  const dot = outline && geo ? projectPoint(r.state, geo.lat, geo.lng) : null
+                  const SVG_PX = 58
+                  const rUnit = outline ? outline.h / SVG_PX : 1
                   return (
                     <LocalizedLink
                       key={r.slug}
@@ -984,40 +1037,50 @@ export default async function Home() {
                       className="reveal group listing-card block overflow-hidden"
                       data-reveal-index={(ri % 3) + 1}
                       style={{
-                        background: 'radial-gradient(120% 120% at 20% 0%, #33302A 0%, #2D2A24 55%, #262420 100%)',
-                        border: '1px solid rgba(184, 134, 43, 0.16)',
+                        background: 'linear-gradient(158deg, #FDFBF6 0%, #F6EFE1 100%)',
+                        border: '1px solid var(--color-border)',
                         borderRadius: 'var(--radius-card)',
-                        position: 'relative',
                       }}
                     >
-                      {/* faint survey-grid texture in the cartographic amber */}
-                      <div aria-hidden="true" style={{
-                        position: 'absolute', inset: 0, pointerEvents: 'none', opacity: 0.16,
-                        backgroundImage: 'linear-gradient(rgba(184,134,43,0.35) 0.5px, transparent 0.5px), linear-gradient(90deg, rgba(184,134,43,0.35) 0.5px, transparent 0.5px)',
-                        backgroundSize: '28px 28px',
-                      }} />
-                      <div className="flex flex-col" style={{ padding: '18px', minHeight: 116, position: 'relative' }}>
-                        <h3 style={{
-                          fontFamily: 'var(--font-display)', fontWeight: 400, fontStyle: 'italic',
-                          fontSize: 20, color: '#F3EDE1', lineHeight: 1.2, marginBottom: 5,
-                        }}>
-                          {r.name}
-                        </h3>
-                        <p style={{
-                          fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '10px',
-                          letterSpacing: '0.16em', textTransform: 'uppercase',
-                          color: '#8a7a5a', marginBottom: 0,
-                        }}>
-                          {r.state}
-                        </p>
-                        <div style={{ flex: 1, minHeight: 14 }} />
-                        {count > 0 && (
-                          <span style={{
-                            fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 12,
-                            color: '#C9973F',
+                      <div className="flex" style={{ padding: '16px 17px', minHeight: 118, gap: 12 }}>
+                        <div className="flex flex-col" style={{ flex: 1, minWidth: 0 }}>
+                          <h3 style={{
+                            fontFamily: 'var(--font-display)', fontWeight: 400,
+                            fontSize: 19, color: 'var(--color-ink)', lineHeight: 1.18, marginBottom: 5,
                           }}>
-                            {t('countPlaces', { count })}
-                          </span>
+                            {r.name}
+                          </h3>
+                          <p style={{
+                            fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '10px',
+                            letterSpacing: '0.16em', textTransform: 'uppercase',
+                            color: 'var(--color-muted)', margin: 0,
+                          }}>
+                            {r.state}
+                          </p>
+                          <div style={{ flex: 1, minHeight: 12 }} />
+                          {count > 0 && (
+                            <span style={{
+                              fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 12,
+                              color: 'var(--color-gold)',
+                            }}>
+                              {t('countPlaces', { count })}
+                            </span>
+                          )}
+                        </div>
+                        {outline && (
+                          <svg viewBox={`0 0 ${outline.w} ${outline.h}`}
+                            style={{ height: `${SVG_PX}px`, width: 'auto', maxWidth: '72px', flexShrink: 0, marginTop: 2 }}
+                            aria-hidden="true">
+                            <path d={outline.d} fill="rgba(196,151,59,0.08)"
+                              stroke="rgba(90,78,58,0.34)" strokeWidth="1"
+                              vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+                            {dot && (
+                              <>
+                                <circle cx={dot.x} cy={dot.y} r={6.5 * rUnit} fill="rgba(196,151,59,0.28)" />
+                                <circle cx={dot.x} cy={dot.y} r={3 * rUnit} fill="#C4973B" />
+                              </>
+                            )}
+                          </svg>
                         )}
                       </div>
                     </LocalizedLink>
