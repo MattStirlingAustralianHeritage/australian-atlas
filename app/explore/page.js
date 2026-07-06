@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { getTranslations, getLocale } from 'next-intl/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
-import { VERTICAL_STYLES } from '@/components/VerticalBadge'
+import { VERTICAL_STYLES } from '@/lib/verticalStyles'
 import RegionMapCard from '@/components/RegionMapCard'
 import { isVerticalPublic } from '@/lib/verticalUrl'
 import { dateLocale, ogLocale } from '@/lib/i18n/config'
