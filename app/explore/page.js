@@ -36,23 +36,9 @@ const VERTICAL_INFO = {
   way: { name: 'Way', desc: 'Guided walks, tours and adventure experiences', url: 'https://wayatlas.com.au' },
 }
 
-const VERTICAL_JOURNAL_URLS = {
-  sba: 'https://smallbatchatlas.com.au/journal',
-  collection: 'https://collectionatlas.com.au/journal',
-  craft: 'https://craftatlas.com.au/journal',
-  fine_grounds: 'https://finegroundsatlas.com.au/journal',
-  rest: 'https://restatlas.com.au/journal',
-  field: 'https://fieldatlas.com.au/journal',
-  corner: 'https://corneratlas.com.au/journal',
-  found: 'https://foundatlas.com.au/journal',
-  table: 'https://tableatlas.com.au/journal',
-  way: 'https://wayatlas.com.au/journal',
-}
-
+// Articles live on the portal — /journal/[slug] is the canonical home.
 function articleUrl(article) {
-  const v = (article.verticals?.[0]) || article.vertical || 'sba'
-  const base = VERTICAL_JOURNAL_URLS[v] || VERTICAL_JOURNAL_URLS.sba
-  return `${base}/${article.slug}`
+  return `/journal/${article.slug}`
 }
 
 const STATE_LABELS = {

@@ -1219,7 +1219,14 @@
     "empty": "No articles match your filters.",
     "loadMore": "Load more",
     "count": "{count, plural, one {# article} other {# articles}}",
-    "filteredSuffix": "(filtered)"
+    "filteredSuffix": "(filtered)",
+    "byAuthor": "By {name}",
+    "minRead": "{count, plural, one {# min read} other {# min read}}",
+    "filedUnder": "Filed under",
+    "inStory": "In this story",
+    "related": "More from the Journal",
+    "back": "All stories",
+    "featured": "Featured"
   },
   "onThisRoad": {
     "metaTitle": "On This Road — Australian Atlas",

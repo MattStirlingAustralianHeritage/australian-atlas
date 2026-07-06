@@ -11,7 +11,6 @@ import ScrollReveal from '@/components/ScrollReveal'
 import NearbySection from '@/components/NearbySection'
 import DiscoverDeck from '@/components/discover/DiscoverDeck'
 import CategoryGuideSection from '@/components/CategoryGuideSection'
-import { getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
 import { getListingRegion, LISTING_REGION_SELECT, resolveRegionParam } from '@/lib/regions'
 import { getPublicVerticals, VERTICAL_CARD_TOKENS } from '@/lib/verticalUrl'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
@@ -185,75 +184,25 @@ async function getStats(publicVerticals) {
   }
 }
 
-const VERTICAL_JOURNAL_URLS = {
-  sba: 'https://smallbatchatlas.com.au/journal',
-  collection: 'https://collectionatlas.com.au/journal',
-  craft: 'https://craftatlas.com.au/journal',
-  fine_grounds: 'https://finegroundsatlas.com.au/journal',
-  rest: 'https://restatlas.com.au/journal',
-  field: 'https://fieldatlas.com.au/journal',
-  corner: 'https://corneratlas.com.au/journal',
-  found: 'https://foundatlas.com.au/journal',
-  table: 'https://tableatlas.com.au/journal',
-}
-
+// Articles live in the master DB; /journal/[slug] on the portal is canonical.
 async function getLatestArticles() {
-  const allArticles = []
-  const slugSet = new Set()
-
-  const [masterResult, sbaResult] = await Promise.all([
-    (async () => {
-      try {
-        const sb = getSupabaseAdmin()
-        const { data } = await sb
-          .from('articles')
-          .select('id, vertical, title, slug, excerpt, hero_image_url, author, published_at, category')
-          .eq('status', 'published')
-          .order('published_at', { ascending: false })
-          .limit(10)
-        return data || []
-      } catch { return [] }
-    })(),
-    (async () => {
-      try {
-        const sbaClient = getVerticalClient('sba')
-        const { data } = await sbaClient
-          .from('articles')
-          .select('id, title, slug, deck, category, author, hero_image_url, published_at, tags, is_partner_content')
-          .eq('status', 'published')
-          .order('published_at', { ascending: false })
-          .limit(6)
-        return data || []
-      } catch { return [] }
-    })(),
-  ])
-
-  for (const a of masterResult) {
-    if (!slugSet.has(a.slug)) {
-      slugSet.add(a.slug)
-      allArticles.push({
-        ...a,
-        vertical: a.vertical || 'atlas',
-        excerpt: a.excerpt || null,
-        article_url: `${VERTICAL_JOURNAL_URLS[a.vertical] || VERTICAL_JOURNAL_URLS.sba}/${a.slug}`,
-      })
-    }
+  try {
+    const sb = getSupabaseAdmin()
+    const { data } = await sb
+      .from('articles')
+      .select('id, vertical, title, slug, excerpt, hero_image_url, author, published_at, category')
+      .eq('status', 'published')
+      .order('published_at', { ascending: false })
+      .limit(3)
+    return (data || []).map(a => ({
+      ...a,
+      vertical: a.vertical || 'atlas',
+      excerpt: a.excerpt || null,
+      article_url: `/journal/${a.slug}`,
+    }))
+  } catch {
+    return []
   }
-
-  for (const a of sbaResult) {
-    if (!slugSet.has(a.slug)) {
-      slugSet.add(a.slug)
-      allArticles.push({
-        ...a,
-        vertical: 'sba',
-        excerpt: a.deck || null,
-        article_url: `https://smallbatchatlas.com.au/journal/${a.slug}`,
-      })
-    }
-  }
-
-  allArticles.sort((a, b) => new Date(b.published_at) - new Date(a.published_at))
-  return allArticles.slice(0, 3)
 }
 
 async function getDiscoverClusters() {
@@ -865,8 +814,6 @@ export default async function Home() {
                   <a
                     key={article.id || ai}
                     href={article.article_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
                     className="reveal group block"
                     data-reveal-index={ai}
                   >
@@ -923,8 +870,6 @@ export default async function Home() {
             ) : (
               <a
                 href={featuredArticle.article_url}
-                target="_blank"
-                rel="noopener noreferrer"
                 className="group block reveal"
               >
                 {featuredArticle.hero_image_url && (

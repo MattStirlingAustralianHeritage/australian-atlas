@@ -1,5 +1,5 @@
 import { getLocale } from 'next-intl/server'
-import { getSupabaseAdmin, getVerticalClient } from '@/lib/supabase/clients'
+import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import JournalFeed from './JournalFeed'
 import { overlayArticleTranslations } from '@/lib/i18n/overlayEditorial'
 import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
@@ -18,29 +18,17 @@ export async function generateMetadata() {
   }
 }
 
-const VERTICAL_JOURNAL_URLS = {
-  sba: 'https://smallbatchatlas.com.au/journal',
-  collection: 'https://collectionatlas.com.au/journal',
-  craft: 'https://craftatlas.com.au/journal',
-  fine_grounds: 'https://finegroundsatlas.com.au/journal',
-  rest: 'https://restatlas.com.au/journal',
-  field: 'https://fieldatlas.com.au/journal',
-  corner: 'https://corneratlas.com.au/journal',
-  found: 'https://foundatlas.com.au/journal',
-  table: 'https://tableatlas.com.au/journal',
-}
-
 const VERTICAL_LABELS = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
   fine_grounds: 'Fine Grounds', rest: 'Rest', field: 'Field',
-  corner: 'Corner', found: 'Found', table: 'Table', atlas: 'Atlas',
+  corner: 'Corner', found: 'Found', table: 'Table', way: 'Way', atlas: 'Atlas',
 }
 
 const VERTICAL_COLORS = { ...VERTICAL_ACCENTS, atlas: '#2D2A26' }
 
-// ── Pull from master DB (CMS-synced articles) ──────────────
+// ── Articles live in the master DB; detail pages are /journal/[slug] ──
 
-async function getArticlesFromMaster() {
+async function getArticles() {
   try {
     const sb = getSupabaseAdmin()
     const { data } = await sb
@@ -49,106 +37,47 @@ async function getArticlesFromMaster() {
       .eq('status', 'published')
       .order('published_at', { ascending: false })
       .limit(60)
-
-    return (data || []).map(a => {
-      const verts = Array.isArray(a.verticals) && a.verticals.length > 0 ? a.verticals : [a.vertical || 'atlas']
-      return {
-        id: `master-${a.id}`,
-        vertical: verts[0],
-        verticals: verts,
-        title: a.title,
-        slug: a.slug,
-        excerpt: a.excerpt || null,
-        hero_image_url: a.hero_image_url || null,
-        author: a.author || null,
-        published_at: a.published_at,
-        category: a.category || null,
-        tags: [...(a.region_tags || []), ...(a.listing_tags || [])].filter(Boolean),
-        canonical_url: `${VERTICAL_JOURNAL_URLS[verts[0]] || VERTICAL_JOURNAL_URLS.sba}/${a.slug}`,
-      }
-    })
+    return data || []
   } catch {
     return []
   }
 }
 
-// ── Pull directly from vertical DBs ───────────────────────
-
-async function getArticlesFromVerticals() {
-  const articles = []
-
-  // SBA — confirmed to have journal content
-  try {
-    const sbaClient = getVerticalClient('sba')
-    const { data } = await sbaClient
-      .from('articles')
-      .select('id, title, slug, deck, category, author, hero_image_url, published_at, tags')
-      .eq('status', 'published')
-      .order('published_at', { ascending: false })
-      .limit(50)
-
-    if (data) {
-      articles.push(...data.map(a => ({
-        id: `sba-${a.id}`,
-        vertical: 'sba',
-        title: a.title,
-        slug: a.slug,
-        excerpt: a.deck || null,
-        hero_image_url: a.hero_image_url || null,
-        author: a.author || null,
-        published_at: a.published_at,
-        category: a.category || null,
-        tags: a.tags || [],
-        canonical_url: `https://smallbatchatlas.com.au/journal/${a.slug}`,
-      })))
-    }
-  } catch { /* SBA journal not available */ }
-
-  // Add other verticals here as their journal content grows
-  // Each follows the same pattern: try/catch, map to common shape
-
-  return articles
-}
-
 // ── Page ───────────────────────────────────────────────────
 
 export default async function JournalPage() {
-  const [masterArticles, verticalArticles] = await Promise.all([
-    getArticlesFromMaster(),
-    getArticlesFromVerticals(),
-  ])
+  const raw = await getArticles()
 
-  // Merge and deduplicate by slug (master takes priority)
-  const slugSet = new Set()
-  const allArticles = []
+  // Overlay ko/zh title/excerpt translations while ids are still the raw
+  // article ids (article_translations keys on articles.id).
+  const localized = await overlayArticleTranslations(raw, await getLocale())
 
-  for (const a of masterArticles) {
-    if (!slugSet.has(a.slug)) {
-      slugSet.add(a.slug)
-      allArticles.push(a)
+  const articles = localized.map(a => {
+    const verts = Array.isArray(a.verticals) && a.verticals.length > 0 ? a.verticals : [a.vertical || 'atlas']
+    return {
+      id: a.id,
+      vertical: verts[0],
+      verticals: verts,
+      title: a.title,
+      slug: a.slug,
+      excerpt: a.excerpt || null,
+      hero_image_url: a.hero_image_url || null,
+      author: a.author || null,
+      published_at: a.published_at,
+      category: a.category || null,
+      tags: [...(a.region_tags || [])].filter(Boolean),
+      href: `/journal/${a.slug}`,
     }
-  }
-  for (const a of verticalArticles) {
-    if (!slugSet.has(a.slug)) {
-      slugSet.add(a.slug)
-      allArticles.push(a)
-    }
-  }
-
-  // Sort by published_at descending
-  allArticles.sort((a, b) => new Date(b.published_at) - new Date(a.published_at))
-
-  // Overlay Korean article translations (no-op for 'en', English fallback)
-  const localizedArticles = await overlayArticleTranslations(allArticles, await getLocale())
+  })
 
   // Extract unique verticals and tags for filter bar
-  const verticals = [...new Set(localizedArticles.map(a => a.vertical).filter(Boolean))]
+  const verticals = [...new Set(articles.map(a => a.vertical).filter(Boolean))]
     .map(v => ({ key: v, label: VERTICAL_LABELS[v] || v, color: VERTICAL_COLORS[v] || '#888' }))
-  const allTags = [...new Set(localizedArticles.flatMap(a => a.tags || []).filter(Boolean))].sort()
+  const allTags = [...new Set(articles.flatMap(a => a.tags || []).filter(Boolean))].sort()
 
   return (
     <JournalFeed
-      articles={localizedArticles}
+      articles={articles}
       verticals={verticals}
       tags={allTags}
       verticalLabels={VERTICAL_LABELS}

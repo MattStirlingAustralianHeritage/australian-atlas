@@ -1219,7 +1219,14 @@
     "empty": "没有文章符合你的筛选条件。",
     "loadMore": "加载更多",
     "count": "{count, plural, one {# 篇文章} other {# 篇文章}}",
-    "filteredSuffix": "（已筛选）"
+    "filteredSuffix": "（已筛选）",
+    "byAuthor": "撰文 {name}",
+    "minRead": "{count, plural, other {阅读约 # 分钟}}",
+    "filedUnder": "归档于",
+    "inStory": "文中提到的场所",
+    "related": "期刊更多内容",
+    "back": "所有文章",
+    "featured": "精选"
   },
   "onThisRoad": {
     "metaTitle": "On This Road — Australian Atlas",

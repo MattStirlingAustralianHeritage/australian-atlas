@@ -1,11 +1,16 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import Link from 'next/link'
 import { useTranslations, useLocale } from 'next-intl'
 import { dateLocale } from '@/lib/i18n/config'
+import { VERTICAL_CARD_TOKENS } from '@/lib/verticalUrl'
 
-const INITIAL_COUNT = 12
+const INITIAL_COUNT = 13 // lead + two secondary + ten grid rows
 const LOAD_MORE_COUNT = 12
+
+// ── Editorial front page — hierarchy from size, hairlines, and whitespace,
+//    never card boxes. Lead story → two-up secondaries → ruled grid. ──
 
 export default function JournalFeed({ articles, verticals, tags, verticalLabels, verticalColors }) {
   const t = useTranslations('journal')
@@ -29,8 +34,14 @@ export default function JournalFeed({ articles, verticals, tags, verticalLabels,
     return result
   }, [articles, activeVerticals, activeTag])
 
+  const isFiltering = activeVerticals.size > 0 || activeTag !== null
   const visible = filtered.slice(0, visibleCount)
   const hasMore = visibleCount < filtered.length
+
+  // Front-page hierarchy only on the unfiltered view; filters get a flat grid.
+  const lead = !isFiltering ? visible[0] : null
+  const secondary = !isFiltering ? visible.slice(1, 3) : []
+  const grid = !isFiltering ? visible.slice(3) : visible
 
   function toggleVertical(key) {
     setActiveVerticals(prev => {
@@ -51,7 +62,7 @@ export default function JournalFeed({ articles, verticals, tags, verticalLabels,
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--color-cream, #F8F6F1)' }}>
+    <div style={{ minHeight: '100vh' }}>
       {/* Masthead — left-anchored like every other index page, gold dateline. */}
       <div className="px-4 sm:px-6 max-w-7xl mx-auto">
         <div className="page-masthead max-w-2xl">
@@ -61,38 +72,22 @@ export default function JournalFeed({ articles, verticals, tags, verticalLabels,
         </div>
       </div>
 
-      {/* Filter bar */}
+      {/* Filter row — quiet hairline band, no card chrome */}
       <div className="px-4 sm:px-6 max-w-7xl mx-auto">
-        <div style={{
-          background: '#fff', borderRadius: 12,
-          border: '1px solid var(--color-border, #E5E0D8)',
-          padding: '12px 16px', marginBottom: 24,
-        }}>
-          {/* Vertical toggles */}
+        <div className="jf-filters">
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span style={{
-              fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 600,
-              letterSpacing: '0.1em', textTransform: 'uppercase',
-              color: 'var(--color-muted, #8B8578)', marginRight: 4, whiteSpace: 'nowrap',
-            }}>
-              {t('filter')}
-            </span>
+            <span className="jf-filter-label">{t('filter')}</span>
             {verticals.map(v => {
               const isActive = activeVerticals.has(v.key)
               return (
                 <button
                   key={v.key}
                   onClick={() => toggleVertical(v.key)}
+                  className="jf-pill"
                   style={{
-                    fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600,
-                    letterSpacing: '0.03em',
-                    padding: '4px 12px', borderRadius: 100,
-                    border: isActive ? 'none' : '1px solid var(--color-border, #E5E0D8)',
+                    border: isActive ? `1px solid ${v.color}` : '1px solid var(--color-border)',
                     background: isActive ? v.color : 'transparent',
-                    color: isActive ? '#fff' : 'var(--color-muted, #8B8578)',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s',
-                    whiteSpace: 'nowrap',
+                    color: isActive ? '#fff' : 'var(--color-muted)',
                   }}
                 >
                   {v.label}
@@ -102,45 +97,25 @@ export default function JournalFeed({ articles, verticals, tags, verticalLabels,
             {activeVerticals.size > 0 && (
               <button
                 onClick={() => { setActiveVerticals(new Set()); setVisibleCount(INITIAL_COUNT) }}
-                style={{
-                  fontFamily: 'var(--font-body)', fontSize: 10,
-                  color: 'var(--color-muted)', background: 'none',
-                  border: 'none', cursor: 'pointer', textDecoration: 'underline',
-                  padding: '4px 6px',
-                }}
+                className="jf-clear"
               >
                 {t('clear')}
               </button>
             )}
           </div>
 
-          {/* Tag filter (only show if tags exist) */}
           {tags.length > 0 && (
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
-              marginTop: 10, paddingTop: 10,
-              borderTop: '1px solid var(--color-border, #E5E0D8)',
-            }}>
-              <span style={{
-                fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 600,
-                letterSpacing: '0.1em', textTransform: 'uppercase',
-                color: 'var(--color-muted, #8B8578)', marginRight: 4, whiteSpace: 'nowrap',
-              }}>
-                {t('tags')}
-              </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 10 }}>
+              <span className="jf-filter-label">{t('tags')}</span>
               {tags.slice(0, 20).map(tag => (
                 <button
                   key={tag}
                   onClick={() => selectTag(tag)}
+                  className="jf-pill jf-pill-sm"
                   style={{
-                    fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 500,
-                    padding: '3px 10px', borderRadius: 100,
-                    border: activeTag === tag ? 'none' : '1px solid var(--color-border, #E5E0D8)',
-                    background: activeTag === tag ? 'var(--color-ink, #2D2A26)' : 'transparent',
-                    color: activeTag === tag ? '#fff' : 'var(--color-muted, #8B8578)',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s',
-                    whiteSpace: 'nowrap',
+                    border: activeTag === tag ? '1px solid var(--color-ink)' : '1px solid var(--color-border)',
+                    background: activeTag === tag ? 'var(--color-ink)' : 'transparent',
+                    color: activeTag === tag ? '#fff' : 'var(--color-muted)',
                   }}
                 >
                   {tag}
@@ -151,47 +126,61 @@ export default function JournalFeed({ articles, verticals, tags, verticalLabels,
         </div>
       </div>
 
-      {/* Article grid */}
+      {/* Front page */}
       <div className="px-4 sm:px-6 pb-20 max-w-7xl mx-auto">
         {visible.length === 0 ? (
           <div style={{
             textAlign: 'center', padding: '60px 20px',
-            color: 'var(--color-muted, #8B8578)',
+            color: 'var(--color-muted)',
             fontFamily: 'var(--font-body)', fontSize: 14,
           }}>
             {t('empty')}
           </div>
         ) : (
           <>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-              gap: '1.5rem',
-            }}>
-              {visible.map(article => (
-                <ArticleCard
-                  key={article.id}
-                  article={article}
-                  verticalLabels={verticalLabels}
-                  verticalColors={verticalColors}
-                  locale={locale}
-                />
-              ))}
-            </div>
+            {lead && (
+              <LeadStory
+                article={lead}
+                verticalLabels={verticalLabels}
+                verticalColors={verticalColors}
+                locale={locale}
+                featuredLabel={t('featured')}
+              />
+            )}
+
+            {secondary.length > 0 && (
+              <div className="jf-secondary">
+                {secondary.map(article => (
+                  <StoryCard
+                    key={article.id}
+                    article={article}
+                    verticalLabels={verticalLabels}
+                    verticalColors={verticalColors}
+                    locale={locale}
+                    size="lg"
+                  />
+                ))}
+              </div>
+            )}
+
+            {grid.length > 0 && (
+              <div className="jf-grid" style={{ borderTop: lead || secondary.length ? '1px solid var(--color-border)' : 'none' }}>
+                {grid.map(article => (
+                  <StoryCard
+                    key={article.id}
+                    article={article}
+                    verticalLabels={verticalLabels}
+                    verticalColors={verticalColors}
+                    locale={locale}
+                    size="sm"
+                  />
+                ))}
+              </div>
+            )}
 
             {hasMore && (
-              <div style={{ textAlign: 'center', marginTop: 40 }}>
-                <button
-                  onClick={() => setVisibleCount(prev => prev + LOAD_MORE_COUNT)}
-                  style={{
-                    fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500,
-                    padding: '10px 28px', borderRadius: 8,
-                    border: '1px solid var(--color-border, #E5E0D8)',
-                    background: '#fff', color: 'var(--color-ink, #2D2A26)',
-                    cursor: 'pointer',
-                    transition: 'border-color 0.15s',
-                  }}
-                >
+              <div style={{ textAlign: 'center', marginTop: 48 }}>
+                <button onClick={() => setVisibleCount(prev => prev + LOAD_MORE_COUNT)} className="jf-more">
                   {t('loadMore')}
                 </button>
               </div>
@@ -199,140 +188,160 @@ export default function JournalFeed({ articles, verticals, tags, verticalLabels,
           </>
         )}
 
-        {/* Article count */}
+        {/* Article count — folio line */}
         <p style={{
-          textAlign: 'center', marginTop: 24,
-          fontFamily: 'var(--font-body)', fontSize: 11,
-          color: 'var(--color-muted, #8B8578)',
+          textAlign: 'center', marginTop: 28,
+          fontFamily: 'var(--font-body)', fontSize: 11, letterSpacing: '0.08em',
+          color: 'var(--color-muted)', fontVariantNumeric: 'oldstyle-nums',
         }}>
           {t('count', { count: filtered.length })}
-          {activeVerticals.size > 0 || activeTag ? ` ${t('filteredSuffix')}` : ''}
+          {isFiltering ? ` ${t('filteredSuffix')}` : ''}
         </p>
       </div>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        .jf-filters { border-top: 1px solid var(--color-border); border-bottom: 1px solid var(--color-border);
+          padding: 14px 2px; margin-bottom: clamp(28px, 4vh, 44px); }
+        .jf-filter-label { font-family: var(--font-body); font-size: 10px; font-weight: 700;
+          letter-spacing: 0.18em; text-transform: uppercase; color: var(--color-muted);
+          margin-right: 6px; white-space: nowrap; }
+        .jf-pill { font-family: var(--font-body); font-size: 11px; font-weight: 600; letter-spacing: 0.03em;
+          padding: 4px 12px; border-radius: 999px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+        .jf-pill-sm { font-size: 10px; font-weight: 500; padding: 3px 10px; }
+        .jf-clear { font-family: var(--font-body); font-size: 10px; color: var(--color-muted);
+          background: none; border: none; cursor: pointer; text-decoration: underline; padding: 4px 6px; }
+        .jf-more { font-family: var(--font-body); font-size: 12px; font-weight: 600; letter-spacing: 0.1em;
+          text-transform: uppercase; padding: 12px 32px; border-radius: 999px;
+          border: 1px solid var(--color-border); background: transparent; color: var(--color-ink);
+          cursor: pointer; transition: border-color 0.15s; }
+        .jf-more:hover { border-color: var(--color-ink); }
+
+        /* Lead story — image beside a large type block, ruled off below */
+        .jf-lead { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+          gap: clamp(20px, 3vw, 44px); align-items: center; text-decoration: none;
+          padding-bottom: clamp(28px, 4vh, 44px); margin-bottom: clamp(28px, 4vh, 44px);
+          border-bottom: 1px solid var(--color-border); }
+        .jf-lead-title { font-family: var(--font-display); font-weight: 400;
+          font-size: clamp(1.7rem, 2.6vw + 0.8rem, 2.9rem); line-height: 1.1; letter-spacing: -0.01em;
+          color: var(--color-ink); margin: 12px 0 0; text-wrap: balance; }
+        .jf-lead-excerpt { font-family: var(--font-display); font-style: italic; font-weight: 400;
+          font-size: clamp(1.02rem, 0.4vw + 0.9rem, 1.18rem); line-height: 1.55;
+          color: rgba(28, 26, 23, 0.7); margin: 14px 0 0; text-wrap: pretty;
+          display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+        @media (max-width: 760px) { .jf-lead { grid-template-columns: 1fr; align-items: start; } }
+
+        /* Secondary two-up */
+        .jf-secondary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: clamp(20px, 3vw, 44px); margin-bottom: clamp(28px, 4vh, 44px); }
+        @media (max-width: 700px) { .jf-secondary { grid-template-columns: 1fr; } }
+
+        /* Ruled grid — newspaper column rules via gap + background hairlines */
+        .jf-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+          column-gap: clamp(20px, 3vw, 44px); row-gap: clamp(28px, 4vh, 40px);
+          padding-top: clamp(28px, 4vh, 44px); }
+        @media (max-width: 960px) { .jf-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 600px) { .jf-grid { grid-template-columns: 1fr; } }
+
+        /* Shared story anatomy */
+        .jf-img { position: relative; aspect-ratio: 3/2; overflow: hidden; border-radius: 6px; }
+        .jf-img img { width: 100%; height: 100%; object-fit: cover; display: block;
+          transition: transform 0.45s ease; }
+        a:hover .jf-img img { transform: scale(1.025); }
+        .jf-img-fallback { position: absolute; inset: 0; display: flex; align-items: center;
+          justify-content: center; }
+        .jf-img-fallback span { font-family: var(--font-body); font-size: 10px; font-weight: 700;
+          letter-spacing: 0.2em; text-transform: uppercase; color: rgba(250, 248, 244, 0.85); }
+        .jf-kicker { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+          font-family: var(--font-body); font-size: 10px; font-weight: 700;
+          letter-spacing: 0.16em; text-transform: uppercase; margin: 0; }
+        .jf-kicker .jf-kicker-cat { color: var(--color-muted); font-weight: 500; }
+        .jf-title { font-family: var(--font-display); font-weight: 400; color: var(--color-ink);
+          margin: 10px 0 0; line-height: 1.22; letter-spacing: -0.005em; text-wrap: balance;
+          transition: color 0.15s; }
+        a:hover .jf-title { color: var(--color-accent); }
+        .jf-excerpt { font-family: var(--font-body); font-weight: 300; font-size: 13px;
+          color: var(--color-muted); line-height: 1.55; margin: 8px 0 0;
+          display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .jf-meta { font-family: var(--font-body); font-size: 11px; color: var(--color-muted);
+          margin: 10px 0 0; font-variant-numeric: oldstyle-nums; }
+      ` }} />
     </div>
   )
 }
 
-// ── Article Card ───────────────────────────────────────────
+// ── Story imagery — photograph, or the vertical's dark typographic ground ──
 
-function ArticleCard({ article, verticalLabels, verticalColors, locale }) {
-  const color = verticalColors[article.vertical] || '#888'
+function StoryImage({ article, verticalLabels }) {
+  const token = VERTICAL_CARD_TOKENS[article.vertical] || VERTICAL_CARD_TOKENS.portal
+  return (
+    <div className="jf-img" style={{ background: token.bg }}>
+      {article.hero_image_url ? (
+        <img src={article.hero_image_url} alt="" loading="lazy" />
+      ) : (
+        <div className="jf-img-fallback">
+          <span>{verticalLabels[article.vertical] || article.vertical}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Kicker({ article, verticalLabels, verticalColors, featuredLabel }) {
+  const color = verticalColors[article.vertical] || 'var(--color-gold)'
   const label = verticalLabels[article.vertical] || article.vertical
+  return (
+    <p className="jf-kicker">
+      <span style={{ color }}>{label}</span>
+      {featuredLabel && <span className="jf-kicker-cat">{featuredLabel}</span>}
+      {!featuredLabel && article.category && <span className="jf-kicker-cat">{article.category}</span>}
+    </p>
+  )
+}
+
+function Meta({ article, locale }) {
   const date = article.published_at
     ? new Date(article.published_at).toLocaleDateString(dateLocale(locale), {
         day: 'numeric', month: 'short', year: 'numeric',
       })
     : null
-
+  if (!date && !article.author) return null
   return (
-    <a
-      href={article.canonical_url}
-      className="group"
-      style={{
-        display: 'block', borderRadius: 12, overflow: 'hidden',
-        background: '#fff', border: '1px solid var(--color-border, #E5E0D8)',
-        textDecoration: 'none',
-        transition: 'box-shadow 0.2s, border-color 0.2s',
-      }}
-      onMouseEnter={e => {
-        e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.06)'
-        e.currentTarget.style.borderColor = color
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.boxShadow = 'none'
-        e.currentTarget.style.borderColor = 'var(--color-border, #E5E0D8)'
-      }}
-    >
-      {/* Article card — hero image with gradient, or typographic fallback */}
-      <div style={{
-        position: 'relative', aspectRatio: '16/10', overflow: 'hidden',
-        background: color, color: '#fff',
-        display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
-        padding: '1.25rem',
-      }}>
-        {article.hero_image_url ? (
-          <>
-            <img
-              src={article.hero_image_url}
-              alt=""
-              style={{
-                position: 'absolute', inset: 0,
-                width: '100%', height: '100%',
-                objectFit: 'cover',
-              }}
-            />
-            <div style={{
-              position: 'absolute', inset: 0,
-              background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.2) 50%, transparent 100%)',
-              pointerEvents: 'none',
-            }} />
-          </>
-        ) : (
-          <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.8) 1px, transparent 1px)', backgroundSize: '16px 16px', opacity: 0.08, pointerEvents: 'none' }} />
-        )}
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <span style={{
-            fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 8,
-            letterSpacing: '0.14em', textTransform: 'uppercase', opacity: article.hero_image_url ? 0.85 : 0.55,
-          }}>
-            {label}
-          </span>
-          <div style={{ width: 20, height: 1, background: '#fff', opacity: 0.35, margin: '8px 0' }} />
-          <p style={{ fontFamily: 'var(--font-display)', fontSize: 17, fontWeight: 400, margin: 0, lineHeight: 1.3 }}>
-            {article.title}
-          </p>
-        </div>
-      </div>
+    <p className="jf-meta">
+      {[date, article.author].filter(Boolean).join(' · ')}
+    </p>
+  )
+}
 
-      {/* Content */}
-      <div style={{ padding: '14px 18px 18px' }}>
-        <h3 style={{
-          fontFamily: 'var(--font-display, Georgia)', fontWeight: 400,
-          fontSize: 17, lineHeight: 1.3, color: 'var(--color-ink, #2D2A26)',
-          margin: '0 0 6px',
-        }}>
+// ── Lead story — the front-page opener ─────────────────────
+
+function LeadStory({ article, verticalLabels, verticalColors, locale, featuredLabel }) {
+  return (
+    <Link href={article.href} className="jf-lead">
+      <StoryImage article={article} verticalLabels={verticalLabels} />
+      <div>
+        <Kicker article={article} verticalLabels={verticalLabels} verticalColors={verticalColors} featuredLabel={featuredLabel} />
+        <h2 className="jf-lead-title">{article.title}</h2>
+        {article.excerpt && <p className="jf-lead-excerpt">{article.excerpt}</p>}
+        <Meta article={article} locale={locale} />
+      </div>
+    </Link>
+  )
+}
+
+// ── Secondary and grid stories ─────────────────────────────
+
+function StoryCard({ article, verticalLabels, verticalColors, locale, size }) {
+  return (
+    <Link href={article.href} style={{ display: 'block', textDecoration: 'none', minWidth: 0 }}>
+      <StoryImage article={article} verticalLabels={verticalLabels} />
+      <div style={{ paddingTop: 14 }}>
+        <Kicker article={article} verticalLabels={verticalLabels} verticalColors={verticalColors} />
+        <h3 className="jf-title" style={{ fontSize: size === 'lg' ? '1.45rem' : '1.15rem' }}>
           {article.title}
         </h3>
-
-        {article.excerpt && (
-          <p style={{
-            fontFamily: 'var(--font-body)', fontWeight: 300,
-            fontSize: 13, color: 'var(--color-muted, #8B8578)',
-            lineHeight: 1.5, margin: '0 0 10px',
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-          }}>
-            {article.excerpt}
-          </p>
-        )}
-
-        {/* Meta row */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
-        }}>
-          {date && (
-            <span style={{
-              fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 400,
-              color: 'var(--color-muted, #8B8578)',
-            }}>
-              {date}
-            </span>
-          )}
-          {article.author && date && (
-            <span style={{ color: 'var(--color-border)', fontSize: 5 }}>&#9679;</span>
-          )}
-          {article.author && (
-            <span style={{
-              fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 400,
-              color: 'var(--color-muted, #8B8578)',
-            }}>
-              {article.author}
-            </span>
-          )}
-        </div>
+        {article.excerpt && size === 'lg' && <p className="jf-excerpt">{article.excerpt}</p>}
+        <Meta article={article} locale={locale} />
       </div>
-    </a>
+    </Link>
   )
 }

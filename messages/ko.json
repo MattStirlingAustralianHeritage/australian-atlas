@@ -1219,7 +1219,14 @@
     "empty": "필터와 일치하는 기사가 없습니다.",
     "loadMore": "더 보기",
     "count": "{count, plural, one {# 기사} other {# 기사}}",
-    "filteredSuffix": "(필터됨)"
+    "filteredSuffix": "(필터됨)",
+    "byAuthor": "글 {name}",
+    "minRead": "{count, plural, other {#분 분량}}",
+    "filedUnder": "분류",
+    "inStory": "이 이야기 속 장소",
+    "related": "저널의 다른 이야기",
+    "back": "모든 이야기",
+    "featured": "주요 기사"
   },
   "onThisRoad": {
     "metaTitle": "On This Road — Australian Atlas",

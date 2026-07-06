@@ -2,21 +2,9 @@ import Link from 'next/link'
 import { getTranslations } from 'next-intl/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 
-const VERTICAL_JOURNAL_URLS = {
-  sba: 'https://smallbatchatlas.com.au/journal',
-  collection: 'https://collectionatlas.com.au/journal',
-  craft: 'https://craftatlas.com.au/journal',
-  fine_grounds: 'https://finegroundsatlas.com.au/journal',
-  rest: 'https://restatlas.com.au/journal',
-  field: 'https://fieldatlas.com.au/journal',
-  corner: 'https://corneratlas.com.au/journal',
-  found: 'https://foundatlas.com.au/journal',
-  table: 'https://tableatlas.com.au/journal',
-}
-
+// Articles live on the portal — /journal/[slug] is the canonical home.
 function articleUrl(a) {
-  const v = (a.verticals?.[0]) || a.vertical || 'sba'
-  return `${VERTICAL_JOURNAL_URLS[v] || VERTICAL_JOURNAL_URLS.sba}/${a.slug}`
+  return `/journal/${a.slug}`
 }
 
 export async function RelatedCollections({ region, vertical, limit = 3, excludeSlug }) {
