@@ -361,6 +361,44 @@ h1 { letter-spacing: -0.015em; font-feature-settings: 'liga' 1, 'kern' 1; }
 .home-search-shell:focus-within .search-shell-icon {
   transform: scale(1.08);
 }
+/* Search spotlight (homepage hero) — while the search holds focus the page
+   drops into shadow and the bar becomes the one lit surface: the room lights
+   lower, the bar burns brighter. Clicking the shadow (or Escape past a closed
+   dropdown) blurs the field and brings the lights back up. The scrim sits
+   above the sticky nav (z-50); the focused bar sits above the scrim. */
+.search-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(24, 21, 17, 0.34);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.32s ease;
+}
+.search-scrim.is-active {
+  opacity: 1;
+  pointer-events: auto;
+}
+.search-spotlight {
+  position: relative;
+}
+.search-spotlight.is-active {
+  z-index: 91;
+}
+/* Under the spotlight the shell glows past its plain focus state — a gold
+   halo wide enough to read against the darkened page. */
+.search-spotlight.is-active .home-search-shell,
+.search-spotlight.is-active .search-shell {
+  border-color: var(--color-gold);
+  box-shadow:
+    0 0 0 5px rgba(196, 151, 59, 0.16),
+    0 0 46px rgba(196, 151, 59, 0.30),
+    0 22px 70px rgba(12, 10, 8, 0.42);
+}
+@media (prefers-reduced-motion: reduce) {
+  .search-scrim { transition: none; }
+}
+
 /* Submit button — answers hover/press so the bar feels alive end to end. */
 .search-shell-submit {
   transition: filter 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;

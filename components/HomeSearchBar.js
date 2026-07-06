@@ -35,6 +35,8 @@ export default function HomeSearchBar() {
   // prev === null on first paint so the opening hint appears without a roll.
   const [pair, setPair] = useState({ prev: null, curr: 0 })
   const [reduceMotion, setReduceMotion] = useState(false)
+  // Spotlight: while the field holds focus the page dims behind the bar.
+  const [spotlight, setSpotlight] = useState(false)
   const router = useRouter()
 
   // Honour prefers-reduced-motion: the CSS already disables the roll, but we
@@ -98,7 +100,23 @@ export default function HomeSearchBar() {
   )
 
   return (
-    <form onSubmit={handleSubmit} className="mt-4 w-full mx-auto" style={{ maxWidth: '780px' }}>
+    <>
+      {/* Spotlight scrim — dims the whole page (nav included) while the field
+          holds focus. Clicking it is a natural blur: it's not focusable, so
+          the mousedown moves focus off the input and the lights come back up. */}
+      <div className={spotlight ? 'search-scrim is-active' : 'search-scrim'} aria-hidden="true" />
+    <form
+      onSubmit={handleSubmit}
+      className={`search-spotlight mt-4 w-full mx-auto${spotlight ? ' is-active' : ''}`}
+      style={{ maxWidth: '780px' }}
+      onFocusCapture={() => setSpotlight(true)}
+      onBlurCapture={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setSpotlight(false) }}
+      onKeyDown={(e) => {
+        // Escape past a closed dropdown puts the room lights back on (the
+        // autocomplete preventDefaults Escape while its dropdown is open).
+        if (e.key === 'Escape' && !e.defaultPrevented && e.target instanceof HTMLElement) e.target.blur()
+      }}
+    >
       {/* Border, shadow, and the gold focus-within glow live on the
           .home-search-shell class — inline border/shadow here would beat the
           :focus-within rule and kill the glow. */}
@@ -131,5 +149,6 @@ export default function HomeSearchBar() {
         </button>
       </div>
     </form>
+    </>
   )
 }
