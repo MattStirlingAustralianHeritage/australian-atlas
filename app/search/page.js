@@ -905,8 +905,8 @@ function SearchPageInner() {
 
       {/* Search input — a form so Enter submits (and only then redirects to the
           itinerary builder, instead of hijacking the query mid-typing). */}
-      <form ref={formRef} onSubmit={handleSubmit} role="search" className="mt-6 flex items-center gap-3 bg-white rounded-2xl px-5 py-4 max-w-2xl shadow-sm focus-within:shadow-md transition-all" style={{ border: '0.5px solid var(--color-border)' }}>
-        <svg className="w-6 h-6 text-[var(--color-accent)] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <form ref={formRef} onSubmit={handleSubmit} role="search" className="search-shell mt-6 flex items-center gap-3 rounded-2xl px-5 py-4 max-w-2xl">
+        <svg className="search-shell-icon w-6 h-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--color-gold)' }} aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
         <SearchAutocomplete

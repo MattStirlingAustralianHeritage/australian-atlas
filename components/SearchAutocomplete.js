@@ -252,8 +252,10 @@ export default function SearchAutocomplete({ value, onChange, onSelect, placehol
         }}
         placeholder={placeholder}
         className="w-full bg-transparent outline-none placeholder:text-[var(--color-muted)]/60"
-        style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px', ...inputStyle }}
+        style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px', caretColor: 'var(--color-gold)', ...inputStyle }}
         autoComplete="off"
+        spellCheck={false}
+        enterKeyHint="search"
         aria-label={ariaLabel}
         role="combobox"
         aria-expanded={isOpen}
@@ -305,6 +307,8 @@ export default function SearchAutocomplete({ value, onChange, onSelect, placehol
             boxShadow: '0 8px 32px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04)',
             overflow: 'hidden',
             zIndex: 100,
+            animation: 'dropdown-in 0.14s ease both',
+            transformOrigin: 'top center',
           }}
         >
           <button
@@ -370,6 +374,8 @@ export default function SearchAutocomplete({ value, onChange, onSelect, placehol
             zIndex: 100,
             maxHeight: '380px',
             overflowY: 'auto',
+            animation: 'dropdown-in 0.14s ease both',
+            transformOrigin: 'top center',
           }}
         >
           {TYPE_ORDER.map(type => {

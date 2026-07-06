@@ -106,7 +106,7 @@ export default function HomeSearchBar() {
         className="home-search-shell flex items-center gap-3 rounded-2xl px-5 sm:px-6 group"
         style={{ height: '62px' }}
       >
-        <svg className="w-[22px] h-[22px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--color-gold)' }}>
+        <svg className="search-shell-icon w-[22px] h-[22px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--color-gold)' }} aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
         <SearchAutocomplete
@@ -120,7 +120,7 @@ export default function HomeSearchBar() {
         />
         <button
           type="submit"
-          className="shrink-0 rounded-full hover:opacity-90 transition-opacity"
+          className="search-shell-submit shrink-0 rounded-full"
           style={{
             fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px',
             background: 'var(--color-gold)', color: '#FAF8F4',

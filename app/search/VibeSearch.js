@@ -223,30 +223,29 @@ export default function VibeSearch({ initialQuery = '', onQueryChange }) {
       {/* Vibe search input */}
       <form onSubmit={handleSubmit} style={{ marginTop: '1.5rem' }}>
         <div
+          className="search-shell"
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: '0.75rem',
-            background: '#fff',
             borderRadius: '1rem',
             padding: '1rem 1.25rem',
             maxWidth: '40rem',
-            border: '0.5px solid var(--color-border)',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
-            transition: 'box-shadow 0.2s',
           }}
         >
           {/* Sparkle icon */}
           <svg
+            className="search-shell-icon"
             width="20"
             height="20"
             viewBox="0 0 24 24"
             fill="none"
-            stroke="var(--color-accent)"
+            stroke="var(--color-gold)"
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
             style={{ flexShrink: 0 }}
+            aria-hidden="true"
           >
             <path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z" />
           </svg>
@@ -261,12 +260,14 @@ export default function VibeSearch({ initialQuery = '', onQueryChange }) {
               border: 'none',
               outline: 'none',
               fontFamily: 'var(--font-body)',
-              fontSize: '0.9375rem',
+              fontSize: '16px',
               fontWeight: 300,
               color: 'var(--color-ink)',
               background: 'transparent',
               minHeight: '24px',
             }}
+            enterKeyHint="search"
+            spellCheck={false}
           />
 
           {query && (

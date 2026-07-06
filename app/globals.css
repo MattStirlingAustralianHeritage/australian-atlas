@@ -302,18 +302,66 @@ h1 { letter-spacing: -0.015em; font-feature-settings: 'liga' 1, 'kern' 1; }
   box-shadow: 0 2px 4px rgba(82,58,30,0.07), 0 14px 34px rgba(82,58,30,0.13);
 }
 
-/* Homepage hero search. The shell glows gold on focus so the bar reads as the
-   page's focal point the moment it's touched; the example-query chips pick up
-   the same accent on hover to signal they run a real search. */
+/* Search shells (homepage hero + /search page). The SHELL is the focus
+   indicator: it glows gold the moment the field is touched, so the bar reads
+   as the page's focal point. The example-query chips pick up the same accent
+   on hover to signal they run a real search. */
+.search-shell,
 .home-search-shell {
   background: #ffffff;
   border: 1.5px solid #e3d9c8;
   box-shadow: 0 6px 28px rgba(28, 26, 23, 0.09), 0 2px 8px rgba(0, 0, 0, 0.04);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
 }
+.search-shell:focus-within,
 .home-search-shell:focus-within {
   border-color: var(--color-gold);
-  box-shadow: 0 6px 32px rgba(196, 151, 59, 0.22), 0 2px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 10px 36px rgba(196, 151, 59, 0.22), 0 2px 8px rgba(0, 0, 0, 0.05);
+  transform: translateY(-1px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .search-shell:focus-within,
+  .home-search-shell:focus-within { transform: none; }
+}
+/* The input INSIDE a shell must stay quiet: the shell already announces focus,
+   so the input draws no baseline border/background and — critically — no
+   focus ring. Without this, the global input :focus-visible ring painted a
+   hard sage rectangle inside the rounded gold shell (read as a rendering
+   bug, not a focus style). Keyboard a11y is preserved by the shell's own
+   :focus-within border + glow above. */
+.search-shell :where(input),
+.home-search-shell :where(input) {
+  border: none;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  caret-color: var(--color-gold);
+}
+.search-shell :where(input):focus-visible,
+.home-search-shell :where(input):focus-visible {
+  outline: none;
+  box-shadow: none;
+  border-color: transparent;
+}
+/* The magnifier leans in with the visitor. */
+.search-shell .search-shell-icon,
+.home-search-shell .search-shell-icon {
+  transition: transform 0.25s ease, color 0.25s ease;
+}
+.search-shell:focus-within .search-shell-icon,
+.home-search-shell:focus-within .search-shell-icon {
+  transform: scale(1.08);
+}
+/* Submit button — answers hover/press so the bar feels alive end to end. */
+.search-shell-submit {
+  transition: filter 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+.search-shell-submit:hover {
+  filter: brightness(1.06);
+  box-shadow: 0 4px 14px rgba(196, 151, 59, 0.35);
+}
+.search-shell-submit:active {
+  transform: scale(0.97);
 }
 .home-try-chip {
   transition: border-color 0.15s ease, background 0.15s ease;
