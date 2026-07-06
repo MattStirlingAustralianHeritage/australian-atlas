@@ -333,6 +333,7 @@
     "acSuburbs": "교외",
     "acCategories": "카테고리",
     "acPlaces": "장소",
+    "acClaimed": "주인이 직접 관리",
     "askTheAtlas": "Atlas에 묻기",
     "askRecommendations": "\"{query}\"에 대한 추천받기",
     "askHint": "질문처럼 읽혀 답변합니다 — 이름만 매칭하지 않습니다.",

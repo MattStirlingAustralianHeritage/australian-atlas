@@ -396,6 +396,10 @@ export default function SearchAutocomplete({ value, onChange, onSelect, placehol
                 {items.map((item, idx) => {
                   const itemIndex = indexMap[`${type}-${idx}`]
                   const isActive = itemIndex === activeIndex
+                  // Claimed venue — the owner's page, given the dropdown's
+                  // richest treatment: its hero photo as a gold-ringed thumb
+                  // wearing the same gold-circle seal as the place page.
+                  const claimed = type === 'place' && item.claimed
 
                   return (
                     <button
@@ -408,10 +412,10 @@ export default function SearchAutocomplete({ value, onChange, onSelect, placehol
                       style={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '10px',
+                        gap: claimed ? '12px' : '10px',
                         width: '100%',
                         minHeight: '44px',
-                        padding: '8px 16px',
+                        padding: claimed ? '10px 16px' : '8px 16px',
                         border: 'none',
                         background: isActive ? 'var(--color-cream)' : 'transparent',
                         cursor: 'pointer',
@@ -419,14 +423,55 @@ export default function SearchAutocomplete({ value, onChange, onSelect, placehol
                         transition: 'background 0.1s',
                       }}
                     >
-                      <span style={{ color: isActive ? 'var(--color-accent)' : 'var(--color-muted)' }}>
-                        <config.Icon />
-                      </span>
+                      {claimed ? (
+                        <span style={{ position: 'relative', width: '46px', height: '46px', flexShrink: 0 }}>
+                          {item.image ? (
+                            <img
+                              src={item.image}
+                              alt=""
+                              decoding="async"
+                              style={{
+                                width: '100%', height: '100%', objectFit: 'cover',
+                                borderRadius: '10px', display: 'block',
+                                boxShadow: '0 0 0 1px rgba(196,151,59,0.55), 0 1px 4px rgba(28,26,23,0.12)',
+                              }}
+                            />
+                          ) : (
+                            <span style={{
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              width: '100%', height: '100%', borderRadius: '10px',
+                              background: 'linear-gradient(135deg, rgba(196,151,59,0.18), rgba(196,151,59,0.06))',
+                              boxShadow: '0 0 0 1px rgba(196,151,59,0.35)',
+                              color: 'var(--color-gold)',
+                            }}>
+                              <config.Icon />
+                            </span>
+                          )}
+                          <span
+                            aria-hidden="true"
+                            style={{
+                              position: 'absolute', bottom: '-4px', right: '-4px',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              width: '16px', height: '16px', borderRadius: '50%',
+                              background: 'var(--color-gold)', color: '#fff',
+                              boxShadow: '0 0 0 2px #fff',
+                            }}
+                          >
+                            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5">
+                              <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          </span>
+                        </span>
+                      ) : (
+                        <span style={{ color: isActive ? 'var(--color-accent)' : 'var(--color-muted)' }}>
+                          <config.Icon />
+                        </span>
+                      )}
 
                       <span style={{ flex: 1, minWidth: 0 }}>
                         <span style={{
                           fontFamily: 'var(--font-body)',
-                          fontWeight: 400,
+                          fontWeight: claimed ? 500 : 400,
                           fontSize: '14px',
                           color: 'var(--color-ink)',
                           display: 'block',
@@ -449,6 +494,24 @@ export default function SearchAutocomplete({ value, onChange, onSelect, placehol
                         }}>
                           {getMetaText(item)}
                         </span>
+
+                        {claimed && (
+                          <span style={{
+                            fontFamily: 'var(--font-body)',
+                            fontWeight: 600,
+                            fontSize: '9.5px',
+                            letterSpacing: '0.14em',
+                            textTransform: 'uppercase',
+                            color: 'var(--color-gold)',
+                            display: 'block',
+                            marginTop: '2px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}>
+                            {t('acClaimed')}
+                          </span>
+                        )}
                       </span>
                     </button>
                   )
