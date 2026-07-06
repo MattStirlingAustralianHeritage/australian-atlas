@@ -9,6 +9,7 @@ import HomeSearchBar from '@/components/HomeSearchBar'
 import NewsletterSignup from '@/components/NewsletterSignup'
 import ScrollReveal from '@/components/ScrollReveal'
 import NearbySection from '@/components/NearbySection'
+import WorthFindingSection from '@/components/home/WorthFindingSection'
 import DiscoverDeck from '@/components/discover/DiscoverDeck'
 import CategoryGuideSection from '@/components/CategoryGuideSection'
 import { getListingRegion, LISTING_REGION_SELECT, resolveRegionParam } from '@/lib/regions'
@@ -113,12 +114,6 @@ function seededShuffle(arr, seed) {
     ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
   }
   return shuffled
-}
-
-function firstSentence(text) {
-  if (!text) return null
-  const match = text.match(/^(.+?[.!?])\s/)
-  return match ? match[1] : text.slice(0, 160)
 }
 
 const EVENT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -645,146 +640,11 @@ export default async function Home() {
       )}
 
       {/* ── 3. Worth Finding This Week ──────────────────── */}
-      {/* On its own pale cream band (with hairline edges) so it reads as a
-          distinct section from the stone-ground "Worth finding nearby" below —
-          and the dark lead/rail cards lift off the lighter surface. */}
-      {featured.length > 0 && (
-        <ScrollReveal as="section" style={{
-          paddingBlock: '80px',
-          background: 'linear-gradient(180deg, #FBF8F2 0%, #F8F4EB 100%)',
-          borderTop: '1px solid rgba(28,26,23,0.06)',
-          borderBottom: '1px solid rgba(28,26,23,0.08)',
-        }}>
-          <div className="max-w-5xl mx-auto px-6 sm:px-12">
-            <div className="reveal" style={{ marginBottom: '36px', maxWidth: '560px' }}>
-              <p className="section-dateline" style={{ marginBottom: '16px' }}>
-                {t('thisWeekDateline', { date: editionDate })}
-              </p>
-              <h2 style={{
-                fontFamily: 'var(--font-display)', fontWeight: 400,
-                fontSize: 'clamp(30px, 4vw, 50px)', color: 'var(--color-ink)',
-                lineHeight: 1.1, marginBottom: '12px',
-              }}>
-                {t('worthFindingTitle')}
-              </h2>
-              <p style={{
-                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
-                color: 'var(--color-muted)', margin: 0,
-              }}>
-                {t('worthFindingIntro')}
-              </p>
-            </div>
-
-            {/* LEAD + RAIL: the first featured listing is the dominant cover
-                story (1.6fr, full-bleed ground or its photo); the rest stack as
-                a compact coloured rail (1fr). Scale contrast carries hierarchy. */}
-            {(() => {
-              const lead = featured[0]
-              const rail = featured.slice(1, 4)
-              const leadColors = VERTICAL_CARD_COLORS[lead.vertical] || { bg: '#333', text: '#FAF8F4' }
-              const leadRegion = getListingRegion(lead)
-              return (
-                <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-6">
-                  {/* LEAD */}
-                  <LocalizedLink
-                    key={lead.id}
-                    href={`/place/${lead.slug}`}
-                    className="reveal group listing-card block overflow-hidden"
-                    data-reveal-index={1}
-                    style={{
-                      background: lead.hero_image_url ? '#1A1A1A' : leadColors.bg,
-                      border: '1px solid transparent',
-                      borderRadius: 'var(--radius-lg)',
-                      display: 'flex', flexDirection: 'column',
-                      minHeight: 'clamp(300px, 40vw, 440px)',
-                    }}
-                  >
-                    {lead.hero_image_url && (
-                      <div className="overflow-hidden" style={{ flex: '1 1 55%', minHeight: '180px' }}>
-                        <img
-                          src={lead.hero_image_url}
-                          alt=""
-                          loading="lazy"
-                          className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700"
-                        />
-                      </div>
-                    )}
-                    <div style={{ padding: '30px 30px 32px', display: 'flex', flexDirection: 'column', flex: lead.hero_image_url ? '0 0 auto' : 1 }}>
-                      <p style={{
-                        fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
-                        letterSpacing: '0.15em', textTransform: 'uppercase',
-                        color: GOLD, marginBottom: '10px',
-                      }}>
-                        {localizeVerticalKicker(lead.vertical, VERTICAL_LABELS[lead.vertical] || lead.vertical, locale)}
-                        {leadRegion ? `  ·  ${leadRegion.name}` : ''}
-                      </p>
-                      {!lead.hero_image_url && <div style={{ flex: 1, minHeight: 20 }} />}
-                      <h3 style={{
-                        fontFamily: 'var(--font-display)', fontWeight: 400,
-                        fontSize: 'clamp(26px, 3.2vw, 36px)', lineHeight: 1.12,
-                        color: '#FAF8F4', marginBottom: '12px',
-                      }}>
-                        {lead.name}
-                      </h3>
-                      {lead.description && (
-                        <p style={{
-                          fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px',
-                          lineHeight: 1.65, color: 'rgba(250,248,244,0.62)', margin: 0, maxWidth: '46ch',
-                          display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                        }}>
-                          {firstSentence(lead.description)}
-                        </p>
-                      )}
-                    </div>
-                  </LocalizedLink>
-
-                  {/* RAIL */}
-                  {rail.length > 0 && (
-                    <div className="flex flex-col gap-4">
-                      {rail.map((listing, ri) => {
-                        const colors = VERTICAL_CARD_COLORS[listing.vertical] || { bg: '#333', text: '#FAF8F4' }
-                        const r = getListingRegion(listing)
-                        return (
-                          <LocalizedLink
-                            key={listing.id}
-                            href={`/place/${listing.slug}`}
-                            className="reveal group listing-card block overflow-hidden"
-                            data-reveal-index={ri + 2}
-                            style={{
-                              background: colors.bg,
-                              border: '1px solid transparent',
-                              borderRadius: 'var(--radius-card)',
-                              padding: '18px 20px',
-                              display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-                              flex: '1 1 0', minHeight: '104px',
-                            }}
-                          >
-                            <p style={{
-                              fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 600,
-                              letterSpacing: '0.15em', textTransform: 'uppercase',
-                              color: 'rgba(250,248,244,0.5)', margin: 0,
-                            }}>
-                              {localizeVerticalKicker(listing.vertical, VERTICAL_LABELS[listing.vertical] || listing.vertical, locale)}
-                              {r ? `  ·  ${r.name}` : ''}
-                            </p>
-                            <h3 style={{
-                              fontFamily: 'var(--font-display)', fontWeight: 400,
-                              fontSize: '19px', lineHeight: 1.22,
-                              color: colors.text, margin: '8px 0 0',
-                            }}>
-                              {listing.name}
-                            </h3>
-                          </LocalizedLink>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              )
-            })()}
-          </div>
-        </ScrollReveal>
-      )}
+      {/* Server hands the cached editorial picks to a client section that
+          upgrades itself to within-100km, taste-weighted picks for signed-in
+          visitors who already shared a location (see WorthFindingSection).
+          Everyone else gets the editorial band exactly as before. */}
+      <WorthFindingSection featured={featured} locale={locale} editionDate={editionDate} />
 
       {/* ── 4. Journal Feature ──────────────────────────── */}
       {featuredArticle && (
