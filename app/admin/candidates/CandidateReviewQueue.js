@@ -8,29 +8,12 @@ import {
 } from '@/lib/wayLabels'
 import AddListingForm from './AddListingForm'
 import SuggestUrlPill from './SuggestUrlPill'
+import TriageBoard from './TriageBoard'
 import { usePublishQueue } from './usePublishQueue'
-import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
-
-const VERTICAL_NAMES = {
-  sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
-  fine_grounds: 'Fine Grounds', rest: 'Rest', field: 'Field',
-  corner: 'Corner', found: 'Found', table: 'Table', way: 'Way',
-}
-
-const VERTICAL_COLORS = VERTICAL_ACCENTS
-
-const VERTICAL_TYPE_LABELS = {
-  sba: 'Artisan Producer', collection: 'Culture', craft: 'Maker Studio',
-  fine_grounds: 'Coffee', rest: 'Boutique Stay', field: 'Nature Destination',
-  corner: 'Independent Shop', found: 'Vintage & Antique', table: 'Food & Produce',
-  way: 'Experience Operator',
-}
-
-const VERTICAL_FULL_NAMES = {
-  sba: 'Small Batch Atlas', collection: 'Culture Atlas', craft: 'Craft Atlas',
-  fine_grounds: 'Fine Grounds Atlas', rest: 'Rest Atlas', field: 'Field Atlas',
-  corner: 'Corner Atlas', found: 'Found Atlas', table: 'Table Atlas', way: 'Way Atlas',
-}
+import {
+  VERTICAL_NAMES, VERTICAL_COLORS, VERTICAL_TYPE_LABELS,
+  VERTICAL_FULL_NAMES, SUBCATEGORY_OPTIONS,
+} from './reviewMeta'
 
 // Non-visitable presence sub-types — a maker can operate in several of these at
 // once (e.g. markets + online + by appointment). Listed in PRIORITY order:
@@ -130,144 +113,6 @@ function PresenceMultiSelect({ value, onChange }) {
       )}
     </div>
   )
-}
-
-// Subcategory options per vertical — values must match DB CHECK constraints on meta tables
-const SUBCATEGORY_OPTIONS = {
-  sba: [
-    { value: 'brewery', label: 'Brewery' },
-    { value: 'winery', label: 'Winery' },
-    { value: 'distillery', label: 'Distillery' },
-    { value: 'cidery', label: 'Cidery' },
-    { value: 'meadery', label: 'Meadery' },
-    { value: 'cellar_door', label: 'Cellar Door' },
-    { value: 'sour_brewery', label: 'Sour Brewery' },
-    { value: 'non_alcoholic', label: 'Non-Alcoholic' },
-  ],
-  collection: [
-    { value: 'museum', label: 'Museum' },
-    { value: 'gallery', label: 'Gallery' },
-    { value: 'heritage_site', label: 'Heritage Site' },
-    { value: 'cultural_centre', label: 'Cultural Centre' },
-    { value: 'botanical_garden', label: 'Botanical Garden' },
-    { value: 'sculpture_park', label: 'Sculpture Park' },
-    { value: 'cinema', label: 'Cinema' },
-    { value: 'drive_in', label: 'Drive-In' },
-    { value: 'live_music_venue', label: 'Live Music Venue' },
-    { value: 'comedy_club', label: 'Comedy Club' },
-    { value: 'theatre', label: 'Theatre' },
-  ],
-  craft: [
-    { value: 'ceramics_clay', label: 'Ceramics & Clay' },
-    { value: 'visual_art', label: 'Visual Art' },
-    { value: 'jewellery_metalwork', label: 'Jewellery & Metalwork' },
-    { value: 'textile_fibre', label: 'Textile & Fibre' },
-    { value: 'wood_furniture', label: 'Wood & Furniture' },
-    { value: 'glass', label: 'Glass' },
-    { value: 'printmaking', label: 'Printmaking' },
-    { value: 'leathermaker', label: 'Leatherwork' },
-    { value: 'shoemaker', label: 'Shoemaking' },
-    { value: 'clothing', label: 'Clothing' },
-    { value: 'fragrance_candles', label: 'Fragrance & Candles' },
-  ],
-  fine_grounds: [
-    { value: 'roaster', label: 'Roaster' },
-    { value: 'cafe', label: 'Cafe' },
-  ],
-  rest: [
-    { value: 'boutique_hotel', label: 'Boutique Hotel' },
-    { value: 'guesthouse', label: 'Guesthouse' },
-    { value: 'bnb', label: 'B&B' },
-    { value: 'farm_stay', label: 'Farm Stay' },
-    { value: 'glamping', label: 'Glamping' },
-    { value: 'cottage', label: 'Cottage' },
-    { value: 'eco_resort', label: 'Eco Resort' },
-    { value: 'heritage_hotel', label: 'Heritage Hotel' },
-    { value: 'national_park_stay', label: 'National Park Stay' },
-    { value: 'heritage_lighthouse', label: 'Heritage Lighthouse' },
-  ],
-  field: [
-    { value: 'swimming_hole', label: 'Swimming Hole' },
-    { value: 'waterfall', label: 'Waterfall' },
-    { value: 'lookout', label: 'Lookout' },
-    { value: 'gorge', label: 'Gorge' },
-    { value: 'coastal_walk', label: 'Coastal Walk' },
-    { value: 'hot_spring', label: 'Hot Spring' },
-    { value: 'cave', label: 'Cave' },
-    { value: 'national_park', label: 'National Park' },
-    { value: 'wildlife_zoo', label: 'Wildlife & Zoo' },
-    { value: 'bush_walk', label: 'Bush Walk' },
-    { value: 'botanic_garden', label: 'Botanic Garden' },
-    { value: 'nature_reserve', label: 'Nature Reserve' },
-  ],
-  corner: [
-    { value: 'bookshop', label: 'Bookshop' },
-    { value: 'records', label: 'Records & Music' },
-    { value: 'homewares', label: 'Homewares & Interiors' },
-    { value: 'design_store', label: 'Design Store' },
-    { value: 'stationery', label: 'Stationery & Paper Goods' },
-    { value: 'jewellery', label: 'Jewellery' },
-    { value: 'toys', label: 'Toys & Children\'s' },
-    { value: 'general', label: 'General Store' },
-    { value: 'clothing', label: 'Clothing' },
-    { value: 'food_drink', label: 'Food & Drink' },
-    { value: 'plants', label: 'Plants' },
-    { value: 'specialty_retail', label: 'Specialty Retail' },
-    { value: 'other', label: 'Other' },
-  ],
-  found: [
-    { value: 'vintage_clothing', label: 'Vintage Clothing' },
-    { value: 'vintage_furniture', label: 'Vintage Furniture' },
-    { value: 'vintage_store', label: 'Vintage Store' },
-    { value: 'antiques', label: 'Antiques' },
-    { value: 'op_shop', label: 'Op Shop' },
-    { value: 'books_ephemera', label: 'Books & Ephemera' },
-    { value: 'art_objects', label: 'Art Objects' },
-    { value: 'market', label: 'Market' },
-  ],
-  table: [
-    { value: 'restaurant', label: 'Restaurant' },
-    { value: 'cafe', label: 'Cafe' },
-    { value: 'bakery', label: 'Bakery' },
-    { value: 'market', label: 'Market' },
-    { value: 'farm_gate', label: 'Farm Gate' },
-    { value: 'artisan_producer', label: 'Artisan Producer' },
-    { value: 'specialty_retail', label: 'Specialty Retail' },
-    { value: 'destination', label: 'Destination' },
-    { value: 'cooking_school', label: 'Cooking School' },
-    { value: 'providore', label: 'Providore' },
-    { value: 'food_trail', label: 'Food Trail' },
-    { value: 'creamery', label: 'Creamery' },
-    { value: 'chocolatier', label: 'Chocolatier' },
-    { value: 'confectioner', label: 'Confectioner' },
-    { value: 'tea_shop', label: 'Tea Shop' },
-  ],
-  // Way Atlas primary types (extends Spec §III). Order matches the spec's
-  // narrative grouping: walks → cultural → flights → marine → specialist
-  // → heritage → workshop → mobility.
-  way: [
-    { value: 'guided_walk_multiday',       label: 'Guided Walk — Multi-day' },
-    { value: 'guided_walk_day',            label: 'Guided Walk — Day' },
-    { value: 'cultural_tour',              label: 'Cultural Tour (Aboriginal-led)' },
-    { value: 'scenic_flight',              label: 'Scenic Flight' },
-    { value: 'helicopter_tour',            label: 'Helicopter Tour' },
-    { value: 'sailing_charter',            label: 'Sailing Charter' },
-    { value: 'sea_kayak_tour',             label: 'Sea Kayak Tour' },
-    { value: 'dive_operator',              label: 'Dive Operator' },
-    { value: 'fishing_guide',              label: 'Fishing Guide' },
-    { value: 'photography_expedition',     label: 'Photography Expedition' },
-    { value: 'specialist_natural_history', label: 'Specialist Natural History' },
-    { value: 'foraging_bushfood',          label: 'Foraging & Bush Food' },
-    { value: 'heritage_tour',              label: 'Heritage Tour' },
-    { value: 'workshop_intensive',         label: 'Workshop Intensive' },
-    { value: 'river_canoe_tour',           label: 'River & Canoe Tour' },
-    { value: 'horseback_expedition',       label: 'Horseback Expedition' },
-    { value: 'four_wheel_drive_expedition',label: '4WD Expedition' },
-    { value: 'hot_air_balloon',            label: 'Hot Air Ballooning' },
-    { value: 'marine_wildlife_swim',       label: 'Marine Wildlife Swim' },
-    { value: 'whale_watching',             label: 'Whale Watching' },
-    { value: 'snorkelling',                label: 'Snorkelling' },
-  ],
 }
 
 // Geo anchors for map preview — fuzzy region matching
@@ -2596,6 +2441,50 @@ function CompletionScreen({ approved, rejected, regions, vertical }) {
   )
 }
 
+// ─── View Mode Toggle (Board ↔ Cards) ────────────────────
+
+function ViewModeToggle({ mode, onChange }) {
+  const options = [
+    { key: 'board', label: 'Board', hint: 'Sweep the whole queue — sort, select, bulk publish' },
+    { key: 'card', label: 'Cards', hint: 'One at a time, full detail and inline editing' },
+  ]
+  return (
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', gap: 2, marginBottom: 16,
+      padding: 3, borderRadius: 100, background: 'var(--color-cream)',
+      border: '1px solid var(--color-border)',
+    }}>
+      {options.map(o => {
+        const active = mode === o.key
+        return (
+          <button key={o.key} onClick={() => onChange(o.key)} title={o.hint}
+            style={{
+              fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: active ? 600 : 500,
+              color: active ? '#fff' : 'var(--color-muted)',
+              background: active ? 'var(--color-sage)' : 'transparent',
+              border: 'none', borderRadius: 100, padding: '5px 16px',
+              cursor: 'pointer', transition: 'all 0.15s',
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+            }}>
+            {o.key === 'board' ? (
+              <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                <rect x="1.5" y="2" width="11" height="2.2" rx="1" fill="currentColor"/>
+                <rect x="1.5" y="6" width="11" height="2.2" rx="1" fill="currentColor"/>
+                <rect x="1.5" y="10" width="11" height="2.2" rx="1" fill="currentColor"/>
+              </svg>
+            ) : (
+              <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+                <rect x="2" y="2.5" width="10" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.6"/>
+              </svg>
+            )}
+            {o.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 // ─── Vertical Filter Bar ─────────────────────────────────
 
 function VerticalFilterBar({ activeFilter, onFilterChange, queueDepth }) {
@@ -3003,6 +2892,10 @@ export default function CandidateReviewQueue({ initialCandidates = [], initialRe
   const [publishedRegions, setPublishedRegions] = useState([])
   const [verticalFilter, setVerticalFilter] = useState(null)
   const [activeTab, setActiveTab] = useState('review') // 'review' | 'rejected'
+  // Two ways to work the queue: 'board' is the fast bulk lane (compact rows,
+  // multi-select, sweep by score); 'card' is the detailed one-at-a-time review.
+  // Board is the default because it's where volume gets cleared quickly.
+  const [viewMode, setViewMode] = useState('board') // 'board' | 'card'
   const [depth, setDepth] = useState(queueDepth)
   // Track candidates whose vertical was changed mid-review so they stay
   // visible in the current filter until explicitly published or skipped.
@@ -3045,6 +2938,9 @@ export default function CandidateReviewQueue({ initialCandidates = [], initialRe
         undoRef.current?.()
         return
       }
+      // Card-flow keys only apply in card mode — the board owns its own
+      // Y/N/arrows/etc. while it's mounted.
+      if (viewMode !== 'card') return
       if (filteredCandidates.length === 0) return
       switch (e.key) {
         case 'ArrowRight': case 'y': case 'Y': {
@@ -3068,7 +2964,7 @@ export default function CandidateReviewQueue({ initialCandidates = [], initialRe
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [filteredCandidates.length])
+  }, [filteredCandidates.length, viewMode])
 
   const handleApprove = useCallback((id, region, payload) => {
     const candidate = candidates.find(c => c.id === id)
@@ -3159,6 +3055,64 @@ export default function CandidateReviewQueue({ initialCandidates = [], initialRe
     }))
   }, [])
 
+  // ── Board bulk action — enqueue many decisions at once ────────────────
+  // Each item still flows through the same background publisher (same grace
+  // window, same failure tray, same "reappears on reload if it fails" safety).
+  // A bulk isn't single-step-undoable, so it clears the last-decision ref;
+  // individual board rows (publishRow/skipRow) go through handleApprove/
+  // handleReject and stay Z-undoable.
+  const handleBulk = useCallback((kind, items) => {
+    if (!items || items.length === 0) return
+    const ids = new Set(items.map(i => i.candidate.id))
+    items.forEach(({ candidate, payload }) => {
+      publisher.enqueue({
+        kind: kind === 'publish' ? 'approve' : 'reject',
+        candidateId: candidate.id,
+        name: candidate.name || 'Listing',
+        vertical: candidate.vertical || null,
+        region: candidate.region || null,
+        payload: kind === 'publish' ? (payload || { action: 'approve' }) : { action: 'reject' },
+      })
+    })
+    lastDecisionRef.current = null
+    setCandidates(prev => prev.filter(c => !ids.has(c.id)))
+    setVerticalOverrides(vo => { const next = { ...vo }; ids.forEach(id => delete next[id]); return next })
+    if (kind === 'publish') {
+      setApproved(a => a + items.length)
+      setPublishedRegions(prev => {
+        const set = new Set(prev)
+        items.forEach(({ candidate }) => { if (candidate.region) set.add(candidate.region) })
+        return [...set]
+      })
+    } else {
+      setRejected(r => r + items.length)
+    }
+    setDepth(prev => {
+      const next = { ...prev }
+      items.forEach(({ candidate }) => {
+        next[candidate.vertical] = Math.max(0, (next[candidate.vertical] || 0) - 1)
+      })
+      return next
+    })
+  }, [publisher])
+
+  // Board → card handoff: move a candidate to the front of the queue and flip
+  // into card mode so it becomes the focused review card.
+  const handleOpenCard = useCallback((id) => {
+    setCandidates(prev => {
+      const idx = prev.findIndex(c => c.id === id)
+      if (idx < 0) return prev
+      const c = prev[idx]
+      return [c, ...prev.slice(0, idx), ...prev.slice(idx + 1)]
+    })
+    // Keep it visible even under an active vertical filter.
+    setVerticalOverrides(vo => {
+      const c = candidates.find(x => x.id === id)
+      return c ? { ...vo, [id]: c.vertical } : vo
+    })
+    setViewMode('card')
+  }, [candidates])
+
   const progressPct = totalQueue > 0 ? (totalReviewed / totalQueue) * 100 : 0
   const queueEmpty = filteredCandidates.length === 0
 
@@ -3208,6 +3162,12 @@ export default function CandidateReviewQueue({ initialCandidates = [], initialRe
             queueDepth={depth}
           />
 
+          {/* Board ↔ Cards — how to work the queue. Board is the fast bulk lane;
+              Cards is the detailed one-at-a-time review. */}
+          {!queueEmpty && (
+            <ViewModeToggle mode={viewMode} onChange={setViewMode} />
+          )}
+
           {/* Drop a URL → auto-sort into a vertical */}
           <SuggestUrlPill onCreated={handleCreated} />
 
@@ -3219,8 +3179,8 @@ export default function CandidateReviewQueue({ initialCandidates = [], initialRe
             <GenerateButton onGenerated={handleGenerated} />
           )}
 
-          {/* Keyboard hints — only while reviewing */}
-          {!queueEmpty && (
+          {/* Keyboard hints — card mode only (the board shows its own) */}
+          {!queueEmpty && viewMode === 'card' && (
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               gap: 16, padding: '10px 16px', marginBottom: 20,
@@ -3268,6 +3228,16 @@ export default function CandidateReviewQueue({ initialCandidates = [], initialRe
 
           {/* Active review or completion */}
           {!queueEmpty ? (
+            viewMode === 'board' ? (
+              <TriageBoard
+                candidates={filteredCandidates}
+                showVertical={!verticalFilter}
+                onPublishOne={(c, payload) => handleApprove(c.id, c.region || null, payload)}
+                onSkipOne={(c) => handleReject(c.id)}
+                onBulk={handleBulk}
+                onOpenCard={handleOpenCard}
+              />
+            ) : (
             <div>
               <div key={filteredCandidates[0].id} data-candidate-index={0}>
                 <CandidatePreview
@@ -3286,6 +3256,7 @@ export default function CandidateReviewQueue({ initialCandidates = [], initialRe
                 </p>
               )}
             </div>
+            )
           ) : totalReviewed > 0 ? (
             <CompletionScreen
               approved={approved}
