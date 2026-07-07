@@ -1,33 +1,20 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo } from 'react'
+import { TEMPLATE_OPTIONS, GENERIC_TEMPLATE, VERTICAL_TEMPLATES } from '@/lib/outreach/templates'
 
 const SITE = 'https://australianatlas.com.au'
 
-const DEFAULT_TEMPLATE = {
-  subject: '{{name}} is on Australian Atlas',
-  body: `Hi,
-
-We've been building Australian Atlas — a curated guide to independent Australian places. We've listed {{name}} as part of our guide to independent {{region}}, and it's already live and being discovered:
-
-{{place_url}}
-
-We'd love for you to claim the listing so you can tell your own story, add photos, and keep the details right. It's quick and free to claim:
-
-{{claim_url}}
-
-If it's not the right fit, no worries at all — you can ignore this note.
-
-Warm regards,
-Matt
-Australian Atlas`,
-}
+const DEFAULT_TEMPLATE = GENERIC_TEMPLATE
 
 const MERGE_TOKENS = [
   ['{{name}}', 'Venue name'],
   ['{{region}}', 'Region'],
+  ['{{suburb}}', 'Suburb / town'],
   ['{{state}}', 'State'],
   ['{{vertical}}', 'Atlas'],
+  ['{{personal_note}}', 'AI personal opener'],
+  ['{{description}}', 'Our editorial line'],
   ['{{place_url}}', 'Live listing URL'],
   ['{{claim_url}}', 'Claim URL'],
 ]
@@ -56,27 +43,36 @@ const card = {
   border: '1px solid var(--color-border, #e5e5e5)', borderRadius: 8,
 }
 
-function buildCtx(l, verticalNames) {
+function snippet(text, max = 260) {
+  if (!text) return ''
+  const s = String(text).replace(/\s+/g, ' ').trim()
+  return s.length <= max ? s : s.slice(0, max).replace(/\s+\S*$/, '') + '…'
+}
+function buildCtx(l, verticalNames, noteOverride) {
   return {
     name: l.name || 'your venue',
     region: l.region || 'Australia',
+    suburb: l.suburb || '',
     state: l.state || '',
     vertical: verticalNames[l.vertical] || l.vertical || 'Australian Atlas',
+    personal_note: (noteOverride != null ? noteOverride : (l.personal_note || '')).trim(),
+    description: snippet(l.description),
     place_url: l.slug ? `${SITE}/place/${l.slug}` : SITE,
     claim_url: l.slug ? `${SITE}/claim/${l.slug}` : `${SITE}/claim`,
   }
 }
 function applyMerge(str, ctx) {
-  return (str || '').replace(/\{\{(\w+)\}\}/g, (_, k) => (ctx[k] != null ? String(ctx[k]) : ''))
+  return (str || '').replace(/\{\{(\w+)\}\}/g, (_, k) => (ctx[k] != null ? String(ctx[k]) : '')).replace(/\n{3,}/g, '\n\n')
 }
 
-function Chip({ children, color = '#888', filled }) {
+function Chip({ children, color = '#888', filled, title }) {
   return (
-    <span style={{
+    <span title={title} style={{
       fontFamily: 'var(--font-body, system-ui)', fontSize: 10, fontWeight: 600,
       letterSpacing: '0.05em', textTransform: 'uppercase',
       padding: '2px 8px', borderRadius: 100, whiteSpace: 'nowrap',
       background: filled ? color : `${color}18`, color: filled ? '#fff' : color,
+      cursor: title ? 'help' : 'default',
     }}>
       {children}
     </span>
@@ -101,6 +97,10 @@ function ComposePanel({ verticalNames, verticalColors, sendStatusColors, allStat
   const [discovering, setDiscovering] = useState(false)
   const [discoverProgress, setDiscoverProgress] = useState(null)
 
+  const [discovering2, setDiscovering2] = useState(false) // personalise in-flight
+  const [personaliseProgress, setPersonaliseProgress] = useState(null)
+
+  const [templateChoice, setTemplateChoice] = useState('')
   const [subject, setSubject] = useState(DEFAULT_TEMPLATE.subject)
   const [emailBody, setEmailBody] = useState(DEFAULT_TEMPLATE.body)
   const [cap, setCap] = useState(50)
@@ -108,6 +108,13 @@ function ComposePanel({ verticalNames, verticalColors, sendStatusColors, allStat
   const [result, setResult] = useState(null)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [error, setError] = useState(null)
+
+  function loadTemplate(choice) {
+    setTemplateChoice(choice)
+    const t = choice ? (VERTICAL_TEMPLATES[choice] || GENERIC_TEMPLATE) : GENERIC_TEMPLATE
+    setSubject(t.subject)
+    setEmailBody(t.body)
+  }
 
   async function loadSegment() {
     setLoading(true); setError(null); setResult(null)
@@ -187,13 +194,52 @@ function ComposePanel({ verticalNames, verticalColors, sendStatusColors, allStat
     }
   }
 
+  // Generate AI personal openers for the selected recipients that don't have one.
+  async function personaliseSelected() {
+    if (!seg) return
+    const targets = seg.listings.filter((l) => selected.has(l.id) && l.sendable && !l.personal_note)
+    if (targets.length === 0) return
+    setDiscovering2(true); setError(null)
+    const chunkSize = 12 // route caps 20; keep each call inside its budget
+    let done = 0
+    const byId = new Map(seg.listings.map((l) => [l.id, l]))
+    try {
+      for (let i = 0; i < targets.length; i += chunkSize) {
+        const chunk = targets.slice(i, i + chunkSize)
+        setPersonaliseProgress({ done, total: targets.length })
+        const res = await fetch('/api/admin/outreach/personalise', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ listing_ids: chunk.map((l) => l.id) }),
+        })
+        const data = await res.json()
+        if (res.ok) {
+          for (const r of data.results || []) {
+            const l = byId.get(r.listing_id)
+            if (l && r.personal_note) byId.set(r.listing_id, { ...l, personal_note: r.personal_note })
+          }
+        }
+        done += chunk.length
+        setPersonaliseProgress({ done, total: targets.length })
+      }
+      setSeg((prev) => prev && { ...prev, listings: prev.listings.map((l) => byId.get(l.id)) })
+    } catch (err) { setError(err.message) } finally { setDiscovering2(false); setPersonaliseProgress(null) }
+  }
+
+  // Inline edit of a recipient's personal opener (kept in client state; applied
+  // and persisted at send).
+  function updateNote(id, note) {
+    setSeg((prev) => prev && { ...prev, listings: prev.listings.map((l) => l.id === id ? { ...l, personal_note: note } : l) })
+  }
+
   // Recipients actually eligible to send in this run.
   const eligibleSelected = useMemo(() => {
     if (!seg) return []
     return seg.listings.filter((l) => selected.has(l.id) && l.sendable && l.contact_email)
   }, [seg, selected])
 
-  const previewListing = eligibleSelected[0] || (seg?.listings || [])[0] || null
+  const notedCount = useMemo(() => eligibleSelected.filter((l) => l.personal_note).length, [eligibleSelected])
+  const [previewId, setPreviewId] = useState(null)
+  const previewListing = (previewId && (seg?.listings || []).find((l) => l.id === previewId)) || eligibleSelected[0] || (seg?.listings || [])[0] || null
   const previewCtx = previewListing ? buildCtx(previewListing, verticalNames) : null
 
   async function runSend({ dryRun = false, testMode = false } = {}) {
@@ -204,6 +250,7 @@ function ComposePanel({ verticalNames, verticalColors, sendStatusColors, allStat
         body: JSON.stringify({
           listing_ids: eligibleSelected.map((l) => l.id),
           subject, body: emailBody, dryRun, testMode, cap: Number(cap),
+          personal_notes: Object.fromEntries(eligibleSelected.filter((l) => l.personal_note).map((l) => [l.id, l.personal_note])),
         }),
       })
       const data = await res.json()
@@ -281,8 +328,16 @@ function ComposePanel({ verticalNames, verticalColors, sendStatusColors, allStat
                   Scanning {discoverProgress.scanned}/{discoverProgress.total} · {discoverProgress.found} found
                 </span>
               )}
+              {personaliseProgress && (
+                <span style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 12, color: 'var(--color-muted, #888)' }}>
+                  Writing {personaliseProgress.done}/{personaliseProgress.total}…
+                </span>
+              )}
               <button style={btn} onClick={discoverEmails} disabled={discovering || seg.counts.withWebsite === seg.counts.withEmail}>
                 {discovering ? 'Discovering…' : `Discover emails (${seg.listings.filter((l) => l.website && !l.contact_email).length})`}
+              </button>
+              <button style={btn} onClick={personaliseSelected} disabled={discovering2 || seg.listings.filter((l) => selected.has(l.id) && l.sendable && !l.personal_note).length === 0} title="AI-write a personal opener for each selected recipient that doesn't have one">
+                {discovering2 ? 'Writing…' : `Personalise (${seg.listings.filter((l) => selected.has(l.id) && l.sendable && !l.personal_note).length})`}
               </button>
             </div>
           </div>
@@ -307,17 +362,18 @@ function ComposePanel({ verticalNames, verticalColors, sendStatusColors, allStat
                   opacity: l.sendable ? 1 : 0.55,
                 }}>
                   <input type="checkbox" checked={isSel} disabled={!l.sendable} onChange={() => toggle(l.id)} style={{ cursor: l.sendable ? 'pointer' : 'not-allowed' }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 13, fontWeight: 500, color: 'var(--color-ink, #2D2A26)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => setPreviewId(l.id)} title="Preview this recipient">
+                    <div style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 13, fontWeight: 500, color: previewListing && previewListing.id === l.id ? '#8a6520' : 'var(--color-ink, #2D2A26)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {l.name}
                     </div>
                     <div style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 11, color: 'var(--color-muted, #888)' }}>
-                      {[l.region, l.state].filter(Boolean).join(', ')}
+                      {[l.suburb || l.region, l.state].filter(Boolean).join(', ')}
                     </div>
                   </div>
-                  <div style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 11, color: l.contact_email ? '#5F8A7E' : '#c9a227', width: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 11, color: l.contact_email ? '#5F8A7E' : '#c9a227', width: 190, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {l.contact_email || (l.website ? 'no email — discover' : 'no website')}
                   </div>
+                  {l.personal_note && <Chip color="#8a6520" title={l.personal_note}>✎ note</Chip>}
                   <Chip color={vColor}>{verticalNames[l.vertical] || l.vertical}</Chip>
                   {l.suppressed && <Chip color="#c0392b">suppressed</Chip>}
                   {l.send_status && <Chip color={sendStatusColors[l.send_status] || '#888'}>{l.send_status}</Chip>}
@@ -332,6 +388,10 @@ function ComposePanel({ verticalNames, verticalColors, sendStatusColors, allStat
           {/* Template editor + preview */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
             <div>
+              <label style={label}>Template</label>
+              <select style={{ ...input, width: '100%', marginBottom: 12 }} value={templateChoice} onChange={(e) => loadTemplate(e.target.value)}>
+                {TEMPLATE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
               <label style={label}>Subject</label>
               <input style={{ ...input, width: '100%', marginBottom: 12 }} value={subject} onChange={(e) => setSubject(e.target.value)} />
               <label style={label}>Body</label>
@@ -366,6 +426,25 @@ function ComposePanel({ verticalNames, verticalColors, sendStatusColors, allStat
                   <span style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 13, color: 'var(--color-muted, #888)' }}>Select a recipient to preview.</span>
                 )}
               </div>
+
+              {/* Editable personal opener for the previewed recipient */}
+              {previewListing && (
+                <div style={{ marginTop: 12 }}>
+                  <label style={label}>
+                    Personal opener {emailBody.includes('{{personal_note}}') ? '' : '(add {{personal_note}} to the body to use it)'}
+                  </label>
+                  <textarea
+                    value={previewListing.personal_note || ''}
+                    onChange={(e) => updateNote(previewListing.id, e.target.value)}
+                    rows={2}
+                    placeholder="Click Personalise to AI-write one, or type your own…"
+                    style={{ ...input, width: '100%', lineHeight: 1.5, resize: 'vertical', fontStyle: previewListing.personal_note ? 'normal' : 'italic' }}
+                  />
+                  <div style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 11, color: 'var(--color-muted, #999)', marginTop: 4 }}>
+                    {notedCount} of {eligibleSelected.length} selected have a personal opener. Edits are saved when you send.
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -389,7 +468,7 @@ function ComposePanel({ verticalNames, verticalColors, sendStatusColors, allStat
 
           {result && (
             <div style={{ ...card, background: result.ok === false ? '#FEF2F2' : '#F0F7F4', border: `1px solid ${result.ok === false ? '#FECACA' : '#cfe6dc'}`, padding: '14px 18px', marginTop: 16, fontFamily: 'var(--font-body, system-ui)', fontSize: 13, color: 'var(--color-ink, #2D2A26)' }}>
-              {result.dryRun && <div><strong>Dry run:</strong> {result.wouldSend} would send (of {result.eligible} eligible, cap {result.cap}). Skips: {Object.entries(result.skips).filter(([, v]) => v > 0).map(([k, v]) => `${k.replace(/_/g, ' ')} ${v}`).join(', ') || 'none'}.</div>}
+              {result.dryRun && <div><strong>Dry run:</strong> {result.wouldSend} would send (of {result.eligible} eligible, cap {result.cap}){typeof result.withPersonalNote === 'number' ? `, ${result.withPersonalNote} with a personal opener` : ''}. Skips: {Object.entries(result.skips).filter(([, v]) => v > 0).map(([k, v]) => `${k.replace(/_/g, ' ')} ${v}`).join(', ') || 'none'}.</div>}
               {result.testMode && <div><strong>Test sent:</strong> {result.sentToAdmin} sample email(s) to {result.testEmail}. {result.errors?.length ? `Errors: ${result.errors.join('; ')}` : 'Check your inbox.'}</div>}
               {result.campaignId && <div><strong>Batch sent.</strong> {result.sent} delivered, {result.failed} failed (campaign {result.campaignId}).{result.errors?.length ? ` Errors: ${result.errors.join('; ')}` : ''}</div>}
             </div>

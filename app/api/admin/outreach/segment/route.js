@@ -32,7 +32,7 @@ export async function POST(request) {
 
   let query = sb
     .from('listings')
-    .select(`id, name, slug, vertical, region, state, website, phone, quality_score, ${LISTING_REGION_SELECT}`)
+    .select(`id, name, slug, vertical, region, state, suburb, description, website, phone, quality_score, ${LISTING_REGION_SELECT}`)
     .eq('status', 'active')
     .eq('is_claimed', false)
     .order('quality_score', { ascending: false, nullsFirst: false })
@@ -57,7 +57,7 @@ export async function POST(request) {
   if (ids.length) {
     const { data: orows } = await sb
       .from('operator_outreach')
-      .select('listing_id, contact_email, email_source, send_status, status, last_contacted_at')
+      .select('listing_id, contact_email, email_source, send_status, status, last_contacted_at, personal_note')
       .in('listing_id', ids)
     for (const r of orows || []) outreachByListing.set(r.listing_id, r)
   }
@@ -87,6 +87,8 @@ export async function POST(request) {
       vertical: l.vertical,
       region: getListingRegion(l)?.name || l.region || null,
       state: l.state,
+      suburb: l.suburb || null,
+      description: l.description || null,
       website: l.website || null,
       quality_score: l.quality_score,
       contact_email: email,
@@ -94,6 +96,7 @@ export async function POST(request) {
       send_status: sendStatus,
       funnel_status: o?.status || null,
       last_contacted_at: o?.last_contacted_at || null,
+      personal_note: o?.personal_note || null,
       suppressed: isSuppressed,
       sendable,
     }

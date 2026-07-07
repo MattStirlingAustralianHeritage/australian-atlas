@@ -58,6 +58,9 @@ export async function POST(request) {
   const testEmail = (body.testEmail || TEST_TO).trim()
   const cap = Math.min(Math.max(Number(body.cap) || DEFAULT_CAP, 1), MAX_CAP)
   const campaignName = (body.campaignName || '').trim() || null
+  // Optional per-listing personal-opener overrides (edited in the UI). Falls
+  // back to the stored personal_note when a listing isn't in the map.
+  const notesOverride = body.personal_notes && typeof body.personal_notes === 'object' ? body.personal_notes : {}
 
   if (listingIds.length === 0) {
     return NextResponse.json({ error: 'No recipients selected' }, { status: 400 })
@@ -71,16 +74,16 @@ export async function POST(request) {
   // Re-validate every listing server-side — never trust the client's list.
   const { data: listings, error: lErr } = await sb
     .from('listings')
-    .select(`id, name, slug, vertical, region, state, is_claimed, status, ${LISTING_REGION_SELECT}`)
+    .select(`id, name, slug, vertical, region, state, suburb, description, is_claimed, status, ${LISTING_REGION_SELECT}`)
     .in('id', listingIds.slice(0, MAX_CAP * 2))
   if (lErr) return NextResponse.json({ error: lErr.message }, { status: 500 })
 
   const listingById = new Map((listings || []).map((l) => [l.id, l]))
 
-  // Outreach rows (source of the contact email + prior send state).
+  // Outreach rows (source of the contact email + prior send state + note).
   const { data: orows } = await sb
     .from('operator_outreach')
-    .select('id, listing_id, contact_email, send_status')
+    .select('id, listing_id, contact_email, send_status, personal_note')
     .in('listing_id', listingIds.slice(0, MAX_CAP * 2))
   const outreachByListing = new Map((orows || []).map((r) => [r.listing_id, r]))
 
@@ -111,7 +114,9 @@ export async function POST(request) {
     if (UNSENDABLE_STATUSES.has(o.send_status)) { skips.already_sent++; continue }
     if (seenEmails.has(lower)) { skips.duplicate_email++; continue }
     seenEmails.add(lower)
-    recipients.push({ listing, outreachId: o.id, email })
+    const overridden = Object.prototype.hasOwnProperty.call(notesOverride, id)
+    const personalNote = overridden ? String(notesOverride[id] || '') : (o.personal_note || '')
+    recipients.push({ listing, outreachId: o.id, email, personalNote, noteEdited: overridden })
   }
 
   const eligibleCount = recipients.length
@@ -120,14 +125,16 @@ export async function POST(request) {
   // ---- Dry run: return the plan, send nothing. ----
   if (dryRun) {
     const sample = capped.slice(0, 3).map((r) => {
-      const rendered = renderEmail({ subject, body: emailBody, listing: r.listing, origin: ORIGIN, unsubscribeUrl: unsubscribeUrl(r.email) })
+      const rendered = renderEmail({ subject, body: emailBody, listing: r.listing, origin: ORIGIN, unsubscribeUrl: unsubscribeUrl(r.email), personalNote: r.personalNote })
       return { name: r.listing.name, email: r.email, subject: rendered.subject }
     })
+    const withNote = capped.filter((r) => r.personalNote).length
     return NextResponse.json({
       ok: true,
       dryRun: true,
       eligible: eligibleCount,
       wouldSend: capped.length,
+      withPersonalNote: withNote,
       cap,
       skips,
       sample,
@@ -148,7 +155,7 @@ export async function POST(request) {
     const sample = capped.slice(0, TEST_SAMPLE)
     const payloads = sample.map((r) => {
       const unsub = unsubscribeUrl(r.email)
-      const rendered = renderEmail({ subject, body: emailBody, listing: r.listing, origin: ORIGIN, unsubscribeUrl: unsub })
+      const rendered = renderEmail({ subject, body: emailBody, listing: r.listing, origin: ORIGIN, unsubscribeUrl: unsub, personalNote: r.personalNote })
       return {
         from: FROM,
         to: testEmail,
@@ -181,7 +188,7 @@ export async function POST(request) {
     const chunk = capped.slice(i, i + BATCH_SIZE)
     const payloads = chunk.map((r) => {
       const unsub = unsubscribeUrl(r.email)
-      const rendered = renderEmail({ subject, body: emailBody, listing: r.listing, origin: ORIGIN, unsubscribeUrl: unsub })
+      const rendered = renderEmail({ subject, body: emailBody, listing: r.listing, origin: ORIGIN, unsubscribeUrl: unsub, personalNote: r.personalNote })
       return {
         from: FROM,
         to: r.email,
@@ -216,7 +223,7 @@ export async function POST(request) {
         }).eq('id', r.outreachId)
       } else {
         sent++
-        await sb.from('operator_outreach').update({
+        const upd = {
           send_status: 'sent',
           resend_message_id: ids[j] || null,
           sent_at: now(),
@@ -225,7 +232,10 @@ export async function POST(request) {
           campaign_id: campaignId,
           send_error: null,
           updated_at: now(),
-        }).eq('id', r.outreachId)
+        }
+        // Persist an edited opener so the sent record matches what went out.
+        if (r.noteEdited) upd.personal_note = r.personalNote || null
+        await sb.from('operator_outreach').update(upd).eq('id', r.outreachId)
       }
     }
     if (chunkError) errors.push(chunkError)
