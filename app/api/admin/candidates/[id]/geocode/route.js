@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
-import { extractStateFromPlaceName } from '@/lib/geo/stateDerivation'
+import { extractStateFromPlaceName, stateFromAddress } from '@/lib/geo/stateDerivation'
 import { anchoredGeocode } from '@/lib/geo/anchoredGeocode'
 import { resolveRegionForCoords } from '@/lib/geo/resolveRegionForCoords'
 import { cookies } from 'next/headers'
@@ -55,7 +55,16 @@ export async function POST(request, { params }) {
 
   const address = (body.address || '').trim()
   const suburb = (body.suburb || '').trim() || null
-  const state = (body.state || '').trim() || null
+  const passedState = (body.state || '').trim() || null
+
+  // The reviewer-edited address is authoritative for the state. Its postcode
+  // (e.g. "3549" → VIC) or explicit state token overrides a stale source state
+  // — candidates are frequently created with a wrong state ("Robinvale, NSW"
+  // when the address is clearly "Robinvale VIC 3549"). Passing that wrong state
+  // into the geocoder poisons the query AND trips anchoredGeocode's state gate,
+  // which then rejects the correct in-state street match. Trust the address.
+  const addressState = stateFromAddress(address)
+  const state = addressState || passedState
 
   // At least one of {address, suburb} must be present. Reviewer flow allows
   // blurring either field individually with the other still empty — e.g. the
@@ -67,11 +76,11 @@ export async function POST(request, { params }) {
 
   const sb = getSupabaseAdmin()
 
-  // Persist the reviewer's edited address and state to the candidate row.
-  // (suburb has no column on listing_candidates; it lives in form state
-  // and is sent to the publish handler when the reviewer hits publish.)
-  // Skip the persist when there's nothing to write — e.g. suburb-only call
-  // with no address and no state would result in an empty patch.
+  // Persist the reviewer's edited address and the authoritative state to the
+  // candidate row. (suburb has no column on listing_candidates; it lives in
+  // form state and is sent to the publish handler when the reviewer hits
+  // publish.) Writing the address-derived state here corrects a stale source
+  // state at the row level, so downstream publish/region resolution use it too.
   const persistPatch = {}
   if (address) persistPatch.address = address
   if (state) persistPatch.state = state
@@ -98,16 +107,13 @@ export async function POST(request, { params }) {
     })
   }
 
-  // Persist lat/lng (and derived state when the reviewer didn't
-  // explicitly provide one) to the candidate row.
+  // Resolve the final state: the address's own state (authoritative) wins;
+  // otherwise fall back to the state derived from the geocoded place_name. This
+  // is what corrects a stale source state — a candidate stored as "NSW" whose
+  // address geocodes to Victoria ends up VIC, not NSW.
+  const resolvedState = state || geo.derivedState || extractStateFromPlaceName(geo.placeName) || null
   const geoPatch = { lat: geo.lat, lng: geo.lng }
-  if (!state) {
-    const derivedState = geo.derivedState || extractStateFromPlaceName(geo.placeName)
-    if (derivedState) {
-      geoPatch.state = derivedState
-      console.log(`[geocode] Derived state ${derivedState} from place_name for candidate ${id}`)
-    }
-  }
+  if (resolvedState) geoPatch.state = resolvedState
   await sb
     .from('listing_candidates')
     .update(geoPatch)
@@ -117,7 +123,7 @@ export async function POST(request, { params }) {
   // (state-filtered) so far-flung points outside every polygon — e.g. the far
   // south coast — still pre-fill a sensible region rather than nothing.
   const region = await resolveRegionForCoords(sb, geo.lat, geo.lng, {
-    state: geoPatch.state || state || null,
+    state: resolvedState,
   })
 
   return NextResponse.json({
@@ -126,6 +132,9 @@ export async function POST(request, { params }) {
     place_name: geo.placeName,
     geocode_failed: false,
     precision: geo.precision,
+    // The authoritative state so the reviewer UI can show and publish it
+    // instead of the stale source state it sent up.
+    state: resolvedState,
     suggested_region_id: region?.id || null,
     suggested_region_name: region?.name || null,
   })
