@@ -43,6 +43,7 @@ const VERTICAL_FIELDS = {
       { value: 'printmaking', label: 'Printmaking' },
       { value: 'leathermaker', label: 'Leatherwork' }, { value: 'shoemaker', label: 'Shoemaking' },
       { value: 'clothing', label: 'Clothing' }, { value: 'fragrance_candles', label: 'Fragrance & Candles' },
+      { value: 'knifemaker', label: 'Knifemaking' },
     ]},
     { key: 'commission_available', label: 'Commission Available', type: 'toggle' },
     { key: 'is_open_to_public', label: 'Studio Visits', type: 'toggle' },

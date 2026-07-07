@@ -62,6 +62,7 @@ export const SUBCATEGORY_OPTIONS = {
     { value: 'shoemaker', label: 'Shoemaking' },
     { value: 'clothing', label: 'Clothing' },
     { value: 'fragrance_candles', label: 'Fragrance & Candles' },
+    { value: 'knifemaker', label: 'Knifemaking' },
   ],
   fine_grounds: [
     { value: 'roaster', label: 'Roaster' },
