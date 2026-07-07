@@ -148,7 +148,7 @@ const getListing = cache(async function getListing(slug, locale = 'en') {
   const hasVerticals = await relationHasVerticals(sb, 'listings')
   const { data, error } = await sb
     .from('listings')
-    .select(`id, vertical, name, slug, description, region, state, suburb, lat, lng, website, phone, address, address_on_request, visitable, presence_type, service_area, data_source, hero_image_url, video_url, is_featured, is_claimed, editors_pick, status, hours, verified, sub_type, sub_types, ${hasVerticals ? 'verticals, ' : ''}${LISTING_REGION_SELECT}`)
+    .select(`id, vertical, name, slug, description, region, state, suburb, lat, lng, website, phone, address, address_on_request, visitable, presence_type, service_area, data_source, hero_image_url, video_url, is_featured, is_claimed, editors_pick, status, hours, opening_hours, verified, sub_type, sub_types, ${hasVerticals ? 'verticals, ' : ''}${LISTING_REGION_SELECT}`)
     .eq('slug', slug)
     .eq('status', 'active')
     // CLAUDE.md hard rule: needs_review=true venues 404 (never render publicly).
@@ -1152,10 +1152,8 @@ export default async function PlacePage({ params }) {
                   )}
                 </div>
 
-                {listing.hours && (
-                  <div style={{ marginTop: '16px', borderTop: '1px solid var(--color-border)', paddingTop: '16px' }}>
-                    <OpeningHours hours={listing.hours} />
-                  </div>
+                {(listing.opening_hours || listing.hours) && (
+                  <OpeningHours hours={listing.opening_hours || listing.hours} />
                 )}
               </div>
             </div>

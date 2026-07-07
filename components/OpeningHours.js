@@ -17,65 +17,99 @@ function formatTime(t) {
   return m > 0 ? `${h}:${mStr}${suffix}` : `${h}${suffix}`
 }
 
+/**
+ * Format a day's interval list for display.
+ *  - single: "9am–5pm"
+ *  - split:  "9am–12pm, 1pm–5pm"
+ *  - open-ended (no close, e.g. "from 4pm / til late"): "4pm–"
+ */
+function formatIntervals(intervals) {
+  return intervals
+    .map((iv) => (iv.close ? `${formatTime(iv.open)}–${formatTime(iv.close)}` : `${formatTime(iv.open)}–`))
+    .join(', ')
+}
+
 /** Get current JS day name (lowercase) */
 function getCurrentDay() {
   const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
   return days[new Date().getDay()]
 }
 
-/** Check if currently open based on hours for today */
-function isOpenNow(hours) {
-  const today = getCurrentDay()
-  const todayHours = hours[today]
-  if (!todayHours) return false
-
-  const now = new Date()
-  const currentMinutes = now.getHours() * 60 + now.getMinutes()
-
-  const [openH, openM] = todayHours.open.split(':').map(Number)
-  const [closeH, closeM] = todayHours.close.split(':').map(Number)
-  const openMinutes = openH * 60 + openM
-  const closeMinutes = closeH * 60 + closeM
-
-  return currentMinutes >= openMinutes && currentMinutes < closeMinutes
+/**
+ * Normalize either shape into a uniform `{ monday:[{open,close|null}], ... }`
+ * containing only the OPEN days:
+ *   - legacy flat day-map:   { monday: { open, close }, ... }
+ *   - enrichment rich shape: { regular: { monday: [{ open, close }] }, human, recurring, ... }
+ * A null `close` is preserved (open-ended "from 4pm" hours).
+ */
+function normalizeRegular(raw) {
+  if (!raw || typeof raw !== 'object') return {}
+  const src = raw.regular && typeof raw.regular === 'object' ? raw.regular : raw
+  const out = {}
+  for (const day of DAY_ORDER) {
+    const v = src[day]
+    if (!v) continue
+    let intervals = []
+    if (Array.isArray(v)) {
+      intervals = v.filter((iv) => iv && iv.open).map((iv) => ({ open: iv.open, close: iv.close || null }))
+    } else if (typeof v === 'object' && v.open) {
+      intervals = [{ open: v.open, close: v.close || null }]
+    }
+    if (intervals.length) out[day] = intervals
+  }
+  return out
 }
 
 /**
- * Group consecutive days with identical hours.
- * Returns array of { startDay, endDay, open, close, closed }
+ * Is the venue open right now, judged from the regular weekly hours only.
+ * Returns true / false / null (null = no regular data to judge, e.g. a
+ * recurring-only market — caller then hides the badge rather than lie "Closed").
  */
-function groupHours(hours) {
+function computeOpenNow(reg) {
+  if (!reg || Object.keys(reg).length === 0) return null
+  const intervals = reg[getCurrentDay()]
+  if (!intervals || !intervals.length) return false
+  const now = new Date()
+  const cur = now.getHours() * 60 + now.getMinutes()
+  for (const iv of intervals) {
+    const [oh, om] = iv.open.split(':').map(Number)
+    const openM = oh * 60 + om
+    if (iv.close == null) {
+      if (cur >= openM) return true // open-ended ("til late") — treat as open once started
+      continue
+    }
+    const [ch, cm] = iv.close.split(':').map(Number)
+    const closeM = ch * 60 + cm
+    if (cur >= openM && cur < closeM) return true
+  }
+  return false
+}
+
+/**
+ * Group consecutive days sharing an identical interval-set.
+ * Returns array of { startDay, endDay, intervals|null, closed }.
+ */
+function groupHours(reg) {
   const groups = []
   let current = null
-
   for (const day of DAY_ORDER) {
-    const h = hours[day]
-    const key = h ? `${h.open}-${h.close}` : 'closed'
-
+    const intervals = reg[day] || null
+    const key = intervals ? intervals.map((iv) => `${iv.open}-${iv.close ?? ''}`).join('|') : 'closed'
     if (current && current.key === key) {
       current.endDay = day
     } else {
       if (current) groups.push(current)
-      current = {
-        startDay: day,
-        endDay: day,
-        key,
-        open: h?.open || null,
-        close: h?.close || null,
-        closed: !h,
-      }
+      current = { startDay: day, endDay: day, key, intervals, closed: !intervals }
     }
   }
   if (current) groups.push(current)
   return groups
 }
 
-/** Format a group label like "Mon-Fri" or just "Sat" */
+/** Format a group label like "Mon–Fri" or just "Sat" */
 function groupLabel(group, dayLabels) {
-  if (group.startDay === group.endDay) {
-    return dayLabels[group.startDay]
-  }
-  return `${dayLabels[group.startDay]}\u2013${dayLabels[group.endDay]}`
+  if (group.startDay === group.endDay) return dayLabels[group.startDay]
+  return `${dayLabels[group.startDay]}–${dayLabels[group.endDay]}`
 }
 
 /** Check if a day falls within a group */
@@ -102,26 +136,38 @@ export default function OpeningHours({ hours }) {
     friday: t('dayFri'), saturday: t('daySat'), sunday: t('daySun'),
   }
 
-  const groups = useMemo(() => groupHours(hours), [hours])
+  const reg = useMemo(() => normalizeRegular(hours), [hours])
+  const groups = useMemo(() => groupHours(reg), [reg])
+  const hasRegular = Object.keys(reg).length > 0
+  const human = hours && typeof hours.human === 'string' ? hours.human : null
+  const notes = hours && typeof hours.notes === 'string' ? hours.notes : null
 
   const today = mounted ? getCurrentDay() : null
-  const openNow = mounted ? isOpenNow(hours) : null
-  const todayHours = mounted ? hours[today] : null
+  const openNow = mounted ? computeOpenNow(reg) : null
+  const todayIntervals = mounted && today ? reg[today] : null
+
+  // Nothing meaningful to render.
+  if (!hasRegular && !human) return null
+
+  // Collapsed line: prefer today's concrete hours; fall back to the human summary
+  // for recurring-only venues (markets) that have no fixed weekly hours.
+  const summaryIsHuman = mounted && !todayIntervals?.length && !hasRegular && !!human
 
   return (
     <div style={{ marginTop: '16px', borderTop: '1px solid var(--color-border)', paddingTop: '16px' }}>
       {/* Header row: label + open/closed indicator */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: expanded ? '12px' : '0' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: expanded ? '12px' : '0' }}>
         <button
           onClick={() => setExpanded(!expanded)}
           style={{
             display: 'flex',
-            alignItems: 'center',
+            alignItems: 'flex-start',
             gap: '8px',
             background: 'none',
             border: 'none',
             padding: 0,
             cursor: 'pointer',
+            textAlign: 'left',
             fontFamily: 'var(--font-body)',
             fontSize: '14px',
             color: 'var(--color-ink)',
@@ -129,27 +175,27 @@ export default function OpeningHours({ hours }) {
           }}
         >
           {/* Clock icon */}
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--color-muted)', flexShrink: 0 }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--color-muted)', flexShrink: 0, marginTop: '2px' }}>
             <circle cx="12" cy="12" r="10" />
             <polyline points="12 6 12 12 16 14" />
           </svg>
 
-          {mounted && todayHours ? (
+          {!mounted ? (
+            <span style={{ color: 'var(--color-muted)' }}>{t('openingHours')}</span>
+          ) : todayIntervals && todayIntervals.length ? (
             <span>
               <span style={{ fontWeight: 500 }}>{DAY_FULL[today]}</span>
               {' '}
-              <span style={{ color: 'var(--color-muted)' }}>
-                {formatTime(todayHours.open)}{'\u2013'}{formatTime(todayHours.close)}
-              </span>
+              <span style={{ color: 'var(--color-muted)' }}>{formatIntervals(todayIntervals)}</span>
             </span>
-          ) : mounted ? (
+          ) : hasRegular ? (
             <span>
               <span style={{ fontWeight: 500 }}>{DAY_FULL[today]}</span>
               {' '}
               <span style={{ color: 'var(--color-muted)' }}>{t('closed')}</span>
             </span>
           ) : (
-            <span style={{ color: 'var(--color-muted)' }}>{t('openingHours')}</span>
+            <span style={{ color: 'var(--color-ink)' }}>{human}</span>
           )}
 
           {/* Chevron */}
@@ -164,6 +210,8 @@ export default function OpeningHours({ hours }) {
             strokeLinejoin="round"
             style={{
               color: 'var(--color-muted)',
+              flexShrink: 0,
+              marginTop: '4px',
               transition: 'transform 0.2s ease',
               transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
             }}
@@ -179,6 +227,8 @@ export default function OpeningHours({ hours }) {
               display: 'inline-flex',
               alignItems: 'center',
               gap: '5px',
+              flexShrink: 0,
+              marginTop: '2px',
               fontFamily: 'var(--font-body)',
               fontSize: '11px',
               fontWeight: 500,
@@ -200,10 +250,16 @@ export default function OpeningHours({ hours }) {
         )}
       </div>
 
-      {/* Expanded hours table */}
+      {/* Expanded detail: full human summary → weekday grid → notes */}
       {expanded && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          {groups.map((group) => {
+          {human && !summaryIsHuman && (
+            <div style={{ fontFamily: 'var(--font-body)', fontSize: '13px', lineHeight: 1.5, color: 'var(--color-ink)', marginBottom: '2px' }}>
+              {human}
+            </div>
+          )}
+
+          {hasRegular && groups.map((group) => {
             const isToday = mounted && dayInGroup(group, today)
             return (
               <div
@@ -212,6 +268,7 @@ export default function OpeningHours({ hours }) {
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'baseline',
+                  gap: '16px',
                   fontFamily: 'var(--font-body)',
                   fontSize: '13px',
                   lineHeight: 1.5,
@@ -221,15 +278,18 @@ export default function OpeningHours({ hours }) {
                 }}
               >
                 <span>{groupLabel(group, DAY_LABELS)}</span>
-                <span>
-                  {group.closed
-                    ? t('closed')
-                    : `${formatTime(group.open)}\u2013${formatTime(group.close)}`
-                  }
+                <span style={{ textAlign: 'right' }}>
+                  {group.closed ? t('closed') : formatIntervals(group.intervals)}
                 </span>
               </div>
             )
           })}
+
+          {notes && (
+            <div style={{ fontFamily: 'var(--font-body)', fontSize: '12px', lineHeight: 1.5, color: 'var(--color-muted)', marginTop: '4px' }}>
+              {notes}
+            </div>
+          )}
         </div>
       )}
     </div>
