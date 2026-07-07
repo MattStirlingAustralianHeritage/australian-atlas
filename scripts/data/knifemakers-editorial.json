@@ -1,0 +1,1436 @@
+[
+ {
+  "name": "Tharwa Valley Forge",
+  "state": "ACT",
+  "town": "Tharwa",
+  "website": "https://www.tharwavalleyforge.com/",
+  "source_url": "https://www.tharwavalleyforge.com/about-us/our-team",
+  "specialty": "Hand-forged knives and cutlery; largest knifemaking/bladesmithing school of its type, teaching forging, Damascus, Japanese and folding knives",
+  "offers": [
+   "classes",
+   "commissions",
+   "online_shop"
+  ],
+  "note": "Their own team page (Tharwa ACT) lists founder Karim Haddad and 12+ bladesmith/cutler instructors."
+ },
+ {
+  "name": "Alistair Phillips Folders",
+  "state": "ACT",
+  "town": "Canberra",
+  "website": "https://alistairphillipsfolders.com/",
+  "source_url": "https://alistairphillipsfolders.com/",
+  "specialty": "Custom folding knives (framelock/flipper), hand and CNC; collaborated with Spyderco on the Kapara",
+  "offers": [
+   "commissions",
+   "classes"
+  ],
+  "note": "His own site confirms Canberra-based folding-knife specialist; AKG full member and VP, teaches folder courses at Tharwa Valley Forge."
+ },
+ {
+  "name": "Kev's Forge",
+  "state": "ACT",
+  "town": "Canberra",
+  "website": "https://kevsforge.com/",
+  "source_url": "https://kevsforge.com/",
+  "specialty": "Hand-forged chef and hunting/utility knives; award-winning bladesmith Kevin Slattery",
+  "offers": [
+   "classes",
+   "commissions",
+   "online_shop"
+  ],
+  "note": "Own site and Nordic Edge maker profile confirm South Canberra workshop with forge-to-finish knifemaking classes."
+ },
+ {
+  "name": "Tansu Knives",
+  "state": "NSW",
+  "town": "Hunter Valley",
+  "website": "https://www.tansuknives.com/",
+  "source_url": "https://cross.com.au/2020/07/28/aussie-knifemakers-on-ig/",
+  "specialty": "High-end Japanese-style kitchen knives (gyuto, wa-handle, san-mai) by Mert Tansu, ex-chef",
+  "offers": [
+   "commissions",
+   "classes"
+  ],
+  "note": "Directory and Newcastle Herald/Nordic Edge profiles confirm Hunter Valley NSW maker; also teaches Japanese kitchen-knife workshops."
+ },
+ {
+  "name": "Maher Knives",
+  "state": "NSW",
+  "town": "Branxton",
+  "website": null,
+  "source_url": "https://cross.com.au/2020/07/28/aussie-knifemakers-on-ig/",
+  "specialty": "Aesthetic custom knives made by hand by Craig Maher; internationally collected",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Listed in Aussie knifemakers directory (Hunter Valley) and Newcastle Herald as Branxton bladesmith; AKG full member #124. Own domain no longer resolves."
+ },
+ {
+  "name": "Oatley Knives",
+  "state": "NSW",
+  "town": "St Leonards",
+  "website": "https://www.oatleyknives.com/",
+  "source_url": "https://cross.com.au/2020/07/28/aussie-knifemakers-on-ig/",
+  "specialty": "Hand-forged Japanese-style chef knives (gyuto, sujihiki, honesuki, nakiri) with custom sayas by James Oatley",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Directory lists Oatley Knives in Sydney; Eatingtools profile confirms St Leonards, Sydney bladesmith."
+ },
+ {
+  "name": "Brook Turner Blades",
+  "state": "NSW",
+  "town": "Sydney Northern Beaches",
+  "website": "https://brookturnerblades.com",
+  "source_url": "https://cross.com.au/2020/07/28/aussie-knifemakers-on-ig/",
+  "specialty": "Custom gyuto/chef knives with clean finishes; one of Australia's most respected makers",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Directory and The Blade Runner profile place him on Sydney's Northern Beaches; part-time bladesmith taking custom orders."
+ },
+ {
+  "name": "DP Custom Knives",
+  "state": "NSW",
+  "town": "Central Coast",
+  "website": "https://www.dpcustomknives.com.au/",
+  "source_url": "https://www.dpcustomknives.com.au/about/",
+  "specialty": "High-performance handmade chef knives by Dmitriy Popov; one-man workshop",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Own about page and Eatingtools profile confirm NSW maker who moved to the Central Coast; Knife Art Association member."
+ },
+ {
+  "name": "Keith Fludder Knives",
+  "state": "NSW",
+  "town": "Tahmoor",
+  "website": "https://www.keithfludderknives.com/",
+  "source_url": "https://artisansupplies.com.au/knifemakingteachers/",
+  "specialty": "ABS Journeyman Smith; custom chef, pocket, survival and tactical knives",
+  "offers": [
+   "classes",
+   "commissions"
+  ],
+  "note": "Directory and his own site confirm Tahmoor NSW; teaches knifemaking in Sydney and co-founded the Knife Art Association/Sydney Knife Show."
+ },
+ {
+  "name": "Sacred Blades",
+  "state": "NSW",
+  "town": "Sydney",
+  "website": "https://www.sacredblades.com.au/",
+  "source_url": "https://www.sacredblades.com.au/",
+  "specialty": "Bushcraft, outdoor and kitchen knives; ex-chef bladesmith Cameron Elder",
+  "offers": [
+   "commissions",
+   "online_shop"
+  ],
+  "note": "Own site confirms Sydney NSW bladesmith Cameron Elder with a shop page."
+ },
+ {
+  "name": "KP Custom Knives",
+  "state": "NSW",
+  "town": "Sydney",
+  "website": "https://www.kpcustomknives.com/",
+  "source_url": "https://www.kpcustomknives.com/",
+  "specialty": "Handmade kitchen knives for chefs, restaurants and home cooks",
+  "offers": [
+   "commissions",
+   "online_shop"
+  ],
+  "note": "Own site confirms Sydney-based handmade kitchen-knife maker with shop and custom-knife form."
+ },
+ {
+  "name": "Lucid Knives",
+  "state": "NSW",
+  "town": "Hunter Valley",
+  "website": "https://www.lucidknives.com/",
+  "source_url": "https://www.lucidknives.com/",
+  "specialty": "Hand-made custom kitchen knives forged in the Hunter Valley",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Own site and search results confirm custom kitchen knives forged in Hunter Valley/Newcastle NSW."
+ },
+ {
+  "name": "Iron Gate Knives",
+  "state": "NSW",
+  "town": "Anna Bay",
+  "website": "https://www.irongateknives.com/",
+  "source_url": "https://www.irongateknives.com/",
+  "specialty": "Handmade bushcraft, saltwater-fishing and kitchen knives with antler/abalone/hardwood handles",
+  "offers": [
+   "online_shop",
+   "commissions"
+  ],
+  "note": "Own site confirms a four-maker coastal workshop in Anna Bay NSW with weekly online drops and custom orders."
+ },
+ {
+  "name": "Ironlord Forge",
+  "state": "NSW",
+  "town": "Wauchope",
+  "website": "https://www.ironlordforge.com/",
+  "source_url": "https://www.ironlordforge.com/",
+  "specialty": "Hand-forged knives, axes and ironwork by Wayne Saunders; full-time blacksmith/knifemaker since 2003",
+  "offers": [
+   "classes",
+   "commissions",
+   "online_shop",
+   "gallery"
+  ],
+  "note": "Own site confirms Wauchope (Mid North Coast) NSW forge; AKG full member offering knifemaking/Damascus courses."
+ },
+ {
+  "name": "Adamas Forge",
+  "state": "NSW",
+  "town": "Bennetts Green",
+  "website": "https://www.adamasforge.com.au/",
+  "source_url": "https://www.adamasforge.com.au/about",
+  "specialty": "Handcrafted forged kitchen and utility knives by Joel Davey; stocked by Hunter Valley restaurants",
+  "offers": [
+   "classes",
+   "commissions",
+   "online_shop"
+  ],
+  "note": "Own about page and Newcastle Herald confirm Bennetts Green, Lake Macquarie NSW; recently accepted into the AKG and runs knifemaking workshops."
+ },
+ {
+  "name": "Bat Country Forge",
+  "state": "NSW",
+  "town": "Raymond Terrace",
+  "website": "http://www.batcountryforge.com/",
+  "source_url": "http://www.batcountryforge.com/store",
+  "specialty": "Handmade bushcraft, kitchen (San Mai chef) knives and traditional Scottish blades",
+  "offers": [
+   "classes",
+   "commissions",
+   "online_shop"
+  ],
+  "note": "Own site confirms Newcastle-area forge (began in Raymond Terrace NSW) with knife/blacksmith classes and an online store."
+ },
+ {
+  "name": "Mother Mountain Forge",
+  "state": "NSW",
+  "town": "Dignams Creek",
+  "website": "https://www.mothermountainforge.com/",
+  "source_url": "https://www.mothermountainforge.com/",
+  "specialty": "Hand-forged Damascus knives for hunters and cooks, plus decorative blacksmithing (Iain & Sarah Hamilton)",
+  "offers": [
+   "classes",
+   "commissions",
+   "by_appointment"
+  ],
+  "note": "Own site and Narooma News confirm a far-south-coast NSW forge at Dignams Creek running by-appointment knifemaking courses."
+ },
+ {
+  "name": "Jurkijevic Bladesmiths",
+  "state": "NT",
+  "town": "Acacia Hills",
+  "website": "https://www.jurkijevic.com.au/",
+  "source_url": "https://www.jurkijevic.com.au/",
+  "specialty": "Hand-forged hunting, chef's and ceremonial knives and custom tools; heirloom quality (Karl & Simeon Jurkijevic)",
+  "offers": [
+   "commissions",
+   "classes"
+  ],
+  "note": "Own site confirms hand-forged custom knives and weekend knifemaking classes with Karl; Australian bladesmiths."
+ },
+ {
+  "name": "Nordic Edge",
+  "state": "NSW",
+  "town": "Brookvale",
+  "website": "https://nordicedge.com.au/",
+  "source_url": "https://nordicedge.com.au/workshops/",
+  "specialty": "Forge-your-own chef-knife workshops (max 4 students) plus blacksmithing/spoon-carving classes and supplies (Bjorn Jacobsen)",
+  "offers": [
+   "classes",
+   "online_shop"
+  ],
+  "note": "Own site and Manly Observer confirm Brookvale, Sydney workshop founded by bladesmith/instructor Bjorn Jacobsen."
+ },
+ {
+  "name": "Eveleigh Works",
+  "state": "NSW",
+  "town": "Eveleigh",
+  "website": "https://www.eveleigh.works/",
+  "source_url": "https://www.eveleigh.works/",
+  "specialty": "Blacksmithing, knifemaking and toolmaking classes in a heritage locomotive workshop",
+  "offers": [
+   "classes"
+  ],
+  "note": "Own site confirms Eveleigh, Sydney NSW; runs beginner and advanced knife-making courses taught by blacksmiths/knifemakers."
+ },
+ {
+  "name": "David Graham Simply Forged",
+  "state": "NSW",
+  "town": null,
+  "website": "https://www.simplyforged.com.au",
+  "source_url": "https://artisansupplies.com.au/knifemakingteachers/",
+  "specialty": "Forged custom ironwork and knives",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Listed as a NSW maker (Forged Custom Ironworks, simplyforged.com.au) in the Artisan Supplies teachers/makers directory."
+ },
+ {
+  "name": "13 Knives",
+  "state": "VIC",
+  "town": "Collingwood",
+  "website": "https://13knives.com.au/",
+  "source_url": "https://13knives.com.au/",
+  "specialty": "Hand-forged custom kitchen knives, homewares and champagne sabers (Bud Heyser)",
+  "offers": [
+   "commissions",
+   "gallery",
+   "online_shop"
+  ],
+  "note": "Own site: Bud Heyser hand-forges custom knives in Collingwood, Melbourne, with a commission page and online shop."
+ },
+ {
+  "name": "Cut Throat Knives",
+  "state": "VIC",
+  "town": "Coburg North",
+  "website": "https://www.cutthroatknives.com.au/",
+  "source_url": "https://www.cutthroatknives.com.au/",
+  "specialty": "Bespoke handmade kitchen/culinary knives (Indigo Roberts)",
+  "offers": [
+   "classes",
+   "commissions",
+   "online_shop"
+  ],
+  "note": "Own site: Melbourne bladesmith with a Coburg North store, 'Blade Lab' knife-making classes and custom/restaurant orders."
+ },
+ {
+  "name": "MD Knives",
+  "state": "VIC",
+  "town": "Mount Dandenong",
+  "website": "https://mdknives.com.au/",
+  "source_url": "https://www.bosshunting.com.au/gear/mathieu-dechamps-md-knives/",
+  "specialty": "Handmade Western and Japanese-style chef/kitchen knives (Mathieu Dechamps)",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Mathieu Dechamps hand-makes custom kitchen knives in his Dandenong Ranges workshop, per Boss Hunting profile and mdknives.com.au."
+ },
+ {
+  "name": "McIntyre Knives",
+  "state": "VIC",
+  "town": "Melbourne",
+  "website": "http://www.mcintyreknives.com/",
+  "source_url": "https://eatingtools.com/blogs/shawn-mcintyre-australia",
+  "specialty": "Forged chef knives and cutting tools, own Damascus; ABS Master Smith Shawn McIntyre",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Eatingtools profile: Master Smith forging world-class chef knives and Damascus at his one-man Melbourne shop."
+ },
+ {
+  "name": "Peter Del Raso",
+  "state": "VIC",
+  "town": "Melbourne",
+  "website": null,
+  "source_url": "https://www.akg.org.au/member-list/81-peter-del-raso/profile",
+  "specialty": "Custom hunters, fighters, utility and kitchen knives, collector pieces (stock removal)",
+  "offers": [
+   "commissions"
+  ],
+  "note": "AKG profile / bladeforums: award-winning Melbourne maker and long-time Guild Victorian state rep working from his Melbourne workshop."
+ },
+ {
+  "name": "DB Blades",
+  "state": "VIC",
+  "town": "Melbourne",
+  "website": "https://dbblades.com/",
+  "source_url": "https://dbblades.com/",
+  "specialty": "Handmade outdoor and custom fixed-blade knives (Dom Binkert)",
+  "offers": [
+   "commissions",
+   "online_shop"
+  ],
+  "note": "Own site: full-time Melbourne maker Dom Binkert making small-batch handmade knives; Facebook post confirms Melbourne base. AKG member #144."
+ },
+ {
+  "name": "Parker Knives",
+  "state": "VIC",
+  "town": "Mt Mercer",
+  "website": null,
+  "source_url": "https://www.visitballarat.com.au/stories/parker-knives/",
+  "specialty": "Handmade hunters, kitchen knives, Bowies, folders; forged incl. Damascus (Adam Parker)",
+  "offers": [
+   "classes",
+   "commissions"
+  ],
+  "note": "Visit Ballarat feature: 100% handmade custom knives on the family farm near Ballarat; runs 2-day knife-making courses. AKG member #21."
+ },
+ {
+  "name": "Will Morrison Knives",
+  "state": "VIC",
+  "town": null,
+  "website": "https://www.willmorrisonknives.com/",
+  "source_url": "https://www.willmorrisonknives.com/",
+  "specialty": "Handmade custom knives",
+  "offers": [
+   "commissions",
+   "online_shop"
+  ],
+  "note": "Own site plus AKG Victorian membership (#54) and Melbourne knife-show coverage; exact town not stated on pages seen."
+ },
+ {
+  "name": "Wilkur Forge",
+  "state": "VIC",
+  "town": "Leongatha",
+  "website": "https://wilkurforge.com.au/",
+  "source_url": "https://wilkurforge.com.au/",
+  "specialty": "Knifemaking, toolmaking and blacksmithing training; custom work (Jim Deering)",
+  "offers": [
+   "classes",
+   "commissions"
+  ],
+  "note": "Own site: Jim Deering runs a training forge near Leongatha teaching knife making, plus commissions."
+ },
+ {
+  "name": "Waterside Metal Art",
+  "state": "VIC",
+  "town": "Footscray",
+  "website": "https://www.watersidemetal.art/",
+  "source_url": "https://www.watersidemetal.art/",
+  "specialty": "Hand-forged knife-making courses; resident bladesmith custom knives",
+  "offers": [
+   "classes"
+  ],
+  "note": "Own site: Melbourne inner-west artist-blacksmith studio; knifemaker/bladesmith teaches custom knife courses."
+ },
+ {
+  "name": "Metal Monkey Knives",
+  "state": "TAS",
+  "town": "Franklin",
+  "website": "https://www.metalmonkeyknives.com.au/",
+  "source_url": "https://timesnewsgroup.com.au/bellarinetimes/living/tobis-work/",
+  "specialty": "Japanese-inspired kitchen/chef knives, carbon steel, timber handles (Tobias Bockholt)",
+  "offers": [
+   "classes",
+   "commissions",
+   "online_shop"
+  ],
+  "note": "Bellarine Times profile: award-winning maker Tobi Bockholt, now based in Franklin, Southern Tasmania; own site offers courses and custom requests."
+ },
+ {
+  "name": "Forge+",
+  "state": "TAS",
+  "town": "Port Huon",
+  "website": "https://www.forgeplus.com.au/",
+  "source_url": "https://www.forgeplus.com.au/",
+  "specialty": "Handmade custom knives; hands-on knifemaking courses",
+  "offers": [
+   "classes",
+   "commissions"
+  ],
+  "note": "Own site: dedicated knifemaking workshop in the Huon Valley offering custom knives and hands-on classes for all levels."
+ },
+ {
+  "name": "Ellard Blacksmithing",
+  "state": "TAS",
+  "town": "Coningham",
+  "website": "https://www.ellardblacksmithing.com/",
+  "source_url": "https://www.ellardblacksmithing.com/",
+  "specialty": "High-end forged culinary blades and Damascus; forging tools (Jason Ellard)",
+  "offers": [
+   "gallery",
+   "online_shop"
+  ],
+  "note": "Own site: young Tasmanian bladesmith in Coningham forging Damascus culinary knives; online shop and gallery."
+ },
+ {
+  "name": "Newham Knives",
+  "state": "TAS",
+  "town": "Howden",
+  "website": "https://newhamknives.com/",
+  "source_url": "https://newhamknives.com/",
+  "specialty": "Handcrafted kitchen (gyuto, petty) and outdoor knives (Will Newham)",
+  "offers": [
+   "online_shop"
+  ],
+  "note": "Own site: self-taught maker Will Newham handcrafts high-performance knives in Howden, Tasmania; online shop."
+ },
+ {
+  "name": "Kirkman Knives",
+  "state": "TAS",
+  "town": null,
+  "website": null,
+  "source_url": "https://eatingtools.com/blogs/jason-ellard-tasmania",
+  "specialty": "Handmade knives with sustainably sourced Tasmanian timbers (Myles Kirkman)",
+  "offers": [
+   "online_shop"
+  ],
+  "note": "Referenced in Tasmanian maker coverage as a Tasmanian handmade knife business; own site did not resolve when checked, so website left null."
+ },
+ {
+  "name": "Winter Forged",
+  "state": "TAS",
+  "town": "Wattle Hill",
+  "website": "https://www.winterforged.com.au/",
+  "source_url": "https://www.winterforged.com.au/about",
+  "specialty": "Hand-forged knives, high-carbon steel and stabilised specialty timbers",
+  "offers": [
+   "online_shop"
+  ],
+  "note": "Facebook/search evidence: hand-crafted knives forged in Wattle Hill, Tasmania; own site with shop confirmed."
+ },
+ {
+  "name": "Organic Blades",
+  "state": "TAS",
+  "town": null,
+  "website": "https://www.organicblades.com/",
+  "source_url": "https://www.organicblades.com/",
+  "specialty": "Hand-forged kitchen and outdoor knives, salvaged Tasmanian timber and Damascus (Tim Lowry)",
+  "offers": [
+   "online_shop"
+  ],
+  "note": "Own site: Tim Lowry forges, shapes and finishes all knives in-house in Tasmania with salvaged Tasmanian timbers."
+ },
+ {
+  "name": "John Hounslow-Robinson",
+  "state": "TAS",
+  "town": "Huon Valley",
+  "website": null,
+  "source_url": "https://www.facebook.com/BrandTasmania/posts/10151649113283139/",
+  "specialty": "Damascus steel bespoke knives from salvaged materials",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Brand Tasmania feature: renowned Damascus knife maker forging in Southern Tasmania's Huon Valley; sought out by chefs like Tetsuya Wakuda. No own website confirmed."
+ },
+ {
+  "name": "Tom Hounslow Knives",
+  "state": "TAS",
+  "town": null,
+  "website": "https://tomhounslowknives.bigcartel.com/",
+  "source_url": "https://tomhounslowknives.bigcartel.com/",
+  "specialty": "Hand-forged Damascus and stainless kitchen knives",
+  "offers": [
+   "online_shop"
+  ],
+  "note": "2nd-generation Tasmanian bladesmith (son of John Hounslow-Robinson) making forged Damascus kitchen knives; Big Cartel shop is his own site."
+ },
+ {
+  "name": "Bismarck Metalcraft",
+  "state": "TAS",
+  "town": "Deloraine",
+  "website": "http://www.bismarckmetalcraft.com/gallery.htm",
+  "source_url": "https://rediscovertasmania.com.au/bismarck-metal-craft/",
+  "specialty": "Handcrafted knives and swords, hunting knives, art/fantasy knives, restoration (Ken Bradford)",
+  "offers": [
+   "gallery",
+   "commissions"
+  ],
+  "note": "Rediscover Tasmania / gallery site: Ken Bradford handcrafts knives and swords in his Deloraine (northern Tasmania) workshop with a public gallery."
+ },
+ {
+  "name": "Dog Boy Knives",
+  "state": "SA",
+  "town": "Brompton",
+  "website": "https://www.dogboyknives.com",
+  "source_url": "https://www.dogboyknives.com/about",
+  "specialty": "Hand-forged high-carbon chef, Damascus and Sanmai kitchen knives from recycled steel (Richard Cooper)",
+  "offers": [
+   "commissions",
+   "online_shop"
+  ],
+  "note": "About page confirms Richard Cooper hand-forges knives in a Brompton SA workshop with an online shop and commissions."
+ },
+ {
+  "name": "Gardner Knives",
+  "state": "SA",
+  "town": "Seppeltsfield",
+  "website": "https://gardnerknives.com",
+  "source_url": "https://gardnerknives.com/",
+  "specialty": "Handmade kitchen and hunting knives (Barry Gardner, Barossa Valley)",
+  "offers": [
+   "classes",
+   "commissions",
+   "gallery",
+   "online_shop"
+  ],
+  "note": "Own site confirms family knifemaking business in the Barossa running workshops, commissions and The Tiny Knife Shop."
+ },
+ {
+  "name": "Riflebird Knives",
+  "state": "SA",
+  "town": "Adelaide Hills",
+  "website": "https://www.riflebirdknives.com",
+  "source_url": "https://www.riflebirdknives.com/",
+  "specialty": "Custom field and kitchen knives (hunting, fishing, utility, cooking) (Warrick Edmonds)",
+  "offers": [
+   "commissions",
+   "online_shop",
+   "markets"
+  ],
+  "note": "Own site confirms AKG member Warrick Edmonds makes custom knives in the Adelaide Hills and exhibits at the Adelaide Knife Show."
+ },
+ {
+  "name": "Astley Wright Knives",
+  "state": "SA",
+  "town": "Adelaide",
+  "website": "https://www.astleywright.com.au",
+  "source_url": "https://www.astleywright.com.au/pages/about-us",
+  "specialty": "Hand-forged Damascus, high-carbon and stainless chef, kitchen and utility knives (Phil Astley)",
+  "offers": [
+   "classes",
+   "commissions",
+   "online_shop"
+  ],
+  "note": "Own site describes Phil Astley making knives at his Hill Street Shed in Adelaide and running knifemaking workshops."
+ },
+ {
+  "name": "Sam Heath Knives",
+  "state": "SA",
+  "town": "Adelaide",
+  "website": "https://www.samheathknives.com",
+  "source_url": "https://www.samheathknives.com/",
+  "specialty": "Handcrafted chef's knives forged from scratch with Australian-sourced handles",
+  "offers": [
+   "commissions",
+   "online_shop",
+   "markets"
+  ],
+  "note": "Own site and Bowerbird market listing confirm ex-chef Sam Heath forges chef knives in Adelaide SA."
+ },
+ {
+  "name": "Ryan Simon Knives",
+  "state": "SA",
+  "town": "Adelaide",
+  "website": "https://ryansimonknives.com",
+  "source_url": "https://ryansimonknives.com/about",
+  "specialty": "Bowie, hunting, EDC/folding and chef knives incl. Damascus",
+  "offers": [
+   "classes",
+   "commissions",
+   "online_shop"
+  ],
+  "note": "Own About page confirms AKG full member Ryan Simon makes knives in Adelaide SA, takes commissions and teaches (Shingleback Knives)."
+ },
+ {
+  "name": "Hahndorf Knife Shop",
+  "state": "SA",
+  "town": "Hahndorf",
+  "website": "https://hahndorfknifeshop.com.au",
+  "source_url": "https://hahndorfknifeshop.com.au/",
+  "specialty": "Fully hand-forged kitchen knives (Nathan Roennfeldt / Naroe Blades)",
+  "offers": [
+   "commissions",
+   "gallery"
+  ],
+  "note": "Shop site confirms AKG member Nathan (Naroe Blades) hand-forges kitchen knives at the family shop at 71 Main St, Hahndorf SA."
+ },
+ {
+  "name": "Zo Blades",
+  "state": "SA",
+  "town": "Prospect",
+  "website": "https://zoblades.com",
+  "source_url": "https://zoblades.com/",
+  "specialty": "Custom handmade kitchen, chef, hunting, pocket and Damascus/sanmai knives",
+  "offers": [
+   "commissions",
+   "gallery",
+   "online_shop"
+  ],
+  "note": "Own site describes Zohar making custom handmade knives in Prospect, Adelaide SA, shipping Australia-wide."
+ },
+ {
+  "name": "Fallen Forge",
+  "state": "SA",
+  "town": "Adelaide",
+  "website": "https://fallenforge.com.au",
+  "source_url": "https://fallenforge.com.au/",
+  "specialty": "Hand-crafted kitchen/chef, outdoor utility and Damascus knives, made to order (Rian Doudle)",
+  "offers": [
+   "classes",
+   "commissions",
+   "online_shop"
+  ],
+  "note": "Own site confirms Adelaide SA veteran-run forge making made-to-order knives and running knife-making workshops."
+ },
+ {
+  "name": "Ben Cutts Knife Works",
+  "state": "SA",
+  "town": "Riverland",
+  "website": null,
+  "source_url": "https://cross.com.au/2020/07/28/aussie-knifemakers-on-ig/",
+  "specialty": "Japanese-inspired handcrafted knives",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Directory and Adelaide Knife Show listings confirm AKG probationary member Ben Cutts, an artisan cutler from the Riverland SA; no own website found."
+ },
+ {
+  "name": "GT Edgeworks",
+  "state": "SA",
+  "town": null,
+  "website": null,
+  "source_url": "https://nordicedge.com.au/blog/adelaide-knife-show-winners-photos/",
+  "specialty": "Custom culinary/chef knives (Josh Gaunt)",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Nordic Edge Adelaide Knife Show coverage confirms Josh Gaunt of GT Edgeworks makes custom culinary knives in SA."
+ },
+ {
+  "name": "Celery Patch Knives",
+  "state": "SA",
+  "town": null,
+  "website": null,
+  "source_url": "https://nordicedge.com.au/blog/adelaide-knife-show-winners-photos/",
+  "specialty": "Custom handmade chef's knives in stainless, high-carbon and Damascus (Ash Edwards)",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Adelaide Knife Show coverage names Ash Edwards of Celery Patch Knives as an SA maker; no standalone maker website confirmed."
+ },
+ {
+  "name": "Kieran Swift",
+  "state": "SA",
+  "town": "Adelaide",
+  "website": null,
+  "source_url": "https://akg.org.au/guild-committee/",
+  "specialty": "Forged decorative Damascus custom knives",
+  "offers": [
+   "commissions",
+   "classes"
+  ],
+  "note": "AKG committee page and Border Watch article confirm Adelaide-based full guild member Kieran Swift making decorative Damascus knives since 2018; no own website found."
+ },
+ {
+  "name": "Anthony Kittel Knives",
+  "state": "SA",
+  "town": null,
+  "website": null,
+  "source_url": "https://cross.com.au/2020/07/28/aussie-knifemakers-on-ig/",
+  "specialty": "Custom handmade knives",
+  "offers": [],
+  "note": "Downunder knifemakers directory lists Anthony Kittel as a South Australian custom knifemaker; no own website found."
+ },
+ {
+  "name": "DOCO Knives",
+  "state": "WA",
+  "town": "Fremantle",
+  "website": "https://www.doco.com.au",
+  "source_url": "https://www.doco.com.au/",
+  "specialty": "Hand-forged Damascus, kitchen, hunting and camp knives with WA hardwood handles (Tony Docherty)",
+  "offers": [
+   "classes",
+   "commissions",
+   "online_shop"
+  ],
+  "note": "Own site confirms Tony 'Doco' Docherty hand-forges knives and runs knife-making workshops in the Fremantle/Perth WA area."
+ },
+ {
+  "name": "MB Bladesmith",
+  "state": "WA",
+  "town": "Perth",
+  "website": "https://mbbladesmith.com",
+  "source_url": "https://mbbladesmith.com/",
+  "specialty": "Hand-forged high-carbon kitchen knives (Mark Barrett)",
+  "offers": [
+   "commissions",
+   "online_shop"
+  ],
+  "note": "Own site confirms Mark Barrett hand-forges kitchen knives in Perth WA and takes custom orders."
+ },
+ {
+  "name": "David Brodziak Custom Knives",
+  "state": "WA",
+  "town": "Albany",
+  "website": "https://www.brodziakcustomknives.com",
+  "source_url": "https://www.brodziakcustomknives.com/",
+  "specialty": "Fine custom knives incl. art/collaborative painted pieces and fishing knives",
+  "offers": [
+   "commissions",
+   "gallery"
+  ],
+  "note": "Own site and search confirm award-winning full-time maker David Brodziak has made knives in Albany WA since 1989."
+ },
+ {
+  "name": "Barnett Custom Knives",
+  "state": "WA",
+  "town": "Bridgetown",
+  "website": null,
+  "source_url": "https://www.facebook.com/sydneyknifeshow/posts/based-at-his-windy-hollow-forge-in-bridgetown-south-of-perth-bruce-barnett-of-ba/2379055378827089/",
+  "specialty": "Pattern-welded/feather Damascus bowies, fighters, slipjoints, hunters and chef knives (Bruce Barnett)",
+  "offers": [
+   "classes",
+   "commissions"
+  ],
+  "note": "Knife-show profile confirms AKG member Bruce Barnett works at Windy Hollow Forge, Bridgetown WA, running folder courses; old domain now redirects to spam so website is null."
+ },
+ {
+  "name": "Barking Gecko Forge",
+  "state": "WA",
+  "town": "Nannup",
+  "website": "https://www.barkinggeckoforge.com",
+  "source_url": "https://www.barkinggeckoforge.com/classes/",
+  "specialty": "Hunter, kitchen and slipjoint folder knifemaking (stock-removal and forged)",
+  "offers": [
+   "classes",
+   "commissions"
+  ],
+  "note": "Own classes page confirms a knifemaking forge/school in Nannup, southwest WA, running 1-3 day knifemaking courses."
+ },
+ {
+  "name": "BF Bladeworks",
+  "state": "WA",
+  "town": "Perth",
+  "website": "https://www.bfbladeworks.com.au",
+  "source_url": "https://www.bfbladeworks.com.au/",
+  "specialty": "Hand-forged steak knives, kiridashi and blacksmith-made blades",
+  "offers": [
+   "gallery",
+   "online_shop"
+  ],
+  "note": "Own site confirms a Perth WA blacksmith/knifemaker hand-forging knives with an Etsy shop and gallery."
+ },
+ {
+  "name": "Brook Knives",
+  "state": "WA",
+  "town": "Perth",
+  "website": null,
+  "source_url": "https://cross.com.au/2020/07/28/aussie-knifemakers-on-ig/",
+  "specialty": "Handmade chef/kitchen knives marked 'Brook Australia' (Matt Brook)",
+  "offers": [],
+  "note": "Directory and blade-forum posts confirm AKG full member Matt Brook makes knives in Perth WA; sold via The Blade Runner, no confirmed own site."
+ },
+ {
+  "name": "Tufnell Custom Knives",
+  "state": "WA",
+  "town": "Broome",
+  "website": null,
+  "source_url": "https://sportingshooter.com.au/news/tested-the-gut-hook-skinner-hunting-knife-from-tufnell-custom-knives/",
+  "specialty": "Hunting, pocket, biltong, carving and steak knives, in-house heat-treated (Ron Tufnell)",
+  "offers": [
+   "commissions",
+   "markets"
+  ],
+  "note": "Sporting Shooter reviews confirm AKG member Ron Tufnell handcrafts hunting knives in Broome WA; no own website confirmed."
+ },
+ {
+  "name": "Chris Roosendaal",
+  "state": "WA",
+  "town": "Perth",
+  "website": null,
+  "source_url": "https://akg.org.au/list-of-members/",
+  "specialty": "Custom knives (hunting-oriented)",
+  "offers": [
+   "commissions"
+  ],
+  "note": "AKG member list and profile confirm full guild member Chris Roosendaal making knives in WA after training with Bruce Barnett; no own website found."
+ },
+ {
+  "name": "Sinclair Knives Australia",
+  "state": "WA",
+  "town": null,
+  "website": null,
+  "source_url": "https://akg.org.au/list-of-members/",
+  "specialty": "Custom handmade knives (Mark Sinclair)",
+  "offers": [],
+  "note": "AKG member list places full member Mark Sinclair (#70) in WA; a Sinclair Knives site exists but content could not be verified so website left null."
+ },
+ {
+  "name": "Thomas Gerner",
+  "state": "WA",
+  "town": null,
+  "website": null,
+  "source_url": "https://www.facebook.com/theadelaideknifeshow/posts/504206913081643/",
+  "specialty": "Forged blades and barrel knives; Australia's first ABS Master Bladesmith",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Adelaide Knife Show post and multiple sources confirm WA-based Thomas Gerner, Australia's first Master Bladesmith, producing forged knives."
+ },
+ {
+  "name": "Karim Haddad / Tharwa Valley Forge",
+  "state": "ACT",
+  "town": "Tharwa",
+  "website": "https://www.tharwavalleyforge.com/",
+  "source_url": "https://www.tharwavalleyforge.com/",
+  "specialty": "Bladesmithing school and production forge; hand-forged knives, courses since 2003",
+  "offers": [
+   "classes",
+   "commissions",
+   "online_shop"
+  ],
+  "note": "Own site confirms Tharwa ACT address, courses, retail shop and production cutlery."
+ },
+ {
+  "name": "James Oatley / Oatley Knives",
+  "state": "NSW",
+  "town": "St Leonards",
+  "website": "https://www.oatleyknives.com/",
+  "source_url": "https://www.newidea.com.au/food/handmade-knives-australia/",
+  "specialty": "Japanese-style single-bevel chef knives (gyuto, sushi, honesuki)",
+  "offers": [
+   "commissions",
+   "online_shop"
+  ],
+  "note": "Editorial profile plus own oatleyknives.com; workshop in St Leonards, Sydney."
+ },
+ {
+  "name": "Mert Tansu / Tansu Knives",
+  "state": "NSW",
+  "town": "East Branxton",
+  "website": "https://www.tansuknives.com/",
+  "source_url": "https://nordicedge.com.au/blog/meet-the-maker-mert-tansu/",
+  "specialty": "High-end Japanese-style chef knives; also runs classes",
+  "offers": [
+   "classes",
+   "commissions",
+   "online_shop"
+  ],
+  "note": "Multiple sources place his workshop and knifemaking classes in East Branxton, Hunter Valley NSW."
+ },
+ {
+  "name": "Chadd Smith / Tristone Blades",
+  "state": "NSW",
+  "town": "Niagara Park",
+  "website": null,
+  "source_url": "https://www.gffoodservice.com.au/resource/custom-knives-putting-pleasure-back-food-prep/",
+  "specialty": "Custom chef knives with fine heat-treatment and artistic handles",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Editorial profile; FB lists Niagara Park NSW. Own domain now parked, so website set null."
+ },
+ {
+  "name": "James Milne / Nyati Blades",
+  "state": "QLD",
+  "town": "Gold Coast",
+  "website": null,
+  "source_url": "https://www.gffoodservice.com.au/resource/custom-knives-putting-pleasure-back-food-prep/",
+  "specialty": "Ergonomic chef knives using 3D-printed handles for arthritis/RSI relief",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Editorial profile names Milne of Nyati Blades, Gold Coast QLD; no own site verified."
+ },
+ {
+  "name": "Jason Thomson / Thomson Knife",
+  "state": "QLD",
+  "town": "Sunshine Coast",
+  "website": "https://thomsonknife.com/",
+  "source_url": "https://thomsonknife.com/",
+  "specialty": "Handcrafted chef knives, Swedish steel with reclaimed timber handles",
+  "offers": [
+   "classes",
+   "commissions",
+   "online_shop"
+  ],
+  "note": "Own site; runs workshops and online shop. (Region flagged QLD Sunshine Coast per cross-agent note.)"
+ },
+ {
+  "name": "Doveton Fletcher Fine Knives",
+  "state": "VIC",
+  "town": "Castlemaine",
+  "website": null,
+  "source_url": "https://cross.com.au/2020/07/28/aussie-knifemakers-on-ig/",
+  "specialty": "Fine custom knives",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Cross.com.au maker directory lists Doveton Fletcher Fine Knives, Castlemaine VIC."
+ },
+ {
+  "name": "Pioneer Road",
+  "state": "VIC",
+  "town": "Bendigo",
+  "website": null,
+  "source_url": "https://cross.com.au/2020/07/28/aussie-knifemakers-on-ig/",
+  "specialty": "Custom knives",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Cross.com.au maker directory lists Pioneer Road, Bendigo VIC."
+ },
+ {
+  "name": "Goldband Knife and Tool",
+  "state": "VIC",
+  "town": "Melbourne",
+  "website": null,
+  "source_url": "https://cross.com.au/2020/07/28/aussie-knifemakers-on-ig/",
+  "specialty": "Custom knives and tools",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Cross.com.au maker directory lists Goldband Knife and Tool, Melbourne VIC."
+ },
+ {
+  "name": "Black Lotus Knives",
+  "state": "VIC",
+  "town": "Melbourne",
+  "website": null,
+  "source_url": "https://cross.com.au/2020/07/28/aussie-knifemakers-on-ig/",
+  "specialty": "Custom knives",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Cross.com.au maker directory lists Black Lotus Knives, Melbourne VIC."
+ },
+ {
+  "name": "Oblivion Blades",
+  "state": "NSW",
+  "town": "Newcastle",
+  "website": null,
+  "source_url": "https://cross.com.au/2020/07/28/aussie-knifemakers-on-ig/",
+  "specialty": "Custom knives",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Cross.com.au maker directory lists Oblivion Blades, Newcastle NSW."
+ },
+ {
+  "name": "116 Blades",
+  "state": "NSW",
+  "town": "Bega",
+  "website": null,
+  "source_url": "https://cross.com.au/2020/07/28/aussie-knifemakers-on-ig/",
+  "specialty": "Custom knives",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Cross.com.au maker directory lists 116blades, Bega NSW."
+ },
+ {
+  "name": "Ferenc Petho / Paprika Knives",
+  "state": "NSW",
+  "town": "Mid North Coast",
+  "website": null,
+  "source_url": "https://cross.com.au/2020/07/28/aussie-knifemakers-on-ig/",
+  "specialty": "Custom knives",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Cross.com.au directory lists paprikaknives, Mid North Coast NSW; matches AKG member Ferenc Petho (NSW)."
+ },
+ {
+  "name": "Sarkis Blades",
+  "state": "NSW",
+  "town": "Sydney",
+  "website": null,
+  "source_url": "https://cross.com.au/2020/07/28/aussie-knifemakers-on-ig/",
+  "specialty": "Custom knives",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Cross.com.au maker directory lists Sarkis Blades, Sydney NSW."
+ },
+ {
+  "name": "Jackson Rumble / Rumble Knives",
+  "state": "ACT",
+  "town": "Canberra",
+  "website": null,
+  "source_url": "https://cross.com.au/2020/07/28/aussie-knifemakers-on-ig/",
+  "specialty": "Custom knives",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Cross.com.au directory lists Rumble Knives, Canberra ACT; also AKG member Jackson Rumble (ACT)."
+ },
+ {
+  "name": "Todd / Otway Blades",
+  "state": "VIC",
+  "town": null,
+  "website": null,
+  "source_url": "https://akg.org.au/list-of-members/",
+  "specialty": "Custom knives",
+  "offers": [
+   "commissions"
+  ],
+  "note": "AKG member (VIC)."
+ },
+ {
+  "name": "50Fifty Knives",
+  "state": "QLD",
+  "town": "Brisbane",
+  "website": null,
+  "source_url": "https://cross.com.au/2020/07/28/aussie-knifemakers-on-ig/",
+  "specialty": "Custom knives",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Cross.com.au maker directory lists 50Fifty Knives, Brisbane QLD."
+ },
+ {
+  "name": "Kevin Room / Room Custom Knives",
+  "state": "QLD",
+  "town": null,
+  "website": null,
+  "source_url": "https://cross.com.au/2020/07/28/aussie-knifemakers-on-ig/",
+  "specialty": "Custom knives",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Cross.com.au directory lists Room Custom Knives, QLD; matches AKG member Kevin Room (QLD)."
+ },
+ {
+  "name": "Paul-Emmanuel Arestan / Paul's Knives",
+  "state": "QLD",
+  "town": null,
+  "website": "https://www.paulsknives.com.au/",
+  "source_url": "https://artisansupplies.com.au/knifemakingteachers/",
+  "specialty": "Custom knives; knifemaking classes",
+  "offers": [
+   "classes",
+   "commissions"
+  ],
+  "note": "Teachers directory lists Paul Emmanuel Arestan, QLD, paulsknives.com.au/classes; matches AKG member (QLD)."
+ },
+ {
+  "name": "Shane Savage / Savage Custom Knives",
+  "state": "QLD",
+  "town": null,
+  "website": "https://www.savagecustomknives.com/",
+  "source_url": "https://artisansupplies.com.au/knifemakingteachers/",
+  "specialty": "Custom knives; teaching",
+  "offers": [
+   "classes",
+   "commissions"
+  ],
+  "note": "Teachers directory lists Shane Savage, QLD, own site savagecustomknives.com."
+ },
+ {
+  "name": "Wayne Schmidt / Cracked Anvil Forge",
+  "state": "QLD",
+  "town": null,
+  "website": "https://www.crackedanvilforge.com.au/",
+  "source_url": "https://artisansupplies.com.au/knifemakingteachers/",
+  "specialty": "Forged knives; teaching",
+  "offers": [
+   "classes",
+   "commissions"
+  ],
+  "note": "Teachers directory lists Wayne Schmidt, QLD, crackedanvilforge.com.au."
+ },
+ {
+  "name": "James Nadler",
+  "state": "TAS",
+  "town": null,
+  "website": null,
+  "source_url": "https://akg.org.au/list-of-members/",
+  "specialty": "Custom knives",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Listed as an AKG member in Tasmania on the Guild's list of members."
+ },
+ {
+  "name": "Allan Thrush",
+  "state": "TAS",
+  "town": null,
+  "website": null,
+  "source_url": "https://akg.org.au/list-of-members/",
+  "specialty": "Custom knives",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Listed as an AKG member in Tasmania on the Guild's list of members."
+ },
+ {
+  "name": "Ian Francis",
+  "state": "NSW",
+  "town": null,
+  "website": null,
+  "source_url": "https://akg.org.au/list-of-members/",
+  "specialty": "Custom knives",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Listed as an AKG member (NSW) on the Guild's list of members."
+ },
+ {
+  "name": "Myron Husiak",
+  "state": "VIC",
+  "town": null,
+  "website": null,
+  "source_url": "https://akg.org.au/list-of-members/",
+  "specialty": "Custom knives",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Long-standing AKG member (VIC)."
+ },
+ {
+  "name": "Brendan Burke",
+  "state": "NSW",
+  "town": null,
+  "website": null,
+  "source_url": "https://akg.org.au/list-of-members/",
+  "specialty": "Custom knives",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Listed as an AKG member (NSW) on the Guild's list of members."
+ },
+ {
+  "name": "Andrew Blomfield",
+  "state": "NSW",
+  "town": null,
+  "website": null,
+  "source_url": "https://akg.org.au/list-of-members/",
+  "specialty": "Custom knives",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Listed as an AKG member (NSW) on the Guild's list of members."
+ },
+ {
+  "name": "Room Custom Knives",
+  "state": "QLD",
+  "town": "Brisbane",
+  "website": "https://www.roomcustomknives.com/",
+  "source_url": "https://www.roomcustomknives.com/about",
+  "specialty": "High-performance handmade kitchen/chef knives (Kevin Room)",
+  "offers": [
+   "classes",
+   "commissions",
+   "gallery",
+   "online_shop"
+  ],
+  "note": "Maker Kevin Room, full member and Queensland state rep of the Australian Knifemakers Guild, makes each knife by hand in SW Brisbane."
+ },
+ {
+  "name": "Paul's Knives",
+  "state": "QLD",
+  "town": "Brisbane",
+  "website": "https://www.paulsknives.com.au/",
+  "source_url": "https://www.paulsknives.com.au/about/",
+  "specialty": "Custom art/collectible knives with hand-painted, multi-step etched blades (Paul-Emmanuel Arestan)",
+  "offers": [
+   "classes",
+   "commissions",
+   "gallery",
+   "online_shop"
+  ],
+  "note": "French-Australian maker trading as Paul's Knives / Lion Knives in Brisbane; full-time maker who takes commissions and runs classes."
+ },
+ {
+  "name": "London Road Ironworks",
+  "state": "QLD",
+  "town": "Chandler",
+  "website": "https://www.londonroadironworks.com.au/",
+  "source_url": "https://www.londonroadironworks.com.au/",
+  "specialty": "Forged custom knives, kitchen to bush (Dan Pettersen)",
+  "offers": [
+   "classes",
+   "commissions",
+   "online_shop"
+  ],
+  "note": "Chandler (Brisbane); qualified teacher and knifemaker running 2-day bladesmithing courses and custom work."
+ },
+ {
+  "name": "Savage Custom Knives",
+  "state": "QLD",
+  "town": "Ipswich",
+  "website": "https://savagecustomknives.com/",
+  "source_url": "https://savagecustomknives.com/",
+  "specialty": "Handmade custom knives; Japanese chef and Damascus blades (Shane Savage)",
+  "offers": [
+   "classes",
+   "commissions",
+   "online_shop"
+  ],
+  "note": "West Ipswich; runs knifemaking and blacksmithing classes plus custom commissions."
+ },
+ {
+  "name": "Gidgee Knives",
+  "state": "QLD",
+  "town": "Moore Park Beach",
+  "website": "https://gidgeeknives.com.au/",
+  "source_url": "https://gidgeeknives.com.au/",
+  "specialty": "Custom hunting, fishing, kitchen and survival knives (Scottie Simmonds)",
+  "offers": [
+   "classes",
+   "commissions",
+   "online_shop"
+  ],
+  "note": "Near Bundaberg; hand-makes custom knives and tools and runs knifemaking workshops."
+ },
+ {
+  "name": "BSP KnifeWorks",
+  "state": "QLD",
+  "town": "Maudsland",
+  "website": "https://bspknifeworks.com.au/",
+  "source_url": "https://bspknifeworks.com.au/",
+  "specialty": "Handmade culinary, hunting/utility and folding knives (Brent Parnell)",
+  "offers": [
+   "classes",
+   "commissions",
+   "online_shop",
+   "markets"
+  ],
+  "note": "Maudsland (Gold Coast); mostly commissioned work, sells online and at Tamborine Mountain Country Markets. AKG member #383."
+ },
+ {
+  "name": "Tony's Bladesmithing",
+  "state": "QLD",
+  "town": "Townsville",
+  "website": null,
+  "source_url": "https://nordicedge.com.au/blog/meet-the-maker-tony-earwaker-tonys-bladesmithing/",
+  "specialty": "Forged hunting and outdoor knives, mostly full tang (Tony Earwaker)",
+  "offers": [
+   "commissions",
+   "by_appointment"
+  ],
+  "note": "Near Townsville; AKG North Queensland rep (member #181), takes commissions, presence via Facebook only."
+ },
+ {
+  "name": "Thomson Knife",
+  "state": "QLD",
+  "town": "Sunshine Coast",
+  "website": "https://thomsonknife.com/",
+  "source_url": "https://thomsonknife.com/aboutthomsonknifeandutility",
+  "specialty": "Handmade chef and outdoor utility knives in high-carbon/stainless mono steel (Jason Thomson)",
+  "offers": [
+   "commissions",
+   "online_shop",
+   "classes"
+  ],
+  "note": "Sunshine Coast; ex-chef artisan making bespoke kitchen and outdoor knives, with a workshops section and online store."
+ },
+ {
+  "name": "Saxon Knives Australia",
+  "state": "QLD",
+  "town": "Ipswich",
+  "website": "https://www.saxonknivesaustralia.com.au/",
+  "source_url": "https://www.saxonknivesaustralia.com.au/",
+  "specialty": "Hand-forged high-carbon steel chef, hunting and collector knives",
+  "offers": [
+   "commissions",
+   "online_shop"
+  ],
+  "note": "Forges each blade by hand in its Ipswich, Queensland workshop and takes a limited number of custom orders."
+ },
+ {
+  "name": "Traditional Iron",
+  "state": "QLD",
+  "town": "Brisbane",
+  "website": "http://traditionaliron.com/",
+  "source_url": "http://traditionaliron.com/our-work/custom-knives/",
+  "specialty": "Hand-forged custom and Damascus knives (hunting, survival, decorative)",
+  "offers": [
+   "commissions",
+   "classes"
+  ],
+  "note": "Brisbane forge (contact Mark) making bespoke hand-forged knives and offering training courses alongside architectural ironwork."
+ },
+ {
+  "name": "NGKnives",
+  "state": "QLD",
+  "town": "Lockyer Valley",
+  "website": "https://www.ngknives.au/",
+  "source_url": "https://www.ngknives.au/",
+  "specialty": "Knifemaking and bladesmithing, including Damascus",
+  "offers": [
+   "classes",
+   "online_shop"
+  ],
+  "note": "Lockyer Valley; runs beginner-to-advanced knifemaking/blacksmithing classes and one-on-one bladesmithing sessions."
+ },
+ {
+  "name": "Cracked Anvil Forge",
+  "state": "QLD",
+  "town": "Ipswich",
+  "website": "https://www.crackedanvilforge.com.au/",
+  "source_url": "https://www.crackedanvilforge.com.au/",
+  "specialty": "Blacksmithing and knifemaking; custom kitchen knives and bespoke pieces (Wayne Schmidt)",
+  "offers": [
+   "classes",
+   "commissions",
+   "online_shop"
+  ],
+  "note": "Ipswich; 30+ years experience, teaches knifemaking classes and makes bespoke items on request."
+ },
+ {
+  "name": "DC Blades",
+  "state": "QLD",
+  "town": null,
+  "website": "https://www.dcblades.com/",
+  "source_url": "https://www.dcblades.com/custom-made-knives",
+  "specialty": "Custom knives from forging and heat treatment to finish",
+  "offers": [
+   "commissions",
+   "online_shop"
+  ],
+  "note": "Queensland-based; forges, grinds and heat-treats custom knives to the client's design; exact town not stated on site."
+ },
+ {
+  "name": "Nathan James Knives",
+  "state": "QLD",
+  "town": "Kiamba",
+  "website": null,
+  "source_url": "http://www.findglocal.com/AU/Kiamba/1661557347394753/Nathan-James-Knives",
+  "specialty": "Handcrafted chef/kitchen knives and straight razors",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Ex-chef Nathan James makes knives on his property at Kiamba, QLD; sells via Facebook/Etsy, no standalone website confirmed."
+ },
+ {
+  "name": "Fifty50 Knives",
+  "state": "QLD",
+  "town": "Brisbane",
+  "website": null,
+  "source_url": "https://cross.com.au/2020/07/28/aussie-knifemakers-on-ig/",
+  "specialty": "Premium hand-finished custom knives",
+  "offers": [],
+  "note": "Brisbane maker listed as Fifty50 Knives in an Australian knifemakers directory; own site did not resolve so left null."
+ },
+ {
+  "name": "Blacksmithing QLD",
+  "state": "QLD",
+  "town": null,
+  "website": "http://blacksmithingqld.com.au/",
+  "source_url": "https://artisansupplies.com.au/knifemakingteachers/",
+  "specialty": "Blacksmithing and knifemaking courses (Martin Geddes)",
+  "offers": [
+   "classes"
+  ],
+  "note": "Listed among Australian knifemaking/blacksmithing teachers as a Queensland instructor running blacksmithing and knifemaking courses."
+ },
+ {
+  "name": "Yandiwa",
+  "state": "NT",
+  "town": "Alice Springs",
+  "website": "https://yandiwa.com.au/",
+  "source_url": "https://yandiwa.com.au/about-us/",
+  "specialty": "Hand-forged Japanese kitchen/chef, utility and hunting knives (Francois Mazieres)",
+  "offers": [
+   "classes",
+   "commissions",
+   "gallery",
+   "online_shop"
+  ],
+  "note": "Francois and Annieka, Alice Springs; award-winning maker and AKG Northern Territory rep (member #232), runs bladesmithing courses."
+ },
+ {
+  "name": "Jurkijevic Bladesmiths",
+  "state": "NT",
+  "town": "Acacia Hills",
+  "website": "https://www.jurkijevic.com.au/",
+  "source_url": "https://www.jurkijevic.com.au/contact-us/",
+  "specialty": "Handcrafted hunting, chef, ceremonial knives and custom tools (Karl Jurkijevic)",
+  "offers": [
+   "classes",
+   "commissions"
+  ],
+  "note": "Whitstone Road, Acacia Hills NT; maker Karl runs weekend knifemaking classes and takes custom orders."
+ },
+ {
+  "name": "Ben Johnson Custom Blades",
+  "state": "NT",
+  "town": "Darwin",
+  "website": null,
+  "source_url": "https://www.facebook.com/BenJohnsonCustomBlades/",
+  "specialty": "Custom kitchen, hunting/field knives and display pieces",
+  "offers": [
+   "commissions"
+  ],
+  "note": "Ben Johnson, Custom Blades Australia, Darwin NT; verified via Facebook page, no standalone website found."
+ }
+]
