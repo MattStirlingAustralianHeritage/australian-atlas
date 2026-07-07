@@ -1,442 +1,432 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { getListingRegion } from '@/lib/regions'
+import { useState, useMemo, useCallback } from 'react'
 
-function generateEmailTemplate(listing) {
-  const descSnippet = listing.description
-    ? listing.description.slice(0, 150) + (listing.description.length > 150 ? '...' : '')
-    : ''
+const SITE = 'https://australianatlas.com.au'
 
-  const regionName = getListingRegion(listing)?.name
+const DEFAULT_TEMPLATE = {
+  subject: '{{name}} is on Australian Atlas',
+  body: `Hi,
 
-  return {
-    subject: `${listing.name} on Australian Atlas`,
-    body: `Hi,
+We've been building Australian Atlas — a curated guide to independent Australian places. We've listed {{name}} as part of our guide to independent {{region}}, and it's already live and being discovered:
 
-We've been building Australian Atlas — a curated guide to independent Australian places across ten verticals. We've listed ${listing.name} as part of our guide to independent ${regionName || 'Australia'}.
+{{place_url}}
 
-${descSnippet ? `Here's what we wrote: "${descSnippet}"` : ''}
+We'd love for you to claim the listing so you can tell your own story, add photos, and keep the details right. It's quick and free to claim:
 
-Your listing is live and being discovered at https://www.australianatlas.com.au/place/${listing.slug}. We'd love for you to claim it and tell your own story.
+{{claim_url}}
 
-Claim your listing: https://www.australianatlas.com.au/claim/${listing.slug}
+If it's not the right fit, no worries at all — you can ignore this note.
 
+Warm regards,
 Matt
 Australian Atlas`,
-  }
 }
 
-function ListingCard({ listing, verticalColors, verticalNames, onDraftEmail }) {
-  const vColor = verticalColors[listing.vertical] || '#888'
-  const vName = verticalNames[listing.vertical] || listing.vertical
+const MERGE_TOKENS = [
+  ['{{name}}', 'Venue name'],
+  ['{{region}}', 'Region'],
+  ['{{state}}', 'State'],
+  ['{{vertical}}', 'Atlas'],
+  ['{{place_url}}', 'Live listing URL'],
+  ['{{claim_url}}', 'Claim URL'],
+]
 
+// ── shared style helpers ──────────────────────────────────────
+const label = {
+  fontFamily: 'var(--font-body, system-ui)', fontSize: 10, fontWeight: 600,
+  letterSpacing: '0.08em', textTransform: 'uppercase',
+  color: 'var(--color-muted, #888)', display: 'block', marginBottom: 4,
+}
+const input = {
+  fontFamily: 'var(--font-body, system-ui)', fontSize: 13,
+  padding: '7px 10px', borderRadius: 6,
+  border: '1px solid var(--color-border, #e5e5e5)',
+  background: '#fff', color: 'var(--color-ink, #2D2A26)', boxSizing: 'border-box',
+}
+const btn = {
+  fontFamily: 'var(--font-body, system-ui)', fontSize: 13, fontWeight: 500,
+  padding: '9px 18px', borderRadius: 6, cursor: 'pointer',
+  border: '1px solid var(--color-border, #e5e5e5)', background: '#fff',
+  color: 'var(--color-ink, #2D2A26)',
+}
+const btnPrimary = { ...btn, border: 'none', background: 'var(--color-ink, #2D2A26)', color: '#fff' }
+const card = {
+  background: 'var(--color-cream, #FAF8F5)',
+  border: '1px solid var(--color-border, #e5e5e5)', borderRadius: 8,
+}
+
+function buildCtx(l, verticalNames) {
+  return {
+    name: l.name || 'your venue',
+    region: l.region || 'Australia',
+    state: l.state || '',
+    vertical: verticalNames[l.vertical] || l.vertical || 'Australian Atlas',
+    place_url: l.slug ? `${SITE}/place/${l.slug}` : SITE,
+    claim_url: l.slug ? `${SITE}/claim/${l.slug}` : `${SITE}/claim`,
+  }
+}
+function applyMerge(str, ctx) {
+  return (str || '').replace(/\{\{(\w+)\}\}/g, (_, k) => (ctx[k] != null ? String(ctx[k]) : ''))
+}
+
+function Chip({ children, color = '#888', filled }) {
   return (
-    <div style={{
-      background: '#fff',
-      border: '1px solid var(--color-border, #e5e5e5)',
-      borderRadius: 8,
-      padding: '16px 20px',
+    <span style={{
+      fontFamily: 'var(--font-body, system-ui)', fontSize: 10, fontWeight: 600,
+      letterSpacing: '0.05em', textTransform: 'uppercase',
+      padding: '2px 8px', borderRadius: 100, whiteSpace: 'nowrap',
+      background: filled ? color : `${color}18`, color: filled ? '#fff' : color,
     }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h3 style={{
-            fontFamily: 'var(--font-display, Georgia)',
-            fontSize: '1rem',
-            fontWeight: 500,
-            color: 'var(--color-ink, #2D2A26)',
-            margin: 0,
-            lineHeight: 1.3,
-          }}>
-            {listing.name}
-          </h3>
-          <p style={{
-            fontFamily: 'var(--font-body, system-ui)',
-            fontSize: 12,
-            color: 'var(--color-muted, #888)',
-            margin: '4px 0 0',
-          }}>
-            {[getListingRegion(listing)?.name, listing.state].filter(Boolean).join(', ')}
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
-          <span style={{
-            fontFamily: 'var(--font-body, system-ui)',
-            fontSize: 10,
-            fontWeight: 600,
-            letterSpacing: '0.06em',
-            textTransform: 'uppercase',
-            padding: '3px 8px',
-            borderRadius: 100,
-            background: `${vColor}14`,
-            color: vColor,
-            whiteSpace: 'nowrap',
-          }}>
-            {vName}
-          </span>
-          {listing.quality_score != null && (
-            <span style={{
-              fontFamily: 'var(--font-body, system-ui)',
-              fontSize: 11,
-              fontWeight: 600,
-              padding: '3px 8px',
-              borderRadius: 100,
-              background: listing.quality_score >= 70 ? '#5F8A7E18' : listing.quality_score >= 40 ? '#d4a03c18' : '#c0392b18',
-              color: listing.quality_score >= 70 ? '#5F8A7E' : listing.quality_score >= 40 ? '#d4a03c' : '#c0392b',
-            }}>
-              Q{listing.quality_score}
-            </span>
-          )}
-        </div>
-      </div>
+      {children}
+    </span>
+  )
+}
 
-      {/* Details row */}
-      <div style={{
-        display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center',
-        marginBottom: 12, fontSize: 12, fontFamily: 'var(--font-body, system-ui)',
-        color: 'var(--color-muted, #888)',
-      }}>
-        {listing.website && (
-          <a
-            href={listing.website}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ color: '#3b82f6', textDecoration: 'none' }}
-          >
-            Website
-          </a>
-        )}
-        {listing.phone && <span>{listing.phone}</span>}
-        {listing.address && <span style={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{listing.address}</span>}
-      </div>
-
-      <button
-        onClick={() => onDraftEmail(listing)}
-        style={{
-          fontFamily: 'var(--font-body, system-ui)',
-          fontSize: 12,
-          fontWeight: 500,
-          padding: '8px 16px',
-          borderRadius: 6,
-          border: '1px solid var(--color-border, #e5e5e5)',
-          background: '#fff',
-          color: 'var(--color-ink, #2D2A26)',
-          cursor: 'pointer',
-        }}
-      >
-        Draft Email
-      </button>
+function StatCard({ n, label: text }) {
+  return (
+    <div style={{ ...card, padding: '12px 16px', minWidth: 96 }}>
+      <div style={{ fontFamily: 'var(--font-display, Georgia)', fontSize: 22, color: 'var(--color-ink, #2D2A26)' }}>{n}</div>
+      <div style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 11, color: 'var(--color-muted, #888)', marginTop: 2 }}>{text}</div>
     </div>
   )
 }
 
-function EmailDraftModal({ listing, onClose, verticalNames }) {
-  const template = generateEmailTemplate(listing)
-  const [subject, setSubject] = useState(template.subject)
-  const [body, setBody] = useState(template.body)
-  const [contactEmail, setContactEmail] = useState('')
-  const [notes, setNotes] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
+// ── Compose & Send panel ──────────────────────────────────────
+function ComposePanel({ verticalNames, verticalColors, sendStatusColors, allStates, allVerticals }) {
+  const [filters, setFilters] = useState({ vertical: '', state: '', minQuality: 0, region: '', limit: 200 })
+  const [loading, setLoading] = useState(false)
+  const [seg, setSeg] = useState(null) // { listings, counts }
+  const [selected, setSelected] = useState(() => new Set())
+  const [discovering, setDiscovering] = useState(false)
+  const [discoverProgress, setDiscoverProgress] = useState(null)
+
+  const [subject, setSubject] = useState(DEFAULT_TEMPLATE.subject)
+  const [emailBody, setEmailBody] = useState(DEFAULT_TEMPLATE.body)
+  const [cap, setCap] = useState(50)
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState(null)
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const [error, setError] = useState(null)
 
-  async function handleQueue() {
-    setSaving(true)
-    setError(null)
+  async function loadSegment() {
+    setLoading(true); setError(null); setResult(null)
     try {
-      const res = await fetch('/api/admin/outreach', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          listing_id: listing.id,
-          contact_email: contactEmail || null,
-          notes: `Subject: ${subject}\n\n${body}${notes ? '\n\n---\nNotes: ' + notes : ''}`,
-          status: 'contacted',
-        }),
+      const res = await fetch('/api/admin/outreach/segment', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(filters),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to save')
-      setSaved(true)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setSaving(false)
+      if (!res.ok) throw new Error(data.error || 'Failed to load segment')
+      setSeg(data)
+      // Default selection: everything currently sendable.
+      setSelected(new Set(data.listings.filter((l) => l.sendable).map((l) => l.id)))
+    } catch (err) { setError(err.message) } finally { setLoading(false) }
+  }
+
+  const toggle = (id) => setSelected((prev) => {
+    const next = new Set(prev)
+    next.has(id) ? next.delete(id) : next.add(id)
+    return next
+  })
+
+  const selectAllSendable = () => seg && setSelected(new Set(seg.listings.filter((l) => l.sendable).map((l) => l.id)))
+  const clearSelection = () => setSelected(new Set())
+
+  // Discover emails for listings that have a website but no email yet.
+  async function discoverEmails() {
+    if (!seg) return
+    const needing = seg.listings.filter((l) => l.website && !l.contact_email)
+    if (needing.length === 0) return
+    setDiscovering(true); setError(null)
+    const chunkSize = 15 // keep each /discover call inside the 60s function budget
+    let scanned = 0, found = 0
+    const updated = new Map(seg.listings.map((l) => [l.id, l]))
+    try {
+      for (let i = 0; i < needing.length; i += chunkSize) {
+        const chunk = needing.slice(i, i + chunkSize)
+        setDiscoverProgress({ scanned, total: needing.length, found })
+        const res = await fetch('/api/admin/outreach/discover', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ listing_ids: chunk.map((l) => l.id) }),
+        })
+        const data = await res.json()
+        if (res.ok) {
+          for (const r of data.results || []) {
+            const l = updated.get(r.listing_id)
+            if (l && r.email) {
+              updated.set(r.listing_id, { ...l, contact_email: r.email, email_source: r.source ? 'website' : l.email_source, sendable: !l.suppressed && !['sent', 'bounced', 'complained', 'unsubscribed'].includes(l.send_status) })
+              found++
+            }
+          }
+        }
+        scanned += chunk.length
+        setDiscoverProgress({ scanned, total: needing.length, found })
+      }
+      const listings = seg.listings.map((l) => updated.get(l.id))
+      const counts = recomputeCounts(listings)
+      setSeg({ listings, counts })
+      // Auto-select newly discovered, sendable rows.
+      setSelected((prev) => {
+        const next = new Set(prev)
+        for (const l of listings) if (l.sendable && l.contact_email) next.add(l.id)
+        return next
+      })
+    } catch (err) { setError(err.message) } finally { setDiscovering(false); setDiscoverProgress(null) }
+  }
+
+  function recomputeCounts(listings) {
+    const un = new Set(['sent', 'bounced', 'complained', 'unsubscribed'])
+    return {
+      total: listings.length,
+      withWebsite: listings.filter((l) => l.website).length,
+      withEmail: listings.filter((l) => l.contact_email).length,
+      suppressed: listings.filter((l) => l.suppressed).length,
+      alreadySent: listings.filter((l) => un.has(l.send_status)).length,
+      sendable: listings.filter((l) => l.sendable).length,
     }
   }
 
-  async function handleMarkContacted() {
-    setSaving(true)
-    setError(null)
+  // Recipients actually eligible to send in this run.
+  const eligibleSelected = useMemo(() => {
+    if (!seg) return []
+    return seg.listings.filter((l) => selected.has(l.id) && l.sendable && l.contact_email)
+  }, [seg, selected])
+
+  const previewListing = eligibleSelected[0] || (seg?.listings || [])[0] || null
+  const previewCtx = previewListing ? buildCtx(previewListing, verticalNames) : null
+
+  async function runSend({ dryRun = false, testMode = false } = {}) {
+    setBusy(true); setError(null); setResult(null); setConfirmOpen(false)
     try {
-      const res = await fetch('/api/admin/outreach', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch('/api/admin/outreach/send', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          listing_id: listing.id,
-          contact_email: contactEmail || null,
-          notes: notes || null,
-          status: 'contacted',
+          listing_ids: eligibleSelected.map((l) => l.id),
+          subject, body: emailBody, dryRun, testMode, cap: Number(cap),
         }),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to save')
-      setSaved(true)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  if (saved) {
-    return (
-      <div style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex: 1000, padding: 24,
-      }}>
-        <div style={{
-          background: '#fff', borderRadius: 12, padding: '32px',
-          maxWidth: 480, width: '100%', textAlign: 'center',
-        }}>
-          <p style={{
-            fontFamily: 'var(--font-display, Georgia)', fontSize: 20,
-            color: 'var(--color-ink, #2D2A26)', marginBottom: 8,
-          }}>
-            Outreach recorded
-          </p>
-          <p style={{
-            fontFamily: 'var(--font-body, system-ui)', fontSize: 13,
-            color: 'var(--color-muted, #888)', marginBottom: 20,
-          }}>
-            {listing.name} has been marked in the outreach queue.
-          </p>
-          <button
-            onClick={() => { onClose(); window.location.reload() }}
-            style={{
-              fontFamily: 'var(--font-body, system-ui)', fontSize: 13, fontWeight: 500,
-              padding: '10px 24px', borderRadius: 6,
-              background: 'var(--color-ink, #2D2A26)', color: '#fff',
-              border: 'none', cursor: 'pointer',
-            }}
-          >
-            Done
-          </button>
-        </div>
-      </div>
-    )
+      if (!res.ok) throw new Error(data.error || 'Send failed')
+      setResult(data)
+      if (!dryRun && !testMode) {
+        // Reflect newly-sent rows in the table so they can't be double-sent.
+        setSeg((prev) => prev && {
+          ...prev,
+          listings: prev.listings.map((l) => eligibleSelected.find((e) => e.id === l.id) ? { ...l, send_status: 'sent', sendable: false, funnel_status: 'contacted' } : l),
+          counts: prev.counts,
+        })
+        setSelected(new Set())
+      }
+    } catch (err) { setError(err.message) } finally { setBusy(false) }
   }
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      zIndex: 1000, padding: 24, overflowY: 'auto',
-    }}>
-      <div style={{
-        background: '#fff', borderRadius: 12, padding: '24px',
-        maxWidth: 640, width: '100%', maxHeight: '90vh', overflowY: 'auto',
-      }}>
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+    <div>
+      {/* Segment builder */}
+      <div style={{ ...card, padding: '16px 18px', marginBottom: 18 }}>
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div>
-            <h2 style={{
-              fontFamily: 'var(--font-display, Georgia)', fontSize: 20, fontWeight: 400,
-              color: 'var(--color-ink, #2D2A26)', margin: 0,
-            }}>
-              Draft email for {listing.name}
-            </h2>
-            <p style={{
-              fontFamily: 'var(--font-body, system-ui)', fontSize: 12,
-              color: 'var(--color-muted, #888)', marginTop: 4,
-            }}>
-              {verticalNames[listing.vertical] || listing.vertical} &middot; {getListingRegion(listing)?.name || ''}
-            </p>
+            <label style={label}>Atlas</label>
+            <select style={input} value={filters.vertical} onChange={(e) => setFilters({ ...filters, vertical: e.target.value })}>
+              <option value="">All</option>
+              {allVerticals.map((v) => <option key={v} value={v}>{verticalNames[v] || v}</option>)}
+            </select>
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none', border: 'none', fontSize: 20,
-              color: 'var(--color-muted, #888)', cursor: 'pointer', padding: 4,
-            }}
-          >
-            &times;
-          </button>
-        </div>
-
-        {/* Contact email */}
-        <div style={{ marginBottom: 16 }}>
-          <label style={{
-            fontFamily: 'var(--font-body, system-ui)', fontSize: 11, fontWeight: 600,
-            letterSpacing: '0.08em', textTransform: 'uppercase',
-            color: 'var(--color-muted, #888)', display: 'block', marginBottom: 4,
-          }}>
-            Contact email
-          </label>
-          <input
-            type="email"
-            value={contactEmail}
-            onChange={e => setContactEmail(e.target.value)}
-            placeholder="operator@example.com"
-            style={{
-              width: '100%', padding: '8px 12px', borderRadius: 6,
-              border: '1px solid var(--color-border, #e5e5e5)',
-              fontFamily: 'var(--font-body, system-ui)', fontSize: 13,
-              color: 'var(--color-ink, #2D2A26)', boxSizing: 'border-box',
-            }}
-          />
-        </div>
-
-        {/* Subject */}
-        <div style={{ marginBottom: 16 }}>
-          <label style={{
-            fontFamily: 'var(--font-body, system-ui)', fontSize: 11, fontWeight: 600,
-            letterSpacing: '0.08em', textTransform: 'uppercase',
-            color: 'var(--color-muted, #888)', display: 'block', marginBottom: 4,
-          }}>
-            Subject
-          </label>
-          <input
-            type="text"
-            value={subject}
-            onChange={e => setSubject(e.target.value)}
-            style={{
-              width: '100%', padding: '8px 12px', borderRadius: 6,
-              border: '1px solid var(--color-border, #e5e5e5)',
-              fontFamily: 'var(--font-body, system-ui)', fontSize: 13,
-              color: 'var(--color-ink, #2D2A26)', boxSizing: 'border-box',
-            }}
-          />
-        </div>
-
-        {/* Body */}
-        <div style={{ marginBottom: 16 }}>
-          <label style={{
-            fontFamily: 'var(--font-body, system-ui)', fontSize: 11, fontWeight: 600,
-            letterSpacing: '0.08em', textTransform: 'uppercase',
-            color: 'var(--color-muted, #888)', display: 'block', marginBottom: 4,
-          }}>
-            Email body
-          </label>
-          <textarea
-            value={body}
-            onChange={e => setBody(e.target.value)}
-            rows={14}
-            style={{
-              width: '100%', padding: '10px 12px', borderRadius: 6,
-              border: '1px solid var(--color-border, #e5e5e5)',
-              fontFamily: 'var(--font-body, system-ui)', fontSize: 13,
-              color: 'var(--color-ink, #2D2A26)', lineHeight: 1.6,
-              resize: 'vertical', boxSizing: 'border-box',
-            }}
-          />
-        </div>
-
-        {/* Notes */}
-        <div style={{ marginBottom: 20 }}>
-          <label style={{
-            fontFamily: 'var(--font-body, system-ui)', fontSize: 11, fontWeight: 600,
-            letterSpacing: '0.08em', textTransform: 'uppercase',
-            color: 'var(--color-muted, #888)', display: 'block', marginBottom: 4,
-          }}>
-            Internal notes
-          </label>
-          <textarea
-            value={notes}
-            onChange={e => setNotes(e.target.value)}
-            rows={2}
-            placeholder="Any notes about this outreach..."
-            style={{
-              width: '100%', padding: '8px 12px', borderRadius: 6,
-              border: '1px solid var(--color-border, #e5e5e5)',
-              fontFamily: 'var(--font-body, system-ui)', fontSize: 13,
-              color: 'var(--color-ink, #2D2A26)', lineHeight: 1.5,
-              resize: 'vertical', boxSizing: 'border-box',
-            }}
-          />
-        </div>
-
-        {error && (
-          <div style={{
-            background: '#FEF2F2', border: '1px solid #FECACA',
-            padding: '10px 14px', borderRadius: 6, marginBottom: 16,
-            fontFamily: 'var(--font-body, system-ui)', fontSize: 13, color: '#991B1B',
-          }}>
-            {error}
+          <div>
+            <label style={label}>State</label>
+            <select style={input} value={filters.state} onChange={(e) => setFilters({ ...filters, state: e.target.value })}>
+              <option value="">All</option>
+              {allStates.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
           </div>
-        )}
-
-        {/* Actions */}
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button
-            onClick={onClose}
-            style={{
-              fontFamily: 'var(--font-body, system-ui)', fontSize: 13, fontWeight: 500,
-              padding: '10px 20px', borderRadius: 6,
-              border: '1px solid var(--color-border, #e5e5e5)',
-              background: '#fff', color: 'var(--color-ink, #2D2A26)',
-              cursor: 'pointer',
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleMarkContacted}
-            disabled={saving}
-            style={{
-              fontFamily: 'var(--font-body, system-ui)', fontSize: 13, fontWeight: 500,
-              padding: '10px 20px', borderRadius: 6,
-              border: '1px solid var(--color-border, #e5e5e5)',
-              background: '#fff', color: '#3b82f6',
-              cursor: saving ? 'wait' : 'pointer', opacity: saving ? 0.6 : 1,
-            }}
-          >
-            Mark as Contacted
-          </button>
-          <button
-            onClick={handleQueue}
-            disabled={saving}
-            style={{
-              fontFamily: 'var(--font-body, system-ui)', fontSize: 13, fontWeight: 500,
-              padding: '10px 20px', borderRadius: 6,
-              border: 'none',
-              background: 'var(--color-ink, #2D2A26)', color: '#fff',
-              cursor: saving ? 'wait' : 'pointer', opacity: saving ? 0.6 : 1,
-            }}
-          >
-            {saving ? 'Saving...' : 'Queue for Sending'}
+          <div>
+            <label style={label}>Region contains</label>
+            <input style={{ ...input, width: 150 }} value={filters.region} onChange={(e) => setFilters({ ...filters, region: e.target.value })} placeholder="e.g. Byron" />
+          </div>
+          <div>
+            <label style={label}>Min quality: {filters.minQuality}</label>
+            <input type="range" min={0} max={100} step={5} value={filters.minQuality} onChange={(e) => setFilters({ ...filters, minQuality: Number(e.target.value) })} style={{ width: 130, display: 'block' }} />
+          </div>
+          <div>
+            <label style={label}>Max</label>
+            <select style={input} value={filters.limit} onChange={(e) => setFilters({ ...filters, limit: Number(e.target.value) })}>
+              {[100, 200, 300, 500].map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </div>
+          <button style={btnPrimary} onClick={loadSegment} disabled={loading}>
+            {loading ? 'Loading…' : 'Load segment'}
           </button>
         </div>
       </div>
+
+      {error && (
+        <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', padding: '10px 14px', borderRadius: 6, marginBottom: 16, fontFamily: 'var(--font-body, system-ui)', fontSize: 13, color: '#991B1B' }}>
+          {error}
+        </div>
+      )}
+
+      {seg && (
+        <>
+          {/* Counts + discover */}
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 14 }}>
+            <StatCard n={seg.counts.total} label="in segment" />
+            <StatCard n={seg.counts.withEmail} label="have email" />
+            <StatCard n={seg.counts.sendable} label="sendable" />
+            {seg.counts.suppressed > 0 && <StatCard n={seg.counts.suppressed} label="suppressed" />}
+            {seg.counts.alreadySent > 0 && <StatCard n={seg.counts.alreadySent} label="already sent" />}
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
+              {discoverProgress && (
+                <span style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 12, color: 'var(--color-muted, #888)' }}>
+                  Scanning {discoverProgress.scanned}/{discoverProgress.total} · {discoverProgress.found} found
+                </span>
+              )}
+              <button style={btn} onClick={discoverEmails} disabled={discovering || seg.counts.withWebsite === seg.counts.withEmail}>
+                {discovering ? 'Discovering…' : `Discover emails (${seg.listings.filter((l) => l.website && !l.contact_email).length})`}
+              </button>
+            </div>
+          </div>
+
+          {/* Recipient table */}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+            <button style={{ ...btn, padding: '5px 12px', fontSize: 12 }} onClick={selectAllSendable}>Select all sendable</button>
+            <button style={{ ...btn, padding: '5px 12px', fontSize: 12 }} onClick={clearSelection}>Clear</button>
+            <span style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 12, color: 'var(--color-muted, #888)', marginLeft: 4 }}>
+              {selected.size} selected · {eligibleSelected.length} will send
+            </span>
+          </div>
+
+          <div style={{ ...card, background: '#fff', maxHeight: 340, overflowY: 'auto', marginBottom: 22 }}>
+            {seg.listings.map((l) => {
+              const vColor = verticalColors[l.vertical] || '#888'
+              const isSel = selected.has(l.id)
+              return (
+                <div key={l.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px',
+                  borderBottom: '1px solid var(--color-border, #eee)',
+                  opacity: l.sendable ? 1 : 0.55,
+                }}>
+                  <input type="checkbox" checked={isSel} disabled={!l.sendable} onChange={() => toggle(l.id)} style={{ cursor: l.sendable ? 'pointer' : 'not-allowed' }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 13, fontWeight: 500, color: 'var(--color-ink, #2D2A26)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {l.name}
+                    </div>
+                    <div style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 11, color: 'var(--color-muted, #888)' }}>
+                      {[l.region, l.state].filter(Boolean).join(', ')}
+                    </div>
+                  </div>
+                  <div style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 11, color: l.contact_email ? '#5F8A7E' : '#c9a227', width: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {l.contact_email || (l.website ? 'no email — discover' : 'no website')}
+                  </div>
+                  <Chip color={vColor}>{verticalNames[l.vertical] || l.vertical}</Chip>
+                  {l.suppressed && <Chip color="#c0392b">suppressed</Chip>}
+                  {l.send_status && <Chip color={sendStatusColors[l.send_status] || '#888'}>{l.send_status}</Chip>}
+                  {l.quality_score != null && (
+                    <span style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 11, color: 'var(--color-muted, #999)', width: 34, textAlign: 'right' }}>Q{l.quality_score}</span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Template editor + preview */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
+            <div>
+              <label style={label}>Subject</label>
+              <input style={{ ...input, width: '100%', marginBottom: 12 }} value={subject} onChange={(e) => setSubject(e.target.value)} />
+              <label style={label}>Body</label>
+              <textarea style={{ ...input, width: '100%', lineHeight: 1.6, resize: 'vertical' }} rows={16} value={emailBody} onChange={(e) => setEmailBody(e.target.value)} />
+              <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {MERGE_TOKENS.map(([tok, desc]) => (
+                  <button key={tok} title={desc} onClick={() => setEmailBody((b) => b + ' ' + tok)}
+                    style={{ ...btn, padding: '3px 8px', fontSize: 11, fontFamily: 'monospace', color: '#8a6520' }}>
+                    {tok}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label style={label}>Preview {previewListing ? `· ${previewListing.name}` : ''}</label>
+              <div style={{ ...card, background: '#fff', padding: 16, minHeight: 200 }}>
+                {previewCtx ? (
+                  <>
+                    <div style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 13, fontWeight: 600, color: 'var(--color-ink, #2D2A26)', marginBottom: 4, paddingBottom: 8, borderBottom: '1px solid #eee' }}>
+                      {applyMerge(subject, previewCtx)}
+                    </div>
+                    <div style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 13, color: '#3a352e', whiteSpace: 'pre-wrap', lineHeight: 1.6, marginTop: 8 }}>
+                      {applyMerge(emailBody, previewCtx)}
+                    </div>
+                    <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid #eee', fontFamily: 'var(--font-body, system-ui)', fontSize: 11, color: '#8a8378', lineHeight: 1.6 }}>
+                      Australian Atlas — a curated guide to independent Australian places.<br />
+                      You received this because {previewCtx.name} is listed on our public guide.<br />
+                      <span style={{ textDecoration: 'underline' }}>Unsubscribe</span> · australianatlas.com.au
+                    </div>
+                  </>
+                ) : (
+                  <span style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 13, color: 'var(--color-muted, #888)' }}>Select a recipient to preview.</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Send controls */}
+          <div style={{ ...card, padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+            <div>
+              <label style={label}>Send cap</label>
+              <input type="number" min={1} max={500} value={cap} onChange={(e) => setCap(e.target.value)} style={{ ...input, width: 80 }} />
+            </div>
+            <div style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 12, color: 'var(--color-muted, #888)', maxWidth: 260, lineHeight: 1.5 }}>
+              Sends to the lesser of your selection and the cap. Emails include a working unsubscribe and go out from matt@australianatlas.com.au.
+            </div>
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+              <button style={btn} onClick={() => runSend({ testMode: true })} disabled={busy || eligibleSelected.length === 0}>Send test to me</button>
+              <button style={btn} onClick={() => runSend({ dryRun: true })} disabled={busy || eligibleSelected.length === 0}>Dry run</button>
+              <button style={btnPrimary} onClick={() => setConfirmOpen(true)} disabled={busy || eligibleSelected.length === 0}>
+                Send batch ({Math.min(eligibleSelected.length, Number(cap) || 0)})
+              </button>
+            </div>
+          </div>
+
+          {result && (
+            <div style={{ ...card, background: result.ok === false ? '#FEF2F2' : '#F0F7F4', border: `1px solid ${result.ok === false ? '#FECACA' : '#cfe6dc'}`, padding: '14px 18px', marginTop: 16, fontFamily: 'var(--font-body, system-ui)', fontSize: 13, color: 'var(--color-ink, #2D2A26)' }}>
+              {result.dryRun && <div><strong>Dry run:</strong> {result.wouldSend} would send (of {result.eligible} eligible, cap {result.cap}). Skips: {Object.entries(result.skips).filter(([, v]) => v > 0).map(([k, v]) => `${k.replace(/_/g, ' ')} ${v}`).join(', ') || 'none'}.</div>}
+              {result.testMode && <div><strong>Test sent:</strong> {result.sentToAdmin} sample email(s) to {result.testEmail}. {result.errors?.length ? `Errors: ${result.errors.join('; ')}` : 'Check your inbox.'}</div>}
+              {result.campaignId && <div><strong>Batch sent.</strong> {result.sent} delivered, {result.failed} failed (campaign {result.campaignId}).{result.errors?.length ? ` Errors: ${result.errors.join('; ')}` : ''}</div>}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Confirm modal */}
+      {confirmOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 24 }}>
+          <div style={{ background: '#fff', borderRadius: 12, padding: 28, maxWidth: 440, width: '100%' }}>
+            <h3 style={{ fontFamily: 'var(--font-display, Georgia)', fontSize: 20, fontWeight: 400, margin: '0 0 8px', color: 'var(--color-ink, #2D2A26)' }}>Send this batch?</h3>
+            <p style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 14, color: '#5a544c', lineHeight: 1.5, margin: '0 0 20px' }}>
+              About to send <strong>{Math.min(eligibleSelected.length, Number(cap) || 0)}</strong> real emails from matt@australianatlas.com.au. Recipients who have been contacted, suppressed, or unsubscribed are automatically excluded. This can't be undone.
+            </p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button style={btn} onClick={() => setConfirmOpen(false)}>Cancel</button>
+              <button style={btnPrimary} onClick={() => runSend()} disabled={busy}>{busy ? 'Sending…' : 'Send now'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-function HistoryRow({ row, statusColors }) {
-  const [notes, setNotes] = useState(row.notes || '')
-  const [saving, setSaving] = useState(false)
+// ── Sent log ──────────────────────────────────────────────────
+function LogRow({ row, verticalNames, verticalColors, statusColors, sendStatusColors }) {
   const [statusVal, setStatusVal] = useState(row.status)
-
-  async function saveNotes() {
-    if (notes === (row.notes || '')) return
-    setSaving(true)
-    try {
-      await fetch('/api/admin/outreach', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: row.id, notes }),
-      })
-    } catch { /* swallow */ }
-    setSaving(false)
-  }
+  const [saving, setSaving] = useState(false)
+  const l = row.listing
 
   async function updateStatus(newStatus) {
-    setSaving(true)
-    setStatusVal(newStatus)
+    setSaving(true); setStatusVal(newStatus)
     try {
       await fetch('/api/admin/outreach', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: row.id, status: newStatus }),
       })
     } catch { /* swallow */ }
@@ -444,333 +434,114 @@ function HistoryRow({ row, statusColors }) {
   }
 
   const sColor = statusColors[statusVal] || '#888'
-  const listing = row.listing
-
   return (
-    <div style={{
-      background: '#fff',
-      border: '1px solid var(--color-border, #e5e5e5)',
-      borderRadius: 8,
-      padding: '14px 20px',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h4 style={{
-            fontFamily: 'var(--font-display, Georgia)',
-            fontSize: 15, fontWeight: 500,
-            color: 'var(--color-ink, #2D2A26)', margin: 0,
-          }}>
-            {listing ? listing.name : `Listing ${row.listing_id}`}
-          </h4>
-          {listing && (
-            <p style={{
-              fontFamily: 'var(--font-body, system-ui)', fontSize: 12,
-              color: 'var(--color-muted, #888)', margin: '2px 0 0',
-            }}>
-              {[getListingRegion(listing)?.name, listing.state].filter(Boolean).join(', ')}
-            </p>
-          )}
+    <div style={{ background: '#fff', border: '1px solid var(--color-border, #e5e5e5)', borderRadius: 8, padding: '11px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 14, fontWeight: 500, color: 'var(--color-ink, #2D2A26)' }}>{l ? l.name : `Listing ${row.listing_id}`}</div>
+        <div style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 11, color: 'var(--color-muted, #888)', marginTop: 2 }}>
+          {row.contact_email || '—'}
+          {row.sent_at && ` · sent ${new Date(row.sent_at).toLocaleDateString()}`}
+          {row.campaign_id && ` · ${row.campaign_id}`}
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <span style={{
-            fontFamily: 'var(--font-body, system-ui)',
-            fontSize: 10, fontWeight: 600,
-            letterSpacing: '0.06em', textTransform: 'uppercase',
-            padding: '3px 10px', borderRadius: 100,
-            background: `${sColor}18`, color: sColor,
-          }}>
-            {statusVal}
-          </span>
-          <select
-            value={statusVal}
-            onChange={e => updateStatus(e.target.value)}
-            disabled={saving}
-            style={{
-              fontFamily: 'var(--font-body, system-ui)', fontSize: 11,
-              padding: '4px 8px', borderRadius: 4,
-              border: '1px solid var(--color-border, #e5e5e5)',
-              color: 'var(--color-ink, #2D2A26)', cursor: 'pointer',
-              background: '#fff',
-            }}
-          >
-            <option value="not_contacted">Not contacted</option>
-            <option value="contacted">Contacted</option>
-            <option value="claimed">Claimed</option>
-            <option value="declined">Declined</option>
-          </select>
-        </div>
+        {row.send_error && <div style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 11, color: '#c0392b', marginTop: 2 }}>{row.send_error}</div>}
       </div>
-
-      <div style={{
-        display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center',
-        fontSize: 12, fontFamily: 'var(--font-body, system-ui)',
-        color: 'var(--color-muted, #888)', marginBottom: 8,
-      }}>
-        {row.contact_email && <span>{row.contact_email}</span>}
-        {row.last_contacted_at && (
-          <span>Last contacted: {new Date(row.last_contacted_at).toLocaleDateString()}</span>
-        )}
-        <span>Created: {new Date(row.created_at).toLocaleDateString()}</span>
-      </div>
-
-      <textarea
-        value={notes}
-        onChange={e => setNotes(e.target.value)}
-        onBlur={saveNotes}
-        placeholder="Notes..."
-        rows={2}
-        style={{
-          width: '100%', padding: '6px 10px', borderRadius: 4,
-          border: '1px solid var(--color-border, #e5e5e5)',
-          fontFamily: 'var(--font-body, system-ui)', fontSize: 12,
-          color: 'var(--color-ink, #2D2A26)', lineHeight: 1.5,
-          resize: 'vertical', boxSizing: 'border-box',
-          opacity: saving ? 0.5 : 1,
-        }}
-      />
+      {l && <Chip color={verticalColors[l.vertical] || '#888'}>{verticalNames[l.vertical] || l.vertical}</Chip>}
+      {row.send_status && <Chip color={sendStatusColors[row.send_status] || '#888'} filled>{row.send_status}</Chip>}
+      <select value={statusVal} onChange={(e) => updateStatus(e.target.value)} disabled={saving} style={{ ...input, fontSize: 11, padding: '4px 8px' }}>
+        <option value="not_contacted">Not contacted</option>
+        <option value="contacted">Contacted</option>
+        <option value="claimed">Claimed</option>
+        <option value="declined">Declined</option>
+      </select>
+      <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 8, background: sColor }} />
     </div>
   )
 }
 
+// ── Campaigns ─────────────────────────────────────────────────
+function CampaignsPanel({ campaigns }) {
+  if (!campaigns.length) {
+    return <div style={{ textAlign: 'center', padding: '48px 0', fontFamily: 'var(--font-body, system-ui)', fontSize: 14, color: 'var(--color-muted, #888)' }}>No campaigns sent yet.</div>
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {campaigns.map((c) => (
+        <div key={c.id} style={{ background: '#fff', border: '1px solid var(--color-border, #e5e5e5)', borderRadius: 8, padding: '12px 16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 14, fontWeight: 500, color: 'var(--color-ink, #2D2A26)' }}>{c.name || c.subject || c.id}</div>
+              <div style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 11, color: 'var(--color-muted, #888)', marginTop: 2 }}>
+                {c.id} · {c.created_at ? new Date(c.created_at).toLocaleString() : ''}
+              </div>
+            </div>
+            <Chip color="#5F8A7E">{c.sent} sent</Chip>
+            {c.failed > 0 && <Chip color="#c0392b">{c.failed} failed</Chip>}
+            {c.skipped > 0 && <Chip color="#888">{c.skipped} skipped</Chip>}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── Root ──────────────────────────────────────────────────────
 export default function OutreachActions({
-  readyListings,
-  outreachHistory,
-  verticals,
-  states,
-  verticalColors,
-  verticalNames,
-  statusColors,
-  allStates,
+  logRows, campaigns, verticalColors, verticalNames, statusColors, sendStatusColors, allStates, stats,
 }) {
-  const [tab, setTab] = useState('ready')
-  const [draftListing, setDraftListing] = useState(null)
+  const [tab, setTab] = useState('compose')
 
-  // Filters for Ready tab
-  const [filterVertical, setFilterVertical] = useState('')
-  const [filterState, setFilterState] = useState('')
-  const [filterMinScore, setFilterMinScore] = useState(0)
-
-  // Filter for History tab
-  const [filterStatus, setFilterStatus] = useState('')
-
-  const filteredReady = useMemo(() => {
-    return readyListings.filter(l => {
-      if (filterVertical && l.vertical !== filterVertical) return false
-      if (filterState && l.state !== filterState) return false
-      if (filterMinScore > 0 && (l.quality_score || 0) < filterMinScore) return false
-      return true
-    })
-  }, [readyListings, filterVertical, filterState, filterMinScore])
-
-  const filteredHistory = useMemo(() => {
-    if (!filterStatus) return outreachHistory
-    return outreachHistory.filter(r => r.status === filterStatus)
-  }, [outreachHistory, filterStatus])
+  const allVerticals = useMemo(() => Object.keys(verticalNames), [verticalNames])
 
   const tabStyle = (active) => ({
-    fontFamily: 'var(--font-body, system-ui)',
-    fontSize: 13,
-    fontWeight: 500,
-    padding: '10px 20px',
-    borderRadius: '6px 6px 0 0',
+    fontFamily: 'var(--font-body, system-ui)', fontSize: 13, fontWeight: 500,
+    padding: '10px 20px', borderRadius: '6px 6px 0 0',
     border: '1px solid var(--color-border, #e5e5e5)',
     borderBottom: active ? '1px solid #fff' : '1px solid var(--color-border, #e5e5e5)',
     background: active ? '#fff' : 'var(--color-cream, #FAF8F5)',
     color: active ? 'var(--color-ink, #2D2A26)' : 'var(--color-muted, #888)',
-    cursor: 'pointer',
-    marginBottom: -1,
-    position: 'relative',
-    zIndex: active ? 1 : 0,
+    cursor: 'pointer', marginBottom: -1, position: 'relative', zIndex: active ? 1 : 0,
   })
 
   return (
     <div>
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--color-border, #e5e5e5)', marginBottom: 24 }}>
-        <button onClick={() => setTab('ready')} style={tabStyle(tab === 'ready')}>
-          Ready to Contact ({readyListings.length})
-        </button>
-        <button onClick={() => setTab('history')} style={tabStyle(tab === 'history')}>
-          Outreach History ({outreachHistory.length})
-        </button>
+      {/* Stats */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 22 }}>
+        <StatCard n={stats.unclaimed.toLocaleString()} label="unclaimed listings" />
+        <StatCard n={stats.contacted} label="contacted" />
+        <StatCard n={stats.sent} label="emails sent" />
+        <StatCard n={stats.suppressed} label="suppressed" />
       </div>
 
-      {/* Ready to Contact */}
-      {tab === 'ready' && (
-        <div>
-          {/* Filters */}
-          <div style={{
-            display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center',
-            marginBottom: 20, padding: '14px 16px',
-            background: 'var(--color-cream, #FAF8F5)',
-            border: '1px solid var(--color-border, #e5e5e5)',
-            borderRadius: 8,
-          }}>
-            <div>
-              <label style={{
-                fontFamily: 'var(--font-body, system-ui)', fontSize: 10, fontWeight: 600,
-                letterSpacing: '0.08em', textTransform: 'uppercase',
-                color: 'var(--color-muted, #888)', display: 'block', marginBottom: 4,
-              }}>
-                Vertical
-              </label>
-              <select
-                value={filterVertical}
-                onChange={e => setFilterVertical(e.target.value)}
-                style={{
-                  fontFamily: 'var(--font-body, system-ui)', fontSize: 12,
-                  padding: '6px 10px', borderRadius: 4,
-                  border: '1px solid var(--color-border, #e5e5e5)',
-                  background: '#fff', color: 'var(--color-ink, #2D2A26)',
-                }}
-              >
-                <option value="">All verticals</option>
-                {verticals.map(v => (
-                  <option key={v} value={v}>{verticalNames[v] || v}</option>
-                ))}
-              </select>
-            </div>
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--color-border, #e5e5e5)', marginBottom: 24 }}>
+        <button onClick={() => setTab('compose')} style={tabStyle(tab === 'compose')}>Compose &amp; Send</button>
+        <button onClick={() => setTab('log')} style={tabStyle(tab === 'log')}>Sent Log ({logRows.length})</button>
+        <button onClick={() => setTab('campaigns')} style={tabStyle(tab === 'campaigns')}>Campaigns ({campaigns.length})</button>
+      </div>
 
-            <div>
-              <label style={{
-                fontFamily: 'var(--font-body, system-ui)', fontSize: 10, fontWeight: 600,
-                letterSpacing: '0.08em', textTransform: 'uppercase',
-                color: 'var(--color-muted, #888)', display: 'block', marginBottom: 4,
-              }}>
-                State
-              </label>
-              <select
-                value={filterState}
-                onChange={e => setFilterState(e.target.value)}
-                style={{
-                  fontFamily: 'var(--font-body, system-ui)', fontSize: 12,
-                  padding: '6px 10px', borderRadius: 4,
-                  border: '1px solid var(--color-border, #e5e5e5)',
-                  background: '#fff', color: 'var(--color-ink, #2D2A26)',
-                }}
-              >
-                <option value="">All states</option>
-                {allStates.map(s => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label style={{
-                fontFamily: 'var(--font-body, system-ui)', fontSize: 10, fontWeight: 600,
-                letterSpacing: '0.08em', textTransform: 'uppercase',
-                color: 'var(--color-muted, #888)', display: 'block', marginBottom: 4,
-              }}>
-                Min quality score: {filterMinScore}
-              </label>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={5}
-                value={filterMinScore}
-                onChange={e => setFilterMinScore(Number(e.target.value))}
-                style={{ width: 140 }}
-              />
-            </div>
-
-            <div style={{
-              fontFamily: 'var(--font-body, system-ui)', fontSize: 12,
-              color: 'var(--color-muted, #888)', marginLeft: 'auto',
-            }}>
-              Showing {filteredReady.length} of {readyListings.length}
-            </div>
-          </div>
-
-          {/* Listing grid */}
-          {filteredReady.length === 0 ? (
-            <div style={{
-              textAlign: 'center', padding: '48px 0',
-              fontFamily: 'var(--font-body, system-ui)', fontSize: 14,
-              color: 'var(--color-muted, #888)',
-            }}>
-              No listings match the current filters.
-            </div>
-          ) : (
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
-              gap: 12,
-            }}>
-              {filteredReady.map(listing => (
-                <ListingCard
-                  key={listing.id}
-                  listing={listing}
-                  verticalColors={verticalColors}
-                  verticalNames={verticalNames}
-                  onDraftEmail={setDraftListing}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Outreach History */}
-      {tab === 'history' && (
-        <div>
-          {/* Status filter */}
-          <div style={{
-            display: 'flex', gap: 8, marginBottom: 20,
-            alignItems: 'center',
-          }}>
-            <label style={{
-              fontFamily: 'var(--font-body, system-ui)', fontSize: 11, fontWeight: 600,
-              letterSpacing: '0.08em', textTransform: 'uppercase',
-              color: 'var(--color-muted, #888)',
-            }}>
-              Filter:
-            </label>
-            {['', 'not_contacted', 'contacted', 'claimed', 'declined'].map(s => (
-              <button
-                key={s}
-                onClick={() => setFilterStatus(s)}
-                style={{
-                  fontFamily: 'var(--font-body, system-ui)', fontSize: 12, fontWeight: 500,
-                  padding: '5px 12px', borderRadius: 100,
-                  border: filterStatus === s ? 'none' : '1px solid var(--color-border, #e5e5e5)',
-                  background: filterStatus === s ? 'var(--color-ink, #2D2A26)' : '#fff',
-                  color: filterStatus === s ? '#fff' : 'var(--color-ink, #2D2A26)',
-                  cursor: 'pointer',
-                }}
-              >
-                {s === '' ? 'All' : s.replace(/_/g, ' ')}
-              </button>
-            ))}
-          </div>
-
-          {filteredHistory.length === 0 ? (
-            <div style={{
-              textAlign: 'center', padding: '48px 0',
-              fontFamily: 'var(--font-body, system-ui)', fontSize: 14,
-              color: 'var(--color-muted, #888)',
-            }}>
-              No outreach records found.
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {filteredHistory.map(row => (
-                <HistoryRow key={row.id} row={row} statusColors={statusColors} />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Email draft modal */}
-      {draftListing && (
-        <EmailDraftModal
-          listing={draftListing}
-          onClose={() => setDraftListing(null)}
+      {tab === 'compose' && (
+        <ComposePanel
           verticalNames={verticalNames}
+          verticalColors={verticalColors}
+          sendStatusColors={sendStatusColors}
+          allStates={allStates}
+          allVerticals={allVerticals}
         />
       )}
+
+      {tab === 'log' && (
+        logRows.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '48px 0', fontFamily: 'var(--font-body, system-ui)', fontSize: 14, color: 'var(--color-muted, #888)' }}>No outreach yet.</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {logRows.map((row) => (
+              <LogRow key={row.id} row={row} verticalNames={verticalNames} verticalColors={verticalColors} statusColors={statusColors} sendStatusColors={sendStatusColors} />
+            ))}
+          </div>
+        )
+      )}
+
+      {tab === 'campaigns' && <CampaignsPanel campaigns={campaigns} />}
     </div>
   )
 }
