@@ -1,0 +1,407 @@
+[
+  {
+    "name": "Get Shucked",
+    "town": "Bruny Island",
+    "state": "TAS",
+    "website": "https://www.getshucked.com.au",
+    "source_url": "https://www.getshucked.com.au/oyster-bar",
+    "note": "On-farm oyster bar and Australia's first oyster drive-through at Great Bay, serving oysters harvested and shucked on site daily with Tasmanian wine and beer.",
+    "offers": ["farm_gate", "oyster_bar", "tastings"]
+  },
+  {
+    "name": "Freycinet Marine Farm",
+    "town": "Coles Bay",
+    "state": "TAS",
+    "website": "https://www.freycinetmarinefarm.com",
+    "source_url": "https://www.freycinetmarinefarm.com/",
+    "note": "Farm-gate seafood stall and deck on the road into Freycinet where you buy just-harvested oysters and mussels, plus daily wading farm tours to pick your own.",
+    "offers": ["farm_gate", "tours", "oyster_bar", "tastings"]
+  },
+  {
+    "name": "Oyster Bay Tours (Freycinet Marine Farm Taste Experience)",
+    "town": "Coles Bay",
+    "state": "TAS",
+    "website": "https://www.oysterbaytours.com",
+    "source_url": "https://www.discovertasmania.com.au/things-to-do/tours/oysterbaytours/freycinet-marine-farm-taste-experience/",
+    "note": "Guided wading tour of Freycinet Marine Farm where guests harvest oysters straight off the rack, watch a shucking demo and taste oysters and mussels with local Riesling.",
+    "offers": ["tours", "tastings"]
+  },
+  {
+    "name": "Barilla Bay Oysters",
+    "town": "Cambridge",
+    "state": "TAS",
+    "website": "https://barillabay.com.au",
+    "source_url": "https://barillabay.com.au/",
+    "note": "Working oyster lease near Hobart Airport with a restaurant, retail seafood shop and farm tours covering oyster growing and processing.",
+    "offers": ["farm_gate", "tours", "oyster_bar", "tastings"]
+  },
+  {
+    "name": "Melshell Oyster Shack",
+    "town": "Dolphin Sands",
+    "state": "TAS",
+    "website": "https://melshelloysters.com.au",
+    "source_url": "https://eatdrinkandbekerry.net/index.php/2024/01/17/the-ultimate-oyster-lovers-guide-to-tasmanias-east-coast/",
+    "note": "Third-generation family oyster shack on Great Oyster Bay serving golden-shell Angasi and Pacific oysters in casual shuck-and-chat sessions.",
+    "offers": ["farm_gate", "oyster_bar", "tastings"]
+  },
+  {
+    "name": "Tarkine Fresh Oysters",
+    "town": "Smithton",
+    "state": "TAS",
+    "website": "https://www.tarkinefreshoysters.com.au",
+    "source_url": "https://www.tarkinefreshoysters.com.au/visit-us",
+    "note": "North-west Tasmania farm offering tours of its onshore working oyster operation with a shucking demonstration and tastings of its premium oysters.",
+    "offers": ["farm_gate", "tours", "tastings"]
+  },
+  {
+    "name": "Tasmanian Wild Seafood Adventures",
+    "town": "Bruny Island",
+    "state": "TAS",
+    "website": "https://tasmanianwildseafoodadventures.com.au",
+    "source_url": "https://www.australiantraveller.com/australia/best-oyster-experiences-australia/",
+    "note": "Full-day Bruny Island seafood adventure where guests harvest oysters and other wild seafood and dine on the day's catch.",
+    "offers": ["tours", "tastings"]
+  },
+  {
+    "name": "Oyster Farm Tours (Coffin Bay)",
+    "town": "Coffin Bay",
+    "state": "SA",
+    "website": "https://www.oysterfarmtours.com.au",
+    "source_url": "https://www.oysterfarmtours.com.au/",
+    "note": "Award-winning wading tour where you put on waders, walk to a semi-submerged deck on a working lease and eat freshly shucked Coffin Bay oysters with wine in the water.",
+    "offers": ["tours", "tastings"]
+  },
+  {
+    "name": "Experience Coffin Bay Oyster Farm Tours",
+    "town": "Coffin Bay",
+    "state": "SA",
+    "website": "https://experiencecoffinbay.com.au",
+    "source_url": "https://experiencecoffinbay.com.au/farm-tours",
+    "note": "Boat-based farm-to-fork tours cruising to a remote oyster lease where guests don waders, wade among the beds and eat freshly shucked oysters with local drinks.",
+    "offers": ["tours", "tastings"]
+  },
+  {
+    "name": "Pure Coffin Bay Oysters",
+    "town": "Coffin Bay",
+    "state": "SA",
+    "website": null,
+    "source_url": "https://coffinbayoysters.rezdy.com/192973/coffin-bay-oyster-farm-bay-tour-12-oysters-inc-wading-experience",
+    "note": "Oyster farmer-led boat tour along Kellidie Bay visiting nursery and original leases with a wading experience and freshly shucked oysters included.",
+    "offers": ["tours", "tastings"]
+  },
+  {
+    "name": "1802 Oyster Bar",
+    "town": "Coffin Bay",
+    "state": "SA",
+    "website": "https://www.1802oysterbar.com.au",
+    "source_url": "https://www.1802oysterbar.com.au",
+    "note": "Waterfront oyster bar and bistro on the Coffin Bay esplanade with a deck overlooking the oyster leases, serving local oysters prepared many ways.",
+    "offers": ["oyster_bar", "tastings"]
+  },
+  {
+    "name": "SA Premium Oysters (Oyster Deck Experience)",
+    "town": "Smoky Bay",
+    "state": "SA",
+    "website": "https://sapremiumoysters.com.au",
+    "source_url": "https://sapremiumoysters.com.au/",
+    "note": "Barge trip to a purpose-built floating deck above a working family lease at Smoky Bay where guests shuck fresh oysters and enjoy tastings with wine.",
+    "offers": ["tours", "tastings"]
+  },
+  {
+    "name": "Smoky Bay Oysters",
+    "town": "Smoky Bay",
+    "state": "SA",
+    "website": "https://www.smokybayoysters.com",
+    "source_url": "https://www.smokybayoysters.com/",
+    "note": "Family-owned Smoky Bay grower in the Ceduna oyster region offering an authentic working-lease oyster farm experience.",
+    "offers": ["farm_gate", "tours"]
+  },
+  {
+    "name": "Cape Bauer Oysters",
+    "town": "Streaky Bay",
+    "state": "SA",
+    "website": null,
+    "source_url": "https://southaustralia.com/products/eyre-peninsula/food-and-drink/cape-bauer-oysters",
+    "note": "Streaky Bay grower at 45 Stanley Williams Drive welcoming visitors daily to buy oysters direct, with an A-frame sign showing when the farmers are available.",
+    "offers": ["farm_gate"]
+  },
+  {
+    "name": "EP Cruises (Ocean to Plate Taster)",
+    "town": "Streaky Bay",
+    "state": "SA",
+    "website": null,
+    "source_url": "https://southaustralia.com/products/eyre-peninsula/tour/ep-cruises/ocean-to-plate-taster",
+    "note": "Half-day Streaky Bay cruise visiting an operational oyster farm where guests harvest and shuck their own oysters and eat them fresh with wine.",
+    "offers": ["tours", "tastings"]
+  },
+  {
+    "name": "Turners Oysters & Seafood",
+    "town": "Cowell",
+    "state": "SA",
+    "website": null,
+    "source_url": "https://seafoodfrontier.com.au/business/turners-oysters-seafood/",
+    "note": "Family-operated Cowell farm on Oyster Drive selling oysters fresh from the sea and offering tours of its land-based farming and grading facility.",
+    "offers": ["farm_gate", "tours"]
+  },
+  {
+    "name": "Sydney Oyster Farm Tours",
+    "town": "Mooney Mooney",
+    "state": "NSW",
+    "website": "https://www.sydneyoystertours.com",
+    "source_url": "https://www.sydneyoystertours.com/experiences/oyster-farm-tour",
+    "note": "Hawkesbury River cruise to a working Broken Bay oyster farm where guests learn to shuck and eat a dozen fresh oysters, including an in-water dining experience.",
+    "offers": ["tours", "tastings"]
+  },
+  {
+    "name": "Broken Bay Pearl Farm",
+    "town": "Mooney Mooney",
+    "state": "NSW",
+    "website": "https://brokenbaypearlfarm.com.au",
+    "source_url": "https://brokenbaypearlfarm.com.au/our-tours/oyster-tasting-tour/",
+    "note": "Working pearl and oyster farm on the Hawkesbury offering a farm tour with an Akoya oyster tasting on the water.",
+    "offers": ["tours", "tastings"]
+  },
+  {
+    "name": "Holbert's Oyster Farm",
+    "town": "Salamander Bay",
+    "state": "NSW",
+    "website": null,
+    "source_url": "https://www.visitnsw.com/destinations/north-coast/port-stephens-area/food-and-drink/holberts-oyster-farm",
+    "note": "Five-generation Port Stephens farm outlet on Cromarty Bay where you watch shuckers at work through windows and eat fresh oysters alfresco over the bay.",
+    "offers": ["farm_gate", "oyster_bar"]
+  },
+  {
+    "name": "Wallis Lake Fishermen's Co-op",
+    "town": "Tuncurry",
+    "state": "NSW",
+    "website": "https://wallislakefishco-op.com.au",
+    "source_url": "https://wallislakefishco-op.com.au/",
+    "note": "Co-op shop on the edge of Wallis Lake selling locally farmed Sydney rock oysters and other fresh seafood direct to the public daily.",
+    "offers": ["farm_gate"]
+  },
+  {
+    "name": "Armstrong Oysters",
+    "town": "Laurieton",
+    "state": "NSW",
+    "website": "https://www.armstrongoysters.com.au",
+    "source_url": "https://www.armstrongoysters.com.au/",
+    "note": "One of Australia's largest Sydney rock oyster farms, with a shopfront at Short St, Laurieton selling fresh oysters direct to visitors.",
+    "offers": ["farm_gate"]
+  },
+  {
+    "name": "Rockin' Oysters",
+    "town": "Dunbogan",
+    "state": "NSW",
+    "website": "https://rockinoysters.com.au",
+    "source_url": "https://rockinoysters.com.au/find-us/",
+    "note": "Camden Haven micro-farm offering pre-booked waterside seafood BBQs and an optional boat tour of the leases at Gogleys Lagoon with oyster sampling.",
+    "offers": ["tours", "tastings", "oyster_bar"]
+  },
+  {
+    "name": "Jim Wild's Oysters",
+    "town": "Greenwell Point",
+    "state": "NSW",
+    "website": null,
+    "source_url": "https://www.naroomaoysterfestival.com/rock-oyster-country-farm-gates/",
+    "note": "Family farm on the Crookhaven River with farm-gate sales of freshly shucked Sydney rock and Pacific oysters, plus guided tours by a world-champion shucker.",
+    "offers": ["farm_gate", "tours", "tastings"]
+  },
+  {
+    "name": "The Oyster Shed on Wray Street",
+    "town": "Batemans Bay",
+    "state": "NSW",
+    "website": "https://www.oystershed.com.au",
+    "source_url": "https://www.oystershed.com.au/",
+    "note": "Family farm-gate oyster shed on the Clyde River selling shucked, dressed and whole rock oysters with seating and river views over four generations of farming.",
+    "offers": ["farm_gate", "oyster_bar"]
+  },
+  {
+    "name": "Pearly Oyster Bar and Farm",
+    "town": "Batemans Bay",
+    "state": "NSW",
+    "website": null,
+    "source_url": "https://www.australiantraveller.com/australia/best-oyster-experiences-australia/",
+    "note": "Farm-to-plate oyster bar on the Clyde River serving oysters grown on the family's own Batemans Bay leases.",
+    "offers": ["oyster_bar", "tastings"]
+  },
+  {
+    "name": "Region X Clyde River Oyster Tasting Kayak Tour",
+    "town": "Batemans Bay",
+    "state": "NSW",
+    "website": "https://regionx.com.au",
+    "source_url": "https://regionx.com.au/tours/short-tours/clyde-river-oyster-tasting-kayak-tour/",
+    "note": "Guided kayak tour on the Clyde River paddling past oyster racks to meet farmers and sample freshly shucked oysters straight from the water.",
+    "offers": ["tours", "tastings"]
+  },
+  {
+    "name": "Oyster Pro",
+    "town": "Narooma",
+    "state": "NSW",
+    "website": null,
+    "source_url": "https://www.naroomaoysterfestival.com/rock-oyster-country-farm-gates/",
+    "note": "Wagonga Inlet farm gate at Narooma where you grab freshly grown rock oysters opened or whole direct from the grower.",
+    "offers": ["farm_gate"]
+  },
+  {
+    "name": "The Oyster Farmer's Daughter",
+    "town": "Narooma",
+    "state": "NSW",
+    "website": "https://www.theoysterfarmersdaughter.com.au",
+    "source_url": "https://www.theoysterfarmersdaughter.com.au/",
+    "note": "Waterside oyster bar of the Coxon family farm on Wagonga Inlet serving freshly shucked Sydney rock oysters with cocktails, beer and wine.",
+    "offers": ["oyster_bar", "tastings"]
+  },
+  {
+    "name": "Wheelers Oysters",
+    "town": "Pambula",
+    "state": "NSW",
+    "website": "https://www.wheelersoysters.com.au",
+    "source_url": "https://www.wheelersoysters.com.au/oyster-farm-tours",
+    "note": "Merimbula-area seafood restaurant and oyster bar with retail sales and a Saturday oyster farm tour tasting oysters straight from Merimbula Lake.",
+    "offers": ["farm_gate", "tours", "oyster_bar", "tastings"]
+  },
+  {
+    "name": "The Oyster Barn",
+    "town": "Millingandi",
+    "state": "NSW",
+    "website": null,
+    "source_url": "https://www.sapphirecoast.com.au/food-and-drink/the-oyster-barn",
+    "note": "Casual lakeside oyster bar on western Merimbula Lake serving natural and dressed oysters, including the rare Angasi, with scallops, prawns and BYO wine.",
+    "offers": ["oyster_bar", "tastings"]
+  },
+  {
+    "name": "Broadwater Oysters",
+    "town": "Pambula",
+    "state": "NSW",
+    "website": "https://broadwateroysters.com.au",
+    "source_url": "https://www.sapphirecoast.com.au/food-and-drink/broadwater-oysters",
+    "note": "Award-winning Pambula Lake farm with lakeside oyster sales, a 'Shuck School' and 'Meet the Farmer' tours of its sustainable Sydney rock oyster operation.",
+    "offers": ["farm_gate", "tours", "tastings"]
+  },
+  {
+    "name": "Captain Sponge's Magical Oyster Tours",
+    "town": "Pambula",
+    "state": "NSW",
+    "website": "https://magicaloystertours.com.au",
+    "source_url": "https://magicaloystertours.com.au/book-online",
+    "note": "Two-hour Pambula Lake punt cruise eating oysters straight from the water while learning oyster husbandry and spotting wildlife.",
+    "offers": ["tours", "tastings"]
+  },
+  {
+    "name": "Tathra Oysters",
+    "town": "Tathra",
+    "state": "NSW",
+    "website": "https://tathraoysters.com.au",
+    "source_url": "https://tathraoysters.com.au",
+    "note": "Multi-award-winning Nelson Lagoon grower whose 'shellar door' shopfront in Tathra sells fresh oysters to the public from December to June.",
+    "offers": ["farm_gate"]
+  },
+  {
+    "name": "Brian Orr Oysters (at Mimosa Meats)",
+    "town": "Tathra",
+    "state": "NSW",
+    "website": null,
+    "source_url": "https://www.naroomaoysterfestival.com/rock-oyster-country-farm-gates/",
+    "note": "Wapengo Lake rock oysters sold at the family's Mimosa Meats shopfront in Tathra alongside local produce and seasonal seafood.",
+    "offers": ["farm_gate"]
+  },
+  {
+    "name": "Wonboyn Rock Oysters",
+    "town": "Wonboyn",
+    "state": "NSW",
+    "website": null,
+    "source_url": "https://www.sapphirecoast.com.au/food-and-drink/wonboyn-rock-oysters",
+    "note": "Farm gate on Wonboyn Lake near Eden where you can buy award-winning Sydney rock oysters, from cocktail to plate size, and eat them by the lake.",
+    "offers": ["farm_gate", "tastings"]
+  },
+  {
+    "name": "Navigate Expeditions",
+    "town": "Pambula",
+    "state": "NSW",
+    "website": "https://navigateexpeditions.com",
+    "source_url": "https://www.sapphirecoast.com.au/operator/navigate-expeditions",
+    "note": "Kayak expeditions on the Pambula River estuary paddling among oyster leases with a shucking lesson and tasting.",
+    "offers": ["tours", "tastings"]
+  },
+  {
+    "name": "Narooma Bridge Seafoods",
+    "town": "Narooma",
+    "state": "NSW",
+    "website": "https://naroomabridgeseafoods.com.au",
+    "source_url": "https://www.naroomaoysterfestival.com/rock-oyster-country-farm-gates/",
+    "note": "Wagonga Inlet seafood outlet selling shucked and whole local oysters plus lobster and other seafood direct to the public.",
+    "offers": ["farm_gate"]
+  },
+  {
+    "name": "Brisbane Oyster Farm Tours",
+    "town": "Port of Brisbane",
+    "state": "QLD",
+    "website": null,
+    "source_url": "https://visit.brisbane.qld.au/things-to-do/eastern-suburbs/tours/brisbane-oyster-farm-tours-6e20",
+    "note": "Moreton Bay boat tour where guests wade to a lease, shuck 18 fresh oysters and dine at white-clothed tables set up in the water.",
+    "offers": ["tours", "tastings"]
+  },
+  {
+    "name": "Straddie Oyster Tours",
+    "town": "Cleveland",
+    "state": "QLD",
+    "website": "https://straddieoysters.com.au",
+    "source_url": "https://www.experienceoz.com.au/en/brisbane/moreton-bay-oyster-farm-cruise-and-tour-with-lunch-4-hours",
+    "note": "Catamaran tour from Raby Bay to a Moreton Bay oyster farm for a hands-on experience with fresh tastings, lunch and a shucking attempt.",
+    "offers": ["tours", "tastings"]
+  },
+  {
+    "name": "Quandamooka Oyster Farm Tours",
+    "town": "Minjerribah (North Stradbroke Island)",
+    "state": "QLD",
+    "website": null,
+    "source_url": "https://visit.brisbane.qld.au/things-to-do/north-stradbroke-island/history-and-heritage/quandamooka-oyster-farm-tours-1258",
+    "note": "First Nations-led tour walking out at low tide to working leases to learn how oysters are grown, handled and harvested.",
+    "offers": ["tours", "tastings"]
+  },
+  {
+    "name": "Kooringal Oysters",
+    "town": "Moreton Island (Kooringal)",
+    "state": "QLD",
+    "website": "https://www.kooringaloysters.com.au",
+    "source_url": "https://www.kooringaloysters.com.au/",
+    "note": "Sydney rock oyster farm in Moreton Island Marine Park offering champagne-and-oyster tours of the family operation with ocean-fresh oysters.",
+    "offers": ["tours", "tastings"]
+  },
+  {
+    "name": "Portarlington Mussel Tours",
+    "town": "Portarlington",
+    "state": "VIC",
+    "website": "https://www.portarlingtonmusseltours.com.au",
+    "source_url": "https://www.portarlingtonmusseltours.com.au/product/deluxe-seafood-tour/",
+    "note": "Port Phillip Bay seafood cruise on a restored Huon pine vessel featuring local Angasi oyster and mussel tastings with cooking demonstrations.",
+    "offers": ["tours", "tastings"]
+  },
+  {
+    "name": "Untamed Escapes Oyster Farm Tour",
+    "town": "Albany",
+    "state": "WA",
+    "website": "https://untamedescapes.com.au",
+    "source_url": "https://untamedescapes.com.au/optional-experiences/oyster-farm-tours/",
+    "note": "Albany oyster farm experience where visitors sample Albany rock oysters grown in the Oyster Harbour estuary.",
+    "offers": ["tours", "tastings"]
+  },
+  {
+    "name": "Leeuwin Coast (Albany Rock Oysters)",
+    "town": "Albany",
+    "state": "WA",
+    "website": "https://www.leeuwincoast.com",
+    "source_url": "https://www.leeuwincoast.com/rock-oysters",
+    "note": "Albany-based rock oyster grower in the Oyster Harbour estuary producing Albany rock oysters with a distinctive local flavour profile.",
+    "offers": ["farm_gate"]
+  },
+  {
+    "name": "Cygnet Bay Pearl Farm",
+    "town": "Cape Leveque",
+    "state": "WA",
+    "website": "https://www.cygnetbaypearlfarm.com.au",
+    "source_url": "https://www.australiantraveller.com/australia/best-oyster-experiences-australia/",
+    "note": "Australia's oldest working pearl farm on the Dampier Peninsula offering pearl-oyster farm tours and on-site dining.",
+    "offers": ["tours", "tastings"]
+  }
+]

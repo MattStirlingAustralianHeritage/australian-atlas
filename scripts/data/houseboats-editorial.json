@@ -1,0 +1,353 @@
+[
+  {
+    "name": "Unforgettable Houseboats",
+    "town": "Mannum",
+    "state": "SA",
+    "website": "https://houseboats.com.au",
+    "source_url": "https://houseboats.com.au/",
+    "note": "Long-running Mannum operator with a fleet of six luxury Murray River houseboats from 2-4 up to 10-12 berths.",
+    "offers": ["self_drive"]
+  },
+  {
+    "name": "White Houseboats",
+    "town": "Mannum",
+    "state": "SA",
+    "website": "https://www.whitehouseboats.com.au",
+    "source_url": "https://www.whitehouseboats.com.au/",
+    "note": "Four five-star self-drive vessels (Whitewater, Flat White, Absolute Bliss, Riverdance) hired from Mannum Waters Marina on the River Murray.",
+    "offers": ["self_drive", "pet_friendly"]
+  },
+  {
+    "name": "Kia Marina Houseboat Hire",
+    "town": "Younghusband",
+    "state": "SA",
+    "website": "https://www.kiamarina.com.au",
+    "source_url": "https://www.kiamarina.com.au/index.php",
+    "note": "Fleet of eleven self-drive Murray River houseboats from 2 to 12 berths, based upstream of Mannum with 25+ years' experience.",
+    "offers": ["self_drive"]
+  },
+  {
+    "name": "Wow Houseboats",
+    "town": "White Sands",
+    "state": "SA",
+    "website": "https://wowhouseboats.com.au",
+    "source_url": "https://southaustralia.com/products/murray-river-lakes-and-coorong/hire/wow-houseboats",
+    "note": "Luxury self-drive River Murray houseboats hired from Riverglen Marina at White Sands, just downstream of Murray Bridge.",
+    "offers": ["self_drive"]
+  },
+  {
+    "name": "River Wren Riverboats",
+    "town": "White Sands",
+    "state": "SA",
+    "website": "https://www.riverwren.com.au",
+    "source_url": "https://www.riverwren.com.au/",
+    "note": "Self-drive open-plan riverboats for couples and small groups based near Murray Bridge on the River Murray.",
+    "offers": ["self_drive"]
+  },
+  {
+    "name": "River Girl Houseboat",
+    "town": "Murray Bridge",
+    "state": "SA",
+    "website": null,
+    "source_url": "https://www.houseboatbookings.com/departure-points/murray-bridge/river-girl-houseboat/river-girl/",
+    "note": "Two-to-four berth self-drive houseboat hired from Murray Bridge and listed with the Houseboat Hirers Association.",
+    "offers": ["self_drive"]
+  },
+  {
+    "name": "Oz Houseboats",
+    "town": "Murray Bridge",
+    "state": "SA",
+    "website": "https://ozhouseboats.com.au",
+    "source_url": "https://ozhouseboats.com.au/",
+    "note": "South Australian houseboat hire business offering self-drive vessels on the River Murray near Murray Bridge.",
+    "offers": ["self_drive"]
+  },
+  {
+    "name": "Renmark Houseboats",
+    "town": "Renmark",
+    "state": "SA",
+    "website": "https://renmarkhouseboats.com.au",
+    "source_url": "https://renmarkhouseboats.com.au/",
+    "note": "Pet-friendly Riverland fleet ranging from 2 to 12 berths for self-drive Murray River holidays out of Renmark.",
+    "offers": ["self_drive", "pet_friendly"]
+  },
+  {
+    "name": "River Murray Houseboats (Riverland Houseboat Hire)",
+    "town": "Renmark",
+    "state": "SA",
+    "website": "https://rivermurrayhouseboats.com.au",
+    "source_url": "https://rivermurrayhouseboats.com.au/",
+    "note": "Renmark-based operator running since 1994 with nine luxury self-drive houseboats on the Murray River.",
+    "offers": ["self_drive"]
+  },
+  {
+    "name": "Quality Houseboats",
+    "town": "Renmark",
+    "state": "SA",
+    "website": "https://qualityhouseboats.com.au",
+    "source_url": "https://qualityhouseboats.com.au/",
+    "note": "Riverland self-drive houseboat hire on the Murray River, including the five-bedroom en-suite Murray Explorer.",
+    "offers": ["self_drive"]
+  },
+  {
+    "name": "Foxtale Houseboats",
+    "town": "Morgan",
+    "state": "SA",
+    "website": "https://foxtalehouseboats.com.au",
+    "source_url": "https://foxtalehouseboats.com.au/",
+    "note": "Pet-friendly self-drive fleet of luxury 2-12 berth houseboats based at Morgan on the Murray River.",
+    "offers": ["self_drive", "pet_friendly"]
+  },
+  {
+    "name": "Riverland Houseboats Loxton",
+    "town": "Loxton",
+    "state": "SA",
+    "website": "http://www.riverlandhouseboatsloxton.com.au",
+    "source_url": "http://www.riverlandhouseboatsloxton.com.au/",
+    "note": "Family-owned 'Kiwi-Oz' houseboat hire at Loxton on the Murray River in the Riverland.",
+    "offers": ["self_drive"]
+  },
+  {
+    "name": "Uncork'd Houseboat",
+    "town": "Loxton",
+    "state": "SA",
+    "website": null,
+    "source_url": "https://southaustralia.com/products/riverland/hire/uncorkd-houseboat-loxton",
+    "note": "Newly renovated 10-berth solar-powered houseboat for hire at Loxton on the Murray River.",
+    "offers": ["self_drive"]
+  },
+  {
+    "name": "Murray River Trails",
+    "town": "Berri",
+    "state": "SA",
+    "website": "https://murrayrivertrails.com.au",
+    "source_url": "https://murrayrivertrails.com.au/plan/summer-houseboat-hire/",
+    "note": "Operates the eco-luxe 'HIGH RIVER' houseboat for guided all-inclusive tours and public summer hire in the Riverland.",
+    "offers": ["skippered", "self_drive"]
+  },
+  {
+    "name": "Moon Dance Houseboat",
+    "town": "Mannum",
+    "state": "SA",
+    "website": "https://moondancehouseboat.com.au",
+    "source_url": "https://moondancehouseboat.com.au/",
+    "note": "Self-drive luxury houseboat moored at Kia Marina near Mannum on the Murray River.",
+    "offers": ["self_drive"]
+  },
+  {
+    "name": "Moon Rise Houseboat",
+    "town": "Mannum",
+    "state": "SA",
+    "website": "https://moonrisehouseboat.com.au",
+    "source_url": "https://moonrisehouseboat.com.au/",
+    "note": "Twelve-berth luxury self-drive houseboat hired from the Mannum reach of the Murray River.",
+    "offers": ["self_drive"]
+  },
+  {
+    "name": "New Horizons Houseboat",
+    "town": "Mannum",
+    "state": "SA",
+    "website": "https://newhorizonshouseboat.com",
+    "source_url": "https://newhorizonshouseboat.com/",
+    "note": "Self-drive luxury houseboat based at Kia Marina near Mannum on the Murray River.",
+    "offers": ["self_drive"]
+  },
+  {
+    "name": "Imagine Houseboat",
+    "town": "Mannum",
+    "state": "SA",
+    "website": "https://imaginehouseboats.com.au",
+    "source_url": "https://imaginehouseboats.com.au/",
+    "note": "Self-drive houseboat for hire on the Mannum stretch of the River Murray.",
+    "offers": ["self_drive"]
+  },
+  {
+    "name": "Elfin Houseboat",
+    "town": "Murray Bridge",
+    "state": "SA",
+    "website": null,
+    "source_url": "https://southaustralia.com/products/murray-river-lakes-and-coorong/hire/elfin-houseboat",
+    "note": "Compact 2-4 berth easy-to-drive houseboat hired from Murray Bridge on the River Murray.",
+    "offers": ["self_drive"]
+  },
+  {
+    "name": "Love Life Houseboat",
+    "town": "Younghusband",
+    "state": "SA",
+    "website": null,
+    "source_url": "https://southaustralia.com/products/murray-river-lakes-and-coorong/hire/love-life-houseboat",
+    "note": "Self-drive luxury houseboat hired from Younghusband upstream of Mannum on the Murray River.",
+    "offers": ["self_drive"]
+  },
+  {
+    "name": "Mildura Houseboats",
+    "town": "Mildura",
+    "state": "VIC",
+    "website": "https://mildurahouseboats.com.au",
+    "source_url": "https://mildurahouseboats.com.au/",
+    "note": "Local operator of 20+ years with a fleet of 16 self-drive spa houseboats on the Murray River at Mildura.",
+    "offers": ["self_drive", "pet_friendly"]
+  },
+  {
+    "name": "All Seasons Houseboats",
+    "town": "Mildura",
+    "state": "VIC",
+    "website": "https://allseasonshouseboats.com.au",
+    "source_url": "https://allseasonshouseboats.com.au/",
+    "note": "One of Australia's largest houseboat operators, with 16 mostly solar-powered self-drive boats based at Mildura.",
+    "offers": ["self_drive", "pet_friendly"]
+  },
+  {
+    "name": "River Dream Boatel",
+    "town": "Mildura",
+    "state": "VIC",
+    "website": "https://riverdreamboatel.com.au",
+    "source_url": "https://riverdreamboatel.com.au/",
+    "note": "Five-star luxury houseboat experience on the Murray River at Mildura with en-suite staterooms.",
+    "offers": ["self_drive"]
+  },
+  {
+    "name": "Murray River Houseboats",
+    "town": "Echuca",
+    "state": "VIC",
+    "website": "https://murrayriverhouseboats.com.au",
+    "source_url": "https://murrayriverhouseboats.com.au/",
+    "note": "Fleet of six self-drive boats, including Indulgence and Decadence, hired from Echuca on the Murray River.",
+    "offers": ["self_drive"]
+  },
+  {
+    "name": "Echuca Luxury Houseboats",
+    "town": "Echuca",
+    "state": "VIC",
+    "website": "https://luxuryhouseboats.com.au",
+    "source_url": "https://luxuryhouseboats.com.au/our-location/",
+    "note": "Builds and hires brand-new self-drive luxury houseboats moored at Riverboat Dock in the Port of Echuca.",
+    "offers": ["self_drive"]
+  },
+  {
+    "name": "Deep Creek Houseboats",
+    "town": "Moama",
+    "state": "NSW",
+    "website": "https://deepcreekhouseboats.com.au",
+    "source_url": "http://www.murrayriver.com.au/echuca/houseboats",
+    "note": "Value family self-drive houseboats based at Deep Creek Marina in the Echuca-Moama area on the Murray River.",
+    "offers": ["self_drive"]
+  },
+  {
+    "name": "Moama on Murray Houseboats",
+    "town": "Moama",
+    "state": "NSW",
+    "website": "https://www.echucamoamahouseboats.com.au",
+    "source_url": "https://www.echucamoamahouseboats.com.au/",
+    "note": "Self-drive houseboats up to 12 berths hired at Moama on the Murray River near Echuca.",
+    "offers": ["self_drive"]
+  },
+  {
+    "name": "Executive Houseboats",
+    "town": "Moama",
+    "state": "NSW",
+    "website": "https://www.executivehouseboats.com.au",
+    "source_url": "https://www.executivehouseboats.com.au/",
+    "note": "Four luxury self-drive vessels each sleeping up to 12, based at Moama in the Echuca region on the Murray River.",
+    "offers": ["self_drive"]
+  },
+  {
+    "name": "Murray Downs Houseboats",
+    "town": "Swan Hill",
+    "state": "VIC",
+    "website": "http://www.murraydownsmarina.com.au",
+    "source_url": "http://www.murrayriver.com.au/swan-hill/houseboats/",
+    "note": "Houseboat hire from Murray Downs Marina less than 2km from Swan Hill on the Murray River.",
+    "offers": ["self_drive"]
+  },
+  {
+    "name": "WatersEdge Lake Eildon",
+    "town": "Eildon",
+    "state": "VIC",
+    "website": null,
+    "source_url": "https://www.visitvictoria.com/regions/high-country/places-to-stay/houseboats/watersedge-lake-eildon",
+    "note": "Premier self-drive houseboat hire at Jerusalem Creek Marina on Lake Eildon, no boat licence required.",
+    "offers": ["self_drive"]
+  },
+  {
+    "name": "Lake Eildon Houseboats",
+    "town": "Eildon",
+    "state": "VIC",
+    "website": "https://lakeeildonhouseboats.com.au",
+    "source_url": "https://lakeeildonhouseboats.com.au/",
+    "note": "Four self-drive houseboats (Deluxe 1, Getaway, Spoil Yourself, Eildon Princess) with quiet outboards on Lake Eildon.",
+    "offers": ["self_drive"]
+  },
+  {
+    "name": "Eild Marina Houseboat Hire",
+    "town": "Eildon",
+    "state": "VIC",
+    "website": "https://www.eild.com.au",
+    "source_url": "https://www.eild.com.au/houseboat-hire",
+    "note": "Self-drive luxury houseboats including the 10-berth Senator and 12-berth Diplomat and Sirocco on Lake Eildon.",
+    "offers": ["self_drive"]
+  },
+  {
+    "name": "5 Rivers Eildon",
+    "town": "Eildon",
+    "state": "VIC",
+    "website": null,
+    "source_url": "https://www.eild.com.au/houseboat-hire",
+    "note": "Premium self-drive houseboat fleet operating from Eild Marina on Lake Eildon.",
+    "offers": ["self_drive"]
+  },
+  {
+    "name": "Houseboat Holidays (Lake Eildon Marina)",
+    "town": "Eildon",
+    "state": "VIC",
+    "website": "https://houseboatholidays.com.au",
+    "source_url": "https://houseboatholidays.com.au/",
+    "note": "Self-drive houseboat hire and bookings from Lake Eildon Marina, no boat licence required.",
+    "offers": ["self_drive"]
+  },
+  {
+    "name": "Hawkesbury Afloat",
+    "town": "Brooklyn",
+    "state": "NSW",
+    "website": "https://www.hawkesburyafloat.com.au",
+    "source_url": "https://www.hawkesburyafloat.com.au/",
+    "note": "Self-drive fleet of modern houseboats sleeping 2 to 12, based at Brooklyn Marina on the Hawkesbury River.",
+    "offers": ["self_drive"]
+  },
+  {
+    "name": "Holidays Afloat & Ripples Houseboat Hire",
+    "town": "Brooklyn",
+    "state": "NSW",
+    "website": "https://holidaysafloat.com.au",
+    "source_url": "https://holidaysafloat.com.au/",
+    "note": "Large fleet of modern and traditional houseboats and cruisers hired from Brooklyn on the Hawkesbury River.",
+    "offers": ["self_drive"]
+  },
+  {
+    "name": "Able Hawkesbury River Houseboats",
+    "town": "Wisemans Ferry",
+    "state": "NSW",
+    "website": null,
+    "source_url": "https://wisemans.org.au/able-hawkesbury-river-houseboats/",
+    "note": "Established 30+ years at Wisemans Ferry, the largest Hawkesbury fleet with nine houseboat sizes including spa boats.",
+    "offers": ["self_drive"]
+  },
+  {
+    "name": "Hawkesbury Houseboats",
+    "town": "Wisemans Ferry",
+    "state": "NSW",
+    "website": "https://www.hawkesburyhouseboats.com.au",
+    "source_url": "https://www.hawkesburyhouseboats.com.au/",
+    "note": "Luxury spa boats, houseboats, day boats and kayaks for hire on the Hawkesbury River at Wisemans Ferry.",
+    "offers": ["self_drive"]
+  },
+  {
+    "name": "Mandurah Houseboats",
+    "town": "Mandurah",
+    "state": "WA",
+    "website": "https://www.houseboatsmandurah.com.au",
+    "source_url": "https://www.houseboatsmandurah.com.au/",
+    "note": "Award-winning family fleet of 16 self-drive houseboats exploring the Peel Inlet, Harvey Estuary and Murray River WA.",
+    "offers": ["self_drive"]
+  }
+]

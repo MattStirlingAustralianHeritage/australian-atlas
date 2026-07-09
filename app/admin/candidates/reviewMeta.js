@@ -49,6 +49,8 @@ export const SUBCATEGORY_OPTIONS = {
     { value: 'live_music_venue', label: 'Live Music Venue' },
     { value: 'comedy_club', label: 'Comedy Club' },
     { value: 'theatre', label: 'Theatre' },
+    { value: 'aboriginal_art_centre', label: 'Aboriginal Art Centre' },
+    { value: 'artist_studio', label: 'Artist Studio' },
   ],
   craft: [
     { value: 'ceramics_clay', label: 'Ceramics & Clay' },
@@ -63,6 +65,7 @@ export const SUBCATEGORY_OPTIONS = {
     { value: 'clothing', label: 'Clothing' },
     { value: 'fragrance_candles', label: 'Fragrance & Candles' },
     { value: 'knifemaker', label: 'Knifemaking' },
+    { value: 'milliner', label: 'Millinery' },
   ],
   fine_grounds: [
     { value: 'roaster', label: 'Roaster' },
@@ -79,6 +82,8 @@ export const SUBCATEGORY_OPTIONS = {
     { value: 'heritage_hotel', label: 'Heritage Hotel' },
     { value: 'national_park_stay', label: 'National Park Stay' },
     { value: 'heritage_lighthouse', label: 'Heritage Lighthouse' },
+    { value: 'off_grid_cabin', label: 'Off-Grid Cabin' },
+    { value: 'houseboat', label: 'Houseboat' },
   ],
   field: [
     { value: 'swimming_hole', label: 'Swimming Hole' },
@@ -93,6 +98,7 @@ export const SUBCATEGORY_OPTIONS = {
     { value: 'bush_walk', label: 'Bush Walk' },
     { value: 'botanic_garden', label: 'Botanic Garden' },
     { value: 'nature_reserve', label: 'Nature Reserve' },
+    { value: 'fossicking', label: 'Fossicking & Gemfields' },
   ],
   corner: [
     { value: 'bookshop', label: 'Bookshop' },
@@ -136,6 +142,10 @@ export const SUBCATEGORY_OPTIONS = {
     { value: 'confectioner', label: 'Confectioner' },
     { value: 'tea_shop', label: 'Tea Shop' },
     { value: 'wine_bar', label: 'Wine Bar' },
+    { value: 'oyster_farm', label: 'Oyster Farm' },
+    { value: 'historic_pub', label: 'Historic Pub' },
+    { value: 'ice_creamery', label: 'Ice Creamery' },
+    { value: 'cheesemonger', label: 'Cheesemonger' },
   ],
   // Way Atlas primary types (extends Spec §III). Order matches the spec's
   // narrative grouping: walks → cultural → flights → marine → specialist
@@ -162,6 +172,7 @@ export const SUBCATEGORY_OPTIONS = {
     { value: 'marine_wildlife_swim',       label: 'Marine Wildlife Swim' },
     { value: 'whale_watching',             label: 'Whale Watching' },
     { value: 'snorkelling',                label: 'Snorkelling' },
+    { value: 'surf_school',                label: 'Surf School' },
   ],
 }
 

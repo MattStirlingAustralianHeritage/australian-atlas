@@ -1,0 +1,794 @@
+[
+  {
+    "name": "Let's Go Surfing",
+    "town": "Bondi Beach",
+    "state": "NSW",
+    "website": "https://letsgosurfing.com.au",
+    "source_url": "https://letsgosurfing.com.au",
+    "note": "Long-running Sydney surf school teaching group, private and women-only lessons at Bondi Beach, with branches at Maroubra and northern NSW.",
+    "offers": ["lessons", "coaching", "board_hire"]
+  },
+  {
+    "name": "Let's Go Surfing",
+    "town": "Maroubra",
+    "state": "NSW",
+    "website": "https://letsgosurfing.com.au",
+    "source_url": "https://letsgosurfing.com.au",
+    "note": "Maroubra Beach branch of Let's Go Surfing offering beginner group and private lessons with equipment supplied.",
+    "offers": ["lessons", "coaching", "board_hire"]
+  },
+  {
+    "name": "Let's Go Surfing",
+    "town": "Ballina",
+    "state": "NSW",
+    "website": "https://letsgosurfing.com.au",
+    "source_url": "https://letsgosurfing.com.au",
+    "note": "Northern NSW branch of Let's Go Surfing running lessons around Ballina and Lennox Head.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Manly Surf School",
+    "town": "Manly",
+    "state": "NSW",
+    "website": "https://manlysurfschool.com",
+    "source_url": "https://manlysurfschool.com/",
+    "note": "Teaching people to surf on Manly Beach and across Sydney's Northern Beaches since 1983, with group and private lessons.",
+    "offers": ["lessons", "coaching", "board_hire"]
+  },
+  {
+    "name": "Cronulla Surfing Academy",
+    "town": "Cronulla",
+    "state": "NSW",
+    "website": "https://cronullasurfingacademy.com",
+    "source_url": "https://cronullasurfingacademy.com/",
+    "note": "Surfing Australia accredited school on Cronulla Beach run by local surfer Blake Johnston, offering kids, adults and ladies lessons plus retreats.",
+    "offers": ["lessons", "coaching", "surf_camp"]
+  },
+  {
+    "name": "Waves Surf School",
+    "town": "Cronulla",
+    "state": "NSW",
+    "website": null,
+    "source_url": "https://www.academyofsurfing.com/schools/waves-surf-school/surf",
+    "note": "ASI accredited surf school operating at Cronulla since 1999 with surf trips up the coast to Seal Rocks.",
+    "offers": ["lessons", "surf_camp"]
+  },
+  {
+    "name": "Newcastle Surf School",
+    "town": "Merewether",
+    "state": "NSW",
+    "website": "https://www.newcastlesurfschool.com.au",
+    "source_url": "https://www.newcastlesurfschool.com.au/",
+    "note": "Newcastle's longest-running surf school teaching daily lessons at Nobbys, Blacksmiths and Caves beaches.",
+    "offers": ["lessons", "board_hire"]
+  },
+  {
+    "name": "Learn to Surf Newcastle",
+    "town": "Redhead",
+    "state": "NSW",
+    "website": "https://learntosurfnewcastle.com",
+    "source_url": "https://learntosurfnewcastle.com/",
+    "note": "Surfing Australia-approved school established in 2004 (originally Redhead Mobile Surf School) running small-group lessons around Newcastle.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Port Stephens Surf School",
+    "town": "Anna Bay",
+    "state": "NSW",
+    "website": "https://portstephenssurfschool.com",
+    "source_url": "https://portstephenssurfschool.com/",
+    "note": "Port Stephens' first surf school, endorsed by Surfing Australia, running lessons at One Mile, Birubi and Fingal Bay beaches.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Great Lakes Surf School",
+    "town": "Forster",
+    "state": "NSW",
+    "website": "http://www.greatlakessurfschool.com.au",
+    "source_url": "http://www.greatlakessurfschool.com.au/",
+    "note": "Forster-based surf school licensed by Surfing Australia and Surfing NSW offering learn-to-surf lessons.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Gary Hughes Surf School",
+    "town": "Forster",
+    "state": "NSW",
+    "website": "https://www.garyhughessurfschool.com",
+    "source_url": "https://www.garyhughessurfschool.com/",
+    "note": "Boutique private and small-group lessons at Blueys, Boomerang, Seal Rocks, Booti Booti, Forster and Tuncurry beaches.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Saltwater Surf School",
+    "town": "Forster",
+    "state": "NSW",
+    "website": "https://www.saltwatersurfschool.com.au",
+    "source_url": "https://www.saltwatersurfschool.com.au/locations/forster-tuncurry/",
+    "note": "Runs daily surf lessons at Forster-Tuncurry and other Barrington Coast beaches with experienced coaches.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Central Coast Surf Academy",
+    "town": "Terrigal",
+    "state": "NSW",
+    "website": "https://centralcoastsurfacademy.com",
+    "source_url": "https://centralcoastsurfacademy.com/",
+    "note": "Founded by a former world-ranked pro, teaching at Terrigal, Avoca and Copacabana with lessons, camps and board and wetsuit hire.",
+    "offers": ["lessons", "coaching", "board_hire", "surf_camp"]
+  },
+  {
+    "name": "Institute of Froth",
+    "town": "North Avoca",
+    "state": "NSW",
+    "website": "https://www.instituteoffroth.com",
+    "source_url": "https://www.instituteoffroth.com/",
+    "note": "Surfing NSW affiliated school permitted to teach at both North Avoca and Terrigal beaches, offering private, group, kids and NDIS lessons.",
+    "offers": ["lessons", "coaching", "surf_camp"]
+  },
+  {
+    "name": "Central Coast Surf School",
+    "town": "Avoca Beach",
+    "state": "NSW",
+    "website": "https://centralcoastsurfschool.com.au",
+    "source_url": "https://centralcoastsurfschool.com.au/",
+    "note": "A long-running Central Coast surf school based at Avoca Beach with experienced instructors and structured lesson plans.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Port Macquarie Surf School",
+    "town": "Port Macquarie",
+    "state": "NSW",
+    "website": "https://portmacquariesurfschool.com.au",
+    "source_url": "https://portmacquariesurfschool.com.au/",
+    "note": "Family-owned award-winning school running daily lessons at Rainbow and Town beaches, teaching in Port Macquarie since 1981.",
+    "offers": ["lessons", "coaching", "surf_camp"]
+  },
+  {
+    "name": "Soul Surfing",
+    "town": "Port Macquarie",
+    "state": "NSW",
+    "website": "https://www.soulsurfing.com.au",
+    "source_url": "https://www.soulsurfing.com.au/",
+    "note": "Family-owned Port Macquarie school running two-hour small-group beginner lessons covering surf safety and technique, seven days a week.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Lee Winkler's Surf School",
+    "town": "Coffs Harbour",
+    "state": "NSW",
+    "website": "https://surfschoolcoffsharbour.com.au",
+    "source_url": "https://surfschoolcoffsharbour.com.au/",
+    "note": "Coffs Harbour school with accredited Level 1 Surfing Australia coaches teaching beginner to intermediate lessons and weekly surf camps.",
+    "offers": ["lessons", "coaching", "surf_camp"]
+  },
+  {
+    "name": "Solitary Islands Surf School",
+    "town": "Woolgoolga",
+    "state": "NSW",
+    "website": "https://solitaryislandssurfschool.com.au",
+    "source_url": "https://solitaryislandssurfschool.com.au/",
+    "note": "Surfing Australia accredited school teaching at Woolgoolga, Emerald, Darlington, Sawtell and Minnie Water beaches with group, private and SurfGroms programs.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Yamba-Angourie Surf School",
+    "town": "Yamba",
+    "state": "NSW",
+    "website": "https://www.yambaangouriesurfschool.com.au",
+    "source_url": "https://www.yambaangouriesurfschool.com.au",
+    "note": "The original Yamba surf school since 2001, run by an Australian champion, offering private, group and school lessons licensed by Surfing Australia.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Surf Camp Down Under",
+    "town": "Yamba",
+    "state": "NSW",
+    "website": "https://www.surfcampdownunder.com",
+    "source_url": "https://www.surfcampdownunder.com",
+    "note": "Leading Clarence Valley surf school running lessons at Yamba, Angourie, Brooms Head and Minnie Waters.",
+    "offers": ["lessons", "surf_camp"]
+  },
+  {
+    "name": "Ballina Surf School",
+    "town": "Ballina",
+    "state": "NSW",
+    "website": "https://ballinasurfschool.com",
+    "source_url": "https://ballinasurfschool.com/",
+    "note": "Group and private coaching with accredited local surf guides at the Lennox Head National Surfing Reserve and other Ballina beaches.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Kool Katz Surf School",
+    "town": "Ballina",
+    "state": "NSW",
+    "website": "https://koolkatzsurf.com",
+    "source_url": "https://koolkatzsurf.com/",
+    "note": "Ballina-based school offering budget group lessons and private tuition across its licensed Ballina beaches.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Summerland Surf School",
+    "town": "Lennox Head",
+    "state": "NSW",
+    "website": null,
+    "source_url": "https://www.visitnsw.com/things-to-do/tours/port-stephens-surf-school/lessons-and-tours",
+    "note": "Northern-rivers surf school running lessons at Lennox Head and Evans Head.",
+    "offers": ["lessons"]
+  },
+  {
+    "name": "Soul Surf School",
+    "town": "Byron Bay",
+    "state": "NSW",
+    "website": "https://soulsurfschool.com.au",
+    "source_url": "https://soulsurfschool.com.au/",
+    "note": "Beachfront Byron Bay school, the only one permitted to teach at both Byron Bay and Lennox Head, offering group, private and surf-and-stay packages.",
+    "offers": ["lessons", "coaching", "surf_camp"]
+  },
+  {
+    "name": "Byron Bay Surf School",
+    "town": "Byron Bay",
+    "state": "NSW",
+    "website": "https://byronbaysurfschool.com",
+    "source_url": "https://byronbaysurfschool.com/",
+    "note": "Byron Bay learn-to-surf operator offering lessons and multi-day surf camps on the region's beginner-friendly beaches.",
+    "offers": ["lessons", "surf_camp"]
+  },
+  {
+    "name": "Mojosurf",
+    "town": "Byron Bay",
+    "state": "NSW",
+    "website": "https://mojosurf.com",
+    "source_url": "https://mojosurf.com/products/byron-bay-surf-school/",
+    "note": "Surf-camp operator running half-day and multi-day Byron Bay lessons with transport to the best learner waves, plus camps along the east coast.",
+    "offers": ["lessons", "surf_camp"]
+  },
+  {
+    "name": "Illawarra Surf Academy",
+    "town": "East Corrimal",
+    "state": "NSW",
+    "website": "https://illawarrasurfacademy.com.au",
+    "source_url": "https://illawarrasurfacademy.com.au/learn-to-surf/",
+    "note": "Surfing Australia accredited, locally owned academy running lessons at Corrimal, Thirroul and Warilla beaches seven days a week.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Pines Surfing Academy",
+    "town": "Wollongong",
+    "state": "NSW",
+    "website": "https://www.pinessurfingacademy.com.au",
+    "source_url": "https://www.pinessurfingacademy.com.au/",
+    "note": "Group and private lessons at North Wollongong Beach and The Farm at Killalea Regional Park, plus multi-day holiday programs and a grom camp.",
+    "offers": ["lessons", "coaching", "surf_camp"]
+  },
+  {
+    "name": "Jervis Bay Surf School",
+    "town": "Jervis Bay",
+    "state": "NSW",
+    "website": "https://www.jbsurfschool.com.au",
+    "source_url": "https://www.jbsurfschool.com.au/",
+    "note": "Locally owned school running lessons and board hire around Jervis Bay and Sussex Inlet on the NSW South Coast.",
+    "offers": ["lessons", "board_hire"]
+  },
+  {
+    "name": "Gerringong Surf School",
+    "town": "Gerringong",
+    "state": "NSW",
+    "website": "https://www.gerringongsurfschool.com.au",
+    "source_url": "https://www.gerringongsurfschool.com.au/",
+    "note": "The only Surfing Australia accredited surf school in the Gerringong-Kiama area, teaching beginners to advanced with boards and wetsuits included.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Walking On Water Surf School",
+    "town": "Ulladulla",
+    "state": "NSW",
+    "website": null,
+    "source_url": "https://www.shoalhaven.com/place/walking-on-water-ulladulla-surf-schools/",
+    "note": "Multi-award-winning Shoalhaven water-sports coaching company specialising in beginner to competition-level learn-to-surf around Ulladulla.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Surf Camp Australia",
+    "town": "Gerroa",
+    "state": "NSW",
+    "website": "https://surfcamp.com.au",
+    "source_url": "https://surfcamp.com.au/",
+    "note": "Australia's original overnight learn-to-surf camp operating since 1999 beside Seven Mile Beach at Gerroa, two hours south of Sydney.",
+    "offers": ["lessons", "surf_camp"]
+  },
+  {
+    "name": "Australian Surf Tours",
+    "town": "Seven Mile Beach",
+    "state": "NSW",
+    "website": null,
+    "source_url": "https://www.visitnsw.com/things-to-do/tours/surf-camp-australia",
+    "note": "South Coast NSW operator offering all-inclusive day trips and 7- and 14-day learn-to-surf camps an hour south of Sydney.",
+    "offers": ["lessons", "surf_camp"]
+  },
+  {
+    "name": "Broadbeach Surf School",
+    "town": "Broadbeach",
+    "state": "QLD",
+    "website": "https://www.broadbeachsurfschool.com.au",
+    "source_url": "https://www.broadbeachsurfschool.com.au/",
+    "note": "Teaching surfing to all ages and abilities on Broadbeach in the heart of the Gold Coast since 2006.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Currumbin Alley Surf School",
+    "town": "Currumbin",
+    "state": "QLD",
+    "website": "https://currumbinalleysurfschool.com.au",
+    "source_url": "https://currumbinalleysurfschool.com.au/",
+    "note": "Year-round lessons at Currumbin Alley, the Gold Coast's most learner-friendly break, and a repeat Tripadvisor Travellers' Choice winner.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Surf Easy Surf School",
+    "town": "Currumbin",
+    "state": "QLD",
+    "website": "https://surfeasy.com.au",
+    "source_url": "https://surfeasy.com.au/",
+    "note": "Running surfing lessons and board hire at Currumbin Alley on the Gold Coast since 1994.",
+    "offers": ["lessons", "board_hire"]
+  },
+  {
+    "name": "Godfathers of the Ocean Surf School",
+    "town": "Burleigh Heads",
+    "state": "QLD",
+    "website": "https://www.godfathersoftheocean.com",
+    "source_url": "https://www.godfathersoftheocean.com/",
+    "note": "Operating since 2001 in front of the Burleigh Heads Surf Club, offering group, private, ladies-only and SurfGroms lessons plus bodyboarding.",
+    "offers": ["lessons", "coaching", "surf_camp"]
+  },
+  {
+    "name": "Coolangatta Learn To Surf",
+    "town": "Coolangatta",
+    "state": "QLD",
+    "website": "https://www.coolangattalearntosurf.com",
+    "source_url": "https://www.coolangattalearntosurf.com/",
+    "note": "Family-run since 1991 at Rainbow Bay and Coolangatta, offering group and private lessons plus multi-day school-holiday programs for kids and adults.",
+    "offers": ["lessons", "coaching", "surf_camp"]
+  },
+  {
+    "name": "Kirra Point Surf School",
+    "town": "Kirra",
+    "state": "QLD",
+    "website": "https://kirrapointsurfschool.com",
+    "source_url": "https://www.boardcave.com.au/surf-schools/australia/qld/gold-coast",
+    "note": "Southern Gold Coast surf school offering lessons for all ages plus a 'Salty Groms' kids program near Kirra Point.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Surf In Paradise",
+    "town": "Main Beach",
+    "state": "QLD",
+    "website": "https://surfinparadise.com.au",
+    "source_url": "https://surfinparadise.com.au/",
+    "note": "Small-group beginner lessons (max six) at The Spit near Surfers Paradise, where a break wall shelters ideal learner waves.",
+    "offers": ["lessons"]
+  },
+  {
+    "name": "Surfing Services Australia",
+    "town": "Surfers Paradise",
+    "state": "QLD",
+    "website": "https://surfingservices.com.au",
+    "source_url": "https://surfingservices.com.au/",
+    "note": "Gold Coast surf school running learn-to-surf lessons and programs across the city's beaches.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Australian Surfing Adventures",
+    "town": "South Stradbroke Island",
+    "state": "QLD",
+    "website": "https://www.australiansurfingadventures.com",
+    "source_url": "https://www.australiansurfingadventures.com/surf-camps/gold-coast-surf-camp/",
+    "note": "The Gold Coast's only full-time surf camp, based on South Stradbroke Island, offering 1-to-10-day learn-to-surf camps and tours.",
+    "offers": ["lessons", "surf_camp"]
+  },
+  {
+    "name": "North Stradbroke Island Surf School",
+    "town": "Point Lookout",
+    "state": "QLD",
+    "website": "https://northstradbrokeislandsurfschool.com.au",
+    "source_url": "https://northstradbrokeislandsurfschool.com.au/",
+    "note": "Coaching at Point Lookout since 1987 with Surfing Australia Level 1 and 2 accredited coaches, offering private and group lessons plus video analysis.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Noosa Learn to Surf",
+    "town": "Noosa Heads",
+    "state": "QLD",
+    "website": "https://learntosurf.com.au",
+    "source_url": "https://learntosurf.com.au/",
+    "note": "Noosa's longest-running surf school, founded in 1995 by former pro-am champion Merrick Davis, teaching year-round on Noosa Main Beach.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Surfdancer Academy of Surf",
+    "town": "Noosa Heads",
+    "state": "QLD",
+    "website": "https://www.surfdancer.com",
+    "source_url": "https://www.surfdancer.com/",
+    "note": "Private and small-group surf coaching on Noosa's beaches for all levels, plus signature surf-dance classes.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Go Ride A Wave",
+    "town": "Noosa Heads",
+    "state": "QLD",
+    "website": "https://gorideawave.com.au",
+    "source_url": "https://gorideawave.com.au/noosa-surf-lessons/",
+    "note": "Established 1987, running group and private lessons and surf retreats at Noosa Heads on the Sunshine Coast.",
+    "offers": ["lessons", "coaching", "board_hire", "surf_camp"]
+  },
+  {
+    "name": "Maroochy Surf School",
+    "town": "Maroochydore",
+    "state": "QLD",
+    "website": "https://maroochysurfschool.com.au",
+    "source_url": "https://maroochysurfschool.com.au/",
+    "note": "Group and private lessons at Maroochydore and Mooloolaba main beaches for ages eight and up.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Robbie Sherwell's XL Surfing Academy",
+    "town": "Mooloolaba",
+    "state": "QLD",
+    "website": "https://xlsurf.com.au",
+    "source_url": "https://xlsurf.com.au/",
+    "note": "Teaching adults and kids at Mooloolaba and Alexandra Heads beaches with a small student-to-coach ratio and a high-performance academy.",
+    "offers": ["lessons", "coaching", "surf_camp"]
+  },
+  {
+    "name": "Coolum Surf School",
+    "town": "Coolum Beach",
+    "state": "QLD",
+    "website": "https://coolumsurfschool.com.au",
+    "source_url": "https://coolumsurfschool.com.au/",
+    "note": "Operating over 20 years at Tickle Park, Coolum Beach with Surfing Australia accredited coaches running group and private lessons.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Caloundra Surf School",
+    "town": "Caloundra",
+    "state": "QLD",
+    "website": "https://caloundrasurfschool.com.au",
+    "source_url": "https://caloundrasurfschool.com.au/",
+    "note": "Runs 90-minute group and private surf lessons on Caloundra beaches with all boards and rash shirts or wetsuits supplied.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "North Caloundra Surf School",
+    "town": "Caloundra",
+    "state": "QLD",
+    "website": "https://northcaloundrasurfschool.com.au",
+    "source_url": "https://northcaloundrasurfschool.com.au/",
+    "note": "Comprehensive surf-awareness and board-riding lessons at Caloundra beaches for groups large and small plus private tuition.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Rainbow Beach Learn to Surf",
+    "town": "Rainbow Beach",
+    "state": "QLD",
+    "website": "https://www.rainbowbeachlearntosurf.com",
+    "source_url": "https://www.rainbowbeachlearntosurf.com/",
+    "note": "ASI-accredited school running daily private and group lessons on Rainbow Beach main beach plus surfboard hire.",
+    "offers": ["lessons", "board_hire", "coaching"]
+  },
+  {
+    "name": "Reef 2 Beach Surf School",
+    "town": "Agnes Water",
+    "state": "QLD",
+    "website": "https://www.reef2beachsurf.com.au",
+    "source_url": "https://www.reef2beachsurf.com.au/",
+    "note": "Daily lessons on Queensland's northernmost surf beach at Agnes Water, taught by accredited instructors for over 22 years.",
+    "offers": ["lessons", "board_hire"]
+  },
+  {
+    "name": "Stylez Surf School",
+    "town": "Agnes Water",
+    "state": "QLD",
+    "website": "https://www.stylezsurfschool.com.au",
+    "source_url": "https://www.stylezsurfschool.com.au/",
+    "note": "Surfing Australia affiliated school at Agnes Water running small-group learn-to-surf lessons plus surfboard and SUP hire.",
+    "offers": ["lessons", "board_hire", "coaching"]
+  },
+  {
+    "name": "Go Ride A Wave",
+    "town": "Torquay",
+    "state": "VIC",
+    "website": "https://gorideawave.com.au",
+    "source_url": "https://gorideawave.com.au/location/torquay/",
+    "note": "Australia's best-known surf school (est. 1987) running lessons and hire at Torquay, Ocean Grove, Anglesea, Lorne and along the Great Ocean Road.",
+    "offers": ["lessons", "coaching", "board_hire"]
+  },
+  {
+    "name": "Torquay Surfing Academy",
+    "town": "Torquay",
+    "state": "VIC",
+    "website": "https://www.torquaysurf.com.au",
+    "source_url": "https://www.torquaysurf.com.au/",
+    "note": "Surfing Australia recognised academy teaching at Torquay, Jan Juc, Bancoora, Point Addis and Lorne, with private and group lessons and a large hire fleet.",
+    "offers": ["lessons", "coaching", "board_hire"]
+  },
+  {
+    "name": "Southern Exposure",
+    "town": "Torquay",
+    "state": "VIC",
+    "website": "https://www.southernexposure.com.au",
+    "source_url": "https://www.southernexposure.com.au/public-surf",
+    "note": "Great Ocean Road adventure operator running surf lessons at Torquay, Anglesea, Lorne and Ocean Grove, plus multi-day surf camps and coaching.",
+    "offers": ["lessons", "coaching", "surf_camp"]
+  },
+  {
+    "name": "Great Ocean Road Surf Schools",
+    "town": "Torquay",
+    "state": "VIC",
+    "website": "https://greatoceanroadsurfschools.com.au",
+    "source_url": "https://greatoceanroadsurfschools.com.au/learn-to-surf-location/torquay-learn-to-surf/",
+    "note": "Daily beginner group and private lessons at Torquay and other Great Ocean Road beaches.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Surf Sessions",
+    "town": "Ocean Grove",
+    "state": "VIC",
+    "website": "https://www.surfsessions.com.au",
+    "source_url": "https://www.surfsessions.com.au/",
+    "note": "Bellarine Peninsula school teaching at Ocean Grove, Raafs Beach and Barwon Heads, with learn-to-surf, development coaching and private lessons.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "East Coast Surf School",
+    "town": "Point Leo",
+    "state": "VIC",
+    "website": "https://www.eastcoastsurfschool.net.au",
+    "source_url": "https://www.eastcoastsurfschool.net.au/",
+    "note": "Long-running Mornington Peninsula school based mainly at Point Leo (also Gunnamatta), offering 1.5-hour learn-to-surf lessons with gear supplied.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Mornington Peninsula Surf School",
+    "town": "Point Leo",
+    "state": "VIC",
+    "website": "https://www.morningtonpeninsulasurfschool.com.au",
+    "source_url": "https://www.morningtonpeninsulasurfschool.com.au/",
+    "note": "Mobile school teaching at Point Leo, Shoreham and Gunnamatta depending on conditions, offering lessons, surf retreats and school programs.",
+    "offers": ["lessons", "coaching", "surf_camp"]
+  },
+  {
+    "name": "Salty Surf School",
+    "town": "Point Leo",
+    "state": "VIC",
+    "website": "https://saltysurfschool.com",
+    "source_url": "https://saltysurfschool.com/",
+    "note": "Small-group surf coaching at Point Leo and Shoreham foreshores, with public and private classes, kids' intros, SurfGroms, holiday camps and hire.",
+    "offers": ["lessons", "coaching", "surf_camp", "board_hire"]
+  },
+  {
+    "name": "Island Surfboards Surf School",
+    "town": "Smiths Beach",
+    "state": "VIC",
+    "website": "http://www.islandsurfboards.com.au",
+    "source_url": "http://www.islandsurfboards.com.au/school2",
+    "note": "One of Australia's most established surf schools, teaching in the beginner-friendly waves of Smiths Beach on Phillip Island.",
+    "offers": ["lessons", "coaching", "board_hire"]
+  },
+  {
+    "name": "Port Fairy Surf School",
+    "town": "Port Fairy",
+    "state": "VIC",
+    "website": "https://portfairysurfschool.com.au",
+    "source_url": "https://portfairysurfschool.com.au/",
+    "note": "Accredited school operating since 1999 at Port Fairy East Beach, Warrnambool Main Beach and Cape Bridgewater, offering surf, SUP and kayak lessons plus hire.",
+    "offers": ["lessons", "coaching", "board_hire", "surf_camp"]
+  },
+  {
+    "name": "GO Surf School",
+    "town": "Port Fairy",
+    "state": "VIC",
+    "website": "https://gosurf.com.au",
+    "source_url": "https://gosurf.com.au/lessons-hire/beginner-surf-lesson/",
+    "note": "Beginner-focused school teaching at Port Fairy, Warrnambool and Cape Bridgewater, with SurfGroms, kids' holiday programs, SUP lessons and board and SUP hire.",
+    "offers": ["lessons", "coaching", "board_hire", "surf_camp"]
+  },
+  {
+    "name": "Apollo Bay Surf and Kayak",
+    "town": "Apollo Bay",
+    "state": "VIC",
+    "website": "https://apollobaysurfkayak.com.au",
+    "source_url": "https://apollobaysurfkayak.com.au/surfing-lessons-apollo-bay-great-ocean-road/",
+    "note": "Great Ocean Road operator on Apollo Bay's main street offering coach-in-water surf lessons, seal kayak tours and surf, SUP, board and wetsuit hire.",
+    "offers": ["lessons", "coaching", "board_hire"]
+  },
+  {
+    "name": "Margaret River Surf School",
+    "town": "Prevelly",
+    "state": "WA",
+    "website": "https://margaretriversurfschool.com",
+    "source_url": "https://margaretriversurfschool.com/surf-lessons/",
+    "note": "Margaret River's official surf centre running two-hour beginner lessons designed for those new to the sport.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Margaret River Surfing Academy",
+    "town": "Margaret River",
+    "state": "WA",
+    "website": "https://www.mrsurf.com.au",
+    "source_url": "https://www.mrsurf.com.au/",
+    "note": "The region's first established surf school, led by paramedic Simon Tien, offering lessons from $50 plus hire and private coaching.",
+    "offers": ["lessons", "coaching", "board_hire"]
+  },
+  {
+    "name": "Josh Palmateer's Surf Academy",
+    "town": "Margaret River",
+    "state": "WA",
+    "website": null,
+    "source_url": "https://playsport.com/JoshPalmateersSurfAcademy_Prevelly",
+    "note": "Long-running surf academy in the Augusta-Margaret River shire teaching at Rivermouth beach where the river meets the ocean.",
+    "offers": ["lessons", "coaching", "board_hire"]
+  },
+  {
+    "name": "Yallingup Surf School",
+    "town": "Yallingup",
+    "state": "WA",
+    "website": "https://www.yallingupsurfschool.com",
+    "source_url": "https://www.yallingupsurfschool.com/pricing",
+    "note": "Surfing Australia accredited school at Yallingup Beach run by Crystal Wallace since 2008, offering group lessons, private coaching and equipment hire.",
+    "offers": ["lessons", "coaching", "board_hire"]
+  },
+  {
+    "name": "Surfing WA Surf School",
+    "town": "Trigg",
+    "state": "WA",
+    "website": "https://www.surfingwasurfschool.com.au",
+    "source_url": "https://www.surfingwasurfschool.com.au/home/",
+    "note": "Surfing WA's long-running school at Trigg Beach offering group and private lessons for all levels plus a women's course.",
+    "offers": ["lessons", "coaching", "board_hire"]
+  },
+  {
+    "name": "Go Surf Perth",
+    "town": "Scarborough",
+    "state": "WA",
+    "website": "https://www.gosurfperth.com",
+    "source_url": "https://www.gosurfperth.com/",
+    "note": "Family-owned school teaching at Scarborough and Brighton beaches in summer and Leighton Beach in winter, with group, private and school-holiday courses.",
+    "offers": ["lessons", "coaching", "board_hire"]
+  },
+  {
+    "name": "Scarborough Beach Surf School",
+    "town": "Scarborough",
+    "state": "WA",
+    "website": "https://www.surfschool.com",
+    "source_url": "https://www.surfschool.com/",
+    "note": "Family-run school operating at Scarborough Beach since 1986, offering group, private and kids' school-holiday lessons for beginners through advanced.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Midwest Surf School",
+    "town": "Geraldton",
+    "state": "WA",
+    "website": "https://surf2skool.com",
+    "source_url": "https://surf2skool.com/surf-lessons/",
+    "note": "Licensed school at Geraldton's Back Beach operating since 2005, with group and private lessons, SurfGroms and SUP instruction plus equipment hire.",
+    "offers": ["lessons", "coaching", "board_hire"]
+  },
+  {
+    "name": "Tide Riders Surf",
+    "town": "Esperance",
+    "state": "WA",
+    "website": "https://www.tideriderssurf.com.au",
+    "source_url": "https://www.tideriderssurf.com.au",
+    "note": "ASI-accredited school running lessons at Fourth Beach, Esperance, with group, private, kids' and ladies-only classes plus surf tours and hire.",
+    "offers": ["lessons", "coaching", "board_hire"]
+  },
+  {
+    "name": "South Coast Surfing Lessons",
+    "town": "Denmark",
+    "state": "WA",
+    "website": "https://southcoastsurfinglessons.com",
+    "source_url": "https://southcoastsurfinglessons.com/",
+    "note": "Run by an accredited instructor at Ocean Beach, Denmark, offering individual and group lessons, school camps and board and wetsuit hire.",
+    "offers": ["lessons", "coaching", "board_hire", "surf_camp"]
+  },
+  {
+    "name": "Mandurah Surf Lessons",
+    "town": "Mandurah",
+    "state": "WA",
+    "website": "https://www.starsurf.com.au",
+    "source_url": "https://www.starsurf.com.au/pages/mandurah-surf-lessons-msl",
+    "note": "Peel-region school teaching at Pyramids Beach, Avalon Bay and Falcon Bay, with beginner group lessons and kids' programs.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Surf & Sun",
+    "town": "Middleton",
+    "state": "SA",
+    "website": "https://www.surfandsun.com.au",
+    "source_url": "https://www.surfandsun.com.au/",
+    "note": "South Australia's leading surf school since 2001, running year-round lessons and school camps at Middleton, Moana, Goolwa, Robe and Kangaroo Island.",
+    "offers": ["lessons", "coaching", "surf_camp", "board_hire"]
+  },
+  {
+    "name": "Kombi Surf",
+    "town": "Middleton",
+    "state": "SA",
+    "website": "https://kombisurf.com.au",
+    "source_url": "https://kombisurf.com.au/",
+    "note": "Surfing lessons, kids SurfGroms, school groups and equipment hire at Middleton Beach near Adelaide.",
+    "offers": ["lessons", "coaching", "board_hire"]
+  },
+  {
+    "name": "Surf Culture Australia",
+    "town": "Moana",
+    "state": "SA",
+    "website": "https://www.surfcultureaustralia.com.au",
+    "source_url": "https://www.surfcultureaustralia.com.au/",
+    "note": "South Australia's original surf school since 1991, running lessons at Moana, Southport, Middleton and Goolwa.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Kingo Surfing",
+    "town": "Goolwa",
+    "state": "SA",
+    "website": "https://www.kingosurfing.com.au",
+    "source_url": "https://www.kingosurfing.com.au/",
+    "note": "Surf lessons across the Fleurieu Peninsula (Goolwa, Middleton, Victor Harbor, Port Elliot) plus multi-day surf camps at Goolwa and Venus Bay.",
+    "offers": ["lessons", "surf_camp", "coaching", "board_hire"]
+  },
+  {
+    "name": "Ocean Living Surf School",
+    "town": "Goolwa Beach",
+    "state": "SA",
+    "website": "https://olsurfschool.com.au",
+    "source_url": "https://visitvictorharbor.com/things-to-do/tours-and-attractions/ocean-living-surf-school/",
+    "note": "Goolwa Beach school 80 minutes south of Adelaide offering group and private lessons for kids, adults, women-only, corporate and school groups.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Neptune's Surf Coaching",
+    "town": "Corny Point",
+    "state": "SA",
+    "website": "https://www.neptunessurfcoaching.com",
+    "source_url": "https://www.neptunessurfcoaching.com/",
+    "note": "Accredited Surfing Australia school at Corny Point on Yorke Peninsula teaching group and private lessons at Berry Bay, with a kids' surf camp and hire.",
+    "offers": ["lessons", "surf_camp", "coaching", "board_hire"]
+  },
+  {
+    "name": "Charlie's Surf School",
+    "town": "Robe",
+    "state": "SA",
+    "website": "http://www.robesurfschool.com",
+    "source_url": "http://www.robesurfschool.com/",
+    "note": "Robe's local surf school (est. 2009) running small-group, large-group and one-on-one beginner-to-intermediate lessons at Long Beach on the Limestone Coast.",
+    "offers": ["lessons", "coaching"]
+  },
+  {
+    "name": "Coastrider Surf Academy",
+    "town": "Clifton Beach",
+    "state": "TAS",
+    "website": "https://www.coastrider.com.au",
+    "source_url": "https://www.coastrider.com.au/",
+    "note": "Clifton Beach-based school named an Australian Surf School of the Year, teaching beginner to intermediate surfers plus SUP with school and SurfGroms programs.",
+    "offers": ["lessons", "coaching", "board_hire"]
+  },
+  {
+    "name": "42 South Surf School",
+    "town": "Scamander",
+    "state": "TAS",
+    "website": "https://42southsurf.com.au",
+    "source_url": "https://42southsurf.com.au/",
+    "note": "Operates on Tasmania's east coast at Scamander and at Clifton Beach near Hobart, offering private lessons, SurfGroms and surfboard, SUP and wetsuit hire.",
+    "offers": ["lessons", "board_hire", "coaching"]
+  },
+  {
+    "name": "Blue Lagoon SUP & Surf",
+    "town": "Hobart",
+    "state": "TAS",
+    "website": "https://bluelagoonsupandsurf.com",
+    "source_url": "https://bluelagoonsupandsurf.com/surf-lessons/",
+    "note": "Locally owned Hobart-area school running beginner learn-to-surf lessons at family-friendly Park Beach plus stand-up paddleboard lessons.",
+    "offers": ["lessons", "coaching"]
+  }
+]

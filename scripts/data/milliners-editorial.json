@@ -1,0 +1,434 @@
+[
+  {
+    "name": "Louise Macdonald Milliner",
+    "town": "Melbourne",
+    "state": "VIC",
+    "website": "https://millinery.com.au",
+    "source_url": "https://millineryaustralia.org/milliners/",
+    "note": "Acclaimed Melbourne milliner of 30+ years making couture fashion hats and bonnets from her Nicholas Building studio, also a leading millinery teacher.",
+    "offers": ["bespoke", "workshops", "by_appointment"]
+  },
+  {
+    "name": "Richard Nylon Millinery",
+    "town": "Fitzroy",
+    "state": "VIC",
+    "website": null,
+    "source_url": "https://www.timeout.com/melbourne/shopping/richard-nylon-millinery",
+    "note": "One of Australia's most talented milliners, creating hand-manipulated sculptural couture headwear described as wearable art from his Fitzroy studio.",
+    "offers": ["bespoke", "by_appointment"]
+  },
+  {
+    "name": "Serena Lindeman Millinery",
+    "town": "Melbourne",
+    "state": "VIC",
+    "website": "https://serenalindeman.com.au",
+    "source_url": "https://serenalindeman.com.au/",
+    "note": "Melbourne milliner offering racewear and casual made-to-order headwear for men and women plus millinery workshops.",
+    "offers": ["bespoke", "workshops", "by_appointment"]
+  },
+  {
+    "name": "Kim Fletcher Millinery",
+    "town": "Elsternwick",
+    "state": "VIC",
+    "website": "https://www.kimfletcher.com.au",
+    "source_url": "https://www.kimfletcher.com.au/",
+    "note": "Internationally renowned Melbourne milliner making quirky, dramatic handmade felt and straw headwear since 1993.",
+    "offers": ["bespoke", "shopfront", "by_appointment"]
+  },
+  {
+    "name": "Peter Jago Exclusive Hats",
+    "town": "West Melbourne",
+    "state": "VIC",
+    "website": null,
+    "source_url": "https://melbournestyle.com.au/MELBSTYLEjago.html",
+    "note": "Flamboyant West Melbourne milliner renowned for exotic, exclusive couture hat creations.",
+    "offers": ["bespoke", "by_appointment"]
+  },
+  {
+    "name": "Waltraud Reiner – Hatmobile",
+    "town": "Murrumbeena",
+    "state": "VIC",
+    "website": "https://www.hatmobile.com.au",
+    "source_url": "https://millineryaustralia.org/milliner/waltraud-reiner/",
+    "note": "Millinery veteran of 30+ years running the travelling Hatmobile hat-making workshops across Victoria and beyond.",
+    "offers": ["bespoke", "workshops", "by_appointment"]
+  },
+  {
+    "name": "Wendy Scully Millinery",
+    "town": "Melbourne",
+    "state": "VIC",
+    "website": "https://wendyscully.com",
+    "source_url": "https://wendyscully.com/",
+    "note": "Bespoke race and bridal millinery created in her Collins Street CBD atelier boutique with personal design consultations.",
+    "offers": ["bespoke", "shopfront", "by_appointment"]
+  },
+  {
+    "name": "Lauren J Ritchie Millinery",
+    "town": "Melbourne",
+    "state": "VIC",
+    "website": "https://laurenjritchie.com",
+    "source_url": "https://laurenjritchie.com/",
+    "note": "Bespoke hats for race days, weddings and everyday wear made in her studio in the Manchester Unity Building.",
+    "offers": ["bespoke", "by_appointment"]
+  },
+  {
+    "name": "Felicity Northeast Millinery",
+    "town": "Mount Eliza",
+    "state": "VIC",
+    "website": "https://felicitynortheast.com",
+    "source_url": "https://felicitynortheast.com/",
+    "note": "Award-winning couture race hats and fashion headwear handcrafted with traditional techniques, by appointment at Fitzroy and Mornington Peninsula studios.",
+    "offers": ["bespoke", "by_appointment"]
+  },
+  {
+    "name": "Rachel Henry Millinery",
+    "town": "Seaholme",
+    "state": "VIC",
+    "website": "https://www.rachelhenrymillinery.com",
+    "source_url": "https://www.rachelhenrymillinery.com/",
+    "note": "Melbourne milliner producing ready-to-wear to couture ladies headwear for racing, weddings and formal occasions; MAA Design Award winner.",
+    "offers": ["bespoke", "by_appointment"]
+  },
+  {
+    "name": "Rebecca Share Millinery",
+    "town": "Geelong",
+    "state": "VIC",
+    "website": "https://www.rebeccashare.com.au",
+    "source_url": "https://www.rebeccashare.com.au/",
+    "note": "Designer hats and headwear from a Melbourne/Geelong milliner for races and special occasions.",
+    "offers": ["bespoke", "by_appointment"]
+  },
+  {
+    "name": "Michelle Pagonis Millinery",
+    "town": "Melbourne",
+    "state": "VIC",
+    "website": "https://michellepagonis.com.au",
+    "source_url": "https://michellepagonis.com.au/",
+    "note": "Handmade bridal headpieces and race-day millinery meticulously handcrafted in Melbourne.",
+    "offers": ["bespoke", "by_appointment"]
+  },
+  {
+    "name": "Millinery by Karin",
+    "town": "Windsor",
+    "state": "VIC",
+    "website": "https://millinerybykarin.com",
+    "source_url": "https://millinerybykarin.com/",
+    "note": "Melbourne-based couture milliner Karin Goodman making handmade women's hats and headpieces for races, weddings and events.",
+    "offers": ["bespoke", "by_appointment"]
+  },
+  {
+    "name": "Tooali Millinery",
+    "town": "Wheelers Hill",
+    "state": "VIC",
+    "website": "https://www.tooalimillinery.com",
+    "source_url": "https://www.tooalimillinery.com/",
+    "note": "Melbourne milliner Tracey Tau creating handmade designer hats and headwear.",
+    "offers": ["bespoke", "by_appointment"]
+  },
+  {
+    "name": "Feather & Drum Custom Hat Co",
+    "town": "Yackandandah",
+    "state": "VIC",
+    "website": "https://www.featheranddrum.com",
+    "source_url": "https://www.featheranddrum.com/",
+    "note": "Traditional hatmaker Cat Leahy hand-blocks felt hat bodies on vintage wooden blocks and hand-stitches them in her High Country shop.",
+    "offers": ["bespoke", "shopfront", "by_appointment"]
+  },
+  {
+    "name": "Carlisle Hats",
+    "town": "Melbourne",
+    "state": "VIC",
+    "website": "https://carlislehats.com.au",
+    "source_url": "https://carlislehats.com.au/",
+    "note": "Traditional felt and straw hats hand-made in Melbourne with custom bespoke fitting services.",
+    "offers": ["bespoke", "shopfront"]
+  },
+  {
+    "name": "City Hatters",
+    "town": "Melbourne",
+    "state": "VIC",
+    "website": "https://cityhatters.com.au",
+    "source_url": "https://cityhatters.com.au/",
+    "note": "Historic hat shop trading under the clocks at Flinders Street Station since 1910, specialising in Akubra and quality men's and women's hats with fitting.",
+    "offers": ["shopfront"]
+  },
+  {
+    "name": "Neil Grigg Millinery",
+    "town": "Paddington",
+    "state": "NSW",
+    "website": "https://www.neilgriggmillinery.com",
+    "source_url": "https://www.neilgriggmillinery.com/",
+    "note": "Sydney master milliner hand-crafting couture hats, fascinators and headpieces for races, weddings and celebrity clients from his Paddington studio.",
+    "offers": ["bespoke", "by_appointment"]
+  },
+  {
+    "name": "Abigail Fergusson Millinery – The Milliner's Closet",
+    "town": "Sydney",
+    "state": "NSW",
+    "website": "https://abigailfergusson.com",
+    "source_url": "https://abigailfergusson.com/",
+    "note": "Sydney milliner making bespoke racewear, bridal and occasion headwear from a studio paired with a curated fashion boutique.",
+    "offers": ["bespoke", "shopfront", "by_appointment"]
+  },
+  {
+    "name": "Kathryn Lee Millinery",
+    "town": "Sydney",
+    "state": "NSW",
+    "website": "https://kathrynleemillinery.com",
+    "source_url": "https://kathrynleemillinery.com/",
+    "note": "Sydney milliner and hatmaker specialising in custom, bespoke and couture hats, headbands and bridal headwear.",
+    "offers": ["bespoke", "by_appointment"]
+  },
+  {
+    "name": "Rosie Boylan",
+    "town": "Newtown",
+    "state": "NSW",
+    "website": "https://rosieboylan.com",
+    "source_url": "https://rosieboylan.com/",
+    "note": "Newtown milliner offering bespoke commissions and ready-to-wear hats with expert styling and fitting; noted film and theatre hatmaker.",
+    "offers": ["bespoke", "shopfront", "by_appointment"]
+  },
+  {
+    "name": "Embellish Atelier",
+    "town": "Rozelle",
+    "state": "NSW",
+    "website": "https://www.embellish-hats.com",
+    "source_url": "https://www.embellish-hats.com/",
+    "note": "Designer millinery by Catherine Kelly making bespoke hats and headpieces and running hat-making workshops in Rozelle, Sydney.",
+    "offers": ["bespoke", "workshops", "by_appointment"]
+  },
+  {
+    "name": "Bronwyn Shooks Millinery",
+    "town": "Sydney",
+    "state": "NSW",
+    "website": "https://www.instagram.com/themillinerydept/",
+    "source_url": "https://millineryaustralia.org/milliner/bronwyn-shooks-millinery/",
+    "note": "Sydney theatrical milliner making custom headwear for stage and screen productions including Harry Potter and Phantom of the Opera.",
+    "offers": ["bespoke", "by_appointment"]
+  },
+  {
+    "name": "The Sydney Millinery Co",
+    "town": "Sydney",
+    "state": "NSW",
+    "website": null,
+    "source_url": "https://millineryaustralia.org/milliners/",
+    "note": "Sydney milliner Carole Maher making custom hats and headwear.",
+    "offers": ["bespoke", "by_appointment"]
+  },
+  {
+    "name": "Strand Hatters",
+    "town": "Sydney",
+    "state": "NSW",
+    "website": "https://www.strandhatters.com.au",
+    "source_url": "https://www.facebook.com/strandhatters/",
+    "note": "Long-established Sydney hat shop in the Strand Arcade specialising in Akubra, Panamas and quality hats with expert fitting.",
+    "offers": ["shopfront"]
+  },
+  {
+    "name": "Akubra",
+    "town": "Kempsey",
+    "state": "NSW",
+    "website": "https://akubra.com.au",
+    "source_url": "https://akubra.com.au/",
+    "note": "Iconic Australian felt-hat maker crafting traditional fur-felt bush hats in Kempsey by master hatters since 1876.",
+    "offers": ["shopfront"]
+  },
+  {
+    "name": "Angela Sullivan – Millinery By Ange",
+    "town": "Brisbane",
+    "state": "QLD",
+    "website": null,
+    "source_url": "https://millineryaustralia.org/milliners/",
+    "note": "Brisbane milliner making custom hats and headpieces for races and special occasions.",
+    "offers": ["bespoke", "by_appointment"]
+  },
+  {
+    "name": "Meg Rafter Millinery",
+    "town": "Brisbane",
+    "state": "QLD",
+    "website": "https://megraftermillinery.com.au",
+    "source_url": "https://megraftermillinery.com.au/",
+    "note": "Brisbane milliner making bespoke hats and luxury headwear worn throughout the racing community.",
+    "offers": ["bespoke", "by_appointment"]
+  },
+  {
+    "name": "Dezignz by Maree",
+    "town": "Newport",
+    "state": "QLD",
+    "website": "https://dezignzbymaree.com.au",
+    "source_url": "https://dezignzbymaree.com.au/",
+    "note": "Bespoke millinery handmade in Brisbane, by appointment at a boutique studio in Newport, North Brisbane.",
+    "offers": ["bespoke", "by_appointment"]
+  },
+  {
+    "name": "Meerkat Millinery",
+    "town": "Ashgrove",
+    "state": "QLD",
+    "website": "https://meerkatmillinery.com.au",
+    "source_url": "https://meerkatmillinery.com.au/",
+    "note": "Brisbane bespoke millinery with a shopfront studio in Ashgrove open set hours and by appointment.",
+    "offers": ["bespoke", "shopfront", "by_appointment"]
+  },
+  {
+    "name": "Sandy Aslett Milliner",
+    "town": "Sunshine Coast",
+    "state": "QLD",
+    "website": "https://www.sandyaslettmilliner.com.au",
+    "source_url": "https://www.sandyaslettmilliner.com.au/",
+    "note": "Custom-made bespoke hats and fascinators handcrafted in her Sunshine Coast studio.",
+    "offers": ["bespoke", "by_appointment"]
+  },
+  {
+    "name": "Ugo Kennedy Hats",
+    "town": "Townsville",
+    "state": "QLD",
+    "website": "https://ugokennedy.com",
+    "source_url": "https://ugokennedy.com/",
+    "note": "North Queensland custom hatmaker hand-making one-of-a-kind felt and leather hats in his Townsville studio and shop.",
+    "offers": ["bespoke", "shopfront", "by_appointment"]
+  },
+  {
+    "name": "Studio Hats (Lorraine Gill Creations)",
+    "town": "Highbury",
+    "state": "SA",
+    "website": null,
+    "source_url": "https://millineryaustralia.org/milliner/lorraine-gill-creations/",
+    "note": "Adelaide milliner Lorraine Gill creates one-off millinery from her Highbury studio, from cloches to Melbourne Cup confections.",
+    "offers": ["bespoke", "by_appointment"]
+  },
+  {
+    "name": "Julie Fleming Milliner",
+    "town": "Seppeltsfield",
+    "state": "SA",
+    "website": "https://www.jfmilliner.com",
+    "source_url": "https://www.jfmilliner.com/about",
+    "note": "English-trained milliner working from an 1851 stables studio within the JamFactory artisan studios at Seppeltsfield Winery.",
+    "offers": ["bespoke", "workshops", "by_appointment"]
+  },
+  {
+    "name": "Bonnetry Hats",
+    "town": "Mile End",
+    "state": "SA",
+    "website": null,
+    "source_url": "https://millineryaustralia.org/milliners/",
+    "note": "Adelaide milliner Jo Honan making bespoke hats and headwear from Mile End.",
+    "offers": ["bespoke", "by_appointment"]
+  },
+  {
+    "name": "Julie Anne Lucas Millinery",
+    "town": "Perth",
+    "state": "WA",
+    "website": "https://julieannelucas.com.au",
+    "source_url": "https://julieannelucas.com.au/",
+    "note": "Perth milliner creating designer ladies racing hats and bridal headpieces with a bespoke service.",
+    "offers": ["bespoke", "by_appointment"]
+  },
+  {
+    "name": "Hat Ensemble (Sue Cummuskey)",
+    "town": "Perth",
+    "state": "WA",
+    "website": null,
+    "source_url": "https://millineryaustralia.org/milliner/sue-cummuskey/",
+    "note": "Perth milliner hand-making individually designed hats and headpieces from ethically sourced materials.",
+    "offers": ["bespoke", "by_appointment"]
+  },
+  {
+    "name": "Reny Kestel Millinery",
+    "town": "Perth",
+    "state": "WA",
+    "website": "https://www.facebook.com/RenyKestelMillinery/",
+    "source_url": "https://www.facebook.com/RenyKestelMillinery/",
+    "note": "Perth milliner creating luxurious designer hats, headpieces and bridal millinery.",
+    "offers": ["bespoke", "by_appointment"]
+  },
+  {
+    "name": "Stephanie Munro Millinery",
+    "town": "Mandurah",
+    "state": "WA",
+    "website": "https://stephaniemunromillinery.com",
+    "source_url": "https://stephaniemunromillinery.com/",
+    "note": "Mandurah milliner specialising in hats, headbands, crowns and fascinators with bespoke pieces for weddings and race season.",
+    "offers": ["bespoke", "by_appointment"]
+  },
+  {
+    "name": "Grizzly Hatters",
+    "town": "Hobart",
+    "state": "TAS",
+    "website": "https://grizzlyhatters.com",
+    "source_url": "https://grizzlyhatters.com/",
+    "note": "Family-run Hobart hatmaker hand-crafting fedoras, tweed caps and Australian leather bush hats in Tasmania since 1995.",
+    "offers": ["bespoke", "shopfront"]
+  },
+  {
+    "name": "Miss Haidee Millinery",
+    "town": "Battery Point",
+    "state": "TAS",
+    "website": "https://www.misshaidee.com",
+    "source_url": "https://www.misshaidee.com/",
+    "note": "Hobart's hat shop with a working studio, home to 300+ hats and headpieces; owner trained at the British School of Millinery in London.",
+    "offers": ["bespoke", "shopfront", "by_appointment"]
+  },
+  {
+    "name": "Cessiah Alice Millinery",
+    "town": "Hobart",
+    "state": "TAS",
+    "website": "https://www.facebook.com/cessiahalicemillinery/",
+    "source_url": "https://millineryaustralia.org/milliners/",
+    "note": "Hobart milliner making designer hats and headpieces.",
+    "offers": ["bespoke", "by_appointment"]
+  },
+  {
+    "name": "Mason Hats",
+    "town": "Hobart",
+    "state": "TAS",
+    "website": "https://www.masonhats.com.au",
+    "source_url": "https://www.masonhats.com.au/",
+    "note": "Tasmanian label creating 100% Australian merino wool hats, straw hats, Panamas and bucket hats for women, men and kids.",
+    "offers": ["shopfront"]
+  },
+  {
+    "name": "Christine Waring Designer Millinery",
+    "town": "Ainslie",
+    "state": "ACT",
+    "website": null,
+    "source_url": "https://millineryaustralia.org/milliner/christine-waring/",
+    "note": "Long-standing Canberra milliner hand-crafting and hand-stitching unique race-day and occasion hats from her Ainslie studio.",
+    "offers": ["bespoke", "by_appointment"]
+  },
+  {
+    "name": "Rachael Henson Millinery",
+    "town": "Canberra",
+    "state": "ACT",
+    "website": "http://www.rachaelhensonmillinery.com.au",
+    "source_url": "http://www.rachaelhensonmillinery.com.au/",
+    "note": "Canberra milliner making made-to-measure millinery for races, weddings and brides since 1998.",
+    "offers": ["bespoke", "by_appointment"]
+  },
+  {
+    "name": "Cynthia Jones-Bryson Millinery",
+    "town": "Jerrabomberra",
+    "state": "ACT",
+    "website": null,
+    "source_url": "https://millineryaustralia.org/milliners/",
+    "note": "ACT-region milliner making custom hats and headwear for races and occasions.",
+    "offers": ["bespoke", "by_appointment"]
+  },
+  {
+    "name": "Peacock Millinery",
+    "town": "Darwin",
+    "state": "NT",
+    "website": "https://peacockmillinery.com.au",
+    "source_url": "https://peacockmillinery.com.au/",
+    "note": "Darwin milliner Belinda Osborne making bespoke race-day, wedding and couture headwear known for structural, contemporary designs.",
+    "offers": ["bespoke", "by_appointment"]
+  },
+  {
+    "name": "Helen Rose Millinery",
+    "town": "Darwin",
+    "state": "NT",
+    "website": null,
+    "source_url": "https://millineryaustralia.org/milliners/",
+    "note": "Darwin milliner Helen Wilkinson making custom hats and headpieces.",
+    "offers": ["bespoke", "by_appointment"]
+  }
+]

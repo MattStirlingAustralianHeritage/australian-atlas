@@ -1,0 +1,542 @@
+[
+  {
+    "name": "Miners Heritage Walk-In Mine",
+    "town": "Rubyvale",
+    "state": "QLD",
+    "website": "https://www.minersheritage.com.au",
+    "source_url": "https://www.queensland.com/au/en/things-to-do/attractions/p-56b25d4c2880253d74c449eb-miners-heritage-walkin-mine",
+    "note": "The world's largest underground walk-in sapphire tourist mine, offering guided tunnel tours and buckets of 'wash' to fossick for your own sapphires.",
+    "offers": ["pay_to_dig", "tours"]
+  },
+  {
+    "name": "Bobby Dazzler Sapphire Mine Tours",
+    "town": "Rubyvale",
+    "state": "QLD",
+    "website": null,
+    "source_url": "https://www.tripadvisor.com.au/Attraction_Review-g642251-d4942517-Reviews-Bobby_Dazzler_Sapphire_Mine_Tours-Rubyvale_Queensland.html",
+    "note": "Underground sapphire mine tours (marked by Rubyvale's Big Miner statue) plus fossicking wash for hunting your own gems.",
+    "offers": ["pay_to_dig", "tours"]
+  },
+  {
+    "name": "Pat's Gems Fossicking Park",
+    "town": "Sapphire",
+    "state": "QLD",
+    "website": null,
+    "source_url": "https://www.queensland.com/au/en/plan-your-holiday/road-trips/gemfields-fossicking-road-trip",
+    "note": "A long-running gemfields fossicking park where visitors buy a bag of wash and sieve for sapphires and zircons with staff guidance.",
+    "offers": ["pay_to_dig"]
+  },
+  {
+    "name": "Sapphire Caravan & Cabin Park Fossicking",
+    "town": "Sapphire",
+    "state": "QLD",
+    "website": null,
+    "source_url": "https://www.queensland.com/au/en/plan-your-holiday/road-trips/gemfields-fossicking-road-trip",
+    "note": "A caravan park in the Sapphire gemfields selling a $10 bag of wash so first-timers can find their own sapphire.",
+    "offers": ["pay_to_dig"]
+  },
+  {
+    "name": "Rubyvale/Sapphire Designated Fossicking Land",
+    "town": "Rubyvale",
+    "state": "QLD",
+    "website": "https://www.qld.gov.au/recreation/activities/areas-facilities/fossicking/fossicking-areas-in-queensland/central-qld/rubyvale-saphire",
+    "source_url": "https://www.qld.gov.au/recreation/activities/areas-facilities/fossicking/fossicking-areas-in-queensland/central-qld/rubyvale-saphire",
+    "note": "Government-designated fossicking land (Sapphire, Scrub Lead, Divide, Rubyvale and Reward) where licence-holders can dig for world-class sapphires, rubies and zircon.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "The Willows Gemfields Fossicking Park",
+    "town": "The Willows",
+    "state": "QLD",
+    "website": "https://www.qld.gov.au/recreation/activities/areas-facilities/fossicking/fossicking-areas-in-queensland/central-qld",
+    "source_url": "https://www.queensland.com/au/en/places-to-see/destination-information/p-56b25e722cbcbe7073ad7f4a-willows-gemfields",
+    "note": "A popular gemfields township (with fossicking park and designated land) known for yellow and green sapphires, including the famous 332-carat 'Golden Willow'.",
+    "offers": ["pay_to_dig", "designated_area"]
+  },
+  {
+    "name": "Tomahawk Creek Fossicking Area",
+    "town": "Anakie",
+    "state": "QLD",
+    "website": "https://www.qld.gov.au/recreation/activities/areas-facilities/fossicking/fossicking-areas-in-queensland/central-qld",
+    "source_url": "https://www.qld.gov.au/recreation/activities/areas-facilities/fossicking/fossicking-areas-in-queensland/central-qld",
+    "note": "A government fossicking area in the Central Queensland gemfields where licence-holders dig for sapphire and zircon.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Glenalva Fossicking Area",
+    "town": "Anakie",
+    "state": "QLD",
+    "website": "https://www.qld.gov.au/recreation/activities/areas-facilities/fossicking/fossicking-areas-in-queensland/central-qld",
+    "source_url": "https://www.qld.gov.au/recreation/activities/areas-facilities/fossicking/fossicking-areas-in-queensland/central-qld",
+    "note": "A designated fossicking area in the Central Queensland gemfields for recreational sapphire and zircon digging.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Middle Ridge Fossicking Area",
+    "town": "The Willows",
+    "state": "QLD",
+    "website": "https://www.qld.gov.au/recreation/activities/areas-facilities/fossicking/fossicking-areas-in-queensland/central-qld",
+    "source_url": "https://www.qld.gov.au/recreation/activities/areas-facilities/fossicking/fossicking-areas-in-queensland/central-qld",
+    "note": "A designated fossicking area in the Willows section of the gemfields for sapphire and zircon.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Big Bessie Fossicking Area",
+    "town": "The Willows",
+    "state": "QLD",
+    "website": "https://www.qld.gov.au/recreation/activities/areas-facilities/fossicking/fossicking-areas-in-queensland/central-qld",
+    "source_url": "https://www.qld.gov.au/recreation/activities/areas-facilities/fossicking/fossicking-areas-in-queensland/central-qld",
+    "note": "A government-designated fossicking area in the Central Queensland gemfields for sapphire and zircon.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Graves Hill Fossicking Area",
+    "town": "The Willows",
+    "state": "QLD",
+    "website": "https://www.qld.gov.au/recreation/activities/areas-facilities/fossicking/fossicking-areas-in-queensland/central-qld",
+    "source_url": "https://www.qld.gov.au/recreation/activities/areas-facilities/fossicking/fossicking-areas-in-queensland/central-qld",
+    "note": "A designated fossicking area in the gemfields where licence-holders can dig for sapphires and zircon.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Thunderbird Park Thunderegg Mine",
+    "town": "Tamborine Mountain",
+    "state": "QLD",
+    "website": "https://www.thunderbirdpark.com/thunderegg-fossicking/",
+    "source_url": "https://www.thunderbirdpark.com/thunderegg-fossicking/",
+    "note": "The world's largest thunderegg mine, where visitors dig 200-million-year-old volcanic thundereggs filled with jasper, quartz and agate.",
+    "offers": ["pay_to_dig", "tours"]
+  },
+  {
+    "name": "Swipers Gully Topaz Locality",
+    "town": "Stanthorpe",
+    "state": "QLD",
+    "website": "https://www.qld.gov.au/recreation/activities/areas-facilities/fossicking/fossicking-areas-in-queensland/south-east",
+    "source_url": "https://www.qld.gov.au/recreation/activities/areas-facilities/fossicking/fossicking-areas-in-queensland/south-east",
+    "note": "A government fossicking locality near Stanthorpe where licence-holders search for topaz.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Thanes Creek Fossicking Area",
+    "town": "Warwick",
+    "state": "QLD",
+    "website": "https://www.qld.gov.au/recreation/activities/areas-facilities/fossicking/fossicking-areas-in-queensland/south-east",
+    "source_url": "https://www.qld.gov.au/recreation/activities/areas-facilities/fossicking/fossicking-areas-in-queensland/south-east",
+    "note": "A designated fossicking area near Warwick where visitors can pan for gold.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Deep Creek Fossicking Area",
+    "town": "Warwick",
+    "state": "QLD",
+    "website": "https://www.qld.gov.au/recreation/activities/areas-facilities/fossicking/fossicking-areas-in-queensland/south-east",
+    "source_url": "https://www.qld.gov.au/recreation/activities/areas-facilities/fossicking/fossicking-areas-in-queensland/south-east",
+    "note": "A government fossicking area near Warwick set aside for recreational gold panning.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Talgai State Forest Fossicking Area",
+    "town": "Warwick",
+    "state": "QLD",
+    "website": "https://www.qld.gov.au/recreation/activities/areas-facilities/fossicking/fossicking-areas-in-queensland/south-east",
+    "source_url": "https://www.qld.gov.au/recreation/activities/areas-facilities/fossicking/fossicking-areas-in-queensland/south-east",
+    "note": "A designated fossicking area in state forest near Warwick where visitors search for gold.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Durikai State Forest Fossicking Area",
+    "town": "Gympie",
+    "state": "QLD",
+    "website": "https://www.qld.gov.au/recreation/activities/areas-facilities/fossicking/fossicking-areas-in-queensland/south-east",
+    "source_url": "https://www.qld.gov.au/recreation/activities/areas-facilities/fossicking/fossicking-areas-in-queensland/south-east",
+    "note": "A government fossicking area in state forest where licence-holders can pan for gold.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Chinchilla Petrified Wood Localities",
+    "town": "Chinchilla",
+    "state": "QLD",
+    "website": "https://www.qld.gov.au/recreation/activities/areas-facilities/fossicking/fossicking-areas-in-queensland/south-east",
+    "source_url": "https://www.qld.gov.au/recreation/activities/areas-facilities/fossicking/fossicking-areas-in-queensland/south-east",
+    "note": "Designated fossicking localities near Chinchilla where visitors collect colourful petrified (fossilised) wood.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Lightning Ridge Public Fossicking (Noodling) Heaps",
+    "town": "Lightning Ridge",
+    "state": "NSW",
+    "website": "https://www.explorelightningridge.com.au/Discover/Black-Opal-Country/Fossicking-Noodling-sites",
+    "source_url": "https://www.explorelightningridge.com.au/Discover/Black-Opal-Country/Fossicking-Noodling-sites",
+    "note": "Free public noodling heaps in Australia's black-opal capital where visitors sift mullock piles by hand for opal.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Grawin Opal Fields Fossicking Tours",
+    "town": "Grawin",
+    "state": "NSW",
+    "website": "https://www.explorelightningridge.com.au/Discover/Black-Opal-Country/Fossicking-Noodling-sites",
+    "source_url": "https://www.explorelightningridge.com.au/Discover/Black-Opal-Country/Fossicking-Noodling-sites",
+    "note": "Public opal dump sites and guided full-day tours to the Grawin, Sheepyard and Glengarry opal fields with fossicking on working mine dumps.",
+    "offers": ["tours", "designated_area"]
+  },
+  {
+    "name": "White Cliffs Opal Fields",
+    "town": "White Cliffs",
+    "state": "NSW",
+    "website": null,
+    "source_url": "https://www.opalsdownunder.com.au/learn/opal-mining-safety-on-the-opal-fields/",
+    "note": "A historic outback opal field where visitors can fossick or 'spec' for opal on the surface with landowner permission.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Fossicking in Oberon (Designated Areas)",
+    "town": "Oberon",
+    "state": "NSW",
+    "website": "https://www.nsw.gov.au/visiting-and-exploring-nsw/locations-and-attractions/fossicking-oberon",
+    "source_url": "https://www.nsw.gov.au/visiting-and-exploring-nsw/locations-and-attractions/fossicking-oberon",
+    "note": "Public designated fossicking areas around Oberon where visitors dig for sapphires and zircons.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Nundle Fossicking (Peel River & Reserves)",
+    "town": "Nundle",
+    "state": "NSW",
+    "website": "https://www.nsw.gov.au/visiting-and-exploring-nsw/locations-and-attractions/nundle-fossicking",
+    "source_url": "https://www.nsw.gov.au/visiting-and-exploring-nsw/locations-and-attractions/nundle-fossicking",
+    "note": "Historic goldfield with public sites at Swamp Creek Reserve, Hanging Rock and the Peel River for panning gold and sapphires.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Staggy Creek Fossicking Area",
+    "town": "Inverell",
+    "state": "NSW",
+    "website": null,
+    "source_url": "https://rvdaily.com.au/digging-inverell-where-to-fossick-stay-and-play/",
+    "note": "A designated fossicking area 28km from Inverell where visitors search for diamonds, topaz, black tourmaline and quartz.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Bullock Mountain Homestead Fossicking",
+    "town": "Glen Innes",
+    "state": "NSW",
+    "website": null,
+    "source_url": "https://gleninneshighlands.com/fossicking.html",
+    "note": "A homestead 'pay to dig' venue on Reddestone Creek where guests fossick for sapphire and zircon in the Glen Innes highlands.",
+    "offers": ["pay_to_dig"]
+  },
+  {
+    "name": "Yarrow Creek Bridge Fossicking Site",
+    "town": "Glen Innes",
+    "state": "NSW",
+    "website": "https://gleninneshighlands.com/fossicking.html",
+    "source_url": "https://gleninneshighlands.com/fossicking.html",
+    "note": "A public roadside fossicking site in the Glen Innes highlands, part of the region famous for royal-blue sapphires.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Wellingrove Bridge Fossicking Site",
+    "town": "Glen Innes",
+    "state": "NSW",
+    "website": "https://gleninneshighlands.com/fossicking.html",
+    "source_url": "https://gleninneshighlands.com/fossicking.html",
+    "note": "A public fossicking site in the Glen Innes highlands where visitors sieve creek gravels for sapphire.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Torrington State Conservation Area Fossicking",
+    "town": "Torrington",
+    "state": "NSW",
+    "website": null,
+    "source_url": "https://gleninneshighlands.com/fossicking.html",
+    "note": "A conservation area (permit required) with sites like Blatherarm Creek where visitors fossick for topaz, quartz and beryl.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Emmaville & Vegetable Creek Fossicking",
+    "town": "Emmaville",
+    "state": "NSW",
+    "website": null,
+    "source_url": "https://www.aussietowns.com.au/town/emmaville-nsw",
+    "note": "Historic 'Vegetable Creek' mineral field near the Emmaville Mining Museum where visitors fossick for sapphire, topaz, garnet and beryl.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Three Creeks Gold Mine",
+    "town": "Bingara",
+    "state": "NSW",
+    "website": null,
+    "source_url": "https://www.visitnsw.com/destinations/country-nsw/glen-innes-and-inverell-area/bingara/attractions/three-creeks-gold-mine",
+    "note": "A pay-to-dig gold mine near Bingara offering fossicking and camping with equipment hire on site.",
+    "offers": ["pay_to_dig", "tours"]
+  },
+  {
+    "name": "Hill End Historic Goldfield",
+    "town": "Hill End",
+    "state": "NSW",
+    "website": null,
+    "source_url": "https://www.australiangeographic.com.au/science-environment/2021/08/places-to-fossick-for-gemstones-in-australia/",
+    "note": "A historically rich goldfield township where visitors can still pan and fossick for gold.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Coober Pedy Opal Noodling",
+    "town": "Coober Pedy",
+    "state": "SA",
+    "website": "https://www.cooberpedy.com/noodling-mining/",
+    "source_url": "https://www.cooberpedy.com/noodling-mining/",
+    "note": "The opal capital of the world, where visitors can noodle by hand through mullock heaps for opal (no permit needed for hand noodling).",
+    "offers": ["designated_area", "tours"]
+  },
+  {
+    "name": "Andamooka Opal Fields",
+    "town": "Andamooka",
+    "state": "SA",
+    "website": "https://www.andamooka.sa.au/",
+    "source_url": "https://www.andamooka.sa.au/",
+    "note": "A famous outback opal field where visitors can fossick on spoil heaps and join local tours to the diggings.",
+    "offers": ["designated_area", "tours"]
+  },
+  {
+    "name": "Jupiter Creek Diggings",
+    "town": "Echunga",
+    "state": "SA",
+    "website": "https://www.environment.sa.gov.au/goodliving/posts/2024/09/a-guide-to-fossicking-in-south-australia",
+    "source_url": "https://www.environment.sa.gov.au/goodliving/posts/2024/09/a-guide-to-fossicking-in-south-australia",
+    "note": "A popular public gold-fossicking site in the Adelaide Hills where visitors pan and dig in the old Echunga goldfield (no permit required).",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Watts Gully Diggings, Mount Crawford Forest",
+    "town": "Williamstown",
+    "state": "SA",
+    "website": "https://www.forestrysa.com.au/visit-our-forests/mount-crawford-forest/fossicking/",
+    "source_url": "https://www.forestrysa.com.au/visit-our-forests/mount-crawford-forest/fossicking/",
+    "note": "A ForestrySA-designated fossicking area (permit purchased online) where visitors pan and dig for gold.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Gumeracha Goldfields, Mount Crawford Forest",
+    "town": "Gumeracha",
+    "state": "SA",
+    "website": "https://www.forestrysa.com.au/visit-our-forests/mount-crawford-forest/fossicking/",
+    "source_url": "https://www.forestrysa.com.au/visit-our-forests/mount-crawford-forest/fossicking/",
+    "note": "A designated forest fossicking area near Gumeracha (ForestrySA permit required) for recreational gold panning.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Cowell Jade Province",
+    "town": "Cowell",
+    "state": "SA",
+    "website": null,
+    "source_url": "https://energymining.sa.gov.au/industry/minerals-and-mining/exploration/fossicking",
+    "note": "A ~10 sq km area on the Eyre Peninsula holding Australia's largest nephrite jade deposit, associated with the Cowell jade industry.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Beechworth Historic Park Prospecting Area",
+    "town": "Beechworth",
+    "state": "VIC",
+    "website": "https://www.parks.vic.gov.au/things-to-do/fossicking-prospecting",
+    "source_url": "https://www.parks.vic.gov.au/things-to-do/fossicking-prospecting",
+    "note": "A Parks Victoria historic park with designated prospecting areas where miner's-right holders pan and detect for gold.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Castlemaine Diggings National Heritage Park",
+    "town": "Castlemaine",
+    "state": "VIC",
+    "website": "https://www.parks.vic.gov.au/things-to-do/fossicking-prospecting",
+    "source_url": "https://www.parks.vic.gov.au/things-to-do/fossicking-prospecting",
+    "note": "A national heritage park of goldrush diggings with designated areas where visitors pan and detect for gold.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Chiltern-Mt Pilot National Park Prospecting Area",
+    "town": "Chiltern",
+    "state": "VIC",
+    "website": "https://www.parks.vic.gov.au/things-to-do/fossicking-prospecting",
+    "source_url": "https://www.parks.vic.gov.au/things-to-do/fossicking-prospecting",
+    "note": "A national park near Beechworth with designated prospecting areas for gold panning and detecting.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Greater Bendigo National Park Prospecting Area",
+    "town": "Bendigo",
+    "state": "VIC",
+    "website": "https://www.parks.vic.gov.au/things-to-do/fossicking-prospecting",
+    "source_url": "https://www.parks.vic.gov.au/things-to-do/fossicking-prospecting",
+    "note": "A national park on the rich Bendigo goldfield with designated areas where visitors pan and detect for fine gold.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Enfield State Park Prospecting Area",
+    "town": "Enfield",
+    "state": "VIC",
+    "website": "https://www.parks.vic.gov.au/things-to-do/fossicking-prospecting",
+    "source_url": "https://www.parks.vic.gov.au/things-to-do/fossicking-prospecting",
+    "note": "A state park near Ballarat with designated prospecting areas for recreational gold fossicking.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Heathcote-Graytown National Park Prospecting Area",
+    "town": "Heathcote",
+    "state": "VIC",
+    "website": "https://www.parks.vic.gov.au/things-to-do/fossicking-prospecting",
+    "source_url": "https://www.parks.vic.gov.au/things-to-do/fossicking-prospecting",
+    "note": "A national park with designated areas where miner's-right holders prospect for gold.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Kara Kara National Park Prospecting Area",
+    "town": "St Arnaud",
+    "state": "VIC",
+    "website": "https://www.parks.vic.gov.au/things-to-do/fossicking-prospecting",
+    "source_url": "https://www.parks.vic.gov.au/things-to-do/fossicking-prospecting",
+    "note": "A national park with designated prospecting areas for gold panning and metal detecting.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Kooyoora State Park Prospecting Area",
+    "town": "Inglewood",
+    "state": "VIC",
+    "website": "https://www.parks.vic.gov.au/things-to-do/fossicking-prospecting",
+    "source_url": "https://www.parks.vic.gov.au/things-to-do/fossicking-prospecting",
+    "note": "A granite state park in the golden triangle with designated areas where visitors detect and pan for gold.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Paddys Ranges State Park Prospecting Area",
+    "town": "Maryborough",
+    "state": "VIC",
+    "website": "https://www.parks.vic.gov.au/things-to-do/fossicking-prospecting",
+    "source_url": "https://www.parks.vic.gov.au/things-to-do/fossicking-prospecting",
+    "note": "A state park near Maryborough with designated prospecting areas for recreational gold fossicking.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Steiglitz Historic Park Prospecting Area",
+    "town": "Steiglitz",
+    "state": "VIC",
+    "website": "https://www.parks.vic.gov.au/things-to-do/fossicking-prospecting",
+    "source_url": "https://www.parks.vic.gov.au/things-to-do/fossicking-prospecting",
+    "note": "A former goldrush township park with designated areas where visitors pan and detect for gold.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Warrandyte State Park Prospecting Area",
+    "town": "Warrandyte",
+    "state": "VIC",
+    "website": "https://www.parks.vic.gov.au/things-to-do/fossicking-prospecting",
+    "source_url": "https://www.parks.vic.gov.au/things-to-do/fossicking-prospecting",
+    "note": "A state park on the Yarra where Victoria's first gold was found, with designated areas for panning and prospecting.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Reef Hills State Park Prospecting Area",
+    "town": "Benalla",
+    "state": "VIC",
+    "website": "https://www.parks.vic.gov.au/things-to-do/fossicking-prospecting",
+    "source_url": "https://www.parks.vic.gov.au/things-to-do/fossicking-prospecting",
+    "note": "A state park near Benalla with designated prospecting areas for recreational gold fossicking.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Mud Tank Zircon Field",
+    "town": "Harts Range",
+    "state": "NT",
+    "website": "https://fossicking.nt.gov.au/declared-fossicking-areas/mud-tank-zircon-field",
+    "source_url": "https://fossicking.nt.gov.au/declared-fossicking-areas/mud-tank-zircon-field",
+    "note": "A declared public fossicking area off the Plenty Highway where visitors dig for colourful zircon crystals, with bush camping permitted.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Gemtree Caravan & Fossicking Park",
+    "town": "Gemtree",
+    "state": "NT",
+    "website": "https://gemtree.com.au/",
+    "source_url": "https://gemtree.com.au/",
+    "note": "A Plenty Highway park running tag-along garnet and zircon fossicking tours to the Harts Range fields with equipment and guides supplied.",
+    "offers": ["pay_to_dig", "tours"]
+  },
+  {
+    "name": "Harts Range West Garnet Field",
+    "town": "Harts Range",
+    "state": "NT",
+    "website": "https://fossicking.nt.gov.au/declared-fossicking-areas/harts-range-west",
+    "source_url": "https://fossicking.nt.gov.au/declared-fossicking-areas/harts-range-west",
+    "note": "A declared fossicking area off the Plenty Highway where visitors collect well-shaped garnet specimens up to a few centimetres.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Central Harts Range Fossicking Area (Spotted Tiger)",
+    "town": "Atitjere",
+    "state": "NT",
+    "website": "https://fossicking.nt.gov.au/declared-fossicking-areas/central-harts-range",
+    "source_url": "https://fossicking.nt.gov.au/declared-fossicking-areas/central-harts-range",
+    "note": "A declared fossicking area including the Spotted Tiger mine and camp, where visitors search for gemstones with camping nearby.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Weld River Fossicking Area",
+    "town": "Moorina",
+    "state": "TAS",
+    "website": "https://www.mrt.tas.gov.au/prospecting_and_fossicking/fossicking_areas/fossicking_areas_in_tasmania/weld_river_fossicking_area",
+    "source_url": "https://www.mrt.tas.gov.au/prospecting_and_fossicking/fossicking_areas/fossicking_areas_in_tasmania/weld_river_fossicking_area",
+    "note": "A declared fossicking area in NE Tasmania where visitors search river gravels for sapphire, topaz, black spinel and quartz (no licence needed).",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Gladstone (Mount Cameron) Fossicking Area",
+    "town": "Gladstone",
+    "state": "TAS",
+    "website": "https://www.mrt.tas.gov.au/prospecting_and_fossicking/fossicking_areas",
+    "source_url": "https://tindragontrailcottages.com.au/discover-north-east-tasmania/gemstone-fossicking-tasmania/",
+    "note": "A declared fossicking area around old tin workings near Mount Cameron yielding smoky quartz, amethyst, topaz and jasper.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Killiecrankie Bay Fossicking Area",
+    "town": "Killiecrankie",
+    "state": "TAS",
+    "website": "https://www.mrt.tas.gov.au/prospecting_and_fossicking/fossicking_areas/fossicking_areas_in_tasmania/killiecrankie_bay_fossicking_area",
+    "source_url": "https://www.mrt.tas.gov.au/prospecting_and_fossicking/fossicking_areas/fossicking_areas_in_tasmania/killiecrankie_bay_fossicking_area",
+    "note": "A declared fossicking area on Flinders Island yielding topaz ('Killiecrankie diamonds'), smoky quartz and rare beryl.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Golden Quest Discovery Trail Prospecting",
+    "town": "Gwalia",
+    "state": "WA",
+    "website": "https://www.australiasgoldenoutback.com/see-do/outback-experiences/gold-prospecting-and-fossicking",
+    "source_url": "https://www.australiasgoldenoutback.com/see-do/outback-experiences/gold-prospecting-and-fossicking",
+    "note": "A goldfields self-drive trail through historic rush towns (Coolgardie, Gwalia, Laverton) where miner's-right holders can prospect for gold.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Mount Magnet Prospecting",
+    "town": "Mount Magnet",
+    "state": "WA",
+    "website": "https://www.mtmagnet.wa.gov.au/prospecting",
+    "source_url": "https://www.mtmagnet.wa.gov.au/prospecting",
+    "note": "WA's longest-surviving gold town, where miner's-right holders can prospect and detect for gold on eligible crown land.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Kalgoorlie Goldfields Prospecting",
+    "town": "Kalgoorlie",
+    "state": "WA",
+    "website": "https://www.australiasgoldenoutback.com/see-do/outback-experiences/gold-prospecting-and-fossicking",
+    "source_url": "https://www.australiasgoldenoutback.com/see-do/outback-experiences/gold-prospecting-and-fossicking",
+    "note": "The heart of WA's goldfields, where visitors with a miner's right can prospect for gold on eligible unoccupied crown land.",
+    "offers": ["designated_area"]
+  },
+  {
+    "name": "Cue & Murchison Goldfields Prospecting",
+    "town": "Cue",
+    "state": "WA",
+    "website": "https://www.australiasgoldenoutback.com/see-do/outback-experiences/gold-prospecting-and-fossicking",
+    "source_url": "https://www.australiasgoldenoutback.com/see-do/outback-experiences/gold-prospecting-and-fossicking",
+    "note": "A Murchison gold town popular for metal-detecting, where miner's-right holders prospect for gold on eligible crown land.",
+    "offers": ["designated_area"]
+  }
+]
