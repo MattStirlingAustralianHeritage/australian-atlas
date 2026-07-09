@@ -668,14 +668,7 @@ export default async function Home() {
         </section>
       )}
 
-      {/* ── 3. Worth Finding This Week ──────────────────── */}
-      {/* Server hands the cached editorial picks to a client section that
-          upgrades itself to within-100km, taste-weighted picks for signed-in
-          visitors who already shared a location (see WorthFindingSection).
-          Everyone else gets the editorial band exactly as before. */}
-      <WorthFindingSection featured={featured} locale={locale} editionDate={editionDate} />
-
-      {/* ── 3b. The atlas plate — the living atlas as a navigable chart ── */}
+      {/* ── 3. The atlas plate — the living atlas as a navigable chart ── */}
       {/* Mid-page on purpose: three rounds of feedback said the map crowded
           the hero, so the first screen belongs to the masthead + search (with
           the chart as its ghost watermark) and the full interactive plate is
@@ -688,6 +681,13 @@ export default async function Home() {
         regionCount={stats.regions}
         freshListings={freshPins}
       />
+
+      {/* ── 3b. Worth Finding This Week ──────────────────── */}
+      {/* Server hands the cached editorial picks to a client section that
+          upgrades itself to within-100km, taste-weighted picks for signed-in
+          visitors who already shared a location (see WorthFindingSection).
+          Everyone else gets the editorial band exactly as before. */}
+      <WorthFindingSection featured={featured} locale={locale} editionDate={editionDate} />
 
       {/* ── 4. Journal Feature ──────────────────────────── */}
       {featuredArticle && (
