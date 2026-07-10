@@ -5,7 +5,11 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { discoverEmailsBatch } from '@/lib/outreach/discoverEmail'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60
+// 120s (not the old 60s): a batch is now hard-bounded by the per-site cap in
+// discoverEmailsBatch (⌈n/concurrency⌉ × perSiteMs ≈ 32s for a 10-site chunk),
+// so 120 is generous headroom that absorbs a cold start + DB writes and makes
+// a FUNCTION_INVOCATION_TIMEOUT effectively impossible.
+export const maxDuration = 120
 
 /**
  * POST /api/admin/outreach/discover
@@ -40,12 +44,14 @@ export async function POST(request) {
   }
 
   const withSites = (listings || []).filter((l) => l.website)
-  // Soft deadline well inside maxDuration (60s) so we always return JSON — a
-  // partial scan the client can re-run, never a serverless-timeout HTML page.
+  // Each site is hard-capped (perSiteMs) so no host can stall the batch; the
+  // soft deadline is a secondary backstop kept well inside maxDuration (120s) so
+  // we always return JSON — a partial scan the client can re-run, never a
+  // serverless-timeout HTML page.
   const discovered = await discoverEmailsBatch(
     withSites.map((l) => ({ id: l.id, website: l.website })),
     6,
-    { deadlineMs: 45_000 }
+    { deadlineMs: 100_000 }
   )
   const emailByListing = new Map(discovered.map((d) => [d.id, d]))
   const timedOut = discovered.length < withSites.length
