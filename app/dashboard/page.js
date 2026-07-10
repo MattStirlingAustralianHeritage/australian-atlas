@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { getListingRegion } from '@/lib/regions'
 import { getVerticalUrl, getVerticalBadge } from '@/lib/verticalUrl'
 import { useAuth } from './layout'
+import DualListingPopup from './DualListingPopup'
 
 function getPublicUrl(vertical, slug) {
   return getVerticalUrl(vertical, slug)
@@ -527,6 +528,12 @@ export default function DashboardPage() {
 
   return (
     <div style={{ background: 'var(--color-bg, #FDFCFA)', minHeight: '100vh' }}>
+      {/* First-visit welcome: your listing lives on both the portal and its
+          vertical site — self-gates on a once-per-operator flag. */}
+      {!loading && !listingsError && listings.length > 0 && (
+        <DualListingPopup listings={listings} userId={user?.id} />
+      )}
+
       {/* Header */}
       <section style={{ padding: '5rem 1.5rem 1.5rem', maxWidth: 720, margin: '0 auto' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
