@@ -72,7 +72,7 @@ export async function POST(request) {
       payment_method_types: ['card'],
       line_items: [{ price: priceId, quantity: 1 }],
       mode: 'subscription',
-      success_url: `${siteUrl}/claim/success`,
+      success_url: `${siteUrl}/claim/success?paid=1`,
       cancel_url: `${siteUrl}/claim/${listingSlug}?cancelled=true`,
       metadata: {
         type: 'atlas_claim_checkout',

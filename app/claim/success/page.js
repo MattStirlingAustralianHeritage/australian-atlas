@@ -4,7 +4,19 @@ export const metadata = {
   title: 'Claim Submitted — Australian Atlas',
 }
 
-export default function ClaimSuccessPage() {
+export default async function ClaimSuccessPage({ searchParams }) {
+  // Standard (paid) claims arrive here from Stripe with ?paid=1 — they are
+  // auto-approved by the webhook within seconds, so they must NOT see the
+  // "manual review within 48 hours" copy that free claims correctly get.
+  const params = await searchParams
+  const paid = params?.paid === '1'
+
+  const eyebrow = paid ? 'Payment Received' : 'Claim Received'
+  const heading = paid ? "You're all set" : "We'll be in touch"
+  const message = paid
+    ? "Your payment is confirmed and your Standard listing is being unlocked now. We've emailed you a secure sign-in link so you can manage your listing straight away — it can take a minute to arrive."
+    : 'Your claim has been submitted. We review claims manually to ensure accuracy and will be in touch within 48 hours.'
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--color-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
       <div style={{ textAlign: 'center', maxWidth: 520 }}>
@@ -21,13 +33,13 @@ export default function ClaimSuccessPage() {
           </svg>
         </div>
         <div style={{ fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--color-sage)', marginBottom: 16, fontFamily: 'var(--font-body)' }}>
-          Claim Received
+          {eyebrow}
         </div>
         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(28px, 4vw, 40px)', fontWeight: 400, color: 'var(--color-ink)', lineHeight: 1.1, marginBottom: 16 }}>
-          We&apos;ll be in touch
+          {heading}
         </h1>
         <p style={{ fontSize: 15, color: 'var(--color-muted)', lineHeight: 1.7, marginBottom: 36, fontFamily: 'var(--font-body)' }}>
-          Your claim has been submitted. We review claims manually to ensure accuracy and will be in touch within 48 hours.
+          {message}
         </p>
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
           <Link href="/" style={{
