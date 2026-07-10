@@ -22,6 +22,19 @@ const TEST_SAMPLE = 3
 
 const UNSENDABLE_STATUSES = new Set(['sent', 'bounced', 'complained', 'unsubscribed'])
 
+// Resend rejects the WHOLE batch.send() call if any single `to` is malformed —
+// so one bad address (e.g. a truncated legacy discovery capture like
+// "s@gmail.c") would fail every good recipient alongside it. Validate here and
+// skip anything that isn't a well-formed address. Linear + anchored on a short
+// string, so no backtracking risk; requires a real ≥2-char TLD.
+function isSendableEmail(email) {
+  if (typeof email !== 'string') return false
+  const e = email.trim()
+  if (e.length < 6 || e.length > 254) return false
+  if (/[\s<>(),;:"\\]/.test(e)) return false
+  return /^[a-z0-9!#$%&'*+/=?^_`{|}~.-]+@[a-z0-9.-]+\.[a-z]{2,24}$/i.test(e)
+}
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 function unsubscribeUrl(email) {
@@ -97,7 +110,7 @@ export async function POST(request) {
   }
 
   // Build the eligible recipient list, tracking why each is skipped.
-  const skips = { no_listing: 0, not_active: 0, claimed: 0, no_email: 0, suppressed: 0, already_sent: 0, duplicate_email: 0 }
+  const skips = { no_listing: 0, not_active: 0, claimed: 0, no_email: 0, invalid_email: 0, suppressed: 0, already_sent: 0, duplicate_email: 0 }
   const recipients = []
   const seenEmails = new Set()
 
@@ -109,6 +122,7 @@ export async function POST(request) {
     const o = outreachByListing.get(id)
     const email = o?.contact_email
     if (!email) { skips.no_email++; continue }
+    if (!isSendableEmail(email)) { skips.invalid_email++; continue }
     const lower = email.toLowerCase()
     if (suppressed.has(lower)) { skips.suppressed++; continue }
     if (UNSENDABLE_STATUSES.has(o.send_status)) { skips.already_sent++; continue }
