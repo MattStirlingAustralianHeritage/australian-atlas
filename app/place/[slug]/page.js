@@ -47,6 +47,9 @@ import OperatorTrailSection from '@/components/OperatorTrailSection'
 import { readOperatorTrailForListing } from '@/lib/trails/operatorTrail'
 
 export const revalidate = 3600
+// Safety net: a cold render fans out many DB round-trips; give it headroom so a
+// slow first paint completes rather than being killed at a lower default limit.
+export const maxDuration = 60
 
 // Compact date range for the listing's "Upcoming events" cards.
 function formatEventDate(startDate, endDate) {
@@ -706,69 +709,75 @@ export default async function PlacePage({ params }) {
   const listing = await getListing(slug, locale)
   if (!listing) notFound()
 
-  // Server-side admin check — determines whether the inline editor renders at all.
-  // Non-admin users never receive the editor component in the HTML.
-  let isAdmin = false
-  try {
-    const cookieStore = await cookies()
-    isAdmin = await checkAdmin(cookieStore)
-  } catch { /* auth check failure = not admin */ }
-
-  // Nearby pins for the in-page map. Density-aware radius (2/10/25 km).
-  // Skip entirely when this listing has no precise location — a locality-only
-  // maker (visitable=false, or a bare "Sydney" centroid) must not anchor a map
-  // or plant a misleading "This place" dot. hasPreciseLocation is the same gate
-  // the map section renders on below (showExactLocation).
+  // Every per-listing data branch below depends only on `listing`, so they run
+  // concurrently. They were previously awaited one-after-another — on a cold
+  // render (e.g. the first hit to a page after a deploy purges the route/data
+  // cache, or a cold serverless container opening a fresh pooler connection per
+  // query) that stacked ~a dozen serial DB round-trips and pushed the render
+  // toward the serverless timeout, so a place page could take 20–40s on first
+  // paint. Fanning them out collapses that to roughly the slowest single branch.
   const canShowMap = hasPreciseLocation(listing)
-  let { listings: mapNearby, radiusKm: mapRadiusKm } = canShowMap
-    ? await getMapNearbyListings(listing)
-    : { listings: [], radiusKm: null }
-  mapNearby = await overlayListingTranslations(mapNearby, locale)
-  const mapNearbyIds = mapNearby.map(n => n.id)
-
-  // The single surviving related row: "More in [region]", an arrow-navigable
-  // carousel. Excludes anything already on the map so we don't show the same
-  // card twice on one page; fetch a deeper pool so there's more to scroll to.
-  const regionListings = await overlayListingTranslations(
-    await getRegionListings(listing, mapNearbyIds, 16),
-    locale
-  )
-
-  // Cross-listed siblings: same slug, different vertical (e.g. a winery+restaurant
-  // on both Small Batch and Table). Used by the "Also listed on" meta section.
-  const crossListedSiblings = await getCrossListedSiblings(listing)
-
-  // Fetch approved place memories (max 5)
   const sbMem = getSupabaseAdmin()
-  const { data: memories } = await sbMem
-    .from('place_memories')
-    .select('id, author_name, memory, created_at')
-    .eq('listing_id', listing.id)
-    .eq('approved', true)
-    .order('created_at', { ascending: false })
-    .limit(5)
 
+  const [isAdmin, mapChain, crossListedSiblings, memoriesRes, picks, operatorTrail] = await Promise.all([
+    // Server-side admin check — determines whether the inline editor renders at
+    // all. Non-admin users never receive the editor component in the HTML; any
+    // auth-check failure = not admin.
+    (async () => {
+      try { return await checkAdmin(await cookies()) } catch { return false }
+    })(),
+    // Nearby map pins + "More in [region]" cards. The one internally-serial
+    // branch: region cards exclude what's already on the map, so they wait on
+    // the map's ids. Skipped when the listing has no precise location — a
+    // locality-only maker must not anchor a map or a misleading "This place" dot.
+    (async () => {
+      let { listings: mapNearby, radiusKm: mapRadiusKm } = canShowMap
+        ? await getMapNearbyListings(listing)
+        : { listings: [], radiusKm: null }
+      mapNearby = await overlayListingTranslations(mapNearby, locale)
+      const regionListings = await overlayListingTranslations(
+        await getRegionListings(listing, mapNearby.map(n => n.id), 16),
+        locale
+      )
+      return { mapNearby, mapRadiusKm, regionListings }
+    })(),
+    // Cross-listed siblings: same slug, different vertical (e.g. a winery+
+    // restaurant on both Small Batch and Table). Feeds the "Also listed on" meta.
+    getCrossListedSiblings(listing),
+    // Approved place memories (max 5).
+    sbMem
+      .from('place_memories')
+      .select('id, author_name, memory, created_at')
+      .eq('listing_id', listing.id)
+      .eq('approved', true)
+      .order('created_at', { ascending: false })
+      .limit(5),
+    // Producer picks, paid-perk gate, events, offers, awards, Q&A, operator
+    // story — all keyed on listing.id (already a Promise.all; now one branch).
+    Promise.all([
+      listOutgoing(sbMem, [listing.id]),
+      listIncoming(sbMem, [listing.id]),
+      filterPaidListingIds(sbMem, [listing.id]),
+      listEventsForListing(sbMem, listing.id, { includeUnpublished: false }),
+      getListingOffers(sbMem, listing.id),
+      getListingAwards(sbMem, listing.id),
+      getListingQna(sbMem, listing.id),
+      getOperatorStory(sbMem, listing.id),
+    ]),
+    // Operator-suggested trail — the published day-trip the operator authored
+    // for this listing (type='operator'). Null when absent/unpublished.
+    readOperatorTrailForListing(sbMem, listing.id),
+  ])
+
+  const { mapNearby, mapRadiusKm, regionListings } = mapChain
+  const { data: memories } = memoriesRes
   // Producer picks — cross-venue endorsements stored in listing_relationships.
   //   picksGiven    = venues this place vouches for (outgoing)
   //   picksReceived = venues that have vouched for this place ("picked by")
   // Both are filtered to active venues so a pick never links to a hidden listing.
-  const [picksGivenRaw, picksReceivedRaw, paidCuratorSet, upcomingEvents, offersRaw, awardsRaw, qnaRaw, operatorStoryRaw] = await Promise.all([
-    listOutgoing(sbMem, [listing.id]),
-    listIncoming(sbMem, [listing.id]),
-    filterPaidListingIds(sbMem, [listing.id]),
-    listEventsForListing(sbMem, listing.id, { includeUnpublished: false }),
-    getListingOffers(sbMem, listing.id),
-    getListingAwards(sbMem, listing.id),
-    getListingQna(sbMem, listing.id),
-    getOperatorStory(sbMem, listing.id),
-  ])
+  const [picksGivenRaw, picksReceivedRaw, paidCuratorSet, upcomingEvents, offersRaw, awardsRaw, qnaRaw, operatorStoryRaw] = picks
   const picksGiven = picksGivenRaw.filter(p => p.pickedStatus === 'active')
   const picksReceived = picksReceivedRaw.filter(p => p.curatorStatus === 'active')
-
-  // Operator-suggested trail — the published day-trip the operator authored for
-  // this listing (type='operator'), read off the curated public view. Null when
-  // absent or unpublished. Surfaces here only; never on region cards / discovery.
-  const operatorTrail = await readOperatorTrailForListing(sbMem, listing.id)
 
   // Paid = a live standard claim on listing_claims (the canonical signal —
   // listings.is_claimed can lag behind it, so it is never used for perk gates).
