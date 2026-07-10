@@ -93,6 +93,7 @@ const VERTICAL_FIELDS = {
       { value: 'jewellery', label: 'Jewellery' }, { value: 'toys', label: 'Toys' },
       { value: 'general', label: 'General' }, { value: 'clothing', label: 'Clothing' },
       { value: 'food_drink', label: 'Food & Drink' }, { value: 'plants', label: 'Plants' },
+      { value: 'nursery', label: 'Nursery' },
       { value: 'specialty_retail', label: 'Specialty Retail' }, { value: 'other', label: 'Other' },
     ]},
     { key: 'has_online_store', label: 'Online Store', type: 'toggle' },
