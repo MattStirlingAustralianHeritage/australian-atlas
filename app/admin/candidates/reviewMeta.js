@@ -111,6 +111,7 @@ export const SUBCATEGORY_OPTIONS = {
     { value: 'general', label: 'General Store' },
     { value: 'clothing', label: 'Clothing' },
     { value: 'food_drink', label: 'Food & Drink' },
+    { value: 'bottle_shop', label: 'Bottle Shop' },
     { value: 'plants', label: 'Plants' },
     { value: 'nursery', label: 'Nursery' },
     { value: 'specialty_retail', label: 'Specialty Retail' },
