@@ -133,6 +133,7 @@ export const SUBCATEGORY_OPTIONS = {
     { value: 'bakery', label: 'Bakery' },
     { value: 'market', label: 'Market' },
     { value: 'farm_gate', label: 'Farm Gate' },
+    { value: 'pick_your_own', label: 'Pick Your Own Farm' },
     { value: 'artisan_producer', label: 'Artisan Producer' },
     { value: 'specialty_retail', label: 'Specialty Retail' },
     { value: 'destination', label: 'Destination' },

@@ -122,6 +122,7 @@ const VERTICAL_FIELDS = {
       { value: 'restaurant', label: 'Restaurant' }, { value: 'cafe', label: 'Cafe' },
       { value: 'bakery', label: 'Bakery' },
       { value: 'market', label: 'Market' }, { value: 'farm_gate', label: 'Farm Gate' },
+      { value: 'pick_your_own', label: 'Pick Your Own Farm' },
       { value: 'artisan_producer', label: 'Artisan Producer' }, { value: 'specialty_retail', label: 'Specialty Retail' },
       { value: 'destination', label: 'Destination' }, { value: 'cooking_school', label: 'Cooking School' },
       { value: 'providore', label: 'Providore' }, { value: 'food_trail', label: 'Food Trail' },
