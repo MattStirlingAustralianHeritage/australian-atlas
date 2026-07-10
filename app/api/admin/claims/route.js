@@ -169,17 +169,26 @@ async function handleApprove({ claimId, vertical, sourceClaimId, usingPortalTabl
     const verticalName = VERTICAL_NAMES[effectiveVertical] || effectiveVertical || 'Australian Atlas'
     // Admin approval ALWAYS grants the Free tier (grantClaim is called with
     // tier:'free' above). Standard is granted only via the paid Stripe webhook.
-    // Reflect the GRANTED tier here — not the requested one — so an unpaid claimant
-    // who selected Standard is never wrongly told they're on the paid tier.
-    const tier = 'free'
+    // We NEVER tell an unpaid claimant they're on Standard — instead, when they
+    // ASKED for Standard we give them a one-click pay link so activation is
+    // straightforward from the moment the claim is approved. The link
+    // (/api/claim/pay) mints a fresh checkout every click and, on payment, the
+    // webhook upgrades this free row to Standard in place.
+    const requestedStandard = claimRecord?.tier === 'standard'
+    const payUrl = `${SITE_URL}/api/claim/pay?claim=${claimId}`
+    const payButton = (label, weight) =>
+      `<p style="margin:24px 0;"><a href="${payUrl}" style="display:inline-block;padding:14px 32px;background:#5F8A7E;color:#fff;text-decoration:none;border-radius:6px;font-weight:${weight};font-size:15px;">${label}</a></p>`
 
     if (email && process.env.RESEND_API_KEY) {
       const { Resend } = await import('resend')
       const resend = new Resend(process.env.RESEND_API_KEY)
 
-      const tierNote = tier === 'standard'
-        ? `<p>You're on the <strong>Standard tier ($295/yr)</strong>. You can manage your subscription from your dashboard.</p>`
-        : `<p>Your listing is on the <strong>Free tier</strong>. You can upgrade to Standard ($295/yr) anytime from your dashboard for unlimited photos, analytics, and more.</p>`
+      const tierNote = requestedStandard
+        ? `<p>You asked for the <strong>Standard plan ($295/year)</strong> — you're one click away. Activate it now to unlock full editing: website &amp; contact details, opening hours, your photo gallery, highlights and analytics.</p>
+           ${payButton('Activate Standard — $295/year', 700)}
+           <p style="color:#888;font-size:13px;">Prefer to stay on Free for now? No action needed — your listing is already live.</p>`
+        : `<p>Your listing is live on the <strong>Free tier</strong>. Want full editing, your photo gallery, opening hours and analytics? Upgrade to Standard anytime:</p>
+           ${payButton('Upgrade to Standard — $295/year', 600)}`
 
       const accessBlock = grant.provisioned
         ? `<p>We've just sent a separate email to <strong>${email}</strong> with a secure sign-in link. Click it to finish setting up access and open your operator dashboard.</p>
