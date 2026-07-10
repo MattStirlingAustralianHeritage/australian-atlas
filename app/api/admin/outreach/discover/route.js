@@ -67,11 +67,22 @@ export async function POST(request) {
   const now = new Date().toISOString()
   const results = []
   const toInsert = []
+  const statusCounts = { found: 0, no_email: 0, dead: 0, blocked: 0 }
 
   for (const listing of listings || []) {
     const d = emailByListing.get(listing.id)
-    const email = d?.email || null
     const existing = existingByListing.get(listing.id)
+
+    // Not scanned this run (soft deadline hit before we reached it) — report as
+    // pending and record nothing, so it's retried on the next Discover pass.
+    if (!d) {
+      results.push({ listing_id: listing.id, name: listing.name, website: listing.website || null, email: null, status: 'pending', candidates: [], source: null, saved: false })
+      continue
+    }
+
+    const email = d.email || null
+    const status = d.status || (email ? 'found' : 'no_email')
+    statusCounts[status] = (statusCounts[status] || 0) + 1
     let saved = false
 
     if (email) {
@@ -97,6 +108,30 @@ export async function POST(request) {
         })
         saved = true
       }
+    } else {
+      // No email found. Record the outcome (dead / no_email / blocked) so a
+      // repeat Discover skips this site instead of re-scanning it fruitlessly,
+      // and the UI can explain why it's empty. Never touch a row that already
+      // holds an email; stash the status in email_source (only meaningful while
+      // contact_email is null).
+      if (existing) {
+        if (!existing.contact_email) {
+          await sb
+            .from('operator_outreach')
+            .update({ email_source: status, discovered_at: now, updated_at: now })
+            .eq('id', existing.id)
+        }
+      } else {
+        toInsert.push({
+          listing_id: listing.id,
+          contact_email: null,
+          email_source: status,
+          status: 'not_contacted',
+          discovered_at: now,
+          created_at: now,
+          updated_at: now,
+        })
+      }
     }
 
     results.push({
@@ -104,8 +139,9 @@ export async function POST(request) {
       name: listing.name,
       website: listing.website || null,
       email,
-      candidates: d?.candidates || [],
-      source: d?.source || null,
+      status,
+      candidates: d.candidates || [],
+      source: d.source || null,
       saved,
     })
   }
@@ -118,6 +154,7 @@ export async function POST(request) {
   const foundCount = results.filter((r) => r.email).length
   return NextResponse.json({
     ok: true,
+    statusCounts,
     scanned: discovered.length,
     found: foundCount,
     timedOut,

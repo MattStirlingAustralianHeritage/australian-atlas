@@ -131,6 +131,7 @@ function ComposePanel({ verticalNames, verticalColors, sendStatusColors, allStat
   const [selected, setSelected] = useState(() => new Set())
   const [discovering, setDiscovering] = useState(false)
   const [discoverProgress, setDiscoverProgress] = useState(null)
+  const [discoverSummary, setDiscoverSummary] = useState(null)
 
   const [discovering2, setDiscovering2] = useState(false) // personalise in-flight
   const [personaliseProgress, setPersonaliseProgress] = useState(null)
@@ -173,16 +174,20 @@ function ComposePanel({ verticalNames, verticalColors, sendStatusColors, allStat
   const selectAllSendable = () => seg && setSelected(new Set(seg.listings.filter((l) => l.sendable).map((l) => l.id)))
   const clearSelection = () => setSelected(new Set())
 
-  // Discover emails for listings that have a website but no email yet.
+  // Discover emails for listings that have a website, no email yet, and haven't
+  // already been checked (a prior scan recorded dead/no-email/blocked) — so
+  // re-running Discover targets fresh sites instead of re-scanning known-empty
+  // ones, which is what made repeat runs return "few emails".
   async function discoverEmails() {
     if (!seg) return
-    const needing = seg.listings.filter((l) => l.website && !l.contact_email)
+    const needing = seg.listings.filter((l) => l.website && !l.contact_email && !l.website_status)
     if (needing.length === 0) return
-    setDiscovering(true); setError(null)
-    const chunkSize = 10 // keep each /discover call comfortably inside the 60s function budget
+    setDiscovering(true); setError(null); setDiscoverSummary(null)
+    const chunkSize = 10 // keep each /discover call comfortably inside the function budget
     let scanned = 0, found = 0
     const updated = new Map(seg.listings.map((l) => [l.id, l]))
     const failures = []
+    const tally = { found: 0, no_email: 0, dead: 0, blocked: 0 }
     try {
       for (let i = 0; i < needing.length; i += chunkSize) {
         const chunk = needing.slice(i, i + chunkSize)
@@ -196,11 +201,16 @@ function ComposePanel({ verticalNames, verticalColors, sendStatusColors, allStat
           })
           for (const r of data.results || []) {
             const l = updated.get(r.listing_id)
-            if (l && r.email) {
-              updated.set(r.listing_id, { ...l, contact_email: r.email, email_source: r.source ? 'website' : l.email_source, sendable: !l.suppressed && !['sent', 'bounced', 'complained', 'unsubscribed'].includes(l.send_status) })
+            if (!l) continue
+            if (r.email) {
+              updated.set(r.listing_id, { ...l, contact_email: r.email, email_source: r.source ? 'website' : l.email_source, website_status: 'has_email', sendable: !l.suppressed && !['sent', 'bounced', 'complained', 'unsubscribed'].includes(l.send_status) })
               found++
+            } else if (r.status && r.status !== 'pending') {
+              // Record the outcome so this site drops out of the Discover count.
+              updated.set(r.listing_id, { ...l, website_status: r.status })
             }
           }
+          if (data.statusCounts) for (const k of ['found', 'no_email', 'dead', 'blocked']) tally[k] += (data.statusCounts[k] || 0)
         } catch (err) { failures.push(err.message) }
         scanned += chunk.length
         setDiscoverProgress({ scanned, total: needing.length, found })
@@ -214,9 +224,14 @@ function ComposePanel({ verticalNames, verticalColors, sendStatusColors, allStat
         for (const l of listings) if (l.sendable && l.contact_email) next.add(l.id)
         return next
       })
-      if (failures.length) {
-        setError(`Found ${found} email${found === 1 ? '' : 's'}, but ${failures.length} batch${failures.length === 1 ? '' : 'es'} failed — ${failures[0]} You can re-run Discover for the remaining rows.`)
-      }
+      // Plain-language outcome so an empty run is explained, not mysterious.
+      const parts = [`${found} email${found === 1 ? '' : 's'} found`]
+      if (tally.no_email) parts.push(`${tally.no_email} with no published email`)
+      if (tally.dead) parts.push(`${tally.dead} site${tally.dead === 1 ? '' : 's'} offline`)
+      if (tally.blocked) parts.push(`${tally.blocked} blocked the scan`)
+      let msg = parts.join(' · ')
+      if (failures.length) msg += ` · ${failures.length} batch${failures.length === 1 ? '' : 'es'} failed (${failures[0]})`
+      setDiscoverSummary(msg)
     } catch (err) { setError(err.message) } finally { setDiscovering(false); setDiscoverProgress(null) }
   }
 
@@ -372,14 +387,20 @@ function ComposePanel({ verticalNames, verticalColors, sendStatusColors, allStat
                   Writing {personaliseProgress.done}/{personaliseProgress.total}…
                 </span>
               )}
-              <button style={btn} onClick={discoverEmails} disabled={discovering || seg.counts.withWebsite === seg.counts.withEmail}>
-                {discovering ? 'Discovering…' : `Discover emails (${seg.listings.filter((l) => l.website && !l.contact_email).length})`}
+              <button style={btn} onClick={discoverEmails} disabled={discovering || seg.listings.filter((l) => l.website && !l.contact_email && !l.website_status).length === 0} title="Scan the websites of listings we haven't checked yet for a contact email">
+                {discovering ? 'Discovering…' : `Discover emails (${seg.listings.filter((l) => l.website && !l.contact_email && !l.website_status).length})`}
               </button>
               <button style={btn} onClick={personaliseSelected} disabled={discovering2 || seg.listings.filter((l) => selected.has(l.id) && l.sendable && !l.personal_note).length === 0} title="AI-write a personal opener for each selected recipient that doesn't have one">
                 {discovering2 ? 'Writing…' : `Personalise (${seg.listings.filter((l) => selected.has(l.id) && l.sendable && !l.personal_note).length})`}
               </button>
             </div>
           </div>
+
+          {discoverSummary && (
+            <div style={{ background: '#F0F7F4', border: '1px solid #cfe6dc', padding: '9px 14px', borderRadius: 6, marginBottom: 14, fontFamily: 'var(--font-body, system-ui)', fontSize: 12.5, color: '#3a5c4f' }}>
+              {discoverSummary}
+            </div>
+          )}
 
           {/* Recipient table */}
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
@@ -409,9 +430,21 @@ function ComposePanel({ verticalNames, verticalColors, sendStatusColors, allStat
                       {[l.suburb || l.region, l.state].filter(Boolean).join(', ')}
                     </div>
                   </div>
-                  <div style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 11, color: l.contact_email ? '#5F8A7E' : '#c9a227', width: 190, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {l.contact_email || (l.website ? 'no email — discover' : 'no website')}
-                  </div>
+                  {(() => {
+                    // Contact-cell text + colour reflect the website check outcome.
+                    let text, color
+                    if (l.contact_email) { text = l.contact_email; color = '#5F8A7E' }
+                    else if (!l.website) { text = 'no website'; color = 'var(--color-muted, #999)' }
+                    else if (l.website_status === 'dead') { text = 'site offline'; color = '#c0392b' }
+                    else if (l.website_status === 'blocked') { text = 'scan blocked'; color = 'var(--color-muted, #999)' }
+                    else if (l.website_status === 'no_email') { text = 'no email on site'; color = 'var(--color-muted, #999)' }
+                    else { text = 'no email — discover'; color = '#c9a227' }
+                    return (
+                      <div title={l.website || ''} style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 11, color, width: 190, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {text}
+                      </div>
+                    )
+                  })()}
                   {l.personal_note && <Chip color="#8a6520" title={l.personal_note}>✎ note</Chip>}
                   <Chip color={vColor}>{verticalNames[l.vertical] || l.vertical}</Chip>
                   {l.suppressed && <Chip color="#c0392b">suppressed</Chip>}

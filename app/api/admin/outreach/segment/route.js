@@ -57,7 +57,7 @@ export async function POST(request) {
   if (ids.length) {
     const { data: orows } = await sb
       .from('operator_outreach')
-      .select('listing_id, contact_email, email_source, send_status, status, last_contacted_at, personal_note')
+      .select('listing_id, contact_email, email_source, send_status, status, last_contacted_at, personal_note, discovered_at')
       .in('listing_id', ids)
     for (const r of orows || []) outreachByListing.set(r.listing_id, r)
   }
@@ -80,6 +80,14 @@ export async function POST(request) {
     const isSuppressed = email ? suppressed.has(email.toLowerCase()) : false
     const sendStatus = o?.send_status || null
     const sendable = !!email && !isSuppressed && !UNSENDABLE_STATUSES.has(sendStatus)
+    // Website discovery outcome, so the UI distinguishes "found an email" from a
+    // live site with none, a dead domain, or a blocked crawl, and doesn't keep
+    // re-offering already-checked sites. When an email is present email_source is
+    // its provenance ('website'); when absent it holds the last check outcome
+    // ('dead'|'no_email'|'blocked'). null = never checked.
+    const websiteStatus = email
+      ? 'has_email'
+      : (o?.discovered_at ? (o?.email_source || 'no_email') : null)
     return {
       id: l.id,
       name: l.name,
@@ -93,6 +101,8 @@ export async function POST(request) {
       quality_score: l.quality_score,
       contact_email: email,
       email_source: o?.email_source || null,
+      website_status: websiteStatus,
+      discovered_at: o?.discovered_at || null,
       send_status: sendStatus,
       funnel_status: o?.status || null,
       last_contacted_at: o?.last_contacted_at || null,
