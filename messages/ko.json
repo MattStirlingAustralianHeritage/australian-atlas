@@ -399,6 +399,7 @@
     "openingHours": "영업시간",
     "openNow": "현재 영업 중",
     "closedNow": "현재 폐업",
+    "closedToday": "오늘 휴무",
     "open24h": "24시간 영업",
     "closesAt": "{time} 마감",
     "opensAt": "{time} 오픈",

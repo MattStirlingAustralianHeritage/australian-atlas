@@ -13,14 +13,17 @@ import {
   DAY_ORDER,
 } from '@/lib/opening-hours'
 
+const OPEN_GREEN = '#3a7d44'
+
 /**
  * Opening hours for the place information cluster.
  *
- * Understands every shape stored in `listings.opening_hours` (rich crawler,
- * google weekday_text, flat day-maps, note/human-only) via lib/opening-hours —
- * so nothing that has real hours is ever silently dropped. Collapsed: today's
- * hours + an "Open now · Closes 5pm" badge. Expanded: the full week, grouped
- * where it's clean, verbatim where the source is prose.
+ * Reads as one of the info-cluster rows (accent icon → uppercase label →
+ * value), so it sits with Address / Website / Phone rather than looking bolted
+ * on. Collapsed line is the familiar "● Open now · Closes 9pm" status; the
+ * chevron reveals the full week (grouped where clean, verbatim where the source
+ * is prose). Understands every stored shape via lib/opening-hours, so nothing
+ * with real hours is silently dropped.
  */
 export default function OpeningHours({ hours }) {
   const t = useTranslations('placePanels')
@@ -43,142 +46,149 @@ export default function OpeningHours({ hours }) {
   const groups = useMemo(() => groupHours(reg), [reg])
   const hasRegular = Object.keys(reg).length > 0
   const hasRaw = Object.keys(rawByDay).length > 0
+  const hasWeek = hasRegular || hasRaw
+  const canExpand = hasWeek || !!notes
+
+  const groupLabel = (g) => (g.startDay === g.endDay ? DAY_SHORT[g.startDay] : `${DAY_SHORT[g.startDay]}–${DAY_SHORT[g.endDay]}`)
+  // Day-agnostic one-liner ("Mon–Fri 9am–5pm · Sat 10am–2pm") — used before the
+  // client mounts (no "now" to judge) and as the fallback summary for markets.
+  const weekSummary = useMemo(() => {
+    const open = groups.filter((g) => !g.closed)
+    if (!open.length) return null
+    return open.map((g) => `${groupLabel(g)} ${fmt(g.intervals)}`).join('  ·  ')
+  }, [groups]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!hasData) return null
 
   const today = mounted ? currentDayName() : null
   const status = mounted ? openStatus(reg) : { openNow: null, closesAt: null, opensAt: null }
   const todayIntervals = mounted && today ? reg[today] : null
-  const todayRaw = mounted && today ? rawByDay[today] : null
 
-  // Nothing meaningful to show → render nothing (keeps the info card tidy).
-  if (!hasData) return null
-
-  // Collapsed summary text:
-  // 1) concrete parsed hours for today · 2) verbatim source line for today
-  // (prose like "By appointment") · 3) the human summary (markets / no weekday grid)
-  const summaryIsHuman = mounted && !todayIntervals?.length && !todayRaw && !hasRegular && !!human
-  const badgeHint = status.openNow === true && status.closesAt
+  // Transition hint: "Closes 9pm" while open, "Opens 5:30pm" while closed.
+  const hint = status.openNow === true && status.closesAt
     ? t('closesAt', { time: formatTime(status.closesAt) })
     : status.openNow === false && status.opensAt
       ? t('opensAt', { time: formatTime(status.opensAt) })
       : null
 
+  // The collapsed value: a live status pill when we can judge "now", otherwise a
+  // plain summary (human line for markets/prose, else the week one-liner).
+  const showStatus = mounted && status.openNow !== null
+  let statusWord = null
+  if (showStatus) {
+    if (status.openNow) statusWord = t('openNow')
+    else statusWord = todayIntervals && todayIntervals.length ? t('closedNow') : t('closedToday')
+  }
+  const summaryText = human || weekSummary || t('openingHours')
+
   return (
-    <div style={{ marginTop: '16px', borderTop: '1px solid var(--color-border)', paddingTop: '16px' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: expanded ? '12px' : '0' }}>
-        <button
-          onClick={() => setExpanded(!expanded)}
-          aria-expanded={expanded}
-          style={{
-            display: 'flex', alignItems: 'flex-start', gap: '8px', background: 'none', border: 'none',
-            padding: 0, cursor: 'pointer', textAlign: 'left', fontFamily: 'var(--font-body)',
-            fontSize: '14px', color: 'var(--color-ink)', lineHeight: 1.4, flex: 1, minWidth: 0,
-          }}
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--color-muted)', flexShrink: 0, marginTop: '2px' }}>
-            <circle cx="12" cy="12" r="10" />
-            <polyline points="12 6 12 12 16 14" />
+    <div style={{ marginTop: '16px' }}>
+      <div style={{ display: 'flex', gap: '12px' }}>
+        {/* clock icon — same accent treatment as the other info-cluster rows */}
+        <span style={{ color: 'var(--color-accent)', flexShrink: 0, marginTop: '2px' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="9" />
+            <polyline points="12 7 12 12 15.5 14" />
           </svg>
+        </span>
 
-          {!mounted ? (
-            <span style={{ color: 'var(--color-muted)' }}>{t('openingHours')}</span>
-          ) : todayIntervals && todayIntervals.length ? (
-            <span>
-              <span style={{ fontWeight: 500 }}>{DAY_FULL[today]}</span>{' '}
-              <span style={{ color: 'var(--color-muted)' }}>{fmt(todayIntervals)}</span>
-            </span>
-          ) : todayRaw && !/^closed$/i.test(todayRaw) ? (
-            <span>
-              <span style={{ fontWeight: 500 }}>{DAY_FULL[today]}</span>{' '}
-              <span style={{ color: 'var(--color-muted)' }}>{todayRaw}</span>
-            </span>
-          ) : summaryIsHuman ? (
-            <span style={{ color: 'var(--color-ink)' }}>{human}</span>
-          ) : hasRegular || hasRaw ? (
-            <span>
-              <span style={{ fontWeight: 500 }}>{DAY_FULL[today]}</span>{' '}
-              <span style={{ color: 'var(--color-muted)' }}>{t('closed')}</span>
-            </span>
-          ) : (
-            <span style={{ color: 'var(--color-ink)' }}>{human}</span>
-          )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              fontFamily: 'var(--font-body)', color: 'var(--color-muted)',
+              letterSpacing: '0.08em', fontSize: '10px', fontWeight: 600,
+              textTransform: 'uppercase', marginBottom: '3px',
+            }}
+          >
+            {t('openingHours')}
+          </div>
 
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-            style={{ color: 'var(--color-muted)', flexShrink: 0, marginTop: '4px', transition: 'transform 0.2s ease', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
-        </button>
-
-        {mounted && status.openNow !== null && (
-          <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px', flexShrink: 0, marginTop: '1px' }}>
-            <span style={{
-              display: 'inline-flex', alignItems: 'center', gap: '5px', fontFamily: 'var(--font-body)',
-              fontSize: '11px', fontWeight: 600, letterSpacing: '0.02em', whiteSpace: 'nowrap',
-              color: status.openNow ? '#3a7d44' : 'var(--color-muted)',
-            }}>
-              <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: status.openNow ? '#3a7d44' : 'var(--color-muted)' }} />
-              {status.openNow ? t('openNow') : t('closedNow')}
+          <button
+            onClick={() => canExpand && setExpanded((v) => !v)}
+            aria-expanded={canExpand ? expanded : undefined}
+            style={{
+              display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '10px',
+              width: '100%', background: 'none', border: 'none', padding: 0, margin: 0,
+              cursor: canExpand ? 'pointer' : 'default', textAlign: 'left',
+              fontFamily: 'var(--font-body)', fontSize: '14px', lineHeight: 1.45, color: 'var(--color-ink)',
+            }}
+          >
+            <span style={{ display: 'inline-flex', alignItems: 'baseline', flexWrap: 'wrap', columnGap: '6px', rowGap: '2px', minWidth: 0 }}>
+              {showStatus ? (
+                <>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: status.openNow ? OPEN_GREEN : 'var(--color-ink)' }}>
+                    <span style={{ display: 'inline-block', width: '7px', height: '7px', borderRadius: '50%', flexShrink: 0, background: status.openNow ? OPEN_GREEN : 'var(--color-muted)' }} />
+                    {statusWord}
+                  </span>
+                  {hint && <span style={{ color: 'var(--color-muted)' }}>{'·'} {hint}</span>}
+                </>
+              ) : (
+                <span style={{ color: 'var(--color-ink)' }}>{summaryText}</span>
+              )}
             </span>
-            {badgeHint && (
-              <span style={{ fontFamily: 'var(--font-body)', fontSize: '11px', color: 'var(--color-muted)', whiteSpace: 'nowrap' }}>
-                {badgeHint}
-              </span>
+
+            {canExpand && (
+              <svg
+                width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                strokeLinecap="round" strokeLinejoin="round"
+                style={{ color: 'var(--color-muted)', flexShrink: 0, alignSelf: 'center', transition: 'transform 0.2s ease', transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
             )}
-          </span>
-        )}
-      </div>
+          </button>
 
-      {expanded && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          {human && !summaryIsHuman && (
-            <div style={{ fontFamily: 'var(--font-body)', fontSize: '13px', lineHeight: 1.5, color: 'var(--color-ink)', marginBottom: '2px' }}>
-              {human}
-            </div>
-          )}
+          {expanded && canExpand && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginTop: '10px' }}>
+              {/* Show the human summary at the top only when it isn't already the collapsed line */}
+              {human && showStatus && (
+                <div style={{ fontFamily: 'var(--font-body)', fontSize: '13px', lineHeight: 1.5, color: 'var(--color-ink)', marginBottom: '3px' }}>
+                  {human}
+                </div>
+              )}
 
-          {/* Clean weekly grid: grouped when every day parsed; otherwise a faithful
-              per-day list that falls back to the source text for prose days. */}
-          {hasRegular && !unparsed.size && groups.map((group) => {
-            const isToday = mounted && dayInGroup(group, today)
-            return (
-              <Row
-                key={group.startDay}
-                label={group.startDay === group.endDay ? DAY_SHORT[group.startDay] : `${DAY_SHORT[group.startDay]}–${DAY_SHORT[group.endDay]}`}
-                value={group.closed ? t('closed') : fmt(group.intervals)}
-                isToday={isToday}
-              />
-            )
-          })}
+              {hasRegular && !unparsed.size && groups.map((group) => (
+                <Row
+                  key={group.startDay}
+                  label={groupLabel(group)}
+                  value={group.closed ? t('closed') : fmt(group.intervals)}
+                  isToday={mounted && dayInGroup(group, today)}
+                  muted={group.closed}
+                />
+              ))}
 
-          {(hasRegular || hasRaw) && unparsed.size > 0 && DAY_ORDER.map((day) => {
-            const intervals = reg[day]
-            const raw = rawByDay[day]
-            let value
-            if (intervals && intervals.length) value = fmt(intervals)
-            else if (raw && !/^closed$/i.test(raw)) value = raw
-            else value = t('closed')
-            return <Row key={day} label={DAY_FULL[day]} value={value} isToday={mounted && day === today} />
-          })}
+              {(hasRegular || hasRaw) && unparsed.size > 0 && DAY_ORDER.map((day) => {
+                const intervals = reg[day]
+                const raw = rawByDay[day]
+                let value, muted = false
+                if (intervals && intervals.length) value = fmt(intervals)
+                else if (raw && !/^closed$/i.test(raw)) value = raw
+                else { value = t('closed'); muted = true }
+                return <Row key={day} label={DAY_FULL[day]} value={value} isToday={mounted && day === today} muted={muted} />
+              })}
 
-          {notes && (
-            <div style={{ fontFamily: 'var(--font-body)', fontSize: '12px', lineHeight: 1.5, color: 'var(--color-muted)', marginTop: '4px' }}>
-              {notes}
+              {notes && (
+                <div style={{ fontFamily: 'var(--font-body)', fontSize: '12px', lineHeight: 1.5, color: 'var(--color-muted)', marginTop: '5px' }}>
+                  {notes}
+                </div>
+              )}
             </div>
           )}
         </div>
-      )}
+      </div>
     </div>
   )
 }
 
-function Row({ label, value, isToday }) {
+function Row({ label, value, isToday, muted }) {
   return (
     <div style={{
       display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '16px',
-      fontFamily: 'var(--font-body)', fontSize: '13px', lineHeight: 1.5, padding: '2px 0',
-      color: isToday ? 'var(--color-ink)' : 'var(--color-muted)', fontWeight: isToday ? 500 : 400,
+      fontFamily: 'var(--font-body)', fontSize: '13px', lineHeight: 1.5,
+      color: isToday ? 'var(--color-ink)' : 'var(--color-muted)', fontWeight: isToday ? 600 : 400,
     }}>
       <span>{label}</span>
-      <span style={{ textAlign: 'right' }}>{value}</span>
+      <span style={{ textAlign: 'right', color: muted && !isToday ? 'var(--color-muted)' : undefined }}>{value}</span>
     </div>
   )
 }

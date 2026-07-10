@@ -399,6 +399,7 @@
     "openingHours": "Opening hours",
     "openNow": "Open now",
     "closedNow": "Closed now",
+    "closedToday": "Closed today",
     "open24h": "Open 24 hours",
     "closesAt": "Closes {time}",
     "opensAt": "Opens {time}",

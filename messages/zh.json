@@ -399,6 +399,7 @@
     "openingHours": "营业时间",
     "openNow": "正在营业",
     "closedNow": "现已关闭",
+    "closedToday": "今日休息",
     "open24h": "24小时营业",
     "closesAt": "{time} 打烊",
     "opensAt": "{time} 开门",
