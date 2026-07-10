@@ -65,6 +65,41 @@ function applyMerge(str, ctx) {
   return (str || '').replace(/\{\{(\w+)\}\}/g, (_, k) => (ctx[k] != null ? String(ctx[k]) : '')).replace(/\n{3,}/g, '\n\n')
 }
 
+// Fetch that never throws a raw "JSON.parse: unexpected character…". The
+// discover/personalise routes scrape sites and call the AI, so a slow batch can
+// exhaust the Vercel function budget and return a 504/502 HTML page instead of
+// JSON — parsing that blind used to surface a cryptic error. Read the body once,
+// parse defensively, and turn transport-level failures into a human message.
+async function fetchJson(url, options) {
+  let res
+  try {
+    res = await fetch(url, options)
+  } catch (err) {
+    throw new Error(`Network error — ${err.message || 'request could not be sent'}. Check your connection and retry.`)
+  }
+  const text = await res.text()
+  let data = null
+  if (text) {
+    try {
+      data = JSON.parse(text)
+    } catch {
+      // Body wasn't JSON: a gateway timeout, a crash page, or an auth redirect.
+      if (res.status === 504 || res.status === 502 || res.status === 503) {
+        throw new Error('The request timed out on the server. Try a smaller batch (fewer recipients at once) and retry.')
+      }
+      if (res.status === 401 || res.status === 403) {
+        throw new Error('Your admin session has expired. Reload the page and sign in again.')
+      }
+      const snippet = text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120)
+      throw new Error(`Server returned a non-JSON response (HTTP ${res.status})${snippet ? `: ${snippet}` : ''}.`)
+    }
+  }
+  if (!res.ok) {
+    throw new Error((data && data.error) || `Request failed (HTTP ${res.status}).`)
+  }
+  return data || {}
+}
+
 function Chip({ children, color = '#888', filled, title }) {
   return (
     <span title={title} style={{
@@ -119,15 +154,13 @@ function ComposePanel({ verticalNames, verticalColors, sendStatusColors, allStat
   async function loadSegment() {
     setLoading(true); setError(null); setResult(null)
     try {
-      const res = await fetch('/api/admin/outreach/segment', {
+      const data = await fetchJson('/api/admin/outreach/segment', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(filters),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to load segment')
       setSeg(data)
       // Default selection: everything currently sendable.
-      setSelected(new Set(data.listings.filter((l) => l.sendable).map((l) => l.id)))
+      setSelected(new Set((data.listings || []).filter((l) => l.sendable).map((l) => l.id)))
     } catch (err) { setError(err.message) } finally { setLoading(false) }
   }
 
@@ -146,19 +179,21 @@ function ComposePanel({ verticalNames, verticalColors, sendStatusColors, allStat
     const needing = seg.listings.filter((l) => l.website && !l.contact_email)
     if (needing.length === 0) return
     setDiscovering(true); setError(null)
-    const chunkSize = 15 // keep each /discover call inside the 60s function budget
+    const chunkSize = 10 // keep each /discover call comfortably inside the 60s function budget
     let scanned = 0, found = 0
     const updated = new Map(seg.listings.map((l) => [l.id, l]))
+    const failures = []
     try {
       for (let i = 0; i < needing.length; i += chunkSize) {
         const chunk = needing.slice(i, i + chunkSize)
         setDiscoverProgress({ scanned, total: needing.length, found })
-        const res = await fetch('/api/admin/outreach/discover', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ listing_ids: chunk.map((l) => l.id) }),
-        })
-        const data = await res.json()
-        if (res.ok) {
+        // Per-chunk isolation: a slow/timed-out batch records its error and the
+        // run continues, so one bad chunk never wipes progress from earlier ones.
+        try {
+          const data = await fetchJson('/api/admin/outreach/discover', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ listing_ids: chunk.map((l) => l.id) }),
+          })
           for (const r of data.results || []) {
             const l = updated.get(r.listing_id)
             if (l && r.email) {
@@ -166,7 +201,7 @@ function ComposePanel({ verticalNames, verticalColors, sendStatusColors, allStat
               found++
             }
           }
-        }
+        } catch (err) { failures.push(err.message) }
         scanned += chunk.length
         setDiscoverProgress({ scanned, total: needing.length, found })
       }
@@ -179,6 +214,9 @@ function ComposePanel({ verticalNames, verticalColors, sendStatusColors, allStat
         for (const l of listings) if (l.sendable && l.contact_email) next.add(l.id)
         return next
       })
+      if (failures.length) {
+        setError(`Found ${found} email${found === 1 ? '' : 's'}, but ${failures.length} batch${failures.length === 1 ? '' : 'es'} failed — ${failures[0]} You can re-run Discover for the remaining rows.`)
+      }
     } catch (err) { setError(err.message) } finally { setDiscovering(false); setDiscoverProgress(null) }
   }
 
@@ -201,27 +239,30 @@ function ComposePanel({ verticalNames, verticalColors, sendStatusColors, allStat
     if (targets.length === 0) return
     setDiscovering2(true); setError(null)
     const chunkSize = 12 // route caps 20; keep each call inside its budget
-    let done = 0
+    let done = 0, wrote = 0
     const byId = new Map(seg.listings.map((l) => [l.id, l]))
+    const failures = []
     try {
       for (let i = 0; i < targets.length; i += chunkSize) {
         const chunk = targets.slice(i, i + chunkSize)
         setPersonaliseProgress({ done, total: targets.length })
-        const res = await fetch('/api/admin/outreach/personalise', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ listing_ids: chunk.map((l) => l.id) }),
-        })
-        const data = await res.json()
-        if (res.ok) {
+        try {
+          const data = await fetchJson('/api/admin/outreach/personalise', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ listing_ids: chunk.map((l) => l.id) }),
+          })
           for (const r of data.results || []) {
             const l = byId.get(r.listing_id)
-            if (l && r.personal_note) byId.set(r.listing_id, { ...l, personal_note: r.personal_note })
+            if (l && r.personal_note) { byId.set(r.listing_id, { ...l, personal_note: r.personal_note }); wrote++ }
           }
-        }
+        } catch (err) { failures.push(err.message) }
         done += chunk.length
         setPersonaliseProgress({ done, total: targets.length })
       }
       setSeg((prev) => prev && { ...prev, listings: prev.listings.map((l) => byId.get(l.id)) })
+      if (failures.length) {
+        setError(`Wrote ${wrote} opener${wrote === 1 ? '' : 's'}, but ${failures.length} batch${failures.length === 1 ? '' : 'es'} failed — ${failures[0]}`)
+      }
     } catch (err) { setError(err.message) } finally { setDiscovering2(false); setPersonaliseProgress(null) }
   }
 
@@ -245,7 +286,7 @@ function ComposePanel({ verticalNames, verticalColors, sendStatusColors, allStat
   async function runSend({ dryRun = false, testMode = false } = {}) {
     setBusy(true); setError(null); setResult(null); setConfirmOpen(false)
     try {
-      const res = await fetch('/api/admin/outreach/send', {
+      const data = await fetchJson('/api/admin/outreach/send', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           listing_ids: eligibleSelected.map((l) => l.id),
@@ -253,8 +294,6 @@ function ComposePanel({ verticalNames, verticalColors, sendStatusColors, allStat
           personal_notes: Object.fromEntries(eligibleSelected.filter((l) => l.personal_note).map((l) => [l.id, l.personal_note])),
         }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Send failed')
       setResult(data)
       if (!dryRun && !testMode) {
         // Reflect newly-sent rows in the table so they can't be double-sent.
@@ -502,13 +541,14 @@ function LogRow({ row, verticalNames, verticalColors, statusColors, sendStatusCo
   const l = row.listing
 
   async function updateStatus(newStatus) {
+    const prev = statusVal
     setSaving(true); setStatusVal(newStatus)
     try {
-      await fetch('/api/admin/outreach', {
+      await fetchJson('/api/admin/outreach', {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: row.id, status: newStatus }),
       })
-    } catch { /* swallow */ }
+    } catch { setStatusVal(prev) /* revert on failure so the dot never lies */ }
     setSaving(false)
   }
 

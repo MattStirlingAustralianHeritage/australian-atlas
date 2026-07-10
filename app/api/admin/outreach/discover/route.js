@@ -40,11 +40,15 @@ export async function POST(request) {
   }
 
   const withSites = (listings || []).filter((l) => l.website)
+  // Soft deadline well inside maxDuration (60s) so we always return JSON — a
+  // partial scan the client can re-run, never a serverless-timeout HTML page.
   const discovered = await discoverEmailsBatch(
     withSites.map((l) => ({ id: l.id, website: l.website })),
-    6
+    6,
+    { deadlineMs: 45_000 }
   )
   const emailByListing = new Map(discovered.map((d) => [d.id, d]))
+  const timedOut = discovered.length < withSites.length
 
   // Existing outreach rows for these listings (there's no unique constraint on
   // listing_id, so we read-then-write to avoid duplicates).
@@ -108,8 +112,9 @@ export async function POST(request) {
   const foundCount = results.filter((r) => r.email).length
   return NextResponse.json({
     ok: true,
-    scanned: results.length,
+    scanned: discovered.length,
     found: foundCount,
+    timedOut,
     results,
   })
 }
