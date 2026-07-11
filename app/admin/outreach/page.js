@@ -61,6 +61,7 @@ export default async function OutreachPage() {
     const { data } = await sb
       .from('outreach_campaigns')
       .select('id, name, subject, total, sent, failed, skipped, test_mode, status, created_at, sent_at')
+      .eq('audience', 'operator')
       .order('created_at', { ascending: false })
       .limit(50)
     campaigns = data || []
@@ -104,6 +105,7 @@ export default async function OutreachPage() {
         }}>
           Build a segment of unclaimed listings, discover contact emails from their websites,
           and send a personalised batch invitation to claim their profile.
+          {' '}Reaching local government instead? Use <a href="/admin/council-outreach" style={{ color: '#8a6520' }}>Council outreach</a>.
         </p>
       </div>
 
