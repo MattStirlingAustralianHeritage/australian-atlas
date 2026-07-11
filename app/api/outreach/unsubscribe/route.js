@@ -15,10 +15,11 @@ async function suppress(email) {
     .upsert({ email: normalised, reason: 'unsubscribed' }, { onConflict: 'email' })
   // Reflect it on the funnel rows too, so the UIs show the state. The
   // suppression itself is email-keyed and audience-blind — one unsubscribe
-  // silences both operator and council outreach.
+  // silences operator, council and trade outreach alike.
   const stamp = { send_status: 'unsubscribed', updated_at: new Date().toISOString() }
   await sb.from('operator_outreach').update(stamp).ilike('contact_email', normalised)
   await sb.from('council_outreach').update(stamp).ilike('contact_email', normalised)
+  await sb.from('trade_outreach').update(stamp).ilike('contact_email', normalised)
 }
 
 function page(title, message) {

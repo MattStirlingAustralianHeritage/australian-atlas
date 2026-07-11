@@ -31,6 +31,7 @@ const SECTIONS = [
       ['/admin/operator-descriptions', 'Operator descriptions'],
       ['/admin/councils', 'Councils'],
       ['/admin/council-outreach', 'Council outreach'],
+      ['/admin/trade-outreach', 'Trade outreach'],
       ['/admin/events', 'Events'],
       ['/admin/revenue', 'Revenue'],
     ],

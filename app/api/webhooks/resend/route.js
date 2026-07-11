@@ -71,14 +71,18 @@ export async function POST(request) {
         )
       }
       if (messageId) {
-        // The message id lives on exactly one of the two funnel tables; both
-        // updates are cheap no-ops on the other.
+        // The message id lives on exactly one of the funnel tables; the
+        // updates are cheap no-ops on the others.
         await sb
           .from('operator_outreach')
           .update({ send_status: reason, updated_at: now })
           .eq('resend_message_id', messageId)
         await sb
           .from('council_outreach')
+          .update({ send_status: reason, updated_at: now })
+          .eq('resend_message_id', messageId)
+        await sb
+          .from('trade_outreach')
           .update({ send_status: reason, updated_at: now })
           .eq('resend_message_id', messageId)
       }

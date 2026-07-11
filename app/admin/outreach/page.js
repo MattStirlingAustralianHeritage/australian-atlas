@@ -106,6 +106,7 @@ export default async function OutreachPage() {
           Build a segment of unclaimed listings, discover contact emails from their websites,
           and send a personalised batch invitation to claim their profile.
           {' '}Reaching local government instead? Use <a href="/admin/council-outreach" style={{ color: '#8a6520' }}>Council outreach</a>.
+          {' '}Reaching tour operators and the travel trade? Use <a href="/admin/trade-outreach" style={{ color: '#8a6520' }}>Trade outreach</a>.
         </p>
       </div>
 
