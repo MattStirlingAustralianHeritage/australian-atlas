@@ -527,7 +527,7 @@ async function runQuickScan(sb) {
     // (code *_ai) — and refresh only the deterministic location/fit gates on top.
     const kept = (prev?.gate_details || [])
       .filter(d => d.gate === 'gate1_web' || d.gate === 'gate3_activity' || d.gate === 'gate5_character' || String(d.code || '').endsWith('_ai'))
-      .map(d => ({ gate: d.gate, code: d.code, severity: d.severity, reason: d.reason }))
+      .map(d => ({ gate: d.gate, code: d.code, severity: d.severity, reason: d.reason, ...(d.suggested_vertical ? { suggested_vertical: d.suggested_vertical } : {}) }))
     const summary = summariseFailures([...kept, ...failures], { website: l.website || prev?.website || null, http_status: prev?.http_status ?? null })
     toUpsert.push({ listing_id: l.id, scanned_at: new Date().toISOString(), status: 'pending', reviewed_at: null, reviewed_by: null, ...summary })
   }

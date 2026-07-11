@@ -226,6 +226,15 @@ export async function DELETE(request, { params }) {
     return NextResponse.json({ success: true, deleted_id: id })
   } catch (err) {
     console.error('[admin/listings/DELETE] Error:', err.message)
-    return NextResponse.json({ error: 'Delete failed' }, { status: 500 })
+    // Surface the REAL reason. The old blanket 'Delete failed' hid every
+    // foreign-key violation (merge targets, evaluation logs, …) as an
+    // unexplained failure the admin could do nothing about.
+    if (err?.code === '23503') {
+      const t = (String(err.message || '').match(/on table "([^"]+)"/g) || []).pop()?.match(/"([^"]+)"/)?.[1]
+      return NextResponse.json({
+        error: `Cannot delete — other records still reference this listing${t ? ` (table: ${t})` : ''}. ${err.details || ''}`.trim(),
+      }, { status: 409 })
+    }
+    return NextResponse.json({ error: err?.message || 'Delete failed' }, { status: 500 })
   }
 }

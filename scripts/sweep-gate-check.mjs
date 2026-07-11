@@ -71,28 +71,37 @@ async function fetchAllActive() {
 }
 
 async function fetchExistingRows() {
-  const map = new Map() // listing_id -> status
+  const map = new Map() // listing_id -> { status, aiDetails }
   const PAGE = 1000
   for (let from = 0; ; from += PAGE) {
     // MUST .order() a stable column — without it, paged range() over a table
     // >1000 rows can skip rows, dropping their listing_id from the resolved set
     // and clobbering a prior admin Pass/Hide/Delete decision on the next sweep.
-    const { data, error } = await sb.from('listing_gate_check').select('listing_id,status').order('listing_id').range(from, from + PAGE - 1)
+    const { data, error } = await sb.from('listing_gate_check').select('listing_id,status,gate_details').order('listing_id').range(from, from + PAGE - 1)
     if (error) {
       if (error.code === 'PGRST205' || /listing_gate_check/.test(error.message)) {
         throw new Error('Table listing_gate_check does not exist — apply migration 219 first.')
       }
       throw new Error(`Failed to read existing gate-check rows: ${error.message}`)
     }
-    for (const r of data) map.set(r.listing_id, r.status)
+    for (const r of data) {
+      // On-demand AI findings (code *_ai) can't be recomputed by this sweep —
+      // carry them across the upsert so a re-sweep doesn't erase an admin's
+      // AI vertical-fit verdict on a still-pending row.
+      const aiDetails = (r.gate_details || [])
+        .filter(d => String(d.code || '').endsWith('_ai'))
+        .map(d => ({ gate: d.gate, code: d.code, severity: d.severity, reason: d.reason, ...(d.suggested_vertical ? { suggested_vertical: d.suggested_vertical } : {}) }))
+      map.set(r.listing_id, { status: r.status, aiDetails })
+    }
     if (!data || data.length < PAGE) break
   }
   return map
 }
 
 // Evaluate one listing → row payload | null.
-async function evaluate(listing, groups) {
+async function evaluate(listing, groups, keptAiDetails = []) {
   const failures = []
+  failures.push(...keptAiDetails)
   failures.push(checkGate2Location(listing))
   failures.push(checkGate4Vertical(listing))
   // Character (commercial-group denylist) — computed here too so a deep re-sweep
@@ -159,7 +168,7 @@ async function main() {
   ])
   if (groupsRes.error) throw new Error(`commercial_groups read failed: ${groupsRes.error.message}`)
   const groups = groupsRes.data || []
-  const resolved = new Set([...existing.entries()].filter(([, s]) => s !== 'pending').map(([id]) => id))
+  const resolved = new Set([...existing.entries()].filter(([, v]) => v.status !== 'pending').map(([id]) => id))
   console.log(`[gate-check] ${listings.length} active listings · ${existing.size} existing rows (${resolved.size} already actioned) · ${groups.length} commercial groups · live-fetch=${LIVE_FETCH} · concurrency=${CONCURRENCY}`)
 
   const buffer = []
@@ -184,7 +193,9 @@ async function main() {
     while (idx < listings.length && !interrupted) {
       const listing = listings[idx++]
       let row = null
-      try { row = await evaluate(listing, groups) } catch (e) { /* per-listing failure is non-fatal */ }
+      const prev = existing.get(listing.id)
+      const keptAi = prev && prev.status === 'pending' ? prev.aiDetails : []
+      try { row = await evaluate(listing, groups, keptAi) } catch (e) { /* per-listing failure is non-fatal */ }
       processed++
       if (row) {
         failingIds.add(listing.id)
@@ -216,7 +227,7 @@ async function main() {
   let cleared = 0
   const fullSweep = !LIMIT && LIVE_FETCH
   if (AUTOCLEAR && fullSweep) {
-    const stalePending = [...existing.entries()].filter(([id, s]) => s === 'pending' && !failingIds.has(id)).map(([id]) => id)
+    const stalePending = [...existing.entries()].filter(([id, v]) => v.status === 'pending' && !failingIds.has(id)).map(([id]) => id)
     for (let i = 0; i < stalePending.length; i += 200) {
       const c = stalePending.slice(i, i + 200)
       const { data, error } = await sb.from('listing_gate_check')
