@@ -359,7 +359,9 @@ export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hi
       vx: 0,
     }
     suppressClick.current = false
-    try { cardWrapRef.current?.setPointerCapture(e.pointerId) } catch { /* already released */ }
+    // Capture is deferred to onPointerMove (once the drag activates): capturing
+    // here retargets pointerup — and therefore the derived click — to this
+    // wrapper, which kills taps on the More tab and View listing link.
   }, [animating])
 
   const onPointerMove = useCallback((e) => {
@@ -375,6 +377,10 @@ export default function DiscoverDeck({ variant = 'fullscreen', onPicksChange, hi
       }
       if (Math.abs(dx) < DRAG_SLOP || Math.abs(dx) <= Math.abs(dy)) return
       d.active = true
+      // A real drag — own the pointer now so moves keep arriving after the
+      // cursor leaves the card. Capturing any earlier (on pointerdown) would
+      // retarget the tap's click away from the More tab / View listing link.
+      try { cardWrapRef.current?.setPointerCapture(e.pointerId) } catch { /* fine */ }
     }
     const dt = Math.max(1, e.timeStamp - d.lastT)
     d.vx = 0.7 * ((e.clientX - d.lastX) / dt) + 0.3 * d.vx
