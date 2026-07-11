@@ -173,6 +173,7 @@ async function main() {
 
   const buffer = []
   const failingIds = new Set()
+  const erroredIds = new Set() // evaluate() threw — unknown state, never auto-clear these
   const stats = { flagged: 0, byGate: {}, byAction: {}, bySeverity: {}, upserted: 0 }
   let processed = 0
   let interrupted = false
@@ -195,7 +196,7 @@ async function main() {
       let row = null
       const prev = existing.get(listing.id)
       const keptAi = prev && prev.status === 'pending' ? prev.aiDetails : []
-      try { row = await evaluate(listing, groups, keptAi) } catch (e) { /* per-listing failure is non-fatal */ }
+      try { row = await evaluate(listing, groups, keptAi) } catch (e) { erroredIds.add(listing.id) /* per-listing failure is non-fatal */ }
       processed++
       if (row) {
         failingIds.add(listing.id)
@@ -227,7 +228,9 @@ async function main() {
   let cleared = 0
   const fullSweep = !LIMIT && LIVE_FETCH
   if (AUTOCLEAR && fullSweep) {
-    const stalePending = [...existing.entries()].filter(([id, v]) => v.status === 'pending' && !failingIds.has(id)).map(([id]) => id)
+    // Never clear a row whose listing errored mid-evaluation — "we couldn't
+    // check it" is not "it passed".
+    const stalePending = [...existing.entries()].filter(([id, v]) => v.status === 'pending' && !failingIds.has(id) && !erroredIds.has(id)).map(([id]) => id)
     for (let i = 0; i < stalePending.length; i += 200) {
       const c = stalePending.slice(i, i + 200)
       const { data, error } = await sb.from('listing_gate_check')
