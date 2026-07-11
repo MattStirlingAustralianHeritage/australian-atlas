@@ -8,7 +8,6 @@ import ListingCard, { TypographicCard, VERTICAL_TOKENS } from '@/components/List
 import SearchAutocomplete from '@/components/SearchAutocomplete'
 import SearchAssistant from '@/components/SearchAssistant'
 import SearchResultCard, { queryTerms, buildSnippet, highlightTerms } from '@/components/SearchResultCard'
-import VibeSearch from './VibeSearch'
 import { getListingRegion } from '@/lib/regions'
 import { isApprovedImageSource } from '@/lib/image-utils'
 import { isStrongMatch } from '@/lib/search/relevanceFloor'
@@ -371,7 +370,6 @@ function SearchPageInner() {
   const searchParams = useSearchParams()
   const router = useRouter()
 
-  const [mode, setMode] = useState(searchParams.get('mode') === 'vibe' ? 'vibe' : 'search')
   const [query, setQuery] = useState(searchParams.get('q') || '')
   const [vertical, setVertical] = useState(searchParams.get('vertical') || '')
   const [state, setState] = useState(searchParams.get('state') || '')
@@ -491,7 +489,7 @@ function SearchPageInner() {
     // A plain-language request (a gift, an occasion, "somewhere to take mum")
     // is answered by the concierge instead of ranked as a name/category lookup.
     // Itinerary-shaped queries are handled separately (redirect to /itinerary).
-    const useAsk = mode === 'search' && !!query && p === 1 && !append && !forceExact &&
+    const useAsk = !!query && p === 1 && !append && !forceExact &&
       isInquiryQuery(query) && !isItineraryIntent(query)
 
     try {
@@ -617,7 +615,7 @@ function SearchPageInner() {
         setInitialLoad(false)
       }
     }
-  }, [query, vertical, state, region, subType, facetRegion, noBind, noVerticalBind, mode, forceExact, locale])
+  }, [query, vertical, state, region, subType, facetRegion, noBind, noVerticalBind, forceExact, locale])
 
   // A fresh query re-enables atlas auto-detection: broadening ("All") applied to
   // one query shouldn't silently suppress the focus for the next, unrelated one.
@@ -638,7 +636,6 @@ function SearchPageInner() {
   // (it used to hijack any query containing "tour"/"day"/"trail" mid-typing) —
   // it only fires on explicit submit (handleSubmit) now.
   useEffect(() => {
-    if (mode !== 'search') return  // Vibe mode runs its own search; don't double-fire.
     // A concierge (inquiry) run costs two Claude calls, so give it a longer
     // idle window than a plain keyword search before firing.
     const delay = query && isInquiryQuery(query) && !isItineraryIntent(query) ? 900 : 600
@@ -647,7 +644,7 @@ function SearchPageInner() {
       search(1)
     }, delay)
     return () => clearTimeout(timer)
-  }, [search, updateUrl, query, vertical, state, region, subType, facetRegion, noBind, noVerticalBind, mode, forceExact])
+  }, [search, updateUrl, query, vertical, state, region, subType, facetRegion, noBind, noVerticalBind, forceExact])
 
   // Explicit submit (Enter / search button): force an immediate search, and
   // honour itinerary intent here (only on a deliberate action, not while typing).
@@ -785,7 +782,9 @@ function SearchPageInner() {
   // the floor" — but they're geographically correct, not weak. Don't shame them
   // with the "no strong matches" banner; the place chip already frames them.
   const placeProximity = !!(detectedPlace && detectedPlace.proximity)
-  const weakOnly = displayResults.length > 0 && !anyStrong && !placeProximity
+  // Browse rows (no query) carry no similarity, so "nothing strong" is
+  // meaningless there — the banner only makes sense for a real text query.
+  const weakOnly = !!query.trim() && displayResults.length > 0 && !anyStrong && !placeProximity
   const hasActiveFilters = !!(vertical || state || region || subType || facetRegion || autoState || autoRegion || (detectedVertical && !noVerticalBind))
   const canLoadMore = !askMode && totalPages > 1 && page < totalPages
   const remaining = Math.max(0, total - displayResults.length)
@@ -822,81 +821,11 @@ function SearchPageInner() {
         <p className="masthead-sub">{t('mastheadSub')}</p>
       </div>
 
-      {/* Mode toggle: Search / Vibe — a proper segmented control. */}
-      <div
-        className="flex items-center"
-        style={{
-          maxWidth: '18rem',
-          padding: '3px',
-          background: '#fff',
-          border: '1px solid var(--color-border)',
-          borderRadius: '999px',
-          boxShadow: 'var(--shadow-xs)',
-        }}
-      >
-        <button
-          onClick={() => setMode('search')}
-          aria-pressed={mode === 'search'}
-          style={{
-            flex: 1,
-            padding: '0.5rem 1rem',
-            borderRadius: '999px',
-            border: 'none',
-            cursor: 'pointer',
-            fontFamily: 'var(--font-body)',
-            fontWeight: 500,
-            fontSize: '0.8125rem',
-            transition: 'all 0.15s',
-            background: mode === 'search' ? 'var(--color-ink)' : 'transparent',
-            color: mode === 'search' ? '#fff' : 'var(--color-muted)',
-          }}
-        >
-          {t('modeSearch')}
-        </button>
-        <button
-          onClick={() => setMode('vibe')}
-          aria-pressed={mode === 'vibe'}
-          style={{
-            flex: 1,
-            padding: '0.5rem 1rem',
-            borderRadius: '999px',
-            border: 'none',
-            cursor: 'pointer',
-            fontFamily: 'var(--font-body)',
-            fontWeight: 500,
-            fontSize: '0.8125rem',
-            transition: 'all 0.15s',
-            background: mode === 'vibe' ? 'var(--color-ink)' : 'transparent',
-            color: mode === 'vibe' ? '#fff' : 'var(--color-muted)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '0.375rem',
-          }}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z" />
-          </svg>
-          {t('modeVibe')}
-        </button>
-      </div>
-
-      {/* Vibe needs a one-line explainer; Search is already framed by the
-          masthead standfirst, so repeating it would just add noise. */}
-      {mode === 'vibe' && (
-        <p className="mt-2" style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '12.5px', color: 'var(--color-muted)' }}>
-          {t('vibeExplainer')}
-        </p>
-      )}
-
-      {/* Vibe mode — seeded with the current query so toggling keeps your text. */}
-      {mode === 'vibe' && <VibeSearch initialQuery={query} onQueryChange={setQuery} />}
-
-      {/* Standard search mode */}
-      {mode === 'search' && <>
-
       {/* Search input — a form so Enter submits (and only then redirects to the
-          itinerary builder, instead of hijacking the query mid-typing). */}
+          itinerary builder, instead of hijacking the query mid-typing). One
+          input for everything: names, towns, categories, and described
+          feelings — the API detects which and answers accordingly (the old
+          separate "Vibe" mode is folded into this path). */}
       <form ref={formRef} onSubmit={handleSubmit} role="search" className="search-shell mt-6 flex items-center gap-3 rounded-2xl px-5 py-4 max-w-2xl">
         <svg className="search-shell-icon w-6 h-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--color-gold)' }} aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -1206,6 +1135,35 @@ function SearchPageInner() {
                 {t}
               </button>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Try a feeling — the old Vibe mode's example prompts, now seeding the
+          one search box (the API handles described moods in the same path). */}
+      {!query && (
+        <div className="mt-5">
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--color-gold)', margin: '0 0 10px', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z" />
+            </svg>
+            {t('vibeTryLabel')}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {['vibeExample1', 'vibeExample2', 'vibeExample3', 'vibeExample4', 'vibeExample5'].map((k) => {
+              const example = t(k)
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => { setNoBind(false); setQuery(example) }}
+                  className="px-3 py-1.5 rounded-full whitespace-nowrap"
+                  style={{ fontFamily: 'var(--font-body)', fontWeight: 400, fontStyle: 'italic', fontSize: '13px', background: '#fff', color: 'var(--color-muted)', border: '1px solid var(--color-border)' }}
+                >
+                  {example}
+                </button>
+              )
+            })}
           </div>
         </div>
       )}
@@ -1667,8 +1625,6 @@ function SearchPageInner() {
           )}
         </>
       )}
-
-      </>}
     </div>
   )
 }

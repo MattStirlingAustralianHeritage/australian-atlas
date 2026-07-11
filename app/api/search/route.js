@@ -15,6 +15,7 @@ import { resolveQueryPlace, geocodePlace, looksLikePlaceQuery } from '@/lib/sear
 import { detectVerticalIntent } from '@/lib/search/verticalIntent'
 import { relevanceFloorFor } from '@/lib/search/relevanceFloor'
 import { rerankSearchResults } from '@/lib/search/rerank'
+import { looksDescriptive, expandDescriptiveQuery } from '@/lib/search/vibeExpand'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { translateSearchQuery } from '@/lib/search/translateQuery'
 import { overlayListingTranslations } from '@/lib/i18n/overlayListings'
@@ -513,12 +514,45 @@ export async function GET(request) {
       // one stray query token can't out-badge the rows that actually answer
       // the query. Fallback (rerank disabled/failed): the original per-vertical
       // bi-encoder floors. Proximity rows carry no text score → never strong.
-      all = all.map((r) => ({
+      const applyStrength = (rows, didRerank) => rows.map((r) => ({
         ...r,
-        strong: reranked
+        strong: didRerank
           ? typeof r.rerank_score === 'number' && r.rerank_score >= RERANK_STRONG_FLOOR
           : isStrongRow(r),
       }))
+      all = applyStrength(all, reranked)
+
+      // ── Descriptive-recall second pass (the old Vibe mode, folded in) ────
+      // A descriptive query whose pool cleared nothing strong gets ONE shot at
+      // broader lexical recall: expand the feeling into concrete venue
+      // vocabulary (cached, budget-guarded, fail-open) and OR it into the
+      // lexical arm — same embedding, same location constraints. The cross-
+      // encoder then re-ranks the widened pool against the ORIGINAL query, so
+      // a strong badge is still earned per-row, never granted by expansion.
+      let expanded = false
+      if (!proximityResult && cleaned && looksDescriptive(cleaned) && !all.some((r) => r.strong)) {
+        const expandedText = await expandDescriptiveQuery(cleaned)
+        if (expandedText) {
+          const { data: moreData } = await sb.rpc('search_listings_hybrid', {
+            query_embedding: queryEmbedding, query_text: expandedText,
+            filter_vertical: vertical, filter_state: filterState,
+            filter_region: effectiveRegion, filter_suburb: filterSuburb,
+            match_count: RESULT_POOL, similarity_floor: similarityFloor,
+            include_way: includeWay, ...(geoBox || {}),
+          })
+          // Union: keep the original pool's rows (also_in intact), add only
+          // venues not already present by id OR slug (cross-listings collapse).
+          const seenKeys = new Set(all.flatMap((r) => [r.id, r.slug || r.id]))
+          const fresh = dedupeBySlug((moreData || []).filter(isPublicListing))
+            .filter((r) => !seenKeys.has(r.id) && !seenKeys.has(r.slug || r.id))
+          if (fresh.length) {
+            const rr = await rerankSearchResults(sb, cleaned, all.concat(fresh), { topN: RERANK_TOP_N })
+            all = applyStrength(rr.listings, rr.reranked)
+            reranked = reranked || rr.reranked
+            expanded = true
+          }
+        }
+      }
       // Drop the focus if the detected atlas is barely represented — the keyword
       // matched but the results are really cross-atlas, so don't lead/label it.
       if (detectedVertical &&
@@ -576,7 +610,7 @@ export async function GET(request) {
       })
 
       return NextResponse.json({
-        listings, total, capped, facets, subType, facetRegion, didYouMean, nameMatch, page, limit, reranked, pins,
+        listings, total, capped, facets, subType, facetRegion, didYouMean, nameMatch, page, limit, reranked, expanded, pins,
         totalPages: Math.ceil(total / limit),
         detectedVertical, detectedState: detectedState || null, detectedRegion, detectedSuburb,
         // Place-aware search: the resolved town/suburb the results are scoped to
