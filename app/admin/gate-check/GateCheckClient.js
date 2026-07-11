@@ -202,6 +202,10 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
 
   // ── Repair (per-remediation, or manual URL) ──────────────────────────────────
   const [repairing, setRepairing] = useState(null) // `${rowId}:${type}` currently running
+  // A near-miss website found by the Fix lookup — offered for one-click
+  // confirmation (applies via the reviewer-supplied-URL path), never auto-set.
+  const [suggestion, setSuggestion] = useState(null) // { rowId, url, placeName, reason }
+  useEffect(() => { setSuggestion(null) }, [current?.id])
   const doRepair = useCallback(async (rowId, only = null, extra = {}) => {
     const key = `${rowId}:${only || (extra.manualWebsite ? 'manual' : 'auto')}`
     setRepairing(key)
@@ -214,6 +218,7 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Repair failed')
       const applied = (data.applied || []).join('; ')
+      setSuggestion(data.suggestion ? { rowId, ...data.suggestion } : null)
       // Fold any changed listing fields back into the card (map moves, link updates).
       const mergeListing = (r) => data.listingPatch ? { ...r, listing: { ...r.listing, ...data.listingPatch } } : r
       if (data.noop) {
@@ -370,6 +375,7 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
                 onRepair={(only) => doRepair(current.id, only)}
                 onManualWebsite={(url) => doRepair(current.id, null, { manualWebsite: url })}
                 repairing={repairing}
+                suggestion={suggestion && suggestion.rowId === current.id ? suggestion : null}
                 mapboxToken={mapboxToken} />
               {rows.length > 1 && (
                 <p style={{ textAlign: 'center', fontFamily: font.body, fontSize: 13, color: MUTED, marginTop: 10 }}>
@@ -398,7 +404,7 @@ export default function GateCheckClient({ initialRows, tableMissing, loadError, 
 // ════════════════════════════════════════════════════════════════════════════
 // The one-at-a-time review card
 // ════════════════════════════════════════════════════════════════════════════
-function GateCard({ row, busy, ai, onAction, onAi, onRepair, onManualWebsite, repairing, mapboxToken }) {
+function GateCard({ row, busy, ai, onAction, onAi, onRepair, onManualWebsite, repairing, suggestion, mapboxToken }) {
   const l = row.listing || {}
   const name = l.name || '(listing missing)'
   const live = l.slug ? `/place/${l.slug}` : null
@@ -486,6 +492,22 @@ function GateCard({ row, busy, ai, onAction, onAi, onRepair, onManualWebsite, re
                   </div>
                 )
               })}
+              {suggestion && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', borderRadius: 8, background: '#fff', border: `1px dashed ${REPAIR}66` }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: font.body, fontSize: 12.5, fontWeight: 600, color: '#2a5560' }}>
+                      Possible match: {suggestion.placeName || 'found on Google Places'} —{' '}
+                      <a href={suggestion.url} target="_blank" rel="noreferrer" style={{ color: REPAIR }}>{shortHost(suggestion.url)} ↗</a>
+                    </div>
+                    {suggestion.reason && <div style={{ fontFamily: font.body, fontSize: 11.5, color: MUTED, lineHeight: 1.35, marginTop: 1 }}>Not applied automatically — {suggestion.reason}.</div>}
+                  </div>
+                  <button onClick={() => onManualWebsite(suggestion.url)} disabled={anyRepairBusy} style={{
+                    height: 32, padding: '0 14px', borderRadius: 8, flexShrink: 0, background: '#fff', color: REPAIR,
+                    border: `1px solid ${REPAIR}`, fontFamily: font.body, fontSize: 12, fontWeight: 600,
+                    cursor: anyRepairBusy ? 'default' : 'pointer', opacity: anyRepairBusy ? 0.5 : 1,
+                  }}>Use this site</button>
+                </div>
+              )}
               {showManualWebsite && (
                 <ManualWebsite onSubmit={onManualWebsite} busy={anyRepairBusy} spinning={repairing === `${row.id}:manual`} currentUrl={row.website} />
               )}
@@ -538,6 +560,8 @@ function GateCard({ row, busy, ai, onAction, onAi, onRepair, onManualWebsite, re
     </div>
   )
 }
+
+function shortHost(u) { try { return new URL(u).hostname.replace(/^www\./, '') } catch { return u } }
 
 // Inline "paste the correct URL" entry — always offered when a web gate fails,
 // so the reviewer can supply the right site when the auto-lookup can't find it.

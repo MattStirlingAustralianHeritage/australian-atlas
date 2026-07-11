@@ -3,11 +3,11 @@ import { cookies } from 'next/headers'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
 import { fetchGateCheckRows, fetchHiddenListings, applyGateCheckAction, restoreHiddenListings } from '@/lib/gate-check/queue'
-import { checkGate1Web, checkGate2Location, checkGate4Vertical, summariseFailures, stateFromCoords, normaliseState } from '@/lib/gate-check/gates'
+import { checkGate1Web, checkGate2Location, checkGate4Vertical, summariseFailures, stateFromCoords, normaliseState, nameSimilarity } from '@/lib/gate-check/gates'
 import { gate4VerticalFit } from '@/lib/prospector/gates'
 import { getRemediations, getAutoRemediations, DEAD_WEB_CODES, VERTICAL_LABELS } from '@/lib/gate-check/remediation'
 import { updateListing } from '@/lib/admin/updateListing'
-import { searchPlaces, getPlaceDetails } from '@/lib/prospector/google-places'
+import { searchPlaces, getPlaceDetails, extractState } from '@/lib/prospector/google-places'
 import { anchoredGeocode, localityCentroid } from '@/lib/geo/anchoredGeocode'
 import { resolveRegionForCoords } from '@/lib/geo/resolveRegionForCoords'
 
@@ -115,15 +115,145 @@ export async function POST(request) {
   }
 }
 
-// Token overlap between two names (0–1) — used to guard against attaching an
-// unrelated Google Places result's website to a listing.
-function nameOverlap(a, b) {
-  const toks = s => new Set(String(s || '').toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 2))
-  const ta = toks(a), tb = toks(b)
-  if (!ta.size) return 0
-  let m = 0
-  for (const w of ta) if (tb.has(w)) m++
-  return m / ta.size
+// Haversine distance (km) — used to keep a same-name business in another state
+// from being matched to this listing.
+function kmBetween(aLat, aLng, bLat, bLng) {
+  const rad = d => (d * Math.PI) / 180
+  const dLat = rad(bLat - aLat), dLng = rad(bLng - aLng)
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(aLat)) * Math.cos(rad(bLat)) * Math.sin(dLng / 2) ** 2
+  return 12742 * Math.asin(Math.sqrt(h))
+}
+
+// Name-match thresholds: ≥ AUTO_MATCH may be swapped in automatically;
+// SUGGEST_MATCH…AUTO_MATCH is only ever OFFERED to the reviewer (one click to
+// accept via the manual-URL path) — never auto-applied. 0.62 is calibrated so
+// a partial match that misses a locality word ("Adelaide Hills Distillery" vs
+// "Cut Hill Wall Distillery" scores 0.57 — hills→hill + the generic
+// 'distillery') lands in the suggestion tier for a human call, while full-name
+// matches with venue-word noise still clear it comfortably.
+const AUTO_MATCH = 0.62
+const SUGGEST_MATCH = 0.3
+
+/**
+ * Find the official website for a listing via Google Places.
+ *
+ * Replaces the old single-shot lookup (one query, first result, hard 0.5 token
+ * overlap) which failed constantly in practice: one wrong region word in the
+ * query buried the venue, the one candidate it looked at often had no website,
+ * and — worst — a month-exhausted Places budget silently returned [] and was
+ * reported as "no confident replacement found".
+ *
+ * Strategy:
+ *   1. Query ladder — "name locality state" first, bare "name" only if the
+ *      localised query found no auto-tier match (Text Search ranks by query
+ *      text, so a WRONG region label in the query hides the real venue).
+ *   2. Score every unique result with nameSimilarity (fuzzy, generic-word-
+ *      discounted) and a geographic sanity penalty (distance from the pin, or
+ *      state mismatch when there is no pin).
+ *   3. Walk the top auto-tier candidates (≤3 detail fetches): skip permanently-
+ *      closed / website-less ones; verify the site is alive and matches the
+ *      business (accepting Google's own name for it as an alias) before
+ *      swapping it in.
+ *   4. Anything promising that can't be auto-applied comes back as a
+ *      `suggestion` for one-click reviewer confirmation, and every dead end is
+ *      narrated in `note` so the reviewer knows exactly what was tried.
+ *
+ * Uses the dedicated `google_places_admin` budget pool — the cron prospector
+ * exhausts the shared pool within days, which is what starved this repair.
+ *
+ * @returns {Promise<{url?:string, placeName?:string, notes:string[], note?:string, suggestion?:{url,placeName,reason}}>}
+ */
+async function findOfficialWebsite(listing) {
+  const state = normaliseState(listing.state) || (listing.state || '').trim()
+  const locality = ((listing.suburb || '').trim()) || (((listing.region || '').split(',')[0]) || '').trim()
+  const lat = Number(listing.lat), lng = Number(listing.lng)
+  const hasCoords = Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0)
+  const loc = hasCoords ? { lat, lng } : null
+  const currentHost = hostOf(listing.website || '')
+  const places = { budgetKey: 'google_places_admin', onBudgetExhausted: 'throw' }
+
+  const queries = [...new Set([
+    `${listing.name} ${locality} ${state}`.replace(/\s+/g, ' ').trim(),
+    String(listing.name || '').trim(),
+  ])].filter(Boolean)
+
+  const seen = new Set()
+  const scored = []
+  const notes = []
+  try {
+    for (const q of queries) {
+      const results = await searchPlaces(q, loc, places)
+      for (const r of results) {
+        if (!r.place_id || seen.has(r.place_id)) continue
+        seen.add(r.place_id)
+        let score = nameSimilarity(listing.name, r.name || '')
+        const rl = r.geometry?.location
+        if (hasCoords && rl && Number.isFinite(rl.lat) && Number.isFinite(rl.lng)) {
+          const km = kmBetween(lat, lng, rl.lat, rl.lng)
+          if (km > 300) score -= 0.25
+          else if (km > 100) score -= 0.1
+        } else if (state) {
+          const rs = extractState(r.formatted_address || '')
+          if (rs && rs !== state) score -= 0.2
+        }
+        scored.push({ place_id: r.place_id, name: r.name || '', score })
+      }
+      if (scored.some(c => c.score >= AUTO_MATCH)) break // confident match — skip the broader query
+    }
+  } catch (e) {
+    if (e?.code === 'PLACES_BUDGET_EXHAUSTED') {
+      return { notes, note: 'the Google Places lookup budget for this month is used up (resets on the 1st; raise AI_CAP_PLACES_ADMIN_USD to extend it) — paste the correct URL below instead' }
+    }
+    return { notes, note: `the Google Places lookup failed (${String(e?.message || e).slice(0, 90)}) — try again or paste the URL below` }
+  }
+
+  if (!scored.length) {
+    return { notes, note: `Google Places has no results for "${queries[0]}"${queries[1] ? ` or "${queries[1]}"` : ''} — the business may no longer exist` }
+  }
+  scored.sort((a, b) => b.score - a.score)
+
+  let suggestion = null
+  for (const cand of scored.filter(c => c.score >= AUTO_MATCH).slice(0, 3)) {
+    let det = null
+    try { det = await getPlaceDetails(cand.place_id, places) } catch (e) {
+      if (e?.code === 'PLACES_BUDGET_EXHAUSTED') { notes.push('the Places budget ran out mid-lookup'); break }
+      notes.push(`detail lookup failed for "${cand.name}"`); continue
+    }
+    if (!det) continue
+    if (det.business_status === 'CLOSED_PERMANENTLY') { notes.push(`Google says "${det.name}" is permanently closed`); continue }
+    if (!det.website) { notes.push(`matched "${det.name}" on Google Places but it lists no website`); continue }
+    const url = normaliseWebsiteUrl(det.website)
+    if (!url) { notes.push(`matched "${det.name}" but its listed website (${String(det.website).slice(0, 60)}) is not a usable URL`); continue }
+    if (hostOf(url) === currentHost) {
+      notes.push(`Google Places lists the same site (${currentHost}) for "${det.name}" — the link is current; the site itself is the problem`)
+      continue
+    }
+    const gate = await urlPassesWebGate(listing.name, url, [det.name])
+    if (gate.pass) return { url, placeName: det.name, notes }
+    // Right business, but its site fails our automated checks (often just slow
+    // or bot-blocked) → offer it rather than bury it.
+    if (!suggestion) suggestion = { url, placeName: det.name, reason: gate.reason || 'the site did not pass the automated web check' }
+    notes.push(`found ${hostOf(url)} for "${det.name}" but it did not pass the web check`)
+  }
+
+  // Near-miss tier: surface the best sub-threshold candidate for a human call.
+  if (!suggestion) {
+    const near = scored.find(c => c.score >= SUGGEST_MATCH && c.score < AUTO_MATCH)
+    if (near) {
+      try {
+        const det = await getPlaceDetails(near.place_id, places)
+        const url = det?.website ? normaliseWebsiteUrl(det.website) : null
+        if (url && hostOf(url) !== currentHost && det.business_status !== 'CLOSED_PERMANENTLY') {
+          suggestion = { url, placeName: det.name, reason: `the name is only a ${Math.round(near.score * 100)}% match — check it is the same business` }
+        }
+      } catch { /* best-effort — the suggestion tier never blocks the result */ }
+    }
+  }
+
+  const note = notes.length
+    ? notes.join('; ')
+    : `the closest Google Places result ("${scored[0].name}") is not a confident name match (${Math.round(scored[0].score * 100)}%)`
+  return { notes, note, suggestion }
 }
 
 // Apply a repair to a single row, then clear or refresh the affected gate(s).
@@ -167,6 +297,7 @@ async function runRepair(sb, rowId, opts = {}) {
   const updates = {}
   const applied = []
   const repairedGates = new Set()
+  let suggestion = null
   // Working copy of the findings so a regeocode that MOVES the pin but does not
   // clear the gate can refresh that finding's reason in place.
   let details = (row.gate_details || []).map(d => ({ gate: d.gate, code: d.code, severity: d.severity, reason: d.reason }))
@@ -174,30 +305,26 @@ async function runRepair(sb, rowId, opts = {}) {
   for (const rem of toRun) {
     if (rem.type === 'fix_website') {
       // Replace-only: find the official site and swap it in. NEVER deletes.
-      let found = null
-      try {
-        const loc = (Number.isFinite(Number(listing.lat)) && Number.isFinite(Number(listing.lng)) && !(Number(listing.lat) === 0 && Number(listing.lng) === 0))
-          ? { lat: Number(listing.lat), lng: Number(listing.lng) } : null
-        const results = await searchPlaces(`${listing.name} ${listing.region || listing.state || ''}`.trim(), loc)
-        const best = (results || []).find(r => nameOverlap(listing.name, r.name) >= 0.5) || (results || [])[0]
-        if (best && nameOverlap(listing.name, best.name) >= 0.5) {
-          const det = await getPlaceDetails(best.place_id)
-          // Only accept a genuinely different URL that itself passes the web gate —
-          // never swap one broken link for another.
-          if (det?.website && hostOf(det.website) !== hostOf(listing.website || '') && await urlPassesWebGate(listing.name, det.website)) {
-            found = det.website
-          }
-        }
-      } catch (e) { /* Places unavailable → no replacement, nothing deleted */ }
+      let found
+      try { found = await findOfficialWebsite(listing) }
+      catch (e) { found = { note: `the website lookup failed (${String(e?.message || e).slice(0, 90)})` } }
 
-      if (found) { updates.website = normaliseWebsiteUrl(found) || found; applied.push(`set website to ${hostOf(found)}`); repairedGates.add('gate1_web') }
-      else { applied.push('no confident replacement website found — left the current link in place') } // do NOT delete, do NOT mark repaired
+      if (found.url) {
+        updates.website = found.url
+        applied.push(`set website to ${hostOf(found.url)} — matched "${found.placeName}" on Google Places`)
+        repairedGates.add('gate1_web')
+      } else {
+        // Do NOT delete, do NOT mark repaired — but say exactly what happened,
+        // and pass any near-miss up as a one-click suggestion.
+        applied.push(found.note || 'no confident match on Google Places')
+        if (found.suggestion) suggestion = found.suggestion
+      }
 
     } else if (rem.type === 'set_website') {
       // Reviewer-supplied URL — trust it and clear the gate.
       updates.website = rem.url
-      const ok = await urlPassesWebGate(listing.name, rem.url)
-      applied.push(ok ? `set website to ${hostOf(rem.url)}` : `set website to ${hostOf(rem.url)} (heads-up: it did not pass the automated web check)`)
+      const gate = await urlPassesWebGate(listing.name, rem.url)
+      applied.push(gate.pass ? `set website to ${hostOf(rem.url)}` : `set website to ${hostOf(rem.url)} (heads-up: it did not pass the automated web check)`)
       repairedGates.add('gate1_web')
 
     } else if (rem.type === 'remove_dead_link') {
@@ -297,7 +424,7 @@ async function runRepair(sb, rowId, opts = {}) {
   // Nothing changed on the listing and no gate cleared (e.g. Places found no
   // replacement, or the address wouldn't geocode).
   if (!repairedGates.size && !Object.keys(updates).length) {
-    return { applied, cleared: false, noop: true, repaired_gates: [] }
+    return { applied, cleared: false, noop: true, repaired_gates: [], suggestion }
   }
 
   let listingPatch = null
@@ -326,7 +453,7 @@ async function runRepair(sb, rowId, opts = {}) {
     updatedRow = summary
   }
 
-  return { applied, cleared, updatedRow, listingPatch, repaired_gates: [...repairedGates] }
+  return { applied, cleared, updatedRow, listingPatch, repaired_gates: [...repairedGates], suggestion }
 }
 
 function hostOf(u) { try { return new URL(/^https?:\/\//i.test(u) ? u : 'https://' + u).hostname.replace(/^www\./, '') } catch { return u } }
@@ -348,12 +475,14 @@ function normaliseWebsiteUrl(raw) {
 // Does a candidate URL clear the Web-Presence gate? Used to reject swapping in a
 // replacement that is itself dead/parked/unrelated. Bot-blocks (401/403/429) and
 // transient 5xx are treated as PASS by checkGate1Web, so they don't reject a
-// legitimate site. On any error, fail open (don't block the repair on a hiccup).
-async function urlPassesWebGate(name, url) {
+// legitimate site. `altNames` (e.g. Google Places' own name for the venue) let a
+// site that identifies under a variant spelling clear the name check. On any
+// error, fail open (don't block the repair on a hiccup).
+async function urlPassesWebGate(name, url, altNames = []) {
   try {
-    const r = await checkGate1Web({ name, website: url }, { timeoutMs: 9000, retries: 0 })
-    return !r.failure
-  } catch { return true }
+    const r = await checkGate1Web({ name, website: url, altNames }, { timeoutMs: 9000, retries: 0 })
+    return { pass: !r.failure, reason: r.failure?.reason || null }
+  } catch { return { pass: true, reason: null } }
 }
 
 // Re-evaluate the two instant gates (Location + service-trade Vertical-fit)
