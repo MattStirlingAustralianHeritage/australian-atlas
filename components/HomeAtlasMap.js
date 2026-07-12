@@ -1,5 +1,6 @@
 import LocalizedLink from '@/components/LocalizedLink'
-import { getTranslations } from 'next-intl/server'
+import { getTranslations, getLocale } from 'next-intl/server'
+import { localizeSubcategory } from '@/lib/i18n/listingLabels'
 import { HOME_MAP, projectToImagePct } from '@/lib/map/homeAtlasProjection'
 
 // The homepage "atlas plate" — the living atlas as the hero's ground.
@@ -31,12 +32,25 @@ const CITIES = [
 ]
 const CITY_ZOOM = 10.5
 
-export default async function HomeAtlasMap({ listingCount, categoryCount, regionCount, freshListings = [], scopePins = [] }) {
+export default async function HomeAtlasMap({ listingCount, categoryCount, regionCount, freshListings = [], scopePins = [], typeCounter = null }) {
   const t = await getTranslations('home')
+  const locale = await getLocale()
   const count = typeof listingCount === 'number' && listingCount > 0
     ? listingCount.toLocaleString()
     : null
   const showStats = Number(categoryCount) > 0 && Number(regionCount) > 0
+
+  // The rotating type counter under the scope sub: this hour's twelve
+  // kinds of place, each with its live count ("1,026 wineries",
+  // "71 surf schools"). The rotation is pure CSS — twelve stacked
+  // spans on one grid cell, each visible for its twelfth of the cycle
+  // — so the plate keeps its zero-JS property. The stack is
+  // aria-hidden (a line that swaps every few seconds is noise to a
+  // screen reader); the sr-only summary states the same fact once.
+  // Reduced motion pins the first entry. Kind labels reuse the ko/zh
+  // subcategory dictionary; unmapped kinds fall back to English.
+  const TC_PERIOD = 3.2
+  const typeEntries = typeCounter?.entries?.length === 12 ? typeCounter.entries : null
 
   const fresh = (freshListings || [])
     .filter(l => l && l.slug && Number.isFinite(parseFloat(l.lng)) && Number.isFinite(parseFloat(l.lat)))
@@ -60,6 +74,30 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
           {count ? t('plateScopeHeadline', { count }) : t('everyPlaceMapped')}
         </h2>
         <p className="atlas-plate-sub">{t('plateScopeSub')}</p>
+
+        {typeEntries && (
+          <p className="atlas-plate-typecount">
+            <span aria-hidden="true" className="atlas-tc-line">
+              <span className="atlas-tc-lead">{t('typeCounterLead')}</span>
+              <span className="atlas-tc-stack">
+                {typeEntries.map((e, i) => (
+                  <span
+                    key={e.key}
+                    className="atlas-tc-item"
+                    style={{ animationDelay: `${(i * TC_PERIOD).toFixed(1)}s` }}
+                  >
+                    {t.rich('typeCounterItem', {
+                      count: Number(e.count).toLocaleString(locale),
+                      label: localizeSubcategory(e.key, e.label, locale),
+                      num: (chunks) => <strong className="atlas-tc-num">{chunks}</strong>,
+                    })}
+                  </span>
+                ))}
+              </span>
+            </span>
+            <span className="sr-only">{t('typeCounterSr', { kinds: typeCounter.kinds })}</span>
+          </p>
+        )}
 
         <div className="atlas-plate-actions">
           <LocalizedLink href="/map" className="atlas-plate-cta">
@@ -249,6 +287,38 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
           font-family: var(--font-body); font-weight: 300; font-size: 14px;
           line-height: 1.55; color: var(--color-muted, #6B645A); max-width: 38ch;
         }
+
+        /* ── rotating type counter ─────────────────────────── */
+        /* Twelve entries share one grid cell; each one's keyframe delay
+           staggers it into its own twelfth of a 38.4s cycle (12 × 3.2s),
+           so exactly one is on stage at a time and the twelfth hands
+           back to the first. The stack sizes itself to the longest
+           entry, so the line never reflows as counts swap. */
+        .atlas-plate-typecount { margin-top: 13px; }
+        .atlas-tc-line {
+          display: inline-flex; align-items: baseline; gap: 7px;
+          font-family: var(--font-body); font-weight: 400; font-size: 13px;
+          line-height: 1.5; color: var(--color-muted, #6B645A);
+        }
+        .atlas-tc-stack { display: inline-grid; }
+        .atlas-tc-item {
+          grid-area: 1 / 1; justify-self: start; white-space: nowrap;
+          color: var(--color-ink, #1C1A17);
+          opacity: 0; transform: translateY(7px);
+          animation: atlas-tc-cycle 38.4s infinite;
+        }
+        .atlas-tc-num {
+          font-weight: 600; color: #96743C;
+          font-variant-numeric: tabular-nums;
+        }
+        @keyframes atlas-tc-cycle {
+          0%    { opacity: 0; transform: translateY(7px); }
+          1.2%  { opacity: 1; transform: none; }
+          7.1%  { opacity: 1; transform: none; }
+          8.33% { opacity: 0; transform: translateY(-7px); }
+          100%  { opacity: 0; transform: translateY(-7px); }
+        }
+
         .atlas-plate-actions { margin-top: 22px; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
         .atlas-plate-cta {
           display: inline-flex; align-items: center; gap: 8px;
@@ -366,6 +436,7 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
           .atlas-plate-sub { display: block; }
           .atlas-plate-actions { justify-content: center; margin-top: 20px; }
           .atlas-plate-stats { margin-top: 10px; }
+          .atlas-plate-typecount { margin-top: 10px; }
           .atlas-plate-frame { height: min(97vw, 430px); min-height: 0; overflow: hidden; }
           .atlas-plate-canvas {
             position: absolute; top: 0; right: -3vw;
@@ -378,6 +449,8 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
         @media (prefers-reduced-motion: reduce) {
           .atlas-fresh-ping { animation: none; opacity: 0; }
           .atlas-plate-cta, .atlas-plate-cta-alt, .atlas-city-dot, .atlas-city-name { transition: none; }
+          .atlas-tc-item { animation: none; }
+          .atlas-tc-item:first-child { opacity: 1; transform: none; }
         }
       ` }} />
     </section>

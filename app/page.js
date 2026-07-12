@@ -15,6 +15,7 @@ import { buildContours } from '@/lib/discover/contours'
 import { getPublicVerticals, getVerticalBadge, getVerticalTagline, VERTICAL_ACCENTS, VERTICAL_CARD_TOKENS } from '@/lib/verticalUrl'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
 import { subTypeLabel } from '@/lib/subTypeLabels'
+import { buildTypeCounterEntries } from '@/lib/home/typeCounter'
 import { Coffee, Wine, UtensilsCrossed, BedDouble, Mountain, Compass, Hammer, Landmark, ShoppingBag, Clock } from 'lucide-react'
 
 export const revalidate = 1800
@@ -181,6 +182,43 @@ async function getStats(publicVerticals) {
     return { listings: count || 0, regions: regionCount || 0, verticalCounts: Object.fromEntries(verticalCountResults) }
   } catch {
     return { listings: 0, regions: 0, verticalCounts: {} }
+  }
+}
+
+// What the dots are: live counts per (vertical, sub_type), the raw
+// material for the plate's rotating type counter. PostgREST caps a
+// select at 1000 rows and aggregates are disabled on this project, so
+// the sub_type column is paged down in parallel and tallied here —
+// once an hour inside the home-data cache, never per visitor. Only
+// kinds curated in lib/home/typeCounter.js ever render.
+async function getTypeCounts(publicVerticals) {
+  try {
+    const sb = getSupabaseAdmin()
+    const base = (cols, opts) => sb
+      .from('listings')
+      .select(cols, opts)
+      .eq('status', 'active')
+      .in('vertical', publicVerticals)
+      .not('sub_type', 'is', null)
+      .not('name', 'ilike', '\\_%')
+    const { count } = await base('*', { count: 'exact', head: true })
+    const pages = Math.min(Math.ceil((count || 0) / 1000), 20)
+    const chunks = await Promise.all(
+      Array.from({ length: pages }, (_, i) =>
+        base('vertical, sub_type')
+          .order('id', { ascending: true })
+          .range(i * 1000, i * 1000 + 999)
+          .then(({ data }) => data || [])
+      )
+    )
+    const counts = {}
+    for (const row of chunks.flat()) {
+      const k = `${row.vertical}|${row.sub_type}`
+      counts[k] = (counts[k] || 0) + 1
+    }
+    return counts
+  } catch {
+    return {}
   }
 }
 
@@ -424,10 +462,10 @@ async function getLatestArticles() {
 }
 
 async function assembleHomeData(publicVerticals, hourSeed) {
-  const [stats, scopePins, heroTrip, articles, recentListings] = await Promise.all([
-    getStats(publicVerticals), getScopePins(), getHeroTrip(hourSeed), getLatestArticles(), getRecentListings(),
+  const [stats, scopePins, heroTrip, articles, recentListings, typeCounts] = await Promise.all([
+    getStats(publicVerticals), getScopePins(), getHeroTrip(hourSeed), getLatestArticles(), getRecentListings(), getTypeCounts(publicVerticals),
   ])
-  return { stats, scopePins, heroTrip, articles, recentListings }
+  return { stats, scopePins, heroTrip, articles, recentListings, typeCounts }
 }
 
 // The root layout reads auth cookies, so this route renders per-request
@@ -445,12 +483,13 @@ const getHomeDataCached = unstable_cache(
     }
     return data
   },
-  // v5: the recently-added ticker rejoined the payload (v4 was the
-  // front-door rebuild shape). A fresh key so no v4 entry missing
-  // recentListings can be served for its remaining hour. hourSeed is
-  // an argument, so each hour writes its own entry and the worked
-  // trip turns over on the hour.
-  ['home-data-v5'],
+  // v6: raw (vertical, sub_type) tallies joined the payload for the
+  // plate's rotating type counter (v5 added the recently-added
+  // ticker). A fresh key so no v5 entry missing typeCounts can be
+  // served for its remaining hour. hourSeed is an argument, so each
+  // hour writes its own entry and the worked trip turns over on the
+  // hour.
+  ['home-data-v6'],
   { revalidate: 3600 }
 )
 
@@ -474,6 +513,16 @@ export default async function Home() {
     ? { ...homeData.heroTrip, stops: await overlayListingTranslations(homeData.heroTrip.stops, locale) }
     : null
   const regionsCount = stats.regions > 0 ? stats.regions : null
+
+  // The plate's rotating type counter: twelve kinds per hour, drawn
+  // from the full curated vocabulary by the same seed that deals the
+  // worked trip, so the dozen (and its order) turns over on the hour.
+  // Twelve exactly — the CSS rotation in HomeAtlasMap is keyframed to
+  // a twelve-step cycle — or none, and the plate renders without it.
+  const allTypeEntries = buildTypeCounterEntries(homeData.typeCounts)
+  const typeCounter = allTypeEntries.length >= 12
+    ? { entries: seededShuffle(allTypeEntries, hourSeed).slice(0, 12), kinds: allTypeEntries.length }
+    : null
 
   return (
     <>
@@ -603,6 +652,7 @@ export default async function Home() {
         categoryCount={publicVerticals.length}
         regionCount={stats.regions}
         scopePins={scopePins}
+        typeCounter={typeCounter}
       />
 
       {/* ── 3. The worked trip: one region, threaded ────────────── */}
