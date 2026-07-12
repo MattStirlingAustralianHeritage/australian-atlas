@@ -9,6 +9,7 @@ import HomeSearchBar from '@/components/HomeSearchBar'
 import HomeAtlasMap from '@/components/HomeAtlasMap'
 import NewsletterSignup from '@/components/NewsletterSignup'
 import ScrollReveal from '@/components/ScrollReveal'
+import DiscoverDeck from '@/components/discover/DiscoverDeck'
 import TrailMap from '@/app/trails/[slug]/TrailMap'
 import { resolveRegionParam } from '@/lib/regions'
 import { buildContours } from '@/lib/discover/contours'
@@ -505,8 +506,10 @@ export default async function Home() {
     homeData = await assembleHomeData(publicVerticals, hourSeed)
   }
   const { stats, articles } = homeData
-  const articlesWithImages = (articles || []).filter(a => a.hero_image_url).slice(0, 2)
-  const featuredArticle = articlesWithImages[0] || (articles || [])[0]
+  // Lead story is the newest with a photograph (falls back to newest
+  // overall); the rest follow in the rail beneath it.
+  const featuredArticle = (articles || []).find(a => a.hero_image_url) || (articles || [])[0]
+  const restArticles = (articles || []).filter(a => a !== featuredArticle).slice(0, 2)
   const recentListings = await overlayListingTranslations(homeData.recentListings || [], locale)
   const scopePins = await overlayListingTranslations(homeData.scopePins, locale)
   const heroTrip = homeData.heroTrip
@@ -836,49 +839,173 @@ export default async function Home() {
         </ScrollReveal>
       )}
 
-      {/* ── 4. The standard ─────────────────────────────────────── */}
-      {/* One claim, stated plainly. The proof sits above it: the trip
-          stops render real listing writing, not badges. */}
-      <ScrollReveal as="section" style={{ background: '#1A1A1A', paddingBlock: '80px' }}>
-        <div className="max-w-3xl mx-auto px-6 sm:px-12">
-          <p className="section-dateline reveal" style={{ marginBottom: '16px' }}>
-            {t('standardKicker')}
-          </p>
-          <h2 className="reveal" style={{
-            fontFamily: 'var(--font-display)', fontWeight: 400,
-            fontSize: 'clamp(28px, 3.6vw, 44px)', color: '#FAF8F4', lineHeight: 1.12,
-            marginBottom: '18px',
-          }}>
-            {t('standardTitle')}
-          </h2>
-          <p className="reveal" style={{
-            fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
-            lineHeight: 1.7, color: 'rgba(250,248,244,0.72)', maxWidth: '58ch', margin: 0,
-          }}>
-            {t('standardBody')}
-          </p>
+      {/* ── 4. From the journal ─────────────────────────────────── */}
+      {/* Promoted to sit beside the trip: the newest story runs full
+          measure with its title set on the photograph, the rest follow
+          in a rail, and the whole journal is one gold link away. More
+          of the same writing the trip stops prove, at essay length. */}
+      {featuredArticle && (
+        <ScrollReveal as="section" style={{ background: '#1A1A1A', paddingBlock: '72px' }}>
+          <div className="max-w-5xl mx-auto px-6 sm:px-12">
+            <div className="reveal flex flex-wrap items-end justify-between" style={{ gap: '16px', marginBottom: '30px' }}>
+              <div style={{ maxWidth: '560px' }}>
+                <p className="section-dateline" style={{ marginBottom: '14px' }}>
+                  {t('fromTheJournal')}
+                </p>
+                <h2 style={{
+                  fontFamily: 'var(--font-display)', fontWeight: 400,
+                  fontSize: 'clamp(28px, 3.6vw, 46px)', color: '#FAF8F4', lineHeight: 1.1,
+                }}>
+                  {t('storiesFromNetwork')}
+                </h2>
+              </div>
+              <LocalizedLink href="/journal" className="hover:opacity-80 transition-opacity" style={{
+                fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13.5px',
+                color: GOLD, whiteSpace: 'nowrap', paddingBottom: '6px',
+              }}>
+                {t('journalBrowseAll')} &rarr;
+              </LocalizedLink>
+            </div>
 
-          {/* MATT: leave-off statement, same gate as listings.
-              Nothing renders here until you write it: add the copy as
-              home.standardLeaveOff in messages/en.json (and ko/zh),
-              then un-comment the paragraph below. */}
-          {/* <p className="reveal" style={{
-            fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
-            lineHeight: 1.7, color: 'rgba(250,248,244,0.72)', maxWidth: '58ch', margin: '14px 0 0',
-          }}>
-            {t('standardLeaveOff')}
-          </p> */}
+            {/* Lead story: full measure, title on the photograph. */}
+            <a href={featuredArticle.article_url} className="reveal group block" data-reveal-index={1}>
+              {featuredArticle.hero_image_url ? (
+                <div className="overflow-hidden rounded-lg relative" style={{ height: 'clamp(280px, 36vw, 440px)' }}>
+                  <img
+                    src={featuredArticle.hero_image_url}
+                    alt=""
+                    loading="lazy"
+                    className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700"
+                  />
+                  <div aria-hidden="true" className="absolute inset-0" style={{
+                    background: 'linear-gradient(to top, rgba(16,14,11,0.85) 0%, rgba(16,14,11,0.3) 45%, rgba(16,14,11,0.05) 70%, transparent 100%)',
+                  }} />
+                  <div className="absolute left-0 right-0 bottom-0" style={{ padding: 'clamp(20px, 3vw, 32px)' }}>
+                    <p style={{
+                      fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
+                      letterSpacing: '0.16em', textTransform: 'uppercase',
+                      color: GOLD, marginBottom: '9px',
+                    }}>
+                      {featuredArticle.vertical === 'atlas'
+                        ? t('journalFallback')
+                        : localizeVerticalKicker(featuredArticle.vertical, getVerticalBadge(featuredArticle.vertical), locale)}
+                      {featuredArticle.category && ` · ${featuredArticle.category}`}
+                    </p>
+                    <h3 style={{
+                      fontFamily: 'var(--font-display)', fontWeight: 400,
+                      fontSize: 'clamp(26px, 3.4vw, 42px)', lineHeight: 1.12,
+                      color: '#FAF8F4', margin: 0, maxWidth: '20em', textWrap: 'balance',
+                    }}>
+                      {featuredArticle.title}
+                    </h3>
+                  </div>
+                </div>
+              ) : (
+                <h3 style={{
+                  fontFamily: 'var(--font-display)', fontWeight: 400,
+                  fontSize: 'clamp(24px, 3vw, 34px)', lineHeight: 1.2,
+                  color: '#FAF8F4', margin: 0,
+                }}>
+                  {featuredArticle.title}
+                </h3>
+              )}
+              <div style={{ paddingTop: '16px', maxWidth: '640px' }}>
+                {featuredArticle.excerpt && (
+                  <p style={{
+                    fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px',
+                    lineHeight: 1.65, color: 'rgba(250,248,244,0.6)', margin: '0 0 10px',
+                    display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                  }}>
+                    {featuredArticle.excerpt}
+                  </p>
+                )}
+                <span className="group-hover:underline underline-offset-4" style={{
+                  fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13.5px',
+                  color: GOLD,
+                }}>
+                  {t('readStory')} &rarr;
+                </span>
+              </div>
+            </a>
 
-          <div className="reveal" style={{ marginTop: '26px' }}>
-            <LocalizedLink href="/independence" className="hover:opacity-80 transition-opacity" style={{
-              fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13.5px',
-              color: GOLD,
-            }}>
-              {t('standardHowLink')} &rarr;
-            </LocalizedLink>
+            {/* The rest of the latest, two up. */}
+            {restArticles.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6" style={{ marginTop: '34px' }}>
+                {restArticles.map((article, ai) => (
+                  <a
+                    key={article.id || ai}
+                    href={article.article_url}
+                    className="reveal group block"
+                    data-reveal-index={ai + 2}
+                  >
+                    {article.hero_image_url ? (
+                      <div className="overflow-hidden rounded-lg relative" style={{ height: '220px' }}>
+                        <img
+                          src={article.hero_image_url}
+                          alt=""
+                          loading="lazy"
+                          className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
+                        />
+                        <div aria-hidden="true" className="absolute inset-0" style={{
+                          background: 'linear-gradient(to top, rgba(16,14,11,0.82) 0%, rgba(16,14,11,0.26) 45%, transparent 75%)',
+                        }} />
+                        <div className="absolute left-0 right-0 bottom-0" style={{ padding: '18px 20px' }}>
+                          <p style={{
+                            fontFamily: 'var(--font-body)', fontSize: '10.5px', fontWeight: 600,
+                            letterSpacing: '0.16em', textTransform: 'uppercase',
+                            color: GOLD, marginBottom: '7px',
+                          }}>
+                            {article.vertical === 'atlas'
+                              ? t('journalFallback')
+                              : localizeVerticalKicker(article.vertical, getVerticalBadge(article.vertical), locale)}
+                            {article.category && ` · ${article.category}`}
+                          </p>
+                          <h3 style={{
+                            fontFamily: 'var(--font-display)', fontWeight: 400,
+                            fontSize: 'clamp(20px, 2.2vw, 26px)', lineHeight: 1.18,
+                            color: '#FAF8F4', margin: 0, textWrap: 'balance',
+                          }}>
+                            {article.title}
+                          </h3>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-lg" style={{
+                        border: '1px solid rgba(250,248,244,0.14)', padding: '22px 24px', height: '220px',
+                        display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
+                      }}>
+                        <p style={{
+                          fontFamily: 'var(--font-body)', fontSize: '10.5px', fontWeight: 600,
+                          letterSpacing: '0.16em', textTransform: 'uppercase',
+                          color: GOLD, marginBottom: '7px',
+                        }}>
+                          {article.vertical === 'atlas'
+                            ? t('journalFallback')
+                            : localizeVerticalKicker(article.vertical, getVerticalBadge(article.vertical), locale)}
+                        </p>
+                        <h3 style={{
+                          fontFamily: 'var(--font-display)', fontWeight: 400,
+                          fontSize: 'clamp(20px, 2.2vw, 26px)', lineHeight: 1.18,
+                          color: '#FAF8F4', margin: 0,
+                        }}>
+                          {article.title}
+                        </h3>
+                      </div>
+                    )}
+                    <span className="group-hover:underline underline-offset-4" style={{
+                      display: 'inline-block', marginTop: '12px',
+                      fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
+                      color: GOLD,
+                    }}>
+                      {t('readStory')} &rarr;
+                    </span>
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
-        </div>
-      </ScrollReveal>
+        </ScrollReveal>
+      )}
 
       {/* ── 5. The ingredients: ten kinds of place ──────────────── */}
       {/* Not a menu of sites: the kinds of stop a trip is built from.
@@ -953,141 +1080,128 @@ export default async function Home() {
         </div>
       </ScrollReveal>
 
-      {/* ── 6. From the journal ─────────────────────────────────── */}
-      {/* The cover-story band the previous homepage carried, back in
-          its dark-room treatment: the newest published stories, titles
-          set on the photograph under an ink scrim. More of the same
-          writing the trip stops prove, at essay length. */}
-      {featuredArticle && (
-        <ScrollReveal as="section" style={{
-          background: '#1A1A1A',
-          paddingTop: '64px',
-          paddingBottom: '56px',
-        }}>
-          <div className="max-w-5xl mx-auto px-6 sm:px-12">
-            <div className="reveal" style={{ marginBottom: '30px', maxWidth: '560px' }}>
-              <p className="section-dateline" style={{ marginBottom: '14px' }}>
-                {t('fromTheJournal')}
-              </p>
+      {/* ── 6. Make it yours: the taste deck ────────────────────── */}
+      {/* Reinstated per Matt: masthead left, the live swipeable deck
+          right. A stranger can flick a real card in place, inside the
+          feature rather than reading about it. The section ground
+          carries the same seeded-contour terrain the cards wear. */}
+      <section style={{
+        position: 'relative',
+        overflow: 'hidden',
+        paddingBlock: '96px',
+        background: 'var(--color-kraft)',
+        borderTop: '1px solid rgba(28,26,23,0.05)',
+        borderBottom: '1px solid rgba(28,26,23,0.05)',
+      }}>
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 420 460"
+          preserveAspectRatio="xMidYMid slice"
+          style={{
+            position: 'absolute', right: '-160px', top: '50%',
+            transform: 'translateY(-50%)', width: '880px', height: '130%',
+            pointerEvents: 'none',
+          }}
+        >
+          {buildContours('make-it-yours').map((d, i) => (
+            <path key={i} d={d} fill="none" stroke={GOLD} strokeWidth="1" strokeOpacity="0.07" />
+          ))}
+        </svg>
+        <div className="max-w-6xl mx-auto px-6 sm:px-12" style={{ position: 'relative' }}>
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_400px] gap-10 lg:gap-16 items-center">
+            <div>
+              <p className="section-dateline" style={{ marginBottom: '16px' }}>{t('makeItYours')}</p>
               <h2 style={{
                 fontFamily: 'var(--font-display)', fontWeight: 400,
-                fontSize: 'clamp(26px, 3.2vw, 40px)', color: '#FAF8F4', lineHeight: 1.12,
+                fontSize: 'clamp(30px, 4vw, 50px)', color: 'var(--color-ink)', lineHeight: 1.08,
               }}>
-                {t('storiesFromNetwork')}
+                {t('learnsYourTaste')}
               </h2>
-            </div>
-            {articlesWithImages.length >= 2 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {articlesWithImages.map((article, ai) => (
-                  <a
-                    key={article.id || ai}
-                    href={article.article_url}
-                    className="reveal group block"
-                    data-reveal-index={ai}
-                  >
-                    <div className="overflow-hidden rounded-lg relative" style={{ height: '300px' }}>
-                      <img
-                        src={article.hero_image_url}
-                        alt=""
-                        loading="lazy"
-                        className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
-                      />
-                      <div aria-hidden="true" className="absolute inset-0" style={{
-                        background: 'linear-gradient(to top, rgba(16,14,11,0.82) 0%, rgba(16,14,11,0.28) 45%, rgba(16,14,11,0.05) 70%, transparent 100%)',
-                      }} />
-                      <div className="absolute left-0 right-0 bottom-0" style={{ padding: '22px 24px' }}>
-                        <p style={{
-                          fontFamily: 'var(--font-body)', fontSize: '10.5px', fontWeight: 600,
-                          letterSpacing: '0.16em', textTransform: 'uppercase',
-                          color: GOLD, marginBottom: '8px',
-                        }}>
-                          {article.vertical === 'atlas'
-                            ? t('journalFallback')
-                            : localizeVerticalKicker(article.vertical, getVerticalBadge(article.vertical), locale)}
-                          {article.category && ` · ${article.category}`}
-                        </p>
-                        <h3 style={{
-                          fontFamily: 'var(--font-display)', fontWeight: 400,
-                          fontSize: 'clamp(22px, 2.4vw, 30px)', lineHeight: 1.16,
-                          color: '#FAF8F4', margin: 0, textWrap: 'balance',
-                        }}>
-                          {article.title}
-                        </h3>
-                      </div>
-                    </div>
-                    <div style={{ paddingTop: '14px' }}>
-                      {article.excerpt && (
-                        <p style={{
-                          fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px',
-                          lineHeight: 1.6, color: 'rgba(250,248,244,0.55)',
-                          margin: '0 0 10px',
-                          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                        }}>
-                          {article.excerpt}
-                        </p>
-                      )}
-                      <span className="group-hover:underline underline-offset-4" style={{
-                        fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
-                        color: GOLD,
-                      }}>
-                        {t('readStory')} &rarr;
-                      </span>
-                    </div>
-                  </a>
-                ))}
+              <p className="mt-3" style={{
+                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
+                lineHeight: 1.65, color: 'var(--color-muted)', margin: '14px 0 18px', maxWidth: '44ch',
+              }}>
+                {t('discoverIntro')}
+              </p>
+              {/* Every vertical's accent in one strip: the breadth of the
+                  shuffle at a glance, colour-matched to the cards. */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '0 0 30px', flexWrap: 'wrap' }}>
+                <span style={{ display: 'inline-flex', flexShrink: 0 }}>
+                  {publicVerticals.map((v, i) => (
+                    <span key={v} style={{
+                      width: '12px', height: '12px', borderRadius: '999px',
+                      background: VERTICAL_ACCENTS[v] || GOLD,
+                      border: '2px solid var(--color-kraft)',
+                      marginLeft: i === 0 ? 0 : '-4px',
+                      display: 'inline-block',
+                    }} />
+                  ))}
+                </span>
+                <span style={{
+                  fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '12.5px',
+                  letterSpacing: '0.02em', color: 'var(--color-muted)',
+                }}>
+                  {t('deckCollections')}
+                </span>
               </div>
-            ) : (
-              <a href={featuredArticle.article_url} className="group block reveal">
-                {featuredArticle.hero_image_url && (
-                  <div className="overflow-hidden rounded-xl" style={{ height: 'clamp(220px, 30vw, 350px)' }}>
-                    <img
-                      src={featuredArticle.hero_image_url}
-                      alt=""
-                      loading="lazy"
-                      className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700"
-                    />
-                  </div>
-                )}
-                <div style={{ paddingTop: '20px', maxWidth: '600px' }}>
-                  <p style={{
-                    fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 600,
-                    letterSpacing: '0.15em', textTransform: 'uppercase',
-                    color: GOLD, marginBottom: '6px',
-                  }}>
-                    {featuredArticle.vertical === 'atlas'
-                      ? t('journalFallback')
-                      : localizeVerticalKicker(featuredArticle.vertical, getVerticalBadge(featuredArticle.vertical), locale)}
-                    {featuredArticle.category && ` · ${featuredArticle.category}`}
-                  </p>
-                  <h3 style={{
-                    fontFamily: 'var(--font-display)', fontWeight: 400,
-                    fontSize: 'clamp(22px, 2.5vw, 26px)', lineHeight: 1.25,
-                    color: '#FAF8F4', margin: '0 0 8px',
-                  }}>
-                    {featuredArticle.title}
-                  </h3>
-                  {featuredArticle.excerpt && (
-                    <p style={{
-                      fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px',
-                      lineHeight: 1.6, color: 'rgba(250,248,244,0.6)',
-                      margin: '0 0 12px',
-                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                    }}>
-                      {featuredArticle.excerpt}
-                    </p>
-                  )}
-                  <span className="group-hover:underline underline-offset-4" style={{
-                    fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
-                    color: GOLD,
-                  }}>
-                    {t('readStory')} &rarr;
-                  </span>
-                </div>
-              </a>
-            )}
+              <LocalizedLink href="/discover" className="discover-cta">
+                {t('openDiscover')}
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12h14" />
+                  <path d="M12 5l7 7-7 7" />
+                </svg>
+              </LocalizedLink>
+            </div>
+            <div>
+              <DiscoverDeck variant="band" hideHead />
+            </div>
           </div>
-        </ScrollReveal>
-      )}
+        </div>
+      </section>
+
+      {/* ── 7. The standard ─────────────────────────────────────── */}
+      {/* One claim, stated plainly. The proof sits above it: the trip
+          stops render real listing writing, not badges. */}
+      <ScrollReveal as="section" style={{ background: '#1A1A1A', paddingBlock: '80px' }}>
+        <div className="max-w-3xl mx-auto px-6 sm:px-12">
+          <p className="section-dateline reveal" style={{ marginBottom: '16px' }}>
+            {t('standardKicker')}
+          </p>
+          <h2 className="reveal" style={{
+            fontFamily: 'var(--font-display)', fontWeight: 400,
+            fontSize: 'clamp(28px, 3.6vw, 44px)', color: '#FAF8F4', lineHeight: 1.12,
+            marginBottom: '18px',
+          }}>
+            {t('standardTitle')}
+          </h2>
+          <p className="reveal" style={{
+            fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
+            lineHeight: 1.7, color: 'rgba(250,248,244,0.72)', maxWidth: '58ch', margin: 0,
+          }}>
+            {t('standardBody')}
+          </p>
+
+          {/* MATT: leave-off statement, same gate as listings.
+              Nothing renders here until you write it: add the copy as
+              home.standardLeaveOff in messages/en.json (and ko/zh),
+              then un-comment the paragraph below. */}
+          {/* <p className="reveal" style={{
+            fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
+            lineHeight: 1.7, color: 'rgba(250,248,244,0.72)', maxWidth: '58ch', margin: '14px 0 0',
+          }}>
+            {t('standardLeaveOff')}
+          </p> */}
+
+          <div className="reveal" style={{ marginTop: '26px' }}>
+            <LocalizedLink href="/independence" className="hover:opacity-80 transition-opacity" style={{
+              fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13.5px',
+              color: GOLD,
+            }}>
+              {t('standardHowLink')} &rarr;
+            </LocalizedLink>
+          </div>
+        </div>
+      </ScrollReveal>
 
       <div className="spectrum-hairline" aria-hidden="true" />
 
