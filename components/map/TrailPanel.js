@@ -2,25 +2,23 @@
 // ============================================================
 // TrailPanel — the trail under construction, living ON the map.
 //
-// Desktop: right-hand rail mirroring the discovery panel.
-// Mobile: full-height sheet (mode='sheet').
+// Desktop: right-hand rail. Mobile: full-height sheet (mode='sheet').
 //
-// Empty state offers three doors: build by hand (tap pins),
-// answer three questions (TrailWizard → Plan-a-Stay engine), or
-// start from a curated trail. Once stops exist: ordered list
-// with leg distances, day structure, taste-ranked suggestions,
-// and save/share.
+// The panel reads as an itinerary, not a form: the trail's name
+// is the headline, the stops are a drawn route (TrailTimeline)
+// with drag-to-reorder, concierge moments appear inline on the
+// line as dashed ghost stops, and everything secondary — more
+// ideas, structure actions, visibility — stays quiet until the
+// reader reaches for it.
 // ============================================================
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useTranslations, useLocale } from 'next-intl'
-import { getVerticalBadge, getVerticalBrandColour } from '@/lib/verticalUrl'
-import { SUB_TYPE_LABELS } from '@/lib/subTypeLabels'
-import { localizeSubcategory } from '@/lib/i18n/listingLabels'
+import { getVerticalBrandColour } from '@/lib/verticalUrl'
 import { groupStopsByDay } from '@/lib/trail/days'
 import TrailWizard from './TrailWizard'
-import TrailConcierge from './TrailConcierge'
 import TrailStopSearch from './TrailStopSearch'
+import TrailTimeline from './TrailTimeline'
 
 const SAGE = '#5f8a7e'
 const GOLD = '#C4973B'
@@ -28,10 +26,10 @@ const INK = 'var(--color-ink)'
 
 // Gold section-dateline kicker — the small-caps label that threads every
 // Atlas surface. Mirrors globals.css .section-dateline.
-function Kicker({ children, rule = true }) {
+function Kicker({ children }) {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 9 }}>
-      {rule && <span style={{ width: 22, height: 1, background: GOLD, opacity: 0.8, flexShrink: 0 }} />}
+      <span style={{ width: 22, height: 1, background: GOLD, opacity: 0.8, flexShrink: 0 }} />
       <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: GOLD, fontFamily: 'var(--font-sans)' }}>
         {children}
       </span>
@@ -46,74 +44,6 @@ function fmtDuration(totalMin, t) {
   return m === 0 ? t('trailHours', { count: h }) : t('trailHoursMinutes', { hours: h, minutes: m })
 }
 
-function LegChip({ leg, approx, t }) {
-  if (!leg) return null
-  // The connector rides under the numbered coin (26px wide → centre at ~13px).
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '1px 0 1px 12px' }}>
-      <span style={{ width: 2, height: 15, background: 'rgba(196,151,59,0.4)', borderRadius: 1 }} />
-      <span style={{ fontSize: 9.5, color: 'var(--color-muted)', letterSpacing: '0.03em', fontFamily: 'var(--font-sans)' }}>
-        {approx ? '≈ ' : ''}{leg.km} km · {leg.min} {t('trailMinShort')}
-      </span>
-    </div>
-  )
-}
-
-function StopRow({ stop, index, count, onRemove, onMoveUp, onMoveDown, onSelect }) {
-  const t = useTranslations('map')
-  const locale = useLocale()
-  const color = getVerticalBrandColour(stop.vertical) || SAGE
-  const subTypes = SUB_TYPE_LABELS[stop.vertical] || {}
-  const enSub = subTypes[stop.sub_type]
-  const catLabel = enSub ? localizeSubcategory(stop.sub_type, enSub, locale) : getVerticalBadge(stop.vertical)
-  return (
-    <div className="trail-stop-row" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 2px 7px 0' }}>
-      {/* Numbered coin in the stop's own category colour — the editorial
-          wayfinding treatment used across the Atlas (see /trails/[slug]). */}
-      <button
-        onClick={onSelect}
-        aria-label={stop.name}
-        style={{
-          width: 26, height: 26, minWidth: 26, minHeight: 26, aspectRatio: '1 / 1',
-          borderRadius: '50%', flexShrink: 0, alignSelf: 'center',
-          border: '2px solid var(--color-cream)', boxSizing: 'border-box',
-          background: color, color: '#fff', fontSize: 11.5, fontWeight: 700, lineHeight: 1,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-          fontFamily: 'var(--font-sans)', boxShadow: '0 1px 4px rgba(82,58,30,0.22)',
-        }}
-      >{index + 1}</button>
-      <button onClick={onSelect} style={{ flex: 1, minWidth: 0, textAlign: 'left', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
-        <span style={{ display: 'block', fontFamily: 'var(--font-serif)', fontSize: 13.5, color: INK, lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {stop.name}
-        </span>
-        <span style={{ display: 'block', fontSize: 10, color: 'var(--color-muted)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {[catLabel, stop.region].filter(Boolean).join(' · ')}
-        </span>
-      </button>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
-        <button onClick={onMoveUp} disabled={index === 0} aria-label={t('trailMoveUp')} style={{
-          width: 24, height: 24, border: 'none', background: 'none', cursor: index === 0 ? 'default' : 'pointer',
-          color: index === 0 ? 'var(--color-border)' : 'var(--color-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 15l-6-6-6 6"/></svg>
-        </button>
-        <button onClick={onMoveDown} disabled={index === count - 1} aria-label={t('trailMoveDown')} style={{
-          width: 24, height: 24, border: 'none', background: 'none', cursor: index === count - 1 ? 'default' : 'pointer',
-          color: index === count - 1 ? 'var(--color-border)' : 'var(--color-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M6 9l6 6 6-6"/></svg>
-        </button>
-        <button onClick={onRemove} aria-label={t('trailRemoveStop')} style={{
-          width: 24, height: 24, border: 'none', background: 'none', cursor: 'pointer', color: 'var(--color-muted)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-        </button>
-      </div>
-    </div>
-  )
-}
-
 function SuggestionRow({ s, onAdd, onSelect }) {
   const t = useTranslations('map')
   const color = getVerticalBrandColour(s.listing.vertical) || SAGE
@@ -126,7 +56,7 @@ function SuggestionRow({ s, onAdd, onSelect }) {
     nearRoute: s.distanceKm < 1 ? t('trailReasonOnRoute') : t('trailReasonNearRoute', { km: s.distanceKm < 10 ? s.distanceKm : Math.round(s.distanceKm) }),
   }[s.reason]
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 0' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '6px 0' }}>
       <span style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0 }} />
       <button onClick={onSelect} style={{ flex: 1, minWidth: 0, textAlign: 'left', background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}>
         <span style={{ display: 'block', fontFamily: 'var(--font-serif)', fontSize: 13, color: INK, lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -136,23 +66,27 @@ function SuggestionRow({ s, onAdd, onSelect }) {
           {reasonLabel}
         </span>
       </button>
-      <button onClick={onAdd} aria-label={t('trailAddStop')} style={{
+      <button onClick={onAdd} aria-label={`${t('trailAddStop')} — ${s.listing.name}`} style={{
         width: 26, height: 26, borderRadius: '50%', flexShrink: 0, cursor: 'pointer',
         border: `1px solid ${SAGE}`, background: 'rgba(95,138,126,0.08)', color: SAGE,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
       </button>
     </div>
   )
 }
 
-export default function TrailPanel({ trail, mode = 'panel', onClose, onSelectListing, returnTo }) {
+export default function TrailPanel({ trail, mode = 'panel', onClose, onSelectListing }) {
   const t = useTranslations('map')
+  const locale = useLocale()
   const [showWizard, setShowWizard] = useState(false)
   const [templates, setTemplates] = useState(null)
   const [templateLoading, setTemplateLoading] = useState(null)
   const [shareCopied, setShareCopied] = useState(false)
+  const [addOpen, setAddOpen] = useState(false)
+  const [ideasOpen, setIdeasOpen] = useState(false)
+  const [dismissedGhosts, setDismissedGhosts] = useState(() => new Set())
 
   const {
     stops, name, setName, visibility, setVisibility, transportMode, setTransportMode,
@@ -201,74 +135,85 @@ export default function TrailPanel({ trail, mode = 'panel', onClose, onSelectLis
     : null
 
   const dayGroups = daysAssigned ? groupStopsByDay(stops) : [{ day: null, startIndex: 0, stops }]
+  const dayCount = daysAssigned ? new Set(stops.map(s => s.day)).size : 0
   const duration = fmtDuration(route.totalMin, t)
 
-  const sectionLabel = (label) => <Kicker>{label}</Kicker>
+  // Concierge moments → inline dashed ghost stops on the timeline.
+  const ghosts = useMemo(() => {
+    const kickers = { coffee: t('conciergeMorning'), lunch: t('conciergeMidday'), stay: t('conciergeNight') }
+    const prompts = { coffee: t('conciergeCoffeePrompt'), lunch: t('conciergeLunchPrompt'), stay: t('conciergeStayPrompt') }
+    return (concierge?.slots || [])
+      .filter(s => !s.filled && s.candidate && !dismissedGhosts.has(s.role))
+      .map(s => ({
+        role: s.role,
+        kicker: kickers[s.role],
+        prompt: prompts[s.role],
+        listing: s.candidate.listing,
+        distanceKm: s.candidate.distanceKm,
+        insertIndex: s.insertIndex ?? stops.length,
+      }))
+  }, [concierge, dismissedGhosts, stops.length, t])
+
+  // The ideas list stays out of the ghosts' way: no duplicates.
+  const ghostIds = useMemo(() => new Set(ghosts.map(g => String(g.listing.id))), [ghosts])
+  const ideas = suggestions.filter(s => !ghostIds.has(String(s.listing.id)))
+  const shownIdeas = ideasOpen ? ideas : ideas.slice(0, 3)
+
+  const isSheet = mode === 'sheet'
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-      {/* ── Header — masthead treatment: gold kicker over a serif title ── */}
-      <div style={{ padding: mode === 'sheet' ? '4px 16px 13px' : '14px 16px 13px', borderBottom: '1px solid var(--color-border)', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 10 }}>
-          <div style={{ minWidth: 0 }}>
-            <Kicker>{editingTrail ? t('trailKickerEditing') : t('trailKicker')}</Kicker>
-            <div style={{ fontFamily: 'var(--font-serif)', fontSize: 22, lineHeight: 1.05, letterSpacing: '-0.015em', color: INK, marginTop: 5 }}>
-              {editingTrail ? t('trailEditingTitle') : t('trailPanelTitle')}
-            </div>
-          </div>
+    <div className="trail-panel-root" style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+      {/* ── Header — the trail's own name is the masthead ── */}
+      <div style={{ padding: isSheet ? '2px 18px 12px' : '14px 18px 12px', borderBottom: '1px solid var(--color-border)', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <Kicker>{editingTrail ? t('trailKickerEditing') : t('trailKicker')}</Kicker>
           <button onClick={onClose} aria-label={t('trailClosePanel')} style={{
-            width: 30, height: 30, borderRadius: '50%', border: '1px solid var(--color-border)',
+            width: 28, height: 28, borderRadius: '50%', border: '1px solid var(--color-border)',
             background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
           }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--color-muted)" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-muted)" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
           </button>
         </div>
         <input
           type="text"
           value={name}
           onChange={e => setName(e.target.value)}
-          placeholder={t('trailNamePlaceholder')}
-          aria-label={t('trailNamePlaceholder')}
+          placeholder={t('trailTitlePlaceholder')}
+          aria-label={t('trailTitlePlaceholder')}
+          className="trail-title-input"
           style={{
-            width: '100%', boxSizing: 'border-box', padding: '9px 12px',
-            border: `1px solid ${name.trim() ? 'rgba(95,138,126,0.45)' : 'var(--color-border)'}`,
-            borderRadius: 999, fontSize: 13.5, fontFamily: 'var(--font-serif)', color: INK,
-            outline: 'none', background: '#fff',
+            width: '100%', boxSizing: 'border-box', padding: '4px 0 5px',
+            border: 'none', borderBottom: '1px solid transparent',
+            fontSize: 21, lineHeight: 1.15, letterSpacing: '-0.015em',
+            fontFamily: 'var(--font-serif)', color: INK,
+            outline: 'none', background: 'transparent', marginTop: 6,
           }}
         />
         {stops.length > 0 && (
-          <>
-            <div style={{ marginTop: 8 }}>
-              <TrailStopSearch
-                onAdd={(r) => addStop(r)}
-                inTrailIds={new Set(stops.map(s => String(s.id)))}
-                atCapacity={atCapacity}
-              />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 4 }}>
+            <span style={{ fontSize: 11, color: 'var(--color-muted)', fontFamily: 'var(--font-sans)', letterSpacing: '0.01em', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {t('trailStopsCount', { count: stops.length })}
+              {route.totalKm > 0 && <> · {route.approx ? '≈ ' : ''}{route.totalKm} km{duration ? ` · ${duration}` : ''}</>}
+              {dayCount > 1 && <> · {t('trailDaysCount', { count: dayCount })}</>}
+            </span>
+            <div style={{ display: 'inline-flex', border: '1px solid var(--color-border)', borderRadius: 999, overflow: 'hidden', flexShrink: 0 }}>
+              {[{ key: 'drive', label: t('trailModeDrive') }, { key: 'walk', label: t('trailModeWalk') }].map(m => (
+                <button key={m.key} onClick={() => setTransportMode(m.key === 'walk' ? 'transit' : 'drive')} style={{
+                  padding: '3px 11px', border: 'none', cursor: 'pointer', fontSize: 10, fontWeight: 600,
+                  fontFamily: 'var(--font-sans)',
+                  background: (m.key === 'drive') === (transportMode === 'drive') ? SAGE : 'transparent',
+                  color: (m.key === 'drive') === (transportMode === 'drive') ? '#fff' : 'var(--color-muted)',
+                }}>{m.label}</button>
+              ))}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginTop: 9 }}>
-              <span style={{ fontSize: 10.5, color: 'var(--color-muted)', fontFamily: 'var(--font-sans)' }}>
-                {t('trailStopsCount', { count: stops.length })}
-                {route.totalKm > 0 && <> · {route.approx ? '≈ ' : ''}{route.totalKm} km{duration ? ` · ${duration}` : ''}</>}
-              </span>
-              <div style={{ display: 'inline-flex', border: '1px solid var(--color-border)', borderRadius: 999, overflow: 'hidden', flexShrink: 0 }}>
-                {[{ key: 'drive', label: t('trailModeDrive') }, { key: 'walk', label: t('trailModeWalk') }].map(m => (
-                  <button key={m.key} onClick={() => setTransportMode(m.key === 'walk' ? 'transit' : 'drive')} style={{
-                    padding: '4px 12px', border: 'none', cursor: 'pointer', fontSize: 10, fontWeight: 600,
-                    fontFamily: 'var(--font-sans)',
-                    background: (m.key === 'drive') === (transportMode === 'drive') ? SAGE : 'transparent',
-                    color: (m.key === 'drive') === (transportMode === 'drive') ? '#fff' : 'var(--color-muted)',
-                  }}>{m.label}</button>
-                ))}
-              </div>
-            </div>
-          </>
+          </div>
         )}
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, overscrollBehavior: 'contain' }}>
         {/* ── Saved confirmation ── */}
         {savedTrail && (
-          <div style={{ margin: '12px 15px 0', padding: '11px 13px', background: 'rgba(95,138,126,0.09)', border: '1px solid rgba(95,138,126,0.3)', borderRadius: 9 }}>
+          <div style={{ margin: '12px 16px 0', padding: '11px 13px', background: 'rgba(95,138,126,0.09)', border: '1px solid rgba(95,138,126,0.3)', borderRadius: 9 }}>
             <div style={{ fontFamily: 'var(--font-serif)', fontSize: 13.5, color: INK, marginBottom: 3 }}>
               {savedTrail.copied ? t('trailSavedCopy') : t('trailSaved')}
             </div>
@@ -300,8 +245,8 @@ export default function TrailPanel({ trail, mode = 'panel', onClose, onSelectLis
 
         {/* ── Empty state: three doors ── */}
         {stops.length === 0 && !showWizard && (
-          <div style={{ padding: '16px 15px 20px' }}>
-            <div style={{ fontFamily: 'var(--font-serif)', fontSize: 16.5, color: INK, lineHeight: 1.35, marginBottom: 6 }}>
+          <div style={{ padding: '18px 18px 20px' }}>
+            <div style={{ fontFamily: 'var(--font-serif)', fontSize: 17, color: INK, lineHeight: 1.35, marginBottom: 6 }}>
               {t('trailEmptyTitle')}
             </div>
             <div style={{ fontSize: 12, color: 'var(--color-muted)', lineHeight: 1.55, marginBottom: 16 }}>
@@ -332,7 +277,7 @@ export default function TrailPanel({ trail, mode = 'panel', onClose, onSelectLis
             </div>
             {templates?.length > 0 && (
               <>
-                {sectionLabel(t('trailTemplatesTitle'))}
+                <Kicker>{t('trailTemplatesTitle')}</Kicker>
                 <div style={{ marginTop: 7 }}>
                   {templates.map(tpl => (
                     <button key={tpl.slug} onClick={() => loadTemplate(tpl)} disabled={!!templateLoading} style={{
@@ -348,7 +293,7 @@ export default function TrailPanel({ trail, mode = 'panel', onClose, onSelectLis
                       </span>
                       {templateLoading === tpl.slug
                         ? <span className="map-spinner" />
-                        : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-muted)" strokeWidth="2" strokeLinecap="round" style={{ flexShrink: 0 }}><path d="M9 18l6-6-6-6"/></svg>}
+                        : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--color-muted)" strokeWidth="2" strokeLinecap="round" style={{ flexShrink: 0 }}><path d="M9 18l6-6-6-6" /></svg>}
                     </button>
                   ))}
                 </div>
@@ -368,44 +313,65 @@ export default function TrailPanel({ trail, mode = 'panel', onClose, onSelectLis
           />
         )}
 
-        {/* ── Stops ── */}
+        {/* ── The route ── */}
         {stops.length > 0 && (
-          <div style={{ padding: '10px 15px 6px' }}>
-            {dayGroups.map(group => (
-              <div key={group.day ?? 'all'}>
-                {group.day != null && dayGroups.length > 1 && (
-                  <div style={{
-                    display: 'flex', alignItems: 'center', gap: 8, margin: '10px 0 4px',
-                  }}>
-                    <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '0.11em', textTransform: 'uppercase', color: SAGE, fontFamily: 'var(--font-sans)' }}>
-                      {t('trailDayLabel', { day: group.day })}
+          <div style={{ padding: '12px 16px 6px' }}>
+            <TrailTimeline
+              stops={stops}
+              route={route}
+              dayGroups={dayGroups}
+              showDays={daysAssigned && dayGroups.length > 1}
+              ghosts={ghosts}
+              tailConnects={!atCapacity}
+              onReorder={reorderStops}
+              onRemove={removeStop}
+              onSelect={onSelectListing}
+              onGhostAdd={(listing, insertIndex) => addStop(listing, insertIndex)}
+              onGhostDismiss={(role) => setDismissedGhosts(prev => new Set(prev).add(role))}
+            />
+
+            {/* Add a place — the next stop's slot, waiting */}
+            {!atCapacity && (
+              <div style={{ display: 'flex', alignItems: 'stretch', marginTop: -2 }}>
+                <div style={{ width: 30, position: 'relative', flexShrink: 0, alignSelf: 'stretch', minHeight: 34 }}>
+                  <span aria-hidden style={{
+                    position: 'absolute', left: 14, width: 2, top: 0, bottom: '50%',
+                    background: 'repeating-linear-gradient(180deg, rgba(90,74,56,0.28) 0 4px, transparent 4px 9px)',
+                  }} />
+                  <span style={{ position: 'absolute', left: 15, top: '50%', transform: 'translate(-50%, -50%)' }}>
+                    <span style={{
+                      width: 22, height: 22, borderRadius: '50%', boxSizing: 'border-box', display: 'flex',
+                      alignItems: 'center', justifyContent: 'center',
+                      border: `1.5px dashed ${addOpen ? SAGE : 'rgba(90,74,56,0.4)'}`, background: 'var(--color-cream, #FBF9F4)',
+                      color: addOpen ? SAGE : 'var(--color-muted)',
+                    }}>
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
                     </span>
-                    <span style={{ flex: 1, height: 1, background: 'var(--color-border)' }} />
-                  </div>
-                )}
-                {group.stops.map((s, gi) => {
-                  const i = group.startIndex + gi
-                  return (
-                    <div key={s.id}>
-                      {gi > 0 && <LegChip leg={route.legs[i - 1]} approx={route.approx} t={t} />}
-                      <StopRow
-                        stop={s}
-                        index={i}
-                        count={stops.length}
-                        onRemove={() => removeStop(s.id)}
-                        onMoveUp={() => reorderStops(i, i - 1)}
-                        onMoveDown={() => reorderStops(i, i + 1)}
-                        onSelect={() => onSelectListing?.(s)}
-                      />
-                    </div>
-                  )
-                })}
+                  </span>
+                </div>
+                <div style={{ flex: 1, minWidth: 0, padding: '4px 0 4px 9px' }}>
+                  {addOpen ? (
+                    <TrailStopSearch
+                      autoFocus
+                      onAdd={(r) => { addStop(r); setAddOpen(false) }}
+                      inTrailIds={new Set(stops.map(s => String(s.id)))}
+                      atCapacity={atCapacity}
+                    />
+                  ) : (
+                    <button onClick={() => setAddOpen(true)} style={{
+                      background: 'none', border: 'none', padding: '5px 0', cursor: 'pointer',
+                      fontSize: 11.5, color: 'var(--color-muted)', fontFamily: 'var(--font-sans)', fontWeight: 500,
+                    }}>
+                      {t('trailAddPlace')}
+                    </button>
+                  )}
+                </div>
               </div>
-            ))}
+            )}
 
             {lastRemoved && (
               <button onClick={undoRemove} style={{
-                width: '100%', boxSizing: 'border-box', marginTop: 4, padding: '7px 10px', borderRadius: 7,
+                width: '100%', boxSizing: 'border-box', marginTop: 6, padding: '7px 10px', borderRadius: 7,
                 border: '1px dashed var(--color-border)', background: 'transparent', cursor: 'pointer',
                 fontSize: 11, color: 'var(--color-muted)', fontFamily: 'var(--font-sans)', textAlign: 'left',
               }}>
@@ -418,35 +384,36 @@ export default function TrailPanel({ trail, mode = 'panel', onClose, onSelectLis
               </div>
             )}
 
-            {/* Structure actions */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, marginTop: 12 }}>
+            {/* Structure — quiet text actions, one line */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2px 14px', marginTop: 10, paddingTop: 9, borderTop: '1px solid rgba(28,26,23,0.06)' }}>
               {optimiseSavingsKm > 0 && (
-                <button onClick={optimiseOrder} style={{
-                  padding: '6px 12px', borderRadius: 15, border: `1px solid ${SAGE}`, cursor: 'pointer',
-                  background: 'rgba(95,138,126,0.07)', color: SAGE, fontSize: 10.5, fontWeight: 600, fontFamily: 'var(--font-sans)',
+                <button onClick={optimiseOrder} className="trail-textlink" style={{
+                  padding: '4px 0', border: 'none', background: 'none', cursor: 'pointer',
+                  color: SAGE, fontSize: 10.5, fontWeight: 600, fontFamily: 'var(--font-sans)',
                 }}>
                   {t('trailOptimise', { km: optimiseSavingsKm })}
                 </button>
               )}
               {stops.length >= 4 && !daysAssigned && (
-                <button onClick={splitIntoDays} style={{
-                  padding: '6px 12px', borderRadius: 15, border: '1px solid var(--color-border)', cursor: 'pointer',
-                  background: '#fff', color: 'var(--color-ink)', fontSize: 10.5, fontWeight: 600, fontFamily: 'var(--font-sans)',
+                <button onClick={splitIntoDays} className="trail-textlink" style={{
+                  padding: '4px 0', border: 'none', background: 'none', cursor: 'pointer',
+                  color: 'var(--color-ink)', fontSize: 10.5, fontWeight: 600, fontFamily: 'var(--font-sans)',
                 }}>
                   {t('trailSplitDays')}
                 </button>
               )}
               {daysAssigned && (
-                <button onClick={mergeDays} style={{
-                  padding: '6px 12px', borderRadius: 15, border: '1px solid var(--color-border)', cursor: 'pointer',
-                  background: '#fff', color: 'var(--color-muted)', fontSize: 10.5, fontWeight: 600, fontFamily: 'var(--font-sans)',
+                <button onClick={mergeDays} className="trail-textlink" style={{
+                  padding: '4px 0', border: 'none', background: 'none', cursor: 'pointer',
+                  color: 'var(--color-muted)', fontSize: 10.5, fontWeight: 600, fontFamily: 'var(--font-sans)',
                 }}>
                   {t('trailMergeDays')}
                 </button>
               )}
-              <button onClick={clearAll} style={{
-                padding: '6px 12px', borderRadius: 15, border: 'none', cursor: 'pointer',
-                background: 'transparent', color: 'var(--color-muted)', fontSize: 10.5, fontWeight: 600, fontFamily: 'var(--font-sans)',
+              <button onClick={clearAll} className="trail-textlink" style={{
+                padding: '4px 0', border: 'none', background: 'none', cursor: 'pointer',
+                color: 'var(--color-muted)', fontSize: 10.5, fontWeight: 600, fontFamily: 'var(--font-sans)',
+                marginLeft: 'auto',
               }}>
                 {t('trailStartOver')}
               </button>
@@ -454,20 +421,11 @@ export default function TrailPanel({ trail, mode = 'panel', onClose, onSelectLis
           </div>
         )}
 
-        {/* ── Concierge — the day's open moments, featured prominently ── */}
-        {stops.length > 0 && (
-          <TrailConcierge
-            concierge={concierge}
-            onAdd={(listing, insertIndex) => addStop(listing, insertIndex)}
-            onSelect={(l) => onSelectListing?.({ ...l, latitude: l.lat, longitude: l.lng })}
-          />
-        )}
-
-        {/* ── Suggestions ── */}
-        {stops.length > 0 && suggestions.length > 0 && (
-          <div style={{ padding: '12px 15px 16px', borderTop: '1px solid var(--color-border)', marginTop: 10 }}>
+        {/* ── Worth a detour — capped, expandable ── */}
+        {stops.length > 0 && ideas.length > 0 && (
+          <div style={{ padding: '12px 16px 16px', borderTop: '1px solid var(--color-border)', marginTop: 8 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
-              {sectionLabel(t('trailSuggestionsTitle'))}
+              <Kicker>{t('trailSuggestionsTitle')}</Kicker>
               {taste && (
                 <span style={{ fontSize: 9, color: SAGE, fontFamily: 'var(--font-sans)', fontWeight: 600 }}>
                   {t('trailSuggestionsTasteNote')}
@@ -475,7 +433,7 @@ export default function TrailPanel({ trail, mode = 'panel', onClose, onSelectLis
               )}
             </div>
             <div style={{ marginTop: 4 }}>
-              {suggestions.map(s => (
+              {shownIdeas.map(s => (
                 <SuggestionRow
                   key={s.listing.id}
                   s={s}
@@ -484,51 +442,64 @@ export default function TrailPanel({ trail, mode = 'panel', onClose, onSelectLis
                 />
               ))}
             </div>
+            {ideas.length > 3 && (
+              <button onClick={() => setIdeasOpen(o => !o)} className="trail-textlink" style={{
+                marginTop: 2, padding: '4px 0', border: 'none', background: 'none', cursor: 'pointer',
+                color: 'var(--color-muted)', fontSize: 10.5, fontWeight: 600, fontFamily: 'var(--font-sans)',
+              }}>
+                {ideasOpen ? t('trailIdeasLess') : t('trailIdeasMore', { count: ideas.length - 3 })}
+              </button>
+            )}
           </div>
         )}
       </div>
 
       {/* ── Save bar ── */}
       {stops.length > 0 && (
-        <div style={{ padding: '11px 15px 13px', borderTop: '1px solid var(--color-border)', flexShrink: 0, background: 'rgba(251,249,244,0.98)' }}>
+        <div style={{ padding: '10px 16px 13px', borderTop: '1px solid var(--color-border)', flexShrink: 0, background: 'rgba(251,249,244,0.98)' }}>
           {saveError && (
             <div style={{ fontSize: 11, color: 'var(--color-accent)', marginBottom: 7 }}>{t('trailSaveError')}</div>
           )}
-          <div style={{ display: 'flex', gap: 8 }}>
-            <select
-              value={visibility}
-              onChange={e => setVisibility(e.target.value)}
-              aria-label={t('trailVisibility')}
-              style={{
-                padding: '9px 8px', borderRadius: 8, border: '1px solid var(--color-border)', background: '#fff',
-                fontSize: 11, color: INK, fontFamily: 'var(--font-sans)', cursor: 'pointer', outline: 'none', maxWidth: 128,
-              }}
-            >
-              <option value="private">{t('trailVisPrivate')}</option>
-              <option value="link">{t('trailVisLink')}</option>
-              <option value="public">{t('trailVisPublic')}</option>
-            </select>
-            <button
-              onClick={saveTrail}
-              disabled={!canSave || saving}
-              style={{
-                flex: 1, padding: '10px 0', borderRadius: 8, border: 'none',
-                cursor: canSave && !saving ? 'pointer' : 'default',
-                background: canSave ? INK : 'var(--color-border)',
-                color: canSave ? 'var(--color-cream)' : 'var(--color-muted)',
-                fontSize: 11.5, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase',
-                fontFamily: 'var(--font-sans)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              }}
-            >
-              {saving && <span style={{
-                width: 12, height: 12, borderRadius: '50%', flexShrink: 0,
-                border: '2px solid rgba(255,255,255,0.35)', borderTopColor: '#fff',
-                animation: 'map-spin 0.7s linear infinite',
-              }} />}
-              {saving ? t('trailSaving') : editingTrail ? t('trailSaveChanges') : t('trailSave')}
-            </button>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
+            <span style={{ fontSize: 10, color: 'var(--color-muted)', fontFamily: 'var(--font-sans)', flexShrink: 0 }}>
+              {t('trailVisibility')}
+            </span>
+            <div role="radiogroup" aria-label={t('trailVisibility')} style={{ display: 'inline-flex', border: '1px solid var(--color-border)', borderRadius: 999, overflow: 'hidden' }}>
+              {[
+                { key: 'private', label: t('trailVisPrivate') },
+                { key: 'link', label: t('trailVisLink') },
+                { key: 'public', label: t('trailVisPublic') },
+              ].map(v => (
+                <button key={v.key} role="radio" aria-checked={visibility === v.key} onClick={() => setVisibility(v.key)} style={{
+                  padding: '4px 10px', border: 'none', cursor: 'pointer', fontSize: 9.5, fontWeight: 600,
+                  fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap',
+                  background: visibility === v.key ? 'var(--color-ink)' : 'transparent',
+                  color: visibility === v.key ? 'var(--color-cream)' : 'var(--color-muted)',
+                  transition: 'all 0.15s',
+                }}>{v.label}</button>
+              ))}
+            </div>
           </div>
+          <button
+            onClick={saveTrail}
+            disabled={!canSave || saving}
+            style={{
+              width: '100%', padding: '11px 0', minHeight: 44, borderRadius: 8, border: 'none',
+              cursor: canSave && !saving ? 'pointer' : 'default',
+              background: canSave ? INK : 'var(--color-border)',
+              color: canSave ? 'var(--color-cream)' : 'var(--color-muted)',
+              fontSize: 11.5, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase',
+              fontFamily: 'var(--font-sans)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            }}
+          >
+            {saving && <span style={{
+              width: 12, height: 12, borderRadius: '50%', flexShrink: 0,
+              border: '2px solid rgba(255,255,255,0.35)', borderTopColor: '#fff',
+              animation: 'map-spin 0.7s linear infinite',
+            }} />}
+            {saving ? t('trailSaving') : editingTrail ? t('trailSaveChanges') : t('trailSave')}
+          </button>
           {!canSave && (
             <div style={{ fontSize: 10, color: 'var(--color-muted)', marginTop: 6, lineHeight: 1.4 }}>
               {stops.length < 2 ? t('trailNeedTwoStops') : t('trailNeedName')}
@@ -536,6 +507,24 @@ export default function TrailPanel({ trail, mode = 'panel', onClose, onSelectLis
           )}
         </div>
       )}
+
+      <style>{`
+        /* The global 44px touch floor turns 26px coins into ovals — the panel
+           owns its own control sizes (drag handles and inline marks are
+           precision targets, the primary actions stay full-size below). */
+        .trail-panel-root button { min-height: unset; }
+        .trail-title-input::placeholder { color: rgba(28,26,23,0.32); }
+        .trail-title-input:focus { border-bottom-color: rgba(95,138,126,0.5) !important; }
+        .trail-stop-row .trail-remove { opacity: 0; transition: opacity 0.15s; }
+        .trail-stop-row:hover .trail-remove, .trail-stop-row:focus-within .trail-remove { opacity: 1; }
+        .trail-remove:hover { background: rgba(28,26,23,0.06); }
+        .trail-coin:focus-visible { outline: 2px solid #5f8a7e; outline-offset: 2px; }
+        .trail-textlink:hover { text-decoration: underline; }
+        .trail-ghost-dismiss:hover { opacity: 1 !important; }
+        @media (hover: none) {
+          .trail-stop-row .trail-remove { opacity: 0.75; }
+        }
+      `}</style>
     </div>
   )
 }

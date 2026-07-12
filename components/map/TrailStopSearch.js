@@ -13,7 +13,7 @@ import { localizeSubcategory } from '@/lib/i18n/listingLabels'
 
 const SAGE = '#5f8a7e'
 
-export default function TrailStopSearch({ onAdd, inTrailIds, atCapacity }) {
+export default function TrailStopSearch({ onAdd, inTrailIds, atCapacity, autoFocus = false }) {
   const t = useTranslations('map')
   const locale = useLocale()
   const [q, setQ] = useState('')
@@ -57,6 +57,7 @@ export default function TrailStopSearch({ onAdd, inTrailIds, atCapacity }) {
         <input
           type="text"
           value={q}
+          autoFocus={autoFocus}
           onChange={e => setQ(e.target.value)}
           onFocus={() => { if (results.length) setOpenDrop(true) }}
           placeholder={t('trailSearchPlaceholder')}

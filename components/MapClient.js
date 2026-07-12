@@ -77,7 +77,7 @@ const MIN_ZOOM = 2
 const PANEL_W = 384
 
 // Desktop trail panel width (right rail).
-const TRAIL_W = 336
+const TRAIL_W = 364
 
 // Cap on rendered gazetteer rows — the list is a scanning surface, not a
 // database dump; past this the answer is "zoom in".
@@ -631,10 +631,15 @@ export default function MapClient({
   const trailIds = new Set(trail.stops.map(s => String(s.id)))
 
   // Discovery panel (desktop) — open by default: split view is the difference
-  // between a map people use and a map people bounce off.
-  const [panelOpen, setPanelOpen] = useState(true)
-  const panelOpenRef = useRef(true)
+  // between a map people use and a map people bounce off. Trail mode is the
+  // exception: arriving IN the planner (?trail=…), the browse list would fight
+  // the trail rail for the reader's attention, so it starts folded away.
+  const startedInTrailMode = !isEmbedded && (initialTrailOpen || !!initialTrailEdit)
+  const [panelOpen, setPanelOpen] = useState(!startedInTrailMode)
+  const panelOpenRef = useRef(!startedInTrailMode)
   useEffect(() => { panelOpenRef.current = panelOpen }, [panelOpen])
+  // Whether closing the trail should bring the browse list back.
+  const panelFoldedForTrail = useRef(startedInTrailMode)
 
   // The toolbar wraps at narrow widths, so the panel can't assume its height —
   // measure it and hang the panel off its real bottom edge.
@@ -1694,18 +1699,36 @@ export default function MapClient({
     }
   }, [stateFilter, mapReady, isEmbedded, initialCenter])
 
-  // Panel toggle — the camera re-centres into the uncovered area.
+  // Panel toggle — the camera re-centres into the uncovered area. A manual
+  // toggle while the trail is open overrides focus mode: the reader has
+  // chosen their own layout, so closing the trail won't second-guess it.
   function togglePanel() {
     const next = !panelOpen
+    if (trailOpenRef.current) panelFoldedForTrail.current = false
     setPanelOpen(next)
     if (map.current) map.current.easeTo({ padding: cameraPadding(next), duration: 380 })
   }
 
   // Trail panel toggle — same camera courtesy on the right edge.
-  const setTrailOpen = useCallback((next) => {
+  // `focus` = a deliberate step into trail mode (the header button, not an
+  // incidental add): the browse list folds away so the two rails never fight,
+  // and comes back when the trail closes. Adding from the list never yanks
+  // the list out from under the reader.
+  const setTrailOpen = useCallback((next, { focus = false } = {}) => {
     trail.setOpen(next)
-    if (map.current && typeof window !== 'undefined' && !window.matchMedia('(max-width: 768px)').matches) {
-      map.current.easeTo({ padding: cameraPadding(undefined, next), duration: 380 })
+    const desktop = typeof window !== 'undefined' && !window.matchMedia('(max-width: 768px)').matches
+    let panelNext = panelOpenRef.current
+    if (desktop) {
+      if (next && focus && panelOpenRef.current) {
+        panelFoldedForTrail.current = true
+        panelNext = false
+        setPanelOpen(false)
+      } else if (!next && panelFoldedForTrail.current) {
+        panelFoldedForTrail.current = false
+        panelNext = true
+        setPanelOpen(true)
+      }
+      if (map.current) map.current.easeTo({ padding: cameraPadding(panelNext, next), duration: 380 })
     }
     clearTimeout(urlTimer.current)
     urlTimer.current = setTimeout(() => writeUrlRef.current(), 80)
@@ -1803,7 +1826,7 @@ export default function MapClient({
     const filled = trailOpen || trailCount > 0
     return (
       <button
-        onClick={() => setTrailOpen(!trailOpen)}
+        onClick={() => setTrailOpen(!trailOpen, { focus: true })}
         aria-pressed={trailOpen}
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 8,
@@ -2169,9 +2192,9 @@ export default function MapClient({
             chip / spinner) — no separate floating caption. */}
         {!isEmbedded && (
           <div className="map-desktop-toolbar" style={{
-            position: 'absolute', bottom: 30, left: panelOpen ? PANEL_W : 0, right: 0, zIndex: 12,
+            position: 'absolute', bottom: 30, left: panelOpen ? PANEL_W : 0, right: trailOpen ? TRAIL_W : 0, zIndex: 12,
             display: 'flex', justifyContent: 'center',
-            pointerEvents: 'none', transition: 'left 0.38s cubic-bezier(0.22, 1, 0.36, 1)',
+            pointerEvents: 'none', transition: 'left 0.38s cubic-bezier(0.22, 1, 0.36, 1), right 0.38s cubic-bezier(0.22, 1, 0.36, 1)',
             padding: '0 88px',
           }}>
             <div ref={searchRef} style={{
