@@ -725,6 +725,7 @@
     "nothingInViewHint": "축소하거나 지도를 마을 쪽으로 이동하세요 — 목록이 지도를 따릅니다.",
     "showingFirst": "처음 {count, number}개 표시 — 확대하여 보기 좁히기",
     "featured": "주요",
+    "claimedByOwner": "주인이 직접 관리",
     "pick": "선택",
     "editorsPick": "편집자의 선택",
     "close": "닫기",

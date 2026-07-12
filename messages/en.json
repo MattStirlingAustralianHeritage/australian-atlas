@@ -725,6 +725,7 @@
     "nothingInViewHint": "Zoom out, or move the map toward a town — the list follows the map.",
     "showingFirst": "Showing the first {count, number} — zoom in to narrow the view",
     "featured": "Featured",
+    "claimedByOwner": "Claimed by owner",
     "pick": "Pick",
     "editorsPick": "Editor’s pick",
     "close": "Close",

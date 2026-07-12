@@ -1088,6 +1088,12 @@ export default function MapClient({
 
       m.on('load', () => {
         if (cancelled) return
+        // Circle layers can't render glyphs, so the claimed seal (gold roundel
+        // + white check) is drawn once on a canvas and registered as an icon
+        // for the pins-claimed symbol layer below.
+        if (!m.hasImage('claimed-seal')) {
+          m.addImage('claimed-seal', makeClaimedSealImage(), { pixelRatio: 2 })
+        }
         const filtered = getFiltered(allListings, selectedVerticals, subTypeFilter, stateFilter)
         filteredRef.current = filtered
 
@@ -1180,9 +1186,10 @@ export default function MapClient({
 
         // Standard pins — radius scales with zoom so dots stay visible at the
         // national view and grow into comfortable tap targets up close.
+        // Claimed pins are excluded — they render as the gold seal below.
         m.addLayer({
           id: 'pins-basic', type: 'circle', source: 'listings-clustered',
-          filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'featured'], true]],
+          filter: ['all', ['!', ['has', 'point_count']], ['!=', ['get', 'featured'], true], ['!=', ['get', 'claimed'], true]],
           paint: {
             'circle-radius': PIN_RADIUS,
             'circle-radius-transition': { duration: 420 },
@@ -1208,10 +1215,32 @@ export default function MapClient({
         }, roof)
         m.addLayer({
           id: 'pins-featured', type: 'circle', source: 'listings-clustered',
-          filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'featured'], true]],
+          filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'featured'], true], ['!=', ['get', 'claimed'], true]],
           paint: {
             'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 7, 6, 9, 10, 10, 14, 12],
             'circle-color': PREMIUM_COLOR, 'circle-stroke-width': 2.25, 'circle-stroke-color': PAPER, 'circle-opacity': 1,
+          },
+        }, roof)
+
+        // Claimed pins — venues whose operator has claimed the listing wear
+        // the gold seal, matching the "✓ Claimed by the owner" mark on their
+        // place pages: a soft standing halo under a sealed white check.
+        m.addLayer({
+          id: 'pins-claimed-glow', type: 'circle', source: 'listings-clustered',
+          filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'claimed'], true]],
+          paint: {
+            'circle-radius': ['interpolate', ['linear'], ['zoom'], 3, 11, 6, 14, 10, 15, 14, 17],
+            'circle-color': 'transparent', 'circle-stroke-width': 1.5, 'circle-stroke-color': PREMIUM_COLOR, 'circle-stroke-opacity': 0.5, 'circle-opacity': 0,
+          },
+        }, roof)
+        m.addLayer({
+          id: 'pins-claimed', type: 'symbol', source: 'listings-clustered',
+          filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 'claimed'], true]],
+          layout: {
+            'icon-image': 'claimed-seal',
+            'icon-size': ['interpolate', ['linear'], ['zoom'], 3, 0.6, 6, 0.75, 10, 0.85, 14, 1],
+            'icon-allow-overlap': true,
+            'icon-ignore-placement': true,
           },
         }, roof)
 
@@ -1280,7 +1309,7 @@ export default function MapClient({
               // Breathing room in the collision index — in dense CBDs fewer,
               // clearly-separated labels beat an interleaved jumble.
               'text-padding': 6,
-              'symbol-sort-key': ['case', ['==', ['get', 'featured'], true], 0, 1],
+              'symbol-sort-key': ['case', ['==', ['get', 'claimed'], true], 0, ['==', ['get', 'featured'], true], 0, 1],
             },
             paint: {
               'text-color': '#4A443B',
@@ -1366,7 +1395,7 @@ export default function MapClient({
         }
 
         // Click + hover handlers
-        const pinLayers = ['pins-basic', 'pins-featured-glow', 'pins-featured']
+        const pinLayers = ['pins-basic', 'pins-featured-glow', 'pins-featured', 'pins-claimed']
         if (highlightListingId) pinLayers.push('pin-highlight-ring', 'pin-highlight')
         pinLayers.forEach(layer => {
           m.on('mousemove', layer, (e) => {
@@ -2322,6 +2351,12 @@ export default function MapClient({
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: '#9a8878', display: 'inline-block' }} /><span style={{ fontSize: 10, color: 'var(--color-muted)' }}>{t('standard')}</span></div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 9, height: 9, borderRadius: '50%', background: PREMIUM_COLOR, display: 'inline-block' }} /><span style={{ fontSize: 10, color: 'var(--color-muted)' }}>{t('featured')}</span></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ width: 9, height: 9, borderRadius: '50%', background: PREMIUM_COLOR, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <svg width="6" height="6" viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M2 5.4L4.2 7.5L8 3" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </span>
+                    <span style={{ fontSize: 10, color: 'var(--color-muted)' }}>{t('claimedByOwner')}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2670,13 +2705,44 @@ function listingToProps(l) {
     subTypeLabel: subTypes[l.sub_type] || null,
     color: verticalColor(l.vertical),
     featured: l.is_featured || false,
+    // is_claimed on /api/map rows is overlaid server-side from listing_claims
+    // (the raw column is unreliable); image_url is its server-gated card image.
+    claimed: l.is_claimed === true,
     labelShow: l._labelShow !== false,
     location: [l.region, l.state].filter(Boolean).join(', '),
     description: l.description || '',
-    image: isApprovedImageSource(l.hero_image_url) ? l.hero_image_url : '',
+    image: isApprovedImageSource(l.hero_image_url) ? l.hero_image_url : (l.image_url || ''),
     distance: dist != null ? dist : '',
     url: `/place/${l.slug}`,
   }
+}
+
+// Claimed-seal map icon — gold roundel, white check, soft halo — drawn on an
+// offscreen canvas because Mapbox circle layers can't render glyphs. Returned
+// as ImageData for map.addImage(); registered at pixelRatio 2 so it stays
+// crisp on retina displays.
+function makeClaimedSealImage(size = 64) {
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = size
+  const ctx = canvas.getContext('2d')
+  const c = size / 2
+  const halo = ctx.createRadialGradient(c, c, size * 0.26, c, c, c)
+  halo.addColorStop(0, 'rgba(200,148,58,0.35)')
+  halo.addColorStop(1, 'rgba(200,148,58,0)')
+  ctx.fillStyle = halo
+  ctx.beginPath(); ctx.arc(c, c, c, 0, Math.PI * 2); ctx.fill()
+  ctx.beginPath(); ctx.arc(c, c, size * 0.3, 0, Math.PI * 2)
+  ctx.fillStyle = PREMIUM_COLOR; ctx.fill()
+  ctx.lineWidth = size * 0.055
+  ctx.strokeStyle = '#ffffff'; ctx.stroke()
+  ctx.beginPath()
+  ctx.moveTo(c - size * 0.13, c + size * 0.01)
+  ctx.lineTo(c - size * 0.03, c + size * 0.11)
+  ctx.lineTo(c + size * 0.15, c - size * 0.1)
+  ctx.lineWidth = size * 0.075
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round'
+  ctx.stroke()
+  return ctx.getImageData(0, 0, size, size)
 }
 
 // `props` is either listingToProps() output or mapbox feature.properties —

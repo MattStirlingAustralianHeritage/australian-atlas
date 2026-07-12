@@ -48,13 +48,18 @@ function PanelRow({ l, meta, active, visited, onHover, onSelect, inTrail, onTogg
         padding: 0, cursor: 'pointer',
       }}
     >
-      <span style={{ width: 3, flexShrink: 0, background: l.is_featured ? GOLD : color, opacity: active ? 1 : 0.75 }} />
+      <span style={{ width: 3, flexShrink: 0, background: (l.is_featured || l.is_claimed) ? GOLD : color, opacity: active ? 1 : 0.75 }} />
       <span style={{ flex: 1, minWidth: 0, padding: '10px 12px 11px' }}>
         <span style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
           <span style={{
             fontFamily: 'var(--font-serif)', fontSize: 14.5, lineHeight: 1.25, color: visited ? 'var(--color-muted)' : 'var(--color-ink)',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>{l.name}</span>
+          {l.is_claimed && (
+            <span title={t('claimedByOwner')} style={{ flexShrink: 0, alignSelf: 'center', display: 'inline-flex' }}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" aria-label={t('claimedByOwner')} role="img"><path d="M20 6 9 17l-5-5"/></svg>
+            </span>
+          )}
           {l.is_featured && <span title={t('featured')} style={{ color: GOLD, fontSize: 10, flexShrink: 0 }}>★</span>}
           {meta?.editors_pick && !l.is_featured && (
             <span style={{ flexShrink: 0, fontSize: 8.5, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--color-accent)' }}>{t('pick')}</span>

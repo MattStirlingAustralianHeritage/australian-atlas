@@ -4,6 +4,8 @@ import { getPublicVerticals } from '@/lib/verticalUrl'
 import { relationHasVerticals } from '@/lib/listings/verticalFilter'
 import { excludeNeedsReview, excludeTestListings } from '@/lib/listings/publicFilter'
 import { overlayListingTranslations } from '@/lib/i18n/overlayListings'
+import { isApprovedImageSource, isHeroDisplayable } from '@/lib/image-utils'
+import { readGallery } from '@/lib/listing-gallery'
 
 // Pin data only changes on sync (~every 6h), so hold the CDN copy for an hour
 // and serve stale for a day while it revalidates. This keeps all but a handful
@@ -80,6 +82,41 @@ export async function GET(request) {
 
     if (listings === null) {
       listings = await fetchPinsFallback(sb)
+    }
+
+    // Claimed = active row in listing_claims (any tier), overlaid onto the pin
+    // rows. The listings.is_claimed column is NOT a reliable render signal —
+    // it is false on paying listings — so the claims table is the source of
+    // truth here, same as the /place paid-perk gate. Claimed pins also carry
+    // their card image inline (hero when it passes the approved-source +
+    // moderation gates, else the first clean gallery photo) so the seal card
+    // never races the /api/map/cards hydration. The claimed set is tiny, so
+    // the per-listing lookups are fine under ISR.
+    const { data: claimRows } = await sb
+      .from('listing_claims')
+      .select('listing_id')
+      .eq('status', 'active')
+    const claimedIds = new Set((claimRows || []).map(r => r.listing_id))
+    if (claimedIds.size) {
+      const claimedImage = new Map()
+      const { data: heroRows } = await sb
+        .from('listings')
+        .select('id, hero_image_url, image_moderation_status')
+        .in('id', [...claimedIds])
+      for (const r of heroRows || []) {
+        if (r.hero_image_url && isApprovedImageSource(r.hero_image_url) && isHeroDisplayable(r)) {
+          claimedImage.set(r.id, r.hero_image_url)
+        }
+      }
+      await Promise.all([...claimedIds]
+        .filter(id => !claimedImage.has(id))
+        .map(async (id) => {
+          const [url] = await readGallery(sb, id)
+          if (url) claimedImage.set(id, url)
+        }))
+      listings = listings.map(l => claimedIds.has(l.id)
+        ? { ...l, is_claimed: true, image_url: claimedImage.get(l.id) || null }
+        : l)
     }
 
     // Korean launch: overlay translated name/description onto the pin set for

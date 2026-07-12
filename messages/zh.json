@@ -725,6 +725,7 @@
     "nothingInViewHint": "放大视图或将地图移向一个城镇 — 列表跟随地图。",
     "showingFirst": "显示前 {count, number} 个 — 放大视图来缩小范围",
     "featured": "特色",
+    "claimedByOwner": "由店主打理",
     "pick": "精选",
     "editorsPick": "编辑精选",
     "close": "关闭",

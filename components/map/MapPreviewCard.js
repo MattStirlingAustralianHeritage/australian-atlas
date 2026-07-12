@@ -29,7 +29,11 @@ export default function MapPreviewCard({ listing, meta, variant = 'anchored', on
   const desc = listing.description
     ? (listing.description.length > 130 ? listing.description.slice(0, 130).trimEnd() + '…' : listing.description)
     : ''
-  const image = meta?.image || null
+  // is_claimed arrives overlaid from listing_claims on /api/map rows (the raw
+  // column is unreliable). Claimed pins carry their server-gated card image
+  // inline (image_url) so the card never races the /api/map/cards hydration.
+  const claimed = listing.is_claimed === true
+  const image = meta?.image || listing.image_url || null
 
   return (
     <div
@@ -61,7 +65,14 @@ export default function MapPreviewCard({ listing, meta, variant = 'anchored', on
           <span style={{ fontSize: 9.5, fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#FAF8F4', opacity: 0.92 }}>
             {getVerticalBadge(listing.vertical)}{subLabel ? ` — ${subLabel}` : ''}
           </span>
-          {listing.is_featured && <span style={{ marginLeft: 'auto', color: GOLD, fontSize: 11 }}>★</span>}
+          {(listing.is_featured || claimed) && (
+            // marginRight clears the absolutely-positioned close button that
+            // overlays the band's right edge.
+            <span style={{ marginLeft: 'auto', marginRight: 26, color: GOLD, fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              {claimed && <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>}
+              {listing.is_featured && '★'}
+            </span>
+          )}
         </div>
       )}
 
@@ -86,6 +97,15 @@ export default function MapPreviewCard({ listing, meta, variant = 'anchored', on
                 {getVerticalBadge(listing.vertical)}{subLabel ? ` · ${subLabel}` : ''}
               </span>
             </span>
+            {claimed && (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4, background: 'rgba(200,148,58,0.10)',
+                border: '1px solid rgba(200,148,58,0.3)', padding: '2px 8px', borderRadius: 3,
+              }}>
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={GOLD} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: GOLD }}>{t('claimedByOwner')}</span>
+              </span>
+            )}
             {listing.is_featured && (
               <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: GOLD }}>★ {t('featured')}</span>
             )}
