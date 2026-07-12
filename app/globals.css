@@ -890,6 +890,48 @@ a:hover > .wordmark-star {
   .discover-cta, .discover-cta svg { transition: none; }
 }
 
+/* Trail-builder CTA: the pill wears the trip's own cartography.
+   A dotted gold route runs to a pin on the left; on hover the dots
+   travel the path and the arrow leads off. Warm ink ground with a
+   gold neatline ring so it reads as the section's one true action. */
+.trail-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 14.5px;
+  letter-spacing: 0.01em;
+  color: var(--color-cream, #FAF8F4);
+  background: linear-gradient(140deg, #26221c 0%, #1c1a17 55%, #171310 100%);
+  border: 1px solid rgba(196, 154, 60, 0.5);
+  border-radius: 999px;
+  padding: 14px 26px 14px 20px;
+  text-decoration: none;
+  box-shadow:
+    0 6px 18px rgba(28, 26, 23, 0.28),
+    inset 0 0 0 1px rgba(196, 154, 60, 0.10);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.trail-cta:hover {
+  transform: translateY(-1px);
+  border-color: rgba(196, 154, 60, 0.9);
+  box-shadow:
+    0 10px 26px rgba(28, 26, 23, 0.36),
+    0 0 0 4px rgba(196, 154, 60, 0.12),
+    inset 0 0 0 1px rgba(196, 154, 60, 0.16);
+}
+.trail-cta-route { flex: none; }
+.trail-cta-route .trail-cta-line { stroke-dasharray: 2.6 4.4; }
+.trail-cta:hover .trail-cta-line { animation: trail-cta-travel 0.8s linear infinite; }
+@keyframes trail-cta-travel { to { stroke-dashoffset: -14; } }
+.trail-cta-arrow { color: var(--color-gold, #b8862b); flex: none; transition: transform 0.2s ease; }
+.trail-cta:hover .trail-cta-arrow { transform: translateX(3px); }
+@media (prefers-reduced-motion: reduce) {
+  .trail-cta, .trail-cta-arrow { transition: none; }
+  .trail-cta:hover .trail-cta-line { animation: none; }
+}
+
 /* Mobile refinements */
 @media (max-width: 768px) {
   .section-gap { padding-block: 56px; }

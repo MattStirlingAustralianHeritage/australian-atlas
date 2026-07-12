@@ -31,7 +31,7 @@ const CITIES = [
 ]
 const CITY_ZOOM = 10.5
 
-export default async function HomeAtlasMap({ listingCount, categoryCount, regionCount, freshListings = [] }) {
+export default async function HomeAtlasMap({ listingCount, categoryCount, regionCount, freshListings = [], scopePins = [] }) {
   const t = await getTranslations('home')
   const count = typeof listingCount === 'number' && listingCount > 0
     ? listingCount.toLocaleString()
@@ -42,6 +42,13 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
     .filter(l => l && l.slug && Number.isFinite(parseFloat(l.lng)) && Number.isFinite(parseFloat(l.lat)))
     .slice(0, 6)
 
+  // The scope proof: real listings from every state and territory,
+  // rendered as steady hoverable pins over the chart. Same projection
+  // and fan-out treatment as the fresh pins, without the pulse.
+  const scope = (scopePins || [])
+    .filter(l => l && l.slug && Number.isFinite(parseFloat(l.lng)) && Number.isFinite(parseFloat(l.lat)))
+    .slice(0, 32)
+
   return (
     <section className="atlas-plate" aria-label={t('mapSectionAria')}>
       <div className="atlas-plate-mat">
@@ -50,9 +57,9 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
       <div className="atlas-plate-copy">
         <p className="atlas-plate-overline">{t('livingAtlas')}</p>
         <h2 className="atlas-plate-headline">
-          {count ? t('verifiedPlacesMapped', { count }) : t('everyPlaceMapped')}
+          {count ? t('plateScopeHeadline', { count }) : t('everyPlaceMapped')}
         </h2>
-        <p className="atlas-plate-sub">{t('atlasPlateSub')}</p>
+        <p className="atlas-plate-sub">{t('plateScopeSub')}</p>
 
         <div className="atlas-plate-actions">
           <LocalizedLink href="/map" className="atlas-plate-cta">
@@ -118,23 +125,48 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
           })}
 
           {(() => {
-            // Fan near-coincident pins apart (two new places in one city is
+            // Fan near-coincident pins apart (two places in one town is
             // the norm) so both stay hoverable — same idea as MapClient's
-            // pin fan-out, in image-percent space.
+            // pin fan-out, in image-percent space. Scope and fresh pins
+            // share the placed list so they never sit on each other.
             const placed = []
-            return fresh.map((l, i) => {
+            const place = (l) => {
               let { leftPct, topPct } = projectToImagePct(parseFloat(l.lng), parseFloat(l.lat))
               if (leftPct < 0 || leftPct > 100 || topPct < 0 || topPct > 100) return null
               for (let guard = 0; guard < 4 && placed.some(p => Math.abs(p.x - leftPct) < 1.1 && Math.abs(p.y - topPct) < 2.8); guard++) {
                 leftPct += 0.6; topPct += 2.9
               }
               placed.push({ x: leftPct, y: topPct })
+              return { leftPct, topPct }
+            }
+            const scopeEls = scope.map((l) => {
+              const pos = place(l)
+              if (!pos) return null
+              return (
+              <LocalizedLink
+                key={`scope-${l.id || l.slug}`}
+                href={`/place/${l.slug}`}
+                className="atlas-fresh atlas-scope"
+                style={{ left: `${pos.leftPct.toFixed(3)}%`, top: `${pos.topPct.toFixed(3)}%` }}
+                aria-label={l.name}
+              >
+                <span className="atlas-fresh-dot" aria-hidden="true" />
+                <span className="atlas-fresh-tip" role="presentation">
+                  <strong>{l.name}</strong>
+                  {(l.region || l.state) ? <span>{l.region || l.state}</span> : null}
+                </span>
+              </LocalizedLink>
+              )
+            })
+            const freshEls = fresh.map((l, i) => {
+              const pos = place(l)
+              if (!pos) return null
               return (
               <LocalizedLink
                 key={l.id || l.slug}
                 href={`/place/${l.slug}`}
                 className="atlas-fresh"
-                style={{ left: `${leftPct.toFixed(3)}%`, top: `${topPct.toFixed(3)}%`, '--pulse-delay': `${(i * 0.55).toFixed(2)}s` }}
+                style={{ left: `${pos.leftPct.toFixed(3)}%`, top: `${pos.topPct.toFixed(3)}%`, '--pulse-delay': `${(i * 0.55).toFixed(2)}s` }}
                 aria-label={t('newPlaceAria', { name: l.name })}
               >
                 <span className="atlas-fresh-ping" aria-hidden="true" />
@@ -146,6 +178,7 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
               </LocalizedLink>
               )
             })
+            return [...scopeEls, ...freshEls]
           })()}
         </div>
       </div>
@@ -306,6 +339,13 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
           0% { transform: scale(1); opacity: 0.9; }
           70%, 100% { transform: scale(3.4); opacity: 0; }
         }
+        /* scope pins: the same hoverable gold dot, held steady (no ping),
+           ringed in ink so it reads over dense dot fields */
+        .atlas-scope .atlas-fresh-dot {
+          box-shadow: 0 0 0 1.5px rgba(28,26,23,0.55), 0 0 0 3px rgba(251,248,242,0.75);
+        }
+        .atlas-scope:hover .atlas-fresh-dot,
+        .atlas-scope:focus-visible .atlas-fresh-dot { background: #1C1A17; }
         /* ── responsive ────────────────────────────────────── */
         @media (max-width: 1280px) {
           .atlas-plate-sub { display: none; }

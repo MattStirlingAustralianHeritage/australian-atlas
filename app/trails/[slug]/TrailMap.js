@@ -13,7 +13,10 @@ const VERTICAL_LABELS = {
 
 const ROUTE_COLOR = '#C4943A'
 const MARKER_COLOR = '#C49A3C'
-const ANIMATION_DURATION_MS = 2500
+// Slowed from 2500: with the camera opening close on the first stop
+// and pulling back as the line travels, the draw needs room to read
+// as a drive rather than a flick.
+const ANIMATION_DURATION_MS = 5200
 
 function measureLine(coords) {
   const distances = [0]
@@ -96,7 +99,10 @@ function injectAnimationStyles() {
   document.head.appendChild(style)
 }
 
-const TrailMap = forwardRef(function TrailMap({ stops }, ref) {
+// routeGeometry (optional): a pre-fetched Directions LineString. When the
+// caller already holds the road geometry (the homepage caches it hourly so
+// visitors don't each hit the Directions API), the internal fetch is skipped.
+const TrailMap = forwardRef(function TrailMap({ stops, routeGeometry: providedGeometry }, ref) {
   const mapContainer = useRef(null)
   const mapRef = useRef(null)
   const mapboxRef = useRef(null)
@@ -105,6 +111,7 @@ const TrailMap = forwardRef(function TrailMap({ stops }, ref) {
   const isAnimatingRef = useRef(false)
   const routeCoordsRef = useRef([])
   const fullGeojsonRef = useRef(null)
+  const observerRef = useRef(null)
 
   // Sort stops: by day first, then by position within each day
   const sortedStops = [...stops].sort((a, b) => {
@@ -257,8 +264,14 @@ const TrailMap = forwardRef(function TrailMap({ stops }, ref) {
     const fontSize = isMobile ? 14 : 13
 
     let animFrame = null
+    // Strict-mode dev runs this effect twice before the mapbox import
+    // resolves; without the flag both .then callbacks built a map into
+    // the same container (two canvases, broken markers). Same guard
+    // TrailStopsMap uses.
+    let cancelled = false
 
     import('mapbox-gl').then(async (mapboxgl) => {
+      if (cancelled || mapRef.current || !mapContainer.current) return
       mapboxgl = mapboxgl.default || mapboxgl
       mapboxgl.accessToken = token
       mapboxRef.current = mapboxgl
@@ -268,11 +281,18 @@ const TrailMap = forwardRef(function TrailMap({ stops }, ref) {
         new mapboxgl.LngLatBounds(coordinates[0], coordinates[0])
       )
 
+      // The draw-in choreography opens close on the first stop and
+      // pulls back as the line travels, so the camera starts there;
+      // reduced motion (or a single stop) keeps the plain fitted view.
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      const willAnimate = !reduceMotion && coordinates.length >= 2
+
       const map = new mapboxgl.Map({
         container: mapContainer.current,
         style: 'mapbox://styles/mattstirlingaustralianheritage/cmn32b0iz003401swccb7d21k',
-        bounds,
-        fitBoundsOptions: { padding: { top: 60, bottom: 60, left: 60, right: 60 } },
+        ...(willAnimate
+          ? { center: coordinates[0], zoom: 12 }
+          : { bounds, fitBoundsOptions: { padding: { top: 60, bottom: 60, left: 60, right: 60 } } }),
         scrollZoom: false,
       })
 
@@ -280,8 +300,8 @@ const TrailMap = forwardRef(function TrailMap({ stops }, ref) {
       map.addControl(new mapboxgl.NavigationControl(), 'top-right')
 
       map.on('load', async () => {
-        let routeGeometry = null
-        if (coordinates.length >= 2) {
+        let routeGeometry = providedGeometry || null
+        if (!routeGeometry && coordinates.length >= 2) {
           routeGeometry = await fetchRouteGeometry(coordinates, token)
         }
 
@@ -377,7 +397,7 @@ const TrailMap = forwardRef(function TrailMap({ stops }, ref) {
         fullGeojsonRef.current = fullGeojson
 
         // Run animation
-        if (totalLength > 0 && routeCoords.length >= 2) {
+        if (willAnimate && totalLength > 0 && routeCoords.length >= 2) {
           const revealedMarkers = new Set()
 
           if (markers.length > 0) {
@@ -386,9 +406,33 @@ const TrailMap = forwardRef(function TrailMap({ stops }, ref) {
             revealedMarkers.add(0)
           }
 
+          // Camera choreography: open close on the first stop, pull
+          // back frame by frame to keep the drawn line in view, and
+          // settle on the whole route. The pull-back only ever zooms
+          // out (monotonic), and any user touch hands the camera over.
+          const routeBounds = routeCoords.reduce(
+            (b, c) => b.extend(c),
+            new mapboxgl.LngLatBounds(routeCoords[0], routeCoords[0])
+          )
+          const camPadding = { padding: { top: 70, bottom: 70, left: 70, right: 70 } }
+          let finalCam = null
+          try { finalCam = map.cameraForBounds(routeBounds, camPadding) } catch {}
+          let lastZoom = null
+          let followCancelled = false
+          const stopFollow = () => { followCancelled = true }
+          map.on('mousedown', stopFollow)
+          map.on('touchstart', stopFollow)
+          map.on('wheel', stopFollow)
+          if (finalCam) {
+            const startZoom = Math.max(finalCam.zoom, Math.min(13.5, finalCam.zoom + 2.4))
+            map.jumpTo({ center: routeCoords[0], zoom: startZoom })
+            lastZoom = startZoom
+          }
+
           let startTime = null
 
           const animate = (timestamp) => {
+            if (cancelled || !mapRef.current) return
             if (!startTime) startTime = timestamp
             const elapsed = timestamp - startTime
             const rawProgress = Math.min(elapsed / ANIMATION_DURATION_MS, 1)
@@ -404,6 +448,20 @@ const TrailMap = forwardRef(function TrailMap({ stops }, ref) {
             })
 
             map.setPaintProperty('trail-route-glow', 'line-opacity', progress * 0.15)
+
+            if (finalCam && !followCancelled) {
+              const partialBounds = partialCoords.reduce(
+                (b, c) => b.extend(c),
+                new mapboxgl.LngLatBounds(partialCoords[0], partialCoords[0])
+              )
+              let cam = null
+              try { cam = map.cameraForBounds(partialBounds, camPadding) } catch {}
+              if (cam) {
+                const zoom = Math.min(lastZoom, Math.max(cam.zoom, finalCam.zoom))
+                map.jumpTo({ center: cam.center, zoom })
+                lastZoom = zoom
+              }
+            }
 
             markers.forEach((m, i) => {
               if (!revealedMarkers.has(i) && progress >= m.fraction) {
@@ -422,6 +480,9 @@ const TrailMap = forwardRef(function TrailMap({ stops }, ref) {
                 m.wrapper.style.transform = 'scale(1)'
                 m.wrapper.style.opacity = '1'
               })
+              if (finalCam && !followCancelled) {
+                map.easeTo({ center: finalCam.center, zoom: finalCam.zoom, duration: 500 })
+              }
               // Final stop pulse
               const last = markers[markers.length - 1]
               if (last) {
@@ -430,8 +491,29 @@ const TrailMap = forwardRef(function TrailMap({ stops }, ref) {
             }
           }
 
-          setTimeout(() => { animFrame = requestAnimationFrame(animate) }, 400)
+          // Hold the draw until the map has actually scrolled into
+          // view (the homepage mounts it below the fold; playing on
+          // page load meant nobody saw it). Falls back to the old
+          // fixed delay where IntersectionObserver is unavailable.
+          const begin = () => { animFrame = requestAnimationFrame(animate) }
+          if (typeof IntersectionObserver !== 'undefined' && mapContainer.current) {
+            const io = new IntersectionObserver((entries) => {
+              if (entries.some(e => e.isIntersecting)) {
+                io.disconnect()
+                setTimeout(begin, 350)
+              }
+            }, { threshold: 0.35 })
+            io.observe(mapContainer.current)
+            observerRef.current = io
+          } else {
+            setTimeout(begin, 400)
+          }
         } else {
+          if (willAnimate) {
+            // Animation was planned (camera opened on the first stop)
+            // but the route turned out degenerate: show the fitted view.
+            try { map.fitBounds(bounds, { padding: { top: 60, bottom: 60, left: 60, right: 60 }, duration: 0 }) } catch {}
+          }
           map.getSource('trail-route').setData(fullGeojson)
           map.setPaintProperty('trail-route-glow', 'line-opacity', 0.15)
           markers.forEach(m => {
@@ -445,7 +527,10 @@ const TrailMap = forwardRef(function TrailMap({ stops }, ref) {
     })
 
     return () => {
+      cancelled = true
       if (animFrame) cancelAnimationFrame(animFrame)
+      observerRef.current?.disconnect()
+      observerRef.current = null
       if (mapRef.current) { mapRef.current.remove(); mapRef.current = null }
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps

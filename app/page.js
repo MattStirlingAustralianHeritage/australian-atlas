@@ -9,14 +9,10 @@ import HomeSearchBar from '@/components/HomeSearchBar'
 import HomeAtlasMap from '@/components/HomeAtlasMap'
 import NewsletterSignup from '@/components/NewsletterSignup'
 import ScrollReveal from '@/components/ScrollReveal'
-import NearbySection from '@/components/NearbySection'
-import WorthFindingSection from '@/components/home/WorthFindingSection'
-import DiscoverDeck from '@/components/discover/DiscoverDeck'
-import CategoryGuideSection from '@/components/CategoryGuideSection'
-import { getListingRegion, LISTING_REGION_SELECT, resolveRegionParam } from '@/lib/regions'
-import { STATE_OUTLINES, projectPoint } from '@/lib/regions/stateOutlines'
-import { getPublicVerticals, VERTICAL_CARD_TOKENS, VERTICAL_ACCENTS } from '@/lib/verticalUrl'
+import TrailMap from '@/app/trails/[slug]/TrailMap'
+import { resolveRegionParam } from '@/lib/regions'
 import { buildContours } from '@/lib/discover/contours'
+import { getPublicVerticals, getVerticalBadge, getVerticalTagline, VERTICAL_ACCENTS, VERTICAL_CARD_TOKENS } from '@/lib/verticalUrl'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
 import { subTypeLabel } from '@/lib/subTypeLabels'
 import { Coffee, Wine, UtensilsCrossed, BedDouble, Mountain, Compass, Hammer, Landmark, ShoppingBag, Clock } from 'lucide-react'
@@ -38,126 +34,48 @@ export async function generateMetadata() {
 
 const GOLD = 'var(--color-gold)'
 
-const VERTICAL_CARD_COLORS = VERTICAL_CARD_TOKENS
-
-const CLUSTER_REGION_SLUGS = {
-  'Barossa Valley': 'barossa-valley',
-  'Mornington Peninsula': 'mornington-peninsula',
-  'Hobart & Southern Tasmania': 'hobart',
-  'Byron Hinterland': 'byron-hinterland',
-  'Byron Bay': 'byron-bay',
-  'Adelaide': null,
-  'Melbourne': null,
-}
-
-// The cluster section renders each region as a plottable day, not a flat
-// sample: one venue per slot, slots in day order. A slot takes the first
-// preference [vertical, allowedSubTypes?] that still has an unused
-// candidate, so a region without (say) a stay still fills a coherent
-// shorter day. Labels are time-of-day only, and any sub_type constraint
-// exists to keep the label honest — the morning slot accepts coffee, a
-// bakery-ish table venue, or a tour, never a straight restaurant.
-const CLUSTER_DAY_SLOTS = [
-  { slot: 'morning',   prefs: [['fine_grounds'], ['table', ['bakery', 'market', 'farm_gate', 'providore']], ['way']] },
-  { slot: 'midday',    prefs: [['table'], ['way'], ['field'], ['found'], ['corner']] },
-  { slot: 'afternoon', prefs: [['craft'], ['collection'], ['corner'], ['found'], ['field'], ['way']] },
-  { slot: 'tasting',   prefs: [['sba'], ['fine_grounds']] },
-  { slot: 'stay',      prefs: [['rest']] },
+// ─────────────────────────────────────────────────────────────────
+// The worked-trip hero. A new hypothetical day is drawn every hour:
+// the hour picks a region from the pool below, and seeds the shuffle
+// that fills its slots, so returning visitors see a different real
+// day each hour. A region that can't fill five slots is skipped and
+// the next in the pool takes its hour.
+// Pool from the density query 2026-07-12 (active listings w/
+// description+coords), regional first for the trip framing, capitals
+// as depth: Melbourne 435 / Sydney 367 / Perth 360 / Adelaide 358 /
+// Margaret River 166 / Hobart & Sthn Tas 162 / Cairns & TN 140 /
+// Yarra Valley 128 / Canberra District 124 / Bendigo 117 /
+// Hobart City 105 / Byron Bay 105.
+// MATT: set HERO_REGION_OVERRIDE to a region name to pin one region
+// (stops still reshuffle hourly); edit the pool freely.
+// ─────────────────────────────────────────────────────────────────
+const HERO_REGION_OVERRIDE = null
+const HERO_REGION_POOL = [
+  'Margaret River',
+  'Hobart & Southern Tasmania',
+  'Yarra Valley',
+  'Byron Bay',
+  'Cairns & Tropical North',
+  'Bendigo',
+  'Canberra District',
+  'Hobart City',
+  'Melbourne',
+  'Sydney',
+  'Perth',
+  'Adelaide',
+  'Brisbane',
 ]
 
-const CLUSTER_SLOT_LABEL_KEYS = {
-  morning: 'clusterStopMorning',
-  midday: 'clusterStopMidday',
-  afternoon: 'clusterStopAfternoon',
-  tasting: 'clusterStopTasting',
-  stay: 'clusterStopStay',
+// One value per hour, computed outside the cache and passed in, so it
+// participates in the cache key and the whole payload turns over on
+// the hour.
+function getHourSeed() {
+  return Math.floor(Date.now() / (60 * 60 * 1000))
 }
 
-// Fallback art for unphotographed stops: the vertical's dark ground + icon.
-const CLUSTER_VERTICAL_ICONS = {
-  fine_grounds: Coffee, sba: Wine, table: UtensilsCrossed, rest: BedDouble,
-  field: Mountain, way: Compass, craft: Hammer, collection: Landmark,
-  corner: ShoppingBag, found: Clock,
-}
-
-// Widest gap between any two stops (equirectangular, fine at region scale),
-// rounded up to 5 km — the "all within N km" proof that the day is drivable.
-// Null unless EVERY stop carries coordinates: a locality-only pin (NULL
-// lat/lng) silently dropped from the pairwise max would let the line
-// under-claim the true spread, and the span must stay honest.
-function clusterSpanKm(stops) {
-  const pts = stops.filter(s => Number.isFinite(s.lat) && Number.isFinite(s.lng))
-  if (pts.length < stops.length || pts.length < 2) return null
-  let max = 0
-  for (let i = 0; i < pts.length; i++) {
-    for (let j = i + 1; j < pts.length; j++) {
-      const dLat = (pts[i].lat - pts[j].lat) * 111
-      const dLng = (pts[i].lng - pts[j].lng) * 111 * Math.cos(((pts[i].lat + pts[j].lat) / 2) * Math.PI / 180)
-      max = Math.max(max, Math.hypot(dLat, dLng))
-    }
-  }
-  return Math.max(5, Math.ceil(max / 5) * 5)
-}
-
-const REGION_GEO = {
-  'Barossa Valley':        { lat: -34.56, lng: 138.95, r: 0.35 },
-  'Mornington Peninsula':  { lat: -38.37, lng: 145.03, r: 0.30 },
-  'Yarra Valley':          { lat: -37.73, lng: 145.51, r: 0.35 },
-  'Byron Hinterland':      { lat: -28.64, lng: 153.50, r: 0.35 },
-  'Byron Bay':             { lat: -28.65, lng: 153.61, r: 0.35 },
-  'Blue Mountains':        { lat: -33.72, lng: 150.31, r: 0.35 },
-  'Adelaide Hills':        { lat: -35.02, lng: 138.72, r: 0.35 },
-}
-
-const VERTICAL_LABELS = {
-  sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
-  fine_grounds: 'Fine Grounds', rest: 'Rest', field: 'Field',
-  corner: 'Corner', found: 'Found', table: 'Table', way: 'Way',
-  atlas: 'Journal',
-}
-
-// Number words for the gate-aware category count in the grid heading/intro
-// (9 when Way is gated off, 10 when WAY_ATLAS_PUBLIC promotes it).
-const COUNT_WORDS = { 8: 'Eight', 9: 'Nine', 10: 'Ten', 11: 'Eleven', 12: 'Twelve' }
-
-// Plain-English decoder for the categories — the homepage's primary
-// comprehension fix. Each card pairs the brand name with an always-visible
-// descriptor + a grounded specifics line (drawn from the authoritative vertical
-// scope definitions in lib/verticalUrl.js taglines and the /about copy), an
-// identity icon, and a brand colour. Cards link to the on-site filtered search
-// so browsing a category keeps the user on australianatlas.com.au. The grid is
-// filtered through getPublicVerticals() at render time, so a card only appears
-// when its vertical is live (Way is gated until WAY_ATLAS_PUBLIC). Ordered as a
-// natural journey: coffee → drink → eat → stay → roam → guide → make → see → shop → find.
-const VERTICAL_GUIDE = [
-  { key: 'fine_grounds', name: 'Fine Grounds', label: 'Specialty coffee',       desc: 'Roasters with their own roastery, and the cafés that take it seriously.', accent: '#8A7055', Icon: Coffee },
-  { key: 'sba',          name: 'Small Batch',  label: 'Brewers & distillers',   desc: 'Independent breweries, wineries, distilleries, and cellar doors.',        accent: '#B07A22', Icon: Wine },
-  { key: 'table',        name: 'Table',        label: 'Restaurants & food',     desc: 'Independent restaurants, bakeries, markets, and farm gates.',             accent: '#C4634F', Icon: UtensilsCrossed },
-  { key: 'rest',         name: 'Rest',         label: 'Boutique stays',         desc: 'Cabins, guesthouses, farm stays, and eco-lodges worth the trip.',         accent: '#5A8A9A', Icon: BedDouble },
-  { key: 'field',        name: 'Field',        label: 'Nature & walks',         desc: 'Nature reserves, national parks, swimming holes, and walking trails.',    accent: '#4A7C59', Icon: Mountain },
-  { key: 'way',          name: 'Way',          label: 'Tours & experiences',    desc: 'Guided walks, cultural tours, sailing charters, and adventure experiences.', accent: '#6B7A4A', Icon: Compass },
-  { key: 'craft',        name: 'Craft',        label: 'Makers & studios',       desc: 'Ceramicists, woodworkers, textile artists, and studio potters.',          accent: '#C1603A', Icon: Hammer },
-  { key: 'collection',   name: 'Culture',      label: 'Galleries & museums',    desc: 'Art museums, public galleries, and cultural collections.',                accent: '#7A6B8A', Icon: Landmark },
-  { key: 'corner',       name: 'Corner',       label: 'Independent shops',      desc: 'Bookshops, record stores, homewares, and design studios.',                accent: '#5F8A7E', Icon: ShoppingBag },
-  { key: 'found',        name: 'Found',        label: 'Vintage & secondhand',   desc: 'Antique dealers, op shops, salvage yards, and curated secondhand.',       accent: '#D4956A', Icon: Clock },
-]
-
-// Example queries for the hero search chips — each demonstrates a different
-// plain-English pattern (style, thing + region, vibe + state, category + city).
-// Every query was verified against the live /api/search to return real
-// results; don't swap one in without checking it isn't a dead end.
-const EXAMPLE_SEARCHES = [
-  'wood-fired bakery',
-  'natural wine in the Adelaide Hills',
-  'a gift for my niece that’s made in Australia',
-  'galleries in Hobart',
-]
-
-function getWeeklySeed() {
-  const now = new Date()
-  return Math.floor(now.getTime() / (7 * 24 * 60 * 60 * 1000))
-}
-
+// Deterministic shuffle (same LCG the old weekly picks used): the
+// same hour always draws the same day, so the cache and the page
+// agree on what "this hour's route" is.
 function seededShuffle(arr, seed) {
   const shuffled = [...arr]
   let s = seed
@@ -169,53 +87,89 @@ function seededShuffle(arr, seed) {
   return shuffled
 }
 
-const EVENT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+// Day order for the worked trip: coffee, an activity before lunch,
+// lunch, then ONE main activity for the afternoon, a tasting, a bed.
+// Each slot takes the first vertical that still has an unused,
+// well-described candidate, so the trip degrades gracefully if the
+// region thins out. A vertical is never used twice in one day, so
+// the mid-morning stop and the afternoon's main activity can't both
+// be galleries. Labels are time-of-day, from the existing translated
+// clusterStop* keys wherever one fits.
+const HERO_TRIP_SLOTS = [
+  { slot: 'morning',    labelKey: 'clusterStopMorning',   prefs: [['fine_grounds'], ['table', ['bakery', 'market', 'farm_gate', 'providore']]] },
+  { slot: 'midmorning', labelKey: 'tripStopMidMorning',   prefs: [['corner'], ['found'], ['collection'], ['craft'], ['field']] },
+  { slot: 'midday',     labelKey: 'clusterStopMidday',    prefs: [['table', ['restaurant', 'cafe', 'bistro', 'pub', 'bakery']], ['table'], ['corner']] },
+  { slot: 'afternoon',  labelKey: 'clusterStopAfternoon', prefs: [['way'], ['field'], ['craft'], ['collection']] },
+  { slot: 'tasting',    labelKey: 'tripStopTasting',      prefs: [['sba'], ['fine_grounds']] },
+  { slot: 'stay',       labelKey: 'clusterStopStay',      prefs: [['rest']] },
+]
 
-const EVENT_CATEGORY_LABELS = {
-  festival: 'Festival', market: 'Market', dinner: 'Dinner', tour: 'Tour',
-  exhibition: 'Exhibition', workshop: 'Workshop', other: 'Event',
+// Fallback icon per vertical for the trip stops and the ingredients
+// grid. Same assignments the rest of the site uses.
+const VERTICAL_ICONS = {
+  fine_grounds: Coffee, sba: Wine, table: UtensilsCrossed, rest: BedDouble,
+  field: Mountain, way: Compass, craft: Hammer, collection: Landmark,
+  corner: ShoppingBag, found: Clock,
 }
 
-const EVENT_STATE_ORDER = ['NSW', 'VIC', 'QLD', 'SA', 'WA', 'TAS', 'ACT', 'NT']
+// Ingredients order: the shape of a day, then the shape of a week.
+// Names and taglines come from lib/verticalUrl.js (the network's
+// single source of truth for what each vertical covers), counts from
+// the live index. Per-vertical microcopy is left to Matt below.
+const INGREDIENT_ORDER = ['fine_grounds', 'table', 'sba', 'rest', 'field', 'way', 'craft', 'collection', 'corner', 'found']
 
-// Compact date for homepage event cards: "12 Jun", "12–14 Jun", "30 Jun – 2 Jul".
-function formatEventDateShort(startDate, endDate) {
-  const s = new Date(startDate)
-  const e = endDate ? new Date(endDate) : null
-  const sd = s.getDate()
-  const sm = EVENT_MONTHS[s.getMonth()]
-  if (!e || s.toDateString() === e.toDateString()) return `${sd} ${sm}`
-  const ed = e.getDate()
-  const em = EVENT_MONTHS[e.getMonth()]
-  if (sm === em) return `${sd}–${ed} ${sm}`
-  return `${sd} ${sm} – ${ed} ${em}`
+// All eight states and territories: the scope proof. Three real pins
+// each, so TAS, WA, NT and SA are visibly on the chart, not implied.
+const PIN_STATES = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'NT', 'ACT']
+const PINS_PER_STATE = 3
+
+// Example queries for the hero search chips. Every query was verified
+// against the live /api/search to return real results; don't swap one
+// in without checking it isn't a dead end.
+const EXAMPLE_SEARCHES = [
+  'wood-fired bakery',
+  'natural wine in the Adelaide Hills',
+  'a gift for my niece that’s made in Australia',
+  'galleries in Hobart',
+]
+
+function toFinite(n) {
+  const v = parseFloat(n)
+  return Number.isFinite(v) ? v : null
 }
+
+function pinWorthy(l) {
+  return Boolean(l && l.slug && toFinite(l.lat) !== null && toFinite(l.lng) !== null &&
+    l.visitable !== false && l.address_on_request !== true)
+}
+
+// Some older descriptions open with a street address before the prose
+// starts. Preferring rows that open with prose is selection, not
+// editing: whatever is picked still renders verbatim.
+function descOpensWithAddress(d) {
+  const head = String(d || '').slice(0, 90)
+  return /\b\d{4}\b/.test(head) || /\bLot \d/i.test(head)
+}
+
+// Equirectangular distance, fine at region scale. Used to keep the
+// worked trip drivable: region resolution can reach a fair way out
+// (the Margaret River region row includes Bunbury), and a "day" whose
+// stops sit 80 km apart stops reading as one day.
+function kmBetween(aLat, aLng, bLat, bLng) {
+  const dLat = (aLat - bLat) * 111
+  const dLng = (aLng - bLng) * 111 * Math.cos(((aLat + bLat) / 2) * Math.PI / 180)
+  return Math.hypot(dLat, dLng)
+}
+const TRIP_MAX_KM_FROM_CENTRE = 60
 
 async function getStats(publicVerticals) {
   try {
     const sb = getSupabaseAdmin()
-    // Everything that doesn't depend on hasVerticals runs in one parallel
-    // wave (the region counts used to wait behind two serial round-trips);
-    // only the per-vertical counts need the schema probe first.
-    const regionEntries = Object.entries(REGION_GEO)
-    const [{ count }, { count: regionCount }, hasVerticals, ...regionCountResults] = await Promise.all([
+    const [{ count }, { count: regionCount }, hasVerticals] = await Promise.all([
       sb.from('listings').select('*', { count: 'exact', head: true }).eq('status', 'active').in('vertical', publicVerticals).not('name', 'ilike', '\\_%'),
       sb.from('regions').select('*', { count: 'exact', head: true }),
       relationHasVerticals(sb, 'listings'),
-      ...regionEntries.map(([name, geo]) =>
-        sb
-          .from('listings')
-          .select('*', { count: 'exact', head: true })
-          .eq('status', 'active')
-          .gte('lat', geo.lat - geo.r)
-          .lte('lat', geo.lat + geo.r)
-          .gte('lng', geo.lng - geo.r)
-          .lte('lng', geo.lng + geo.r)
-          .then(({ count: rc }) => [name, rc || 0])
-      ),
     ])
-    const regionCounts = Object.fromEntries(regionCountResults)
-
     const verticalCountResults = await Promise.all(
       publicVerticals.map(key =>
         filterByVertical(
@@ -224,15 +178,202 @@ async function getStats(publicVerticals) {
         ).then(({ count: c }) => [key, c || 0])
       )
     )
-    const verticalCounts = Object.fromEntries(verticalCountResults)
-
-    return { listings: count || 0, regions: regionCount || 0, verticalCounts, regionCounts }
+    return { listings: count || 0, regions: regionCount || 0, verticalCounts: Object.fromEntries(verticalCountResults) }
   } catch {
-    return { listings: 0, regions: 0, verticalCounts: {}, regionCounts: {} }
+    return { listings: 0, regions: 0, verticalCounts: {} }
   }
 }
 
-// Articles live in the master DB; /journal/[slug] on the portal is canonical.
+// The scope proof: real, openable listings in every state and
+// territory, overlaid on the atlas plate. Featured and editors' picks
+// first so the sample is the good stuff, but any live pin-worthy row
+// qualifies.
+async function getScopePins() {
+  try {
+    const sb = getSupabaseAdmin()
+    const perState = await Promise.all(
+      PIN_STATES.map(st =>
+        sb.from('listings')
+          .select('id, name, slug, region, state, vertical, lat, lng, visitable, address_on_request')
+          .eq('status', 'active')
+          .eq('state', st)
+          .not('slug', 'is', null)
+          .not('lat', 'is', null)
+          .not('lng', 'is', null)
+          .not('name', 'ilike', '\\_%')
+          .order('is_featured', { ascending: false })
+          .order('editors_pick', { ascending: false })
+          .limit(12)
+          .then(({ data }) => (data || [])
+            .filter(pinWorthy)
+            .slice(0, PINS_PER_STATE)
+            // A few region values carry street-address fragments; the
+            // pin tip falls back to the state rather than print one.
+            .map(l => (/\d/.test(l.region || '') ? { ...l, region: null } : l))
+          )
+      )
+    )
+    return perState.flat()
+  } catch {
+    return []
+  }
+}
+
+// Server-side Directions fetch, mirroring app/api/mapbox/directions.
+// Fetched once per hour alongside the trip and cached with it, so
+// visitors never each hit the Directions API. TrailMap falls back to
+// its own client fetch (then straight lines) when this returns null.
+async function fetchDrivingGeometry(coordinates) {
+  try {
+    const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || process.env.MAPBOX_TOKEN
+    if (!token || coordinates.length < 2 || coordinates.length > 25) return null
+    const path = coordinates.map(c => c.join(',')).join(';')
+    const res = await fetch(
+      `https://api.mapbox.com/directions/v5/mapbox/driving/${path}?geometries=geojson&overview=full&access_token=${token}`,
+      { signal: AbortSignal.timeout(8000) }
+    )
+    if (!res.ok) return null
+    const data = await res.json()
+    return data.routes?.[0]?.geometry ?? null
+  } catch {
+    return null
+  }
+}
+
+// One region's attempt at a day, filled slot by slot from its live
+// listings. Descriptions render verbatim on the page, so a stop only
+// qualifies when the portal row carries real writing (not just a
+// name), real coordinates, and a live /place page. The seed shuffles
+// the candidate pool, so the same region deals a different day each
+// hour without ever loosening those gates.
+async function assembleRegionDay(sb, regionName, seed) {
+  const { region: resolved } = await resolveRegionParam(regionName)
+  const fromTable = resolved ? 'listings_with_region' : 'listings'
+  let query = sb
+    .from(fromTable)
+    .select('id, name, slug, vertical, sub_type, suburb, lat, lng, description, hero_image_url, visitable, address_on_request')
+    .eq('status', 'active')
+    .not('description', 'is', null)
+    .not('slug', 'is', null)
+    .not('lat', 'is', null)
+    .not('lng', 'is', null)
+    .not('name', 'ilike', '\\_%')
+    .limit(240)
+  if (resolved) {
+    query = query.eq('region_id', resolved.id)
+  } else {
+    query = query.eq('region', regionName)
+  }
+  const { data } = await query
+  const usable = seededShuffle(
+    (data || []).filter(l => pinWorthy(l) && String(l.description || '').trim().length > 80),
+    seed
+  )
+  if (!usable.length) return null
+
+  // The region's centre of gravity: where its listings actually are.
+  // Group fall-through measures "in range" against this, so a slot
+  // never reaches for a far corridor town while the core has options.
+  const core = {
+    lat: usable.reduce((s, l) => s + parseFloat(l.lat), 0) / usable.length,
+    lng: usable.reduce((s, l) => s + parseFloat(l.lng), 0) / usable.length,
+  }
+
+  // Phase 1: resolve each slot to a small candidate pool. Distance
+  // beats preference order: an earlier pref only wins with a candidate
+  // inside driving range of the region core; only the slot's last
+  // resort may reach further, so a thin region still fills its slots.
+  const usedVerticals = new Set()
+  const layers = []
+  for (const { slot, labelKey, prefs } of HERO_TRIP_SLOTS) {
+    for (let pi = 0; pi < prefs.length; pi++) {
+      const [v, subTypes] = prefs[pi]
+      if (usedVerticals.has(v)) continue
+      let candidates = usable.filter(l =>
+        l.vertical === v && (!subTypes || subTypes.includes(l.sub_type))
+      )
+      if (!candidates.length) continue
+      const near = candidates.filter(l =>
+        kmBetween(parseFloat(l.lat), parseFloat(l.lng), core.lat, core.lng) <= TRIP_MAX_KM_FROM_CENTRE
+      )
+      if (!near.length && pi < prefs.length - 1) continue
+      if (near.length) candidates = near
+      usedVerticals.add(v)
+      // Pools stay vertical-disjoint (usedVerticals), so no venue can
+      // serve two slots. Cap for the route search below; the seeded
+      // shuffle above is what varies the pool hour to hour.
+      layers.push({ slot, labelKey, pool: candidates.slice(0, 10) })
+      break
+    }
+  }
+  if (layers.length < 5) return null
+
+  // Phase 2: the day visits its slots in time order, so the only way
+  // to avoid the route doubling back on itself is choosing WHICH
+  // venue serves each slot. Pick the combination with the shortest
+  // slot-ordered chain (one venue per layer, shortest-path over the
+  // layered graph): backtracking is wasted distance, so the minimal
+  // chain doubles back only when the region leaves no alternative.
+  // Address-fronted descriptions carry a phantom-distance penalty so
+  // the prose-first preference survives inside the route search.
+  const qualityPenaltyKm = (l) => (descOpensWithAddress(l.description) ? 12 : 0)
+  const dist = layers.map(() => [])
+  const back = layers.map(() => [])
+  layers[0].pool.forEach((l, j) => { dist[0][j] = qualityPenaltyKm(l); back[0][j] = -1 })
+  for (let i = 1; i < layers.length; i++) {
+    layers[i].pool.forEach((cand, j) => {
+      let best = Infinity
+      let bestPrev = 0
+      layers[i - 1].pool.forEach((prev, k) => {
+        const d = dist[i - 1][k] + kmBetween(
+          parseFloat(prev.lat), parseFloat(prev.lng),
+          parseFloat(cand.lat), parseFloat(cand.lng)
+        )
+        if (d < best) { best = d; bestPrev = k }
+      })
+      dist[i][j] = best + qualityPenaltyKm(cand)
+      back[i][j] = bestPrev
+    })
+  }
+  const last = layers.length - 1
+  let j = dist[last].indexOf(Math.min(...dist[last]))
+  const picks = []
+  for (let i = last; i >= 0; i--) {
+    picks[i] = layers[i].pool[j]
+    j = back[i][j]
+  }
+  const stops = layers.map((layer, i) => ({ ...picks[i], slot: layer.slot, labelKey: layer.labelKey }))
+  return {
+    region: regionName,
+    regionSlug: resolved?.slug || null,
+    stops,
+  }
+}
+
+// The worked trip for this hour: the hour indexes the region pool,
+// and the first region from that point that can fill a day wins. The
+// road geometry rides along in the cached payload.
+async function getHeroTrip(hourSeed) {
+  try {
+    const sb = getSupabaseAdmin()
+    const pool = HERO_REGION_OVERRIDE ? [HERO_REGION_OVERRIDE] : HERO_REGION_POOL
+    for (let i = 0; i < pool.length; i++) {
+      const regionName = pool[(hourSeed + i) % pool.length]
+      const day = await assembleRegionDay(sb, regionName, hourSeed)
+      if (!day) continue
+      const routeGeometry = await fetchDrivingGeometry(
+        day.stops.map(s => [parseFloat(s.lng), parseFloat(s.lat)])
+      )
+      return { ...day, routeGeometry }
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+// Articles live in the master DB; /journal/[slug] on the portal is
+// canonical. Same three-latest feed the previous homepage carried.
 async function getLatestArticles() {
   try {
     const sb = getSupabaseAdmin()
@@ -253,275 +394,69 @@ async function getLatestArticles() {
   }
 }
 
-async function getDiscoverClusters() {
-  try {
-    const sb = getSupabaseAdmin()
-    // Pool rotates weekly (same seed as the cover story) so returning
-    // readers get a different trio of days without the section ever
-    // rendering an unqualified region.
-    const clusterRegions = seededShuffle(
-      ['Barossa Valley', 'Mornington Peninsula', 'Hobart & Southern Tasmania', 'Byron Bay', 'Adelaide', 'Melbourne'],
-      getWeeklySeed()
-    )
-    const results = await Promise.all(
-      clusterRegions.map(async (region) => {
-        // Override-wins resolution per docs/regions.md, via the
-        // listings_with_region view (migration 125). Falls back to
-        // legacy text eq for unresolvable names (none expected in current set).
-        const { region: resolved } = await resolveRegionParam(region)
-        const fromTable = resolved ? 'listings_with_region' : 'listings'
-        let query = sb
-          .from(fromTable)
-          .select(`id, name, vertical, sub_type, slug, region, suburb, lat, lng, hero_image_url, ${LISTING_REGION_SELECT}`, { count: 'exact' })
-          .eq('status', 'active')
-          .order('is_featured', { ascending: false })
-          .order('editors_pick', { ascending: false })
-          .limit(24)
-        if (resolved) {
-          query = query.eq('region_id', resolved.id)
-        } else {
-          query = query.eq('region', region)
-        }
-        const { data, count } = await query
-        if (!data || data.length < 4) return null
-        const verticalSet = new Set(data.map(d => d.vertical))
-        if (verticalSet.size < 3) return null
-
-        // Fill the day arc. Within a vertical a photographed venue outranks
-        // the featured ordering — these cards are photo-first.
-        const usedIds = new Set()
-        const usedVerticals = new Set()
-        const stops = []
-        for (const { slot, prefs } of CLUSTER_DAY_SLOTS) {
-          for (const [v, subTypes] of prefs) {
-            if (usedVerticals.has(v)) continue
-            const candidates = data.filter(l =>
-              l.vertical === v && l.slug && !usedIds.has(l.id) &&
-              (!subTypes || subTypes.includes(l.sub_type))
-            )
-            if (!candidates.length) continue
-            const pick = candidates.find(l => l.hero_image_url) || candidates[0]
-            stops.push({ ...pick, slot })
-            usedIds.add(pick.id)
-            usedVerticals.add(v)
-            break
-          }
-        }
-        if (stops.length < 3) return null
-        return {
-          region,
-          verticalCount: verticalSet.size,
-          total: count || data.length,
-          spanKm: clusterSpanKm(stops),
-          picks: stops,
-        }
-      })
-    )
-    return results.filter(Boolean).slice(0, 3)
-  } catch {
-    return []
-  }
-}
-
-async function getFeaturedListings() {
-  try {
-    const sb = getSupabaseAdmin()
-    const seed = getWeeklySeed()
-    const SELECT = 'id, name, slug, description, hero_image_url, vertical, region'
-    const strong = (rows) => (rows || []).filter(l => (l.description || '').split(/\s+/).length >= 15)
-
-    // Primary pool: editorially featured venues with a real description.
-    const { data: featuredRows } = await sb
-      .from('listings')
-      .select(SELECT)
-      .eq('status', 'active')
-      .eq('is_featured', true)
-      .not('description', 'is', null)
-      .not('name', 'ilike', '\\_%')
-      .limit(80)
-
-    const pool = strong(featuredRows)
-
-    // Backfill so the cover story is ALWAYS a lead + a 3-card rail — even in the
-    // weeks the featured flag is thin (it dropped to a single venue once, which
-    // stranded a lone card). Editors' picks first, then any recent well-written
-    // venue, deduped and kept cross-vertical.
-    if (pool.length < 4) {
-      const have = new Set(pool.map(l => l.id))
-      const { data: backfill } = await sb
-        .from('listings')
-        .select(SELECT)
-        .eq('status', 'active')
-        .not('description', 'is', null)
-        .not('name', 'ilike', '\\_%')
-        .order('editors_pick', { ascending: false })
-        .order('created_at', { ascending: false })
-        .limit(160)
-      for (const l of strong(backfill)) {
-        if (!have.has(l.id)) { pool.push(l); have.add(l.id) }
-        if (pool.length >= 24) break
-      }
-    }
-
-    if (pool.length === 0) return []
-
-    const shuffled = seededShuffle(pool, seed)
-
-    // Lead first: a photographed venue whenever the pool has one, so the cover
-    // card is a photograph and not a colour block. Rail then fills one-per-
-    // vertical for variety, topping up to four.
-    const lead = shuffled.find(l => l.hero_image_url) || shuffled[0]
-    const picks = [lead]
-    const usedVerticals = new Set([lead.vertical])
-    for (const l of shuffled) {
-      if (l.id === lead.id) continue
-      if (!usedVerticals.has(l.vertical) && picks.length < 4) {
-        picks.push(l)
-        usedVerticals.add(l.vertical)
-      }
-    }
-    if (picks.length < 4) {
-      for (const l of shuffled) {
-        if (!picks.includes(l) && picks.length < 4) picks.push(l)
-      }
-    }
-    return picks
-  } catch {
-    return []
-  }
-}
-
-// Latest additions across the network — the ticker's feed. Real names from the
-// live index, newest first; anything short of a full row means no ticker.
-async function getRecentListings() {
-  try {
-    const sb = getSupabaseAdmin()
-    const { data } = await sb
-      .from('listings')
-      .select('id, name, slug, region, state, vertical, lat, lng, visitable, address_on_request')
-      .eq('status', 'active')
-      .not('name', 'ilike', '\\_%')
-      .not('slug', 'is', null)
-      .order('created_at', { ascending: false })
-      .limit(32)
-    // Guard against address fragments leaking into the marquee as "names"
-    // (e.g. "…STON, FLINDERS RD, TYABB VIC 3913"): a comma next to a number, a
-    // trailing postcode, or a state-code+postcode all read as an address, never
-    // a venue name.
-    const looksLikeAddress = (n) => {
-      const s = String(n || '')
-      return (/,/.test(s) && /\d{3,4}/.test(s)) ||
-             /\b\d{4}\s*$/.test(s) ||
-             /\b(VIC|NSW|QLD|SA|WA|TAS|ACT|NT)\b\s*\d{3,4}\b/i.test(s)
-    }
-    return (data || []).filter(l => !looksLikeAddress(l.name)).slice(0, 20)
-  } catch {
-    return []
-  }
-}
-
-async function getUpcomingEvents() {
-  try {
-    const sb = getSupabaseAdmin()
-    const today = new Date().toISOString().split('T')[0]
-    const { data } = await sb
-      .from('events')
-      .select('id, name, slug, start_date, end_date, suburb, state, category, image_url')
-      .eq('status', 'approved')
-      .gte('end_date', today)
-      .order('start_date', { ascending: true })
-      .limit(12)
-    return data || []
-  } catch {
-    return []
-  }
-}
-
-async function assembleHomeData(publicVerticals) {
-  const [stats, articles, clusters, featured, upcomingEvents, recentListings] = await Promise.all([
-    getStats(publicVerticals), getLatestArticles(), getDiscoverClusters(), getFeaturedListings(), getUpcomingEvents(), getRecentListings(),
+async function assembleHomeData(publicVerticals, hourSeed) {
+  const [stats, scopePins, heroTrip, articles] = await Promise.all([
+    getStats(publicVerticals), getScopePins(), getHeroTrip(hourSeed), getLatestArticles(),
   ])
-  return { stats, articles, clusters, featured, upcomingEvents, recentListings }
+  return { stats, scopePins, heroTrip, articles }
 }
 
-// The root layout reads auth cookies, so this route renders dynamically and
-// the page-level `revalidate` above never yields a cached HTML copy — every
-// request used to re-run the ~25 count/list queries in assembleHomeData.
-// unstable_cache amortises that data assembly across requests (15 min TTL);
-// the locale overlays below stay per-request, outside the cache.
+// The root layout reads auth cookies, so this route renders per-request
+// and the page-level `revalidate` above never yields a cached HTML copy.
+// unstable_cache amortises the data assembly across requests (15 min
+// TTL); the locale overlays below stay per-request, outside the cache.
 const getHomeDataCached = unstable_cache(
-  async (publicVerticals) => {
-    const data = await assembleHomeData(publicVerticals)
-    // A transient DB failure must not poison the cache with an empty page
-    // (same guard as atlas-index): throwing skips the cache write and this
-    // request falls back to the uncached assembly.
-    if (!data.stats.listings && data.featured.length === 0 && data.recentListings.length === 0) {
-      throw new Error('empty home data — refusing to cache')
+  async (publicVerticals, hourSeed) => {
+    const data = await assembleHomeData(publicVerticals, hourSeed)
+    // A transient DB failure must not poison the cache with an empty
+    // page: throwing skips the cache write and this request falls back
+    // to the uncached assembly.
+    if (!data.stats.listings && data.scopePins.length === 0) {
+      throw new Error('empty home data, refusing to cache')
     }
     return data
   },
-  // v3: two concurrent shape changes (both had claimed v2) — recentListings
-  // now carries lat/lng/visitable/address_on_request for the atlas plate's
-  // fresh pins, and cluster picks carry slot/sub_type/suburb/spanKm for the
-  // day-arc reshape. Fresh key so neither stale shape can be served.
-  ['home-data-v3'],
-  { revalidate: 900 }
+  // v4: front-door rebuild. The payload shape changed entirely
+  // (scopePins + heroTrip + articles replace clusters/featured/events/
+  // recent), so the key moves too and no stale v3 shape can be served.
+  // hourSeed is an argument, so each hour writes its own entry and the
+  // worked trip turns over on the hour.
+  ['home-data-v4'],
+  { revalidate: 3600 }
 )
 
 export default async function Home() {
   const t = await getTranslations('home')
   const locale = await getLocale()
   const publicVerticals = getPublicVerticals()
-  const verticalCount = publicVerticals.length
+  const hourSeed = getHourSeed()
   let homeData
   try {
-    homeData = await getHomeDataCached(publicVerticals)
+    homeData = await getHomeDataCached(publicVerticals, hourSeed)
   } catch {
-    homeData = await assembleHomeData(publicVerticals)
+    homeData = await assembleHomeData(publicVerticals, hourSeed)
   }
-  const { stats, articles: articlesRaw, clusters: clustersRaw, featured: featuredRaw, upcomingEvents, recentListings: recentListingsRaw } = homeData
-  // Render listing lists in the active locale (English falls through unchanged).
-  const featured = await overlayListingTranslations(featuredRaw, locale)
-  const recentListings = await overlayListingTranslations(recentListingsRaw, locale)
-  const clusters = await Promise.all(
-    clustersRaw.map(async (c) => ({ ...c, picks: await overlayListingTranslations(c.picks, locale) }))
-  )
-  // States that actually have upcoming events become the "browse by state"
-  // chips (in fixed geographic order); the soonest six show as cards.
-  const eventStates = EVENT_STATE_ORDER.filter(s => upcomingEvents.some(e => e.state === s))
-  const eventCards = upcomingEvents.slice(0, 6)
-  // Newest mappable places for the atlas plate's pulsing "just added" pins —
-  // same pin-worthiness rules as /api/map (real coords, visitable, no
-  // address-on-request locality centroids).
-  const freshPins = recentListings.filter(l =>
-    Number.isFinite(parseFloat(l.lat)) && Number.isFinite(parseFloat(l.lng)) &&
-    l.visitable !== false && l.address_on_request !== true
-  ).slice(0, 6)
-  // Edition stamp for the weekly picks — refreshed with the page's revalidate
-  // window, so the dateline always carries today's date ("This week · 2 July").
-  const editionDate = new Intl.DateTimeFormat('en-AU', { day: 'numeric', month: 'long' }).format(new Date())
-  const articles = articlesRaw.length > 0 ? articlesRaw : []
-  const articlesWithImages = articles.filter(a => a.hero_image_url).slice(0, 2)
-  const featuredArticle = articlesWithImages[0] || articles[0]
+  const { stats, articles } = homeData
+  const articlesWithImages = (articles || []).filter(a => a.hero_image_url).slice(0, 2)
+  const featuredArticle = articlesWithImages[0] || (articles || [])[0]
+  const scopePins = await overlayListingTranslations(homeData.scopePins, locale)
+  const heroTrip = homeData.heroTrip
+    ? { ...homeData.heroTrip, stops: await overlayListingTranslations(homeData.heroTrip.stops, locale) }
+    : null
+  const regionsCount = stats.regions > 0 ? stats.regions : null
 
   return (
     <>
-      {/* ── 1. Hero — centred masthead ──────────────────────── */}
-      {/* Centred (the asymmetric masthead + stat box didn't land), but no longer
-          quiet: the compass-star mark opens the page, Fraunces at display optical
-          size carries the headline near 7rem, and the emphasised word gets a
-          hand-set gold underline. The search stays the focal point below. */}
+      {/* ── 1. Masthead: the one-liner, then the search ─────────── */}
+      {/* The whole front door in three sentences, rendered verbatim.
+          Everything below this section is evidence for it: the map is
+          the scope, the worked trip is the standard. */}
       <section
         className="relative text-center flex flex-col items-center justify-center px-6 sm:px-12"
         style={{
-          minHeight: 'clamp(420px, 68vh, 720px)',
+          minHeight: 'clamp(400px, 62vh, 680px)',
           paddingTop: '3rem',
           paddingBottom: 'clamp(28px, 4vh, 56px)',
-          // The atlas as paper: the living-atlas chart sits UNDER the hero as
-          // a watermark (a dedicated whisper-quiet ghost asset), washed with
-          // the cream→stone gradient and warmed by the gold spotlight around
-          // the search bar. Identity without weight — the interactive plate
-          // itself now lives further down the page.
           background:
             'radial-gradient(52% 44% at 50% 62%, rgba(196,154,60,0.09), rgba(196,154,60,0) 72%), ' +
             'linear-gradient(180deg, rgba(250,248,244,0.94) 0%, rgba(245,240,230,0.82) 55%, rgba(239,231,216,0.96) 100%), ' +
@@ -537,39 +472,29 @@ export default async function Home() {
         </svg>
         <h1 className="hero-rise" style={{
           fontFamily: 'var(--font-display)', fontWeight: 380, letterSpacing: '-0.022em',
-          fontSize: 'clamp(2.8rem, 7.2vw, 6.6rem)', lineHeight: 1.03,
-          color: 'var(--color-ink)', maxWidth: '1020px', textWrap: 'balance',
+          fontSize: 'clamp(2.6rem, 6.4vw, 5.8rem)', lineHeight: 1.04,
+          color: 'var(--color-ink)', maxWidth: '980px', textWrap: 'balance',
         }}>
-          {t.rich('heroTitle', { em: (chunks) => <em className="hero-em">{chunks}</em> })}
+          {t('frontDoorLead')}
         </h1>
 
         <p className="mt-6 hero-rise" style={{
-          fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '17px',
-          lineHeight: 1.65, color: 'var(--color-muted)', maxWidth: '600px',
+          fontFamily: 'var(--font-body)', fontWeight: 350, fontSize: '18px',
+          lineHeight: 1.6, color: 'var(--color-ink)', maxWidth: '620px',
           animationDelay: '0.09s',
         }}>
-          {t('heroSubtitle')}
+          {t('frontDoorRest')}
         </p>
 
-        {/* Search — the front door of the site. The kicker names the tool, the
-            bar cycles example placeholders, the helper line states the
-            plain-English contract, and the chips run real verified queries. */}
         <p style={{
           fontFamily: 'var(--font-body)', fontSize: '11px', fontWeight: 600,
           letterSpacing: '0.22em', textTransform: 'uppercase',
-          color: GOLD, marginTop: '28px',
+          color: GOLD, marginTop: '30px',
         }}>
           {t('searchKicker')}
         </p>
 
         <HomeSearchBar />
-
-        <p className="mt-3 px-4" style={{
-          fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '13.5px',
-          lineHeight: 1.6, color: 'var(--color-muted)', maxWidth: '560px',
-        }}>
-          {t('searchHelper')}
-        </p>
 
         <div className="mt-4 flex items-center justify-center gap-x-2 gap-y-2 flex-wrap px-4" style={{ maxWidth: '680px' }}>
           <span style={{
@@ -597,104 +522,327 @@ export default async function Home() {
             </LocalizedLink>
           ))}
         </div>
-
-        {/* The stats row that used to sit here is carried by the atlas plate
-            below — its headline is the places count, its legend the categories,
-            its microline the categories × regions pair. */}
       </section>
 
-      {/* ── 1b. Living spectrum spine — full-bleed colour masthead ── */}
-      {/* The ten saturated grounds as one thin 100vw bar in journey order; each
-          segment links to its filtered search and peels open on hover (wide
-          pointer) to name itself. Masthead, legend, and quick-nav in one. The
-          same ten links live labelled in the index ledger below, so the slim
-          bar can be decorative-first without being a fragile mobile tap target. */}
-      <nav className="spectrum-spine" aria-label={t('spectrumNavAria')}>
-        {VERTICAL_GUIDE.filter(v => publicVerticals.includes(v.key)).map((v, i) => {
-          const ground = (VERTICAL_CARD_COLORS[v.key] || {}).bg || '#333'
-          const count = stats.verticalCounts[v.key]
-          const vName = localizeVerticalKicker(v.key, v.name, locale)
-          return (
-            <LocalizedLink
-              key={v.key}
-              href={`/search?vertical=${v.key}`}
-              className="spectrum-seg"
-              style={{ background: ground, animationDelay: `${i * 40}ms` }}
-              aria-label={`${vName}${count ? ` — ${t('countPlaces', { count: count.toLocaleString() })}` : ''}`}
-            >
-              <span className="spectrum-seg-label">
-                {vName}{count ? `  ·  ${count.toLocaleString()}` : ''}
-              </span>
-            </LocalizedLink>
-          )
-        })}
-      </nav>
-
-      {/* ── 2. The living index ticker ──────────────────── */}
-      {/* Real, newest places drifting past — proof the atlas is alive, and a
-          serendipity surface (every name is a link). Duplicated track = seamless
-          loop; the copy row is aria-hidden and untabbable. Pauses on hover;
-          reduced-motion collapses it to a static scrollable row. */}
-      {recentListings.length >= 8 && (
-        <section className="atlas-ticker" aria-label={t('recentlyAddedAria')}>
-          <span className="atlas-ticker-label">
-            {t('recentlyAdded')}
-          </span>
-          <div className="atlas-ticker-viewport">
-            <div className="atlas-ticker-track">
-              {[0, 1].map(copy => (
-                <span key={copy} aria-hidden={copy === 1 ? 'true' : undefined} style={{ display: 'inline-flex' }}>
-                  {recentListings.map(l => (
-                    <LocalizedLink
-                      key={`${copy}-${l.id}`}
-                      href={`/place/${l.slug}`}
-                      className="atlas-ticker-item"
-                      tabIndex={copy === 1 ? -1 : undefined}
-                    >
-                      <svg width="9" height="9" viewBox="0 0 24 24" aria-hidden="true"
-                        fill={(VERTICAL_CARD_COLORS[l.vertical] || {}).bg || 'var(--color-gold)'}>
-                        <path d="M12 0l2.6 9.4L24 12l-9.4 2.6L12 24l-2.6-9.4L0 12l9.4-2.6L12 0z" />
-                      </svg>
-                      {l.name}
-                      {(l.region || l.state) && (
-                        <span className="atlas-ticker-meta">{l.region || l.state}</span>
-                      )}
-                    </LocalizedLink>
-                  ))}
-                </span>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ── 3. The atlas plate — the living atlas as a navigable chart ── */}
-      {/* Mid-page on purpose: three rounds of feedback said the map crowded
-          the hero, so the first screen belongs to the masthead + search (with
-          the chart as its ghost watermark) and the full interactive plate is
-          a chapter you arrive at. City markers deep-link into /map, the
-          newest places pulse gold and link to their pages, the whole surface
-          opens the map. Zero client JS. */}
+      {/* ── 2. The national map: the scope, shown not said ──────── */}
+      {/* The atlas plate plots every verified place; the overlaid gold
+          pins are real listings in all eight states and territories,
+          each one hoverable and openable. */}
       <HomeAtlasMap
         listingCount={stats.listings}
-        categoryCount={verticalCount}
+        categoryCount={publicVerticals.length}
         regionCount={stats.regions}
-        freshListings={freshPins}
+        scopePins={scopePins}
       />
 
-      {/* ── 3b. Worth Finding This Week ──────────────────── */}
-      {/* Server hands the cached editorial picks to a client section that
-          upgrades itself to within-100km, taste-weighted picks for signed-in
-          visitors who already shared a location (see WorthFindingSection).
-          Everyone else gets the editorial band exactly as before. */}
-      <WorthFindingSection featured={featured} locale={locale} editionDate={editionDate} />
+      {/* ── 3. The worked trip: one region, threaded ────────────── */}
+      {/* The dish before the ingredients. Six real stops from
+          HERO_REGION on the reused trail map, each carrying its own
+          listing text verbatim. The copy frames the region as an
+          example of what any region gives you, never as the subject. */}
+      {heroTrip && heroTrip.stops.length >= 5 && (
+        <ScrollReveal as="section" style={{
+          position: 'relative',
+          overflow: 'hidden',
+          paddingBlock: '84px',
+          background: 'var(--color-kraft)',
+          borderTop: '1px solid rgba(28,26,23,0.05)',
+          borderBottom: '1px solid rgba(28,26,23,0.05)',
+        }}>
+          {/* The seeded-contour terrain the taste-deck cards wear, as a
+              faint cartographic ground behind the day's map. */}
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 420 460"
+            preserveAspectRatio="xMidYMid slice"
+            style={{
+              position: 'absolute', right: '-160px', top: '50%',
+              transform: 'translateY(-50%)', width: '880px', height: '130%',
+              pointerEvents: 'none',
+            }}
+          >
+            {buildContours('a-day-from-one-region').map((d, i) => (
+              <path key={i} d={d} fill="none" stroke={GOLD} strokeWidth="1" strokeOpacity="0.07" />
+            ))}
+          </svg>
+          <div className="max-w-6xl mx-auto px-6 sm:px-12" style={{ position: 'relative' }}>
+            <div className="reveal" style={{ maxWidth: '640px', marginBottom: '36px' }}>
+              <p className="section-dateline" style={{ marginBottom: '14px' }}>
+                {t('tripKicker')}
+              </p>
+              <h2 style={{
+                fontFamily: 'var(--font-display)', fontWeight: 400,
+                fontSize: 'clamp(23px, 2.7vw, 33px)', color: 'var(--color-ink)', lineHeight: 1.12,
+              }}>
+                {t('tripTitle')}
+              </h2>
+              <p className="mt-3" style={{
+                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15.5px',
+                color: 'var(--color-muted)', margin: '12px 0 0', lineHeight: 1.65, maxWidth: '58ch',
+              }}>
+                {t('tripIntro', { region: heroTrip.region })}
+              </p>
+            </div>
 
-      {/* ── 4. Journal Feature ──────────────────────────── */}
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.9fr)] gap-8 lg:gap-12 items-start">
+              {/* The stops, in day order, each with its listing's own line. */}
+              <ol className="reveal" data-reveal-index={1} style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                {heroTrip.stops.map((stop, si) => {
+                  const StopIcon = VERTICAL_ICONS[stop.vertical] || Compass
+                  const ground = (VERTICAL_CARD_TOKENS[stop.vertical] || {}).bg || '#333'
+                  const kind = subTypeLabel(stop.vertical, stop.sub_type) ||
+                    localizeVerticalKicker(stop.vertical, getVerticalBadge(stop.vertical), locale)
+                  const isLast = si === heroTrip.stops.length - 1
+                  return (
+                    <li key={stop.id} style={{ position: 'relative', paddingLeft: '52px', paddingBottom: isLast ? 0 : '26px' }}>
+                      {/* the thread: hairline between numbered markers */}
+                      {!isLast && (
+                        <span aria-hidden="true" style={{
+                          position: 'absolute', left: '15px', top: '34px', bottom: '2px',
+                          width: '1px', background: 'rgba(184,134,43,0.4)',
+                        }} />
+                      )}
+                      <span aria-hidden="true" style={{
+                        position: 'absolute', left: 0, top: 0,
+                        width: '31px', height: '31px', borderRadius: '999px',
+                        background: ground, color: '#FAF8F4',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '13px',
+                        border: '2px solid rgba(250,248,244,0.9)',
+                        boxShadow: '0 1px 4px rgba(28,26,23,0.25)',
+                      }}>
+                        {si + 1}
+                      </span>
+                      <p style={{
+                        fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 600,
+                        letterSpacing: '0.15em', textTransform: 'uppercase',
+                        color: GOLD, margin: '0 0 3px',
+                      }}>
+                        {t(stop.labelKey)}
+                      </p>
+                      <h3 style={{ margin: 0, lineHeight: 1.2 }}>
+                        <LocalizedLink href={`/place/${stop.slug}`} className="hover:underline underline-offset-4" style={{
+                          fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '20px',
+                          color: 'var(--color-ink)',
+                        }}>
+                          {stop.name}
+                        </LocalizedLink>
+                      </h3>
+                      <p style={{
+                        fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '11.5px',
+                        color: 'var(--color-muted)', margin: '3px 0 0',
+                        display: 'flex', alignItems: 'center', gap: '6px',
+                      }}>
+                        <StopIcon size={12} strokeWidth={1.8} style={{ color: VERTICAL_ACCENTS[stop.vertical] || GOLD }} aria-hidden="true" />
+                        {[kind, stop.suburb].filter(Boolean).join(' · ')}
+                      </p>
+                      {/* The listing's own writing, exactly as it appears on
+                          /place/[slug]. Clamped visually, never rewritten. */}
+                      <p style={{
+                        fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px',
+                        lineHeight: 1.6, color: 'var(--color-ink)', margin: '7px 0 0', maxWidth: '58ch',
+                        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                      }}>
+                        {stop.description}
+                      </p>
+                    </li>
+                  )
+                })}
+              </ol>
+
+              {/* The same six stops on the reused trail map: the route
+                  follows real roads (Directions geometry fetched hourly
+                  with the trip, never per visitor) and draws itself in,
+                  markers popping as the line reaches them. */}
+              <div className="reveal lg:sticky" data-reveal-index={2} style={{ top: '90px' }}>
+                <TrailMap
+                  stops={heroTrip.stops.map((s, i) => ({
+                    venue_name: s.name, venue_lat: s.lat, venue_lng: s.lng,
+                    vertical: s.vertical, position: i,
+                  }))}
+                  routeGeometry={heroTrip.routeGeometry || undefined}
+                />
+                <p style={{
+                  fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '13px',
+                  lineHeight: 1.55, color: 'var(--color-muted)', margin: '12px 2px 0',
+                }}>
+                  {regionsCount
+                    ? t('tripOneOfMany', { region: heroTrip.region, count: regionsCount })
+                    : t('tripOneOfManyNoCount', { region: heroTrip.region })}
+                </p>
+                {/* The day above is one we assembled; readers can thread
+                    their own stops. The builder carries the section's one
+                    true action: an ink pill wearing the trip's own motif,
+                    a dotted route that travels on hover. The region links
+                    stay quiet. */}
+                <div style={{ marginTop: '16px' }}>
+                  <LocalizedLink href="/trails/builder" className="trail-cta">
+                    <svg className="trail-cta-route" width="23" height="23" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <circle cx="4.6" cy="19.2" r="2" fill="#C49A3C" opacity="0.85" />
+                      <path
+                        className="trail-cta-line"
+                        d="M6.4 17.4 C 10.8 13.6, 8.2 10.2, 12.6 8.2 C 15.6 6.8, 17.2 8.6, 18.4 5.8"
+                        stroke="#C49A3C" strokeWidth="1.6" strokeLinecap="round"
+                      />
+                      <circle cx="19" cy="4.4" r="2.7" fill="#C49A3C" />
+                      <circle cx="19" cy="4.4" r="1" fill="#1C1A17" />
+                    </svg>
+                    {t('tripBuildYourOwn')}
+                    <svg className="trail-cta-arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M5 12h14" />
+                      <path d="M12 5l7 7-7 7" />
+                    </svg>
+                  </LocalizedLink>
+                </div>
+                <div style={{ display: 'flex', gap: '18px', flexWrap: 'wrap', marginTop: '16px' }}>
+                  {heroTrip.regionSlug && (
+                    <LocalizedLink href={`/regions/${heroTrip.regionSlug}`} className="hover:opacity-80 transition-opacity" style={{
+                      fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
+                      color: 'var(--color-ink)', borderBottom: '1px solid var(--color-gold)', paddingBottom: 1,
+                    }}>
+                      {t('clusterSeeRegion')} <span style={{ color: GOLD }}>&rarr;</span>
+                    </LocalizedLink>
+                  )}
+                  <LocalizedLink href="/regions" className="hover:opacity-80 transition-opacity" style={{
+                    fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
+                    color: 'var(--color-ink)', borderBottom: '1px solid var(--color-gold)', paddingBottom: 1,
+                  }}>
+                    {t('clusterAllRegions')} <span style={{ color: GOLD }}>&rarr;</span>
+                  </LocalizedLink>
+                </div>
+              </div>
+            </div>
+          </div>
+        </ScrollReveal>
+      )}
+
+      {/* ── 4. The standard ─────────────────────────────────────── */}
+      {/* One claim, stated plainly. The proof sits above it: the trip
+          stops render real listing writing, not badges. */}
+      <ScrollReveal as="section" style={{ background: '#1A1A1A', paddingBlock: '80px' }}>
+        <div className="max-w-3xl mx-auto px-6 sm:px-12">
+          <p className="section-dateline reveal" style={{ marginBottom: '16px' }}>
+            {t('standardKicker')}
+          </p>
+          <h2 className="reveal" style={{
+            fontFamily: 'var(--font-display)', fontWeight: 400,
+            fontSize: 'clamp(28px, 3.6vw, 44px)', color: '#FAF8F4', lineHeight: 1.12,
+            marginBottom: '18px',
+          }}>
+            {t('standardTitle')}
+          </h2>
+          <p className="reveal" style={{
+            fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
+            lineHeight: 1.7, color: 'rgba(250,248,244,0.72)', maxWidth: '58ch', margin: 0,
+          }}>
+            {t('standardBody')}
+          </p>
+
+          {/* MATT: leave-off statement, same gate as listings.
+              Nothing renders here until you write it: add the copy as
+              home.standardLeaveOff in messages/en.json (and ko/zh),
+              then un-comment the paragraph below. */}
+          {/* <p className="reveal" style={{
+            fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
+            lineHeight: 1.7, color: 'rgba(250,248,244,0.72)', maxWidth: '58ch', margin: '14px 0 0',
+          }}>
+            {t('standardLeaveOff')}
+          </p> */}
+
+          <div className="reveal" style={{ marginTop: '26px' }}>
+            <LocalizedLink href="/independence" className="hover:opacity-80 transition-opacity" style={{
+              fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13.5px',
+              color: GOLD,
+            }}>
+              {t('standardHowLink')} &rarr;
+            </LocalizedLink>
+          </div>
+        </div>
+      </ScrollReveal>
+
+      {/* ── 5. The ingredients: ten kinds of place ──────────────── */}
+      {/* Not a menu of sites: the kinds of stop a trip is built from.
+          Names and taglines are the network's own vertical metadata;
+          counts are live. */}
+      <ScrollReveal as="section" style={{ paddingBlock: '84px' }}>
+        <div className="max-w-6xl mx-auto px-6 sm:px-12">
+          <div className="reveal" style={{ maxWidth: '620px', marginBottom: '34px' }}>
+            <p className="section-dateline" style={{ marginBottom: '14px' }}>
+              {t('ingredientsKicker')}
+            </p>
+            <h2 style={{
+              fontFamily: 'var(--font-display)', fontWeight: 400,
+              fontSize: 'clamp(28px, 3.6vw, 46px)', color: 'var(--color-ink)', lineHeight: 1.1,
+            }}>
+              {t('ingredientsTitle')}
+            </h2>
+            <p className="mt-3" style={{
+              fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15.5px',
+              color: 'var(--color-muted)', margin: '12px 0 0', lineHeight: 1.65,
+            }}>
+              {t('ingredientsIntro')}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            {INGREDIENT_ORDER.filter(k => publicVerticals.includes(k)).map((k, ki) => {
+              const Icon = VERTICAL_ICONS[k] || Compass
+              const accent = VERTICAL_ACCENTS[k] || GOLD
+              const count = stats.verticalCounts[k]
+              const name = localizeVerticalKicker(k, getVerticalBadge(k), locale)
+              return (
+                <LocalizedLink
+                  key={k}
+                  href={`/search?vertical=${k}`}
+                  className="reveal group listing-card block"
+                  data-reveal-index={(ki % 5) + 1}
+                  style={{
+                    background: '#fff', border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-card)', padding: '18px 17px 16px',
+                  }}
+                >
+                  <Icon size={18} strokeWidth={1.6} style={{ color: accent }} aria-hidden="true" />
+                  <h3 style={{
+                    fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '18px',
+                    color: 'var(--color-ink)', lineHeight: 1.2, margin: '10px 0 3px',
+                  }}>
+                    {name}
+                  </h3>
+                  <p style={{
+                    fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '12px',
+                    lineHeight: 1.5, color: 'var(--color-muted)', margin: 0,
+                  }}>
+                    {getVerticalTagline(k)}
+                  </p>
+                  {/* MATT: one line per vertical on what this ingredient is
+                      to a trip (the morning, the long lunch, the bed).
+                      Same gate as listings. Add as home.ingredient_{key}
+                      in messages and render it here. */}
+                  {count > 0 && (
+                    <p style={{
+                      fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '12px',
+                      color: GOLD, margin: '10px 0 0',
+                    }}>
+                      {t('countPlaces', { count: count.toLocaleString() })}
+                    </p>
+                  )}
+                </LocalizedLink>
+              )
+            })}
+          </div>
+        </div>
+      </ScrollReveal>
+
+      {/* ── 6. From the journal ─────────────────────────────────── */}
+      {/* The cover-story band the previous homepage carried, back in
+          its dark-room treatment: the newest published stories, titles
+          set on the photograph under an ink scrim. More of the same
+          writing the trip stops prove, at essay length. */}
       {featuredArticle && (
         <ScrollReveal as="section" style={{
           background: '#1A1A1A',
-          paddingTop: '48px',
-          paddingBottom: '40px',
+          paddingTop: '64px',
+          paddingBottom: '56px',
         }}>
           <div className="max-w-5xl mx-auto px-6 sm:px-12">
             <div className="reveal" style={{ marginBottom: '30px', maxWidth: '560px' }}>
@@ -703,16 +851,13 @@ export default async function Home() {
               </p>
               <h2 style={{
                 fontFamily: 'var(--font-display)', fontWeight: 400,
-                fontSize: 'clamp(28px, 3.6vw, 44px)', color: '#FAF8F4', lineHeight: 1.12,
+                fontSize: 'clamp(26px, 3.2vw, 40px)', color: '#FAF8F4', lineHeight: 1.12,
               }}>
                 {t('storiesFromNetwork')}
               </h2>
             </div>
             {articlesWithImages.length >= 2 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {/* Cover-story treatment: the title sits ON the photograph under
-                    an ink scrim, magazine-cover style; the standfirst and CTA
-                    stay below on the dark band. */}
                 {articlesWithImages.map((article, ai) => (
                   <a
                     key={article.id || ai}
@@ -720,12 +865,11 @@ export default async function Home() {
                     className="reveal group block"
                     data-reveal-index={ai}
                   >
-                    <div className="overflow-hidden rounded-lg relative" style={{
-                      height: '300px',
-                    }}>
+                    <div className="overflow-hidden rounded-lg relative" style={{ height: '300px' }}>
                       <img
                         src={article.hero_image_url}
                         alt=""
+                        loading="lazy"
                         className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
                       />
                       <div aria-hidden="true" className="absolute inset-0" style={{
@@ -737,16 +881,18 @@ export default async function Home() {
                           letterSpacing: '0.16em', textTransform: 'uppercase',
                           color: GOLD, marginBottom: '8px',
                         }}>
-                          {localizeVerticalKicker(article.vertical, VERTICAL_LABELS[article.vertical] || t('journalFallback'), locale)}
+                          {article.vertical === 'atlas'
+                            ? t('journalFallback')
+                            : localizeVerticalKicker(article.vertical, getVerticalBadge(article.vertical), locale)}
                           {article.category && ` · ${article.category}`}
                         </p>
-                        <h2 style={{
+                        <h3 style={{
                           fontFamily: 'var(--font-display)', fontWeight: 400,
                           fontSize: 'clamp(22px, 2.4vw, 30px)', lineHeight: 1.16,
                           color: '#FAF8F4', margin: 0, textWrap: 'balance',
                         }}>
                           {article.title}
-                        </h2>
+                        </h3>
                       </div>
                     </div>
                     <div style={{ paddingTop: '14px' }}>
@@ -771,40 +917,35 @@ export default async function Home() {
                 ))}
               </div>
             ) : (
-              <a
-                href={featuredArticle.article_url}
-                className="group block reveal"
-              >
+              <a href={featuredArticle.article_url} className="group block reveal">
                 {featuredArticle.hero_image_url && (
-                  <div className="overflow-hidden rounded-xl" style={{
-                    height: 'clamp(220px, 30vw, 350px)',
-                  }}>
+                  <div className="overflow-hidden rounded-xl" style={{ height: 'clamp(220px, 30vw, 350px)' }}>
                     <img
                       src={featuredArticle.hero_image_url}
                       alt=""
+                      loading="lazy"
                       className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700"
                     />
                   </div>
                 )}
-                <div className="reveal" data-reveal-index="1" style={{
-                  paddingTop: '20px',
-                  maxWidth: '600px',
-                }}>
+                <div style={{ paddingTop: '20px', maxWidth: '600px' }}>
                   <p style={{
                     fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 600,
                     letterSpacing: '0.15em', textTransform: 'uppercase',
                     color: GOLD, marginBottom: '6px',
                   }}>
-                    {localizeVerticalKicker(featuredArticle.vertical, VERTICAL_LABELS[featuredArticle.vertical] || t('journalFallback'), locale)}
+                    {featuredArticle.vertical === 'atlas'
+                      ? t('journalFallback')
+                      : localizeVerticalKicker(featuredArticle.vertical, getVerticalBadge(featuredArticle.vertical), locale)}
                     {featuredArticle.category && ` · ${featuredArticle.category}`}
                   </p>
-                  <h2 style={{
+                  <h3 style={{
                     fontFamily: 'var(--font-display)', fontWeight: 400,
                     fontSize: 'clamp(22px, 2.5vw, 26px)', lineHeight: 1.25,
                     color: '#FAF8F4', margin: '0 0 8px',
                   }}>
                     {featuredArticle.title}
-                  </h2>
+                  </h3>
                   {featuredArticle.excerpt && (
                     <p style={{
                       fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px',
@@ -828,628 +969,9 @@ export default async function Home() {
         </ScrollReveal>
       )}
 
-      {/* ── 5. Worth finding nearby — full-width "where you are" band ── */}
-      {/* Its horizontal strip of real nearby places needs the full measure; a
-          narrow discovery-band column crushed the names. Own band, dateline
-          masthead, left-anchored — the standalone variant it was built for. */}
-      <NearbySection />
-
-      {/* ── 6. Make it yours — the Discover taste engine ── */}
-      {/* Masthead left, the live swipeable deck right. A stranger can flick a
-          real card in place — they're inside the feature, not reading about it.
-          The section ground carries the same seeded-contour terrain the cards
-          wear, so the deck sits in its own cartographic landscape. */}
-      <section style={{
-        position: 'relative',
-        overflow: 'hidden',
-        paddingBlock: '96px',
-        background: 'var(--color-kraft)',
-        borderTop: '1px solid rgba(28,26,23,0.05)',
-        borderBottom: '1px solid rgba(28,26,23,0.05)',
-      }}>
-        <svg
-          aria-hidden="true"
-          viewBox="0 0 420 460"
-          preserveAspectRatio="xMidYMid slice"
-          style={{
-            position: 'absolute', right: '-160px', top: '50%',
-            transform: 'translateY(-50%)', width: '880px', height: '130%',
-            pointerEvents: 'none',
-          }}
-        >
-          {buildContours('make-it-yours').map((d, i) => (
-            <path key={i} d={d} fill="none" stroke={GOLD} strokeWidth="1" strokeOpacity="0.07" />
-          ))}
-        </svg>
-        <div className="max-w-6xl mx-auto px-6 sm:px-12" style={{ position: 'relative' }}>
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_400px] gap-10 lg:gap-16 items-center">
-            <div>
-              <p className="section-dateline" style={{ marginBottom: '16px' }}>{t('makeItYours')}</p>
-              <h2 style={{
-                fontFamily: 'var(--font-display)', fontWeight: 400,
-                fontSize: 'clamp(30px, 4vw, 50px)', color: 'var(--color-ink)', lineHeight: 1.08,
-              }}>
-                {t('learnsYourTaste')}
-              </h2>
-              <p className="mt-3" style={{
-                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
-                lineHeight: 1.65, color: 'var(--color-muted)', margin: '14px 0 18px', maxWidth: '44ch',
-              }}>
-                {t('discoverIntro')}
-              </p>
-              {/* Every vertical's accent in one strip — the breadth of the
-                  shuffle at a glance, colour-matched to the cards themselves. */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '0 0 30px', flexWrap: 'wrap' }}>
-                <span style={{ display: 'inline-flex', flexShrink: 0 }}>
-                  {getPublicVerticals().map((v, i) => (
-                    <span key={v} style={{
-                      width: '12px', height: '12px', borderRadius: '999px',
-                      background: VERTICAL_ACCENTS[v] || GOLD,
-                      border: '2px solid var(--color-kraft)',
-                      marginLeft: i === 0 ? 0 : '-4px',
-                      display: 'inline-block',
-                    }} />
-                  ))}
-                </span>
-                <span style={{
-                  fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '12.5px',
-                  letterSpacing: '0.02em', color: 'var(--color-muted)',
-                }}>
-                  {t('deckCollections')}
-                </span>
-              </div>
-              <LocalizedLink href="/discover" className="discover-cta">
-                {t('openDiscover')}
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M5 12h14" />
-                  <path d="M12 5l7 7-7 7" />
-                </svg>
-              </LocalizedLink>
-            </div>
-            <div>
-              <DiscoverDeck variant="band" hideHead />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── 6 + 7. Plan a trip + Explore by region — paired columns ── */}
-      {/* One editorial row on warm paper: a "Road trip" map-plate (drawn route,
-          gold neatline, compass) beside a mosaic of light region cards carrying
-          the /regions identity home — inline state silhouette + amber centroid
-          dot. No dark boxes; the cartography is the ornament. */}
-      <ScrollReveal as="section" style={{ paddingBlock: '88px' }}>
-        <div className="max-w-6xl mx-auto px-6 sm:px-12">
-          <div className="grid grid-cols-1 lg:grid-cols-[0.96fr_1.24fr] gap-10 lg:gap-14 items-start">
-            {/* LEFT — "Road trip" map-plate. A warm plate rather than a dark
-                box: gold neatline, a compass corner-mark, and a dotted route
-                winding to its destination — the plan-a-trip idea, drawn. */}
-            <div className="reveal" data-reveal-index={1}>
-              <p className="section-dateline" style={{ marginBottom: '18px' }}>
-                {t('planATrip')}
-              </p>
-              <LocalizedLink
-                href="/on-this-road"
-                className="group listing-card block"
-                style={{
-                  position: 'relative',
-                  overflow: 'hidden',
-                  background: 'linear-gradient(158deg, #FCFAF4 0%, #F5ECDA 60%, #EFE3CD 100%)',
-                  border: '1px solid rgba(120,92,44,0.20)',
-                  borderRadius: 'var(--radius-lg)',
-                  padding: '34px 32px',
-                  minHeight: 'clamp(300px, 33vw, 400px)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                }}
-              >
-                {/* the drawn route — dotted road curving to a destination pin,
-                    with two faint elevation contours around the endpoint */}
-                <svg aria-hidden="true" viewBox="0 0 420 400" preserveAspectRatio="xMidYMid slice"
-                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
-                  {/* faint elevation contours around the destination */}
-                  <g fill="none" stroke="rgba(196,151,59,0.18)" strokeWidth="1">
-                    <path d="M398 84 C 448 78, 466 120, 448 154 C 433 182, 390 182, 370 158" />
-                    <path d="M398 100 C 430 96, 446 120, 434 144 C 423 162, 396 164, 382 150" />
-                  </g>
-                  {/* the road — hugs the bottom, then climbs the right margin to
-                      its destination, keeping the top-left text column clear */}
-                  <path d="M26 374 C 120 368, 184 352, 250 322 S 346 278, 360 214 S 374 152, 398 122"
-                    fill="none" stroke="rgba(196,151,59,0.9)" strokeWidth="2.25"
-                    strokeLinecap="round" strokeDasharray="0.5 9" />
-                  {[[26, 374], [250, 322], [360, 214]].map(([cx, cy], i) => (
-                    <circle key={i} cx={cx} cy={cy} r="6" fill="#FCFAF4"
-                      stroke="rgba(196,151,59,0.95)" strokeWidth="2" />
-                  ))}
-                  <g transform="translate(398 122)">
-                    <circle r="9.5" fill="rgba(196,151,59,0.22)" />
-                    <circle r="5" fill="#C4973B" />
-                  </g>
-                </svg>
-
-                {/* compass corner-mark */}
-                <svg aria-hidden="true" viewBox="0 0 48 48" width="44" height="44"
-                  style={{ position: 'absolute', top: 20, right: 20, opacity: 0.7, pointerEvents: 'none' }}>
-                  <circle cx="24" cy="24" r="21" fill="none" stroke="rgba(120,92,44,0.42)" strokeWidth="1" />
-                  <path d="M24 5 L27.5 24 L24 43 L20.5 24 Z" fill="rgba(196,151,59,0.95)" />
-                  <path d="M5 24 L24 20.5 L43 24 L24 27.5 Z" fill="none" stroke="rgba(120,92,44,0.46)" strokeWidth="1" />
-                  <circle cx="24" cy="24" r="1.6" fill="#8a6a2c" />
-                </svg>
-
-                {/* map-plate neatline — the fine ruled frame of an atlas page */}
-                <div aria-hidden="true" style={{
-                  position: 'absolute', inset: 11, borderRadius: 12,
-                  border: '1px solid rgba(196,151,59,0.22)', pointerEvents: 'none',
-                }} />
-
-                <h3 style={{
-                  position: 'relative',
-                  fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 'clamp(28px, 3.2vw, 38px)',
-                  color: 'var(--color-ink)', lineHeight: 1.14, marginBottom: 14,
-                }}>
-                  {t('roadTrip')}
-                </h3>
-                <p style={{
-                  position: 'relative',
-                  fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '15px',
-                  color: 'var(--color-muted)', lineHeight: 1.62, maxWidth: '27ch',
-                }}>
-                  {t('roadTripIntro')}
-                </p>
-                <div style={{ flex: 1, minHeight: 28 }} />
-                <span style={{
-                  position: 'relative',
-                  fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '13px', color: GOLD,
-                }}>
-                  {t('planRoadTrip')} &rarr;
-                </span>
-              </LocalizedLink>
-            </div>
-
-            {/* RIGHT — region mosaic */}
-            <div className="reveal" data-reveal-index={2}>
-              <div className="flex items-baseline justify-between" style={{ gap: '16px', marginBottom: '20px' }}>
-                <p className="section-dateline">{t('byRegion')}</p>
-                <LocalizedLink href="/regions" className="hover:opacity-80 transition-opacity" style={{
-                  fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '13px', color: GOLD,
-                }}>
-                  {t('browseAll')} &rarr;
-                </LocalizedLink>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* The /regions & /explore card identity brought home: warm
-                    paper, serif name, an inline state silhouette with the
-                    region's centroid dot in cartographic amber. One region
-                    language everywhere it appears — no dark boxes. */}
-                {[
-                  { name: 'Barossa Valley', slug: 'barossa-valley', state: 'SA' },
-                  { name: 'Mornington Peninsula', slug: 'mornington-peninsula', state: 'VIC' },
-                  { name: 'Yarra Valley', slug: 'yarra-valley', state: 'VIC' },
-                  { name: 'Byron Bay', slug: 'byron-bay', state: 'NSW' },
-                  { name: 'Blue Mountains', slug: 'blue-mountains', state: 'NSW' },
-                  { name: 'Adelaide Hills', slug: 'adelaide-hills', state: 'SA' },
-                ].map((r, ri) => {
-                  const count = stats.regionCounts[r.name]
-                  const outline = STATE_OUTLINES[r.state]
-                  const geo = REGION_GEO[r.name]
-                  const dot = outline && geo ? projectPoint(r.state, geo.lat, geo.lng) : null
-                  const SVG_PX = 58
-                  const rUnit = outline ? outline.h / SVG_PX : 1
-                  return (
-                    <LocalizedLink
-                      key={r.slug}
-                      href={`/regions/${r.slug}`}
-                      className="reveal group listing-card block overflow-hidden"
-                      data-reveal-index={(ri % 3) + 1}
-                      style={{
-                        background: 'linear-gradient(158deg, #FDFBF6 0%, #F6EFE1 100%)',
-                        border: '1px solid var(--color-border)',
-                        borderRadius: 'var(--radius-card)',
-                      }}
-                    >
-                      <div className="flex" style={{ padding: '16px 17px', minHeight: 118, gap: 12 }}>
-                        <div className="flex flex-col" style={{ flex: 1, minWidth: 0 }}>
-                          <h3 style={{
-                            fontFamily: 'var(--font-display)', fontWeight: 400,
-                            fontSize: 19, color: 'var(--color-ink)', lineHeight: 1.18, marginBottom: 5,
-                          }}>
-                            {r.name}
-                          </h3>
-                          <p style={{
-                            fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '10px',
-                            letterSpacing: '0.16em', textTransform: 'uppercase',
-                            color: 'var(--color-muted)', margin: 0,
-                          }}>
-                            {r.state}
-                          </p>
-                          <div style={{ flex: 1, minHeight: 12 }} />
-                          {count > 0 && (
-                            <span style={{
-                              fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 12,
-                              color: 'var(--color-gold)',
-                            }}>
-                              {t('countPlaces', { count })}
-                            </span>
-                          )}
-                        </div>
-                        {outline && (
-                          <svg viewBox={`0 0 ${outline.w} ${outline.h}`}
-                            style={{ height: `${SVG_PX}px`, width: 'auto', maxWidth: '72px', flexShrink: 0, marginTop: 2 }}
-                            aria-hidden="true">
-                            <path d={outline.d} fill="rgba(196,151,59,0.12)"
-                              stroke="rgba(78,66,48,0.5)" strokeWidth="1.1"
-                              vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
-                            {dot && (
-                              <>
-                                <circle cx={dot.x} cy={dot.y} r={6.5 * rUnit} fill="rgba(196,151,59,0.34)" />
-                                <circle cx={dot.x} cy={dot.y} r={3 * rUnit} fill="#B8862B" />
-                              </>
-                            )}
-                          </svg>
-                        )}
-                      </div>
-                    </LocalizedLink>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-      </ScrollReveal>
-
-      {/* ── 8.5 Plan a stay ───────────────────────────── */}
-      <section style={{
-        background: 'linear-gradient(180deg, #F2ECE0 0%, #ECE3D3 100%)',
-        paddingBlock: '96px',
-        borderTop: '1px solid rgba(28,26,23,0.06)',
-      }}>
-        <div className="max-w-3xl mx-auto px-6 sm:px-12">
-          <p className="section-dateline" style={{ marginBottom: '20px' }}>
-            {t('planAStay')}
-          </p>
-          <h2 style={{
-            fontFamily: 'var(--font-display)', fontWeight: 400,
-            fontSize: 'clamp(30px, 4.2vw, 48px)', lineHeight: 1.08,
-            color: 'var(--color-ink)', marginBottom: '18px', maxWidth: '640px',
-          }}>
-            {t('planAStayTitle')}
-          </h2>
-          <p style={{
-            fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
-            lineHeight: 1.65, color: 'var(--color-muted)',
-            maxWidth: '520px', margin: '0 0 32px',
-          }}>
-            {t('planAStayIntro')}
-          </p>
-          <LocalizedLink href="/plan-a-stay-v2" className="inline-flex items-center gap-2 rounded-full hover:opacity-90 transition-opacity" style={{
-            fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '14px',
-            background: '#1A1A1A', color: '#FAF8F4',
-            padding: '14px 32px',
-          }}>
-            {t('planAStay')} &rarr;
-          </LocalizedLink>
-        </div>
-      </section>
-
-      {/* ── 5. Cross-Vertical Cluster — a day, plotted ── */}
-      {/* The intermediate kraft band — one oatmeal third surface between the
-          binary cream/near-black rhythm. Each qualifying region renders as a
-          compact itinerary rail (coffee → lunch → maker → tasting → bed): small
-          photo-first stops threaded on a hairline route, numbered + time-of-day
-          kickered, with a coordinate-grounded "within N km" span and a region-
-          guide CTA. Deliberately restrained — a plan to skim and act on, not a
-          full-height photo wall that competes with the cover story above it. */}
-      {clusters.length > 0 && (
-        <ScrollReveal as="section" style={{
-          paddingBlock: '72px',
-          background: 'var(--color-kraft)',
-          borderTop: '1px solid rgba(28,26,23,0.05)',
-          borderBottom: '1px solid rgba(28,26,23,0.05)',
-        }}>
-          <div className="max-w-5xl mx-auto px-6 sm:px-12">
-            <div className="reveal mb-9" style={{ maxWidth: '560px' }}>
-              <p className="section-dateline" style={{ marginBottom: '14px' }}>
-                {t('whereItOverlaps')}
-              </p>
-              <h2 style={{
-                fontFamily: 'var(--font-display)', fontWeight: 400,
-                fontSize: 'clamp(25px, 3vw, 38px)', color: 'var(--color-ink)', lineHeight: 1.12,
-              }}>
-                {t('discoverCluster')}
-              </h2>
-              <p className="mt-3" style={{
-                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15px',
-                color: 'var(--color-muted)', margin: '10px 0 0', lineHeight: 1.6,
-              }}>
-                {t('clusterIntro')}
-              </p>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '36px' }}>
-              {clusters.map((cluster, ci) => {
-                const regionSlug = CLUSTER_REGION_SLUGS[cluster.region]
-                const metaLine = [
-                  t('clusterCounts', { total: cluster.total, categories: cluster.verticalCount }),
-                  cluster.spanKm && cluster.spanKm <= 90 ? t('clusterSpan', { km: cluster.spanKm }) : null,
-                ].filter(Boolean).join('  ·  ')
-                return (
-                  <div key={cluster.region} className="reveal" data-reveal-index={ci + 1}>
-                    <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1.5" style={{ marginBottom: '16px' }}>
-                      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5" style={{ maxWidth: '620px' }}>
-                        {regionSlug ? (
-                          <LocalizedLink href={`/regions/${regionSlug}`} className="group inline-flex items-baseline hover:opacity-80 transition-opacity">
-                            <h3 style={{
-                              fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22,
-                              color: 'var(--color-ink)', lineHeight: 1.2,
-                            }}>
-                              {cluster.region}
-                            </h3>
-                          </LocalizedLink>
-                        ) : (
-                          <h3 style={{
-                            fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22,
-                            color: 'var(--color-ink)', lineHeight: 1.2,
-                          }}>
-                            {cluster.region}
-                          </h3>
-                        )}
-                        <span style={{
-                          fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '12.5px',
-                          color: 'var(--color-muted)',
-                        }}>
-                          {metaLine}
-                        </span>
-                      </div>
-                      {regionSlug && (
-                        <LocalizedLink href={`/regions/${regionSlug}`} className="group inline-flex items-center gap-1.5 hover:opacity-80 transition-opacity" style={{
-                          fontFamily: 'var(--font-body)', fontSize: '12.5px', fontWeight: 500,
-                          color: 'var(--color-ink)', borderBottom: '1px solid var(--color-gold)',
-                          paddingBottom: 1, whiteSpace: 'nowrap',
-                        }}>
-                          {t('clusterSeeRegion')} <span style={{ color: GOLD }}>&rarr;</span>
-                        </LocalizedLink>
-                      )}
-                    </div>
-
-                    {/* Itinerary rail — small photo-first stops threaded on a
-                        hairline route (numbered, time-of-day kickered). Fits one
-                        row on desktop; scrolls horizontally on narrow screens
-                        with the next stop peeking as the scroll affordance. */}
-                    <div className="cluster-rail" style={{
-                      display: 'flex', alignItems: 'flex-start',
-                      overflowX: 'auto', scrollSnapType: 'x proximity',
-                      paddingBottom: 4, scrollbarWidth: 'none',
-                    }}>
-                      {cluster.picks.map((pick, pi) => {
-                        const colors = VERTICAL_CARD_COLORS[pick.vertical] || { bg: '#333', text: '#FAF8F4' }
-                        const StopIcon = CLUSTER_VERTICAL_ICONS[pick.vertical] || Compass
-                        const stopMeta = [
-                          subTypeLabel(pick.vertical, pick.sub_type) || localizeVerticalKicker(pick.vertical, VERTICAL_LABELS[pick.vertical] || pick.vertical, locale),
-                          pick.suburb,
-                        ].filter(Boolean).join(' · ')
-                        const isLast = pi === cluster.picks.length - 1
-                        return (
-                          <div key={pick.id} style={{ display: 'flex', alignItems: 'flex-start', flexShrink: 0 }}>
-                            <LocalizedLink
-                              href={`/place/${pick.slug}`}
-                              className="group block"
-                              style={{ width: 'clamp(128px, 42vw, 148px)', scrollSnapAlign: 'start' }}
-                            >
-                              <div className="overflow-hidden" style={{
-                                height: 92, background: colors.bg,
-                                borderRadius: 'var(--radius-card)',
-                                border: '1px solid rgba(28,26,23,0.08)',
-                              }}>
-                                {pick.hero_image_url ? (
-                                  <img
-                                    src={pick.hero_image_url}
-                                    alt=""
-                                    loading="lazy"
-                                    className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-700"
-                                  />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center">
-                                    <StopIcon size={22} strokeWidth={1.25} style={{ color: 'rgba(250,248,244,0.5)' }} aria-hidden="true" />
-                                  </div>
-                                )}
-                              </div>
-                              <p style={{
-                                fontFamily: 'var(--font-body)', fontSize: '9.5px', fontWeight: 600,
-                                letterSpacing: '0.13em', textTransform: 'uppercase',
-                                color: GOLD, margin: '9px 0 0',
-                              }}>
-                                {String(pi + 1).padStart(2, '0')} · {t(CLUSTER_SLOT_LABEL_KEYS[pick.slot] || 'clusterStopAfternoon')}
-                              </p>
-                              <h4 style={{
-                                fontFamily: 'var(--font-display)', fontWeight: 400,
-                                fontSize: '14.5px', lineHeight: 1.22,
-                                color: 'var(--color-ink)', margin: '3px 0 0',
-                              }}>
-                                {pick.name}
-                              </h4>
-                              {stopMeta && (
-                                <p style={{
-                                  fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '11.5px',
-                                  color: 'var(--color-muted)', margin: '2px 0 0', lineHeight: 1.35,
-                                }}>
-                                  {stopMeta}
-                                </p>
-                              )}
-                            </LocalizedLink>
-                            {!isLast && (
-                              <div aria-hidden="true" style={{
-                                flexShrink: 0, height: 1, marginTop: 46,
-                                width: 'clamp(10px, 3vw, 22px)',
-                                background: 'rgba(184,134,43,0.35)',
-                              }} />
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-
-            <div className="reveal" style={{ marginTop: '36px' }}>
-              <LocalizedLink href="/regions" className="inline-flex items-center gap-1.5 hover:opacity-80 transition-opacity" style={{
-                fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500,
-                color: 'var(--color-ink)', borderBottom: '1px solid var(--color-gold)', paddingBottom: 2,
-              }}>
-                {t('clusterAllRegions')} <span style={{ color: GOLD }}>&rarr;</span>
-              </LocalizedLink>
-            </div>
-          </div>
-        </ScrollReveal>
-      )}
-
-      {/* ── 9. What's on (Events) ─────────────────────── */}
-      {/* Hairline top edge so the soft tonal step from the warm "Plan a stay"
-          band into the stone ground reads as a deliberate section boundary. */}
-      <ScrollReveal as="section" style={{ paddingBlock: '80px', background: 'var(--color-stone)', borderTop: '1px solid rgba(28,26,23,0.06)' }}>
-        <div className="max-w-5xl mx-auto px-6 sm:px-12">
-          <div className="reveal" style={{ marginBottom: '36px', maxWidth: '560px' }}>
-            <p className="section-dateline" style={{ marginBottom: '16px' }}>
-              {t('onTheCalendar')}
-            </p>
-            <h2 style={{
-              fontFamily: 'var(--font-display)', fontWeight: 400,
-              fontSize: 'clamp(30px, 4vw, 50px)', color: 'var(--color-ink)', lineHeight: 1.1,
-            }}>
-              {t('whatsOn')}
-            </h2>
-            <p className="mt-3" style={{
-              fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '16px',
-              color: 'var(--color-muted)', margin: '12px 0 0',
-            }}>
-              {t('whatsOnIntro')}
-            </p>
-          </div>
-
-          {eventCards.length > 0 ? (
-            <>
-              {eventStates.length > 1 && (
-                <div className="reveal flex flex-wrap items-center justify-center gap-2" style={{ marginBottom: '36px' }}>
-                  {eventStates.map(s => (
-                    <LocalizedLink
-                      key={s}
-                      href={`/events?state=${s}`}
-                      className="hover:opacity-80 transition-opacity"
-                      style={{
-                        fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '12px',
-                        letterSpacing: '0.08em', textTransform: 'uppercase',
-                        color: 'var(--color-ink)', background: '#fff',
-                        border: '1px solid var(--color-border)', borderRadius: '999px',
-                        padding: '7px 14px',
-                      }}
-                    >
-                      {s}
-                    </LocalizedLink>
-                  ))}
-                </div>
-              )}
-
-              {/* With a thin calendar (1–2 events) a 3-col grid strands cards on
-                  the left; a centred flex row keeps the section composed. */}
-              <div
-                className={eventCards.length < 3
-                  ? 'flex flex-wrap justify-center gap-6'
-                  : 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6'}
-              >
-                {eventCards.map((event, ei) => (
-                  <LocalizedLink
-                    key={event.id}
-                    href={`/events/${event.slug}`}
-                    className="reveal group listing-card block overflow-hidden"
-                    data-reveal-index={ei + 1}
-                    style={{
-                      background: '#fff', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-card)',
-                      ...(eventCards.length < 3 ? { width: 'min(100%, 340px)' } : {}),
-                    }}
-                  >
-                    {event.image_url && (
-                      <div className="overflow-hidden" style={{ height: '160px' }}>
-                        <img
-                          src={event.image_url}
-                          alt=""
-                          loading="lazy"
-                          className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-700"
-                        />
-                      </div>
-                    )}
-                    <div style={{ padding: '18px 20px 22px' }}>
-                      <p style={{
-                        fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 600,
-                        letterSpacing: '0.08em', textTransform: 'uppercase',
-                        color: GOLD, marginBottom: '8px',
-                      }}>
-                        {formatEventDateShort(event.start_date, event.end_date)}
-                      </p>
-                      <h3 style={{
-                        fontFamily: 'var(--font-display)', fontWeight: 400,
-                        fontSize: '20px', lineHeight: 1.28,
-                        color: 'var(--color-ink)', marginBottom: '6px',
-                      }}>
-                        {event.name}
-                      </h3>
-                      <p style={{
-                        fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '13px',
-                        color: 'var(--color-muted)',
-                      }}>
-                        {[EVENT_CATEGORY_LABELS[event.category] || t('eventFallback'), [event.suburb, event.state].filter(Boolean).join(', ')].filter(Boolean).join(' · ')}
-                      </p>
-                    </div>
-                  </LocalizedLink>
-                ))}
-              </div>
-
-              <div className="mt-10 flex items-center justify-center gap-6 flex-wrap">
-                <LocalizedLink href="/events" className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity" style={{
-                  fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', color: GOLD,
-                }}>
-                  {t('browseAllEvents')} &rarr;
-                </LocalizedLink>
-                <LocalizedLink href="/events/submit" className="inline-flex items-center gap-2 hover:opacity-80 transition-opacity" style={{
-                  fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px', color: 'var(--color-muted)',
-                }}>
-                  {t('submitEvent')}
-                </LocalizedLink>
-              </div>
-            </>
-          ) : (
-            <div className="reveal text-center" style={{
-              maxWidth: '440px', margin: '0 auto',
-              border: '1px solid var(--color-border)', borderRadius: 'var(--radius-lg)',
-              padding: '48px 32px', background: '#fff',
-            }}>
-              <p style={{
-                fontFamily: 'var(--font-display)', fontWeight: 400, fontStyle: 'italic',
-                fontSize: '20px', color: 'var(--color-ink)', marginBottom: '10px',
-              }}>
-                {t('noEventsTitle')}
-              </p>
-              <p style={{
-                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px',
-                lineHeight: 1.6, color: 'var(--color-muted)', marginBottom: '24px',
-              }}>
-                {t('noEventsIntro')}
-              </p>
-              <LocalizedLink href="/events/submit" className="inline-flex items-center gap-2 px-6 py-3 rounded-full hover:opacity-90 transition-opacity" style={{
-                fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
-                background: '#1A1A1A', color: '#FAF8F4',
-              }}>
-                {t('submitEvent')}
-              </LocalizedLink>
-            </div>
-          )}
-        </div>
-      </ScrollReveal>
-
-      {/* The ten grounds thread the close, as they do the footer. */}
       <div className="spectrum-hairline" aria-hidden="true" />
 
-      {/* ── 8. Newsletter ─────────────────────────────── */}
+      {/* ── 7. Newsletter close ─────────────────────────────────── */}
       <section style={{
         background: 'linear-gradient(180deg, #211B15 0%, #1A1510 100%)',
         paddingBlock: '88px',
@@ -1490,13 +1012,6 @@ export default async function Home() {
           </p>
         </div>
       </section>
-
-      <CategoryGuideSection
-        publicVerticals={publicVerticals}
-        verticalCounts={stats.verticalCounts}
-        verticalCount={verticalCount}
-      />
-
     </>
   )
 }
