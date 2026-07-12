@@ -730,7 +730,11 @@ export default function MapClient({
     if (!q || q.length < 2) { setPlaceResults([]); return }
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(q)}.json?country=AU&types=region,postcode,district,place,locality,neighborhood,address,poi&access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`)
+        // Bias the geocoder to the current view — searching over Hobart should
+        // offer Hobart's places before same-named spots interstate.
+        const c = map.current ? map.current.getCenter() : null
+        const prox = c ? `&proximity=${c.lng.toFixed(4)},${c.lat.toFixed(4)}` : ''
+        const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(q)}.json?country=AU&types=region,postcode,district,place,locality,neighborhood,address,poi${prox}&access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`)
         const data = await res.json()
         setPlaceResults(data.features || [])
       } catch (e) { console.error('Geocoding error:', e) }
@@ -1788,25 +1792,52 @@ export default function MapClient({
     setPinQuery('')
   }
 
-  // Venue half of the unified field — name matches ranked prefix → substring →
+  // Venue half of the unified field — name matches tiered prefix → substring →
   // all-word (so "Tar Barrel brewery" still finds "Tar Barrel" once the generic
-  // category word is set aside). Capped at 5 (towns/POIs sit beneath).
+  // category word is set aside), then ranked by GEOGRAPHY: venues inside the
+  // current viewport lead (tier, then nearest the centre), everything off-screen
+  // follows by plain distance — typing "coffee" over Hobart offers Hobart's
+  // coffee, not Marrickville's. Capped at 5 (towns/POIs sit beneath).
   const venueMatches = useMemo(() => {
     const q = pinQuery.trim().toLowerCase()
     if (q.length < 2) return []
     // Words that must appear in the NAME — drop stopwords and generic category/
     // intent words so a trailing "brewery"/"cafe" doesn't exclude the venue.
     const nameToks = q.split(/\s+/).filter(w => w.length >= 2 && !STOPWORDS.has(w) && !SUBTYPE_WORD_INDEX[w] && !VERTICAL_INTENT[w])
-    const starts = [], contains = [], allWord = []
+    const m = map.current
+    const b = m ? m.getBounds() : null
+    const c = m ? m.getCenter() : null
+    const cosLat = c ? Math.cos((c.lat * Math.PI) / 180) : 1
+    const scored = []
     for (const l of allListings) {
       const n = l.name ? l.name.toLowerCase() : ''
       if (!n) continue
-      if (n.startsWith(q)) { if (starts.length < 5) starts.push(l) }
-      else if (n.includes(q)) { if (contains.length < 5) contains.push(l) }
-      else if (nameToks.length && nameToks.every(w => n.includes(w))) { if (allWord.length < 5) allWord.push(l) }
+      let tier
+      if (n.startsWith(q)) tier = 0
+      else if (n.includes(q)) tier = 1
+      else if (nameToks.length && nameToks.every(w => n.includes(w))) tier = 2
+      else continue
+      const lng = parseFloat(l.lng), lat = parseFloat(l.lat)
+      const hasCoords = Number.isFinite(lng) && Number.isFinite(lat)
+      const within = !!(b && hasCoords &&
+        lng >= b.getWest() && lng <= b.getEast() && lat >= b.getSouth() && lat <= b.getNorth())
+      // Equirectangular squared distance — cheap and monotonic, all we need for ordering.
+      const dx = (c && hasCoords) ? (lng - c.lng) * cosLat : 0
+      const dy = (c && hasCoords) ? lat - c.lat : 0
+      const dist = (c && hasCoords) ? dx * dx + dy * dy : Infinity
+      scored.push({ l, tier, within, dist })
     }
-    return [...starts, ...contains, ...allWord].slice(0, 5)
-  }, [pinQuery, allListings])
+    scored.sort((a, b2) => {
+      if (a.within !== b2.within) return a.within ? -1 : 1
+      // On-screen: completion feel — prefix beats substring, nearest breaks ties.
+      if (a.within) return (a.tier - b2.tier) || (a.dist - b2.dist)
+      // Off-screen: how close it is matters more than how the name matched.
+      return (a.dist - b2.dist) || (a.tier - b2.tier)
+    })
+    return scored.slice(0, 5).map(s => s.l)
+    // inView changes on every moveend — keying on it re-ranks an open dropdown
+    // around wherever the map has been panned to.
+  }, [pinQuery, allListings, inView])
 
   const hasSearchResults = venueMatches.length > 0 || placeResults.length > 0
 
