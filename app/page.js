@@ -219,6 +219,35 @@ async function getScopePins() {
   }
 }
 
+// Latest additions across the network, the ticker's feed. Real names
+// from the live index, newest first; anything short of a full row
+// means no ticker.
+async function getRecentListings() {
+  try {
+    const sb = getSupabaseAdmin()
+    const { data } = await sb
+      .from('listings')
+      .select('id, name, slug, region, state, vertical')
+      .eq('status', 'active')
+      .not('name', 'ilike', '\\_%')
+      .not('slug', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(32)
+    // Guard against address fragments leaking into the marquee as
+    // "names": a comma next to a number, a trailing postcode, or a
+    // state-code+postcode all read as an address, never a venue name.
+    const looksLikeAddress = (n) => {
+      const s = String(n || '')
+      return (/,/.test(s) && /\d{3,4}/.test(s)) ||
+             /\b\d{4}\s*$/.test(s) ||
+             /\b(VIC|NSW|QLD|SA|WA|TAS|ACT|NT)\b\s*\d{3,4}\b/i.test(s)
+    }
+    return (data || []).filter(l => !looksLikeAddress(l.name)).slice(0, 20)
+  } catch {
+    return []
+  }
+}
+
 // Server-side Directions fetch, mirroring app/api/mapbox/directions.
 // Fetched once per hour alongside the trip and cached with it, so
 // visitors never each hit the Directions API. TrailMap falls back to
@@ -395,10 +424,10 @@ async function getLatestArticles() {
 }
 
 async function assembleHomeData(publicVerticals, hourSeed) {
-  const [stats, scopePins, heroTrip, articles] = await Promise.all([
-    getStats(publicVerticals), getScopePins(), getHeroTrip(hourSeed), getLatestArticles(),
+  const [stats, scopePins, heroTrip, articles, recentListings] = await Promise.all([
+    getStats(publicVerticals), getScopePins(), getHeroTrip(hourSeed), getLatestArticles(), getRecentListings(),
   ])
-  return { stats, scopePins, heroTrip, articles }
+  return { stats, scopePins, heroTrip, articles, recentListings }
 }
 
 // The root layout reads auth cookies, so this route renders per-request
@@ -416,12 +445,12 @@ const getHomeDataCached = unstable_cache(
     }
     return data
   },
-  // v4: front-door rebuild. The payload shape changed entirely
-  // (scopePins + heroTrip + articles replace clusters/featured/events/
-  // recent), so the key moves too and no stale v3 shape can be served.
-  // hourSeed is an argument, so each hour writes its own entry and the
-  // worked trip turns over on the hour.
-  ['home-data-v4'],
+  // v5: the recently-added ticker rejoined the payload (v4 was the
+  // front-door rebuild shape). A fresh key so no v4 entry missing
+  // recentListings can be served for its remaining hour. hourSeed is
+  // an argument, so each hour writes its own entry and the worked
+  // trip turns over on the hour.
+  ['home-data-v5'],
   { revalidate: 3600 }
 )
 
@@ -439,6 +468,7 @@ export default async function Home() {
   const { stats, articles } = homeData
   const articlesWithImages = (articles || []).filter(a => a.hero_image_url).slice(0, 2)
   const featuredArticle = articlesWithImages[0] || (articles || [])[0]
+  const recentListings = await overlayListingTranslations(homeData.recentListings || [], locale)
   const scopePins = await overlayListingTranslations(homeData.scopePins, locale)
   const heroTrip = homeData.heroTrip
     ? { ...homeData.heroTrip, stops: await overlayListingTranslations(homeData.heroTrip.stops, locale) }
@@ -523,6 +553,46 @@ export default async function Home() {
           ))}
         </div>
       </section>
+
+      {/* ── 1b. The living index ticker ─────────────────────────── */}
+      {/* Real, newest places drifting past: proof the atlas is alive,
+          and a serendipity surface (every name is a link). Duplicated
+          track = seamless loop; the copy row is aria-hidden and
+          untabbable. Pauses on hover; reduced-motion collapses it to a
+          static scrollable row. Same treatment the previous front door
+          carried, reinstated per Matt. */}
+      {recentListings.length >= 8 && (
+        <section className="atlas-ticker" aria-label={t('recentlyAddedAria')}>
+          <span className="atlas-ticker-label">
+            {t('recentlyAdded')}
+          </span>
+          <div className="atlas-ticker-viewport">
+            <div className="atlas-ticker-track">
+              {[0, 1].map(copy => (
+                <span key={copy} aria-hidden={copy === 1 ? 'true' : undefined} style={{ display: 'inline-flex' }}>
+                  {recentListings.map(l => (
+                    <LocalizedLink
+                      key={`${copy}-${l.id}`}
+                      href={`/place/${l.slug}`}
+                      className="atlas-ticker-item"
+                      tabIndex={copy === 1 ? -1 : undefined}
+                    >
+                      <svg width="9" height="9" viewBox="0 0 24 24" aria-hidden="true"
+                        fill={(VERTICAL_CARD_TOKENS[l.vertical] || {}).bg || 'var(--color-gold)'}>
+                        <path d="M12 0l2.6 9.4L24 12l-9.4 2.6L12 24l-2.6-9.4L0 12l9.4-2.6L12 0z" />
+                      </svg>
+                      {l.name}
+                      {(l.region || l.state) && (
+                        <span className="atlas-ticker-meta">{l.region || l.state}</span>
+                      )}
+                    </LocalizedLink>
+                  ))}
+                </span>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ── 2. The national map: the scope, shown not said ──────── */}
       {/* The atlas plate plots every verified place; the overlaid gold
