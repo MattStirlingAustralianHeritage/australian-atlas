@@ -101,7 +101,11 @@ const HERO_TRIP_SLOTS = [
   { slot: 'morning',    labelKey: 'clusterStopMorning',   prefs: [['fine_grounds'], ['table', ['bakery', 'market', 'farm_gate', 'providore']]] },
   { slot: 'midmorning', labelKey: 'tripStopMidMorning',   prefs: [['corner'], ['found'], ['collection'], ['craft'], ['field']] },
   { slot: 'midday',     labelKey: 'clusterStopMidday',    prefs: [['table', ['restaurant', 'cafe', 'bistro', 'pub', 'bakery']], ['table'], ['corner']] },
-  { slot: 'afternoon',  labelKey: 'clusterStopAfternoon', prefs: [['way'], ['field'], ['craft'], ['collection']] },
+  // Way Atlas listings are deliberately left out of the worked-trip
+  // example (the afternoon reaches for the outdoors, then craft/culture
+  // instead). The exclusion is also enforced at the query in
+  // assembleRegionDay so no Way venue can slip into a stop.
+  { slot: 'afternoon',  labelKey: 'clusterStopAfternoon', prefs: [['field'], ['craft'], ['collection']] },
   { slot: 'tasting',    labelKey: 'tripStopTasting',      prefs: [['sba'], ['fine_grounds']] },
   { slot: 'stay',       labelKey: 'clusterStopStay',      prefs: [['rest']] },
 ]
@@ -321,6 +325,8 @@ async function assembleRegionDay(sb, regionName, seed) {
     .from(fromTable)
     .select('id, name, slug, vertical, sub_type, suburb, lat, lng, description, hero_image_url, visitable, address_on_request')
     .eq('status', 'active')
+    // Way Atlas experiences never appear in the worked-trip example.
+    .neq('vertical', 'way')
     .not('description', 'is', null)
     .not('slug', 'is', null)
     .not('lat', 'is', null)
@@ -665,30 +671,42 @@ export default async function Home() {
           example of what any region gives you, never as the subject. */}
       {heroTrip && heroTrip.stops.length >= 5 && (
         <ScrollReveal as="section" style={{
-          position: 'relative',
-          overflow: 'hidden',
-          paddingBlock: '84px',
-          background: 'var(--color-kraft)',
-          borderTop: '1px solid rgba(28,26,23,0.05)',
-          borderBottom: '1px solid rgba(28,26,23,0.05)',
+          paddingBlock: 'clamp(60px, 8vw, 100px)',
+          background: 'var(--color-bg)',
         }}>
-          {/* The seeded-contour terrain the taste-deck cards wear, as a
-              faint cartographic ground behind the day's map. */}
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 420 460"
-            preserveAspectRatio="xMidYMid slice"
-            style={{
-              position: 'absolute', right: '-160px', top: '50%',
-              transform: 'translateY(-50%)', width: '880px', height: '130%',
-              pointerEvents: 'none',
-            }}
-          >
-            {buildContours('a-day-from-one-region').map((d, i) => (
-              <path key={i} d={d} fill="none" stroke={GOLD} strokeWidth="1" strokeOpacity="0.07" />
-            ))}
-          </svg>
-          <div className="max-w-6xl mx-auto px-6 sm:px-12" style={{ position: 'relative' }}>
+          {/* Set against a framed plate — the same "exhibit in the page"
+              treatment the Living Atlas map wears: a hairline frame and a
+              soft shadow on warm parchment, floating on the page's stone
+              ground. The day reads as one worked example held up for
+              inspection, not a full-bleed band. */}
+          <div className="max-w-6xl mx-auto px-6 sm:px-12">
+            <div className="day-plate" style={{
+              position: 'relative',
+              overflow: 'hidden',
+              borderRadius: 'var(--radius-lg)',
+              border: '1px solid rgba(28,26,23,0.10)',
+              boxShadow: 'var(--shadow-md)',
+              background: 'var(--color-kraft)',
+              padding: 'clamp(26px, 4.5vw, 56px)',
+            }}>
+              {/* The seeded-contour terrain the taste-deck cards wear, now a
+                  faint cartographic ground clipped inside the plate — the
+                  atlas-as-paper motif the Living Atlas frame also carries. */}
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 420 460"
+                preserveAspectRatio="xMidYMid slice"
+                style={{
+                  position: 'absolute', right: '-120px', top: '50%',
+                  transform: 'translateY(-50%)', width: 'min(68%, 720px)', height: '150%',
+                  pointerEvents: 'none',
+                }}
+              >
+                {buildContours('a-day-from-one-region').map((d, i) => (
+                  <path key={i} d={d} fill="none" stroke={GOLD} strokeWidth="1" strokeOpacity="0.07" />
+                ))}
+              </svg>
+              <div style={{ position: 'relative' }}>
             <div className="reveal" style={{ maxWidth: '640px', marginBottom: '36px' }}>
               <p className="section-dateline" style={{ marginBottom: '14px' }}>
                 {t('tripKicker')}
@@ -833,6 +851,8 @@ export default async function Home() {
                     {t('clusterAllRegions')} <span style={{ color: GOLD }}>&rarr;</span>
                   </LocalizedLink>
                 </div>
+              </div>
+            </div>
               </div>
             </div>
           </div>
