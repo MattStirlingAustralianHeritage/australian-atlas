@@ -133,6 +133,9 @@ export async function middleware(request, event) {
   const isPublicCouncilRoute =
     basePath.startsWith('/council/login') ||
     basePath.startsWith('/council/enquire') ||
+    // One-click magic-link login: /council/auth/{token} consumes a single-use
+    // token and sets the session itself, so it must run WITHOUT a prior session.
+    basePath.startsWith('/council/auth/') ||
     basePath === '/council/example' ||
     /^\/council\/[^/]+\/report$/.test(basePath)
   if (basePath.startsWith('/council') && !isPublicCouncilRoute) {

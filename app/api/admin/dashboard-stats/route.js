@@ -26,6 +26,8 @@ export async function GET() {
       humanisedRes,
       articlesRes,
       trailsRes,
+      councilApplicationsRes,
+      councilsActiveRes,
       verticalCountsRes,
     ] = await Promise.all([
       // Total listings
@@ -46,6 +48,10 @@ export async function GET() {
       sb.from('articles').select('id', { count: 'exact', head: true }).eq('status', 'published'),
       // Published trails
       sb.from('trails').select('id', { count: 'exact', head: true }).eq('status', 'published'),
+      // New council applications awaiting review
+      sb.from('council_enquiries').select('id', { count: 'exact', head: true }).eq('status', 'new'),
+      // Active council accounts
+      sb.from('council_accounts').select('id', { count: 'exact', head: true }).eq('status', 'active'),
       // Per-vertical active counts
       sb.from('listings').select('vertical').eq('status', 'active'),
     ])
@@ -69,6 +75,8 @@ export async function GET() {
       humanised: humanisedRes.count || 0,
       published_articles: articlesRes.count || 0,
       published_trails: trailsRes.count || 0,
+      council_applications_new: councilApplicationsRes.count || 0,
+      councils_active: councilsActiveRes.count || 0,
       vertical_counts: verticalCounts,
     })
   } catch (err) {

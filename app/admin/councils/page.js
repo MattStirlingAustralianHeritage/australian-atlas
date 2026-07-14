@@ -1,5 +1,6 @@
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import CouncilsActions from './CouncilsActions'
+import CouncilApplications from './CouncilApplications'
 
 export const metadata = { title: 'Councils — Admin' }
 export const dynamic = 'force-dynamic'
@@ -23,6 +24,7 @@ export default async function CouncilsPage() {
 
   let councils = []
   let regions = []
+  let applications = []
   let error = null
 
   try {
@@ -41,9 +43,20 @@ export default async function CouncilsPage() {
   try {
     const { data } = await sb
       .from('regions')
-      .select('id, name')
+      .select('id, name, state')
+      .eq('status', 'live')
       .order('name')
     regions = data || []
+  } catch {}
+
+  // Incoming applications awaiting review (the top of the funnel).
+  try {
+    const { data } = await sb
+      .from('council_enquiries')
+      .select('id, name, organisation, email, role, region, region_id, region_name, message, created_at')
+      .eq('status', 'new')
+      .order('created_at', { ascending: false })
+    applications = data || []
   } catch {}
 
   const active = councils.filter(c => c.status === 'active')
@@ -58,6 +71,7 @@ export default async function CouncilsPage() {
           Council Management
         </h1>
         <div style={{ display: 'flex', gap: 16, fontSize: 13, color: 'var(--text-2)' }}>
+          {applications.length > 0 && <span><strong style={{ color: '#B8860B' }}>{applications.length}</strong> new</span>}
           <span><strong style={{ color: '#5F8A7E' }}>{active.length}</strong> active</span>
           <span><strong style={{ color: '#B8860B' }}>{trial.length}</strong> trial</span>
           {pastDue.length > 0 && <span><strong style={{ color: '#E67E22' }}>{pastDue.length}</strong> past due</span>}
@@ -70,6 +84,8 @@ export default async function CouncilsPage() {
           Error loading councils: {error}
         </div>
       )}
+
+      <CouncilApplications applications={applications} regions={regions} />
 
       <CouncilsActions councils={councils} regions={regions} />
 

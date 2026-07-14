@@ -155,6 +155,12 @@ function HealthBar({ stats, loading }) {
       href: '/admin/candidates',
     },
     {
+      label: 'Council Applications',
+      value: stats?.council_applications_new ?? null,
+      color: stats?.council_applications_new > 0 ? '#d4a039' : '#5f8a7e',
+      href: '/admin/councils',
+    },
+    {
       label: 'Reviewed',
       value: stats?.humanised ?? null,
       color: '#5f8a7e',
@@ -295,6 +301,12 @@ function QuickActions({ stats }) {
       href: '/admin/claims',
       accent: stats?.pending_claims > 0,
       badge: stats?.pending_claims > 0 ? stats.pending_claims : null,
+    },
+    {
+      label: 'Council Applications',
+      href: '/admin/councils',
+      accent: stats?.council_applications_new > 0,
+      badge: stats?.council_applications_new > 0 ? stats.council_applications_new : null,
     },
     {
       label: 'Editorial',
