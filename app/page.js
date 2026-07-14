@@ -612,7 +612,36 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* ── 1b. The living index ticker ─────────────────────────── */}
+      {/* ── 1b. Living spectrum spine — full-bleed colour masthead ── */}
+      {/* The ten saturated grounds as one thin 100vw bar in journey order;
+          each segment links to its filtered search and peels open on hover
+          (wide pointer) to name itself. Masthead, legend, and quick-nav in
+          one. The same ten links live labelled in the ingredients ledger
+          below, so the slim bar can be decorative-first without being a
+          fragile mobile tap target. (Restored — was dropped in the
+          front-door rebuild; still carried on the sibling atlases.) */}
+      <nav className="spectrum-spine" aria-label={t('spectrumNavAria')}>
+        {INGREDIENT_ORDER.filter(k => publicVerticals.includes(k)).map((k, i) => {
+          const ground = (VERTICAL_CARD_TOKENS[k] || {}).bg || '#333'
+          const count = stats.verticalCounts[k]
+          const vName = localizeVerticalKicker(k, getVerticalBadge(k), locale)
+          return (
+            <LocalizedLink
+              key={k}
+              href={`/search?vertical=${k}`}
+              className="spectrum-seg"
+              style={{ background: ground, animationDelay: `${i * 40}ms` }}
+              aria-label={`${vName}${count ? ` — ${t('countPlaces', { count: count.toLocaleString() })}` : ''}`}
+            >
+              <span className="spectrum-seg-label">
+                {vName}{count ? `  ·  ${count.toLocaleString()}` : ''}
+              </span>
+            </LocalizedLink>
+          )
+        })}
+      </nav>
+
+      {/* ── 1c. The living index ticker ─────────────────────────── */}
       {/* Real, newest places drifting past: proof the atlas is alive,
           and a serendipity surface (every name is a link). Duplicated
           track = seamless loop; the copy row is aria-hidden and
