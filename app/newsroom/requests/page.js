@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import {
   Card, PageHeader, SectionTitle, EmptyState, Button, SkeletonPage, fmtDate,
 } from '@/components/press/ui'
@@ -36,8 +37,19 @@ const STATUS_STYLE = {
 }
 
 export default function PressRequestsPage() {
+  // Deep-linkable prefill — the story finder's "Request an intro" lands here
+  // with the type and subject already written.
+  const searchParams = useSearchParams()
+  const prefillType = searchParams.get('type')
+  const prefillSubject = searchParams.get('subject')
+
   const [data, setData] = useState(null)
-  const [form, setForm] = useState({ requestType: 'interview', subject: '', message: '', deadline: '' })
+  const [form, setForm] = useState({
+    requestType: TYPES.some(([v]) => v === prefillType) ? prefillType : 'interview',
+    subject: prefillSubject ? String(prefillSubject).slice(0, 200) : '',
+    message: '',
+    deadline: '',
+  })
   const [state, setState] = useState('idle')
 
   async function load() {

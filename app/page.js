@@ -1,4 +1,5 @@
 import LocalizedLink from '@/components/LocalizedLink'
+import { randomUUID } from 'node:crypto'
 import { unstable_cache } from 'next/cache'
 import { getTranslations, getLocale } from 'next-intl/server'
 import { localizePath, PREFIXED_LOCALES } from '@/lib/i18n/config'
@@ -262,20 +263,38 @@ async function getScopePins() {
   }
 }
 
-// Latest additions across the network, the ticker's feed. Real names
-// from the live index, newest first; anything short of a full row
-// means no ticker.
-async function getRecentListings() {
+// A random sample of the network, the ticker's feed. Real names from
+// the live index, drawn from anywhere across the atlas rather than the
+// newest first — a serendipity surface, not a freshness feed. Because
+// `listings.id` is a random v4 UUID, a slice of rows in id order that
+// starts at a random UUID cursor is a uniform random sample, decoupled
+// from age, vertical, and region — no extra count query, no clustering.
+// The draw runs once per hour when the home-data cache rebuilds (the
+// hourSeed key), so the set is stable within the hour and rotates.
+// Anything short of a full row means no ticker.
+async function getRandomListings() {
   try {
     const sb = getSupabaseAdmin()
-    const { data } = await sb
-      .from('listings')
-      .select('id, name, slug, region, state, vertical')
-      .eq('status', 'active')
-      .not('name', 'ilike', '\\_%')
-      .not('slug', 'is', null)
-      .order('created_at', { ascending: false })
-      .limit(32)
+    const WINDOW = 60
+    const windowFrom = async (cursor) => {
+      const { data } = await sb
+        .from('listings')
+        .select('id, name, slug, region, state, vertical')
+        .eq('status', 'active')
+        .not('name', 'ilike', '\\_%')
+        .not('slug', 'is', null)
+        .gte('id', cursor)
+        .order('id', { ascending: true })
+        .limit(WINDOW)
+      return data || []
+    }
+    let rows = await windowFrom(randomUUID())
+    // A cursor landing in the last WINDOW rows of the id space returns a
+    // short window; wrap to the start so the ticker always has a full
+    // pool to draw from (the ranges are disjoint, so no double-count).
+    if (rows.length < 24) {
+      rows = rows.concat(await windowFrom('00000000-0000-0000-0000-000000000000'))
+    }
     // Guard against address fragments leaking into the marquee as
     // "names": a comma next to a number, a trailing postcode, or a
     // state-code+postcode all read as an address, never a venue name.
@@ -285,7 +304,14 @@ async function getRecentListings() {
              /\b\d{4}\s*$/.test(s) ||
              /\b(VIC|NSW|QLD|SA|WA|TAS|ACT|NT)\b\s*\d{3,4}\b/i.test(s)
     }
-    return (data || []).filter(l => !looksLikeAddress(l.name)).slice(0, 20)
+    const clean = rows.filter(l => !looksLikeAddress(l.name))
+    // Fisher–Yates shuffle so which 20 show — and their order — vary
+    // each hour, not just the window they were drawn from.
+    for (let i = clean.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[clean[i], clean[j]] = [clean[j], clean[i]]
+    }
+    return clean.slice(0, 20)
   } catch {
     return []
   }
@@ -469,10 +495,10 @@ async function getLatestArticles() {
 }
 
 async function assembleHomeData(publicVerticals, hourSeed) {
-  const [stats, scopePins, heroTrip, articles, recentListings, typeCounts] = await Promise.all([
-    getStats(publicVerticals), getScopePins(), getHeroTrip(hourSeed), getLatestArticles(), getRecentListings(), getTypeCounts(publicVerticals),
+  const [stats, scopePins, heroTrip, articles, randomListings, typeCounts] = await Promise.all([
+    getStats(publicVerticals), getScopePins(), getHeroTrip(hourSeed), getLatestArticles(), getRandomListings(), getTypeCounts(publicVerticals),
   ])
-  return { stats, scopePins, heroTrip, articles, recentListings, typeCounts }
+  return { stats, scopePins, heroTrip, articles, randomListings, typeCounts }
 }
 
 // The root layout reads auth cookies, so this route renders per-request
@@ -490,13 +516,13 @@ const getHomeDataCached = unstable_cache(
     }
     return data
   },
-  // v6: raw (vertical, sub_type) tallies joined the payload for the
-  // plate's rotating type counter (v5 added the recently-added
-  // ticker). A fresh key so no v5 entry missing typeCounts can be
-  // served for its remaining hour. hourSeed is an argument, so each
-  // hour writes its own entry and the worked trip turns over on the
-  // hour.
-  ['home-data-v6'],
+  // v7: the ticker's feed became a random sample of the atlas
+  // (`randomListings`), replacing v6's newest-first `recentListings`.
+  // A fresh key so no v6 entry — with the old field name and freshness
+  // ordering — is served for its remaining hour. hourSeed is an
+  // argument, so each hour writes its own entry and both the worked
+  // trip and the random ticker turn over on the hour.
+  ['home-data-v7'],
   { revalidate: 3600 }
 )
 
@@ -516,7 +542,7 @@ export default async function Home() {
   // overall); the rest follow in the rail beneath it.
   const featuredArticle = (articles || []).find(a => a.hero_image_url) || (articles || [])[0]
   const restArticles = (articles || []).filter(a => a !== featuredArticle).slice(0, 2)
-  const recentListings = await overlayListingTranslations(homeData.recentListings || [], locale)
+  const randomListings = await overlayListingTranslations(homeData.randomListings || [], locale)
   const scopePins = await overlayListingTranslations(homeData.scopePins, locale)
   const heroTrip = homeData.heroTrip
     ? { ...homeData.heroTrip, stops: await overlayListingTranslations(homeData.heroTrip.stops, locale) }
@@ -642,22 +668,22 @@ export default async function Home() {
       </nav>
 
       {/* ── 1c. The living index ticker ─────────────────────────── */}
-      {/* Real, newest places drifting past: proof the atlas is alive,
-          and a serendipity surface (every name is a link). Duplicated
-          track = seamless loop; the copy row is aria-hidden and
-          untabbable. Pauses on hover; reduced-motion collapses it to a
-          static scrollable row. Same treatment the previous front door
-          carried, reinstated per Matt. */}
-      {recentListings.length >= 8 && (
-        <section className="atlas-ticker" aria-label={t('recentlyAddedAria')}>
+      {/* Real places drifting past, a random sample from across the
+          atlas: proof it's alive, and a serendipity surface (every name
+          is a link). Duplicated track = seamless loop; the copy row is
+          aria-hidden and untabbable. Pauses on hover; reduced-motion
+          collapses it to a static scrollable row. Same treatment the
+          previous front door carried, reinstated per Matt. */}
+      {randomListings.length >= 8 && (
+        <section className="atlas-ticker" aria-label={t('atlasSampleAria')}>
           <span className="atlas-ticker-label">
-            {t('recentlyAdded')}
+            {t('atlasSample')}
           </span>
           <div className="atlas-ticker-viewport">
             <div className="atlas-ticker-track">
               {[0, 1].map(copy => (
                 <span key={copy} aria-hidden={copy === 1 ? 'true' : undefined} style={{ display: 'inline-flex' }}>
-                  {recentListings.map(l => (
+                  {randomListings.map(l => (
                     <LocalizedLink
                       key={`${copy}-${l.id}`}
                       href={`/place/${l.slug}`}

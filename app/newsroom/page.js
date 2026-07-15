@@ -1,6 +1,8 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { usePress } from './layout'
 import {
   Card, PageHeader, SectionTitle, StatCard, EmptyState, Button,
@@ -13,6 +15,8 @@ import { PRESS_CONTACT_EMAIL, CITATION_LINE } from '@/lib/press/config'
 
 export default function NewsdeskPage() {
   const { press, regions, network, signals, recentAdditions, recentAdditionsCount, upcomingEvents, leads } = usePress()
+  const router = useRouter()
+  const [hunt, setHunt] = useState('')
 
   const regionNameById = Object.fromEntries(regions.map(r => [r.id, r.name]))
   const firstName = (press.name || '').split(' ')[0]
@@ -35,6 +39,38 @@ export default function NewsdeskPage() {
         <StatCard label="New places (30 days)" value={recentAdditionsCount} sub="in your regions" />
         <StatCard label="Across Australia" value={(network?.listings ?? 0).toLocaleString()} sub={`independent places · ${network?.liveRegions ?? 0} regions`} />
       </div>
+
+      {/* Story hunt — the semantic search, one box away */}
+      <Card style={{ padding: '1.1rem 1.25rem', marginBottom: '1.9rem' }}>
+        <form
+          onSubmit={e => {
+            e.preventDefault()
+            const q = hunt.trim()
+            if (q) router.push(`/newsroom/find?q=${encodeURIComponent(q)}`)
+          }}
+          style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}
+        >
+          <input
+            value={hunt}
+            onChange={e => setHunt(e.target.value)}
+            placeholder="Hunting a story? Describe it — “a distillery reviving a lost local spirit”"
+            aria-label="Find a story"
+            style={{
+              flex: 1, minWidth: 240, padding: '0.6rem 0.85rem', borderRadius: 10,
+              border: '1px solid var(--color-border)', fontFamily: 'var(--font-body)',
+              fontSize: '0.9rem', color: 'var(--color-ink)', background: 'var(--color-card-bg)',
+              outline: 'none', boxSizing: 'border-box',
+            }}
+            onFocus={e => e.target.style.borderColor = 'var(--color-sage)'}
+            onBlur={e => e.target.style.borderColor = 'var(--color-border)'}
+          />
+          <Button type="submit" variant="primary" small onClick={() => {}}>Find a story</Button>
+        </form>
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.72rem', color: 'var(--color-muted)', margin: '0.5rem 0 0' }}>
+          Semantic search over every listed independent — meaning, not keywords.{' '}
+          <Link href="/newsroom/find" style={{ color: 'var(--color-sage-dark)' }}>Open the story finder →</Link>
+        </p>
+      </Card>
 
       {regions.length === 0 && (
         <Card style={{ padding: '2rem', marginBottom: '1.9rem', textAlign: 'center' }}>
