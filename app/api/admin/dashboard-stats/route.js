@@ -28,6 +28,8 @@ export async function GET() {
       trailsRes,
       councilApplicationsRes,
       councilsActiveRes,
+      pressEnquiriesRes,
+      pressMembersRes,
       verticalCountsRes,
     ] = await Promise.all([
       // Total listings
@@ -52,6 +54,10 @@ export async function GET() {
       sb.from('council_enquiries').select('id', { count: 'exact', head: true }).eq('status', 'new'),
       // Active council accounts
       sb.from('council_accounts').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+      // New press access requests awaiting review
+      sb.from('press_enquiries').select('id', { count: 'exact', head: true }).eq('status', 'new'),
+      // Active press members
+      sb.from('press_accounts').select('id', { count: 'exact', head: true }).eq('status', 'active').eq('approved', true),
       // Per-vertical active counts
       sb.from('listings').select('vertical').eq('status', 'active'),
     ])
@@ -77,6 +83,8 @@ export async function GET() {
       published_trails: trailsRes.count || 0,
       council_applications_new: councilApplicationsRes.count || 0,
       councils_active: councilsActiveRes.count || 0,
+      press_enquiries_new: pressEnquiriesRes.count || 0,
+      press_members_active: pressMembersRes.count || 0,
       vertical_counts: verticalCounts,
     })
   } catch (err) {

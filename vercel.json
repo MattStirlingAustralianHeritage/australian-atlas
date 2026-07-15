@@ -146,6 +146,10 @@
     {
       "path": "/api/cron/indexnow",
       "schedule": "20 4 * * *"
+    },
+    {
+      "path": "/api/cron/press-notify",
+      "schedule": "10 * * * *"
     }
   ]
 }

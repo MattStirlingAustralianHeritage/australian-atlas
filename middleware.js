@@ -148,6 +148,29 @@ export async function middleware(request, event) {
     }
   }
 
+  // ── Newsroom (press) routes: validate HMAC-signed session cookie ──
+  // Public press surfaces are exempt: login, enquire, and the public example
+  // fact sheet. The secret falls back through keys that already exist on
+  // deployed environments — mirrored in lib/press-session.js getPressSecret()
+  // and lib/press/tokens.js.
+  const isPublicPressRoute =
+    basePath.startsWith('/newsroom/login') ||
+    basePath.startsWith('/newsroom/enquire') ||
+    basePath === '/newsroom/example'
+  if (basePath.startsWith('/newsroom') && !isPublicPressRoute) {
+    const pressCookie = request.cookies.get('press_session')
+    const pressSecret =
+      process.env.PRESS_SESSION_SECRET ||
+      process.env.COUNCIL_SESSION_SECRET ||
+      process.env.ADMIN_SESSION_SECRET
+    const valid = await validateHmacSession(pressCookie?.value, pressSecret)
+    if (!valid) {
+      const res = NextResponse.redirect(new URL('/newsroom/login', request.url))
+      if (pressCookie) res.cookies.delete('press_session')
+      return res
+    }
+  }
+
   // ── Supabase auth: only for non-admin routes that need it ──
   let response = makeResponse()
 
@@ -187,13 +210,19 @@ export async function middleware(request, event) {
 
 // Edge-compatible HMAC validation for council sessions (Web Crypto API)
 async function validateCouncilHmac(cookieValue) {
+  return validateHmacSession(cookieValue, process.env.COUNCIL_SESSION_SECRET)
+}
+
+// Generic edge HMAC session validation — shared by the council and press
+// (newsroom) gates. Cookie format: id:slug:timestamp:hmac, 30-day max age,
+// HMAC-SHA256 over the first three parts.
+async function validateHmacSession(cookieValue, secret) {
   if (!cookieValue) return false
 
   const parts = cookieValue.split(':')
   if (parts.length !== 4) return false
 
   const [, , timestamp, hmac] = parts
-  const secret = process.env.COUNCIL_SESSION_SECRET
   if (!secret) return false
 
   // Check session age (30 days)
