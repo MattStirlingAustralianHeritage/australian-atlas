@@ -1,7 +1,14 @@
+import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 
 export const dynamic = 'force-dynamic'
 
+// Trail-prompt insights. Search-QUERY insights (top queries + zero-result gaps)
+// moved to the Network Analytics page (/admin/analytics), which reads the richer
+// search_events table across every search surface. This page keeps the signals
+// that have no other admin surface: what people ask the itinerary builder and
+// which regions those prompts name (trail_logs), result click-through
+// (search_click_events), and search health (latency / fallbacks).
 export default async function InsightsPage() {
   // Auth handled by middleware — no page-level check needed
 
@@ -33,9 +40,7 @@ export default async function InsightsPage() {
     // Continue with empty state rather than crashing
   }
 
-  // ── Aggregate search data ──────────────────────────────────────────
-  const searchCounts = {}
-  const zeroResultCounts = {}
+  // ── Aggregate search health (query LISTS live on /admin/analytics) ─
   const latencies = []
   let zeroCount = 0
   let fellBackCount = 0
@@ -45,12 +50,6 @@ export default async function InsightsPage() {
     if (row.zero_result) zeroCount++
     if (row.fell_back) fellBackCount++
     if (row.voyage_error) voyageErrCount++
-    const q = (row.query_text || '').toLowerCase().trim()
-    if (!q) continue
-    searchCounts[q] = (searchCounts[q] || 0) + 1
-    if (row.zero_result || row.result_count === 0) {
-      zeroResultCounts[q] = (zeroResultCounts[q] || 0) + 1
-    }
   }
   const eventTotal = (searchRows || []).length
   latencies.sort((a, b) => a - b)
@@ -73,14 +72,6 @@ export default async function InsightsPage() {
   }
   const topClickedList = Object.entries(clickCounts).sort((a, b) => b[1] - a[1]).slice(0, 15)
   const clicksTotal = (clickRows || []).length
-
-  const topSearchList = Object.entries(searchCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 20)
-
-  const zeroResultList = Object.entries(zeroResultCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 20)
 
   // ── Aggregate trail data ───────────────────────────────────────────
   const trailCounts = {}
@@ -121,6 +112,13 @@ export default async function InsightsPage() {
       color: 'var(--color-muted, #888)',
       margin: 0,
     },
+    crossLink: {
+      fontFamily: 'var(--font-body, system-ui)',
+      fontSize: '0.85rem',
+      color: 'var(--color-accent, #6B7F5E)',
+      textDecoration: 'none',
+      fontWeight: 500,
+    },
     card: {
       background: '#fff',
       borderRadius: '12px',
@@ -134,13 +132,6 @@ export default async function InsightsPage() {
       fontWeight: 600,
       color: 'var(--color-ink, #2D2A26)',
       margin: '0 0 1rem',
-    },
-    backLink: {
-      textDecoration: 'none',
-      color: 'var(--color-muted, #8B8578)',
-      fontSize: '0.75rem',
-      letterSpacing: '0.1em',
-      textTransform: 'uppercase',
     },
     tableHeader: {
       fontWeight: 600,
@@ -171,8 +162,14 @@ export default async function InsightsPage() {
       <div style={styles.container}>
         {/* Header */}
         <div style={{ marginBottom: '2rem' }}>
-          <h1 style={styles.heading}>Search Insights</h1>
-          <p style={styles.subtitle}>Last 7 days &middot; {(searchRows || []).length} searches &middot; {(trailRows || []).length} trail prompts</p>
+          <h1 style={styles.heading}>Trail Prompts</h1>
+          <p style={styles.subtitle}>Last 7 days &middot; {(trailRows || []).length} itinerary prompts</p>
+          <p style={{ ...styles.subtitle, marginTop: '0.5rem' }}>
+            Looking for search queries?{' '}
+            <Link href="/admin/analytics" style={styles.crossLink}>
+              Search Insights moved to Network Analytics &rarr;
+            </Link>
+          </p>
         </div>
 
         {/* Search health (from search_events / search_health) */}
@@ -222,31 +219,6 @@ export default async function InsightsPage() {
         {/* Grid: two columns on wider screens */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '1.5rem' }}>
 
-          {/* Top 20 Search Queries */}
-          <div style={styles.card}>
-            <h2 style={styles.sectionTitle}>Top 20 Search Queries</h2>
-            {topSearchList.length === 0 ? (
-              <p style={styles.subtitle}>No search data yet.</p>
-            ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    <th style={{ ...styles.tableHeader, textAlign: 'left' }}>Query</th>
-                    <th style={{ ...styles.tableHeader, textAlign: 'right' }}>Count</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {topSearchList.map(([query, count]) => (
-                    <tr key={query}>
-                      <td style={styles.tableRow}>{query}</td>
-                      <td style={{ ...styles.tableRow, ...styles.countCell }}>{count}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-
           {/* Top 20 Trail Prompts */}
           <div style={styles.card}>
             <h2 style={styles.sectionTitle}>Top 20 Trail Prompts</h2>
@@ -264,31 +236,6 @@ export default async function InsightsPage() {
                   {topTrailList.map(([prompt, count]) => (
                     <tr key={prompt}>
                       <td style={styles.tableRow}>{prompt}</td>
-                      <td style={{ ...styles.tableRow, ...styles.countCell }}>{count}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-
-          {/* Zero-Result Searches */}
-          <div style={styles.card}>
-            <h2 style={styles.sectionTitle}>Zero-Result Searches</h2>
-            {zeroResultList.length === 0 ? (
-              <p style={styles.subtitle}>No zero-result searches in this period.</p>
-            ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    <th style={{ ...styles.tableHeader, textAlign: 'left' }}>Query</th>
-                    <th style={{ ...styles.tableHeader, textAlign: 'right' }}>Count</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {zeroResultList.map(([query, count]) => (
-                    <tr key={query}>
-                      <td style={styles.tableRow}>{query}</td>
                       <td style={{ ...styles.tableRow, ...styles.countCell }}>{count}</td>
                     </tr>
                   ))}

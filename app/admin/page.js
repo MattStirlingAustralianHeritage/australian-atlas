@@ -683,8 +683,8 @@ function DataQualityZone() {
 
 function OperationsZone() {
   const links = [
-    { label: 'Analytics', description: 'Traffic, geography, per-vertical breakdown', href: '/admin/analytics' },
-    { label: 'Search Insights', description: 'Top queries, trail prompts, zero-result searches', href: '/admin/insights' },
+    { label: 'Analytics', description: 'Traffic, geography, per-vertical breakdown, search insights', href: '/admin/analytics' },
+    { label: 'Trail Prompts', description: 'Itinerary-builder prompts and most-requested regions', href: '/admin/insights' },
     { label: 'Listings Review', description: 'Review listings with a human eye', href: '/admin/listings-review' },
     { label: 'Notes', description: 'Bug reports, cosmetic issues, suggestions', href: '/admin/notes' },
     { label: 'Operators', description: 'Manage operator accounts and approvals', href: '/admin/operators' },

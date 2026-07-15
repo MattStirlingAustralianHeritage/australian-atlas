@@ -71,7 +71,7 @@ const SECTIONS = [
     title: 'Insight & ops',
     links: [
       ['/admin/analytics', 'Analytics'],
-      ['/admin/insights', 'Search insights'],
+      ['/admin/insights', 'Trail prompts'],
       ['/admin/growth', 'Growth'],
       ['/admin/outreach', 'Outreach'],
       ['/admin/agents', 'Agents'],
