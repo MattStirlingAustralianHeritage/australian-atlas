@@ -45,6 +45,8 @@ import PlacePhotoHero from '@/components/place/PlacePhotoHero'
 import PlacePhotoLibrary from '@/components/place/PlacePhotoLibrary'
 import OperatorTrailSection from '@/components/OperatorTrailSection'
 import { readOperatorTrailForListing } from '@/lib/trails/operatorTrail'
+import RegionIndexCard from '@/components/RegionIndexCard'
+import { getRegionVerticalMixCached, regionCardChips } from '@/lib/regions/verticalMix'
 
 export const revalidate = 3600
 // Safety net: a cold render fans out many DB round-trips; give it headroom so a
@@ -227,11 +229,13 @@ const getListing = cache(async function getListing(slug, locale = 'en') {
       // Way Atlas: attach full meta for the operator detail section.
       if (metaLookup.table === 'way_meta' && metaRow) {
         data._wayMeta = metaRow
-        // Resolve operating_region_ids UUIDs to region names.
+        // Resolve operating_region_ids UUIDs to the fields the /regions
+        // silhouette Region Card renders (state + centroid for the SVG map,
+        // listing_count for the place label + category chips).
         if (metaRow.operating_region_ids?.length) {
           const { data: regionRows } = await sb
             .from('regions')
-            .select('id, name, slug')
+            .select('id, name, slug, state, listing_count, center_lat, center_lng')
             .in('id', metaRow.operating_region_ids)
           data._wayMeta._operatingRegions = regionRows || []
         }
@@ -814,6 +818,32 @@ export default async function PlacePage({ params }) {
   const region = getListingRegion(listing)
   const cleanRegion = region?.name ? localizeRegionName(region.name, locale) : null
   const regionData = region
+
+  // Way Atlas operating regions, rendered with the same silhouette Region
+  // Cards used on /regions and /explore (state outline + centroid dot + place
+  // count + top-3 category chips) rather than bare text pills. The category
+  // chips draw on the hourly-cached network-wide vertical mix — if that lookup
+  // fails the cards still render, just without chips.
+  const operatingRegions = listing._wayMeta?._operatingRegions || []
+  let operatingRegionCards = []
+  if (operatingRegions.length) {
+    let verticalMix = {}
+    try { verticalMix = await getRegionVerticalMixCached() } catch { /* chips optional */ }
+    const tRegions = await getTranslations('regions')
+    operatingRegionCards = operatingRegions.map(r => ({
+      region: { ...r, name: localizeRegionName(r.name, locale) },
+      chips: regionCardChips(r, verticalMix, locale),
+      placeLabel: tRegions('placeCount', { count: r.listing_count || 0 }),
+    }))
+  }
+  const wayMeta = listing._wayMeta
+  const hasOperatorFacts = !!(wayMeta && (
+    wayMeta.operator_type ||
+    wayMeta.aboriginal_community ||
+    wayMeta.departure_point_name ||
+    (wayMeta.presence_type && wayMeta.presence_type !== 'year_round') ||
+    wayMeta.accreditations?.length
+  ))
 
   // "Table Atlas" → localize the kicker stem ("Table") and re-append the Atlas
   // word. English is unchanged (kicker falls back to the English stem + " Atlas").
@@ -1668,63 +1698,117 @@ export default async function PlacePage({ params }) {
           </section>
         )}
 
-        {/* ── Operator Details (Way Atlas only) ─────────── */}
-        {listing._wayMeta && (
+        {/* ── About this operator (Way Atlas only) ────────────────────────
+            An editorial operator card: a slim vertical-accent header rule, the
+            operator facts as a two-column definition grid, and — where the
+            operator works across regions — the same silhouette Region Cards
+            used on /regions (state outline + centroid dot + place count),
+            in place of the old bare text pills. */}
+        {(hasOperatorFacts || operatingRegionCards.length > 0) && (
           <section className="mb-10">
             <h2 className="mb-4" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)' }}>
               {t('aboutThisOperator')}
             </h2>
-            <div className="p-5 rounded-lg flex flex-col gap-4" style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}>
-              {listing._wayMeta.operator_type && (
-                <WayDetailRow label={t('wayOperator')}>
-                  {WAY_OPERATOR_TYPE_LABELS[listing._wayMeta.operator_type] || formatSubcategory(listing._wayMeta.operator_type)}
-                </WayDetailRow>
+            <div
+              className="rounded-xl overflow-hidden"
+              style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}
+            >
+              {/* Slim brand accent rule across the top of the card */}
+              <div style={{ height: '3px', background: `linear-gradient(90deg, ${vertColor}, ${vertColor}00)` }} />
+
+              {/* Operator facts — two-column definition grid */}
+              {hasOperatorFacts && (
+                <dl
+                  className="p-5 sm:p-6 grid gap-x-8 gap-y-5"
+                  style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', margin: 0 }}
+                >
+                  {wayMeta.operator_type && (
+                    <WayDetailRow label={t('wayOperator')} accent={vertColor}>
+                      {WAY_OPERATOR_TYPE_LABELS[wayMeta.operator_type] || formatSubcategory(wayMeta.operator_type)}
+                    </WayDetailRow>
+                  )}
+                  {wayMeta.aboriginal_community && (
+                    <WayDetailRow label={t('wayCommunityNation')} accent={vertColor}>
+                      {wayMeta.aboriginal_community}
+                    </WayDetailRow>
+                  )}
+                  {wayMeta.departure_point_name && (
+                    <WayDetailRow label={t('wayDepartingFrom')} accent={vertColor}>
+                      {wayMeta.departure_point_name}
+                    </WayDetailRow>
+                  )}
+                  {wayMeta.presence_type && wayMeta.presence_type !== 'year_round' && (
+                    <WayDetailRow label={t('wayAvailability')} accent={vertColor}>
+                      {WAY_PRESENCE_TYPE_LABELS[wayMeta.presence_type] || formatSubcategory(wayMeta.presence_type)}
+                    </WayDetailRow>
+                  )}
+                  {wayMeta.accreditations?.length > 0 && (
+                    <WayDetailRow label={t('wayAccreditations')} accent={vertColor} full>
+                      <div className="flex flex-wrap gap-1.5 mt-1.5">
+                        {wayMeta.accreditations.map(a => (
+                          <span
+                            key={a}
+                            className="inline-flex items-center gap-1.5"
+                            style={{
+                              padding: '0.28rem 0.65rem',
+                              borderRadius: '100px',
+                              border: `1px solid ${vertColor}33`,
+                              background: `${vertColor}0d`,
+                              color: 'var(--color-ink)',
+                              fontFamily: 'var(--font-body)',
+                              fontSize: '11.5px',
+                              fontWeight: 500,
+                            }}
+                          >
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke={vertColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                            {WAY_ACCREDITATION_LABELS[a] || a}
+                          </span>
+                        ))}
+                      </div>
+                    </WayDetailRow>
+                  )}
+                </dl>
               )}
-              {listing._wayMeta.aboriginal_community && (
-                <WayDetailRow label={t('wayCommunityNation')}>
-                  {listing._wayMeta.aboriginal_community}
-                </WayDetailRow>
-              )}
-              {listing._wayMeta._operatingRegions?.length > 0 && (
-                <WayDetailRow label={t('wayOperatingRegions')}>
-                  <div className="flex flex-wrap gap-1.5">
-                    {listing._wayMeta._operatingRegions.map(r => (
-                      <Link
-                        key={r.id}
-                        href={`/regions/${r.slug}`}
-                        className="inline-block px-2 py-0.5 rounded text-xs font-medium hover:underline"
-                        style={{ background: `${vertColor}12`, color: vertColor }}
-                      >
-                        {r.name}
-                      </Link>
+
+              {/* Operating regions — silhouette Region Cards */}
+              {operatingRegionCards.length > 0 && (
+                <div
+                  className="p-5 sm:p-6"
+                  style={{
+                    borderTop: hasOperatorFacts ? '1px solid var(--color-border)' : 'none',
+                    background: 'rgba(0, 0, 0, 0.015)',
+                  }}
+                >
+                  <div
+                    className="uppercase mb-3.5"
+                    style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '10px', letterSpacing: '0.08em', color: 'var(--color-muted)' }}
+                  >
+                    {t('wayOperatingRegions')}
+                  </div>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gap: '1rem',
+                      // One region → a single deliberately-sized card (capped
+                      // at 320px, shrinks on narrow screens) rather than a
+                      // full-width stretch; several → a responsive fill.
+                      gridTemplateColumns: operatingRegionCards.length === 1
+                        ? 'min(100%, 320px)'
+                        : 'repeat(auto-fill, minmax(230px, 1fr))',
+                    }}
+                  >
+                    {operatingRegionCards.map(c => (
+                      <RegionIndexCard
+                        key={c.region.id}
+                        region={c.region}
+                        chips={c.chips}
+                        placeLabel={c.placeLabel}
+                      />
                     ))}
                   </div>
-                </WayDetailRow>
-              )}
-              {listing._wayMeta.departure_point_name && (
-                <WayDetailRow label={t('wayDepartingFrom')}>
-                  {listing._wayMeta.departure_point_name}
-                </WayDetailRow>
-              )}
-              {listing._wayMeta.accreditations?.length > 0 && (
-                <WayDetailRow label={t('wayAccreditations')}>
-                  <div className="flex flex-wrap gap-1.5">
-                    {listing._wayMeta.accreditations.map(a => (
-                      <span
-                        key={a}
-                        className="inline-block px-2 py-0.5 rounded text-xs font-medium"
-                        style={{ background: 'rgba(0,0,0,0.05)', color: 'var(--color-ink)' }}
-                      >
-                        {WAY_ACCREDITATION_LABELS[a] || a}
-                      </span>
-                    ))}
-                  </div>
-                </WayDetailRow>
-              )}
-              {listing._wayMeta.presence_type && listing._wayMeta.presence_type !== 'year_round' && (
-                <WayDetailRow label={t('wayAvailability')}>
-                  {WAY_PRESENCE_TYPE_LABELS[listing._wayMeta.presence_type] || formatSubcategory(listing._wayMeta.presence_type)}
-                </WayDetailRow>
+                </div>
               )}
             </div>
           </section>
@@ -1906,9 +1990,15 @@ function MetaPillGroup({ label, items, vertColor, muted = false }) {
   )
 }
 
-function WayDetailRow({ label, children }) {
+function WayDetailRow({ label, children, accent, full }) {
   return (
-    <div>
+    <div
+      style={{
+        gridColumn: full ? '1 / -1' : undefined,
+        borderLeft: accent ? `2px solid ${accent}55` : undefined,
+        paddingLeft: accent ? '0.7rem' : undefined,
+      }}
+    >
       <dt
         className="text-xs font-semibold tracking-wider uppercase mb-1"
         style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)', letterSpacing: '0.08em', fontSize: '10px' }}
