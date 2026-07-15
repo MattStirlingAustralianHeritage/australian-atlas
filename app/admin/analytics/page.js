@@ -22,6 +22,7 @@ export default function AnalyticsDashboard() {
   const [loading, setLoading] = useState(true)
   const [range, setRange] = useState('30d')
   const [vertical, setVertical] = useState(null)
+  const [search, setSearch] = useState(null)
   const mapRef = useRef(null)
   const mapInstance = useRef(null)
 
@@ -45,6 +46,24 @@ export default function AnalyticsDashboard() {
   }, [range, vertical])
 
   useEffect(() => { fetchData() }, [fetchData])
+
+  // Search insights track the query text (search_events), which has no vertical
+  // dimension, so this fetch keys on `range` only — independent of the vertical
+  // highlight toggle above.
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/analytics/searches?range=${range}`)
+        const json = res.ok ? await res.json() : null
+        if (!cancelled) setSearch(json)
+      } catch (err) {
+        console.error('Failed to fetch search insights:', err)
+        if (!cancelled) setSearch(null)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [range])
 
   // Animated map with Mapbox
   useEffect(() => {
@@ -307,6 +326,9 @@ export default function AnalyticsDashboard() {
             </div>
           </div>
 
+          {/* Search Insights — what people are searching for */}
+          <SearchInsights search={search} />
+
           {/* Geographic Breakdown Table */}
           <div style={{ background: '#fff', borderRadius: '12px', border: '1px solid var(--color-border, #E5E0D8)', padding: '1.25rem' }}>
             <h2 style={{ fontSize: '1rem', fontWeight: 600, margin: '0 0 1rem', color: 'var(--color-ink)' }}>
@@ -331,6 +353,142 @@ export default function AnalyticsDashboard() {
             )}
           </div>
         </div>
+      )}
+    </div>
+  )
+}
+
+const SURFACE_LABELS = {
+  front_door: 'Front door',
+  vibe: 'Vibe search',
+  ask: 'Concierge',
+  plan: 'Plan a Stay',
+  itinerary: 'Itinerary',
+  similar: 'More like this',
+}
+
+function SearchInsights({ search }) {
+  const cardStyle = {
+    background: '#fff', borderRadius: '12px',
+    border: '1px solid var(--color-border, #E5E0D8)', padding: '1.25rem',
+  }
+
+  // Loading (fetch in flight) vs empty window.
+  const loading = search == null
+  const total = search?.totalSearches || 0
+  const topQueries = search?.topQueries || []
+  const zeroQueries = search?.zeroResultQueries || []
+  const surfaces = search?.surfaces || []
+  const maxCount = topQueries.reduce((m, q) => Math.max(m, q.count), 0) || 1
+  const zeroPct = search?.zeroResultRate != null ? (search.zeroResultRate * 100) : 0
+
+  return (
+    <div style={{ marginBottom: '2rem' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', margin: '0 0 1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <h2 style={{ fontFamily: 'var(--font-serif, Georgia)', fontSize: '1.25rem', fontWeight: 600, margin: 0, color: 'var(--color-ink, #2D2A26)' }}>
+          Search Insights
+        </h2>
+        <span style={{ fontSize: '0.75rem', color: 'var(--color-muted)' }}>
+          What people are searching for across the network
+        </span>
+      </div>
+
+      {loading ? (
+        <div style={{ ...cardStyle, textAlign: 'center', color: 'var(--color-muted)', fontSize: '0.85rem' }}>
+          Loading search insights…
+        </div>
+      ) : total === 0 ? (
+        <div style={{ ...cardStyle, textAlign: 'center', color: 'var(--color-muted)', fontSize: '0.85rem' }}>
+          No searches recorded in this window yet.
+        </div>
+      ) : (
+        <>
+          {/* Search stat row */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+            <SummaryCard label="Total Searches" value={total.toLocaleString()} />
+            <SummaryCard label="Distinct Queries" value={(search.distinctQueries || 0).toLocaleString()} />
+            <SummaryCard label="Zero-Result Rate" value={`${zeroPct.toFixed(1)}%`} />
+            {search.avgLatencyMs != null && (
+              <SummaryCard label="Avg Response" value={`${search.avgLatencyMs.toLocaleString()} ms`} />
+            )}
+          </div>
+
+          {/* Where searches originate */}
+          {surfaces.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1.5rem' }}>
+              {surfaces.map(s => (
+                <span key={s.surface} style={{
+                  fontSize: '0.75rem', color: 'var(--color-muted)', background: '#fff',
+                  border: '1px solid var(--color-border, #E5E0D8)', borderRadius: '999px',
+                  padding: '0.3rem 0.7rem', fontVariantNumeric: 'tabular-nums',
+                }}>
+                  {SURFACE_LABELS[s.surface] || s.surface}
+                  <strong style={{ color: 'var(--color-ink)', marginLeft: '0.4rem', fontWeight: 600 }}>
+                    {s.count.toLocaleString()}
+                  </strong>
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
+            {/* Top searches */}
+            <div style={cardStyle}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 600, margin: '0 0 1rem', color: 'var(--color-ink)' }}>
+                Top Searches
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
+                {topQueries.map((q, i) => (
+                  <div key={i}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '0.75rem', marginBottom: '0.25rem' }}>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--color-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {q.query}
+                      </span>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--color-muted)', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
+                        {q.count.toLocaleString()}
+                        {q.last_result_count != null && (
+                          <span style={{ color: 'var(--color-border, #C9C2B6)' }}> · {q.last_result_count} result{q.last_result_count !== 1 ? 's' : ''}</span>
+                        )}
+                      </span>
+                    </div>
+                    <div style={{ height: 4, borderRadius: 2, background: 'var(--color-border, #E5E0D8)', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${(q.count / maxCount) * 100}%`, background: '#6B7F5E', borderRadius: 2 }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Zero-result gaps */}
+            <div style={cardStyle}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 600, margin: '0 0 0.35rem', color: 'var(--color-ink)' }}>
+                Searches Finding Nothing
+              </h3>
+              <p style={{ fontSize: '0.75rem', color: 'var(--color-muted)', margin: '0 0 1rem' }}>
+                Real demand the network can’t answer yet — candidates worth adding.
+              </p>
+              {zeroQueries.length === 0 ? (
+                <p style={{ fontSize: '0.85rem', color: 'var(--color-muted)' }}>
+                  Every search in this window returned results. 🎉
+                </p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {zeroQueries.map((q, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.375rem 0', borderBottom: i < zeroQueries.length - 1 ? '1px solid var(--color-border, #E5E0D8)' : 'none' }}>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#C77D4A', flexShrink: 0 }} />
+                      <span style={{ fontSize: '0.85rem', color: 'var(--color-ink)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {q.query}
+                      </span>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--color-muted)', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
+                        {q.zero_count > 1 ? `${q.zero_count}×` : ''}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
       )}
     </div>
   )
