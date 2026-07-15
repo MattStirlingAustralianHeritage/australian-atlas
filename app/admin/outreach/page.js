@@ -19,6 +19,7 @@ const STATES = ['ACT', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC', 'WA']
 const STATUS_COLORS = {
   not_contacted: '#888',
   contacted: '#3b82f6',
+  replied: '#7c5cbf',
   claimed: '#5F8A7E',
   declined: '#c0392b',
   queued: '#d4a03c',
@@ -38,7 +39,7 @@ export default async function OutreachPage() {
   // Sent / contacted log — every outreach row that has actually been touched.
   const { data: logRows, error: logErr } = await sb
     .from('operator_outreach')
-    .select('id, listing_id, contact_email, email_source, status, send_status, resend_message_id, sent_at, send_error, campaign_id, notes, last_contacted_at, created_at, updated_at')
+    .select('id, listing_id, contact_email, email_source, status, send_status, resend_message_id, sent_at, delivered_at, opened_at, open_count, clicked_at, click_count, followup_sent_at, send_error, campaign_id, followup_campaign_id, notes, last_contacted_at, created_at, updated_at')
     .order('updated_at', { ascending: false })
     .limit(400)
 
@@ -55,19 +56,36 @@ export default async function OutreachPage() {
     for (const row of logRows) logWithListings.push({ ...row, listing: map[row.listing_id] || null })
   }
 
-  // Campaign summaries.
+  // Campaign summaries + per-campaign engagement funnel.
   let campaigns = []
   try {
     const { data } = await sb
       .from('outreach_campaigns')
-      .select('id, name, subject, total, sent, failed, skipped, test_mode, status, created_at, sent_at')
+      .select('id, name, subject, total, sent, failed, skipped, test_mode, status, kind, created_at, sent_at')
       .eq('audience', 'operator')
       .order('created_at', { ascending: false })
       .limit(50)
     campaigns = data || []
   } catch { /* table may not exist pre-migration */ }
 
-  // Aggregate stats.
+  try {
+    const { data: funnels } = await sb.rpc('outreach_campaign_funnel')
+    const byId = new Map((funnels || []).map((f) => [f.campaign_id, f]))
+    campaigns = campaigns.map((c) => {
+      const f = byId.get(c.id)
+      return f
+        ? { ...c, delivered: Number(f.delivered), opened: Number(f.opened), clicked: Number(f.clicked), claims: Number(f.claims) }
+        : c
+    })
+  } catch { /* RPC may not exist pre-migration */ }
+
+  // Whole-funnel overview (one RPC, counts the full table — not just this log page).
+  let overview = null
+  try {
+    const { data } = await sb.rpc('outreach_overview')
+    overview = Array.isArray(data) ? data[0] : data
+  } catch { /* RPC may not exist pre-migration */ }
+
   const { count: unclaimedCount } = await sb
     .from('listings')
     .select('id', { count: 'exact', head: true })
@@ -80,8 +98,21 @@ export default async function OutreachPage() {
     suppressedCount = count || 0
   } catch { /* table may not exist pre-migration */ }
 
-  const sentCount = (logRows || []).filter((r) => r.send_status === 'sent').length
-  const contactedCount = (logRows || []).filter((r) => r.status === 'contacted').length
+  const stats = {
+    unclaimed: unclaimedCount || 0,
+    suppressed: suppressedCount,
+    withEmail: Number(overview?.with_email || 0),
+    checked: Number(overview?.discovery_checked || 0),
+    contacted: Number(overview?.contacted || 0),
+    delivered: Number(overview?.delivered || 0),
+    opened: Number(overview?.opened || 0),
+    clicked: Number(overview?.clicked || 0),
+    followedUp: Number(overview?.followed_up || 0),
+    claimed: Number(overview?.claimed || 0),
+    replied: Number(overview?.replied || 0),
+    // Pre-migration fallback so the header never shows all-zeros.
+    sent: (logRows || []).filter((r) => r.send_status === 'sent').length,
+  }
 
   return (
     <div style={{ maxWidth: 1180, margin: '0 auto', padding: '40px 24px' }}>
@@ -103,10 +134,11 @@ export default async function OutreachPage() {
           fontFamily: 'var(--font-body, system-ui)', fontSize: 14,
           color: 'var(--color-muted, #888)', marginTop: 8, lineHeight: 1.5, maxWidth: 640,
         }}>
-          Build a segment of unclaimed listings, discover contact emails from their websites,
-          and send a personalised batch invitation to claim their profile.
+          The autopilot works the unclaimed backlog daily — discovering contact emails,
+          writing openers, sending capped weekday batches and one follow-up — while this
+          console handles targeted manual sends and shows the whole funnel.
           {' '}Reaching local government instead? Use <a href="/admin/council-outreach" style={{ color: '#8a6520' }}>Council outreach</a>.
-          {' '}Reaching tour operators and the travel trade? Use <a href="/admin/trade-outreach" style={{ color: '#8a6520' }}>Trade outreach</a>.
+          {' '}Reaching the travel trade? Use <a href="/admin/trade-outreach" style={{ color: '#8a6520' }}>Trade outreach</a>.
         </p>
       </div>
 
@@ -128,12 +160,7 @@ export default async function OutreachPage() {
         statusColors={STATUS_COLORS}
         sendStatusColors={SEND_STATUS_COLORS}
         allStates={STATES}
-        stats={{
-          unclaimed: unclaimedCount || 0,
-          suppressed: suppressedCount,
-          sent: sentCount,
-          contacted: contactedCount,
-        }}
+        stats={stats}
       />
     </div>
   )

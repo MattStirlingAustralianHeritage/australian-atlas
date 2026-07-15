@@ -3,10 +3,9 @@ import { cookies } from 'next/headers'
 import { checkAdmin } from '@/lib/admin-auth'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { LISTING_REGION_SELECT, getListingRegion } from '@/lib/regions'
+import { isSendableEmail, UNSENDABLE_STATUSES } from '@/lib/outreach/sendEngine'
 
 export const dynamic = 'force-dynamic'
-
-const UNSENDABLE_STATUSES = new Set(['sent', 'bounced', 'complained', 'unsubscribed'])
 
 /**
  * POST /api/admin/outreach/segment
@@ -57,7 +56,7 @@ export async function POST(request) {
   if (ids.length) {
     const { data: orows } = await sb
       .from('operator_outreach')
-      .select('listing_id, contact_email, email_source, send_status, status, last_contacted_at, personal_note, discovered_at')
+      .select('listing_id, contact_email, email_source, send_status, status, last_contacted_at, personal_note, discovered_at, opened_at, clicked_at, followup_sent_at')
       .in('listing_id', ids)
     for (const r of orows || []) outreachByListing.set(r.listing_id, r)
   }
@@ -79,7 +78,9 @@ export async function POST(request) {
     const email = o?.contact_email || null
     const isSuppressed = email ? suppressed.has(email.toLowerCase()) : false
     const sendStatus = o?.send_status || null
-    const sendable = !!email && !isSuppressed && !UNSENDABLE_STATUSES.has(sendStatus)
+    // Format check keeps a malformed legacy capture from showing as sendable in
+    // the UI when the send route would skip it anyway.
+    const sendable = !!email && isSendableEmail(email) && !isSuppressed && !UNSENDABLE_STATUSES.has(sendStatus)
     // Website discovery outcome, so the UI distinguishes "found an email" from a
     // live site with none, a dead domain, or a blocked crawl, and doesn't keep
     // re-offering already-checked sites. When an email is present email_source is
@@ -107,6 +108,9 @@ export async function POST(request) {
       funnel_status: o?.status || null,
       last_contacted_at: o?.last_contacted_at || null,
       personal_note: o?.personal_note || null,
+      opened_at: o?.opened_at || null,
+      clicked_at: o?.clicked_at || null,
+      followup_sent_at: o?.followup_sent_at || null,
       suppressed: isSuppressed,
       sendable,
     }

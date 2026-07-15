@@ -45,7 +45,7 @@ export async function POST(request) {
     description: l.description || null,
   }))
 
-  const notes = await generatePersonalNotesBatch(enriched, 4)
+  const { notes, budgetHit } = await generatePersonalNotesBatch(enriched, 4, sb)
   const noteById = new Map(notes.map((n) => [n.id, n.personal_note]))
 
   // Read existing outreach rows so we update rather than duplicate.
@@ -88,5 +88,5 @@ export async function POST(request) {
   }
 
   const generated = results.filter((r) => r.personal_note).length
-  return NextResponse.json({ ok: true, requested: results.length, generated, results })
+  return NextResponse.json({ ok: true, requested: results.length, generated, budgetHit: !!budgetHit, results })
 }
