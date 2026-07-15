@@ -40,7 +40,7 @@ const ENTRANCE_DELAY_MS = 1400
 // Route prefixes where an invitation is noise: auth flows, role dashboards,
 // admin surfaces, council embeds.
 const EXCLUDED_PREFIXES = [
-  '/admin', '/council', '/dashboard', '/login', '/auth',
+  '/admin', '/council', '/newsroom', '/dashboard', '/login', '/auth',
   '/account', '/operators', '/embed',
 ]
 

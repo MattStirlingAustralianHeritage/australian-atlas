@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
 import { getNetworkStats } from '@/lib/networkStats'
@@ -239,6 +240,38 @@ export default async function PressPage() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Newsroom cross-link */}
+      <section style={{ borderTop: '1px solid var(--color-border)' }}>
+        <div style={{
+          maxWidth: 720, margin: '0 auto', padding: '3rem 1.5rem',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          gap: 20, flexWrap: 'wrap',
+        }}>
+          <div style={{ flex: 1, minWidth: 260 }}>
+            <h2 style={{
+              fontFamily: 'var(--font-display)', fontSize: 22, fontWeight: 400,
+              color: 'var(--color-ink)', lineHeight: 1.3, margin: '0 0 6px',
+            }}>
+              {t('newsroomBannerTitle')}
+            </h2>
+            <p style={{
+              fontFamily: 'var(--font-body)', fontSize: 13.5, fontWeight: 300,
+              color: 'var(--color-muted)', lineHeight: 1.6, margin: 0,
+            }}>
+              {t('newsroomBannerBody')}
+            </p>
+          </div>
+          <Link href="/for-press" style={{
+            display: 'inline-block', background: 'var(--color-sage)', color: '#fff',
+            fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600,
+            borderRadius: 99, padding: '0.65rem 1.6rem', textDecoration: 'none',
+            flexShrink: 0,
+          }}>
+            {t('newsroomBannerCta')}
+          </Link>
         </div>
       </section>
 

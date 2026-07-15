@@ -32,6 +32,7 @@ const exploreLinks = [
 const partnerLinks = [
   { href: '/for-venues', key: 'listVenue' },
   { href: '/for-councils', key: 'forCouncils' },
+  { href: '/for-press', key: 'forPress' },
   { href: '/operators', key: 'forOperators' },
   { href: '/suggest', key: 'suggestPlace' },
   { href: '/press', key: 'press' },

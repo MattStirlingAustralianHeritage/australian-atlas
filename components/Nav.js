@@ -112,6 +112,7 @@ export default function Nav() {
   const morePartnerLinks = [
     { href: '/for-councils', label: t('forCouncils') },
     { href: '/for-trade', label: t('forTrade') },
+    { href: '/for-press', label: t('forPress') },
     { href: '/operators', label: t('forOperators') },
   ]
   const secondaryLinks = [...moreExploreLinks, ...morePartnerLinks]
