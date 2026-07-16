@@ -5,6 +5,7 @@ import { getListingRegion } from '@/lib/regions'
 import { getVerticalUrl, getVerticalBadge } from '@/lib/verticalUrl'
 import { useAuth } from './layout'
 import DualListingPopup from './DualListingPopup'
+import UpgradeBanner from './UpgradeBanner'
 
 function getPublicUrl(vertical, slug) {
   return getVerticalUrl(vertical, slug)
@@ -440,6 +441,10 @@ export default function DashboardPage() {
   const { dashUser: user, listings, listingsLoading, listingsError, stats } = useAuth()
   const loading = listingsLoading
 
+  // Whether to surface the fast free→Standard upgrade banner: a non-admin operator
+  // with at least one unpaid listing. The banner itself self-gates too.
+  const hasUnpaidListing = user?.role !== 'admin' && (listings || []).some(l => l && !l.paid)
+
   // Not authenticated
   if (!loading && !user) {
     return (
@@ -572,6 +577,14 @@ export default function DashboardPage() {
           </p>
         )}
       </section>
+
+      {/* Fast free→Standard upgrade — one click to secure checkout, benefits up
+          front. Shows only when a non-admin operator has an unpaid listing. */}
+      {!loading && !listingsError && hasUnpaidListing && (
+        <section style={{ padding: '0 1.5rem 1.75rem', maxWidth: 720, margin: '0 auto' }}>
+          <UpgradeBanner listings={listings} isAdmin={user?.role === 'admin'} />
+        </section>
+      )}
 
       {/* Loading state */}
       {loading && (
