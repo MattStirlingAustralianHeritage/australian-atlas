@@ -85,11 +85,14 @@ async function fetchExistingRows() {
       throw new Error(`Failed to read existing gate-check rows: ${error.message}`)
     }
     for (const r of data) {
-      // On-demand AI findings (code *_ai) can't be recomputed by this sweep —
-      // carry them across the upsert so a re-sweep doesn't erase an admin's
-      // AI vertical-fit verdict on a still-pending row.
+      // Curated findings this deterministic sweep CANNOT recompute — carry them
+      // across the upsert so a re-sweep doesn't erase them from a still-pending
+      // row: (a) on-demand AI findings (code *_ai — e.g. an admin's AI
+      // vertical-fit verdict); (b) hallucinated_venue flags raised out-of-band
+      // by a human / verification agent (a fabricated venue can't be detected by
+      // the four automated gates).
       const aiDetails = (r.gate_details || [])
-        .filter(d => String(d.code || '').endsWith('_ai'))
+        .filter(d => { const c = String(d.code || ''); return c.endsWith('_ai') || c.startsWith('hallucinated_venue') })
         .map(d => ({ gate: d.gate, code: d.code, severity: d.severity, reason: d.reason, ...(d.suggested_vertical ? { suggested_vertical: d.suggested_vertical } : {}) }))
       map.set(r.listing_id, { status: r.status, aiDetails })
     }
