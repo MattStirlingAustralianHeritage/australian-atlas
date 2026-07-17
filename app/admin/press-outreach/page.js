@@ -107,11 +107,15 @@ export default async function PressOutreachPage() {
         </h1>
         <p style={{
           fontFamily: 'var(--font-body, system-ui)', fontSize: 14,
-          color: 'var(--color-muted, #888)', marginTop: 8, lineHeight: 1.5, maxWidth: 680,
+          color: 'var(--color-muted, #888)', marginTop: 8, lineHeight: 1.6, maxWidth: 680,
         }}>
-          Build a segment of press desks and journalists, discover contact emails from their outlets,
-          personalise a grounded opener, and pitch the Atlas newsroom as a story source — by hand or on
-          autopilot. Outbound counterpart of the inbound <a href="/admin/press" style={{ color: '#8a6520' }}>Newsroom</a>.
+          The autopilot works a curated directory of press desks and journalists daily — discovering
+          contact emails, writing grounded openers, and sending capped weekday pitches with one follow-up —
+          while this console handles targeted manual sends and shows the whole funnel. Outbound counterpart
+          of the inbound <a href="/admin/press" style={{ color: '#8a6520' }}>Newsroom</a>. Reaching operators,
+          councils or the travel trade instead? Use <a href="/admin/outreach" style={{ color: '#8a6520' }}>Outreach</a>,{' '}
+          <a href="/admin/council-outreach" style={{ color: '#8a6520' }}>Council outreach</a> or{' '}
+          <a href="/admin/trade-outreach" style={{ color: '#8a6520' }}>Trade outreach</a>.
         </p>
       </div>
 

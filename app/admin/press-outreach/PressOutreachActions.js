@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { PRESS_TEMPLATE_OPTIONS, PRESS_TEMPLATES, PRESS_INVITE_TEMPLATE } from '@/lib/outreach/pressTemplates'
 
 const SITE = 'https://australianatlas.com.au'
@@ -39,6 +39,12 @@ const btnPrimary = { ...btn, border: 'none', background: 'var(--color-ink, #2D2A
 const card = {
   background: 'var(--color-cream, #FAF8F5)',
   border: '1px solid var(--color-border, #e5e5e5)', borderRadius: 8,
+}
+const bodyFont = { fontFamily: 'var(--font-body, system-ui)' }
+
+function pct(a, b) {
+  if (!b) return null
+  return `${Math.round((a / b) * 100)}%`
 }
 
 // Mirror buildPressMergeContext (lib/outreach/pressTemplate.js) so the live
@@ -117,11 +123,45 @@ function Chip({ children, color = '#888', filled, title }) {
   )
 }
 
-function StatCard({ n, label: text }) {
+function StatCard({ n, label: text, sub }) {
   return (
     <div style={{ ...card, padding: '12px 16px', minWidth: 96 }}>
       <div style={{ fontFamily: 'var(--font-display, Georgia)', fontSize: 22, color: 'var(--color-ink, #2D2A26)' }}>{n}</div>
-      <div style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 11, color: 'var(--color-muted, #888)', marginTop: 2 }}>{text}</div>
+      <div style={{ ...bodyFont, fontSize: 11, color: 'var(--color-muted, #888)', marginTop: 2 }}>{text}</div>
+      {sub && <div style={{ ...bodyFont, fontSize: 10, color: '#8a6520', marginTop: 2 }}>{sub}</div>}
+    </div>
+  )
+}
+
+// ── Funnel header (directory → have email → contacted → opened) ──
+function FunnelHeader({ stats }) {
+  const stages = [
+    { n: stats.directory, label: 'in directory' },
+    { n: stats.withEmail, label: 'have email', sub: pct(stats.withEmail, stats.directory) },
+    { n: stats.contacted, label: 'contacted', sub: pct(stats.contacted, stats.withEmail) },
+    { n: stats.opened, label: 'opened', sub: pct(stats.opened, stats.contacted) },
+  ]
+  return (
+    <div style={{ marginBottom: 22 }}>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'stretch' }}>
+        {stages.map((s, i) => (
+          <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <StatCard n={Number(s.n || 0).toLocaleString()} label={s.label} sub={s.sub} />
+            {i < stages.length - 1 && (
+              <span style={{ ...bodyFont, color: 'var(--color-muted, #bbb)', fontSize: 16 }}>›</span>
+            )}
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: 14, marginTop: 8, flexWrap: 'wrap' }}>
+        {[
+          ['journalists', stats.journalists], ['press desks', stats.desks], ['suppressed', stats.suppressed],
+        ].filter(([, v]) => Number(v) > 0).map(([k, v]) => (
+          <span key={k} style={{ ...bodyFont, fontSize: 11.5, color: 'var(--color-muted, #888)' }}>
+            <strong style={{ color: 'var(--color-ink, #2D2A26)' }}>{Number(v).toLocaleString()}</strong> {k}
+          </span>
+        ))}
+      </div>
     </div>
   )
 }
@@ -818,107 +858,162 @@ function CampaignsPanel({ campaigns }) {
 }
 
 // ── Autopilot panel ───────────────────────────────────────────
+function Toggle({ checked, onChange, disabled }) {
+  return (
+    <button
+      onClick={() => !disabled && onChange(!checked)}
+      style={{
+        width: 40, height: 22, borderRadius: 100, border: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
+        background: checked ? '#5F8A7E' : '#d5d0c8', position: 'relative', transition: 'background 0.15s',
+        opacity: disabled ? 0.5 : 1, padding: 0, flexShrink: 0,
+      }}
+      aria-pressed={checked}
+    >
+      <span style={{
+        position: 'absolute', top: 2, left: checked ? 20 : 2, width: 18, height: 18,
+        borderRadius: '50%', background: '#fff', transition: 'left 0.15s',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+      }} />
+    </button>
+  )
+}
+
+function SettingRow({ title, desc, children }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: '12px 0', borderBottom: '1px solid var(--color-border, #eee)' }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ ...bodyFont, fontSize: 13.5, fontWeight: 500, color: 'var(--color-ink, #2D2A26)' }}>{title}</div>
+        <div style={{ ...bodyFont, fontSize: 12, color: 'var(--color-muted, #888)', marginTop: 2, lineHeight: 1.5, maxWidth: 460 }}>{desc}</div>
+      </div>
+      {children}
+    </div>
+  )
+}
+
 function AutopilotPanel() {
-  const [settings, setSettings] = useState(null)
-  const [status, setStatus] = useState(null)
+  const [data, setData] = useState(null)      // { settings, status }
+  const [form, setForm] = useState(null)      // editable copy of settings
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [msg, setMsg] = useState(null)
   const [error, setError] = useState(null)
+  const [savedAt, setSavedAt] = useState(null)
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const data = await fetchJson('/api/admin/press-outreach/settings')
-        setSettings(data.settings); setStatus(data.status)
-      } catch (err) { setError(err.message) } finally { setLoading(false) }
-    })()
+  const load = useCallback(async () => {
+    setLoading(true); setError(null)
+    try {
+      const d = await fetchJson('/api/admin/press-outreach/settings')
+      setData(d)
+      setForm(d.settings)
+    } catch (err) { setError(err.message) } finally { setLoading(false) }
   }, [])
-
-  const setField = (k, v) => setSettings((s) => ({ ...s, [k]: v }))
+  useEffect(() => { load() }, [load])
 
   async function save() {
-    setSaving(true); setMsg(null); setError(null)
+    setSaving(true); setError(null)
     try {
-      const data = await fetchJson('/api/admin/press-outreach/settings', {
+      const d = await fetchJson('/api/admin/press-outreach/settings', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
+        body: JSON.stringify(form),
       })
-      setSettings(data.settings)
-      setMsg('Saved. The daily press cron reads these settings on its next run.')
+      setForm(d.settings)
+      setData((prev) => prev && { ...prev, settings: d.settings })
+      setSavedAt(Date.now())
     } catch (err) { setError(err.message) } finally { setSaving(false) }
   }
 
-  if (loading) return <div style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 13, color: 'var(--color-muted, #888)', padding: 24 }}>Loading autopilot…</div>
-  if (error && !settings) return <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', padding: '10px 14px', borderRadius: 6, fontFamily: 'var(--font-body, system-ui)', fontSize: 13, color: '#991B1B' }}>{error}</div>
-  if (!settings) return null
+  if (loading) return <div style={{ ...bodyFont, padding: '48px 0', textAlign: 'center', color: 'var(--color-muted, #888)', fontSize: 14 }}>Loading autopilot…</div>
+  if (error && !form) {
+    return (
+      <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', padding: '12px 16px', borderRadius: 8, ...bodyFont, fontSize: 13, color: '#991B1B' }}>
+        {error} {String(error).includes('relation') || String(error).includes('press_outreach') ? '— run migration 253 first.' : ''}
+        <button style={{ ...btn, marginLeft: 12, padding: '4px 12px', fontSize: 12 }} onClick={load}>Retry</button>
+      </div>
+    )
+  }
 
-  const Toggle = ({ k, title, desc }) => (
-    <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer', marginBottom: 12 }}>
-      <input type="checkbox" checked={!!settings[k]} onChange={(e) => setField(k, e.target.checked)} style={{ marginTop: 3 }} />
-      <span>
-        <span style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 13, fontWeight: 500, color: 'var(--color-ink, #2D2A26)' }}>{title}</span>
-        <span style={{ display: 'block', fontFamily: 'var(--font-body, system-ui)', fontSize: 11.5, color: 'var(--color-muted, #888)', marginTop: 1 }}>{desc}</span>
-      </span>
-    </label>
-  )
-  const Num = ({ k, title, min, max }) => (
-    <div>
-      <label style={label}>{title}</label>
-      <input type="number" min={min} max={max} value={settings[k]} onChange={(e) => setField(k, Number(e.target.value))} style={{ ...input, width: 90 }} />
-    </div>
+  const st = data?.status || {}
+  const dirty = JSON.stringify(form) !== JSON.stringify(data?.settings)
+  const num = (field, min, max, step = 1) => (
+    <input
+      type="number" min={min} max={max} step={step} value={form[field]}
+      onChange={(e) => setForm({ ...form, [field]: Number(e.target.value) })}
+      style={{ ...input, width: 84 }}
+    />
   )
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-      <div style={{ ...card, padding: 18 }}>
-        <h3 style={{ fontFamily: 'var(--font-display, Georgia)', fontSize: 17, fontWeight: 400, margin: '0 0 6px', color: 'var(--color-ink, #2D2A26)' }}>Daily autopilot</h3>
-        <p style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 12, color: 'var(--color-muted, #888)', margin: '0 0 16px', lineHeight: 1.5 }}>
-          A daily cron (08:45 AEST, weekdays) discovers emails, writes openers, and — only when sending is on — pitches the newsroom invite and one follow-up. Low volume by design.
-        </p>
-        <Toggle k="enabled" title="Pipeline enabled" desc="Discover emails + write openers in the background." />
-        <div style={{ background: settings.send_enabled ? '#FDF6E9' : '#F6F5F3', border: `1px solid ${settings.send_enabled ? '#e8d3a0' : '#e5e5e5'}`, borderRadius: 8, padding: '10px 12px', marginBottom: 12 }}>
-          <Toggle k="send_enabled" title="Actually send press email" desc="OFF by default. When on, the cron sends real pitches to journalists and desks — start small and warm the sender." />
+    <div>
+      {/* Live status */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
+        <StatCard n={`${st.sent_today ?? 0} / ${form.daily_send_cap}`} label="pitched in last 24h" />
+        <StatCard n={`${st.followups_today ?? 0} / ${form.followup_daily_cap}`} label="follow-ups in last 24h" />
+        <StatCard n={(st.sendable_pool ?? 0).toLocaleString()} label="ready to pitch" />
+        <StatCard n={(st.need_note_pool ?? 0).toLocaleString()} label="awaiting AI opener" />
+        <StatCard n={(st.need_discover_pool ?? 0).toLocaleString()} label="need discovery" />
+        <StatCard n={(st.followup_due ?? 0).toLocaleString()} label="follow-ups due" />
+      </div>
+      {st.last_run && (
+        <div style={{ ...bodyFont, fontSize: 12, color: 'var(--color-muted, #888)', marginBottom: 18 }}>
+          Last run {new Date(st.last_run.started_at).toLocaleString()} — {st.last_run.status}
+          {st.last_run.summary?.send?.sent != null ? ` · ${st.last_run.summary.send.sent} pitched` : ''}
+          {st.last_run.summary?.discover?.found != null ? ` · ${st.last_run.summary.discover.found} emails found` : ''}
         </div>
-        <Toggle k="followup_enabled" title="Send one follow-up" desc="A single nudge N days after the first touch, unless they replied or declined." />
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8 }}>
-          <Num k="daily_send_cap" title="First-touch / day" min={0} max={60} />
-          <Num k="followup_after_days" title="Follow-up after (days)" min={2} max={60} />
-          <Num k="followup_daily_cap" title="Follow-ups / day" min={0} max={60} />
+      )}
+
+      {form.enabled && !form.send_enabled && (
+        <div style={{ background: '#FDF6E9', border: '1px solid #e8d3a0', borderRadius: 8, padding: '10px 14px', marginBottom: 14, ...bodyFont, fontSize: 12.5, color: '#8a6520', lineHeight: 1.5 }}>
+          Sending is currently <strong>off</strong>. The pipeline still discovers emails and writes openers, so a warm, ready segment is waiting whenever you turn it on — or send by hand from Compose &amp; Send.
         </div>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 12 }}>
-          <Num k="discover_per_run" title="Discover / run" min={0} max={200} />
-          <Num k="personalise_per_run" title="Openers / run" min={0} max={60} />
-        </div>
-        <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button style={btnPrimary} onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save settings'}</button>
-          {msg && <span style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 12.5, color: '#3a5c4f' }}>{msg}</span>}
-          {error && <span style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 12.5, color: '#991B1B' }}>{error}</span>}
-        </div>
+      )}
+
+      <div style={{ ...card, background: '#fff', padding: '6px 18px 2px', marginBottom: 16 }}>
+        <SettingRow
+          title="Background pipeline"
+          desc="Every weekday morning (08:45 AEST): scan the next unchecked outlet and staff pages for a contact email, and AI-write personal openers. No email is sent by this switch alone."
+        >
+          <Toggle checked={form.enabled} onChange={(v) => setForm({ ...form, enabled: v })} />
+        </SettingRow>
+        <SettingRow
+          title="Send first-touch pitches"
+          desc="Let the autopilot send the daily newsroom-invite batch (weekdays only). Every email carries one-click unsubscribe and all suppression rules apply."
+        >
+          <Toggle checked={form.send_enabled} onChange={(v) => setForm({ ...form, send_enabled: v })} disabled={!form.enabled} />
+        </SettingRow>
+        <SettingRow title="Daily send cap" desc="First-touch pitches per 24 hours. Keep this small — you court press, you do not blast them.">
+          {num('daily_send_cap', 0, 60)}
+        </SettingRow>
+        <SettingRow
+          title="Follow-up"
+          desc="One (and only one) second touch if there's been no reply, response or decline. Sent from the same thread-friendly template that closes the loop."
+        >
+          <Toggle checked={form.followup_enabled} onChange={(v) => setForm({ ...form, followup_enabled: v })} disabled={!form.enabled || !form.send_enabled} />
+        </SettingRow>
+        <SettingRow title="Follow-up after (days)" desc="How long to wait after the first pitch.">
+          {num('followup_after_days', 2, 60)}
+        </SettingRow>
+        <SettingRow title="Follow-up daily cap" desc="Follow-ups per 24 hours.">
+          {num('followup_daily_cap', 0, 60)}
+        </SettingRow>
+        <SettingRow title="Outlets scanned per run" desc="Email discovery throughput. Scanning is free — this just bounds the run time.">
+          {num('discover_per_run', 0, 200, 10)}
+        </SettingRow>
+        <SettingRow title="AI openers per run" desc="Personal openers written per run.">
+          {num('personalise_per_run', 0, 60, 5)}
+        </SettingRow>
       </div>
 
-      <div style={{ ...card, padding: 18 }}>
-        <h3 style={{ fontFamily: 'var(--font-display, Georgia)', fontSize: 17, fontWeight: 400, margin: '0 0 14px', color: 'var(--color-ink, #2D2A26)' }}>Live status</h3>
-        {status ? (
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <StatCard n={status.sendable_pool} label="ready to pitch" />
-            <StatCard n={status.need_note_pool} label="need an opener" />
-            <StatCard n={status.need_discover_pool} label="need discovery" />
-            <StatCard n={status.followup_due} label="follow-up due" />
-            <StatCard n={status.send_quota_left} label="send quota left today" />
-            <StatCard n={status.sent_today} label="pitched today" />
-          </div>
-        ) : <span style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 13, color: 'var(--color-muted, #888)' }}>No status.</span>}
-        {status?.last_run && (
-          <div style={{ marginTop: 16, fontFamily: 'var(--font-body, system-ui)', fontSize: 12, color: 'var(--color-muted, #888)', lineHeight: 1.6 }}>
-            Last run: {status.last_run.status || '—'}
-            {status.last_run.started_at ? ` · ${new Date(status.last_run.started_at).toLocaleString()}` : ''}
-            {status.last_run.summary?.send?.sent != null ? ` · ${status.last_run.summary.send.sent} pitched` : ''}
-          </div>
-        )}
-        <p style={{ marginTop: 16, fontFamily: 'var(--font-body, system-ui)', fontSize: 11.5, color: 'var(--color-muted, #999)', lineHeight: 1.6 }}>
-          Sending is <strong>{settings.send_enabled ? 'ON' : 'OFF'}</strong>. With it off, the pipeline still discovers emails and writes openers so a warm, ready segment is waiting whenever you flip it on — or you can send by hand from Compose &amp; Send.
-        </p>
+      {error && (
+        <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', padding: '10px 14px', borderRadius: 6, marginBottom: 12, ...bodyFont, fontSize: 13, color: '#991B1B' }}>{error}</div>
+      )}
+
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <button style={dirty ? btnPrimary : btn} onClick={save} disabled={saving || !dirty}>
+          {saving ? 'Saving…' : 'Save autopilot settings'}
+        </button>
+        {savedAt && !dirty && <span style={{ ...bodyFont, fontSize: 12, color: '#5F8A7E' }}>Saved.</span>}
+        <span style={{ ...bodyFont, fontSize: 12, color: 'var(--color-muted, #888)', marginLeft: 'auto', maxWidth: 400, lineHeight: 1.5 }}>
+          The autopilot never emails suppressed, bounced, declined or already-contacted press, and holds all sending on weekends.
+        </span>
       </div>
     </div>
   )
@@ -942,16 +1037,8 @@ export default function PressOutreachActions({
 
   return (
     <div>
-      {/* Stats */}
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 22 }}>
-        <StatCard n={stats.directory.toLocaleString()} label="in directory" />
-        <StatCard n={stats.journalists} label="journalists" />
-        <StatCard n={stats.desks} label="press desks" />
-        <StatCard n={stats.withEmail} label="have email" />
-        <StatCard n={stats.contacted} label="contacted" />
-        <StatCard n={stats.opened} label="opened" />
-        <StatCard n={stats.suppressed} label="suppressed" />
-      </div>
+      {/* Funnel header */}
+      <FunnelHeader stats={stats} />
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--color-border, #e5e5e5)', marginBottom: 24, flexWrap: 'wrap' }}>
