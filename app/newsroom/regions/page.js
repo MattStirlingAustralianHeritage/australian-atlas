@@ -82,7 +82,10 @@ export default function PressRegionsPage() {
               <SectionTitle note={`Fact sheet · figures as of ${fmtDate(fs.asOf)} · cite as “Source: Australian Atlas”`}>
                 {fs.region.name}
               </SectionTitle>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <Button href={`/newsroom/find?region=${fs.region.slug}`} variant="primary" small>
+                  Find a story here
+                </Button>
                 <Button href={`/api/press/export?type=listings&region=${fs.region.slug}`} variant="secondary" small download>
                   Every place (CSV)
                 </Button>

@@ -74,6 +74,9 @@ export async function GET(req) {
   const { searchParams } = new URL(req.url)
   const q = (searchParams.get('q') || '').trim().slice(0, 200)
   const scope = searchParams.get('scope') === 'all' ? 'all' : 'followed'
+  const regionSlug = (searchParams.get('region') || '').trim().toLowerCase().slice(0, 80)
+  const verticalParam = (searchParams.get('vertical') || '').trim().toLowerCase().slice(0, 40)
+  const filterVertical = verticalParam && isVerticalPublic(verticalParam) ? verticalParam : null
   if (!q) return NextResponse.json({ error: 'q required' }, { status: 400 })
 
   const sb = getSupabaseAdmin()
@@ -84,16 +87,35 @@ export async function GET(req) {
     const followedIds = new Set(followed.map(r => r.id))
     const regionNameById = new Map(followed.map(r => [r.id, r.name]))
 
-    // ── Retrieval: the canonical hybrid arm, network-wide ─────────────────
+    // Region scope: constrain retrieval to one region (the fact-sheet hunt).
+    // Uses the RPC's filter_region so the region is searched IN DEPTH, rather
+    // than post-filtered out of a national pool — a story ranked #45 nationally
+    // still surfaces if it's the best answer inside the region.
+    let scopedRegion = null
+    if (regionSlug) {
+      const { data: rg } = await sb
+        .from('regions')
+        .select('id, name, slug')
+        .eq('slug', regionSlug)
+        .eq('status', 'live')
+        .maybeSingle()
+      if (rg) {
+        scopedRegion = rg
+        regionNameById.set(rg.id, rg.name)
+      }
+    }
+    const filterRegion = scopedRegion?.id || null
+
+    // ── Retrieval: the canonical hybrid arm (network-wide, or region-scoped) ─
     const includeWay = isVerticalPublic('way')
     const { lit: queryEmbedding, error: voyageError } = await embedQueryCached(sb, q)
 
     const { data, error } = await sb.rpc('search_listings_hybrid', {
       query_embedding: queryEmbedding,
       query_text: q,
-      filter_vertical: null,
+      filter_vertical: filterVertical,
       filter_state: null,
-      filter_region: null,
+      filter_region: filterRegion,
       filter_suburb: null,
       match_count: RESULT_POOL,
       similarity_floor: SIMILARITY_FLOOR,
@@ -131,7 +153,7 @@ export async function GET(req) {
       if (expandedText) {
         const { data: moreData } = await sb.rpc('search_listings_hybrid', {
           query_embedding: queryEmbedding, query_text: expandedText,
-          filter_vertical: null, filter_state: null, filter_region: null, filter_suburb: null,
+          filter_vertical: filterVertical, filter_state: null, filter_region: filterRegion, filter_suburb: null,
           match_count: RESULT_POOL, similarity_floor: SIMILARITY_FLOOR, include_way: includeWay,
         })
         const seenKeys = new Set(all.flatMap(r => [r.id, r.slug || r.id]))
@@ -211,13 +233,33 @@ export async function GET(req) {
     }
 
     const shaped = top.map(shape)
-    const inRegions = shaped.filter(r => r.region_id && followedIds.has(r.region_id)).slice(0, FOLLOWED_MAX)
-    const beyond = shaped.filter(r => !r.region_id || !followedIds.has(r.region_id)).slice(0, BEYOND_MAX)
-    const results = scope === 'all' ? { inRegions, beyond } : { inRegions, beyond: beyond.slice(0, followedIds.size ? BEYOND_MAX : BEYOND_MAX) }
+    let inRegions, beyond
+    if (scopedRegion) {
+      // Everything retrieved is inside the region — present it as one list.
+      inRegions = shaped.slice(0, FOLLOWED_MAX + BEYOND_MAX)
+      beyond = []
+    } else {
+      inRegions = shaped.filter(r => r.region_id && followedIds.has(r.region_id)).slice(0, FOLLOWED_MAX)
+      beyond = shaped.filter(r => !r.region_id || !followedIds.has(r.region_id)).slice(0, BEYOND_MAX)
+      // scope=followed keeps the desk to its own patch (no national spillover).
+      if (scope === 'followed' && followedIds.size) beyond = []
+    }
+
+    // Where the matches cluster — the "trend story" cue (how many, where,
+    // who to call first). Tallied from the shown matches, not a claimed total.
+    const clusterTally = new Map()
+    for (const r of shaped) {
+      if (r.regionName) clusterTally.set(r.regionName, (clusterTally.get(r.regionName) || 0) + 1)
+    }
+    const clusters = [...clusterTally.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([name, count]) => ({ name, count }))
 
     // Telemetry: journalists' hunts show up in admin Search Insights.
     logSearchEvent(sb, {
-      query_text: q, surface: 'newsroom', result_count: shaped.length, latency_ms: Date.now() - t0,
+      query_text: scopedRegion ? `${q} · in ${scopedRegion.name}` : q,
+      surface: 'newsroom', result_count: shaped.length, latency_ms: Date.now() - t0,
       vector_arm_fired: !!queryEmbedding, fell_back: !queryEmbedding,
       voyage_error: voyageError, zero_result: shaped.length === 0, reranked,
     })
@@ -225,9 +267,13 @@ export async function GET(req) {
     return NextResponse.json({
       query: q,
       scope,
+      region: scopedRegion ? { slug: scopedRegion.slug, name: scopedRegion.name } : null,
+      vertical: filterVertical,
       followedCount: followedIds.size,
-      inRegions: results.inRegions,
-      beyond: results.beyond,
+      inRegions,
+      beyond,
+      clusters,
+      capped: shaped.length >= ENRICH_TOP_N,
       reranked,
       expanded,
       total: shaped.length,

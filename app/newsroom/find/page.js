@@ -7,6 +7,25 @@ import {
   Card, PageHeader, SectionTitle, EmptyState, Pill, SkeletonPage,
   MicroLabel, verticalName,
 } from '@/components/press/ui'
+import { getPublicVerticals } from '@/lib/verticalUrl'
+
+// Journalist-facing category names for the vertical filter (clearer than the
+// Atlas brand labels; value stays the vertical key the API expects).
+const CATEGORY_LABELS = {
+  table: 'Food, bakeries & markets',
+  sba: 'Drinks & cellar doors',
+  fine_grounds: 'Coffee roasters',
+  craft: 'Makers & studios',
+  collection: 'Galleries & culture',
+  corner: 'Shops & design',
+  found: 'Vintage & antiques',
+  rest: 'Stays',
+  field: 'Nature & parks',
+  way: 'Tours & experiences',
+}
+const CATEGORY_OPTIONS = getPublicVerticals()
+  .map(v => ({ value: v, label: CATEGORY_LABELS[v] || verticalName(v) }))
+  .sort((a, b) => a.label.localeCompare(b.label))
 
 // Find a story — the Atlas's semantic search, pointed at story-hunting.
 // Describe the story you're after in plain words; the same retrieval that
@@ -100,21 +119,43 @@ export default function PressFindPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const urlQ = searchParams.get('q') || ''
+  const urlRegion = searchParams.get('region') || ''
+  const urlVertical = searchParams.get('vertical') || ''
 
   const [input, setInput] = useState(urlQ)
+  const [region, setRegion] = useState(urlRegion)
+  const [vertical, setVertical] = useState(urlVertical)
+  const [regions, setRegions] = useState([])   // live regions for the scope picker
+  const [followedIds, setFollowedIds] = useState([])
   const [data, setData] = useState(null)
   const [searching, setSearching] = useState(false)
   const [error, setError] = useState('')
   const lastRun = useRef('')
 
-  async function run(query) {
+  // Region list for the "in this patch" scope picker (followed float to the top).
+  useEffect(() => {
+    fetch('/api/press/data?view=regions')
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => {
+        if (!d) return
+        setRegions(d.allRegions || [])
+        setFollowedIds(d.followedIds || [])
+      })
+      .catch(() => {})
+  }, [])
+
+  async function run(query, regionSlug, verticalKey) {
     const q = (query || '').trim()
-    if (!q || q === lastRun.current) return
-    lastRun.current = q
+    const rgn = (regionSlug || '').trim()
+    const vt = (verticalKey || '').trim()
+    const key = `${q}||${rgn}||${vt}`
+    if (!q || key === lastRun.current) return
+    lastRun.current = key
     setSearching(true)
     setError('')
     try {
-      const res = await fetch(`/api/press/search?q=${encodeURIComponent(q)}&scope=all`)
+      const url = `/api/press/search?q=${encodeURIComponent(q)}&scope=all${rgn ? `&region=${encodeURIComponent(rgn)}` : ''}${vt ? `&vertical=${encodeURIComponent(vt)}` : ''}`
+      const res = await fetch(url)
       if (res.ok) {
         setData(await res.json())
       } else if (res.status === 429) {
@@ -129,27 +170,50 @@ export default function PressFindPage() {
     }
   }
 
-  // Deep link: /newsroom/find?q=... (the newsdesk search box lands here).
+  // Deep link: /newsroom/find?q=...&region=...&vertical=... (newsdesk box + fact-sheet buttons land here).
   useEffect(() => {
-    if (urlQ) {
-      setInput(urlQ)
-      run(urlQ)
-    }
-  }, [urlQ])
+    setInput(urlQ)
+    setRegion(urlRegion)
+    setVertical(urlVertical)
+    if (urlQ) run(urlQ, urlRegion, urlVertical)
+  }, [urlQ, urlRegion, urlVertical])
+
+  function pushAndRun(q, rgn, vt) {
+    const params = new URLSearchParams({ q })
+    if (rgn) params.set('region', rgn)
+    if (vt) params.set('vertical', vt)
+    router.replace(`/newsroom/find?${params.toString()}`, { scroll: false })
+    run(q, rgn, vt)
+  }
 
   function submit(e) {
     e.preventDefault()
     const q = input.trim()
     if (!q) return
-    router.replace(`/newsroom/find?q=${encodeURIComponent(q)}`, { scroll: false })
-    run(q)
+    pushAndRun(q, region, vertical)
+  }
+
+  function onRegionChange(nextRegion) {
+    setRegion(nextRegion)
+    const q = input.trim()
+    if (q) pushAndRun(q, nextRegion, vertical)   // re-scope an active search immediately
+  }
+
+  function onVerticalChange(nextVertical) {
+    setVertical(nextVertical)
+    const q = input.trim()
+    if (q) pushAndRun(q, region, nextVertical)
   }
 
   function runExample(q) {
     setInput(q)
-    router.replace(`/newsroom/find?q=${encodeURIComponent(q)}`, { scroll: false })
-    run(q)
+    pushAndRun(q, region, vertical)
   }
+
+  // Followed regions first, then the rest — each still grouped by state below.
+  const followedSet = new Set(followedIds)
+  const followedRegions = regions.filter(r => followedSet.has(r.id))
+  const otherRegions = regions.filter(r => !followedSet.has(r.id))
 
   return (
     <div>
@@ -173,6 +237,41 @@ export default function PressFindPage() {
             onFocus={e => e.target.style.borderColor = 'var(--color-sage)'}
             onBlur={e => e.target.style.borderColor = 'var(--color-border)'}
           />
+          <select
+            value={region}
+            onChange={e => onRegionChange(e.target.value)}
+            aria-label="Where to search"
+            style={{
+              minWidth: 180, padding: '0.7rem 0.75rem', borderRadius: 10,
+              border: '1px solid var(--color-border)', fontFamily: 'var(--font-body)',
+              fontSize: '0.88rem', color: 'var(--color-ink)', background: 'var(--color-card-bg)',
+              outline: 'none', boxSizing: 'border-box', cursor: 'pointer',
+            }}
+          >
+            <option value="">Anywhere in Australia</option>
+            {followedRegions.length > 0 && (
+              <optgroup label="Regions you follow">
+                {followedRegions.map(r => <option key={r.id} value={r.slug}>{r.name}</option>)}
+              </optgroup>
+            )}
+            <optgroup label={followedRegions.length ? 'All regions' : 'Regions'}>
+              {otherRegions.map(r => <option key={r.id} value={r.slug}>{r.name}{r.state ? ` · ${r.state}` : ''}</option>)}
+            </optgroup>
+          </select>
+          <select
+            value={vertical}
+            onChange={e => onVerticalChange(e.target.value)}
+            aria-label="Which kind of place"
+            style={{
+              minWidth: 170, padding: '0.7rem 0.75rem', borderRadius: 10,
+              border: '1px solid var(--color-border)', fontFamily: 'var(--font-body)',
+              fontSize: '0.88rem', color: 'var(--color-ink)', background: 'var(--color-card-bg)',
+              outline: 'none', boxSizing: 'border-box', cursor: 'pointer',
+            }}
+          >
+            <option value="">Any kind of place</option>
+            {CATEGORY_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
           <button
             type="submit"
             disabled={searching || !input.trim()}
@@ -218,16 +317,33 @@ export default function PressFindPage() {
           {data.inRegions.length === 0 && data.beyond.length === 0 ? (
             <Card style={{ padding: '1.5rem' }}>
               <EmptyState title="Nothing close enough to that yet">
-                Try describing the story a different way — or broaden it. The search reads meaning,
-                so &ldquo;makers who rescue old timber&rdquo; works better than a single keyword.
+                {data.region ? (
+                  <>Nothing in {data.region.name} matched closely. Try widening the scope to{' '}
+                  <button type="button" onClick={() => onRegionChange('')} style={{ background: 'none', border: 'none', padding: 0, color: 'var(--color-sage-dark)', cursor: 'pointer', font: 'inherit' }}>anywhere in Australia</button>, or describe the story a different way.</>
+                ) : (
+                  <>Try describing the story a different way — or broaden it. The search reads meaning,
+                  so &ldquo;makers who rescue old timber&rdquo; works better than a single keyword.</>
+                )}
               </EmptyState>
             </Card>
           ) : (
             <>
+              {!data.region && data.clusters?.length >= 2 && (
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.8rem', color: 'var(--color-muted)', margin: '0 0 1.1rem', lineHeight: 1.5 }}>
+                  Most matches cluster in{' '}
+                  {data.clusters.map((c, i) => (
+                    <span key={c.name}>
+                      {i > 0 ? (i === data.clusters.length - 1 ? ' and ' : ', ') : ''}
+                      <strong style={{ color: 'var(--color-ink)', fontWeight: 600 }}>{c.name}</strong>
+                    </span>
+                  ))}
+                  {' '}— a where-do-they-gather cue for a trend piece.
+                </p>
+              )}
               {data.inRegions.length > 0 && (
                 <div style={{ marginBottom: '1.6rem' }}>
                   <SectionTitle note={data.reranked ? 'ranked by how well each place answers the brief' : null}>
-                    In your regions
+                    {data.region ? `In ${data.region.name}` : 'In your regions'}
                   </SectionTitle>
                   <Card style={{ padding: '0.3rem 1.3rem' }}>
                     {data.inRegions.map(r => <ResultRow key={r.id} r={r} />)}
