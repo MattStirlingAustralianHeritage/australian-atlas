@@ -161,10 +161,10 @@ function HealthBar({ stats, loading }) {
       href: '/admin/councils',
     },
     {
-      label: 'Press Requests',
+      label: 'Press Applications',
       value: stats?.press_enquiries_new ?? null,
       color: stats?.press_enquiries_new > 0 ? '#d4a039' : '#5f8a7e',
-      href: '/admin/press',
+      href: '/admin/press-applications',
     },
     {
       label: 'Reviewed',
@@ -315,10 +315,16 @@ function QuickActions({ stats }) {
       badge: stats?.council_applications_new > 0 ? stats.council_applications_new : null,
     },
     {
-      label: 'Press Desk',
-      href: '/admin/press',
+      label: 'Press Applications',
+      href: '/admin/press-applications',
       accent: stats?.press_enquiries_new > 0,
       badge: stats?.press_enquiries_new > 0 ? stats.press_enquiries_new : null,
+    },
+    {
+      label: 'Press Desk',
+      href: '/admin/press',
+      accent: false,
+      badge: null,
     },
     {
       label: 'Editorial',

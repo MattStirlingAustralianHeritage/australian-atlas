@@ -30,6 +30,7 @@ const SECTIONS = [
       ['/admin/operators', 'Operators'],
       ['/admin/operator-descriptions', 'Operator descriptions'],
       ['/admin/councils', 'Councils'],
+      ['/admin/press-applications', 'Press applications'],
       ['/admin/press', 'Press room'],
       ['/admin/press-outreach', 'Press outreach'],
       ['/admin/council-outreach', 'Council outreach'],
