@@ -140,6 +140,10 @@
       "schedule": "30 22 * * *"
     },
     {
+      "path": "/api/cron/press-outreach-autopilot",
+      "schedule": "45 22 * * *"
+    },
+    {
       "path": "/api/cron/council-digest",
       "schedule": "0 21 1 * *"
     },

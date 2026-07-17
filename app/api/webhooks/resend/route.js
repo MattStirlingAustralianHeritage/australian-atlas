@@ -57,6 +57,24 @@ async function findOperatorRow(sb, messageId) {
   return (fup && fup[0]) || null
 }
 
+// Locate the press_outreach row a message id belongs to (first touch or
+// follow-up). Press open-rate is the key outreach KPI, so we track it — but
+// only look here when the operator lookup misses, keeping the hot path cheap.
+async function findPressRow(sb, messageId) {
+  const { data: first } = await sb
+    .from('press_outreach')
+    .select('id, opened_at, open_count, delivered_at')
+    .eq('resend_message_id', messageId)
+    .limit(1)
+  if (first && first.length) return first[0]
+  const { data: fup } = await sb
+    .from('press_outreach')
+    .select('id, opened_at, open_count, delivered_at')
+    .eq('followup_resend_message_id', messageId)
+    .limit(1)
+  return (fup && fup[0]) || null
+}
+
 export async function POST(request) {
   const raw = await request.text()
   const secret = process.env.RESEND_WEBHOOK_SECRET
@@ -129,11 +147,20 @@ export async function POST(request) {
           .from('trade_outreach')
           .update({ send_status: reason, updated_at: now })
           .eq('resend_message_id', messageId)
+        await sb
+          .from('press_outreach')
+          .update({ send_status: reason, updated_at: now })
+          .or(`resend_message_id.eq.${messageId},followup_resend_message_id.eq.${messageId}`)
       }
     } else if (type === 'email.delivered' && messageId) {
       const row = await findOperatorRow(sb, messageId)
       if (row && !row.delivered_at) {
         await sb.from('operator_outreach').update({ delivered_at: now, updated_at: now }).eq('id', row.id)
+      } else if (!row) {
+        const pr = await findPressRow(sb, messageId)
+        if (pr && !pr.delivered_at) {
+          await sb.from('press_outreach').update({ delivered_at: now, updated_at: now }).eq('id', pr.id)
+        }
       }
     } else if (type === 'email.opened' && messageId) {
       const row = await findOperatorRow(sb, messageId)
@@ -143,6 +170,15 @@ export async function POST(request) {
           open_count: (row.open_count || 0) + 1,
           updated_at: now,
         }).eq('id', row.id)
+      } else {
+        const pr = await findPressRow(sb, messageId)
+        if (pr) {
+          await sb.from('press_outreach').update({
+            opened_at: pr.opened_at || now,
+            open_count: (pr.open_count || 0) + 1,
+            updated_at: now,
+          }).eq('id', pr.id)
+        }
       }
     } else if (type === 'email.clicked' && messageId) {
       const row = await findOperatorRow(sb, messageId)
