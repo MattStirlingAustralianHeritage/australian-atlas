@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { TRADE_TEMPLATE_OPTIONS, TRADE_TEMPLATES, TRADE_BETA_TEMPLATE } from '@/lib/outreach/tradeTemplates'
 
 const SITE = 'https://australianatlas.com.au'
@@ -51,6 +51,7 @@ const card = {
   background: 'var(--color-cream, #FAF8F5)',
   border: '1px solid var(--color-border, #e5e5e5)', borderRadius: 8,
 }
+const bodyFont = { fontFamily: 'var(--font-body, system-ui)' }
 
 // Mirrors buildTradeMergeContext (lib/outreach/tradeTemplate.js) so the live
 // preview matches what the send route renders.
@@ -781,6 +782,168 @@ function CampaignsPanel({ campaigns }) {
   )
 }
 
+// ── Autopilot panel ───────────────────────────────────────────
+function Toggle({ checked, onChange, disabled }) {
+  return (
+    <button
+      onClick={() => !disabled && onChange(!checked)}
+      style={{
+        width: 40, height: 22, borderRadius: 100, border: 'none', cursor: disabled ? 'not-allowed' : 'pointer',
+        background: checked ? '#5F8A7E' : '#d5d0c8', position: 'relative', transition: 'background 0.15s',
+        opacity: disabled ? 0.5 : 1, padding: 0, flexShrink: 0,
+      }}
+      aria-pressed={checked}
+    >
+      <span style={{
+        position: 'absolute', top: 2, left: checked ? 20 : 2, width: 18, height: 18,
+        borderRadius: '50%', background: '#fff', transition: 'left 0.15s',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+      }} />
+    </button>
+  )
+}
+
+function SettingRow({ title, desc, children }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: '12px 0', borderBottom: '1px solid var(--color-border, #eee)' }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ ...bodyFont, fontSize: 13.5, fontWeight: 500, color: 'var(--color-ink, #2D2A26)' }}>{title}</div>
+        <div style={{ ...bodyFont, fontSize: 12, color: 'var(--color-muted, #888)', marginTop: 2, lineHeight: 1.5, maxWidth: 460 }}>{desc}</div>
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function AutopilotPanel() {
+  const [data, setData] = useState(null)      // { settings, status }
+  const [form, setForm] = useState(null)      // editable copy of settings
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
+  const [savedAt, setSavedAt] = useState(null)
+
+  const load = useCallback(async () => {
+    setLoading(true); setError(null)
+    try {
+      const d = await fetchJson('/api/admin/trade-outreach/settings')
+      setData(d)
+      setForm(d.settings)
+    } catch (err) { setError(err.message) } finally { setLoading(false) }
+  }, [])
+  useEffect(() => { load() }, [load])
+
+  async function save() {
+    setSaving(true); setError(null)
+    try {
+      const d = await fetchJson('/api/admin/trade-outreach/settings', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      setForm(d.settings)
+      setData((prev) => prev && { ...prev, settings: d.settings })
+      setSavedAt(Date.now())
+    } catch (err) { setError(err.message) } finally { setSaving(false) }
+  }
+
+  if (loading) return <div style={{ ...bodyFont, padding: '48px 0', textAlign: 'center', color: 'var(--color-muted, #888)', fontSize: 14 }}>Loading autopilot…</div>
+  if (error && !form) {
+    return (
+      <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', padding: '12px 16px', borderRadius: 8, ...bodyFont, fontSize: 13, color: '#991B1B' }}>
+        {error} {String(error).includes('relation') || String(error).includes('trade_outreach') ? '— run migrations 244 + 254 first.' : ''}
+        <button style={{ ...btn, marginLeft: 12, padding: '4px 12px', fontSize: 12 }} onClick={load}>Retry</button>
+      </div>
+    )
+  }
+
+  const st = data?.status || {}
+  const dirty = JSON.stringify(form) !== JSON.stringify(data?.settings)
+  const num = (field, min, max, step = 1) => (
+    <input
+      type="number" min={min} max={max} step={step} value={form[field]}
+      onChange={(e) => setForm({ ...form, [field]: Number(e.target.value) })}
+      style={{ ...input, width: 84 }}
+    />
+  )
+
+  return (
+    <div>
+      {/* Live status */}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
+        <StatCard n={`${st.sent_today ?? 0} / ${form.daily_send_cap}`} label="invited in last 24h" />
+        <StatCard n={`${st.followups_today ?? 0} / ${form.followup_daily_cap}`} label="follow-ups in last 24h" />
+        <StatCard n={(st.sendable_pool ?? 0).toLocaleString()} label="ready to invite" />
+        <StatCard n={(st.need_note_pool ?? 0).toLocaleString()} label="awaiting AI opener" />
+        <StatCard n={(st.need_discover_pool ?? 0).toLocaleString()} label="need discovery" />
+        <StatCard n={(st.followup_due ?? 0).toLocaleString()} label="follow-ups due" />
+      </div>
+      {st.last_run && (
+        <div style={{ ...bodyFont, fontSize: 12, color: 'var(--color-muted, #888)', marginBottom: 18 }}>
+          Last run {new Date(st.last_run.started_at).toLocaleString()} — {st.last_run.status}
+          {st.last_run.summary?.send?.sent != null ? ` · ${st.last_run.summary.send.sent} invited` : ''}
+          {st.last_run.summary?.discover?.found != null ? ` · ${st.last_run.summary.discover.found} emails found` : ''}
+        </div>
+      )}
+
+      {form.enabled && !form.send_enabled && (
+        <div style={{ background: '#FDF6E9', border: '1px solid #e8d3a0', borderRadius: 8, padding: '10px 14px', marginBottom: 14, ...bodyFont, fontSize: 12.5, color: '#8a6520', lineHeight: 1.5 }}>
+          Sending is currently <strong>off</strong>. The pipeline still discovers emails and writes openers, so a warm, ready segment is waiting whenever you turn it on — or send by hand from Compose &amp; Send.
+        </div>
+      )}
+
+      <div style={{ ...card, background: '#fff', padding: '6px 18px 2px', marginBottom: 16 }}>
+        <SettingRow
+          title="Background pipeline"
+          desc="Every weekday morning (09:00 AEST): scan the next unchecked company sites for a contact email, and AI-write personal openers. No email is sent by this switch alone."
+        >
+          <Toggle checked={form.enabled} onChange={(v) => setForm({ ...form, enabled: v })} />
+        </SettingRow>
+        <SettingRow
+          title="Send first-touch invitations"
+          desc="Let the autopilot send the daily founding-beta invite batch (weekdays only). Every email carries one-click unsubscribe and all suppression rules apply."
+        >
+          <Toggle checked={form.send_enabled} onChange={(v) => setForm({ ...form, send_enabled: v })} disabled={!form.enabled} />
+        </SettingRow>
+        <SettingRow title="Daily send cap" desc="First-touch invitations per 24 hours. Trade buyers are a small, considered audience — keep this modest.">
+          {num('daily_send_cap', 0, 200)}
+        </SettingRow>
+        <SettingRow
+          title="Follow-up"
+          desc="One (and only one) second touch if there's been no reply, response or decline. Sent from the same thread-friendly template that closes the loop."
+        >
+          <Toggle checked={form.followup_enabled} onChange={(v) => setForm({ ...form, followup_enabled: v })} disabled={!form.enabled || !form.send_enabled} />
+        </SettingRow>
+        <SettingRow title="Follow-up after (days)" desc="How long to wait after the first invitation.">
+          {num('followup_after_days', 2, 60)}
+        </SettingRow>
+        <SettingRow title="Follow-up daily cap" desc="Follow-ups per 24 hours.">
+          {num('followup_daily_cap', 0, 200)}
+        </SettingRow>
+        <SettingRow title="Company sites scanned per run" desc="Email discovery throughput. Scanning is free — this just bounds the run time.">
+          {num('discover_per_run', 0, 200, 10)}
+        </SettingRow>
+        <SettingRow title="AI openers per run" desc="Personal openers written per run.">
+          {num('personalise_per_run', 0, 60, 5)}
+        </SettingRow>
+      </div>
+
+      {error && (
+        <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', padding: '10px 14px', borderRadius: 6, marginBottom: 12, ...bodyFont, fontSize: 13, color: '#991B1B' }}>{error}</div>
+      )}
+
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <button style={dirty ? btnPrimary : btn} onClick={save} disabled={saving || !dirty}>
+          {saving ? 'Saving…' : 'Save autopilot settings'}
+        </button>
+        {savedAt && !dirty && <span style={{ ...bodyFont, fontSize: 12, color: '#5F8A7E' }}>Saved.</span>}
+        <span style={{ ...bodyFont, fontSize: 12, color: 'var(--color-muted, #888)', marginLeft: 'auto', maxWidth: 400, lineHeight: 1.5 }}>
+          The autopilot never emails suppressed, bounced, declined, onboarded or already-contacted companies, and holds all sending on weekends.
+        </span>
+      </div>
+    </div>
+  )
+}
+
 // ── Root ──────────────────────────────────────────────────────
 export default function TradeOutreachActions({
   logRows, campaigns, regions, statusColors, sendStatusColors, allStates, networkCount, stats,
@@ -804,13 +967,15 @@ export default function TradeOutreachActions({
         <StatCard n={stats.directory.toLocaleString()} label="companies in directory" />
         <StatCard n={stats.withEmail} label="have email" />
         <StatCard n={stats.contacted} label="contacted" />
+        {stats.opened > 0 && <StatCard n={stats.opened} label="opened" />}
         <StatCard n={stats.onboarded} label="onboarded" />
         <StatCard n={stats.suppressed} label="suppressed" />
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--color-border, #e5e5e5)', marginBottom: 24 }}>
+      <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--color-border, #e5e5e5)', marginBottom: 24, flexWrap: 'wrap' }}>
         <button onClick={() => setTab('compose')} style={tabStyle(tab === 'compose')}>Compose &amp; Send</button>
+        <button onClick={() => setTab('autopilot')} style={tabStyle(tab === 'autopilot')}>Autopilot</button>
         <button onClick={() => setTab('directory')} style={tabStyle(tab === 'directory')}>Directory</button>
         <button onClick={() => setTab('log')} style={tabStyle(tab === 'log')}>Sent Log ({logRows.length})</button>
         <button onClick={() => setTab('campaigns')} style={tabStyle(tab === 'campaigns')}>Campaigns ({campaigns.length})</button>
@@ -824,6 +989,8 @@ export default function TradeOutreachActions({
           networkCount={networkCount}
         />
       )}
+
+      {tab === 'autopilot' && <AutopilotPanel />}
 
       {tab === 'directory' && <DirectoryPanel regions={regions} allStates={allStates} />}
 

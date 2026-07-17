@@ -75,6 +75,24 @@ async function findPressRow(sb, messageId) {
   return (fup && fup[0]) || null
 }
 
+// Locate the trade_outreach row a message id belongs to (first touch or
+// follow-up). Trade open-rate feeds the same funnel as operators/press — looked
+// up only when the operator and press lookups miss, keeping the hot path cheap.
+async function findTradeRow(sb, messageId) {
+  const { data: first } = await sb
+    .from('trade_outreach')
+    .select('id, opened_at, open_count, delivered_at')
+    .eq('resend_message_id', messageId)
+    .limit(1)
+  if (first && first.length) return first[0]
+  const { data: fup } = await sb
+    .from('trade_outreach')
+    .select('id, opened_at, open_count, delivered_at')
+    .eq('followup_resend_message_id', messageId)
+    .limit(1)
+  return (fup && fup[0]) || null
+}
+
 export async function POST(request) {
   const raw = await request.text()
   const secret = process.env.RESEND_WEBHOOK_SECRET
@@ -146,7 +164,7 @@ export async function POST(request) {
         await sb
           .from('trade_outreach')
           .update({ send_status: reason, updated_at: now })
-          .eq('resend_message_id', messageId)
+          .or(`resend_message_id.eq.${messageId},followup_resend_message_id.eq.${messageId}`)
         await sb
           .from('press_outreach')
           .update({ send_status: reason, updated_at: now })
@@ -160,6 +178,11 @@ export async function POST(request) {
         const pr = await findPressRow(sb, messageId)
         if (pr && !pr.delivered_at) {
           await sb.from('press_outreach').update({ delivered_at: now, updated_at: now }).eq('id', pr.id)
+        } else if (!pr) {
+          const tr = await findTradeRow(sb, messageId)
+          if (tr && !tr.delivered_at) {
+            await sb.from('trade_outreach').update({ delivered_at: now, updated_at: now }).eq('id', tr.id)
+          }
         }
       }
     } else if (type === 'email.opened' && messageId) {
@@ -178,6 +201,15 @@ export async function POST(request) {
             open_count: (pr.open_count || 0) + 1,
             updated_at: now,
           }).eq('id', pr.id)
+        } else {
+          const tr = await findTradeRow(sb, messageId)
+          if (tr) {
+            await sb.from('trade_outreach').update({
+              opened_at: tr.opened_at || now,
+              open_count: (tr.open_count || 0) + 1,
+              updated_at: now,
+            }).eq('id', tr.id)
+          }
         }
       }
     } else if (type === 'email.clicked' && messageId) {

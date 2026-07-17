@@ -30,6 +30,8 @@ export async function GET() {
       councilsActiveRes,
       pressEnquiriesRes,
       pressMembersRes,
+      tradeApplicationsRes,
+      tradeMembersRes,
       verticalCountsRes,
     ] = await Promise.all([
       // Total listings
@@ -58,6 +60,10 @@ export async function GET() {
       sb.from('press_enquiries').select('id', { count: 'exact', head: true }).eq('status', 'new'),
       // Active press members
       sb.from('press_accounts').select('id', { count: 'exact', head: true }).eq('status', 'active').eq('approved', true),
+      // New trade beta sign-ups in the last 7 days (auto-provisioned — no gate)
+      sb.from('trade_accounts').select('id', { count: 'exact', head: true }).gte('created_at', new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString()),
+      // Active trade members
+      sb.from('trade_accounts').select('id', { count: 'exact', head: true }).eq('status', 'active'),
       // Per-vertical active counts
       sb.from('listings').select('vertical').eq('status', 'active'),
     ])
@@ -85,6 +91,8 @@ export async function GET() {
       councils_active: councilsActiveRes.count || 0,
       press_enquiries_new: pressEnquiriesRes.count || 0,
       press_members_active: pressMembersRes.count || 0,
+      trade_applications_new: tradeApplicationsRes.count || 0,
+      trade_members_active: tradeMembersRes.count || 0,
       vertical_counts: verticalCounts,
     })
   } catch (err) {

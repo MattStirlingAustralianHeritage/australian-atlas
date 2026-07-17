@@ -167,6 +167,12 @@ function HealthBar({ stats, loading }) {
       href: '/admin/press-applications',
     },
     {
+      label: 'Trade Applications',
+      value: stats?.trade_applications_new ?? null,
+      color: stats?.trade_applications_new > 0 ? '#d4a039' : '#5f8a7e',
+      href: '/admin/trade-applications',
+    },
+    {
       label: 'Reviewed',
       value: stats?.humanised ?? null,
       color: '#5f8a7e',
@@ -319,6 +325,12 @@ function QuickActions({ stats }) {
       href: '/admin/press-applications',
       accent: stats?.press_enquiries_new > 0,
       badge: stats?.press_enquiries_new > 0 ? stats.press_enquiries_new : null,
+    },
+    {
+      label: 'Trade Applications',
+      href: '/admin/trade-applications',
+      accent: stats?.trade_applications_new > 0,
+      badge: stats?.trade_applications_new > 0 ? stats.trade_applications_new : null,
     },
     {
       label: 'Press Desk',

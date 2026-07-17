@@ -144,6 +144,10 @@
       "schedule": "45 22 * * *"
     },
     {
+      "path": "/api/cron/trade-outreach-autopilot",
+      "schedule": "0 23 * * *"
+    },
+    {
       "path": "/api/cron/council-digest",
       "schedule": "0 21 1 * *"
     },

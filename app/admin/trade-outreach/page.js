@@ -53,6 +53,14 @@ export default async function TradeOutreachPage() {
     onboardedCount = onboarded || 0
   } catch { /* table may not exist pre-migration */ }
 
+  // Opened count is separate: the opened_at column only exists post-migration
+  // 254, so a failure here must not zero the counts gathered above.
+  let openedCount = 0
+  try {
+    const { count } = await sb.from('trade_outreach').select('id', { count: 'exact', head: true }).not('opened_at', 'is', null)
+    openedCount = count || 0
+  } catch { /* pre-migration: no open tracking yet */ }
+
   // Trade campaign summaries.
   let campaigns = []
   try {
@@ -139,6 +147,7 @@ export default async function TradeOutreachPage() {
           directory: directoryCount,
           withEmail: withEmailCount,
           contacted: contactedCount,
+          opened: openedCount,
           onboarded: onboardedCount,
           suppressed: suppressedCount,
         }}
