@@ -4,8 +4,10 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Card, Button } from '@/components/council/ui'
 
-// Request access to the Newsroom — the beta lead form. No account is created
-// here; the press desk reviews and provisions access (usually same day).
+// Newsroom signup — self-serve. Submitting creates the press account there and
+// then (POST /api/press/enquire provisions it) and emails a sign-in link; the
+// press desk is notified but is not in the critical path. If provisioning can't
+// complete, the form falls back to "we'll be in touch" via the `activated` flag.
 
 const INPUT_STYLE = {
   width: '100%',
@@ -56,6 +58,7 @@ function BlockButton({ children, ...props }) {
 export default function NewsroomEnquirePage() {
   const [form, setForm] = useState({ name: '', outlet: '', outletType: 'newsletter', email: '', regions: '', message: '' })
   const [state, setState] = useState('idle') // idle | sending | done | error
+  const [activated, setActivated] = useState(false) // account provisioned vs held
 
   function set(key) {
     return (e) => setForm(f => ({ ...f, [key]: e.target.value }))
@@ -70,7 +73,10 @@ export default function NewsroomEnquirePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       })
-      setState(res.ok ? 'done' : 'error')
+      if (!res.ok) { setState('error'); return }
+      const json = await res.json().catch(() => ({}))
+      setActivated(!!json.activated)
+      setState('done')
     } catch {
       setState('error')
     }
@@ -92,23 +98,39 @@ export default function NewsroomEnquirePage() {
             fontFamily: 'var(--font-display)', fontSize: '2rem', fontWeight: 420,
             letterSpacing: '-0.01em', lineHeight: 1.15, color: 'var(--color-ink)', margin: '0 0 0.6rem',
           }}>
-            Request newsroom access
+            Create your newsroom account
           </h1>
           <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.92rem', color: 'var(--color-muted)', lineHeight: 1.55, margin: 0 }}>
             Free for working press of every size — a one-person newsletter counts.
-            We review requests by hand, usually the same business day.
+            Your account is set up the moment you sign up — we email you a sign-in link, no waiting on us.
           </p>
         </div>
 
         {state === 'done' ? (
           <Card style={{ padding: '2rem', textAlign: 'center' }}>
             <p style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem', color: 'var(--color-ink)', margin: '0 0 0.6rem' }}>
-              Request received
+              {activated ? "You're in" : 'Request received'}
             </p>
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.9rem', color: 'var(--color-muted)', lineHeight: 1.6, margin: 0 }}>
-              We&apos;ll be in touch at <strong>{form.email}</strong> — usually the same business day.
-              Once you&apos;re approved you sign in with that address, no password needed.
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: '0.9rem', color: 'var(--color-muted)', lineHeight: 1.6, margin: '0 0 1.25rem' }}>
+              {activated ? (
+                <>
+                  Your newsroom account is live. We&apos;ve emailed a sign-in link to{' '}
+                  <strong>{form.email}</strong> — sign in with that address any time, no password needed.
+                </>
+              ) : (
+                <>
+                  Thanks — we&apos;ll be in touch at <strong>{form.email}</strong>, usually the same business day.
+                  Once you&apos;re set up you sign in with that address, no password needed.
+                </>
+              )}
             </p>
+            <Link href="/newsroom/login" style={{ textDecoration: 'none' }}>
+              <Button variant="primary">
+                <span style={{ flex: 1, textAlign: 'center' }}>
+                  {activated ? 'Sign in to the Newsroom' : 'Go to sign in'}
+                </span>
+              </Button>
+            </Link>
           </Card>
         ) : (
           <Card style={{ padding: '1.75rem' }}>
@@ -144,7 +166,7 @@ export default function NewsroomEnquirePage() {
 
               <div style={{ marginBottom: '1.25rem' }}>
                 <label htmlFor="pe-message" style={LABEL_STYLE}>Anything else? <span style={{ fontWeight: 400 }}>(optional)</span></label>
-                <textarea id="pe-message" rows={3} value={form.message} onChange={set('message')} style={{ ...INPUT_STYLE, resize: 'vertical' }} placeholder="A link to your work helps us approve you faster." />
+                <textarea id="pe-message" rows={3} value={form.message} onChange={set('message')} style={{ ...INPUT_STYLE, resize: 'vertical' }} placeholder="A link to your work is always welcome — it helps us tailor your leads." />
               </div>
 
               {state === 'error' && (
@@ -159,7 +181,7 @@ export default function NewsroomEnquirePage() {
               )}
 
               <BlockButton type="submit" variant="primary" disabled={state === 'sending'}>
-                {state === 'sending' ? 'Sending…' : 'Request access'}
+                {state === 'sending' ? 'Creating your account…' : 'Create my account'}
               </BlockButton>
 
               <p style={{
