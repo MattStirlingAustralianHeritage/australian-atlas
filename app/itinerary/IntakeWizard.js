@@ -9,27 +9,18 @@ import { INTERESTS, TRIP_LENGTHS, PACES } from './engineShared'
  * Answers seed the build canvas; nothing here is irreversible.
  */
 export default function IntakeWizard({ regions, initial, onComplete }) {
-  // Seed from URL params where we can.
+  // A ?region= or ?q= deep link is a SUGGESTION, never a decision — the
+  // wizard always asks where the trip is going. The seeded region simply
+  // surfaces as a one-tap first option on the Where step.
   const seedRegion = initial?.region
     ? regions.find((r) => r.slug === initial.region)
     : initial?.q
       ? regions.find((r) => r.name.toLowerCase() === initial.q.trim().toLowerCase())
       : null
 
-  const [step, setStep] = useState(seedRegion ? 1 : 0)
+  const [step, setStep] = useState(0)
   const [query, setQuery] = useState(initial?.q && !seedRegion ? initial.q : '')
-  const [destination, setDestination] = useState(
-    seedRegion
-      ? {
-          regionSlug: seedRegion.slug,
-          regionName: seedRegion.name,
-          state: seedRegion.state,
-          centerLat: seedRegion.center_lat,
-          centerLng: seedRegion.center_lng,
-          mapZoom: seedRegion.map_zoom,
-        }
-      : null
-  )
+  const [destination, setDestination] = useState(null)
   const [dayCount, setDayCount] = useState(initial?.days ? Math.min(Math.max(parseInt(initial.days), 1), 7) : null)
   const [interests, setInterests] = useState([])
   const [pace, setPace] = useState('balanced')
@@ -150,6 +141,27 @@ export default function IntakeWizard({ regions, initial, onComplete }) {
               {geoLoading ? 'Finding you…' : 'Use my location'}
             </button>
 
+            {/* The deep-linked region leads, but only as a suggestion the
+                user still actively picks. */}
+            {seedRegion && !query.trim() && (
+              <div style={{ marginTop: 24 }}>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--color-gold)', marginBottom: 6 }}>
+                  Suggested
+                </p>
+                <button
+                  className="ie-region-row"
+                  onClick={() => pickRegion(seedRegion)}
+                  style={{ borderLeft: '2px solid var(--color-gold)', paddingLeft: 14, background: 'rgba(196, 154, 59, 0.05)' }}
+                >
+                  <span className="ie-region-name">{seedRegion.name}</span>
+                  <span className="ie-region-meta">
+                    {seedRegion.state}
+                    {seedRegion.listing_count ? ` · ${seedRegion.listing_count} places` : ''}
+                  </span>
+                </button>
+              </div>
+            )}
+
             <div style={{ marginTop: 24 }}>
               <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--color-muted)', marginBottom: 6 }}>
                 {query.trim() ? 'Matches' : 'Popular right now'}
@@ -159,7 +171,7 @@ export default function IntakeWizard({ regions, initial, onComplete }) {
                   No regions match “{query}”. Try a nearby town or region.
                 </p>
               )}
-              {matches.map((r) => (
+              {(seedRegion && !query.trim() ? matches.filter((r) => r.slug !== seedRegion.slug) : matches).map((r) => (
                 <button key={r.slug} className="ie-region-row" onClick={() => pickRegion(r)}>
                   <span className="ie-region-name">{r.name}</span>
                   <span className="ie-region-meta">
