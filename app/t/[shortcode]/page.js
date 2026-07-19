@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { getTranslations } from 'next-intl/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getVerticalUrl, getVerticalBadge, VERTICAL_ACCENTS } from '@/lib/verticalUrl'
+import { DAY_COLORS } from '@/app/itinerary/engineShared'
 import TrailMap from '../../trails/[slug]/TrailMap'
 import ShareButton from '../../trails/[slug]/ShareButton'
 import TrailLegCard from '@/components/TrailLegCard'
@@ -49,6 +50,15 @@ export default async function SharedTrailPage({ params }) {
     .order('position', { ascending: true })
 
   const validStops = (stops || []).filter(s => s.venue_lat && s.venue_lng)
+
+  // Itinerary Engine trips carry a day structure — group and number per day.
+  const hasDays = validStops.some(s => (s.day_number || 1) > 1)
+  const dayCounters = {}
+  const numberedStops = validStops.map(s => {
+    const day = s.day_number || 1
+    dayCounters[day] = (dayCounters[day] || 0) + 1
+    return { ...s, _day: day, _numInDay: dayCounters[day] }
+  })
 
   const isEditorial = trail.type === 'editorial'
 
@@ -119,15 +129,26 @@ export default async function SharedTrailPage({ params }) {
                 state={null}
               />
             )}
-            {validStops.map((stop, i) => {
+            {numberedStops.map((stop, i) => {
               const verticalColor = VERTICAL_COLORS[stop.vertical] || 'var(--color-sage)'
               const listingSlug = stop.listings?.slug || null
               const venueUrl = listingSlug ? `/place/${listingSlug}` : null
+              const showDayHeader = hasDays && (i === 0 || numberedStops[i - 1]._day !== stop._day)
+              const dayColor = DAY_COLORS[(stop._day - 1) % DAY_COLORS.length]
 
               return (
                 <div key={stop.id}>
+                {showDayHeader && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: i === 0 ? '0 0 16px' : '28px 0 16px' }}>
+                    <span style={{ width: 11, height: 11, borderRadius: '50%', background: dayColor, flexShrink: 0 }} />
+                    <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)' }}>
+                      Day {stop._day}
+                    </h2>
+                    <span style={{ flex: 1, height: 1, background: 'var(--color-border)' }} />
+                  </div>
+                )}
                 <div style={{ display: 'flex', gap: 16, position: 'relative' }}>
-                  {i < validStops.length - 1 && (
+                  {i < numberedStops.length - 1 && (
                     <div style={{ position: 'absolute', left: 17, top: 40, width: 1, height: 'calc(100% + 8px)', background: 'var(--color-border)' }} />
                   )}
                   <div style={{
@@ -137,7 +158,7 @@ export default async function SharedTrailPage({ params }) {
                     fontWeight: 700, fontSize: 13, marginTop: 2,
                     fontFamily: 'var(--font-body)', zIndex: 1,
                   }}>
-                    {i + 1}
+                    {hasDays ? stop._numInDay : i + 1}
                   </div>
                   <div style={{ flex: 1, background: 'var(--color-card-bg)', border: '1px solid var(--color-border)', borderRadius: 3, overflow: 'hidden' }}>
                     {stop.venue_image_url && (

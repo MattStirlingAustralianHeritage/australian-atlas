@@ -5,6 +5,7 @@ import { getTranslations, getLocale } from 'next-intl/server'
 import { ogLocale } from '@/lib/i18n/config'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { getVerticalUrl, getVerticalBadge, VERTICAL_ACCENTS } from '@/lib/verticalUrl'
+import { DAY_COLORS } from '@/app/itinerary/engineShared'
 import { isApprovedImageSource } from '@/lib/image-utils'
 import TrailInteractive from './TrailInteractive'
 import ShareButton from './ShareButton'
@@ -71,6 +72,16 @@ export default async function TrailPage({ params }) {
     .order('position', { ascending: true })
 
   const validStops = (stops || []).filter(s => s.venue_lat && s.venue_lng)
+
+  // Itinerary Engine trips carry a day structure — group and number per day.
+  const hasDays = validStops.some(s => (s.day_number || 1) > 1)
+  const dayCounters = {}
+  for (const s of validStops) {
+    const day = s.day_number || 1
+    dayCounters[day] = (dayCounters[day] || 0) + 1
+    s._day = day
+    s._numInDay = dayCounters[day]
+  }
 
   return (
     <div style={{ background: 'var(--color-bg)', minHeight: '100vh' }}>
@@ -160,7 +171,16 @@ export default async function TrailPage({ params }) {
             )}
             {validStops.map((stop, index) => (
               <div key={stop.id}>
-                <StopCard stop={stop} index={index} isLast={index === validStops.length - 1 && trail.transport_mode === 'drive'} t={t} />
+                {hasDays && (index === 0 || validStops[index - 1]._day !== stop._day) && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: index === 0 ? '0 0 16px' : '28px 0 16px' }}>
+                    <span style={{ width: 11, height: 11, borderRadius: '50%', background: DAY_COLORS[(stop._day - 1) % DAY_COLORS.length], flexShrink: 0 }} />
+                    <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)' }}>
+                      Day {stop._day}
+                    </h2>
+                    <span style={{ flex: 1, height: 1, background: 'var(--color-border)' }} />
+                  </div>
+                )}
+                <StopCard stop={stop} index={index} numberLabel={hasDays ? stop._numInDay : index + 1} isLast={index === validStops.length - 1 && trail.transport_mode === 'drive'} t={t} />
                 {/* Walking leg card for no-car modes */}
                 {trail.transport_mode && trail.transport_mode !== 'drive' && index < validStops.length - 1 && (
                   <div style={{ margin: '8px 0 0 0' }}>
@@ -245,7 +265,7 @@ export default async function TrailPage({ params }) {
   )
 }
 
-function StopCard({ stop, index, isLast, t }) {
+function StopCard({ stop, index, numberLabel, isLast, t }) {
   const verticalColor = VERTICAL_COLORS[stop.vertical] || 'var(--color-sage)'
   // Use the actual listing slug from the joined listings table
   const listingSlug = stop.listings?.slug || null
@@ -266,7 +286,7 @@ function StopCard({ stop, index, isLast, t }) {
         fontWeight: 700, fontSize: 14, zIndex: 1, marginTop: 4,
         fontFamily: 'var(--font-body)',
       }}>
-        {index + 1}
+        {numberLabel ?? index + 1}
       </div>
 
       {/* Card */}

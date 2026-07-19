@@ -78,7 +78,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { title, description, type, visibility, region, vertical_focus, stops, saved_via, transport_mode, neighbourhood_label } = body
+    const { title, description, type, visibility, region, vertical_focus, stops, saved_via, transport_mode, neighbourhood_label, day_count } = body
 
     // Auth check — share saves allow anonymous creation
     const supabase = await createAuthServerClient()
@@ -143,6 +143,9 @@ export async function POST(request) {
         // whole insert (which silently broke trail saving network-wide).
         transport_mode: transport_mode || 'drive',
         neighbourhood_label: neighbourhood_label || null,
+        // Multi-day itineraries (Itinerary Engine). day_count column exists
+        // in prod (migration 104) with a 1–7 check constraint — clamp or null.
+        day_count: Number.isInteger(day_count) && day_count >= 1 && day_count <= 7 ? day_count : null,
       })
       .select('id, title, slug, short_code, description, type, visibility, region, vertical_focus, stop_count, published, created_by, created_at, updated_at')
       .single()
@@ -167,6 +170,9 @@ export async function POST(request) {
         editorial_copy: stop.editorial_copy ?? stop.notes ?? null,
         // included_in_route is accepted in the body for forward-compat but
         // not persisted — the column doesn't exist in the production schema.
+        // is_overnight (migration 104) carries the Itinerary Engine's
+        // overnight-stay flag alongside day_number above.
+        is_overnight: stop.is_overnight === true,
         distance_from_previous_km: Number.isFinite(stop.distance_from_previous_km) ? stop.distance_from_previous_km : null,
         duration_from_previous_minutes: Number.isFinite(stop.duration_from_previous_minutes) ? Math.round(stop.duration_from_previous_minutes) : null,
       }))
