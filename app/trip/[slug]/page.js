@@ -316,7 +316,7 @@ export default async function TripPage({ params }) {
             {t('planYourOwnRoadTripBody')}
           </p>
           <Link
-            href="/on-this-road"
+            href="/itinerary"
             style={{
               display: 'inline-block',
               padding: '14px 32px',
@@ -372,7 +372,7 @@ function PlanAStayPage({ pasTrip, slug, t }) {
             Australian Atlas
           </Link>
           <Link
-            href="/plan-a-stay-v2"
+            href="/itinerary"
             style={{
               fontFamily: 'var(--font-body)',
               fontSize: 12,
@@ -428,7 +428,7 @@ function PlanAStayPage({ pasTrip, slug, t }) {
             {t('builtWithPlanAStay')}
           </p>
           <Link
-            href="/plan-a-stay-v2"
+            href="/itinerary"
             style={{
               display: 'inline-block',
               padding: '12px 28px',

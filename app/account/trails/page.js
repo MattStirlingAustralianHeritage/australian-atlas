@@ -247,7 +247,7 @@ export default function MyTrailsPage() {
               color: 'var(--color-muted)',
               margin: '0 0 1rem',
             }}>
-              Trips you saved from <Link href="/plan-a-stay-v2" style={{ color: 'var(--color-sage, #5A7A6B)' }}>Plan a Stay</Link>.
+              Trips you saved from <Link href="/itinerary" style={{ color: 'var(--color-sage, #5A7A6B)' }}>Plan a Stay</Link>.
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {savedStays.map(stay => (

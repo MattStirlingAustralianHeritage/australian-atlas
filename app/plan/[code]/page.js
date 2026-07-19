@@ -146,7 +146,7 @@ export default async function SharedPlanPage({ params }) {
           }}>
             {t('ctaPrompt')}
           </p>
-          <Link href="/plan" style={{
+          <Link href="/itinerary" style={{
             display: 'inline-block', padding: '11px 24px',
             background: 'var(--color-ink, #1c1a17)', color: '#fff',
             textDecoration: 'none', borderRadius: 6,

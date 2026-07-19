@@ -38,11 +38,16 @@ const nextConfig = {
         destination: '/regions/:slug',
         permanent: true,
       },
-      {
-        source: '/long-weekend',
-        destination: '/plan-my-stay',
-        permanent: true,
-      },
+      // ── Retired planning surfaces → the Itinerary Engine ──
+      // The engine at /itinerary replaced these builders (2026-07). Their
+      // saved OUTPUT pages stay live: /trip/[slug] (plan-a-stay + road
+      // trips) and /plan/[code] (concierge conversations) are NOT
+      // redirected — only the exact /plan entry route is.
+      { source: '/long-weekend', destination: '/itinerary', permanent: true },
+      { source: '/on-this-road', destination: '/itinerary', permanent: true },
+      { source: '/plan-a-stay-v2/:path*', destination: '/itinerary', permanent: true },
+      { source: '/plan-my-stay', destination: '/itinerary', permanent: true },
+      { source: '/plan', destination: '/itinerary', permanent: true },
     ]
   },
   async headers() {

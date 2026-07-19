@@ -866,13 +866,13 @@ export default async function Home() {
                     ? t('tripOneOfMany', { region: heroTrip.region, count: regionsCount })
                     : t('tripOneOfManyNoCount', { region: heroTrip.region })}
                 </p>
-                {/* The day above is one we assembled; readers can thread
-                    their own stops. The builder carries the section's one
-                    true action: an ink pill wearing the trip's own motif,
-                    a dotted route that travels on hover. The region links
+                {/* The day above is one we assembled; readers can compose
+                    their own with the Itinerary Engine — seeded with this
+                    region so the first question is already answered. The
+                    ink pill wears the trip's own motif; the region links
                     stay quiet. */}
                 <div style={{ marginTop: '16px' }}>
-                  <LocalizedLink href="/trails/builder" className="trail-cta">
+                  <LocalizedLink href={heroTrip.regionSlug ? `/itinerary?region=${heroTrip.regionSlug}` : '/itinerary'} className="trail-cta">
                     <svg className="trail-cta-route" width="23" height="23" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                       <circle cx="4.6" cy="19.2" r="2" fill="#C49A3C" opacity="0.85" />
                       <path
