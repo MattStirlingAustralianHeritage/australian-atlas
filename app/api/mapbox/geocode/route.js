@@ -76,11 +76,15 @@ export async function GET(request) {
 
     const data = await res.json()
 
-    // Return only the fields the client needs
+    // Return only the fields the client needs. `region` (the state name from
+    // Mapbox's context array) lets destination pickers show "Ararat · VIC"
+    // without parsing place_name.
     const features = (data.features || []).map(f => ({
       place_name: f.place_name,
       text: f.text,
       center: f.center,
+      region: (f.context || []).find(c => c.id?.startsWith('region'))?.text || null,
+      type: f.place_type?.[0] || null,
     }))
 
     return NextResponse.json({ features }, {

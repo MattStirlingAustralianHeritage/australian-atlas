@@ -1,7 +1,19 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { INTERESTS, TRIP_LENGTHS, PACES } from './engineShared'
+import { IntakeArt, TopoCorner } from './IntakeArt'
+
+const STATE_ABBREV = {
+  Victoria: 'VIC',
+  'New South Wales': 'NSW',
+  Queensland: 'QLD',
+  'South Australia': 'SA',
+  'Western Australia': 'WA',
+  Tasmania: 'TAS',
+  'Northern Territory': 'NT',
+  'Australian Capital Territory': 'ACT',
+}
 
 /**
  * IntakeWizard — the gentle guided front door of the Itinerary Engine.
@@ -26,6 +38,43 @@ export default function IntakeWizard({ regions, initial, onComplete }) {
   const [pace, setPace] = useState('balanced')
   const [geoLoading, setGeoLoading] = useState(false)
 
+  // Towns & cities: any Australian place is a valid destination, not just the
+  // curated regions. Queries also hit the Mapbox geocoder (debounced) and
+  // surface as a second group under the region matches.
+  const [places, setPlaces] = useState([])
+  const [placesLoading, setPlacesLoading] = useState(false)
+  const placesTimer = useRef(null)
+  useEffect(() => {
+    const q = query.trim()
+    clearTimeout(placesTimer.current)
+    if (q.length < 2) {
+      setPlaces([])
+      setPlacesLoading(false)
+      return
+    }
+    setPlacesLoading(true)
+    placesTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/mapbox/geocode?q=${encodeURIComponent(q)}`)
+        const data = await res.json()
+        // Towns, suburbs and localities only — street addresses are noise here.
+        setPlaces(
+          (data.features || []).filter(
+            (f) =>
+              Array.isArray(f.center) &&
+              f.center.length === 2 &&
+              ['place', 'locality', 'neighborhood'].includes(f.type)
+          )
+        )
+      } catch {
+        setPlaces([])
+      } finally {
+        setPlacesLoading(false)
+      }
+    }, 300)
+    return () => clearTimeout(placesTimer.current)
+  }, [query])
+
   const steps = ['Where', 'How long', 'Interests', 'Pace']
 
   const matches = useMemo(() => {
@@ -45,6 +94,18 @@ export default function IntakeWizard({ regions, initial, onComplete }) {
       centerLat: r.center_lat,
       centerLng: r.center_lng,
       mapZoom: r.map_zoom,
+    })
+    setStep(1)
+  }
+
+  function pickPlace(f) {
+    setDestination({
+      regionSlug: null,
+      regionName: f.text,
+      state: STATE_ABBREV[f.region] || null,
+      centerLat: f.center[1],
+      centerLng: f.center[0],
+      mapZoom: f.type === 'locality' || f.type === 'neighborhood' ? 12 : 11,
     })
     setStep(1)
   }
@@ -94,6 +155,9 @@ export default function IntakeWizard({ regions, initial, onComplete }) {
 
   return (
     <div className="ie-intake">
+      <TopoCorner />
+      <TopoCorner flip />
+      <div className="ie-intake-grid">
       <div className="ie-intake-inner">
         {/* Progress */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 40 }}>
@@ -162,25 +226,43 @@ export default function IntakeWizard({ regions, initial, onComplete }) {
               </div>
             )}
 
-            <div style={{ marginTop: 24 }}>
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--color-muted)', marginBottom: 6 }}>
-                {query.trim() ? 'Matches' : 'Popular right now'}
-              </p>
-              {matches.length === 0 && (
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--color-muted)', padding: '16px 0' }}>
-                  No regions match “{query}”. Try a nearby town or region.
+            {(matches.length > 0 || !query.trim()) && (
+              <div style={{ marginTop: 24 }}>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--color-muted)', marginBottom: 6 }}>
+                  {query.trim() ? 'Regions' : 'Popular right now'}
                 </p>
-              )}
-              {(seedRegion && !query.trim() ? matches.filter((r) => r.slug !== seedRegion.slug) : matches).map((r) => (
-                <button key={r.slug} className="ie-region-row" onClick={() => pickRegion(r)}>
-                  <span className="ie-region-name">{r.name}</span>
-                  <span className="ie-region-meta">
-                    {r.state}
-                    {r.listing_count ? ` · ${r.listing_count} places` : ''}
-                  </span>
-                </button>
-              ))}
-            </div>
+                {(seedRegion && !query.trim() ? matches.filter((r) => r.slug !== seedRegion.slug) : matches).map((r) => (
+                  <button key={r.slug} className="ie-region-row" onClick={() => pickRegion(r)}>
+                    <span className="ie-region-name">{r.name}</span>
+                    <span className="ie-region-meta">
+                      {r.state}
+                      {r.listing_count ? ` · ${r.listing_count} places` : ''}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Any Australian town or city works as a destination */}
+            {query.trim() && places.length > 0 && (
+              <div style={{ marginTop: matches.length > 0 ? 20 : 24 }}>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--color-muted)', marginBottom: 6 }}>
+                  Towns &amp; places
+                </p>
+                {places.map((f) => (
+                  <button key={f.place_name} className="ie-region-row" onClick={() => pickPlace(f)}>
+                    <span className="ie-region-name">{f.text}</span>
+                    <span className="ie-region-meta">{STATE_ABBREV[f.region] || f.region || 'Australia'}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {query.trim() && matches.length === 0 && places.length === 0 && (
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--color-muted)', padding: '20px 0 0' }}>
+                {placesLoading ? 'Searching…' : `Nothing found for “${query}” — try a nearby town or region.`}
+              </p>
+            )}
           </div>
         )}
 
@@ -283,6 +365,8 @@ export default function IntakeWizard({ regions, initial, onComplete }) {
             )}
           </div>
         )}
+      </div>
+      <IntakeArt />
       </div>
     </div>
   )
