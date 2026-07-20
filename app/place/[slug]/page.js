@@ -867,6 +867,11 @@ export default async function PlacePage({ params }) {
   // raw `national_park` key or a stored "National Park" label, across verticals).
   const isNationalPark = [listing._subcategory, listing.sub_type, ...(listing.sub_types || [])]
     .some(v => v && String(v).trim().toLowerCase().replace(/\s+/g, '_') === 'national_park')
+  // One shared gate for every claim entry point (description disclaimer,
+  // sidebar row, bottom banner) so they can never drift apart. Paid listings
+  // are excluded on the live-claim signal, not is_claimed, which can lag —
+  // a paying operator must never be asked to claim their own page.
+  const canClaim = !listing.is_claimed && !isPaid && !isNationalPark
   const verticalUrl = getVerticalUrl(listing.vertical, listing.slug)
   const location = [cleanRegion, listing.state].filter(Boolean).join(', ')
   const hasCoords = listing.lat && listing.lng
@@ -1103,6 +1108,29 @@ export default async function PlacePage({ params }) {
               </div>
             )}
 
+            {/* AI-provenance line (Data Integrity rule): auto-generated
+                descriptions must say so, and the fix-it path is the claim
+                flow — linked right where an operator reading their own
+                description is already looking. */}
+            {canClaim && listing.description && listing.data_source === 'ai_generated' && (
+              <p className="mt-4" style={{
+                fontFamily: 'var(--font-body)', fontSize: '13px', fontWeight: 300,
+                fontStyle: 'italic', color: 'var(--color-muted)', lineHeight: 1.6,
+              }}>
+                {t.rich('aiDisclaimer', {
+                  link: (chunks) => (
+                    <Link
+                      href={`/claim/${listing.slug}`}
+                      className="hover:underline"
+                      style={{ color: vertColor, fontWeight: 500, fontStyle: 'normal' }}
+                    >
+                      {chunks}
+                    </Link>
+                  ),
+                })}
+              </p>
+            )}
+
             {/* CTA buttons — two-tier hierarchy.
                 Primary pair (Visit Website + Start a trail here): equal visual
                 weight, stacked full-width on mobile, side-by-side on desktop.
@@ -1193,6 +1221,29 @@ export default async function PlacePage({ params }) {
 
                 {(listing.opening_hours || listing.hours) && (
                   <OpeningHours hours={listing.opening_hours || listing.hours} />
+                )}
+
+                {/* Quiet claim row — the operator's entry point, placed where
+                    an owner checking their own details is already looking.
+                    Same line treatment as "Also listed on": small-caps label,
+                    accent link. Travellers read past it as provenance. */}
+                {canClaim && (
+                  <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--color-border)' }}>
+                    <p className="mb-1" style={{
+                      fontFamily: 'var(--font-body)', color: 'var(--color-muted)',
+                      letterSpacing: '0.08em', fontSize: '10px',
+                      fontWeight: 600, textTransform: 'uppercase',
+                    }}>
+                      {t('ownThisPlaceShort')}
+                    </p>
+                    <Link
+                      href={`/claim/${listing.slug}`}
+                      className="hover:underline"
+                      style={{ fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 500, color: vertColor }}
+                    >
+                      {t('claimThisListing')} &rarr;
+                    </Link>
+                  </div>
                 )}
               </div>
             </div>
@@ -1873,15 +1924,12 @@ export default async function PlacePage({ params }) {
           </MoreInRow>
         )}
 
-        {/* ── Claim CTA (if unclaimed) — moved to the bottom of the page
-            so it doesn't interrupt the traveller flow. Editorially important
-            to the platform, functionally irrelevant to the user, so it sits
-            after the discovery content rather than between primary and
-            discovery sections. National parks are public land with no operator
-            to claim, so the CTA is suppressed for them. Also suppressed for
-            paid listings: listings.is_claimed can lag behind listing_claims,
-            and a paying operator must never be asked to claim their own page. */}
-        {!listing.is_claimed && !isPaid && !isNationalPark && (
+        {/* ── Claim CTA banner — the page-end restatement of the claim path.
+            The primary operator entry points are higher up (the sidebar claim
+            row and the AI-provenance line under the description); this banner
+            catches whoever read to the end. Shares the canClaim gate with
+            both. */}
+        {canClaim && (
           <div className="mt-12" style={{
             background: '#F5F0E8', margin: '3rem -1.5rem 0', padding: '3rem 2rem',
             textAlign: 'center',
