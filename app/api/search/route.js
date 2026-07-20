@@ -11,7 +11,7 @@ import { embedQueryCached } from '@/lib/embeddings/queryCache'
 import { logSearchEvent } from '@/lib/search/log'
 import { parseQueryLocation } from '@/lib/search/parseQuery'
 import { resolveQueryRegion } from '@/lib/search/resolveQueryRegion'
-import { resolveQueryPlace, geocodePlace, looksLikePlaceQuery } from '@/lib/search/resolveQueryPlace'
+import { resolveQueryPlace, geocodePlace, geocodeQueryLocality, looksLikePlaceQuery } from '@/lib/search/resolveQueryPlace'
 import { detectVerticalIntent } from '@/lib/search/verticalIntent'
 import { relevanceFloorFor } from '@/lib/search/relevanceFloor'
 import { rerankSearchResults } from '@/lib/search/rerank'
@@ -372,6 +372,21 @@ export async function GET(request) {
             filterState = state || parsed.state
             detectedState = filterState
             cleaned = parsed.cleaned
+            // Long-tail town named in a SENTENCE ("what to do in Ararat? I like
+            // bookshops") that the gazetteer can't see (no venues there yet):
+            // geocode the town to its STATE so results stay in-state instead of
+            // going nationwide. Gated to non-bare queries — bare place names
+            // ("Roma", "Apollo Bay") keep their proximity behaviour via the
+            // gazetteer above / the Tier C geocoder below, which looksLikePlaceQuery
+            // already covers. Never overrides an explicit ?state=.
+            if (!filterState && !noBind && !looksLikePlaceQuery(q)) {
+              const geo = await geocodeQueryLocality(q).catch(() => null)
+              if (geo?.state) {
+                filterState = geo.state
+                detectedState = geo.state
+                cleaned = geo.cleaned || cleaned
+              }
+            }
           }
         }
       }

@@ -6,6 +6,7 @@ import { logSearchEvent } from '@/lib/search/log'
 import { getPublicVerticals, isVerticalPublic } from '@/lib/verticalUrl'
 import { parseQueryLocation } from '@/lib/search/parseQuery'
 import { resolveQueryRegion } from '@/lib/search/resolveQueryRegion'
+import { resolveQueryPlace, geocodeQueryLocality } from '@/lib/search/resolveQueryPlace'
 import { isPublicListing } from '@/lib/listings/publicFilter'
 import { guardedAnthropicMessage } from '@/lib/ai/guardedAnthropic'
 import { translateSearchQuery, detectQueryLocale } from '@/lib/search/translateQuery'
@@ -176,6 +177,29 @@ export async function POST(request) {
         detectedState = parsed.state
         if (parsed.suburb) filterSuburb = parsed.suburb
         cleaned = parsed.cleaned
+        // Town-level binding (mirrors /api/search): when the hardcoded city list
+        // didn't recognise the place, resolve a named town to its STATE so the
+        // concierge ranks within-state instead of nationwide (the cross-state
+        // write-up bug — "what to do in Ararat?" surfacing TAS/NSW venues).
+        // First the gazetteer (towns we hold venues in), then a geocode for the
+        // long tail (towns with no venues yet, e.g. Ararat). STATE-level only,
+        // consistent with the "cities/towns resolve to state" design; never
+        // overrides a state/suburb already bound above.
+        if (!filterState && !filterSuburb) {
+          const pr = await resolveQueryPlace(sb, query).catch(() => null)
+          if (pr?.place?.state) {
+            filterState = pr.place.state
+            detectedState = pr.place.state
+            cleaned = pr.cleaned || cleaned
+          } else {
+            const geo = await geocodeQueryLocality(query).catch(() => null)
+            if (geo?.state) {
+              filterState = geo.state
+              detectedState = geo.state
+              cleaned = geo.cleaned || cleaned
+            }
+          }
+        }
       }
     }
     cleaned = (cleaned || query).trim()
