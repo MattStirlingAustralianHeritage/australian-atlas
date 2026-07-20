@@ -574,8 +574,7 @@ export default async function Home() {
           paddingBottom: 'clamp(28px, 4vh, 56px)',
           background:
             'radial-gradient(52% 44% at 50% 62%, rgba(196,154,60,0.09), rgba(196,154,60,0) 72%), ' +
-            'linear-gradient(180deg, rgba(250,248,244,0.94) 0%, rgba(245,240,230,0.82) 55%, rgba(239,231,216,0.96) 100%), ' +
-            'url(/maps/home-map-atlas-ghost.webp) center 38% / cover no-repeat, #EFE7D8',
+            'linear-gradient(180deg, rgba(250,248,244,0.94) 0%, rgba(245,240,230,0.82) 55%, rgba(239,231,216,0.96) 100%), #EFE7D8',
           // isolate creates the stacking context that keeps the rotating
           // survey-sheet layer's z-index -1 between this background stack and
           // the hero content. The layer clips itself (inset 0 + overflow
