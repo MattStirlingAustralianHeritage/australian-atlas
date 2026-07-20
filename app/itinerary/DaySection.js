@@ -177,11 +177,15 @@ export default function DaySection({
                   <div className="ie-choice-grid">
                     {[0, 1, 2].map((i) => (
                       <div key={i} className="ie-choice-card" style={{ pointerEvents: 'none' }}>
-                        <div className="ie-sugg-media" style={{ background: '#ece8e0' }} />
-                        <div className="ie-sugg-body">
-                          <div style={{ height: 9, width: '45%', background: '#ece8e0', borderRadius: 4, marginBottom: 8 }} />
-                          <div style={{ height: 14, width: '85%', background: '#ece8e0', borderRadius: 4, marginBottom: 6 }} />
-                          <div style={{ height: 9, width: '60%', background: '#ece8e0', borderRadius: 4 }} />
+                        <div className="ie-flip-inner">
+                          <div className="ie-flip-front">
+                            <div className="ie-sugg-media" style={{ background: '#ece8e0' }} />
+                            <div className="ie-sugg-body">
+                              <div style={{ height: 9, width: '45%', background: '#ece8e0', borderRadius: 4, marginBottom: 8 }} />
+                              <div style={{ height: 14, width: '85%', background: '#ece8e0', borderRadius: 4, marginBottom: 6 }} />
+                              <div style={{ height: 9, width: '60%', background: '#ece8e0', borderRadius: 4 }} />
+                            </div>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -201,6 +205,9 @@ export default function DaySection({
                       const metaLine = [formatSubType(s.sub_type), s.suburb || s.region, formatDistance(s.distance_km)]
                         .filter(Boolean)
                         .join(' · ')
+                      // The back face carries a photo only for claimed, paid
+                      // listings — everyone else keeps the typographic ground.
+                      const backImage = s.is_claimed && s.is_featured && s.hero_image_url ? s.hero_image_url : null
                       return (
                         <div
                           key={s.id}
@@ -208,31 +215,74 @@ export default function DaySection({
                           onMouseEnter={() => onHover?.(s.id)}
                           onMouseLeave={() => onHover?.(null)}
                         >
-                          <a href={`/place/${s.slug}`} target="_blank" rel="noreferrer" className="ie-sugg-media" style={{ '--tc-bg': token.bg }}>
-                            {s.hero_image_url ? (
-                              <img src={s.hero_image_url} alt={s.name} loading="lazy" />
-                            ) : (
-                              <span className="ie-sugg-media-initial">{(s.name || '?').trim().charAt(0)}</span>
-                            )}
-                            {(s.editors_pick || s.is_featured) && (
-                              <span className="ie-sugg-flag">{s.editors_pick ? 'Atlas Select' : 'Featured'}</span>
-                            )}
-                          </a>
-                          <div className="ie-sugg-body">
-                            <p style={{ fontFamily: 'var(--font-body)', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: VERTICAL_MUTED[s.vertical] || 'var(--color-muted)', marginBottom: 3 }}>
-                              {getVerticalBadge(s.vertical)}
-                            </p>
-                            <a href={`/place/${s.slug}`} target="_blank" rel="noreferrer" style={{ fontFamily: 'var(--font-display)', fontSize: 16, lineHeight: 1.22, color: 'var(--color-ink)', textDecoration: 'none' }}>
-                              {s.name}
-                            </a>
-                            {metaLine && (
-                              <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-muted)', marginTop: 3 }}>{metaLine}</p>
-                            )}
-                            {s.description && <p className="ie-sugg-desc">{s.description}</p>}
-                            <div style={{ marginTop: 'auto', paddingTop: 10 }}>
-                              <button className="ie-add-btn" style={{ width: '100%' }} onClick={() => onChoose(s)}>
-                                Choose
-                              </button>
+                          <div className="ie-flip-inner">
+                            {/* ── Front ── */}
+                            <div className="ie-flip-front">
+                              <a href={`/place/${s.slug}`} target="_blank" rel="noreferrer" className="ie-sugg-media" style={{ '--tc-bg': token.bg }}>
+                                {s.hero_image_url ? (
+                                  <img src={s.hero_image_url} alt={s.name} loading="lazy" />
+                                ) : (
+                                  <span className="ie-sugg-media-initial">{(s.name || '?').trim().charAt(0)}</span>
+                                )}
+                                {(s.editors_pick || s.is_featured) && (
+                                  <span className="ie-sugg-flag">{s.editors_pick ? 'Atlas Select' : 'Featured'}</span>
+                                )}
+                              </a>
+                              <div className="ie-sugg-body">
+                                <p style={{ fontFamily: 'var(--font-body)', fontSize: 9.5, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: VERTICAL_MUTED[s.vertical] || 'var(--color-muted)', marginBottom: 3 }}>
+                                  {getVerticalBadge(s.vertical)}
+                                </p>
+                                <a href={`/place/${s.slug}`} target="_blank" rel="noreferrer" style={{ fontFamily: 'var(--font-display)', fontSize: 16, lineHeight: 1.22, color: 'var(--color-ink)', textDecoration: 'none' }}>
+                                  {s.name}
+                                </a>
+                                {metaLine && (
+                                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-muted)', marginTop: 3 }}>{metaLine}</p>
+                                )}
+                                {s.description && <p className="ie-sugg-desc">{s.description}</p>}
+                                <div style={{ marginTop: 'auto', paddingTop: 10 }}>
+                                  <button className="ie-add-btn" style={{ width: '100%' }} onClick={() => onChoose(s)}>
+                                    Choose
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* ── Back: hours, the vibe, and (paid + claimed) the photo ── */}
+                            <div className="ie-flip-back" style={{ '--tc-bg': token.bg }}>
+                              {backImage && (
+                                <>
+                                  <img className="ie-flip-back-img" src={backImage} alt="" aria-hidden="true" />
+                                  <span className="ie-flip-back-scrim" aria-hidden="true" />
+                                </>
+                              )}
+                              {!backImage && (
+                                <span className="ie-flip-back-initial" aria-hidden="true">{(s.name || '?').trim().charAt(0)}</span>
+                              )}
+                              <div className="ie-flip-back-body">
+                                <p className="ie-flip-back-eyebrow">
+                                  {[getVerticalBadge(s.vertical), s.suburb || s.region].filter(Boolean).join(' · ')}
+                                </p>
+                                <p className="ie-flip-back-name">{s.name}</p>
+                                <div className="ie-flip-back-hours">
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true" style={{ flexShrink: 0, marginTop: 2 }}>
+                                    <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.5 2" />
+                                  </svg>
+                                  <div>
+                                    {s.hours_lines?.length ? (
+                                      s.hours_lines.map((line) => <p key={line}>{line}</p>)
+                                    ) : (
+                                      <p style={{ opacity: 0.7 }}>Hours not listed — check the listing</p>
+                                    )}
+                                  </div>
+                                </div>
+                                {s.description && <p className="ie-flip-back-desc">{s.description}</p>}
+                                <div className="ie-flip-back-foot">
+                                  <button className="ie-add-btn" onClick={() => onChoose(s)}>
+                                    Choose
+                                  </button>
+                                  <a href={`/place/${s.slug}`} target="_blank" rel="noreferrer">View →</a>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>

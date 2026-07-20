@@ -109,6 +109,32 @@ function parseClockTime(t) {
   return h + (m[2] ? parseInt(m[2], 10) / 60 : 0)
 }
 
+// Condense weekday_text into card-sized lines: consecutive days sharing the
+// same hours collapse into a range ("Mon–Fri · 9:00 AM – 5:00 PM").
+const DAY_ABBREV = { monday: 'Mon', tuesday: 'Tue', wednesday: 'Wed', thursday: 'Thu', friday: 'Fri', saturday: 'Sat', sunday: 'Sun' }
+function condenseHours(openingHours) {
+  const wt = openingHours?.weekday_text
+  if (!Array.isArray(wt) || wt.length === 0) return null
+  const days = []
+  for (const line of wt) {
+    const i = String(line).indexOf(': ')
+    if (i < 0) continue
+    const day = DAY_ABBREV[String(line).slice(0, i).trim().toLowerCase()]
+    if (!day) continue
+    days.push({ day, rest: String(line).slice(i + 2).trim() })
+  }
+  if (!days.length) return null
+  const groups = []
+  for (const d of days) {
+    const last = groups[groups.length - 1]
+    if (last && last.rest === d.rest) last.days.push(d.day)
+    else groups.push({ days: [d.day], rest: d.rest })
+  }
+  return groups
+    .map((g) => `${g.days.length > 2 ? `${g.days[0]}–${g.days[g.days.length - 1]}` : g.days.join(' & ')} · ${g.rest}`)
+    .slice(0, 4)
+}
+
 function openAtHour(openingHours, checkHour) {
   const wt = openingHours?.weekday_text
   if (!Array.isArray(wt) || wt.length === 0) return true // unknown → fail open
@@ -435,9 +461,10 @@ export async function GET(request) {
     lng: l.lng,
     hero_image_url: l.hero_image_url,
     description:
-      l.description && l.description.length > 220
-        ? l.description.slice(0, 220).trimEnd() + '…'
+      l.description && l.description.length > 300
+        ? l.description.slice(0, 300).trimEnd() + '…'
         : l.description || null,
+    hours_lines: condenseHours(l.opening_hours),
     distance_km: l.distance_km,
     is_featured: l.is_featured,
     is_claimed: l.is_claimed,

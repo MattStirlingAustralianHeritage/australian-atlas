@@ -289,15 +289,101 @@
 .ie-choice-grid {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
 }
+/* ── The choice card is a two-faced flip: front sells, back informs ── */
 .ie-choice-card {
-  display: flex; flex-direction: column;
+  position: relative;
+  perspective: 1200px;
+  background: transparent;
+}
+.ie-flip-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.65s cubic-bezier(0.22, 0.72, 0.24, 1);
+}
+@media (hover: hover) {
+  .ie-choice-card:hover .ie-flip-inner { transform: rotateY(180deg); }
+}
+.ie-flip-front,
+.ie-flip-back {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
   border-radius: var(--radius-card);
   border: 0.5px solid var(--color-border);
-  background: #fff;
   overflow: hidden;
-  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s ease, border-color 0.18s ease;
 }
-.ie-choice-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: rgba(28, 26, 23, 0.25); }
+.ie-flip-front {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #fff;
+}
+.ie-flip-back {
+  position: absolute;
+  inset: 0;
+  transform: rotateY(180deg);
+  background: var(--tc-bg, #2f2b26);
+  color: #faf8f4;
+  border-color: rgba(28, 26, 23, 0.35);
+}
+.ie-flip-back-img {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+}
+.ie-flip-back-scrim {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(20, 18, 14, 0.42) 0%, rgba(20, 18, 14, 0.78) 62%, rgba(20, 18, 14, 0.9) 100%);
+}
+.ie-flip-back-initial {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  font-family: var(--font-display); font-size: 120px; line-height: 1;
+  color: rgba(250, 248, 244, 0.08); pointer-events: none;
+}
+.ie-flip-back-body {
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column;
+  height: 100%;
+  padding: 14px 15px 13px;
+}
+.ie-flip-back-eyebrow {
+  font-family: var(--font-body); font-size: 9px; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: rgba(250, 248, 244, 0.65); margin-bottom: 4px;
+}
+.ie-flip-back-name {
+  font-family: var(--font-display); font-size: 16.5px; line-height: 1.2; margin-bottom: 9px;
+}
+.ie-flip-back-hours {
+  display: flex; gap: 7px; align-items: flex-start;
+  font-family: var(--font-body); font-size: 10.5px; line-height: 1.55;
+  color: rgba(250, 248, 244, 0.92);
+  padding-bottom: 9px; margin-bottom: 9px;
+  border-bottom: 1px solid rgba(250, 248, 244, 0.14);
+}
+.ie-flip-back-desc {
+  font-family: var(--font-body); font-size: 11.5px; font-weight: 300; line-height: 1.55;
+  color: rgba(250, 248, 244, 0.85);
+  display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden;
+}
+.ie-flip-back-foot {
+  margin-top: auto; padding-top: 10px;
+  display: flex; align-items: center; gap: 12px;
+}
+.ie-flip-back-foot .ie-add-btn { flex: 1; }
+.ie-flip-back-foot a {
+  font-family: var(--font-body); font-size: 11.5px; font-weight: 500;
+  color: rgba(250, 248, 244, 0.75); text-decoration: none; white-space: nowrap;
+}
+.ie-flip-back-foot a:hover { color: #faf8f4; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ie-flip-inner { transition: none; transform: none !important; }
+  .ie-flip-back { transform: none; opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }
+  @media (hover: hover) {
+    .ie-choice-card:hover .ie-flip-back { opacity: 1; pointer-events: auto; }
+  }
+}
 .ie-chooser-foot {
   display: flex; align-items: center; justify-content: space-between;
   margin-top: 12px;
