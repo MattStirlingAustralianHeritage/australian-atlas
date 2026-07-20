@@ -173,6 +173,12 @@ function HealthBar({ stats, loading }) {
       href: '/admin/trade-applications',
     },
     {
+      label: 'Rewrite Requests',
+      value: stats?.rewrite_requests_pending ?? null,
+      color: stats?.rewrite_change_requests > 0 ? '#c4603a' : stats?.rewrite_requests_pending > 0 ? '#d4a039' : '#5f8a7e',
+      href: '/admin/operator-descriptions',
+    },
+    {
       label: 'Reviewed',
       value: stats?.humanised ?? null,
       color: '#5f8a7e',
@@ -331,6 +337,12 @@ function QuickActions({ stats }) {
       href: '/admin/trade-applications',
       accent: stats?.trade_applications_new > 0,
       badge: stats?.trade_applications_new > 0 ? stats.trade_applications_new : null,
+    },
+    {
+      label: 'Rewrite Requests',
+      href: '/admin/operator-descriptions',
+      accent: stats?.rewrite_requests_pending > 0,
+      badge: stats?.rewrite_requests_pending > 0 ? stats.rewrite_requests_pending : null,
     },
     {
       label: 'Press Desk',
@@ -563,6 +575,7 @@ function ListingsZone({ stats, loading }) {
 function ContentZone({ stats, loading }) {
   const contentLinks = [
     { label: 'Articles', description: 'Create and publish journal articles', href: '/admin/articles' },
+    { label: 'Operator Descriptions', description: 'Rewrite requests and drafts awaiting review', href: '/admin/operator-descriptions' },
     { label: 'Listing Pitches', description: 'Story pitches submitted by operators', href: '/admin/listing-pitches' },
     { label: 'Editorial Queue', description: 'Story ideas and interview pipeline', href: '/admin/editorial' },
     { label: 'Pitch Triage', description: 'Review generated editorial pitches', href: '/admin/pitches' },

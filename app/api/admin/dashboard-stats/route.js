@@ -32,6 +32,8 @@ export async function GET() {
       pressMembersRes,
       tradeApplicationsRes,
       tradeMembersRes,
+      rewriteRequestsRes,
+      rewriteChangeRequestsRes,
       verticalCountsRes,
     ] = await Promise.all([
       // Total listings
@@ -64,6 +66,10 @@ export async function GET() {
       sb.from('trade_accounts').select('id', { count: 'exact', head: true }).gte('created_at', new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString()),
       // Active trade members
       sb.from('trade_accounts').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+      // Description drafts awaiting review (every operator rewrite request lands here)
+      sb.from('operator_description_drafts').select('id', { count: 'exact', head: true }).eq('status', 'pending_review'),
+      // …of which the operator pushed back on a draft with a note
+      sb.from('operator_description_drafts').select('id', { count: 'exact', head: true }).eq('status', 'pending_review').not('operator_action', 'is', null),
       // Per-vertical active counts
       sb.from('listings').select('vertical').eq('status', 'active'),
     ])
@@ -93,6 +99,8 @@ export async function GET() {
       press_members_active: pressMembersRes.count || 0,
       trade_applications_new: tradeApplicationsRes.count || 0,
       trade_members_active: tradeMembersRes.count || 0,
+      rewrite_requests_pending: rewriteRequestsRes.count || 0,
+      rewrite_change_requests: rewriteChangeRequestsRes.count || 0,
       vertical_counts: verticalCounts,
     })
   } catch (err) {

@@ -104,21 +104,28 @@ export default function DashboardDescription() {
     finally { setGenerating(false) }
   }
 
-  const flagDraft = async (draftId, action) => {
-    const note = window.prompt(action === 'flag_error'
-      ? 'What is wrong with this draft? (optional)'
-      : 'What would you like changed? (optional)') ?? ''
+  // Inline change-request form (replaces window.prompt). The note is what our
+  // editors hand to the rewrite agent, so 'request_changes' requires one.
+  const [flagOpen, setFlagOpen] = useState(null) // null | 'request_changes' | 'flag_error'
+  const [flagNote, setFlagNote] = useState('')
+  const [flagSending, setFlagSending] = useState(false)
+
+  const sendFlag = async (draftId) => {
+    if (flagSending) return
+    setFlagSending(true); setError(null); setNotice(null)
     try {
       const r = await fetch('/api/dashboard/description', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ listingId, action, draftId, note }),
+        body: JSON.stringify({ listingId, action: flagOpen, draftId, note: flagNote }),
       })
       const data = await r.json()
       if (!r.ok) { setError(data.error || 'Could not send.'); return }
+      setFlagOpen(null); setFlagNote('')
       await load(listingId)
-      setNotice('Sent to the admin.')
+      setNotice('Sent to our editors — they’ll rework the draft from your note.')
     } catch { setError('Network error.') }
+    finally { setFlagSending(false) }
   }
 
   const latest = drafts[0] || null
@@ -223,14 +230,39 @@ export default function DashboardDescription() {
                 <Banner kind="notice"><strong>From the editor:</strong> {latest.admin_note}</Banner>
               )}
 
-              {latest.status === 'pending_review' && (
+              {latest.status === 'pending_review' && !flagOpen && (
                 <div style={{ display: 'flex', gap: 8, marginTop: '1rem', flexWrap: 'wrap' }}>
-                  <button onClick={() => flagDraft(latest.id, 'request_changes')} style={btn('ghost', false)}>
+                  <button onClick={() => { setFlagOpen('request_changes'); setFlagNote('') }} style={btn('ghost', false)}>
                     Request changes
                   </button>
-                  <button onClick={() => flagDraft(latest.id, 'flag_error')} style={btn('ghost', false)}>
+                  <button onClick={() => { setFlagOpen('flag_error'); setFlagNote('') }} style={btn('ghost', false)}>
                     Flag an error
                   </button>
+                </div>
+              )}
+              {latest.status === 'pending_review' && flagOpen && (
+                <div style={{ marginTop: '1rem', padding: '0.9rem 1rem', background: '#FFFDF7', border: '1px solid #C49A3C55', borderRadius: 10 }}>
+                  <p style={{ fontFamily: 'var(--font-sans)', fontSize: '0.82rem', fontWeight: 600, color: 'var(--color-ink)', margin: '0 0 0.4rem' }}>
+                    {flagOpen === 'flag_error' ? 'What’s wrong with this draft?' : 'What would you like changed?'}
+                  </p>
+                  <textarea value={flagNote} onChange={e => setFlagNote(e.target.value)} rows={3}
+                    placeholder={flagOpen === 'flag_error'
+                      ? 'e.g. We don’t serve lunch on Sundays — that line is wrong. (optional)'
+                      : 'e.g. Lead with the courtyard, drop the mention of the old owners…'}
+                    style={{ ...inputStyle, resize: 'vertical' }} />
+                  <p style={{ fontFamily: 'var(--font-sans)', fontSize: '0.75rem', color: 'var(--color-muted)', margin: '0.35rem 0 0.6rem' }}>
+                    Our editors rework the draft from this note, so the more specific the better. Nothing changes on your live page until they publish.
+                  </p>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button onClick={() => sendFlag(latest.id)}
+                      disabled={flagSending || (flagOpen === 'request_changes' && !flagNote.trim())}
+                      style={btn('primary', flagSending || (flagOpen === 'request_changes' && !flagNote.trim()))}>
+                      {flagSending ? 'Sending…' : 'Send to our editors'}
+                    </button>
+                    <button onClick={() => { setFlagOpen(null); setFlagNote('') }} disabled={flagSending} style={btn('ghost', flagSending)}>
+                      Cancel
+                    </button>
+                  </div>
                 </div>
               )}
               {latest.operator_action && (

@@ -25,14 +25,16 @@ function factValue(v) {
   return String(v)
 }
 
-function DraftCard({ draft, listing, onResolved }) {
-  const [status, setStatus] = useState('idle') // idle | approving | rejecting | error
+function DraftCard({ draft, listing, onResolved, onReplaced }) {
+  const [status, setStatus] = useState('idle') // idle | approving | rejecting | rewriting | error
   const [errorMsg, setErrorMsg] = useState(null)
   const [exiting, setExiting] = useState(false)
   const [editing, setEditing] = useState(false)
   const [text, setText] = useState(draft.generated_text || '')
   const [showReject, setShowReject] = useState(false)
   const [note, setNote] = useState('')
+  const [showRewrite, setShowRewrite] = useState(false)
+  const [guidance, setGuidance] = useState('')
   const busyRef = useRef(false)
 
   const facts = draft.source_facts || {}
@@ -45,7 +47,7 @@ function DraftCard({ draft, listing, onResolved }) {
     if (busyRef.current) return
     busyRef.current = true
     setErrorMsg(null)
-    setStatus(action === 'approve' ? 'approving' : 'rejecting')
+    setStatus(action === 'approve' ? 'approving' : action === 'rewrite' ? 'rewriting' : 'rejecting')
     try {
       const res = await fetch('/api/admin/operator-descriptions', {
         method: 'POST',
@@ -55,6 +57,7 @@ function DraftCard({ draft, listing, onResolved }) {
           draftId: draft.id,
           editedText: action === 'approve' && edited ? text : undefined,
           note: action === 'reject' ? note : undefined,
+          guidance: action === 'rewrite' ? guidance : undefined,
         }),
       })
       const d = await res.json().catch(() => ({}))
@@ -62,6 +65,12 @@ function DraftCard({ draft, listing, onResolved }) {
         setErrorMsg(d.error || 'Action failed')
         setStatus('error')
         busyRef.current = false
+        return
+      }
+      if (action === 'rewrite') {
+        // The revised draft replaces this card in place — a fresh card mounts
+        // (keyed by the new draft id) with the improved copy ready to approve.
+        onReplaced(draft.id, d.draft)
         return
       }
       setExiting(true)
@@ -73,8 +82,9 @@ function DraftCard({ draft, listing, onResolved }) {
     }
   }
 
-  const busy = status === 'approving' || status === 'rejecting'
+  const busy = status === 'approving' || status === 'rejecting' || status === 'rewriting'
   const gatesPass = draft.source_binding_passed && draft.banned_phrase_passed
+  const isRewrite = draft.origin === 'admin_rewrite'
 
   return (
     <div style={{
@@ -101,10 +111,22 @@ function DraftCard({ draft, listing, onResolved }) {
       <div style={{ padding: '16px 20px 4px' }}>
         {/* Gate chips */}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+          {isRewrite && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-body)', fontSize: 11.5, fontWeight: 600, padding: '3px 10px', borderRadius: 20, color: '#7a5c1c', background: '#C49A3C18', border: '1px solid #C49A3C55' }}>
+              ✦ Claude revision
+            </span>
+          )}
           <Chip ok={draft.source_binding_passed} label={draft.source_binding_passed ? 'Source-binding passed' : `Source-binding failed (${failedClaims.length})`} />
           <Chip ok={draft.banned_phrase_passed} label={draft.banned_phrase_passed ? 'Voice check passed' : 'Voice check flagged'} />
           {draft.model && <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-muted)', alignSelf: 'center' }}>{draft.model}</span>}
         </div>
+
+        {/* What this revision was asked to address */}
+        {isRewrite && draft.rewrite_note && (
+          <div style={{ margin: '0 0 12px', padding: '8px 12px', background: '#F4F7F4', border: '1px solid #4A7C5933', borderRadius: 8, fontFamily: 'var(--font-body)', fontSize: 12, color: '#2f5540', whiteSpace: 'pre-line' }}>
+            <strong>Revision brief</strong>{'\n'}{draft.rewrite_note}
+          </div>
+        )}
 
         {!gatesPass && (failedClaims.length > 0 || warnings.length > 0) && (
           <div style={{ margin: '0 0 12px', padding: '10px 12px', background: '#FCEDEA', border: '1px solid #C4634F44', borderRadius: 8 }}>
@@ -191,14 +213,38 @@ function DraftCard({ draft, listing, onResolved }) {
         </div>
       )}
 
+      {showRewrite && (
+        <div style={{ margin: '0 20px 12px' }}>
+          <textarea value={guidance} onChange={e => setGuidance(e.target.value)} rows={2}
+            placeholder={draft.operator_note
+              ? 'Optional editor guidance — Claude already has the operator’s note above…'
+              : 'What should the revision do? (e.g. tighten the middle, drop the last line)…'}
+            style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', borderRadius: 6, border: '1px solid #C49A3C66', fontFamily: 'var(--font-body)', fontSize: 13, resize: 'vertical' }} />
+          <p style={{ margin: '4px 0 0', fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-muted)' }}>
+            The revision only rearranges what the facts and the live description already support — it can’t invent. It replaces this card as a new pending draft; nothing publishes until you approve it.
+          </p>
+        </div>
+      )}
+
       {/* Footer actions */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 20px', borderTop: '1px solid var(--color-border)', background: '#fff' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 20px', borderTop: '1px solid var(--color-border)', background: '#fff', flexWrap: 'wrap' }}>
         <button onClick={() => act('approve')} disabled={busy}
           style={{ height: 36, padding: '0 18px', borderRadius: 8, border: 'none', cursor: busy ? 'default' : 'pointer', background: '#4A7C59', color: '#fff', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 13, opacity: busy ? 0.6 : 1 }}>
           {status === 'approving' ? 'Publishing…' : edited ? 'Approve edited & publish' : 'Approve & publish'}
         </button>
+        {!showRewrite ? (
+          <button onClick={() => { setShowRewrite(true); setShowReject(false) }} disabled={busy}
+            style={{ height: 36, padding: '0 14px', borderRadius: 8, cursor: busy ? 'default' : 'pointer', background: '#C49A3C14', border: '1px solid #C49A3C88', color: '#7a5c1c', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 13, opacity: busy ? 0.6 : 1 }}>
+            ✦ Rewrite with Claude
+          </button>
+        ) : (
+          <button onClick={() => act('rewrite')} disabled={busy}
+            style={{ height: 36, padding: '0 16px', borderRadius: 8, cursor: busy ? 'default' : 'pointer', background: '#C49A3C', border: 'none', color: '#fff', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 13, opacity: busy ? 0.6 : 1 }}>
+            {status === 'rewriting' ? 'Rewriting…' : 'Generate revision'}
+          </button>
+        )}
         {!showReject ? (
-          <button onClick={() => setShowReject(true)} disabled={busy}
+          <button onClick={() => { setShowReject(true); setShowRewrite(false) }} disabled={busy}
             style={{ height: 36, padding: '0 14px', borderRadius: 8, cursor: busy ? 'default' : 'pointer', background: '#fff', border: '1px solid var(--color-border)', color: 'var(--color-ink)', fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: 13, opacity: busy ? 0.6 : 1 }}>
             Send back
           </button>
@@ -224,6 +270,10 @@ function Chip({ ok, label }) {
 export default function OperatorDescriptionsQueue({ initialDrafts, listingsById }) {
   const [drafts, setDrafts] = useState(initialDrafts || [])
   const onResolved = (id) => setDrafts(prev => prev.filter(d => d.id !== id))
+  // A Claude revision supersedes the draft it revised — swap it in place so
+  // the improved copy lands exactly where the admin was already looking.
+  const onReplaced = (id, revised) => setDrafts(prev => prev.map(d =>
+    d.id === id ? { ...revised, listing: revised.listing || d.listing } : d))
 
   if (!drafts.length) {
     return (
@@ -239,7 +289,7 @@ export default function OperatorDescriptionsQueue({ initialDrafts, listingsById 
         <strong style={{ color: 'var(--color-ink)' }}>{drafts.length}</strong> awaiting review
       </div>
       {drafts.map(d => (
-        <DraftCard key={d.id} draft={d} listing={d.listing || listingsById?.[d.listing_id] || null} onResolved={onResolved} />
+        <DraftCard key={d.id} draft={d} listing={d.listing || listingsById?.[d.listing_id] || null} onResolved={onResolved} onReplaced={onReplaced} />
       ))}
     </div>
   )

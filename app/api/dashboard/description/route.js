@@ -3,6 +3,7 @@ import { createAuthServerClient } from '@/lib/supabase/auth-clients'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { generateDescription } from '@/lib/operator-intake/generate.mjs'
 import { isListingPaid } from '@/lib/listing-gallery'
+import { sendAgentEmail } from '@/lib/agents/email'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Operator-fed description intake.
@@ -266,6 +267,16 @@ async function handleGenerate(admin, listingId) {
     console.error('[dashboard/description/generate] insert failed:', error.message)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
+
+  // A generate IS a rewrite request — tell the admin without waiting on the queue.
+  const gates = result.ok ? 'both gates passed' : 'needs a look — gate flags raised'
+  await sendAgentEmail({
+    subject: `Description ${nextVersion > 1 ? 'rewrite requested' : 'draft submitted'} — ${listing?.name || listingId}`,
+    html: `<p><strong>${escapeHtml(listing?.name || listingId)}</strong> generated description v${nextVersion} (${gates}).</p>`
+      + (facts.coverage_request ? `<p><em>What they'd like covered:</em> ${escapeHtml(facts.coverage_request)}</p>` : '')
+      + `<p><a href="https://www.australianatlas.com.au/admin/operator-descriptions">Review it in the queue</a></p>`,
+  })
+
   return NextResponse.json({ draft, generation: { ok: result.ok, banned: result.banned, binding: result.binding } })
 }
 
@@ -287,11 +298,12 @@ async function handleOperatorFlag(admin, listingId, action, body) {
   }
 
   const operator_action = action === 'flag_error' ? 'flagged_error' : 'requested_changes'
+  const cleanNote = typeof note === 'string' ? note.trim() || null : null
   const { data: updated, error } = await admin
     .from('operator_description_drafts')
     .update({
       operator_action,
-      operator_note: typeof note === 'string' ? note.trim() || null : null,
+      operator_note: cleanNote,
       updated_at: new Date().toISOString(),
     })
     .eq('id', draftId)
@@ -302,5 +314,26 @@ async function handleOperatorFlag(admin, listingId, action, body) {
     console.error('[dashboard/description/flag] update failed:', error.message)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
+
+  // The change request is the input the admin-side rewrite agent works from —
+  // surface it immediately rather than waiting for a queue visit.
+  const { data: listing } = await admin
+    .from('listings')
+    .select('name')
+    .eq('id', listingId)
+    .maybeSingle()
+  await sendAgentEmail({
+    subject: `Operator ${operator_action === 'flagged_error' ? 'flagged an error' : 'requested changes'} — ${listing?.name || listingId}`,
+    html: `<p><strong>${escapeHtml(listing?.name || listingId)}</strong> on draft v${updated.version}.</p>`
+      + (cleanNote ? `<p><em>Their note:</em> ${escapeHtml(cleanNote)}</p>` : '<p>No note left.</p>')
+      + `<p><a href="https://www.australianatlas.com.au/admin/operator-descriptions">Open the queue to rewrite with Claude</a></p>`,
+  })
+
   return NextResponse.json({ draft: updated })
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ))
 }
