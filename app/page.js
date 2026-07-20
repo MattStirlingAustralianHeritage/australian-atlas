@@ -7,6 +7,7 @@ import { overlayListingTranslations } from '@/lib/i18n/overlayListings'
 import { localizeVerticalKicker } from '@/lib/i18n/listingLabels'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import HomeSearchBar from '@/components/HomeSearchBar'
+import HeroAtlasBackground from '@/components/HeroAtlasBackground'
 import HomeAtlasMap from '@/components/HomeAtlasMap'
 import NewsletterSignup from '@/components/NewsletterSignup'
 import ScrollReveal from '@/components/ScrollReveal'
@@ -575,8 +576,15 @@ export default async function Home() {
             'radial-gradient(52% 44% at 50% 62%, rgba(196,154,60,0.09), rgba(196,154,60,0) 72%), ' +
             'linear-gradient(180deg, rgba(250,248,244,0.94) 0%, rgba(245,240,230,0.82) 55%, rgba(239,231,216,0.96) 100%), ' +
             'url(/maps/home-map-atlas-ghost.webp) center 38% / cover no-repeat, #EFE7D8',
+          // isolate creates the stacking context that keeps the rotating
+          // survey-sheet layer's z-index -1 between this background stack and
+          // the hero content. The layer clips itself (inset 0 + overflow
+          // hidden), so the section must NOT set overflow: hidden — it would
+          // clip the search autocomplete dropdown.
+          isolation: 'isolate',
         }}
       >
+        <HeroAtlasBackground />
         <svg
           className="hero-rise"
           width="26" height="26" viewBox="0 0 24 24" fill="var(--color-gold)" aria-hidden="true"

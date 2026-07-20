@@ -534,6 +534,20 @@ h1 { letter-spacing: -0.015em; font-feature-settings: 'liga' 1, 'kern' 1; }
   .hero-rise { animation: none; }
 }
 
+/* Hero chart background. The rotating survey-sheet layer is picked client-side
+   (see HeroAtlasBackground), so it mounts after hydration — this fade makes
+   that arrival read as a deliberate entrance alongside hero-rise. */
+.hero-chart-fade {
+  animation: hero-chart-fade 1s ease-out both;
+}
+@keyframes hero-chart-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-chart-fade { animation: none; }
+}
+
 /* Rolling search-hint placeholder. An animated overlay sits over the empty hero
    input and cross-rolls between example queries: the outgoing line lifts up and
    blurs out while the incoming line rolls in from below. Colour/size are set
