@@ -182,7 +182,7 @@
     "reportIssue": "报告问题",
     "save": "保存",
     "openingHours": "营业时间",
-    "aiDisclaimer": "描述由 AI 生成。拥有此列表？<link>认领</link>后即可更新。",
+    "aiDisclaimer": "描述由 AI 生成。拥有此列表？认领后即可更新。",
     "inRegion": "在 {region}",
     "notFound": "未找到此地点",
     "placeFallback": "地点",

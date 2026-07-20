@@ -1108,29 +1108,6 @@ export default async function PlacePage({ params }) {
               </div>
             )}
 
-            {/* AI-provenance line (Data Integrity rule): auto-generated
-                descriptions must say so, and the fix-it path is the claim
-                flow — linked right where an operator reading their own
-                description is already looking. */}
-            {canClaim && listing.description && listing.data_source === 'ai_generated' && (
-              <p className="mt-4" style={{
-                fontFamily: 'var(--font-body)', fontSize: '13px', fontWeight: 300,
-                fontStyle: 'italic', color: 'var(--color-muted)', lineHeight: 1.6,
-              }}>
-                {t.rich('aiDisclaimer', {
-                  link: (chunks) => (
-                    <Link
-                      href={`/claim/${listing.slug}`}
-                      className="hover:underline"
-                      style={{ color: vertColor, fontWeight: 500, fontStyle: 'normal' }}
-                    >
-                      {chunks}
-                    </Link>
-                  ),
-                })}
-              </p>
-            )}
-
             {/* CTA buttons — two-tier hierarchy.
                 Primary pair (Visit Website + Start a trail here): equal visual
                 weight, stacked full-width on mobile, side-by-side on desktop.
