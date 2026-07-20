@@ -138,40 +138,48 @@ export async function GET(request) {
 
   const radius = Number.isFinite(radiusParam) ? radiusParam : radiusForZoom(zoom)
 
-  // Slot mode quietly casts a wider net than the requested radius so sparse
-  // regional areas can still fill a trio — closeness is a ranking signal, so
-  // nearer places always win when they exist.
-  const queryRadius = slot ? Math.min(Math.max(radius * 3, 60), 150) : radius
-
-  // ── Bounding-box prefilter, then haversine ──
-  const latDelta = queryRadius / 111
-  const lngDelta = queryRadius / (111 * Math.cos((lat * Math.PI) / 180))
-
-  const { data, error } = await excludeTestListings(
-    sb
-      .from('listings')
-      .select(SELECT)
-      .eq('status', 'active')
-      .in('vertical', getPublicVerticals())
-      .not('lat', 'is', null)
-      .not('lng', 'is', null)
-      .gte('lat', lat - latDelta)
-      .lte('lat', lat + latDelta)
-      .gte('lng', lng - lngDelta)
-      .lte('lng', lng + lngDelta)
-      .or('geocode_confidence.is.null,geocode_confidence.neq.low')
-      .order('quality_score', { ascending: false, nullsFirst: false })
-      .limit(600)
-  )
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+  // ── One ring of listings around the anchor: bbox prefilter, then haversine ──
+  // The query is quality-ordered with a hard row cap, so a WIDE ring near a
+  // metro fills up with high-scoring city listings and silently drops the
+  // locals (a Castlemaine breakfast offering Carlton roasters). Always fetch
+  // TIGHT first; the slot pipeline below expands ring by ring only when the
+  // local pool is genuinely short.
+  const fetchRing = async (ringKm) => {
+    const dLat = ringKm / 111
+    const dLng = ringKm / (111 * Math.cos((lat * Math.PI) / 180))
+    const { data, error } = await excludeTestListings(
+      sb
+        .from('listings')
+        .select(SELECT)
+        .eq('status', 'active')
+        .in('vertical', getPublicVerticals())
+        .not('lat', 'is', null)
+        .not('lng', 'is', null)
+        .gte('lat', lat - dLat)
+        .lte('lat', lat + dLat)
+        .gte('lng', lng - dLng)
+        .lte('lng', lng + dLng)
+        .or('geocode_confidence.is.null,geocode_confidence.neq.low')
+        .order('quality_score', { ascending: false, nullsFirst: false })
+        .limit(600)
+    )
+    if (error) throw new Error(error.message)
+    return (data || [])
+      .filter((l) => l.lat != null && l.lng != null)
+      .map((l) => ({ ...l, distance_km: Math.round(haversineKm(lat, lng, l.lat, l.lng) * 10) / 10 }))
+      .filter((l) => l.distance_km <= ringKm)
   }
 
-  const inRange = (data || [])
-    .filter((l) => l.lat != null && l.lng != null)
-    .map((l) => ({ ...l, distance_km: Math.round(haversineKm(lat, lng, l.lat, l.lng) * 10) / 10 }))
-    .filter((l) => l.distance_km <= queryRadius)
+  let inRange
+  try {
+    inRange = await fetchRing(radius)
+  } catch (e) {
+    return NextResponse.json({ error: e.message }, { status: 500 })
+  }
+
+  // Base-bbox deltas for the taste RPC below.
+  const latDelta = radius / 111
+  const lngDelta = radius / (111 * Math.cos((lat * Math.PI) / 180))
 
   // ── Pins: everything in range, trimmed for the wire ──
   const pins = wantPins
@@ -244,9 +252,33 @@ export async function GET(request) {
   if (slot) {
     // ── Slot mode: a trio of sensible choices for one moment in the day ──
     const slotFilter = SLOT_FILTERS[slot]
-    let pool = inRange.filter(
-      (l) => slotFilter(l) && !exclude.has(String(l.id)) && !seeds.includes(String(l.id))
-    )
+    const eligible = (l) =>
+      slotFilter(l) && !exclude.has(String(l.id)) && !seeds.includes(String(l.id))
+
+    // Start with the tight ring; only widen (×2, capped 150 km) while the
+    // local pool can't offer a real choice. A country town keeps its own
+    // cafés at the front — the next town over only appears when needed, and
+    // the metro two hours away only when there's nothing nearer.
+    let pool = inRange.filter(eligible)
+    let ringKm = radius
+    const seen = new Set(pool.map((l) => String(l.id)))
+    const MIN_POOL = Math.max(limit * 3, 9)
+    while (pool.length < MIN_POOL && ringKm < 150) {
+      ringKm = Math.min(ringKm * 2, 150)
+      try {
+        const wider = await fetchRing(ringKm)
+        for (const l of wider) {
+          const id = String(l.id)
+          if (!seen.has(id) && eligible(l)) {
+            seen.add(id)
+            pool.push(l)
+          }
+        }
+      } catch {
+        break
+      }
+    }
+
     // Activity slots lean toward the traveller's stated interests, as long as
     // that still leaves a full trio to offer.
     if (ACTIVITY_SLOTS.has(slot) && interests.length) {
@@ -255,8 +287,11 @@ export async function GET(request) {
     }
 
     // Blend closeness to the anchor with the trip's taste (or raw quality
-    // order before any taste exists). Lower score = better.
-    const qualityIndex = new Map(inRange.map((l, i) => [String(l.id), i]))
+    // order before any taste exists). Lower score = better. Distance is
+    // normalised against the REQUESTED radius, uncapped enough that a
+    // 100 km detour can't out-score a good local option.
+    const byQuality = [...pool].sort((a, b) => (b.quality_score || 0) - (a.quality_score || 0))
+    const qualityIndex = new Map(byQuality.map((l, i) => [String(l.id), i]))
     const scored = pool
       .map((l) => {
         const id = String(l.id)
@@ -264,8 +299,8 @@ export async function GET(request) {
           ? tasteRank.has(id)
             ? tasteRank.get(id) / tasteRank.size
             : 1
-          : (qualityIndex.get(id) || 0) / Math.max(inRange.length, 1)
-        const distNorm = Math.min(l.distance_km / Math.max(radius, 1), 1.5)
+          : (qualityIndex.get(id) || 0) / Math.max(pool.length, 1)
+        const distNorm = Math.min(l.distance_km / Math.max(radius, 1), 4)
         return { l, score: rankNorm * 0.55 + distNorm * 0.45 }
       })
       .sort((a, b) => a.score - b.score)
