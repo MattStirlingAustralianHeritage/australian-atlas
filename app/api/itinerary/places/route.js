@@ -101,8 +101,13 @@ const ACTIVITY_SLOTS = new Set(['morning', 'afternoon'])
 // coverage is ~45% and absence of data shouldn't empty a country town's trio.
 const SLOT_OPEN_HOUR = { breakfast: 9.5, lunch: 12.5, dinner: 19, evening: 20 }
 
-function parseClockTime(t) {
-  const m = String(t).trim().toLowerCase().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/)
+function parseClockTime(t, inheritMeridiem) {
+  let s = String(t).trim().toLowerCase()
+  // Google drops the leading meridiem when both endpoints share it
+  // ("5:00 – 9:00 PM" means 5 PM–9 PM). When this token has no am/pm of its
+  // own, inherit the range's other end so the start time still parses.
+  if (inheritMeridiem && !/(am|pm)$/.test(s)) s += ` ${inheritMeridiem}`
+  const m = s.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/)
   if (!m) return null
   let h = parseInt(m[1], 10) % 12
   if (m[3] === 'pm') h += 12
@@ -151,7 +156,8 @@ function openAtHour(openingHours, checkHour) {
     for (const range of rest.split(',')) {
       const parts = range.split(/\s*(?:–|—|−|to|-)\s*/i).map((x) => x.trim()).filter(Boolean)
       if (parts.length !== 2) continue
-      const start = parseClockTime(parts[0])
+      const endMeridiem = (parts[1].toLowerCase().match(/(am|pm)$/) || [])[1] || null
+      const start = parseClockTime(parts[0], endMeridiem)
       let end = parseClockTime(parts[1])
       if (start == null || end == null) continue
       parsedAny = true
