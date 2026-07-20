@@ -57,7 +57,7 @@ function radiusForZoom(zoom) {
   return 160
 }
 
-const SELECT = `id, name, slug, description, region, state, suburb, lat, lng, hero_image_url, vertical, sub_type, sub_types, quality_score, is_featured, is_claimed, editors_pick, ${LISTING_REGION_SELECT}`
+const SELECT = `id, name, slug, description, region, state, suburb, lat, lng, hero_image_url, vertical, sub_type, sub_types, quality_score, is_featured, is_claimed, editors_pick, opening_hours, ${LISTING_REGION_SELECT}`
 
 // ── Slot category lenses ──
 // What kind of place makes sense at each point in the day. sub_type is the
@@ -66,14 +66,24 @@ const SELECT = `id, name, slug, description, region, state, suburb, lat, lng, he
 // walk-in opt-in, and Way experiences are booked, not dropped in on.
 const ACTIVITY_VERTICALS = ['field', 'collection', 'corner', 'found', 'sba']
 const BREAKFASTY = /cafe|bakery|brunch|tea|patisserie|coffee/
-const NOT_DINNER = /bakery|cafe|tea|patisserie|coffee|ice_cream|gelat/
+// Table listings that are shops or farm experiences, not sit-down meals —
+// never offered for lunch or dinner (great as morning/afternoon stops).
+const SHOP_NOT_MEAL = /market|grocer|farm_gate|butcher|fishmonger|pick_your_own|chocolatier|confectioner|creamery|providore|deli|orchard|ice_cream|gelat/
+const NOT_DINNER = new RegExp(`bakery|cafe|tea|patisserie|coffee|${SHOP_NOT_MEAL.source}`)
+
+// Name-level guard for rows whose sub_type is miscategorised (an
+// "Icecreamery" filed as restaurant) — meal slots only, deliberately narrow.
+const SWEET_SHOP_NAME = /ice ?cream|gelat|donut|doughnut|candy|lolly/i
 
 const SLOT_FILTERS = {
   breakfast: (l) =>
     l.vertical === 'fine_grounds' || (l.vertical === 'table' && BREAKFASTY.test(l.sub_type || '')),
   lunch: (l) =>
-    l.vertical === 'table' || (l.vertical === 'fine_grounds' && /cafe/.test(l.sub_type || '')),
-  dinner: (l) => l.vertical === 'table' && !NOT_DINNER.test(l.sub_type || ''),
+    ((l.vertical === 'table' && !SHOP_NOT_MEAL.test(l.sub_type || '')) ||
+      (l.vertical === 'fine_grounds' && /cafe/.test(l.sub_type || ''))) &&
+    !SWEET_SHOP_NAME.test(l.name || ''),
+  dinner: (l) =>
+    l.vertical === 'table' && !NOT_DINNER.test(l.sub_type || '') && !SWEET_SHOP_NAME.test(l.name || ''),
   morning: (l) => ACTIVITY_VERTICALS.includes(l.vertical),
   afternoon: (l) => ACTIVITY_VERTICALS.includes(l.vertical),
   evening: (l) =>
@@ -83,6 +93,48 @@ const SLOT_FILTERS = {
   sleep: (l) => l.vertical === 'rest',
 }
 const ACTIVITY_SLOTS = new Set(['morning', 'afternoon'])
+
+// ── Opening-hours gate for meal slots ──
+// A dinner suggestion must actually serve dinner: when a listing carries
+// opening hours (Google-style weekday_text), the slot's check hour must fall
+// inside some day's open interval. Unknown or unparsable hours fail OPEN —
+// coverage is ~45% and absence of data shouldn't empty a country town's trio.
+const SLOT_OPEN_HOUR = { breakfast: 9.5, lunch: 12.5, dinner: 19, evening: 20 }
+
+function parseClockTime(t) {
+  const m = String(t).trim().toLowerCase().match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/)
+  if (!m) return null
+  let h = parseInt(m[1], 10) % 12
+  if (m[3] === 'pm') h += 12
+  return h + (m[2] ? parseInt(m[2], 10) / 60 : 0)
+}
+
+function openAtHour(openingHours, checkHour) {
+  const wt = openingHours?.weekday_text
+  if (!Array.isArray(wt) || wt.length === 0) return true // unknown → fail open
+  let parsedAny = false
+  for (const line of wt) {
+    const i = String(line).indexOf(': ')
+    if (i < 0) continue
+    const rest = String(line).slice(i + 2).trim()
+    if (/closed/i.test(rest)) {
+      parsedAny = true
+      continue
+    }
+    if (/24 hours/i.test(rest)) return true
+    for (const range of rest.split(',')) {
+      const parts = range.split(/\s*(?:–|—|−|to|-)\s*/i).map((x) => x.trim()).filter(Boolean)
+      if (parts.length !== 2) continue
+      const start = parseClockTime(parts[0])
+      let end = parseClockTime(parts[1])
+      if (start == null || end == null) continue
+      parsedAny = true
+      if (end <= start) end += 24 // overnight service
+      if (checkHour >= start && checkHour < end) return true
+    }
+  }
+  return parsedAny ? false : true // nothing parsable → fail open
+}
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url)
@@ -259,8 +311,12 @@ export async function GET(request) {
   if (slot) {
     // ── Slot mode: a trio of sensible choices for one moment in the day ──
     const slotFilter = SLOT_FILTERS[slot]
+    const openHour = SLOT_OPEN_HOUR[slot]
     const eligible = (l) =>
-      slotFilter(l) && !exclude.has(String(l.id)) && !seeds.includes(String(l.id))
+      slotFilter(l) &&
+      !exclude.has(String(l.id)) &&
+      !seeds.includes(String(l.id)) &&
+      (openHour == null || openAtHour(l.opening_hours, openHour))
 
     // Start with the tight ring; only widen (×2, capped 150 km) while the
     // local pool can't offer a real choice. A country town keeps its own
@@ -326,7 +382,9 @@ export async function GET(request) {
       if (picked.length >= limit) break
       if (!picked.includes(l)) picked.push(l)
     }
-    suggestions = picked
+    // Better a short trio than an absurd one: never offer a "nearby" stop
+    // more than ~4× the search radius away, even in thin country coverage.
+    suggestions = picked.filter((l) => l.distance_km <= Math.max(radius * 4, 60))
   } else {
     // ── Rail mode: interest-filtered, taste-then-quality, cross-vertical mix ──
     const interested = interests.length
