@@ -26,10 +26,8 @@ export const INTERESTS = [
   { vertical: 'sba', label: 'Wine, beer & spirits', hint: 'Cellar doors & distilleries' },
   { vertical: 'field', label: 'Nature & outdoors', hint: 'Walks, lookouts, wild swims' },
   { vertical: 'collection', label: 'Culture', hint: 'Galleries, museums, theatre' },
-  { vertical: 'craft', label: 'Makers & studios', hint: 'Ceramics, glass, textiles' },
   { vertical: 'corner', label: 'Shops', hint: 'Bookshops, homewares, design' },
   { vertical: 'found', label: 'Vintage & antiques', hint: 'Op shops & curiosities' },
-  { vertical: 'way', label: 'Tours & experiences', hint: 'Guided walks, sailing, foraging' },
   { vertical: 'rest', label: 'Places to stay', hint: 'Boutique stays & farm stays' },
 ]
 
@@ -65,7 +63,7 @@ export const SLOTS = {
 export function dayArc(pace, day, dayCount) {
   const base =
     pace === 'relaxed'
-      ? ['breakfast', 'morning', 'dinner']
+      ? ['breakfast', 'morning', 'lunch', 'dinner']
       : pace === 'packed'
         ? ['breakfast', 'morning', 'lunch', 'afternoon', 'dinner', 'evening']
         : ['breakfast', 'morning', 'lunch', 'afternoon', 'dinner']

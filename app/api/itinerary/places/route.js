@@ -62,7 +62,9 @@ const SELECT = `id, name, slug, description, region, state, suburb, lat, lng, he
 // ── Slot category lenses ──
 // What kind of place makes sense at each point in the day. sub_type is the
 // fine-grained signal where a vertical spans breakfast and dinner (table).
-const ACTIVITY_VERTICALS = ['field', 'collection', 'craft', 'corner', 'found', 'way', 'sba']
+// craft + way are absent: no craft studio currently carries the public_retail
+// walk-in opt-in, and Way experiences are booked, not dropped in on.
+const ACTIVITY_VERTICALS = ['field', 'collection', 'corner', 'found', 'sba']
 const BREAKFASTY = /cafe|bakery|brunch|tea|patisserie|coffee/
 const NOT_DINNER = /bakery|cafe|tea|patisserie|coffee|ice_cream|gelat/
 
@@ -153,6 +155,11 @@ export async function GET(request) {
         .select(SELECT)
         .eq('status', 'active')
         .in('vertical', getPublicVerticals())
+        // Every itinerary suggestion must be drop-in visitable. trail_eligible
+        // is the generated gate for exactly that (fixed, walk-in, drive-to):
+        // it excludes appointment-only studios, tours, mobile/pop-up presence
+        // and non-visitable listings (migration 248).
+        .eq('trail_eligible', true)
         .not('lat', 'is', null)
         .not('lng', 'is', null)
         .gte('lat', lat - dLat)
