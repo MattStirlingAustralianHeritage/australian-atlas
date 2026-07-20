@@ -67,21 +67,31 @@ export async function GET(request) {
   const issues = [] // { agent, kind, detail }
 
   try {
-    // One query: latest run + latest completed run per agent.
-    const { data: runs, error: fetchError } = await sb
-      .from('agent_runs')
-      .select('agent, started_at, completed_at, status, error')
-      .neq('agent', 'fleet-health')
-      .order('started_at', { ascending: false })
-      .limit(2000)
-
-    if (fetchError) throw fetchError
+    // One query PER agent, not one windowed scan of the whole table.
+    // PostgREST caps any single response at 1,000 rows regardless of
+    // .limit(), and the fleet's hourly agents push enough volume that a
+    // "recent runs" window stops reaching the monthly agents' last runs
+    // after ~2 weeks — on 2026-07-20 that misreported three healthy
+    // monthly agents as never having run.
+    const perAgent = await Promise.all(
+      Object.keys(EXPECTED).map(agent =>
+        sb
+          .from('agent_runs')
+          .select('agent, started_at, completed_at, status, error')
+          .eq('agent', agent)
+          .order('started_at', { ascending: false })
+          .limit(20)
+      )
+    )
 
     const latestByAgent = {}
     const latestCompletedByAgent = {}
-    for (const r of runs || []) {
-      if (!latestByAgent[r.agent]) latestByAgent[r.agent] = r
-      if (!latestCompletedByAgent[r.agent] && r.completed_at) latestCompletedByAgent[r.agent] = r
+    for (const res of perAgent) {
+      if (res.error) throw res.error
+      for (const r of res.data || []) {
+        if (!latestByAgent[r.agent]) latestByAgent[r.agent] = r
+        if (!latestCompletedByAgent[r.agent] && r.completed_at) latestCompletedByAgent[r.agent] = r
+      }
     }
 
     const now = Date.now()
