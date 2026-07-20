@@ -159,6 +159,9 @@ function openAtHour(openingHours, checkHour) {
       const endMeridiem = (parts[1].toLowerCase().match(/(am|pm)$/) || [])[1] || null
       const start = parseClockTime(parts[0], endMeridiem)
       let end = parseClockTime(parts[1])
+      // Open-ended close ("5:00 PM – late") — treat as open through the evening
+      // so "5pm til late" venues still register for the dinner/evening check.
+      if (end == null && /^(?:til+\s+|until\s+)?late$/i.test(parts[1].trim())) end = 24
       if (start == null || end == null) continue
       parsedAny = true
       if (end <= start) end += 24 // overnight service
