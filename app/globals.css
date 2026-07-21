@@ -1177,3 +1177,17 @@ nav a, .inline-link { min-height: unset; }
 @media (prefers-reduced-motion: reduce) {
   .invite-card { transition: none; transform: none; }
 }
+
+/* ── Dashboard skeleton loaders (operator dashboard + admin listing editor) ── */
+@keyframes aa-skeleton-pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.9; }
+}
+.aa-skeleton {
+  background: var(--color-border, #e5e0d8);
+  border-radius: 6px;
+  animation: aa-skeleton-pulse 1.3s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .aa-skeleton { animation: none; opacity: 0.6; }
+}

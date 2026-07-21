@@ -41,8 +41,12 @@ export async function PATCH(request, { params }) {
     const body = await request.json()
 
     // Extract meta fields and sub_types — save them BEFORE the main update
-    // so that updateListing reads fresh meta for the vertical sync
-    const { _meta, _sub_types, ...listingFields } = body
+    // so that updateListing reads fresh meta for the vertical sync.
+    // _deferVerticalSync skips the (slow, cross-project) vertical push so the
+    // editor gets an instant response; the client then fires
+    // POST /api/admin/listings/[id]/sync-vertical to run the same sync out of
+    // band. Callers that don't send the flag keep the inline sync unchanged.
+    const { _meta, _sub_types, _deferVerticalSync, ...listingFields } = body
     let metaResult = null
 
     if (_meta && Object.keys(_meta).length > 0) {
@@ -53,11 +57,17 @@ export async function PATCH(request, { params }) {
       // sba → rest) tries to write rest's accommodation_type into the old
       // sba_meta table and fails with a 42703 / "column not in schema cache".
       const sb = getSupabaseAdmin()
-      const { data: row } = await sb.from('listings').select('vertical').eq('id', id).single()
       const savingVertical = (typeof listingFields.vertical === 'string' && EXTENSION_TABLES[listingFields.vertical])
         ? listingFields.vertical
         : null
-      const effectiveVertical = savingVertical || row?.vertical || null
+      // Only hit the DB for the vertical when the payload doesn't carry it —
+      // the editor always sends it, and every sequential round-trip here sits
+      // on the save's critical path.
+      let effectiveVertical = savingVertical
+      if (!effectiveVertical) {
+        const { data: row } = await sb.from('listings').select('vertical').eq('id', id).single()
+        effectiveVertical = row?.vertical || null
+      }
       const metaTable = effectiveVertical ? EXTENSION_TABLES[effectiveVertical] : null
 
       if (metaTable) {
@@ -119,7 +129,10 @@ export async function PATCH(request, { params }) {
     }
 
     // Now run the main update (reads fresh meta for vertical sync)
-    const result = await updateListing(id, listingFields, { action: 'listing-editor' })
+    const result = await updateListing(id, listingFields, {
+      action: 'listing-editor',
+      syncToVertical: !_deferVerticalSync,
+    })
 
     if (!result.success) {
       const status = result.error?.includes('not found') ? 404 : 400
@@ -137,7 +150,9 @@ export async function PATCH(request, { params }) {
 
     return NextResponse.json({
       listing: result.listing,
-      verticalSync: result.verticalSync,
+      verticalSync: _deferVerticalSync
+        ? { deferred: true, vertical: result.listing?.vertical }
+        : result.verticalSync,
       metaSync: metaResult,
     })
   } catch (err) {

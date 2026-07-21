@@ -119,25 +119,24 @@ export default function DashboardLayout({ children }) {
         .then(r => (r.ok ? r.json() : Promise.reject(new Error('dashboard fetch failed'))))
         .then(data => {
           if (data?.error) throw new Error(data.error)
-          const fetched = data?.listings || []
-          setListings(fetched)
-          if (fetched.length === 0) { setStatsLoading(false); return }
-          // One stats fetch per listing for the whole dashboard session.
-          Promise.all(fetched.map(l =>
-            fetch(`/api/dashboard/stats?listing_id=${l.id}`, { headers: { Authorization: `Bearer ${token}` } })
-              .then(r => (r.ok ? r.json() : null))
-              .then(s => (s && !s.error ? [l.id, s] : null))
-              .catch(() => null)
-          )).then(pairs => {
-            setStats(Object.fromEntries(pairs.filter(Boolean)))
-            setStatsLoading(false)
-          })
+          setListings(data?.listings || [])
         })
         .catch((err) => {
           setListingsError(err?.message || 'Failed to load your listings')
-          setStatsLoading(false)
         })
         .finally(() => setListingsLoading(false))
+
+      // Stats for every owned listing in ONE request, fired in parallel with
+      // the listings fetch (the server derives ownership itself). Replaces the
+      // old per-listing fan-out — one request per listing, each rescanning the
+      // pageviews table — that made an admin dashboard load fire ~30 requests.
+      fetch('/api/dashboard/stats/batch', { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => (r.ok ? r.json() : null))
+        .then(data => {
+          if (data?.stats) setStats(data.stats)
+        })
+        .catch(() => { /* cards render with placeholders when stats fail */ })
+        .finally(() => setStatsLoading(false))
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {

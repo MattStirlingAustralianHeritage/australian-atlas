@@ -3,7 +3,7 @@ import { LIVE_CLAIM_STATUSES } from '@/lib/claims/statuses'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { verifySharedToken } from '@/lib/shared-auth'
 import { LISTING_REGION_SELECT } from '@/lib/regions'
-import { readGalleryEntries, isListingPaid } from '@/lib/listing-gallery'
+import { readGalleryEntries, filterPaidListingIds } from '@/lib/listing-gallery'
 import { readHighlightsMap } from '@/lib/operator-highlights/read'
 import { getTradeProfiles } from '@/lib/trade/profile'
 
@@ -123,55 +123,70 @@ export async function GET(request) {
       listings = data || []
     }
 
-    // Operator highlights (the "right now" + hiring layer) — one batched,
-    // migration-tolerant read for all listings, merged in below.
-    const highlightsMap = await readHighlightsMap(sb, listings.map(l => l.id))
-
-    // Extended trade profile (migration 204) — batched, fail-soft (empty map
-    // until the table lands). Feeds the Trade readiness editor's initial state.
-    const tradeProfiles = await getTradeProfiles(sb, listings.map(l => l.id))
-
-    // Enrich each listing with activity stats. All queries for a listing run
-    // in parallel; the listings themselves are already parallel via the map.
-    // (listing_scores used to be read here too — the table was never populated,
-    // so the query and the score it fed were dead weight on every load.)
+    const ids = listings.map(l => l.id)
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-    const enriched = await Promise.all(listings.map(async (listing) => {
-      const [searchRes, trailRes, galleryEntries, paid] = await Promise.all([
-        sb
-          .from('listing_search_appearances')
-          .select('id', { count: 'exact', head: true })
-          .eq('listing_id', listing.id)
-          .gte('appeared_at', thirtyDaysAgo),
 
-        // Trail appearances (count of trail_stops referencing this listing)
-        sb
-          .from('trail_stops')
-          .select('id', { count: 'exact', head: true })
-          .eq('listing_id', listing.id),
+    // Batched, fail-soft reads shared by both paths: operator highlights (the
+    // "right now" + hiring layer), extended trade profile (migration 204), and
+    // the paid flag (one listing_claims query for the whole set — the old
+    // per-listing isListingPaid calls cost a query each).
+    const [highlightsMap, tradeProfiles, paidIds] = await Promise.all([
+      readHighlightsMap(sb, ids),
+      getTradeProfiles(sb, ids),
+      filterPaidListingIds(sb, ids),
+    ])
 
-        // Gallery (paid perk) + paid flag, so the editor can render/gate the
-        // photo manager. gallery_image_urls is a storage manifest, not a column.
-        readGalleryEntries(sb, listing.id),
-        isListingPaid(sb, listing.id),
-      ])
+    // Gallery manifests are one storage download per listing, and only the
+    // single-listing edit page renders them — the overview/My Listings cards
+    // never do. Skip the downloads on the list path so an admin session (every
+    // claimed listing) doesn't pay ~30 storage round-trips per load.
+    const includeGallery = !!listingId
+    const galleryByListing = new Map(
+      includeGallery
+        ? await Promise.all(listings.map(async l => [l.id, await readGalleryEntries(sb, l.id)]))
+        : []
+    )
 
+    // Activity counts, batched: one row fetch per table for the whole set,
+    // counted per listing in JS — replaces two count queries per listing.
+    const [searchCounts, trailCounts] = await Promise.all([
+      sb
+        .from('listing_search_appearances')
+        .select('listing_id')
+        .in('listing_id', ids)
+        .gte('appeared_at', thirtyDaysAgo)
+        .limit(100000),
+      sb
+        .from('trail_stops')
+        .select('listing_id')
+        .in('listing_id', ids)
+        .limit(100000),
+    ]).then(results => results.map(({ data, error }) => {
+      if (error) throw error
+      const counts = new Map()
+      for (const row of data || []) counts.set(row.listing_id, (counts.get(row.listing_id) || 0) + 1)
+      return counts
+    }))
+
+    const enriched = listings.map(listing => {
+      const galleryEntries = galleryByListing.get(listing.id) || []
       return {
         ...listing,
         // All gallery urls (incl. held/flagged) so the editor can show + manage
         // them, plus their moderation status for the per-photo badge. Public
-        // surfaces use readGallery() which returns clean-only.
+        // surfaces use readGallery() which returns clean-only. Empty on the
+        // list path — the edit page refetches its listing individually.
         gallery_image_urls: galleryEntries.map(e => e.url),
         gallery_moderation: galleryEntries.map(e => ({ url: e.url, status: e.status, reason: e.reason })),
         operator_highlights: highlightsMap.get(listing.id) || null,
         trade_profile: tradeProfiles.get(listing.id) || null,
-        paid,
+        paid: paidIds.has(listing.id),
         stats: {
-          search_appearances: searchRes.count || 0,
-          trail_inclusions: trailRes.count || 0,
+          search_appearances: searchCounts.get(listing.id) || 0,
+          trail_inclusions: trailCounts.get(listing.id) || 0,
         },
       }
-    }))
+    })
 
     return NextResponse.json({ listings: enriched })
   } catch (err) {

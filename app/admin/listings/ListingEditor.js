@@ -649,6 +649,56 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
     }
   }, [isExpanded, listing.vertical, listing.id])
 
+  // Flash lifecycle for the deferred-sync flow: saves respond after the master
+  // write (fast) and the vertical push runs out of band, so a card can have a
+  // "syncing…" flash that later resolves to saved/warn. The timer ref stops a
+  // stale auto-clear wiping a newer flash; the seq ref stops an old background
+  // sync's completion overwriting the flash of a save issued after it.
+  const flashTimer = useRef(null)
+  const syncSeq = useRef(0)
+  const mounted = useRef(true)
+  useEffect(() => {
+    // Set true in the effect BODY, not just the ref initialiser — StrictMode
+    // runs mount→unmount→mount, and a cleanup-only effect would leave the ref
+    // false forever after the throwaway first cycle.
+    mounted.current = true
+    return () => { mounted.current = false; clearTimeout(flashTimer.current) }
+  }, [])
+
+  const showFlash = (f, ttl) => {
+    if (!mounted.current) return
+    clearTimeout(flashTimer.current)
+    setFlash(f)
+    if (ttl) flashTimer.current = setTimeout(() => { if (mounted.current) setFlash(null) }, ttl)
+  }
+
+  // Run the vertical push in the background after a deferred save. `quiet`
+  // (used by hide/unhide) only surfaces failures — success keeps whatever
+  // flash the action already showed.
+  const runBackgroundSync = (updated, { quiet = false } = {}) => {
+    const seq = ++syncSeq.current
+    const verticalName = VERTICAL_NAMES[updated?.vertical] || updated?.vertical || 'vertical'
+    fetch(`/api/admin/listings/${listing.id}/sync-vertical`, { method: 'POST' })
+      .then(r => r.json().then(d => ({ ok: r.ok, d })).catch(() => ({ ok: r.ok, d: null })))
+      .then(({ ok, d }) => {
+        if (seq !== syncSeq.current) return
+        const vs = d?.verticalSync
+        if (typeof d?.source_id === 'string' && d.source_id !== updated?.source_id) {
+          // The sync linked a vertical row (path B1/B2) — reflect it locally.
+          onUpdate({ ...updated, source_id: d.source_id })
+        }
+        if (ok && vs?.success) {
+          if (!quiet) showFlash({ type: 'saved', vertical: verticalName }, 4000)
+        } else {
+          showFlash({ type: 'saved-warn', msg: vs?.warning || d?.error || 'sync failed', vertical: verticalName }, 8000)
+        }
+      })
+      .catch(() => {
+        if (seq !== syncSeq.current) return
+        showFlash({ type: 'saved-warn', msg: 'background sync request failed', vertical: verticalName }, 8000)
+      })
+  }
+
   const handleSave = async () => {
     if (!draft || saving) return
     setSaving(true)
@@ -679,6 +729,8 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
         metaPayload[categoryKey] = subTypes[0]
       }
 
+      // Deferred sync: the PATCH returns as soon as master (+ meta) is saved;
+      // the slow cross-project vertical push runs via runBackgroundSync below.
       const res = await fetch(`/api/admin/listings/${listing.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -686,16 +738,16 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
           ...draft,
           ...(metaPayload ? { _meta: metaPayload } : {}),
           _sub_types: subTypes,
+          _deferVerticalSync: true,
         }),
       })
       const data = await res.json()
       if (!res.ok) {
         console.error('Save failed:', data.error)
-        setFlash({ type: 'error', msg: data.error || 'Save failed' })
-        setTimeout(() => setFlash(null), 6000)
+        showFlash({ type: 'error', msg: data.error || 'Save failed' }, 6000)
         return
       }
-      const { listing: updated, verticalSync, metaSync } = data
+      const { listing: updated, metaSync } = data
       onUpdate(updated)
       setDraft({ ...updated, ...(meta || {}), ...(metaPayload || {}) })
 
@@ -704,17 +756,14 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
       setTimeout(() => setSaveSuccess(false), 2000)
 
       if (metaSync && !metaSync.success) {
-        setFlash({ type: 'saved-warn', msg: `Meta save failed: ${metaSync.error}`, vertical: verticalSync?.vertical })
-      } else if (verticalSync && !verticalSync.success) {
-        setFlash({ type: 'saved-warn', msg: verticalSync.warning, vertical: verticalSync.vertical })
+        showFlash({ type: 'saved-warn', msg: `Meta save failed: ${metaSync.error}`, vertical: VERTICAL_NAMES[updated?.vertical] }, 8000)
       } else {
-        setFlash({ type: 'saved', vertical: verticalSync?.vertical })
+        showFlash({ type: 'syncing', vertical: VERTICAL_NAMES[updated?.vertical] || updated?.vertical })
       }
-      setTimeout(() => setFlash(null), 4000)
+      runBackgroundSync(updated)
     } catch (err) {
       console.error('Save error:', err)
-      setFlash({ type: 'error', msg: err.message || 'Network error' })
-      setTimeout(() => setFlash(null), 6000)
+      showFlash({ type: 'error', msg: err.message || 'Network error' }, 6000)
     } finally {
       setSaving(false)
     }
@@ -728,23 +777,23 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
       const res = await fetch(`/api/admin/listings/${listing.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: newStatus, _deferVerticalSync: true }),
       })
       const data = await res.json()
       if (!res.ok) {
-        setFlash({ type: 'error', msg: data.error || 'Hide/unhide failed' })
-        setTimeout(() => setFlash(null), 6000)
+        showFlash({ type: 'error', msg: data.error || 'Hide/unhide failed' }, 6000)
         return
       }
       const { listing: updated } = data
       onUpdate(updated)
       if (draft) setDraft({ ...updated })
       setHideConfirm(false)
-      setFlash({ type: newStatus === 'hidden' ? 'hidden' : 'unhidden' })
-      setTimeout(() => setFlash(null), 3000)
+      showFlash({ type: newStatus === 'hidden' ? 'hidden' : 'unhidden' }, 4000)
+      // Quiet background push carries the new status to the vertical site;
+      // only failures surface (the hidden/unhidden flash already confirmed).
+      runBackgroundSync(updated, { quiet: true })
     } catch (err) {
-      setFlash({ type: 'error', msg: err.message || 'Network error' })
-      setTimeout(() => setFlash(null), 6000)
+      showFlash({ type: 'error', msg: err.message || 'Network error' }, 6000)
     } finally {
       setHiding(false)
     }
@@ -850,6 +899,7 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
             }}>
               <span>
                 {flash.type === 'saved' && `Saved \u2014 master + ${flash.vertical || 'vertical'} updated.`}
+                {flash.type === 'syncing' && `Saved \u2014 publishing to ${flash.vertical || 'the vertical site'}\u2026`}
                 {flash.type === 'saved-warn' && `Saved to master \u2014 ${flash.vertical || 'vertical'} sync failed: ${flash.msg || 'unknown error'}. Cron will retry.`}
                 {flash.type === 'hidden' && 'Listing hidden from public view.'}
                 {flash.type === 'unhidden' && 'Listing restored to public view.'}
@@ -1186,6 +1236,7 @@ export default function ListingEditor({ initialListings = [], initialTotal = 0, 
   const [filters, setFilters] = useState({ vertical: '', region: '', status: '', search: '', sort: 'updated_at_desc' })
   const searchRef = useRef(null)
   const debounceRef = useRef(null)
+  const abortRef = useRef(null)
   const limit = 25
 
   const fetchListings = useCallback(async (newFilters, newPage) => {
@@ -1193,6 +1244,11 @@ export default function ListingEditor({ initialListings = [], initialTotal = 0, 
     const p = newPage ?? page
     setLoading(true)
     setExpandedId(null)
+    // Cancel any in-flight fetch: fast typing in search used to let a slow
+    // stale response land AFTER the newest one and overwrite its results.
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
     try {
       const params = new URLSearchParams()
       if (f.vertical) params.set('vertical', f.vertical)
@@ -1203,17 +1259,28 @@ export default function ListingEditor({ initialListings = [], initialTotal = 0, 
       params.set('page', String(p))
       params.set('limit', String(limit))
 
-      const res = await fetch(`/api/admin/listings?${params}`)
+      const res = await fetch(`/api/admin/listings?${params}`, { signal: controller.signal })
       if (!res.ok) throw new Error('Fetch failed')
       const data = await res.json()
       setListings(data.listings)
       setTotal(data.total)
+      setLoading(false)
     } catch (err) {
+      if (err.name === 'AbortError') return // superseded — the newer fetch owns the spinner
       console.error('Fetch listings error:', err)
-    } finally {
       setLoading(false)
     }
   }, [filters, page])
+
+  // Esc collapses the open card — quick way back to scanning the list.
+  useEffect(() => {
+    if (!expandedId) return
+    const onKey = (e) => {
+      if (e.key === 'Escape' && !e.defaultPrevented) setExpandedId(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [expandedId])
 
   const updateFilter = (key, value) => {
     const next = { ...filters, [key]: value }
@@ -1250,11 +1317,15 @@ export default function ListingEditor({ initialListings = [], initialTotal = 0, 
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto' }}>
-      {/* Filters */}
+      {/* Filters — sticky so they stay at hand while scrolling the list.
+          top clears the fixed site nav + admin bar stack (~111px). */}
       <div style={{
         display: 'flex', flexWrap: 'wrap', gap: 8, padding: '12px 16px',
         background: 'var(--color-cream)', borderRadius: 8, marginBottom: 20,
         alignItems: 'center',
+        position: 'sticky', top: 116, zIndex: 20,
+        boxShadow: '0 1px 6px rgba(45, 42, 38, 0.08)',
+        border: '1px solid var(--color-border)',
       }}>
         <select value={filters.vertical} onChange={e => updateFilter('vertical', e.target.value)}
           style={selectStyle}>
@@ -1317,17 +1388,38 @@ export default function ListingEditor({ initialListings = [], initialTotal = 0, 
         </span>
       </div>
 
-      {/* Cards */}
-      <div style={{ opacity: loading ? 0.5 : 1, transition: 'opacity 0.2s' }}>
-        {listings.map(listing => (
-          <ListingCard key={listing.id} listing={listing}
-            isExpanded={expandedId === listing.id}
-            onToggle={() => setExpandedId(expandedId === listing.id ? null : listing.id)}
-            onUpdate={handleUpdate}
-            onRemove={handleRemove}
-            regions={regions} />
-        ))}
-      </div>
+      {/* Cards — keep the previous page visible (dimmed) while a new one
+          loads; fall back to skeletons only when there is nothing to show */}
+      {loading && listings.length === 0 ? (
+        <div>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} style={{
+              border: '1px solid var(--color-border)', borderLeftWidth: 4,
+              borderRadius: 12, background: '#fff', overflow: 'hidden',
+              marginBottom: 12, padding: '16px 20px',
+            }}>
+              <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                <div className="aa-skeleton" style={{ width: 72, height: 14, borderRadius: 100 }} />
+                <div className="aa-skeleton" style={{ width: 52, height: 14, borderRadius: 100 }} />
+              </div>
+              <div className="aa-skeleton" style={{ width: '40%', height: 18, marginBottom: 8 }} />
+              <div className="aa-skeleton" style={{ width: '85%', height: 11, marginBottom: 5 }} />
+              <div className="aa-skeleton" style={{ width: '60%', height: 11 }} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ opacity: loading ? 0.45 : 1, transition: 'opacity 0.2s', pointerEvents: loading ? 'none' : 'auto' }}>
+          {listings.map(listing => (
+            <ListingCard key={listing.id} listing={listing}
+              isExpanded={expandedId === listing.id}
+              onToggle={() => setExpandedId(expandedId === listing.id ? null : listing.id)}
+              onUpdate={handleUpdate}
+              onRemove={handleRemove}
+              regions={regions} />
+          ))}
+        </div>
+      )}
 
       {/* Pagination */}
       {totalPages > 1 && (

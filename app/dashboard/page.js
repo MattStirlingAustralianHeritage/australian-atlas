@@ -586,13 +586,44 @@ export default function DashboardPage() {
         </section>
       )}
 
-      {/* Loading state */}
+      {/* Loading state — skeleton cards mirroring the real layout, so the page
+          doesn't jump when data lands */}
       {loading && (
-        <div style={{ textAlign: 'center', padding: '4rem 0' }}>
-          <p style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 14, color: 'var(--color-muted, #888)' }}>
-            Loading your listings...
-          </p>
-        </div>
+        <section style={{ padding: '0 1.5rem 2rem', maxWidth: 720, margin: '0 auto' }}>
+          <div style={{ display: 'grid', gap: '1rem' }}>
+            {Array.from({ length: 2 }).map((_, i) => (
+              <div key={i} style={{
+                background: '#fff', borderRadius: 12,
+                border: '1px solid var(--color-border, #e5e5e5)', overflow: 'hidden',
+              }}>
+                <div className="aa-skeleton" style={{ width: '100%', height: 140, borderRadius: 0 }} />
+                <div style={{ padding: '1.25rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
+                    <div className="aa-skeleton" style={{ width: '45%', height: 18 }} />
+                    <div className="aa-skeleton" style={{ width: 70, height: 18, borderRadius: 100 }} />
+                  </div>
+                  <div className="aa-skeleton" style={{ width: '30%', height: 12, marginBottom: 20 }} />
+                  <div style={{
+                    display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8,
+                    padding: '12px 0', borderTop: '1px solid var(--color-border, #e5e5e5)',
+                    borderBottom: '1px solid var(--color-border, #e5e5e5)', marginBottom: 16,
+                  }}>
+                    {Array.from({ length: 4 }).map((_, j) => (
+                      <div key={j} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                        <div className="aa-skeleton" style={{ width: 28, height: 18 }} />
+                        <div className="aa-skeleton" style={{ width: '80%', height: 8 }} />
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <div className="aa-skeleton" style={{ flex: 1, height: 38, borderRadius: 8 }} />
+                    <div className="aa-skeleton" style={{ flex: 1, height: 38, borderRadius: 8 }} />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       {/* Error state */}
