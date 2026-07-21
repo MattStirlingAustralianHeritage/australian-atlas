@@ -19,7 +19,7 @@ import { isWithinSendWindow, sendWindowHoldNote, melbourneHour } from '@/lib/out
  *   1. discover     — scan company sites we haven't checked for a contact
  *                     email (time-boxed, partial results persist).
  *   2. personalise  — AI-write openers for sendable rows missing one.
- *   3. send         — first-touch batch (founding-beta invite), capped per 24h.
+ *   3. send         — first-touch batch (founding-beta invite), capped per Melbourne day.
  *                     ONLY when send_enabled. Weekdays only.
  *   4. follow-up    — one (and only one) second touch, N days after the first,
  *                     skipping anyone who responded / onboarded / declined /
