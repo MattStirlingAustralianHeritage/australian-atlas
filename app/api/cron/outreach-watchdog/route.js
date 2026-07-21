@@ -149,11 +149,19 @@ async function inspectEngine(sb, engine, now) {
 
   // UNDER_CAP — ≥2 of the last 3 Melbourne weekdays badly under cap while the
   // pool could have filled it. Catches slow-burn regressions the day after
-  // they start, without paging on a single odd day.
-  if (settings.send_enabled && (pool || 0) > settings.daily_send_cap) {
-    const days = lastMelbourneWeekdays(3, now)
+  // they start, without paging on a single odd day. Days before the engine's
+  // first-ever send don't count — a freshly enabled engine has honest zeros.
+  const { data: firstSendRow } = await sb
+    .from(engine.table)
+    .select('sent_at')
+    .not('sent_at', 'is', null)
+    .order('sent_at', { ascending: true })
+    .limit(1)
+  const firstSendKey = firstSendRow?.[0] ? melbourneParts(new Date(firstSendRow[0].sent_at)).dayKey : null
+  if (settings.send_enabled && (pool || 0) > settings.daily_send_cap && firstSendKey) {
+    const days = lastMelbourneWeekdays(3, now).filter((d) => d >= firstSendKey)
     const under = days.filter((d) => (perDay[d] || 0) < settings.daily_send_cap * UNDER_CAP_FRACTION)
-    if (under.length >= 2) {
+    if (days.length === 3 && under.length >= 2) {
       issues.push({
         engine: engine.key, kind: 'UNDER_CAP',
         detail: `sent ${days.map((d) => `${d}: ${perDay[d] || 0}`).join(', ')} against a cap of ${settings.daily_send_cap}/day with ${pool} sendable waiting`,
