@@ -13,6 +13,7 @@ import { relationHasVerticals, listingVerticals } from '@/lib/listings/verticalF
 import { isPublicListing } from '@/lib/listings/publicFilter'
 import { listingJsonLd, breadcrumbJsonLd, faqPageJsonLd } from '@/lib/jsonLd'
 import { checkAdmin } from '@/lib/admin-auth'
+import { draftAuthorship } from '@/lib/operator-intake/voice.mjs'
 import { isApprovedImageSource, isHeroDisplayable } from '@/lib/image-utils'
 import OptimizedImage from '@/components/OptimizedImage'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
@@ -704,7 +705,7 @@ export default async function PlacePage({ params }) {
   const canShowMap = hasPreciseLocation(listing)
   const sbMem = getSupabaseAdmin()
 
-  const [isAdmin, mapChain, crossListedSiblings, memoriesRes, picks, operatorTrail] = await Promise.all([
+  const [isAdmin, mapChain, crossListedSiblings, memoriesRes, picks, operatorTrail, descriptionAuthorship] = await Promise.all([
     // Server-side admin check — determines whether the inline editor renders at
     // all. Non-admin users never receive the editor component in the HTML; any
     // auth-check failure = not admin.
@@ -751,6 +752,22 @@ export default async function PlacePage({ params }) {
     // Operator-suggested trail — the published day-trip the operator authored
     // for this listing (type='operator'). Null when absent/unpublished.
     readOperatorTrailForListing(sbMem, listing.id),
+    // Description byline — who wrote the live copy ("Written by the owner" /
+    // "Written by Atlas"). Only listings published through the operator
+    // description gate (data_source='operator_verified') carry one; the latest
+    // approved draft is what put the text on the page.
+    (async () => {
+      if (!listing.description || listing.data_source !== 'operator_verified') return null
+      const { data: liveDraft } = await sbMem
+        .from('operator_description_drafts')
+        .select('model, source_facts')
+        .eq('listing_id', listing.id)
+        .eq('status', 'approved')
+        .order('version', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      return liveDraft ? draftAuthorship(liveDraft) : null
+    })(),
   ])
 
   const { mapNearby, mapRadiusKm, regionListings } = mapChain
@@ -1082,6 +1099,20 @@ export default async function PlacePage({ params }) {
                   p.trim() ? <p key={i} className={i > 0 ? 'mt-5' : ''}>{p}</p> : null
                 ))}
               </div>
+            )}
+
+            {/* Byline — the copy's provenance, stated plainly. Owner copy is
+                the operator's own words; Atlas copy went through the editorial
+                gate. Same quiet small-caps treatment as the meta rows. */}
+            {listing.description && descriptionAuthorship && (
+              <p className="mt-4" style={{
+                fontFamily: 'var(--font-body)', fontSize: '10.5px', fontWeight: 600,
+                letterSpacing: '0.09em', textTransform: 'uppercase',
+                color: 'var(--color-muted)', display: 'flex', alignItems: 'center', gap: 6,
+              }}>
+                {descriptionAuthorship === 'atlas' ? '✦ ' : '— '}
+                {t(descriptionAuthorship === 'atlas' ? 'writtenByAtlas' : 'writtenByOwner')}
+              </p>
             )}
 
             {/* CTA buttons — two-tier hierarchy.

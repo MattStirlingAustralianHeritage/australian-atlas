@@ -3,23 +3,31 @@ import { LIVE_CLAIM_STATUSES } from '@/lib/claims/statuses'
 import { createAuthServerClient } from '@/lib/supabase/auth-clients'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { generateDescription } from '@/lib/operator-intake/generate.mjs'
-import { STORY_QUESTIONS } from '@/lib/operator-intake/voice.mjs'
+import { STORY_QUESTIONS, draftAuthorship, bannedPhraseCheck, OWNER_TEXT_LIMITS } from '@/lib/operator-intake/voice.mjs'
 import { isListingPaid } from '@/lib/listing-gallery'
 import { sendAgentEmail } from '@/lib/agents/email'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Operator-fed description intake.
+// Operator-fed description intake — two authorship paths, one review gate.
 //
-// The operator edits STRUCTURED FACTS and triggers generation; they never write
-// published text. Ownership is the canonical listing_claims link (claimed_by +
-// status='active'), the same authority app/api/dashboard/picks/route.js uses.
+//   'atlas' — the operator edits STRUCTURED FACTS and triggers generation
+//             (Claude in the house voice, both hard gates). Byline:
+//             "Written by Atlas".
+//   'owner' — the operator submits their own copy verbatim (submit_own).
+//             No voice gates; the text is their own. Byline:
+//             "Written by the owner".
+//
+// Either way the operator NEVER publishes: every draft lands in pending_review.
+// Ownership is the canonical listing_claims link (claimed_by + a live status,
+// LIVE_CLAIM_STATUSES), the same authority app/api/dashboard/picks/route.js uses.
 //
 // Service role does the writes (after the app-level ownership check), but the
-// surface is deliberately narrow: an operator can write operator_facts, trigger
-// a generate, and flag/annotate a draft — and nothing else. approved_text,
-// status='approved', and listings.description are reachable ONLY from the admin
-// route. RLS on operator_description_drafts (read-only for owners) is the
-// defence-in-depth backstop behind this app-level discipline.
+// surface is deliberately narrow: an operator can write operator_facts, submit
+// a draft (generated or their own), and flag/annotate a draft — and nothing
+// else. approved_text, status='approved', and listings.description are
+// reachable ONLY from the admin route. RLS on operator_description_drafts
+// (read-only for owners) is the defence-in-depth backstop behind this
+// app-level discipline.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const FACT_KEYS = [
@@ -124,10 +132,14 @@ async function loadListings(admin, ids) {
 async function loadDrafts(admin, listingId) {
   const { data } = await admin
     .from('operator_description_drafts')
-    .select('id, version, generated_text, approved_text, status, operator_action, operator_note, admin_note, source_binding_passed, source_binding_report, banned_phrase_passed, model, generated_at, submitted_at, approved_at')
+    .select('id, version, generated_text, approved_text, status, operator_action, operator_note, admin_note, source_binding_passed, source_binding_report, banned_phrase_passed, model, source_facts, generated_at, submitted_at, approved_at')
     .eq('listing_id', listingId)
     .order('version', { ascending: false })
-  return data || []
+  // The client needs the byline, not the (potentially large) facts snapshot.
+  return (data || []).map(({ source_facts, ...d }) => ({
+    ...d,
+    authorship: draftAuthorship({ ...d, source_facts }),
+  }))
 }
 
 // ─── GET — listings I own + (for one listing) its facts and draft history ─────
@@ -236,10 +248,91 @@ export async function POST(request) {
     }
     return handleGenerate(admin, listingId)
   }
+  if (action === 'submit_own') {
+    if (await editingLocked(admin, listingId, user.id)) {
+      return NextResponse.json({ error: 'Writing your description is a Standard-plan feature. Complete your payment to unlock editing.', code: 'payment_required' }, { status: 402 })
+    }
+    return handleOwnerSubmit(admin, listingId, user, body)
+  }
   if (action === 'flag_error' || action === 'request_changes') {
     return handleOperatorFlag(admin, listingId, action, body)
   }
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
+}
+
+// ─── submit_own — the operator's own words, verbatim, into the review queue ───
+// The "Written by the owner" path. No voice gates apply — the text IS the
+// source, so source-binding is vacuously true and house style is the owner's
+// own. What does NOT change: the admin review gate. The draft enters
+// pending_review like every other draft, and only the admin route can publish.
+async function handleOwnerSubmit(admin, listingId, user, body) {
+  const raw = typeof body.text === 'string' ? body.text : ''
+  // Normalise: CRLF → LF, strip other control chars, collapse 3+ blank lines.
+  const text = raw
+    .replace(/\r\n?/g, '\n')
+    .replace(/[^\S\n]+/g, ' ')
+    .replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+
+  if (text.length < OWNER_TEXT_LIMITS.minChars) {
+    return NextResponse.json({ error: `A little more, please — at least ${OWNER_TEXT_LIMITS.minChars} characters so there's a real description to review.` }, { status: 400 })
+  }
+  if (text.length > OWNER_TEXT_LIMITS.maxChars) {
+    return NextResponse.json({ error: `That's over the ${OWNER_TEXT_LIMITS.maxChars}-character limit — trim it back so it fits the page.` }, { status: 400 })
+  }
+
+  const { data: listing } = await admin
+    .from('listings').select('id, name, slug').eq('id', listingId).maybeSingle()
+
+  const { data: top } = await admin
+    .from('operator_description_drafts')
+    .select('version')
+    .eq('listing_id', listingId)
+    .order('version', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const nextVersion = (top?.version || 0) + 1
+
+  await admin
+    .from('operator_description_drafts')
+    .update({ status: 'superseded', updated_at: new Date().toISOString() })
+    .eq('listing_id', listingId)
+    .eq('status', 'pending_review')
+
+  // House-style check is informational for owner copy — recorded, never a block.
+  const banned = bannedPhraseCheck(text)
+  const now = new Date().toISOString()
+  const { data: draft, error } = await admin
+    .from('operator_description_drafts')
+    .insert({
+      listing_id: listingId,
+      version: nextVersion,
+      generated_text: text,
+      source_facts: { authorship: 'owner', submitted_by: user.id },
+      model: null,
+      source_binding_passed: true,
+      source_binding_report: { passed: true, skipped: 'owner_written', failed_claims: [], warnings: [] },
+      banned_phrase_passed: banned.passed,
+      status: 'pending_review',
+      generated_at: now,
+      submitted_at: now,
+    })
+    .select('*')
+    .single()
+
+  if (error) {
+    console.error('[dashboard/description/submit_own] insert failed:', error.message)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  await sendAgentEmail({
+    subject: `Owner-written description submitted — ${listing?.name || listingId}`,
+    html: `<p><strong>${escapeHtml(listing?.name || listingId)}</strong> submitted their own description (v${nextVersion}, verbatim — review tone and claims).</p>`
+      + `<p><a href="https://www.australianatlas.com.au/admin/operator-descriptions">Review it in the queue</a></p>`,
+  })
+
+  return NextResponse.json({ draft: { ...draft, authorship: 'owner' } })
 }
 
 async function handleGenerate(admin, listingId) {
@@ -260,8 +353,10 @@ async function handleGenerate(admin, listingId) {
 
   // Interview answers ground the draft alongside the structured facts, and the
   // merged shape is snapshotted as source_facts so the admin reviews the text
-  // against everything it was actually written from.
-  const groundingFacts = { ...facts, story_answers: storyAnswers }
+  // against everything it was actually written from. authorship rides in the
+  // snapshot as the byline marker ("Written by Atlas"); the source-binding and
+  // prompt layers only read their known keys, so it never grounds a claim.
+  const groundingFacts = { ...facts, story_answers: storyAnswers, authorship: 'atlas' }
 
   let result
   try {

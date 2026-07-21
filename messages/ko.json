@@ -251,6 +251,8 @@
     "ownThisPlaceShort": "이 장소의 소유자인가요?",
     "claimFreeListing": "무료 목록을 클레임하여 정보를 업데이트하고 방문객과 연결하세요.",
     "claimThisListing": "이 목록 클레임하기",
+    "writtenByOwner": "운영자가 직접 작성",
+    "writtenByAtlas": "아틀라스 작성",
     "errorTitle": "문제가 발생했습니다",
     "errorBody": "이 목록을 로드할 수 없습니다. 다시 시도해주세요.",
     "tryAgain": "다시 시도",

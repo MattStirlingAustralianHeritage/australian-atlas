@@ -159,7 +159,9 @@ async function handleRewrite(sb, draft, body) {
   // Fresh rows win; the draft's source_facts snapshot is the fallback for
   // either half, so a missing facts row can't drop the live answers.
   const baseFacts = facts || draft.source_facts || {}
-  const freshFacts = { ...baseFacts, story_answers: story?.answers || baseFacts.story_answers || {} }
+  // A Claude revision is Atlas-authored regardless of what it revises — the
+  // byline marker rides in the snapshot (never grounds a claim).
+  const freshFacts = { ...baseFacts, story_answers: story?.answers || baseFacts.story_answers || {}, authorship: 'atlas' }
 
   let result
   try {

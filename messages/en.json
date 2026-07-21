@@ -251,6 +251,8 @@
     "ownThisPlaceShort": "Own this place?",
     "claimFreeListing": "Claim your free listing to update your details and connect with visitors.",
     "claimThisListing": "Claim this listing",
+    "writtenByOwner": "Written by the owner",
+    "writtenByAtlas": "Written by Atlas",
     "errorTitle": "Something went wrong",
     "errorBody": "We couldn’t load this listing. Please try again.",
     "tryAgain": "Try again",

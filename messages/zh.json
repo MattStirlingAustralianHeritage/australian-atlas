@@ -251,6 +251,8 @@
     "ownThisPlaceShort": "拥有此场所？",
     "claimFreeListing": "认领您的免费列表，更新详情并与游客联系。",
     "claimThisListing": "认领此列表",
+    "writtenByOwner": "由店主撰写",
+    "writtenByAtlas": "由 Atlas 撰写",
     "errorTitle": "出错了",
     "errorBody": "我们无法加载此列表。请重试。",
     "tryAgain": "重试",

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { STORY_QUESTIONS } from '@/lib/operator-intake/voice.mjs'
+import { STORY_QUESTIONS, draftAuthorship, bannedPhraseCheck } from '@/lib/operator-intake/voice.mjs'
 
 const VERTICAL_NAMES = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft', fine_grounds: 'Fine Grounds',
@@ -86,6 +86,11 @@ function DraftCard({ draft, listing, onResolved, onReplaced }) {
   const busy = status === 'approving' || status === 'rejecting' || status === 'rewriting'
   const gatesPass = draft.source_binding_passed && draft.banned_phrase_passed
   const isRewrite = draft.origin === 'admin_rewrite'
+  // Owner-written drafts arrive verbatim — no facts, no voice gates. The
+  // house-style check runs here informationally so the editor sees clichés
+  // without them ever blocking the owner's own words.
+  const isOwner = draftAuthorship(draft) === 'owner'
+  const ownerStyleFlags = isOwner ? bannedPhraseCheck(draft.generated_text || '').violations : []
 
   return (
     <div style={{
@@ -117,10 +122,31 @@ function DraftCard({ draft, listing, onResolved, onReplaced }) {
               ✦ Claude revision
             </span>
           )}
-          <Chip ok={draft.source_binding_passed} label={draft.source_binding_passed ? 'Source-binding passed' : `Source-binding failed (${failedClaims.length})`} />
-          <Chip ok={draft.banned_phrase_passed} label={draft.banned_phrase_passed ? 'Voice check passed' : 'Voice check flagged'} />
+          {isOwner ? (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-body)', fontSize: 11.5, fontWeight: 600, padding: '3px 10px', borderRadius: 20, color: '#3d5245', background: '#4A7C5914', border: '1px solid #4A7C5950' }}>
+              ✎ Written by the owner — verbatim
+            </span>
+          ) : (
+            <>
+              <Chip ok={draft.source_binding_passed} label={draft.source_binding_passed ? 'Source-binding passed' : `Source-binding failed (${failedClaims.length})`} />
+              <Chip ok={draft.banned_phrase_passed} label={draft.banned_phrase_passed ? 'Voice check passed' : 'Voice check flagged'} />
+            </>
+          )}
           {draft.model && <span style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--color-muted)', alignSelf: 'center' }}>{draft.model}</span>}
         </div>
+
+        {/* Owner copy skips the gates — hand the editor what to actually check */}
+        {isOwner && (
+          <div style={{ margin: '0 0 12px', padding: '8px 12px', background: '#F4F7F4', border: '1px solid #4A7C5933', borderRadius: 8, fontFamily: 'var(--font-body)', fontSize: 12, color: '#2f5540', lineHeight: 1.5 }}>
+            The operator wrote this themselves — publishes under a “Written by the owner” byline.
+            Check tone, claims, and safety; their voice is theirs to keep.
+            {ownerStyleFlags.length > 0 && (
+              <span style={{ display: 'block', marginTop: 4, color: '#8a6d3b' }}>
+                <strong>House-style flags (informational):</strong> {ownerStyleFlags.join(', ')}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* What this revision was asked to address */}
         {isRewrite && draft.rewrite_note && (
@@ -154,7 +180,7 @@ function DraftCard({ draft, listing, onResolved, onReplaced }) {
 
         {/* The draft text — editable before approving */}
         <div style={{ fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 10, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--color-muted)', marginBottom: 6 }}>
-          Generated description {edited && <span style={{ color: '#C49A3C' }}>· edited</span>}
+          {isOwner ? 'The owner’s description' : 'Generated description'} {edited && <span style={{ color: '#C49A3C' }}>· edited</span>}
         </div>
         {editing ? (
           <textarea value={text} onChange={e => setText(e.target.value)} rows={10}
@@ -170,7 +196,9 @@ function DraftCard({ draft, listing, onResolved, onReplaced }) {
           {editing ? '✓ Done editing' : '✎ Edit before approving'}
         </button>
 
-        {/* Source facts — verify the text against these */}
+        {/* Source facts — verify the text against these. Owner copy has no
+            facts snapshot: the text IS the source, so the panel would be empty. */}
+        {!isOwner && (
         <details style={{ margin: '4px 0 12px' }}>
           <summary style={{ cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600, color: 'var(--color-muted)', letterSpacing: '0.02em' }}>
             The facts it was written from
@@ -204,6 +232,7 @@ function DraftCard({ draft, listing, onResolved, onReplaced }) {
             )}
           </div>
         </details>
+        )}
 
         {/* Current live description for comparison */}
         {listing?.description && (
@@ -250,7 +279,9 @@ function DraftCard({ draft, listing, onResolved, onReplaced }) {
           style={{ height: 36, padding: '0 18px', borderRadius: 8, border: 'none', cursor: busy ? 'default' : 'pointer', background: '#4A7C59', color: '#fff', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 13, opacity: busy ? 0.6 : 1 }}>
           {status === 'approving' ? 'Publishing…' : edited ? 'Approve edited & publish' : 'Approve & publish'}
         </button>
-        {!showRewrite ? (
+        {/* No Claude rewrite for owner copy: there are no grounding facts, and
+            a rewrite would silently swap their byline to Atlas. Edit or send back. */}
+        {isOwner ? null : !showRewrite ? (
           <button onClick={() => { setShowRewrite(true); setShowReject(false) }} disabled={busy}
             style={{ height: 36, padding: '0 14px', borderRadius: 8, cursor: busy ? 'default' : 'pointer', background: '#C49A3C14', border: '1px solid #C49A3C88', color: '#7a5c1c', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: 13, opacity: busy ? 0.6 : 1 }}>
             ✦ Rewrite with Claude
