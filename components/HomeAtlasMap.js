@@ -163,16 +163,31 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
           })}
 
           {(() => {
-            // Fan near-coincident pins apart (two places in one town is
-            // the norm) so both stay hoverable — same idea as MapClient's
-            // pin fan-out, in image-percent space. Scope and fresh pins
-            // share the placed list so they never sit on each other.
+            // Fan near-coincident pins apart (a state's three sample pins
+            // routinely stack in its capital) so both stay hoverable —
+            // same idea as MapClient's pin fan-out, in image-percent space.
+            // Scope and fresh pins share the placed list so they never sit
+            // on each other.
+            //
+            // The nudge points INLAND — from the pin toward the continental
+            // centroid — not a fixed south-east march. The old SE step walked
+            // a capital's stacked pins straight off the coast into open water
+            // (Melbourne galleries → Bass Strait, Canberra → the Tasman),
+            // because every mainland capital sits on the coast and SE is the
+            // sea. Stepping toward the interior lands a fanned pin deeper on
+            // land instead; small steps keep it from overshooting.
+            const CENTROID = projectToImagePct(134.4, -25.6)  // ~Lambert centre
             const placed = []
             const place = (l) => {
-              let { leftPct, topPct } = projectToImagePct(parseFloat(l.lng), parseFloat(l.lat))
-              if (leftPct < 0 || leftPct > 100 || topPct < 0 || topPct > 100) return null
-              for (let guard = 0; guard < 4 && placed.some(p => Math.abs(p.x - leftPct) < 1.1 && Math.abs(p.y - topPct) < 2.8); guard++) {
-                leftPct += 0.6; topPct += 2.9
+              const base = projectToImagePct(parseFloat(l.lng), parseFloat(l.lat))
+              if (base.leftPct < 0 || base.leftPct > 100 || base.topPct < 0 || base.topPct > 100) return null
+              let vx = CENTROID.leftPct - base.leftPct
+              let vy = CENTROID.topPct - base.topPct
+              const mag = Math.hypot(vx, vy) || 1
+              vx /= mag; vy /= mag
+              let { leftPct, topPct } = base
+              for (let guard = 0; guard < 4 && placed.some(p => Math.abs(p.x - leftPct) < 0.9 && Math.abs(p.y - topPct) < 1.2); guard++) {
+                leftPct += vx * 1.5; topPct += vy * 1.5
               }
               placed.push({ x: leftPct, y: topPct })
               return { leftPct, topPct }
