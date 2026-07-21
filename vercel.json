@@ -141,15 +141,15 @@
     },
     {
       "path": "/api/cron/outreach-autopilot",
-      "schedule": "30 23 * * *"
+      "schedule": "30 3,23 * * *"
     },
     {
       "path": "/api/cron/press-outreach-autopilot",
-      "schedule": "45 23 * * *"
+      "schedule": "45 3,23 * * *"
     },
     {
       "path": "/api/cron/trade-outreach-autopilot",
-      "schedule": "0 23 * * *"
+      "schedule": "0 4,23 * * *"
     },
     {
       "path": "/api/cron/council-digest",
@@ -162,6 +162,10 @@
     {
       "path": "/api/cron/press-notify",
       "schedule": "10 * * * *"
+    },
+    {
+      "path": "/api/cron/outreach-watchdog",
+      "schedule": "30 0 * * *"
     }
   ]
 }

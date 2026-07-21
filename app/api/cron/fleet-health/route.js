@@ -46,6 +46,10 @@ const EXPECTED = {
   'geocoding-watchdog': 192,     // weekly
   'revenue-signal': 192,         // weekly
   'claim-recovery': 30,          // daily
+  'outreach-autopilot': 30,      // twice daily (morning + afternoon catch-up)
+  'press-outreach-autopilot': 30,// twice daily (morning + afternoon catch-up)
+  'trade-outreach-autopilot': 30,// twice daily (morning + afternoon catch-up)
+  'outreach-watchdog': 30,       // daily
   'backlink-builder': 800,       // monthly
   'user-reactivation': 800,      // monthly
   'listing-velocity': 800,       // monthly
