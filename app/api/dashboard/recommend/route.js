@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { LIVE_CLAIM_STATUSES } from '@/lib/claims/statuses'
 import { createAuthServerClient } from '@/lib/supabase/auth-clients'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 
@@ -43,7 +44,7 @@ async function getOwnedListingNames(admin, userId) {
     .from('listing_claims')
     .select('listing_id')
     .eq('claimed_by', userId)
-    .eq('status', 'active')
+    .in('status', LIVE_CLAIM_STATUSES)
   const ids = [...new Set((claims || []).map(c => c.listing_id).filter(Boolean))]
   if (!ids.length) return []
   const { data: listings } = await admin

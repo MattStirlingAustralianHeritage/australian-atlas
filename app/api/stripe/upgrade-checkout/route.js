@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { LIVE_CLAIM_STATUSES } from '@/lib/claims/statuses'
 import { verifySharedToken } from '@/lib/shared-auth'
 
 // Operator-initiated "unlock editing" payment for a listing already claimed on
@@ -73,13 +74,17 @@ export async function POST(request) {
 
     const sb = getSupabaseAdmin()
 
-    // Re-derive ownership + commercial state from listing_claims (never the client).
-    const { data: claim } = await sb
+    // Re-derive ownership + commercial state from listing_claims (never the
+    // client). Live = active OR past_due — a dunning-window owner still owns
+    // the listing and should get the accurate answer below, not a 404.
+    const { data: claimRows } = await sb
       .from('listing_claims')
       .select('id, listing_id, vertical, tier, claimed_by, claimant_email')
       .eq('listing_id', listingId)
-      .eq('status', 'active')
-      .maybeSingle()
+      .in('status', LIVE_CLAIM_STATUSES)
+      .order('status', { ascending: true })
+      .limit(1)
+    const claim = claimRows?.[0] || null
 
     if (!claim) {
       return NextResponse.json({ error: 'No active claim found for this listing' }, { status: 404 })

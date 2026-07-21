@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { LIVE_CLAIM_STATUSES } from '@/lib/claims/statuses'
 import { revalidatePath } from 'next/cache'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { verifySharedToken } from '@/lib/shared-auth'
@@ -79,7 +80,8 @@ async function authorize(request, listingId) {
       .select('id')
       .eq('listing_id', listingId)
       .eq('claimed_by', user.id)
-      .eq('status', 'active')
+      .in('status', LIVE_CLAIM_STATUSES)
+      .limit(1)
       .maybeSingle()
     if (!ownClaim) {
       return { fail: NextResponse.json({ error: 'You do not own this listing' }, { status: 403 }) }

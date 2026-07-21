@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { LIVE_CLAIM_STATUSES } from '@/lib/claims/statuses'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { verifySharedToken } from '@/lib/shared-auth'
 import { updateListing } from '@/lib/admin/updateListing'
@@ -113,16 +114,18 @@ export async function PATCH(request) {
   if (ownErr || !owned) {
     return NextResponse.json({ error: 'Listing not found' }, { status: 404 })
   }
-  if (!owned.is_claimed) {
-    return NextResponse.json({ error: 'Listing is not claimed' }, { status: 403 })
-  }
+  // No is_claimed gate here: ownership is the listing_claims row checked
+  // below. Gating on the derived display flag is the anti-pattern that locked
+  // every operator out in the 2026-07-21 incident — see "Ownership State
+  // Protection" in CLAUDE.md.
   if (user.role !== 'admin') {
     const { data: ownClaim } = await sb
       .from('listing_claims')
       .select('id')
       .eq('listing_id', listingId)
       .eq('claimed_by', user.id)
-      .eq('status', 'active')
+      .in('status', LIVE_CLAIM_STATUSES)
+      .limit(1)
       .maybeSingle()
     if (!ownClaim) {
       return NextResponse.json({ error: 'You do not own this listing' }, { status: 403 })

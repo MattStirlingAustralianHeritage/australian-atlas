@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { LIVE_CLAIM_STATUSES } from '@/lib/claims/statuses'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { verifySharedToken } from '@/lib/shared-auth'
 import { isListingPaid } from '@/lib/listing-gallery'
@@ -47,7 +48,8 @@ async function ownsListing(sb, listingId, userId) {
     .select('id')
     .eq('listing_id', listingId)
     .eq('claimed_by', userId)
-    .eq('status', 'active')
+    .in('status', LIVE_CLAIM_STATUSES)
+    .limit(1)
     .maybeSingle()
   return !!data
 }

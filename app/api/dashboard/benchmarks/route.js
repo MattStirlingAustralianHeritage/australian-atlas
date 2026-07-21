@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { LIVE_CLAIM_STATUSES } from '@/lib/claims/statuses'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { verifySharedToken } from '@/lib/shared-auth'
 import { isListingPaid } from '@/lib/listing-gallery'
@@ -82,7 +83,8 @@ export async function GET(request) {
         .select('id')
         .eq('listing_id', listingId)
         .eq('claimed_by', user.id)
-        .eq('status', 'active')
+        .in('status', LIVE_CLAIM_STATUSES)
+        .limit(1)
         .maybeSingle()
       if (!claim) {
         return NextResponse.json({ error: 'Listing not found' }, { status: 404 })

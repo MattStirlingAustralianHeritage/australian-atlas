@@ -50,6 +50,10 @@ const EXPECTED = {
   'press-outreach-autopilot': 30,// twice daily (morning + afternoon catch-up)
   'trade-outreach-autopilot': 30,// twice daily (morning + afternoon catch-up)
   'outreach-watchdog': 30,       // daily
+  'claim-integrity': 13,         // every 6h — the ownership-lockout tripwire;
+                                 // if THIS goes quiet the 2026-07-21 class is
+                                 // invisible again, so it must never be unlisted
+  'auth-canary': 30,             // daily — synthetic password-recovery probe
   'backlink-builder': 800,       // monthly
   'user-reactivation': 800,      // monthly
   'listing-velocity': 800,       // monthly

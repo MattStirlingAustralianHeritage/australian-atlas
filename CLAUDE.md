@@ -233,6 +233,34 @@ This rule exists because the vertical sync silently re-derived `is_claimed` from
 - To delete an owned listing, deactivate the claim first, deliberately. The DB will refuse otherwise.
 - Vertical claim columns differ per vertical (`VERTICAL_CLAIM_FIELD` in `lib/supabase/clients.js`) and craft's `venues` table has NO claim column at all — never assume the vertical knows about ownership.
 
+## Lockout Prevention (CRITICAL)
+
+An operator or user losing access to their account or listing is this platform's worst incident class. It has happened twice — the 2026-07-21 sync trample (27/28 operators un-claimed, see Ownership State Protection above) and the password-reset dead end (recovery links minted a session but never asked for a new password, so the reset silently failed everywhere else). The infrastructure below exists so it cannot happen silently again. Do not remove or weaken any layer without replacing it.
+
+### Layers
+
+| Layer | What it guards | Where |
+|-------|----------------|-------|
+| DB triggers (migration 256) | `is_claimed` can't go false / listing can't be deleted while a live claim exists | `supabase/migrations/256_ownership_state_protection.sql` |
+| Sync claim guard | Sync payloads can't trample ownership display state | `syncSourceRows` in `lib/sync/syncVertical.js` |
+| `claim-integrity` cron (every 6h) | Listing side: trampled flags, hidden owned listings, failed grants, duplicate live claims. Account side: orphaned claimants (no profile/login), role-locked-out owners (dashboard 403s a non-vendor role) | `app/api/cron/claim-integrity/route.js` |
+| `auth-canary` cron (daily) | Recovery flow end-to-end with a real token: recovery link → `/auth/callback` → must land on `/auth/update-password`; page renders; magic links mintable. A dedicated inert canary account, password rotated every run | `app/api/cron/auth-canary/route.js` |
+| `fleet-health` deadman (daily) | The tripwires themselves — alerts if `claim-integrity` or `auth-canary` stop running | `app/api/cron/fleet-health/route.js` |
+| Live-claim statuses | `past_due` (Stripe dunning) still counts as ownership everywhere owner-facing — a bounced card never empties a dashboard | `LIVE_CLAIM_STATUSES` in `lib/claims/statuses.js` |
+| Access Doctor | Break-glass diagnosis + magic-link unblock when a human reports a lockout | `/admin/access-doctor`, `lib/admin/accessDoctor.js` |
+
+### Rules for new code
+
+- Owner-facing claim queries use `.in('status', LIVE_CLAIM_STATUSES)` — never `.eq('status', 'active')`, and never a gate on `is_claimed` (see Ownership State Protection).
+- Any new scheduled agent that guards an invariant MUST be added to fleet-health's `EXPECTED` map in the same PR — an unlisted tripwire is a tripwire that can die silently.
+- Auth-flow changes (login, callback, recovery, update-password) must keep the auth-canary green: the canary asserts recovery links land on `/auth/update-password`. If you change that route, update the canary in the same PR.
+
+### Runbook: "I can't get into my listing"
+
+1. `/admin/access-doctor` → enter their email. It checks auth identity, profile role, claims and listing state, and names the fix.
+2. Fastest unblock is the magic sign-in link button (no password needed; auto-creates the account if missing). Google sign-in also bypasses password problems instantly.
+3. For ownership drift (trampled flag, hidden listing), see Ownership State Protection above; the repair pattern is `_repair_claim_state.mjs`.
+
 ## Article Body Protection (CRITICAL)
 
 **No automated process, agent, cron job, script, or enrichment pipeline may write to the `body` or `content` field of any record in the `articles` table under any circumstances.**

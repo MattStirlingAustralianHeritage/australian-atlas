@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { LIVE_CLAIM_STATUSES } from '@/lib/claims/statuses'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { verifySharedToken } from '@/lib/shared-auth'
 import { ensureReferralCode } from '@/lib/referrals'
@@ -42,7 +43,7 @@ export async function GET(request) {
       .from('listing_claims')
       .select('id, listing_id, referral_code')
       .eq('claimed_by', user.id)
-      .eq('status', 'active')
+      .in('status', LIVE_CLAIM_STATUSES)
       .eq('tier', 'standard')
 
     if (claimsErr) throw claimsErr

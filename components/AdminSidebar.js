@@ -27,6 +27,7 @@ const SECTIONS = [
     title: 'Commercial',
     links: [
       ['/admin/claims', 'Claims'],
+      ['/admin/access-doctor', 'Access doctor'],
       ['/admin/operators', 'Operators'],
       ['/admin/operator-descriptions', 'Operator descriptions'],
       ['/admin/councils', 'Councils'],

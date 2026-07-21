@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { LIVE_CLAIM_STATUSES } from '@/lib/claims/statuses'
 import { createAuthServerClient } from '@/lib/supabase/auth-clients'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import {
@@ -21,7 +22,7 @@ async function getMyListingIds(admin, userId) {
     .from('listing_claims')
     .select('listing_id')
     .eq('claimed_by', userId)
-    .eq('status', 'active')
+    .in('status', LIVE_CLAIM_STATUSES)
   return [...new Set((data || []).map(c => c.listing_id).filter(Boolean))]
 }
 

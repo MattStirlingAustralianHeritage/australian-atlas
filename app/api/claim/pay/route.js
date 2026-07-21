@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { LIVE_CLAIM_STATUSES } from '@/lib/claims/statuses'
 
 // Stripe secret keys are always sk_… / rk_… (live or test). Validate the shape
 // up front so a present-but-malformed value fails explicitly (mirrors claim-checkout).
@@ -56,15 +57,17 @@ export async function GET(request) {
     .eq('id', claim.listing_id)
     .maybeSingle()
 
-  // Already on Standard? Don't open a duplicate checkout — send them to manage it.
-  const { data: activeStandard } = await sb
+  // Already on Standard? Don't open a duplicate checkout — send them to manage
+  // it. Live = active OR past_due: a dunning-window Standard claim still has a
+  // subscription, and a second checkout here would double-bill the operator.
+  const { data: liveStandard } = await sb
     .from('listing_claims')
     .select('id')
     .eq('listing_id', claim.listing_id)
-    .eq('status', 'active')
+    .in('status', LIVE_CLAIM_STATUSES)
     .eq('tier', 'standard')
-    .maybeSingle()
-  if (activeStandard) return redirect('/dashboard?already=standard')
+    .limit(1)
+  if (liveStandard?.length) return redirect('/dashboard?already=standard')
 
   try {
     const stripe = getStripe()

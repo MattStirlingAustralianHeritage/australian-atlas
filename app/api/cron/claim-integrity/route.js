@@ -28,6 +28,16 @@ import { sendAgentEmail } from '@/lib/agents/email'
  *   4. duplicate_live — more than one live claim on a listing (the partial
  *                       unique index only covers 'active'; an active row can
  *                       coexist with past_due).
+ *   5. orphaned_claimant — live claim whose claimed_by is null or has no
+ *                       profiles row: the "owner" has no working login
+ *                       identity, so the listing is unreachable by anyone.
+ *   6. role_locked_out — live claim whose claimant profile role is neither
+ *                       vendor nor admin: /api/dashboard 403s them at the
+ *                       door ('Vendor role required') no matter how valid
+ *                       their claim is.
+ *
+ * Checks 1–4 guard the listing side of the invariant; 5–6 guard the account
+ * side — a live claim is worthless if its owner can't get in the front door.
  *
  * Any violation → email Matt. ?dryRun=1 computes and returns JSON, no email.
  *
@@ -54,7 +64,7 @@ export async function GET(request) {
     // ── Live claims + their listings, one pass for checks 1, 2, 4 ──
     const { data: liveClaims, error: lcErr } = await sb
       .from('listing_claims')
-      .select('id, listing_id, claimant_email, tier, status, listings(id, name, vertical, is_claimed, status)')
+      .select('id, listing_id, claimed_by, claimant_email, tier, status, listings(id, name, vertical, is_claimed, status)')
       .in('status', ['active', 'past_due'])
     if (lcErr) throw lcErr
 
@@ -108,6 +118,32 @@ export async function GET(request) {
       }
     }
 
+    // ── Checks 5 & 6: the account side — can the owner actually get in? ──
+    const claimantIds = [...new Set((liveClaims || []).map(c => c.claimed_by).filter(Boolean))]
+    const profileById = new Map()
+    for (let i = 0; i < claimantIds.length; i += 100) {
+      const { data: rows, error } = await sb
+        .from('profiles')
+        .select('id, email, role')
+        .in('id', claimantIds.slice(i, i + 100))
+      if (error) throw error
+      for (const p of rows || []) profileById.set(p.id, p)
+    }
+    for (const c of liveClaims || []) {
+      const l = c.listings
+      const label = l ? `${l.name} [${l.vertical}]` : `listing ${c.listing_id}`
+      if (!c.claimed_by) {
+        violations.push({ check: 'orphaned_claimant', detail: `${label}: live ${c.tier} claim (${c.claimant_email}) has no claimed_by user id — no account can reach this listing`, email: c.claimant_email })
+        continue
+      }
+      const profile = profileById.get(c.claimed_by)
+      if (!profile) {
+        violations.push({ check: 'orphaned_claimant', detail: `${label}: claimed_by ${c.claimed_by} has no profiles row (${c.claimant_email}) — the owner's login identity is gone`, email: c.claimant_email })
+      } else if (profile.role !== 'vendor' && profile.role !== 'admin') {
+        violations.push({ check: 'role_locked_out', detail: `${label}: owner ${profile.email || c.claimant_email} has role '${profile.role}' — /api/dashboard requires vendor/admin, so their dashboard 403s`, email: c.claimant_email })
+      }
+    }
+
     // ── Alert ──
     if (violations.length > 0 && !dryRun) {
       try {
@@ -115,7 +151,7 @@ export async function GET(request) {
           subject: `[Atlas] OWNERSHIP INTEGRITY: ${violations.length} violation${violations.length === 1 ? '' : 's'} — operators may be locked out`,
           html: `<p><strong>The claim-integrity monitor found ${violations.length} invariant violation${violations.length === 1 ? '' : 's'}.</strong> Operators affected by <em>flag_trampled</em> cannot see their listing in the dashboard right now.</p><ul>${
             violations.map(v => `<li><strong>${v.check}</strong>: ${v.detail}</li>`).join('')
-          }</ul><p>Runbook: see "Ownership State Protection" in CLAUDE.md. The 2026-07-21 repair script pattern is _repair_claim_state.mjs in the repo root.</p>`,
+          }</ul><p>Runbook: diagnose the affected operator first at <a href="https://www.australianatlas.com.au/admin/access-doctor">/admin/access-doctor</a>, then see "Ownership State Protection" in CLAUDE.md. The 2026-07-21 repair script pattern is _repair_claim_state.mjs in the repo root.</p>`,
         })
       } catch { /* best-effort — the run log below still records the drift */ }
     }
