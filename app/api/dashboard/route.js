@@ -61,11 +61,12 @@ export async function GET(request) {
 
     if (listingId) {
       // Fetch a specific listing — non-admins must OWN it (active claim row).
+      // No is_claimed filter: ownership IS the listing_claims row; the display
+      // flag must never be able to lock an owner out of their own listing.
       const { data, error } = await sb
         .from('listings')
         .select(LISTING_SELECT)
         .eq('id', listingId)
-        .eq('is_claimed', true)
         .single()
 
       if (error || !data) {
@@ -104,11 +105,13 @@ export async function GET(request) {
         return NextResponse.json({ listings: [] })
       }
 
+      // No is_claimed filter — the active claim rows above ARE ownership.
+      // (The sync once trampled is_claimed to false and this filter blanked
+      // every operator's dashboard; never gate owners on display state.)
       const { data, error } = await sb
         .from('listings')
         .select(LISTING_SELECT)
         .in('id', ownedIds)
-        .eq('is_claimed', true)
         .order('name')
 
       if (error) {
