@@ -71,5 +71,18 @@ GET /api/cron/outreach-watchdog?dryRun=1
 | A new send path ignores the business-hours rule | watchdog OFF_WINDOW (audits data, not code) |
 | Follow-ups silently stop | watchdog FU_BACKLOG |
 
-Residual gap (accepted): if *Vercel cron as a whole* stops, both monitors stop
-with it — a truly external dead-man's switch would need a third-party pinger.
+## External dead-man's switch
+
+If *Vercel cron as a whole* stops, both in-app monitors stop with it. That gap
+is closed by `.github/workflows/cron-deadman.yml`: GitHub's scheduler (separate
+infrastructure) probes the public `/api/health/cron-fleet` endpoint every ~6
+hours. The endpoint returns 503 when the fleet has no agent run within 3 hours
+(the hourly agents guarantee one on a healthy platform) or the operator
+autopilot hasn't run within 26 hours; a failing probe fails the workflow, and
+GitHub emails the repo owner its failed-workflow notification. The workflow
+also self-tests on every edit to its own file and can be run on demand from
+the Actions tab.
+
+Residual assumptions: GitHub Actions schedules pause after 60 days without
+repo activity (this repo deploys near-daily), and the failed-workflow email
+relies on the owner's default GitHub notification settings.
