@@ -9,11 +9,12 @@ import { generatePersonalNotesBatch } from '@/lib/outreach/personalise'
 import { templateForVertical, FOLLOWUP_TEMPLATE, GENERIC_TEMPLATE } from '@/lib/outreach/templates'
 import { filterSendable, sendCampaign, isSendableEmail, newCampaignId } from '@/lib/outreach/sendEngine'
 import { loadAutopilotSettings, autopilotStatus } from '@/lib/outreach/autopilot'
+import { isWithinSendWindow, sendWindowHoldNote, melbourneHour } from '@/lib/outreach/sendWindow'
 
 /**
  * GET /api/cron/outreach-autopilot
  *
- * The outreach engine's daily heartbeat (08:30 AEST). Works through the
+ * The outreach engine's daily heartbeat (09:30 Melbourne). Works through the
  * 10k-listing unclaimed backlog WITHOUT the admin tab being open:
  *
  *   0. claim-sync   — stamp outreach rows whose listing has since been claimed
@@ -221,8 +222,10 @@ export async function GET(request) {
     }
 
     const weekend = isWeekendAEST()
-    const sendQuota = settings.send_enabled && !weekend ? status.send_quota_left : 0
-    const followupQuota = settings.send_enabled && settings.followup_enabled && !weekend ? status.followup_quota_left : 0
+    const inWindow = isWithinSendWindow()
+    summary.send_window = { open: inWindow, melbourne_hour: melbourneHour() }
+    const sendQuota = settings.send_enabled && !weekend && inWindow ? status.send_quota_left : 0
+    const followupQuota = settings.send_enabled && settings.followup_enabled && !weekend && inWindow ? status.followup_quota_left : 0
 
     // ---- Collect all pools in one scan ----
     const pools = await collectWorkset(sb, settings, {
@@ -243,6 +246,7 @@ export async function GET(request) {
         send: Math.min(sendQuota, pools.send.length),
         followups: (await collectFollowups(sb, settings, followupQuota || settings.followup_daily_cap)).length,
         weekend_hold: weekend,
+        window_hold: !inWindow,
       }
       return NextResponse.json({ ok: true, ...summary })
     }
@@ -303,6 +307,8 @@ export async function GET(request) {
       }
     } else if (settings.send_enabled && weekend) {
       summary.send = { held: 'weekend — no cold email Sat/Sun AEST' }
+    } else if (settings.send_enabled && !inWindow) {
+      summary.send = { held: sendWindowHoldNote('cold outreach') }
     }
 
     // ---- Phase 4: follow-ups ----

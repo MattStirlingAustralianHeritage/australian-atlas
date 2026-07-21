@@ -141,11 +141,11 @@
     },
     {
       "path": "/api/cron/outreach-autopilot",
-      "schedule": "30 22 * * *"
+      "schedule": "30 23 * * *"
     },
     {
       "path": "/api/cron/press-outreach-autopilot",
-      "schedule": "45 22 * * *"
+      "schedule": "45 23 * * *"
     },
     {
       "path": "/api/cron/trade-outreach-autopilot",

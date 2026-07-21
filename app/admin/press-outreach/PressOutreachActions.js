@@ -969,7 +969,7 @@ function AutopilotPanel() {
       <div style={{ ...card, background: '#fff', padding: '6px 18px 2px', marginBottom: 16 }}>
         <SettingRow
           title="Background pipeline"
-          desc="Every weekday morning (08:45 AEST): scan the next unchecked outlet and staff pages for a contact email, and AI-write personal openers. No email is sent by this switch alone."
+          desc="Every weekday morning (09:45 Melbourne): scan the next unchecked outlet and staff pages for a contact email, and AI-write personal openers. No email is sent by this switch alone. All outreach email holds outside 9am–5pm Melbourne time."
         >
           <Toggle checked={form.enabled} onChange={(v) => setForm({ ...form, enabled: v })} />
         </SettingRow>

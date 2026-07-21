@@ -7,6 +7,7 @@ import { generateTradeNotesBatch } from '@/lib/outreach/tradePersonalise'
 import { TRADE_BETA_TEMPLATE, TRADE_FOLLOWUP_TEMPLATE } from '@/lib/outreach/tradeTemplates'
 import { filterSendableTrade, sendTradeCampaign, newCampaignId, fetchNetworkCount } from '@/lib/outreach/tradeSend'
 import { loadTradeAutopilotSettings, tradeAutopilotStatus } from '@/lib/outreach/tradeAutopilot'
+import { isWithinSendWindow, sendWindowHoldNote, melbourneHour } from '@/lib/outreach/sendWindow'
 
 /**
  * GET /api/cron/trade-outreach-autopilot
@@ -136,8 +137,10 @@ export async function GET(request) {
     }
 
     const weekend = isWeekendAEST()
-    const sendQuota = settings.send_enabled && !weekend ? status.send_quota_left : 0
-    const followupQuota = settings.send_enabled && settings.followup_enabled && !weekend ? status.followup_quota_left : 0
+    const inWindow = isWithinSendWindow()
+    summary.send_window = { open: inWindow, melbourne_hour: melbourneHour() }
+    const sendQuota = settings.send_enabled && !weekend && inWindow ? status.send_quota_left : 0
+    const followupQuota = settings.send_enabled && settings.followup_enabled && !weekend && inWindow ? status.followup_quota_left : 0
 
     if (dryRun) {
       const [dPool, nPool, sPool, fPool] = await Promise.all([
@@ -152,6 +155,7 @@ export async function GET(request) {
         send: Math.min(sendQuota, sPool.length),
         followups: fPool.length,
         weekend_hold: weekend,
+        window_hold: !inWindow,
       }
       return NextResponse.json({ ok: true, ...summary })
     }
@@ -231,6 +235,8 @@ export async function GET(request) {
       }
     } else if (settings.send_enabled && weekend) {
       summary.send = { held: 'weekend — no trade email Sat/Sun AEST' }
+    } else if (settings.send_enabled && !inWindow) {
+      summary.send = { held: sendWindowHoldNote('trade outreach') }
     }
 
     // ---- Phase 4: follow-ups ----

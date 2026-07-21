@@ -7,11 +7,12 @@ import { generatePressNotesBatch } from '@/lib/outreach/pressPersonalise'
 import { PRESS_INVITE_TEMPLATE, PRESS_FOLLOWUP_TEMPLATE } from '@/lib/outreach/pressTemplates'
 import { filterSendablePress, sendPressCampaign, newCampaignId } from '@/lib/outreach/pressSend'
 import { loadPressAutopilotSettings, pressAutopilotStatus } from '@/lib/outreach/pressAutopilot'
+import { isWithinSendWindow, sendWindowHoldNote, melbourneHour } from '@/lib/outreach/sendWindow'
 
 /**
  * GET /api/cron/press-outreach-autopilot
  *
- * The press engine's daily heartbeat (08:45 AEST). Works a small, curated
+ * The press engine's daily heartbeat (09:45 Melbourne). Works a small, curated
  * directory of press desks and journalists WITHOUT the admin tab being open:
  *
  *   1. discover     — scan outlet/staff pages we haven't checked for a contact
@@ -132,8 +133,10 @@ export async function GET(request) {
     }
 
     const weekend = isWeekendAEST()
-    const sendQuota = settings.send_enabled && !weekend ? status.send_quota_left : 0
-    const followupQuota = settings.send_enabled && settings.followup_enabled && !weekend ? status.followup_quota_left : 0
+    const inWindow = isWithinSendWindow()
+    summary.send_window = { open: inWindow, melbourne_hour: melbourneHour() }
+    const sendQuota = settings.send_enabled && !weekend && inWindow ? status.send_quota_left : 0
+    const followupQuota = settings.send_enabled && settings.followup_enabled && !weekend && inWindow ? status.followup_quota_left : 0
 
     if (dryRun) {
       const [dPool, nPool, sPool, fPool] = await Promise.all([
@@ -148,6 +151,7 @@ export async function GET(request) {
         send: Math.min(sendQuota, sPool.length),
         followups: fPool.length,
         weekend_hold: weekend,
+        window_hold: !inWindow,
       }
       return NextResponse.json({ ok: true, ...summary })
     }
@@ -224,6 +228,8 @@ export async function GET(request) {
       }
     } else if (settings.send_enabled && weekend) {
       summary.send = { held: 'weekend — no press email Sat/Sun AEST' }
+    } else if (settings.send_enabled && !inWindow) {
+      summary.send = { held: sendWindowHoldNote('press outreach') }
     }
 
     // ---- Phase 4: follow-ups ----

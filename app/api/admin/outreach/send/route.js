@@ -4,6 +4,7 @@ import { checkAdmin } from '@/lib/admin-auth'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { LISTING_REGION_SELECT } from '@/lib/regions'
 import { renderEmail, REPLY_TO } from '@/lib/outreach/template'
+import { isWithinSendWindow, SEND_WINDOW_LABEL } from '@/lib/outreach/sendWindow'
 import {
   FROM, ADMIN_EMAIL, filterSendable, sendCampaign, unsubscribeUrl, newCampaignId,
 } from '@/lib/outreach/sendEngine'
@@ -138,6 +139,9 @@ export async function POST(request) {
   }
 
   // ---- Real send via the shared engine. ----
+  if (!isWithinSendWindow()) {
+    return NextResponse.json({ error: `Outreach email only goes out ${SEND_WINDOW_LABEL}. Test sends to yourself still work — real batches resume at 9am.` }, { status: 400 })
+  }
   const { campaignId, sent, failed, errors } = await sendCampaign({
     sb,
     recipients: capped,

@@ -5,6 +5,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { renderTradeEmail, REPLY_TO } from '@/lib/outreach/tradeTemplate'
 import { unsubscribeUrl } from '@/lib/outreach/sendEngine'
 import { filterSendableTrade, sendTradeCampaign, newCampaignId, fetchNetworkCount } from '@/lib/outreach/tradeSend'
+import { isWithinSendWindow, SEND_WINDOW_LABEL } from '@/lib/outreach/sendWindow'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -127,6 +128,9 @@ export async function POST(request) {
   }
 
   // ---- Real send (shared engine). ----
+  if (!isWithinSendWindow()) {
+    return NextResponse.json({ error: `Outreach email only goes out ${SEND_WINDOW_LABEL}. Test sends to yourself still work — real batches resume at 9am.` }, { status: 400 })
+  }
   const campaignId = newCampaignId('trade')
   const result = await sendTradeCampaign({
     sb,
