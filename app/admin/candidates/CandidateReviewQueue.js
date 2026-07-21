@@ -14,6 +14,7 @@ import {
   VERTICAL_NAMES, VERTICAL_COLORS, VERTICAL_TYPE_LABELS,
   VERTICAL_FULL_NAMES, SUBCATEGORY_OPTIONS,
 } from './reviewMeta'
+import { stateFromAddress } from '@/lib/geo/stateDerivation'
 
 // Non-visitable presence sub-types — a maker can operate in several of these at
 // once (e.g. markets + online + by appointment). Listed in PRIORITY order:
@@ -640,6 +641,17 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
   const [editRegionId, setEditRegionId] = useState(null)
   const [editLat, setEditLat] = useState(candidate.lat ?? null)
   const [editLng, setEditLng] = useState(candidate.lng ?? null)
+  // Authoritative state for the listing. The address the reviewer sees wins over
+  // a stale source state (candidates are often stored with a wrong state — e.g.
+  // "Robinvale, NSW" for an address that reads "Robinvale VIC 3549"). Seeded
+  // from the address up-front, then refreshed from each geocode response.
+  const [editState, setEditState] = useState(
+    () => stateFromAddress(candidate.address) || candidate.state || null
+  )
+  // Fresh geocode result for the subtitle, so it can supersede the (possibly
+  // wrong-state) place_name captured at classification time.
+  const [freshPlaceName, setFreshPlaceName] = useState(null)
+  const [freshPrecision, setFreshPrecision] = useState(null)
   // geocodeStatus: 'idle' | 'pending' | 'auto_filled' | 'no_region' | 'failed' | 'manual'
   //   - idle:        no geocode attempted yet this session
   //   - pending:     POST in flight
@@ -823,7 +835,9 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
       const trimmedAddress = (editAddressRef.current || '').trim()
       const trimmedSuburb = (editSuburbRef.current || '').trim()
       if (!trimmedAddress && !trimmedSuburb) return // nothing to geocode against
-      const key = `${trimmedAddress}||${trimmedSuburb}||${candidate.state || ''}`
+      // Key on address + suburb only: the route derives the authoritative state
+      // from the address itself, so the address IS the state cache key.
+      const key = `${trimmedAddress}||${trimmedSuburb}`
       if (key === lastGeocodedKeyRef.current) return // identical input as last call
 
       setGeocodeStatus('pending')
@@ -849,6 +863,12 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
         }
         setEditLat(data.lat)
         setEditLng(data.lng)
+        // Adopt the authoritative state the route resolved from the address,
+        // correcting any stale source state (e.g. NSW → VIC).
+        if (data.state) setEditState(data.state)
+        // Fresh place_name supersedes the stale classification-time subtitle.
+        setFreshPlaceName(data.place_name || null)
+        setFreshPrecision(data.precision || null)
         if (data.suggested_region_id) {
           setEditRegionId(data.suggested_region_id)
           setGeocodeStatus('auto_filled')
@@ -921,7 +941,9 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
         region_override_id: editRegionId || undefined,
         lat: editLat ?? undefined,
         lng: editLng ?? undefined,
-        state: candidate.state || undefined,
+        // Authoritative state (address-derived, corrected on geocode) — never
+        // the stale source state, which is often wrong (Robinvale VIC ≠ NSW).
+        state: editState || candidate.state || undefined,
       },
     }
 
@@ -1180,12 +1202,32 @@ function CandidatePreview({ candidate, isFocused, index, onApprove, onReject, on
         {/* Address + Region + State */}
         {(() => {
           const gate2 = candidate.gate_results?.gates?.gate2
-          const geocodedAddress = gate2?.placeName || gate2?.details?.placeName || null
-          const geocodeConf = gate2?.geocodeConfidence || gate2?.details?.geocodeConfidence || null
+          const staleGeocodedAddress = gate2?.placeName || gate2?.details?.placeName || null
+          const staleGeocodeConf = gate2?.geocodeConfidence || gate2?.details?.geocodeConfidence || null
           const detectedState = gate2?.details?.expectedState || null
           // Parse state from region if it contains one (e.g., "Melbourne, VIC")
           const stateMatch = (candidate.region || '').match(/\b(NSW|VIC|QLD|SA|WA|TAS|ACT|NT)\b/i)
-          const displayState = detectedState || (stateMatch ? stateMatch[1].toUpperCase() : null)
+          // Authoritative state, most-trusted first: the resolved region's own
+          // state → the address-derived state → the region text → the (stale)
+          // gate2 expectation. This stops a wrong source state (e.g. NSW on a
+          // Robinvale VIC 3549 address) showing on a clearly-VIC listing.
+          const selectedRegionState = regions.find(r => r.id === editRegionId)?.state || null
+          const displayState =
+            selectedRegionState
+            || editState
+            || (stateMatch ? stateMatch[1].toUpperCase() : null)
+            || detectedState
+          // Subtitle geocode line: a fresh geocode (this session) wins. Otherwise
+          // fall back to the classification-time place_name — but suppress it when
+          // its state contradicts the authoritative displayState, so we never show
+          // "Robinvale, NSW" next to a VIC listing.
+          const staleStateOk =
+            !staleGeocodedAddress
+            || !displayState
+            || !stateFromAddress(staleGeocodedAddress)
+            || stateFromAddress(staleGeocodedAddress) === displayState
+          const geocodedAddress = freshPlaceName || (staleStateOk ? staleGeocodedAddress : null)
+          const geocodeConf = freshPlaceName ? freshPrecision : (staleStateOk ? staleGeocodeConf : null)
 
           return (
             <div style={{ marginBottom: 20 }}>

@@ -15,7 +15,7 @@ const PAGE_TITLES = {
   editorial: 'Editorial',
   events: 'Events',
   health: 'Pipeline Health',
-  insights: 'Search Insights',
+  insights: 'Trail Prompts',
   staleness: 'Staleness',
   trails: 'Trails',
   articles: 'Articles',
