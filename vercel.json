@@ -8,6 +8,10 @@
       "schedule": "0 */6 * * *"
     },
     {
+      "path": "/api/cron/claim-integrity",
+      "schedule": "30 */6 * * *"
+    },
+    {
       "path": "/api/cron/embeddings",
       "schedule": "30 * * * *"
     },

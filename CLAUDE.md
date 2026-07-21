@@ -214,6 +214,25 @@ scripts/        — data sync, seeding, editorial generation
 - Homepage stat numbers link to /map?type=[value] for pre-filtered map views.
 - The /explore page reads ?region= URL params on mount for pre-filtered views from homepage city cards.
 
+## Ownership State Protection (CRITICAL)
+
+**`listing_claims` is the single source of truth for who owns a listing. `listings.is_claimed` is derived display state. No automated process — sync, cron, script, agent, or enrichment pipeline — may set `is_claimed` to false on, or delete, a listing that has a live claim (`listing_claims.status IN ('active','past_due')`).**
+
+This rule exists because the vertical sync silently re-derived `is_claimed` from vertical claim flags and un-claimed 27 of 28 operator-owned listings (incident 2026-07-21, fixed in commit `4b5f247` + migration 256). Operators were locked out of their dashboards for up to four weeks before anyone noticed.
+
+### Enforcement layers (all must stay in place)
+
+1. **Database triggers** (migration 256): `trg_protect_owned_listing_claim_flag` coerces `is_claimed` back to true on any write while a live claim exists; `trg_protect_owned_listing_delete` blocks DELETE of an owned listing (the `listing_claims.listing_id` FK is ON DELETE CASCADE — deleting the listing silently destroys the ownership row); `trg_stamp_listing_on_live_claim` stamps `is_claimed=true` when a claim becomes live.
+2. **Sync claim guard** (`syncSourceRows` in `lib/sync/syncVertical.js`): forces `is_claimed=true` in sync payloads for listings with live claims; withholds the column entirely if the guard read fails.
+3. **Monitor** (`/api/cron/claim-integrity`, 30 min after each sync pass): emails the admin on any drift — trampled flags, hidden owned listings, approved claims that never provisioned, duplicate live claims.
+
+### Rules for new code
+
+- Never gate an owner-facing query on `is_claimed` — join `listing_claims` on `claimed_by` + status instead. The dashboard locked every operator out precisely because it filtered on display state.
+- To un-claim a listing, deactivate the `listing_claims` row FIRST (the Stripe cancel webhook is the reference flow), then clear `is_claimed`.
+- To delete an owned listing, deactivate the claim first, deliberately. The DB will refuse otherwise.
+- Vertical claim columns differ per vertical (`VERTICAL_CLAIM_FIELD` in `lib/supabase/clients.js`) and craft's `venues` table has NO claim column at all — never assume the vertical knows about ownership.
+
 ## Article Body Protection (CRITICAL)
 
 **No automated process, agent, cron job, script, or enrichment pipeline may write to the `body` or `content` field of any record in the `articles` table under any circumstances.**
