@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { STORY_QUESTIONS } from '@/lib/operator-intake/voice.mjs'
 
 const VERTICAL_NAMES = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft', fine_grounds: 'Fine Grounds',
@@ -184,6 +185,23 @@ function DraftCard({ draft, listing, onResolved, onReplaced }) {
                 </div>
               )
             })}
+            {/* Guided-interview answers — operator prose that may also ground claims */}
+            {STORY_QUESTIONS.some(({ key }) => factValue(facts.story_answers?.[key])) && (
+              <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--color-border)' }}>
+                <div style={{ fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--color-muted)', marginBottom: 6 }}>
+                  In their own words (interview)
+                </div>
+                {STORY_QUESTIONS.map(({ key, q }) => {
+                  const v = factValue(facts.story_answers?.[key])
+                  if (!v) return null
+                  return (
+                    <div key={key} style={{ marginBottom: 6, fontFamily: 'var(--font-body)', fontSize: 12.5, color: 'var(--color-ink)', lineHeight: 1.5 }}>
+                      <span style={{ color: 'var(--color-muted)', fontWeight: 600 }}>{q} </span>{v}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </details>
 

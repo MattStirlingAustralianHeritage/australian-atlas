@@ -148,15 +148,23 @@ export async function POST(request) {
 async function handleRewrite(sb, draft, body) {
   const guidance = typeof body.guidance === 'string' ? body.guidance.trim() : ''
 
-  const [{ data: facts }, { data: listing }] = await Promise.all([
+  const [{ data: facts }, { data: story }, { data: listing }] = await Promise.all([
     sb.from('operator_facts').select('*').eq('listing_id', draft.listing_id).maybeSingle(),
+    sb.from('operator_stories').select('answers').eq('listing_id', draft.listing_id).maybeSingle(),
     sb.from('listings').select('id, name, slug, vertical, region, description').eq('id', draft.listing_id).maybeSingle(),
   ])
+
+  // Same grounding shape as first generation: structured facts plus the
+  // operator's guided-interview answers (rolled in from the old story page).
+  // Fresh rows win; the draft's source_facts snapshot is the fallback for
+  // either half, so a missing facts row can't drop the live answers.
+  const baseFacts = facts || draft.source_facts || {}
+  const freshFacts = { ...baseFacts, story_answers: story?.answers || baseFacts.story_answers || {} }
 
   let result
   try {
     result = await generateRewrite({
-      facts: facts || draft.source_facts || {},
+      facts: freshFacts,
       listing,
       currentText: listing?.description || '',
       draftText: draft.generated_text || '',
@@ -201,7 +209,7 @@ async function handleRewrite(sb, draft, body) {
       facts_id: facts?.id ?? draft.facts_id,
       version: nextVersion,
       generated_text: result.text,
-      source_facts: facts || draft.source_facts || {},
+      source_facts: freshFacts,
       model: result.model,
       source_binding_passed: result.binding.passed,
       source_binding_report: result.binding,

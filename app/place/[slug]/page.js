@@ -612,25 +612,6 @@ async function getListingQna(sb, listingId) {
   }
 }
 
-// The operator's approved story (migration 210), written by the Atlas from
-// their guided-interview answers. Only a 'live' row surfaces. Distinct from
-// the editorial description/ai_description. Resilient: returns null on any
-// error (e.g. pre-migration DB) so it can never break the page.
-async function getOperatorStory(sb, listingId) {
-  try {
-    const { data, error } = await sb
-      .from('operator_stories')
-      .select('draft, status')
-      .eq('listing_id', listingId)
-      .eq('status', 'live')
-      .maybeSingle()
-    if (error) throw error
-    return data?.draft || null
-  } catch {
-    return null
-  }
-}
-
 // ── Helper: clean website for display ─────────────────────────
 
 function cleanWebsite(url) {
@@ -756,8 +737,8 @@ export default async function PlacePage({ params }) {
       .eq('approved', true)
       .order('created_at', { ascending: false })
       .limit(5),
-    // Producer picks, paid-perk gate, events, offers, awards, Q&A, operator
-    // story — all keyed on listing.id (already a Promise.all; now one branch).
+    // Producer picks, paid-perk gate, events, offers, awards, Q&A — all keyed
+    // on listing.id (already a Promise.all; now one branch).
     Promise.all([
       listOutgoing(sbMem, [listing.id]),
       listIncoming(sbMem, [listing.id]),
@@ -766,7 +747,6 @@ export default async function PlacePage({ params }) {
       getListingOffers(sbMem, listing.id),
       getListingAwards(sbMem, listing.id),
       getListingQna(sbMem, listing.id),
-      getOperatorStory(sbMem, listing.id),
     ]),
     // Operator-suggested trail — the published day-trip the operator authored
     // for this listing (type='operator'). Null when absent/unpublished.
@@ -779,7 +759,7 @@ export default async function PlacePage({ params }) {
   //   picksGiven    = venues this place vouches for (outgoing)
   //   picksReceived = venues that have vouched for this place ("picked by")
   // Both are filtered to active venues so a pick never links to a hidden listing.
-  const [picksGivenRaw, picksReceivedRaw, paidCuratorSet, upcomingEvents, offersRaw, awardsRaw, qnaRaw, operatorStoryRaw] = picks
+  const [picksGivenRaw, picksReceivedRaw, paidCuratorSet, upcomingEvents, offersRaw, awardsRaw, qnaRaw] = picks
   const picksGiven = picksGivenRaw.filter(p => p.pickedStatus === 'active')
   const picksReceived = picksReceivedRaw.filter(p => p.curatorStatus === 'active')
 
@@ -807,10 +787,6 @@ export default async function PlacePage({ params }) {
   // Published Q&A (migration 209) — operator-attributed, paid-gated like the
   // blocks above. Also emitted as FAQPage JSON-LD below.
   const qna = isPaid ? qnaRaw : []
-  // Approved operator story (migration 210) — paid-gated; a 'live' row only
-  // exists after the operator approved it, but gate on paid too so it fails
-  // safe if a subscription lapses.
-  const operatorStory = isPaid ? operatorStoryRaw : null
 
   // Effective region via the FK helper. Returns canonical { id, slug, name, state }
   // from regions table, or null when both region_computed_id and region_override_id
@@ -1367,25 +1343,6 @@ export default async function PlacePage({ params }) {
                   {t('viewOpenRoles')} &rarr;
                 </a>
               )}
-            </div>
-          </section>
-        )}
-
-        {/* ── The story — the operator's own account, drafted by the Atlas from
-            their guided-interview answers and approved by them (a paid perk,
-            migration 210). Distinct from the editorial description above. ── */}
-        {operatorStory && (
-          <section className="mb-10" aria-labelledby="operator-story-heading">
-            <h2 id="operator-story-heading" className="mb-4" style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '22px', color: 'var(--color-ink)' }}>
-              {t('theStory')}
-            </h2>
-            <div className="rounded-xl p-6" style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}>
-              <div style={{ fontFamily: 'var(--font-display)', fontSize: '16px', lineHeight: 1.75, color: 'var(--color-ink)', whiteSpace: 'pre-wrap' }}>
-                {operatorStory}
-              </div>
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--color-muted)', margin: '16px 0 0', paddingTop: '12px', borderTop: '1px solid var(--color-border)', lineHeight: 1.5 }}>
-                {t('storyProvenance', { name: listing.name })}
-              </p>
             </div>
           </section>
         )}

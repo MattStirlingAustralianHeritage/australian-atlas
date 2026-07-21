@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { INTAKE_FIELDS } from '@/lib/operator-intake/voice.mjs'
+import { INTAKE_FIELDS, STORY_QUESTIONS } from '@/lib/operator-intake/voice.mjs'
 
 const VERTICAL_LABELS = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft', fine_grounds: 'Fine Grounds',
@@ -34,6 +34,9 @@ export default function DashboardDescription() {
   const [myListings, setMyListings] = useState([])
   const [listingId, setListingId] = useState(null)
   const [form, setForm] = useState(() => factsToForm(null))
+  // Guided-interview answers (the old "Your Story" page, now part of this
+  // workspace) — keyed by STORY_QUESTIONS ids, saved alongside the facts.
+  const [storyAnswers, setStoryAnswers] = useState({})
   const [drafts, setDrafts] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -51,6 +54,7 @@ export default function DashboardDescription() {
       setMyListings(data.myListings || [])
       setListingId(data.listingId || id || data.myListings?.[0]?.id || null)
       setForm(factsToForm(data.facts))
+      setStoryAnswers(data.storyAnswers || {})
       setDrafts(data.drafts || [])
     } catch {
       setError('Could not load your description workspace.')
@@ -71,11 +75,12 @@ export default function DashboardDescription() {
       const r = await fetch('/api/dashboard/description', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ listingId, ...form }),
+        body: JSON.stringify({ listingId, ...form, story_answers: storyAnswers }),
       })
       const data = await r.json()
       if (!r.ok) { setError(data.error || 'Could not save.'); return null }
       setForm(factsToForm(data.facts))
+      if (data.storyAnswers) setStoryAnswers(data.storyAnswers)
       setNotice('Facts saved.')
       return data.facts
     } catch { setError('Network error while saving.'); return null }
@@ -194,18 +199,44 @@ export default function DashboardDescription() {
             {factFields.map(field => (
               <FactField key={field.key} field={field} value={form[field.key]} onChange={v => setField(field.key, v)} />
             ))}
-
-            <div style={{ display: 'flex', gap: 10, marginTop: '1.25rem', flexWrap: 'wrap' }}>
-              <button onClick={saveFacts} disabled={saving || generating}
-                style={btn('ghost', saving || generating)}>
-                {saving ? 'Saving…' : 'Save draft'}
-              </button>
-              <button onClick={generate} disabled={saving || generating}
-                style={btn('primary', saving || generating)}>
-                {generating ? 'Writing…' : primaryLabel}
-              </button>
-            </div>
           </section>
+
+          {/* Your story — the guided interview, in the operator's own words.
+              Optional grounding: anything answered here can be woven into the
+              description, through the same editorial check as everything else. */}
+          <section style={{ background: '#fff', borderRadius: 12, border: '1px solid var(--color-border)', padding: '1.5rem', marginBottom: '1.5rem' }}>
+            <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: '0.8rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-muted)', margin: '0 0 0.5rem' }}>
+              Your story · optional
+            </h2>
+            <p style={{ fontFamily: 'var(--font-sans)', fontSize: '0.82rem', color: 'var(--color-muted)', margin: '0 0 1.25rem', lineHeight: 1.5 }}>
+              A few questions in your own words. Answer any that suit — what you write here can be woven
+              into your description, and we still only ever write from what you tell us.
+            </p>
+            {STORY_QUESTIONS.map(({ key, q }) => (
+              <div key={key} style={{ marginBottom: '1.1rem' }}>
+                <label style={{ display: 'block', fontFamily: 'var(--font-sans)', fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-ink)', marginBottom: '0.3rem' }}>{q}</label>
+                <textarea
+                  value={storyAnswers[key] || ''}
+                  onChange={e => setStoryAnswers(prev => ({ ...prev, [key]: e.target.value }))}
+                  rows={2}
+                  maxLength={800}
+                  placeholder="In your own words…"
+                  style={{ ...inputStyle, resize: 'vertical' }}
+                />
+              </div>
+            ))}
+          </section>
+
+          <div style={{ display: 'flex', gap: 10, margin: '0 0 1.5rem', flexWrap: 'wrap' }}>
+            <button onClick={saveFacts} disabled={saving || generating}
+              style={btn('ghost', saving || generating)}>
+              {saving ? 'Saving…' : 'Save draft'}
+            </button>
+            <button onClick={generate} disabled={saving || generating}
+              style={btn('primary', saving || generating)}>
+              {generating ? 'Writing…' : primaryLabel}
+            </button>
+          </div>
 
           {/* Latest draft */}
           {latest && (

@@ -25,7 +25,6 @@ const NAV_ITEMS = [
   { label: 'Producer Picks', href: '/dashboard/picks', icon: 'star', picksOnly: true },
   { label: 'Suggested Trail', href: '/dashboard/trail', icon: 'route' },
   { label: 'Editorial', href: '/dashboard/editorial', icon: 'pen' },
-  { label: 'Your Story', href: '/dashboard/story', icon: 'doc' },
   { label: 'Embed Kit', href: '/dashboard/embed', icon: 'plus' },
   { label: 'Travel Trade', href: '/dashboard/trade', icon: 'route' },
   { label: 'Recommend a Listing', href: '/dashboard/recommend', icon: 'plus' },

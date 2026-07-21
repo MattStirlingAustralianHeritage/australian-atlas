@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAuthServerClient } from '@/lib/supabase/auth-clients'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { generateDescription } from '@/lib/operator-intake/generate.mjs'
+import { STORY_QUESTIONS } from '@/lib/operator-intake/voice.mjs'
 import { isListingPaid } from '@/lib/listing-gallery'
 import { sendAgentEmail } from '@/lib/agents/email'
 
@@ -88,6 +89,28 @@ function hasRequiredFacts(facts) {
   return Boolean(facts?.building_description?.trim()) && Boolean(facts?.what_you_book?.trim())
 }
 
+// Guided-interview answers (the retired "Your Story" page, rolled into this
+// workspace). Storage stays in operator_stories.answers — jsonb keyed by the
+// fixed question ids — but nothing here ever touches its status column: the
+// only road to a public page is a draft through the admin review gate.
+function cleanStoryAnswers(input) {
+  const out = {}
+  for (const { key } of STORY_QUESTIONS) {
+    const v = String(input?.[key] ?? '').trim().slice(0, 800)
+    if (v) out[key] = v
+  }
+  return out
+}
+
+async function loadStoryAnswers(admin, listingId) {
+  const { data } = await admin
+    .from('operator_stories')
+    .select('answers')
+    .eq('listing_id', listingId)
+    .maybeSingle()
+  return data?.answers || {}
+}
+
 async function loadListings(admin, ids) {
   if (!ids.length) return []
   const { data } = await admin
@@ -126,14 +149,13 @@ export async function GET(request) {
     return NextResponse.json({ error: 'You do not own that listing' }, { status: 403 })
   }
 
-  const { data: facts } = await admin
-    .from('operator_facts')
-    .select('*')
-    .eq('listing_id', listingId)
-    .maybeSingle()
-  const drafts = await loadDrafts(admin, listingId)
+  const [{ data: facts }, storyAnswers, drafts] = await Promise.all([
+    admin.from('operator_facts').select('*').eq('listing_id', listingId).maybeSingle(),
+    loadStoryAnswers(admin, listingId),
+    loadDrafts(admin, listingId),
+  ])
 
-  return NextResponse.json({ myListings, listingId, facts: facts || null, drafts })
+  return NextResponse.json({ myListings, listingId, facts: facts || null, storyAnswers, drafts })
 }
 
 // ─── PUT — save the operator's structured facts (owner-scoped upsert) ──────────
@@ -169,7 +191,25 @@ export async function PUT(request) {
     console.error('[dashboard/description/PUT] upsert failed:', error.message)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
-  return NextResponse.json({ facts: data })
+
+  // Interview answers ride along with the same save. Only written when the
+  // form sends them, and only ever the answers column — status is untouched.
+  let storyAnswers
+  if (body.story_answers && typeof body.story_answers === 'object' && !Array.isArray(body.story_answers)) {
+    storyAnswers = cleanStoryAnswers(body.story_answers)
+    const { error: storyErr } = await admin
+      .from('operator_stories')
+      .upsert(
+        { listing_id: listingId, answers: storyAnswers, updated_at: new Date().toISOString() },
+        { onConflict: 'listing_id' },
+      )
+    if (storyErr) {
+      console.error('[dashboard/description/PUT] story answers upsert failed:', storyErr.message)
+      return NextResponse.json({ error: storyErr.message }, { status: 500 })
+    }
+  }
+
+  return NextResponse.json({ facts: data, ...(storyAnswers !== undefined ? { storyAnswers } : {}) })
 }
 
 // ─── POST — generate a draft, or flag/annotate an existing one ────────────────
@@ -212,15 +252,19 @@ async function handleGenerate(admin, listingId) {
     return NextResponse.json({ error: 'The building and what-you-book facts are required before generating' }, { status: 400 })
   }
 
-  const { data: listing } = await admin
-    .from('listings')
-    .select('id, name, slug')
-    .eq('id', listingId)
-    .maybeSingle()
+  const [{ data: listing }, storyAnswers] = await Promise.all([
+    admin.from('listings').select('id, name, slug').eq('id', listingId).maybeSingle(),
+    loadStoryAnswers(admin, listingId),
+  ])
+
+  // Interview answers ground the draft alongside the structured facts, and the
+  // merged shape is snapshotted as source_facts so the admin reviews the text
+  // against everything it was actually written from.
+  const groundingFacts = { ...facts, story_answers: storyAnswers }
 
   let result
   try {
-    result = await generateDescription({ facts, listing })
+    result = await generateDescription({ facts: groundingFacts, listing })
   } catch (err) {
     console.error('[dashboard/description/generate] LLM failed:', err.message)
     return NextResponse.json({ error: 'Generation failed — please try again' }, { status: 502 })
@@ -251,7 +295,7 @@ async function handleGenerate(admin, listingId) {
       facts_id: facts.id,
       version: nextVersion,
       generated_text: result.text,
-      source_facts: facts,
+      source_facts: groundingFacts,
       model: result.model,
       source_binding_passed: result.binding.passed,
       source_binding_report: result.binding,
