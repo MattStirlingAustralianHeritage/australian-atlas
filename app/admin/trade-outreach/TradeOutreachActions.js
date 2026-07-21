@@ -870,8 +870,8 @@ function AutopilotPanel() {
     <div>
       {/* Live status */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
-        <StatCard n={`${st.sent_today ?? 0} / ${form.daily_send_cap}`} label="invited in last 24h" />
-        <StatCard n={`${st.followups_today ?? 0} / ${form.followup_daily_cap}`} label="follow-ups in last 24h" />
+        <StatCard n={`${st.sent_today ?? 0} / ${form.daily_send_cap}`} label="invited today (Melbourne)" />
+        <StatCard n={`${st.followups_today ?? 0} / ${form.followup_daily_cap}`} label="follow-ups today" />
         <StatCard n={(st.sendable_pool ?? 0).toLocaleString()} label="ready to invite" />
         <StatCard n={(st.need_note_pool ?? 0).toLocaleString()} label="awaiting AI opener" />
         <StatCard n={(st.need_discover_pool ?? 0).toLocaleString()} label="need discovery" />

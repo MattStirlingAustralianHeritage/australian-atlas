@@ -24,7 +24,7 @@ import { isWithinSendWindow, sendWindowHoldNote, melbourneHour } from '@/lib/out
  *   2. personalise  — AI-write openers for sendable rows missing one
  *                     (metered through the monthly spend governor).
  *   3. send         — first-touch batch, per-vertical template, quality-first,
- *                     capped per 24h. ONLY when send_enabled. Weekdays only.
+ *                     capped per Melbourne day. ONLY when send_enabled. Weekdays only.
  *   4. follow-up    — one (and only one) second touch, N days after the first,
  *                     skipping anyone claimed/replied/declined/suppressed.
  *
