@@ -23,6 +23,12 @@ export default function LoginPage() {
     const v = params.get('vertical')
     if (ru) setReturnUrl(ru)
     if (v) setVertical(v)
+    // /auth/callback bounces here when an emailed link fails to verify —
+    // without this the failure is silent and looks like a plain login page.
+    if (params.get('error') === 'auth_callback_error') {
+      setError('That email link was invalid or has expired — links can only be used once. Sign in below, or request a fresh link.')
+    }
+    if (params.get('mode') === 'reset') setMode('reset')
   }, [])
 
   // After login, redirect through shared auth endpoint if return_url exists

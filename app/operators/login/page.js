@@ -46,10 +46,12 @@ export default function OperatorLoginPage() {
 
     try {
       // Atlas-branded reset email sent server-side via Resend (see app/api/auth/email-link).
+      // `next` is the destination AFTER the new password is saved — the callback
+      // routes recovery links through /auth/update-password first.
       const res = await fetch('/api/auth/email-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'recovery', email, next: '/operators/login' }),
+        body: JSON.stringify({ type: 'recovery', email, next: '/operators/dashboard' }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {

@@ -24,7 +24,17 @@ export async function GET(request) {
     if (!error) return NextResponse.redirect(`${origin}${next}`)
   } else if (tokenHash && type) {
     const { error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash })
-    if (!error) return NextResponse.redirect(`${origin}${next}`)
+    if (!error) {
+      // A recovery link only mints a session — the password is NOT changed yet.
+      // It must land on the set-new-password screen, never straight on `next`,
+      // or the reset silently becomes a one-machine session and the operator
+      // stays locked out everywhere else. `next` is preserved as the
+      // destination AFTER the new password is saved.
+      if (type === 'recovery') {
+        return NextResponse.redirect(`${origin}/auth/update-password?next=${encodeURIComponent(next)}`)
+      }
+      return NextResponse.redirect(`${origin}${next}`)
+    }
   }
 
   return NextResponse.redirect(`${origin}/login?error=auth_callback_error`)
