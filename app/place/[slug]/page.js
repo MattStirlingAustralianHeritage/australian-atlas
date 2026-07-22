@@ -48,6 +48,7 @@ import OperatorTrailSection from '@/components/OperatorTrailSection'
 import { readOperatorTrailForListing } from '@/lib/trails/operatorTrail'
 import RegionIndexCard from '@/components/RegionIndexCard'
 import { getRegionVerticalMixCached, regionCardChips } from '@/lib/regions/verticalMix'
+import { AtlasPageBackground } from '@/components/HeroAtlasBackground'
 
 export const revalidate = 3600
 // Safety net: a cold render fans out many DB round-trips; give it headroom so a
@@ -927,7 +928,20 @@ export default async function PlacePage({ params }) {
     : []
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--color-bg)' }}>
+    <div
+      className="min-h-screen"
+      style={{
+        // Soft warm-cream gradient echoing the homepage hero, in place of the
+        // flat --color-bg, with the rotating survey-sheet artwork (AtlasPageBackground)
+        // fixed behind the content. position: relative + isolation: isolate is the
+        // stacking-context recipe that keeps that z-index -1 layer between this
+        // gradient and the page content (see AtlasPageBackground).
+        position: 'relative',
+        isolation: 'isolate',
+        background: 'linear-gradient(180deg, #FAF8F4 0%, #F3EEE6 42%, #EFE9E0 100%)',
+      }}
+    >
+      <AtlasPageBackground />
 
       {/* ── Structured data ───────────────────────────────── */}
       {/* LocalBusiness enriched with live operator offers (makesOffer) and the

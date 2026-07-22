@@ -538,9 +538,21 @@ const VARIANTS = {
 }
 const VARIANT_KEYS = Object.keys(VARIANTS)
 
-export default function HeroAtlasBackground() {
-  // Picked on mount only, so SSR renders nothing and there is no hydration
-  // mismatch; the layer then fades in like the hero-rise entrance above it.
+// A wider, gentler mask for the page-length backdrop used behind listing pages
+// (see AtlasPageBackground). Unlike the hero's tightly-focused CENTER_MASK, this
+// thins the artwork across the whole central reading column — a broad ellipse
+// that keeps the sheet to a whisper behind the body copy while letting it breathe
+// in the side gutters and toward the top, under the hero.
+const PAGE_MASK =
+  'radial-gradient(ellipse 80% 78% at 50% 40%, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.22) 42%, rgba(0,0,0,0.72) 74%, rgb(0,0,0) 100%)'
+
+/**
+ * The rotating survey-sheet layer itself. Picks a variant on mount only, so SSR
+ * renders nothing (no hydration mismatch) and the sheet then fades in. Shared by
+ * the hero backdrop and the listing-page backdrop — the two differ only in the
+ * mask and positioning passed in via `mask` / `style`.
+ */
+export function AtlasChartLayer({ mask = CENTER_MASK, style, className }) {
   const [variant, setVariant] = useState(null)
 
   useEffect(() => {
@@ -556,15 +568,16 @@ export default function HeroAtlasBackground() {
   return (
     <div
       aria-hidden="true"
-      className="hero-chart-fade"
+      className={['hero-chart-fade', className].filter(Boolean).join(' ')}
       style={{
         position: 'absolute',
         inset: 0,
         zIndex: -1,
         overflow: 'hidden',
         pointerEvents: 'none',
-        WebkitMaskImage: CENTER_MASK,
-        maskImage: CENTER_MASK,
+        WebkitMaskImage: mask,
+        maskImage: mask,
+        ...style,
       }}
     >
       <svg width="100%" height="100%" viewBox="0 0 1440 640" preserveAspectRatio="xMidYMid slice" fill="none">
@@ -572,5 +585,30 @@ export default function HeroAtlasBackground() {
         <Sheet />
       </svg>
     </div>
+  )
+}
+
+export default function HeroAtlasBackground() {
+  return <AtlasChartLayer />
+}
+
+/**
+ * The same survey-sheet artwork as the homepage hero, rendered as a soft,
+ * page-length backdrop for the listing pages. Fixed to the viewport so it stays
+ * put behind a long scrolling page, held to a low opacity, and masked with
+ * PAGE_MASK so it never competes with the reading column.
+ *
+ * Drop it as the first child of the page wrapper and give that wrapper
+ * `position: relative; isolation: isolate` — the same recipe the hero uses. The
+ * isolate creates the stacking context that keeps this z-index -1 layer between
+ * the wrapper's own (gradient) background and the page content, so the content
+ * needs no z-index of its own.
+ */
+export function AtlasPageBackground() {
+  return (
+    <AtlasChartLayer
+      mask={PAGE_MASK}
+      style={{ position: 'fixed', zIndex: -1, opacity: 0.62 }}
+    />
   )
 }
