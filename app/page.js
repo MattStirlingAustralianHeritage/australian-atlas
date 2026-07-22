@@ -100,7 +100,7 @@ function seededShuffle(arr, seed) {
 // be galleries. Labels are time-of-day, from the existing translated
 // clusterStop* keys wherever one fits.
 const HERO_TRIP_SLOTS = [
-  { slot: 'morning',    labelKey: 'clusterStopMorning',   prefs: [['fine_grounds'], ['table', ['bakery', 'market', 'farm_gate', 'providore']]] },
+  { slot: 'morning',    labelKey: 'clusterStopMorning',   prefs: [['fine_grounds'], ['table', ['bakery', 'market', 'providore']]] },
   { slot: 'midmorning', labelKey: 'tripStopMidMorning',   prefs: [['corner'], ['found'], ['collection'], ['craft'], ['field']] },
   { slot: 'midday',     labelKey: 'clusterStopMidday',    prefs: [['table', ['restaurant', 'cafe', 'bistro', 'pub', 'bakery']], ['table'], ['corner']] },
   // Way Atlas listings are deliberately left out of the worked-trip
@@ -350,10 +350,15 @@ async function assembleRegionDay(sb, regionName, seed) {
   const fromTable = resolved ? 'listings_with_region' : 'listings'
   let query = sb
     .from(fromTable)
-    .select('id, name, slug, vertical, sub_type, suburb, lat, lng, description, hero_image_url, visitable, address_on_request')
+    .select('id, name, slug, vertical, sub_type, suburb, lat, lng, description, hero_image_url, visitable, address_on_request, trail_suitable')
     .eq('status', 'active')
     // Way Atlas experiences never appear in the worked-trip example.
     .neq('vertical', 'way')
+    // A worked-trip stop must be trail-suitable: not a direct-sale producer,
+    // appointment-only studio maker, or no-premises vendor (all visitable, but
+    // not spontaneous stops). Accommodation (rest) is exempt — it fills the
+    // overnight 'stay' slot, where trail_suitable=false is expected.
+    .or('vertical.eq.rest,trail_suitable.eq.true,trail_suitable.is.null')
     .not('description', 'is', null)
     .not('slug', 'is', null)
     .not('lat', 'is', null)

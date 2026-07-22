@@ -183,7 +183,27 @@ async function fetchVenues(intent) {
     if (data) venues.push(...data)
   }
 
-  const result = venues.slice(0, 50)
+  // Trail-suitability gate — some listings are genuine, visitable places but
+  // poor auto-picked itinerary stops (direct-sale farm gates like "Australia's
+  // Manuka", appointment-only studio makers, no-premises vendors). Drop anything
+  // explicitly flagged trail_suitable=false, except accommodation (rest), which
+  // is legitimately not a daytime stop yet is the overnight anchor of a plan.
+  // Unclassified (null) rows are left in — we never over-filter on absence.
+  let kept = venues
+  if (venues.length) {
+    const { data: unsuitable } = await sb
+      .from('listings')
+      .select('id')
+      .eq('trail_suitable', false)
+      .neq('vertical', 'rest')
+      .in('id', venues.map(v => v.id))
+    if (unsuitable?.length) {
+      const drop = new Set(unsuitable.map(r => r.id))
+      kept = venues.filter(v => !drop.has(v.id))
+    }
+  }
+
+  const result = kept.slice(0, 50)
   logSearchEvent(sb, {
     query_text: intent.search_query || null, surface: 'plan',
     result_count: result.length, vector_arm_fired: vectorFired,
