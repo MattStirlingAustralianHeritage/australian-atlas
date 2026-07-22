@@ -101,7 +101,7 @@ export default function NearbyExplorer({
                     <span className="nbx-body">
                       <span className="nbx-name">
                         <span className="nbx-dot" style={{ background: color }} aria-hidden="true" />
-                        {l.name}
+                        <span className="nbx-name-text">{l.name}</span>
                       </span>
                       <span className="nbx-meta">
                         {category}{dist ? <> · <span className="nbx-dist">{dist}</span></> : null}
@@ -153,9 +153,12 @@ export default function NearbyExplorer({
         .nbx-name {
           font-family: var(--font-body); font-size: 14px; font-weight: 500;
           color: var(--color-ink); line-height: 1.25;
-          display: flex; align-items: center; gap: 7px;
-          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+          display: flex; align-items: center; gap: 7px; min-width: 0;
         }
+        /* Ellipsis needs a block-level text element — text-overflow does not
+           apply to the flex .nbx-name itself, so wrap the label. min-width:0
+           lets it shrink inside the flex row instead of pushing the card wide. */
+        .nbx-name-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .nbx-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
         .nbx-meta { font-family: var(--font-body); font-size: 12px; color: var(--color-muted); line-height: 1.3; }
         .nbx-dist { color: ${accent}; font-weight: 500; }
@@ -165,13 +168,16 @@ export default function NearbyExplorer({
           font-family: var(--font-body); font-size: 13px; color: var(--color-muted);
           border: 1px dashed var(--color-border); border-radius: 12px; padding: 20px;
         }
+        /* minmax(0, …) caps each track's implicit min-content minimum: a long
+           nowrap venue name would otherwise blow the 1fr track past the
+           viewport and push the whole document into horizontal scroll. */
         @media (max-width: 899px) {
-          .nbx-grid { grid-template-columns: 1fr; }
-          .nbx-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+          .nbx-grid { grid-template-columns: minmax(0, 1fr); }
+          .nbx-list { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
           .nbx-empty { min-height: 0; }
         }
         @media (max-width: 520px) {
-          .nbx-list { grid-template-columns: 1fr; }
+          .nbx-list { grid-template-columns: minmax(0, 1fr); }
         }
       `}</style>
     </div>
