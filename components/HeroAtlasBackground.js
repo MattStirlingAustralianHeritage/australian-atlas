@@ -543,8 +543,14 @@ const VARIANT_KEYS = Object.keys(VARIANTS)
 // thins the artwork across the whole central reading column — a broad ellipse
 // that keeps the sheet to a whisper behind the body copy while letting it breathe
 // in the side gutters and toward the top, under the hero.
+//
+// The alpha stops top out at 0.62 (not 1) rather than dimming the whole layer
+// with `opacity`: the shared `.hero-chart-fade` animation ends on opacity:1 with
+// fill-mode both, which would override any inline opacity on the layer. Folding
+// the dim into the mask (which the animation never touches) is what actually
+// holds the page backdrop softer than the hero.
 const PAGE_MASK =
-  'radial-gradient(ellipse 80% 78% at 50% 40%, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.22) 42%, rgba(0,0,0,0.72) 74%, rgb(0,0,0) 100%)'
+  'radial-gradient(ellipse 80% 78% at 50% 40%, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.14) 42%, rgba(0,0,0,0.45) 74%, rgba(0,0,0,0.62) 100%)'
 
 /**
  * The rotating survey-sheet layer itself. Picks a variant on mount only, so SSR
@@ -595,8 +601,9 @@ export default function HeroAtlasBackground() {
 /**
  * The same survey-sheet artwork as the homepage hero, rendered as a soft,
  * page-length backdrop for the listing pages. Fixed to the viewport so it stays
- * put behind a long scrolling page, held to a low opacity, and masked with
- * PAGE_MASK so it never competes with the reading column.
+ * put behind a long scrolling page, and masked with PAGE_MASK so it never
+ * competes with the reading column (PAGE_MASK also carries the dim that keeps it
+ * softer than the hero — see the note on that constant).
  *
  * Drop it as the first child of the page wrapper and give that wrapper
  * `position: relative; isolation: isolate` — the same recipe the hero uses. The
@@ -608,7 +615,7 @@ export function AtlasPageBackground() {
   return (
     <AtlasChartLayer
       mask={PAGE_MASK}
-      style={{ position: 'fixed', zIndex: -1, opacity: 0.62 }}
+      style={{ position: 'fixed', zIndex: -1 }}
     />
   )
 }
