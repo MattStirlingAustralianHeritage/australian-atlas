@@ -581,6 +581,14 @@ export default async function Home() {
           // hidden), so the section must NOT set overflow: hidden — it would
           // clip the search autocomplete dropdown.
           isolation: 'isolate',
+          // position:relative + this z-index lift the whole hero (and the
+          // autocomplete dropdown trapped inside the isolate context) above the
+          // sibling sections that follow it in the DOM — the spectrum spine and
+          // the atlas ticker, whose transform-animated tracks form their own
+          // stacking contexts. Without it the dropdown's z-index:100 is scoped
+          // to the hero and those later siblings paint over the open results.
+          // Stays below the sticky nav (z-50).
+          zIndex: 20,
         }}
       >
         <HeroAtlasBackground />
