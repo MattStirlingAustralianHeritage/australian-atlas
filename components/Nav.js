@@ -174,7 +174,7 @@ export default function Nav() {
             <LocalizedLink
               key={link.href}
               href={link.href}
-              className="nav-link hidden sm:inline"
+              className="nav-link hidden lg:inline"
               aria-current={isActive(link.href) ? 'page' : undefined}
             >
               {link.label}
@@ -182,7 +182,7 @@ export default function Nav() {
           ))}
 
           {/* More dropdown */}
-          <div ref={moreRef} style={{ position: 'relative' }} className="hidden sm:block">
+          <div ref={moreRef} style={{ position: 'relative' }} className="hidden lg:block">
             <button
               onClick={() => setMoreOpen(!moreOpen)}
               className="nav-link"
@@ -248,21 +248,24 @@ export default function Nav() {
           </div>
 
           {/* Location indicator (desktop) */}
-          <div className="hidden sm:block" style={{ borderLeft: '1px solid var(--color-border)', paddingLeft: '12px' }}>
+          <div className="hidden lg:block" style={{ borderLeft: '1px solid var(--color-border)', paddingLeft: '12px' }}>
             <LocationBar />
           </div>
 
           {/* Language switcher (desktop) */}
-          <div className="hidden sm:block">
+          <div className="hidden lg:block">
             <LanguageSwitcher />
           </div>
 
-          {/* Mobile hamburger */}
-          {/* flex lives in the class list (not inline style) so sm:hidden can
+          {/* Mobile / tablet hamburger — shown below lg (1024px). The full
+              desktop link row needs ~886px to lay out, so it can only appear at
+              lg; between sm and lg the row would overflow the bar and push the
+              document into horizontal scroll. */}
+          {/* flex lives in the class list (not inline style) so lg:hidden can
               actually hide it — an inline display beat the utility before,
               leaving a phantom hamburger on desktop. */}
           <button
-            className="flex sm:hidden items-center justify-center"
+            className="flex lg:hidden items-center justify-center"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             aria-label={t('toggleMenu')}
             style={{
@@ -290,7 +293,7 @@ export default function Nav() {
           {user && canManageListings && (
             <LocalizedLink
               href="/dashboard"
-              className="hidden sm:inline-flex items-center"
+              className="hidden lg:inline-flex items-center"
               style={{
                 gap: '6px',
                 padding: '7px 14px',
@@ -448,10 +451,10 @@ export default function Nav() {
         </div>
       </div>
 
-      {/* Mobile menu */}
+      {/* Mobile / tablet menu — matches the hamburger's lg breakpoint */}
       {mobileMenuOpen && (
         <div
-          className="sm:hidden"
+          className="lg:hidden"
           style={{
             borderTop: '1px solid var(--color-border)',
             background: 'var(--color-bg)',
