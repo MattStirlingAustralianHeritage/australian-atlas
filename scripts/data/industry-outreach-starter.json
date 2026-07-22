@@ -1,0 +1,23 @@
+[
+  { "org_name": "Tourism Council WA", "org_type": "peak_body", "focus": ["tourism", "hospitality"], "state": "WA", "website": "https://www.tourismcouncilwa.com.au" },
+  { "org_name": "Victoria Tourism Industry Council", "org_type": "peak_body", "focus": ["tourism", "hospitality", "events"], "state": "VIC", "website": "https://www.vtic.com.au" },
+  { "org_name": "Queensland Tourism Industry Council", "org_type": "peak_body", "focus": ["tourism", "hospitality"], "state": "QLD", "website": "https://www.qtic.com.au" },
+  { "org_name": "Tourism Industry Council Tasmania", "org_type": "peak_body", "focus": ["tourism", "hospitality"], "state": "TAS", "website": "https://www.tict.com.au" },
+  { "org_name": "Tourism Industry Council of South Australia", "org_type": "peak_body", "focus": ["tourism", "hospitality"], "state": "SA", "website": "https://www.ticsa.com.au" },
+  { "org_name": "Australian Grape & Wine", "org_type": "peak_body", "focus": ["wine"], "website": "https://www.agw.org.au" },
+  { "org_name": "Wine Victoria", "org_type": "peak_body", "focus": ["wine"], "state": "VIC", "website": "https://www.winevictoria.org.au" },
+  { "org_name": "Wine Tasmania", "org_type": "peak_body", "focus": ["wine"], "state": "TAS", "website": "https://winetasmania.com.au" },
+  { "org_name": "Restaurant & Catering Australia", "org_type": "association", "focus": ["hospitality", "dining", "food"], "website": "https://www.rca.asn.au" },
+  { "org_name": "Independent Brewers Association", "org_type": "association", "focus": ["beer", "brewing", "craft drinks"], "website": "https://www.iba.org.au" },
+  { "org_name": "Australian Distillers Association", "org_type": "association", "focus": ["spirits", "distilling", "craft drinks"], "website": "https://australiandistillers.org.au" },
+  { "org_name": "Australian Museums and Galleries Association", "org_type": "association", "focus": ["museums", "galleries", "culture"], "website": "https://amaga.org.au" },
+  { "org_name": "Australian Regional Tourism", "org_type": "association", "focus": ["regional tourism"], "website": "https://www.regionaltourism.com.au" },
+  { "org_name": "Ecotourism Australia", "org_type": "association", "focus": ["ecotourism", "sustainable travel"], "website": "https://www.ecotourism.org.au" },
+  { "org_name": "Caravan Industry Association of Australia", "org_type": "association", "focus": ["caravan", "camping", "touring"], "website": "https://www.caravanindustry.com.au" },
+  { "org_name": "National Farmers' Federation", "org_type": "peak_body", "focus": ["agriculture", "farm gates", "produce"], "website": "https://nff.org.au" },
+  { "org_name": "Regional Arts Australia", "org_type": "peak_body", "focus": ["arts", "culture", "regional"], "website": "https://regionalarts.com.au" },
+  { "org_name": "Australian Hotels Association", "org_type": "peak_body", "focus": ["hospitality", "pubs", "hotels"], "website": "https://aha.org.au" },
+  { "org_name": "Cider Australia", "org_type": "association", "focus": ["cider", "craft drinks"], "website": "https://cideraustralia.org.au" },
+  { "org_name": "Australian Made Campaign", "org_type": "other", "focus": ["australian made", "makers", "manufacturing"], "website": "https://australianmade.com.au" },
+  { "org_name": "Hospitality NT", "org_type": "association", "focus": ["hospitality", "tourism"], "state": "NT", "website": "https://hospitalitynt.com.au" }
+]

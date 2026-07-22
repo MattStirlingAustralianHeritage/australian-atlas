@@ -156,6 +156,10 @@
       "schedule": "0 4,23 * * *"
     },
     {
+      "path": "/api/cron/industry-outreach-autopilot",
+      "schedule": "15 4,23 * * *"
+    },
+    {
       "path": "/api/cron/council-digest",
       "schedule": "0 21 1 * *"
     },

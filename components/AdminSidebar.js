@@ -36,6 +36,7 @@ const SECTIONS = [
       ['/admin/press-outreach', 'Press outreach'],
       ['/admin/council-outreach', 'Council outreach'],
       ['/admin/trade-outreach', 'Trade outreach'],
+      ['/admin/industry-outreach', 'Industry outreach'],
       ['/admin/trade-applications', 'Trade applications'],
       ['/admin/events', 'Events'],
       ['/admin/revenue', 'Revenue'],

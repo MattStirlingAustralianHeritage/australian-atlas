@@ -4,6 +4,7 @@ import { startRun, completeRun } from '@/lib/agents/logRun'
 import { sendAgentEmail } from '@/lib/agents/email'
 import { loadAutopilotSettings, saveAutopilotSettings } from '@/lib/outreach/autopilot'
 import { loadPressAutopilotSettings, savePressAutopilotSettings } from '@/lib/outreach/pressAutopilot'
+import { loadIndustryAutopilotSettings, saveIndustryAutopilotSettings } from '@/lib/outreach/industryAutopilot'
 import { loadTradeAutopilotSettings, saveTradeAutopilotSettings } from '@/lib/outreach/tradeAutopilot'
 import { melbourneHour, SEND_WINDOW_LABEL } from '@/lib/outreach/sendWindow'
 
@@ -73,6 +74,14 @@ const ENGINES = [
     admin: '/admin/trade-outreach',
     load: loadTradeAutopilotSettings,
     save: saveTradeAutopilotSettings,
+  },
+  {
+    key: 'industry',
+    agent: 'industry-outreach-autopilot',
+    table: 'industry_outreach',
+    admin: '/admin/industry-outreach',
+    load: loadIndustryAutopilotSettings,
+    save: saveIndustryAutopilotSettings,
   },
 ]
 
@@ -301,7 +310,8 @@ export async function GET(request) {
           <table style="border-collapse:collapse;font-family:sans-serif;font-size:13px">${rows}</table>
           <p>Consoles: <a href="https://www.australianatlas.com.au/admin/outreach">operator</a> ·
           <a href="https://www.australianatlas.com.au/admin/press-outreach">press</a> ·
-          <a href="https://www.australianatlas.com.au/admin/trade-outreach">trade</a></p>
+          <a href="https://www.australianatlas.com.au/admin/trade-outreach">trade</a> ·
+          <a href="https://www.australianatlas.com.au/admin/industry-outreach">industry</a></p>
           <p style="color:#888;font-size:12px">Checks: cap throughput, same-day zero-send, bounce rate
           (auto-pause &gt;${Math.round(BOUNCE_PAUSE * 100)}%), ${SEND_WINDOW_LABEL} compliance, follow-up backlog, stuck/errored runs.</p>`,
       })

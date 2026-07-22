@@ -49,6 +49,7 @@ const EXPECTED = {
   'outreach-autopilot': 30,      // twice daily (morning + afternoon catch-up)
   'press-outreach-autopilot': 30,// twice daily (morning + afternoon catch-up)
   'trade-outreach-autopilot': 30,// twice daily (morning + afternoon catch-up)
+  'industry-outreach-autopilot': 30,// twice daily (morning + afternoon catch-up)
   'outreach-watchdog': 30,       // daily
   'claim-integrity': 13,         // every 6h — the ownership-lockout tripwire;
                                  // if THIS goes quiet the 2026-07-21 class is

@@ -75,6 +75,23 @@ async function findPressRow(sb, messageId) {
   return (fup && fup[0]) || null
 }
 
+// Locate the industry_outreach row a message id belongs to (first touch or
+// follow-up). Looked up last — industry is the lowest-volume audience.
+async function findIndustryRow(sb, messageId) {
+  const { data: first } = await sb
+    .from('industry_outreach')
+    .select('id, opened_at, open_count, delivered_at')
+    .eq('resend_message_id', messageId)
+    .limit(1)
+  if (first && first.length) return first[0]
+  const { data: fup } = await sb
+    .from('industry_outreach')
+    .select('id, opened_at, open_count, delivered_at')
+    .eq('followup_resend_message_id', messageId)
+    .limit(1)
+  return (fup && fup[0]) || null
+}
+
 // Locate the trade_outreach row a message id belongs to (first touch or
 // follow-up). Trade open-rate feeds the same funnel as operators/press — looked
 // up only when the operator and press lookups miss, keeping the hot path cheap.
@@ -169,6 +186,10 @@ export async function POST(request) {
           .from('press_outreach')
           .update({ send_status: reason, updated_at: now })
           .or(`resend_message_id.eq.${messageId},followup_resend_message_id.eq.${messageId}`)
+        await sb
+          .from('industry_outreach')
+          .update({ send_status: reason, updated_at: now })
+          .or(`resend_message_id.eq.${messageId},followup_resend_message_id.eq.${messageId}`)
       }
     } else if (type === 'email.delivered' && messageId) {
       const row = await findOperatorRow(sb, messageId)
@@ -182,6 +203,11 @@ export async function POST(request) {
           const tr = await findTradeRow(sb, messageId)
           if (tr && !tr.delivered_at) {
             await sb.from('trade_outreach').update({ delivered_at: now, updated_at: now }).eq('id', tr.id)
+          } else if (!tr) {
+            const ir = await findIndustryRow(sb, messageId)
+            if (ir && !ir.delivered_at) {
+              await sb.from('industry_outreach').update({ delivered_at: now, updated_at: now }).eq('id', ir.id)
+            }
           }
         }
       }
@@ -209,6 +235,15 @@ export async function POST(request) {
               open_count: (tr.open_count || 0) + 1,
               updated_at: now,
             }).eq('id', tr.id)
+          } else {
+            const ir = await findIndustryRow(sb, messageId)
+            if (ir) {
+              await sb.from('industry_outreach').update({
+                opened_at: ir.opened_at || now,
+                open_count: (ir.open_count || 0) + 1,
+                updated_at: now,
+              }).eq('id', ir.id)
+            }
           }
         }
       }
