@@ -7,6 +7,7 @@ import { getPublicVerticals, isVerticalPublic } from '@/lib/verticalUrl'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
 import { excludeTestListings, excludeNeedsReview, isPublicListing } from '@/lib/listings/publicFilter'
 import { hasPreciseLocation } from '@/lib/listings/presence'
+import { attachGalleryHeroes } from '@/lib/listings/effectiveHero'
 import { embedQueryCached } from '@/lib/embeddings/queryCache'
 import { logSearchEvent } from '@/lib/search/log'
 import { parseQueryLocation } from '@/lib/search/parseQuery'
@@ -583,6 +584,12 @@ export async function GET(request) {
       listings = await overlayListingTranslations(listings, locale, sb)
       pins = await overlayListingTranslations(pins, locale, sb)
 
+      // Effective hero: a PAID claimed venue with no operator hero on
+      // hero_image_url still renders its first clean gallery photo everywhere
+      // (place page, autocomplete) — fill it here too so its search card shows
+      // the photo instead of a blank typographic placeholder. Read-time only.
+      await attachGalleryHeroes(sb, listings)
+
       // Fuzzy name-match against the raw query (no filters) — computed on zero
       // results AND on weak-only pools (nothing cleared the relevance floor),
       // which is where a typo'd venue name actually lands. Proximity results
@@ -595,6 +602,7 @@ export async function GET(request) {
       // Already on the first page → the card is right there; don't repeat it.
       if (nameMatch && listings.some((l) => l.id === nameMatch.id)) nameMatch = null
       if (nameMatch) [nameMatch] = await overlayListingTranslations([nameMatch], locale, sb)
+      if (nameMatch) await attachGalleryHeroes(sb, [nameMatch])
       const didYouMean = nameMatch ? nameMatch.name : null
 
       trackSearchAppearances(listings)
@@ -664,6 +672,9 @@ export async function GET(request) {
     // No-op for 'en'; fail-open inside the helper.
     const browseListings = await overlayListingTranslations(data || [], locale, sb)
     const browsePins = await overlayListingTranslations(buildPins(data || []), locale, sb)
+    // Effective hero (see text-query path): fill a paid claimed venue's blank
+    // hero from its first clean gallery photo so browse cards aren't placeholders.
+    await attachGalleryHeroes(sb, browseListings)
 
     return NextResponse.json({
       listings: browseListings, total: count || 0, page, limit,
