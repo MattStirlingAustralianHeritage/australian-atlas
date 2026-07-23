@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { syncVertical, syncFineGrounds } from '../../../../lib/sync/syncVertical.js'
 import { syncArticles } from '../../../../lib/sync/syncArticles.js'
 import { updateRegionCounts } from '../../../../lib/sync/updateRegionCounts.js'
-import { sendSyncAlert } from '../../../../lib/sync/alerts.js'
+import { sendSyncAlert, sendNameGuardAlert } from '../../../../lib/sync/alerts.js'
 import { getSupabaseAdmin } from '../../../../lib/supabase/clients.js'
 import { startRun, completeRun } from '../../../../lib/agents/logRun.js'
 
@@ -163,6 +163,14 @@ export async function GET(request) {
     console.error('[cron] Alert send error:', err.message)
   }
 
+  // 6b. Name guard: surface any blocked cross-entity renames (never silent)
+  const blockedRenames = results.flatMap(r => r.blockedRenames || [])
+  try {
+    await sendNameGuardAlert(blockedRenames)
+  } catch (err) {
+    console.error('[cron] Name-guard alert send error:', err.message)
+  }
+
   const duration = ((Date.now() - startTime) / 1000).toFixed(1)
   const totalSynced = results.reduce((sum, r) => sum + (r.synced || 0), 0)
   const totalDeactivated = results.reduce((sum, r) => sum + (r.deactivated || 0), 0)
@@ -179,6 +187,7 @@ export async function GET(request) {
       hidden_no_website: hiddenCount,
       reinstated: reinstatedCount,
       vertical_errors: totalErrors,
+      blocked_renames: blockedRenames.length,
       duration_s: Number(duration),
       verticals_s: Math.round((stageMs.verticals || 0) / 1000),
       articles_s: Math.round((stageMs.articles || 0) / 1000),
@@ -193,6 +202,7 @@ export async function GET(request) {
     listings: { synced: totalSynced, deactivated: totalDeactivated },
     articles: { synced: articleResult.synced },
     websiteEnforcement: { hidden: hiddenCount, reinstated: reinstatedCount },
+    nameGuard: { blockedRenames: blockedRenames.length },
     verticals: results,
     errors: totalErrors,
   })
