@@ -1,0 +1,46 @@
+{
+  "archived": [
+    {
+      "matched_domain": "mtloftyhouse.com.au",
+      "id": "57da1813-17ac-4100-9c1e-47468f7e752d",
+      "slug": "mount-lofty-house",
+      "name": "Mount Lofty House",
+      "vertical": "rest",
+      "source_id": "65",
+      "website": "https://www.mtloftyhouse.com.au",
+      "status": "active",
+      "source_status": "archived",
+      "master_status": "deleted",
+      "prior_status": "active"
+    },
+    {
+      "matched_domain": "sequoialodge.com.au",
+      "id": "deec5960-6336-4b53-a54c-cd661b5fb34c",
+      "slug": "sequoia-lodge",
+      "name": "Sequoia Lodge",
+      "vertical": "rest",
+      "source_id": "298",
+      "website": "https://www.sequoialodge.com.au",
+      "status": "active",
+      "source_status": "archived",
+      "master_status": "deleted",
+      "prior_status": "active"
+    }
+  ],
+  "skipped_claimed": [],
+  "errors": [],
+  "status_changes": [
+    {
+      "id": "57da1813-17ac-4100-9c1e-47468f7e752d",
+      "from": "active",
+      "to": "deleted"
+    },
+    {
+      "id": "deec5960-6336-4b53-a54c-cd661b5fb34c",
+      "from": "active",
+      "to": "deleted"
+    }
+  ],
+  "rows_added": [],
+  "rows_removed": []
+}
