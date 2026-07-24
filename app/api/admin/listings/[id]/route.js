@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
-import { getSupabaseAdmin, getVerticalClient, VERTICAL_CONFIG } from '@/lib/supabase/clients'
+import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
 import { updateListing } from '@/lib/admin/updateListing'
+import { deleteListingEverywhere } from '@/lib/listings/deleteListing'
 
 const EXTENSION_TABLES = {
   sba: 'sba_meta', collection: 'collection_meta', craft: 'craft_meta',
@@ -186,52 +187,11 @@ export async function DELETE(request, { params }) {
       return NextResponse.json({ error: 'Listing not found' }, { status: 404 })
     }
 
-    // Delete from the vertical DB if source_id exists
-    if (listing.source_id && listing.vertical) {
-      try {
-        const config = VERTICAL_CONFIG[listing.vertical]
-        if (config?.url) {
-          const verticalClient = getVerticalClient(listing.vertical)
-          let table = config.table
-
-          // Fine Grounds has two tables (roasters + cafes) — check entity_type
-          // to target the correct one, falling back to trying both if unknown
-          if (listing.vertical === 'fine_grounds') {
-            const { data: metaRow } = await sb
-              .from('fine_grounds_meta')
-              .select('entity_type')
-              .eq('listing_id', id)
-              .maybeSingle()
-
-            if (metaRow?.entity_type === 'cafe') {
-              table = 'cafes'
-            } else if (metaRow?.entity_type === 'roaster') {
-              table = 'roasters'
-            } else {
-              // Unknown entity_type — try both tables
-              await verticalClient.from('roasters').delete().eq('id', listing.source_id)
-              await verticalClient.from('cafes').delete().eq('id', listing.source_id)
-              table = null // skip the single delete below
-            }
-          }
-
-          if (table) {
-            await verticalClient.from(table).delete().eq('id', listing.source_id)
-          }
-        }
-      } catch (syncErr) {
-        console.warn('[admin/listings/DELETE] Vertical delete warning:', syncErr.message)
-        // Continue — still delete from master
-      }
+    // Vertical source row first (else the sync re-inserts), then master.
+    const { verticalDeleteError } = await deleteListingEverywhere(listing, sb)
+    if (verticalDeleteError) {
+      console.warn('[admin/listings/DELETE] Vertical delete warning:', verticalDeleteError)
     }
-
-    // Delete from master DB
-    const { error: deleteError } = await sb
-      .from('listings')
-      .delete()
-      .eq('id', id)
-
-    if (deleteError) throw deleteError
 
     // Bust the ISR cache so the public page returns 404 immediately
     if (listing.slug) {

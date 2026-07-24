@@ -6,7 +6,7 @@ import { LISTING_REGION_SELECT } from '@/lib/regions'
 import { renderEmail, REPLY_TO } from '@/lib/outreach/template'
 import { isWithinSendWindow, SEND_WINDOW_LABEL } from '@/lib/outreach/sendWindow'
 import {
-  FROM, ADMIN_EMAIL, filterSendable, sendCampaign, unsubscribeUrl, newCampaignId,
+  FROM, ADMIN_EMAIL, filterSendable, sendCampaign, unsubscribeUrl, removeListingUrl, newCampaignId,
 } from '@/lib/outreach/sendEngine'
 
 export const dynamic = 'force-dynamic'
@@ -86,7 +86,7 @@ export async function POST(request) {
   // ---- Dry run: return the plan, send nothing. ----
   if (dryRun) {
     const sample = capped.slice(0, 3).map((r) => {
-      const rendered = renderEmail({ subject, body: emailBody, listing: r.listing, origin: ORIGIN, unsubscribeUrl: unsubscribeUrl(r.email), personalNote: r.personalNote })
+      const rendered = renderEmail({ subject, body: emailBody, listing: r.listing, origin: ORIGIN, unsubscribeUrl: unsubscribeUrl(r.email), removeUrl: removeListingUrl(r.email, r.listing?.id), personalNote: r.personalNote })
       return { name: r.listing.name, email: r.email, subject: rendered.subject }
     })
     const withNote = capped.filter((r) => r.personalNote).length
@@ -114,7 +114,7 @@ export async function POST(request) {
     const previewCid = newCampaignId('test')
     const payloads = sample.map((r) => {
       const unsub = unsubscribeUrl(r.email)
-      const rendered = renderEmail({ subject, body: emailBody, listing: r.listing, origin: ORIGIN, unsubscribeUrl: unsub, personalNote: r.personalNote, campaignId: previewCid })
+      const rendered = renderEmail({ subject, body: emailBody, listing: r.listing, origin: ORIGIN, unsubscribeUrl: unsub, removeUrl: removeListingUrl(r.email, r.listing?.id), personalNote: r.personalNote, campaignId: previewCid })
       return {
         from: FROM,
         to: testEmail,
