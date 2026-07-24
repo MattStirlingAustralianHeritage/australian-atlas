@@ -286,6 +286,23 @@ This is a hard, non-negotiable rule. It exists because the article sync pipeline
 | Content recycling | ❌ | ✅ (if null) | ✅ | ❌ |
 | Any other agent | ❌ | ❌ | ❌ | ❌ |
 
+## Outreach Contact History Protection
+
+**A contacted `operator_outreach` row is permanent contact history — it must survive the deletion of its listing and cannot be deleted directly.** The sendEngine's `email_already_contacted` guard reads these rows; destroying one re-opens the operator to being re-emailed (`outreach_suppressions` only covers bounces/unsubscribes/manual suppressions).
+
+This rule exists because `listing_id` was `ON DELETE CASCADE` until migration 258: the 2026-07-24 Gallery Cosmosis takedown deleted the listing and silently took its send record — and the owner-complaint context in `notes` — with it (campaign `auto_2026-07-23_42a57f`: sent=100, 99 rows survived).
+
+### Enforcement (migration 258)
+
+- `operator_outreach.listing_id` is nullable, FK `ON DELETE SET NULL`. A detached row (`listing_id IS NULL`) is history: it keeps its send bookkeeping, engagement stamps, message ids (late bounce webhooks still resolve), campaign ids and notes, plus `listing_name` / `listing_vertical` / `listing_deleted_at` stamped at deletion time.
+- `trg_preserve_outreach_on_listing_delete` (BEFORE DELETE on `listings`) stamps contacted rows and prunes never-contacted ones (discovery-only rows have no history value and would pollute the autopilot pools).
+- `trg_protect_outreach_contact_history` refuses direct DELETE of a contacted row. Deliberate erasure (e.g. a privacy request) escapes with `SET LOCAL atlas.allow_outreach_history_delete = 'on'` in the same transaction.
+
+### Rules for new code
+
+- Autopilot/admin queries that select **workable candidates** must filter `.not('listing_id', 'is', null)` — detached rows are history, not work. Queries that measure **history or quota** (today's send counts, campaign funnels, the already-contacted guard) must NOT filter it.
+- Reconciliation/forensics: `scripts/reconcile-outreach-campaigns.mjs` checks every `outreach_campaigns.sent` against surviving rows and can reconstruct orphaned sends from `outreach_events` (`--repair`).
+
 ## Secret file handling
 
 The following files contain secrets and MUST NEVER be read with content-printing commands:

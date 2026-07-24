@@ -39,7 +39,7 @@ export default async function OutreachPage() {
   // Sent / contacted log — every outreach row that has actually been touched.
   const { data: logRows, error: logErr } = await sb
     .from('operator_outreach')
-    .select('id, listing_id, contact_email, email_source, status, send_status, resend_message_id, sent_at, delivered_at, opened_at, open_count, clicked_at, click_count, followup_sent_at, send_error, campaign_id, followup_campaign_id, notes, last_contacted_at, created_at, updated_at')
+    .select('id, listing_id, listing_name, listing_deleted_at, contact_email, email_source, status, send_status, resend_message_id, sent_at, delivered_at, opened_at, open_count, clicked_at, click_count, followup_sent_at, send_error, campaign_id, followup_campaign_id, notes, last_contacted_at, created_at, updated_at')
     .order('updated_at', { ascending: false })
     .limit(400)
 

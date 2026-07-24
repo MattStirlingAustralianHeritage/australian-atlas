@@ -13,9 +13,10 @@ export const dynamic = 'force-dynamic'
 //
 // GET is side-effect free (mail scanners prefetch every link in an email) —
 // it renders a confirmation page whose button POSTs back here. The POST:
-//   1. writes an outreach_suppressions row FIRST — operator_outreach cascades
-//      away with the listing, so the suppression is the only durable
-//      do-not-contact record (learned the hard way: Gallery Cosmosis, 2026-07)
+//   1. writes an outreach_suppressions row FIRST — the explicit do-not-contact
+//      record (learned the hard way: Gallery Cosmosis, 2026-07). Since
+//      migration 258 the contacted operator_outreach row also survives the
+//      delete as detached history, but the suppression carries the intent.
 //   2. deletes the listing from its vertical source DB and the master DB
 //      (master alone would be re-inserted by the nightly sync)
 // Listings with a live claim are never deleted here — owners manage their
@@ -112,7 +113,7 @@ export async function POST(request) {
   const email = data.email
 
   // The do-not-contact record comes first, whatever else happens below —
-  // it must survive the listing delete (operator_outreach rows cascade away).
+  // it must exist even if the delete fails halfway.
   const suppress = (detail) => sb.from('outreach_suppressions').upsert(
     { email, reason: 'listing_removed', listing_id: data.listingId, detail },
     { onConflict: 'email' }

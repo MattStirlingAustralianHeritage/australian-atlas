@@ -835,7 +835,14 @@ function LogRow({ row, verticalNames, verticalColors, statusColors, sendStatusCo
   return (
     <div style={{ background: '#fff', border: '1px solid var(--color-border, #e5e5e5)', borderRadius: 8, padding: '11px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ ...bodyFont, fontSize: 14, fontWeight: 500, color: 'var(--color-ink, #2D2A26)' }}>{l ? l.name : `Listing ${row.listing_id}`}</div>
+        <div style={{ ...bodyFont, fontSize: 14, fontWeight: 500, color: 'var(--color-ink, #2D2A26)' }}>
+          {l ? l.name : (row.listing_name || `Listing ${row.listing_id || '—'}`)}
+          {!l && row.listing_deleted_at && (
+            <span style={{ fontWeight: 400, color: 'var(--color-muted, #888)' }}>
+              {' '}· listing deleted {new Date(row.listing_deleted_at).toLocaleDateString()}
+            </span>
+          )}
+        </div>
         <div style={{ ...bodyFont, fontSize: 11, color: 'var(--color-muted, #888)', marginTop: 2 }}>
           {row.contact_email || '—'}
           {row.sent_at && ` · sent ${new Date(row.sent_at).toLocaleDateString()}`}
@@ -868,7 +875,7 @@ function LogPanel({ logRows, verticalNames, verticalColors, statusColors, sendSt
     const query = q.trim().toLowerCase()
     return logRows.filter((row) => {
       if (query) {
-        const hay = [row.listing?.name, row.contact_email, row.campaign_id].filter(Boolean).join(' ').toLowerCase()
+        const hay = [row.listing?.name, row.listing_name, row.contact_email, row.campaign_id].filter(Boolean).join(' ').toLowerCase()
         if (!hay.includes(query)) return false
       }
       switch (filter) {

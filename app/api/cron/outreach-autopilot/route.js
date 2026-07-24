@@ -65,6 +65,7 @@ async function syncClaims(sb) {
       .from('operator_outreach')
       .select('id, listing_id, status')
       .neq('status', 'claimed')
+      .not('listing_id', 'is', null)
       .order('id', { ascending: true })
       .range(from, from + PAGE - 1)
     if (!rows || rows.length === 0) break
@@ -156,6 +157,9 @@ async function collectFollowups(sb, settings, limit) {
     .lte('sent_at', cutoff)
     .not('status', 'in', '("claimed","replied","declined")')
     .not('contact_email', 'is', null)
+    // Detached history rows (listing deleted, migration 258) can never be
+    // followed up — the email renders from the listing.
+    .not('listing_id', 'is', null)
     .order('sent_at', { ascending: true })
     .limit(limit * 2)
   if (!rows || rows.length === 0) return []
