@@ -322,6 +322,7 @@ let lastPackSlug = null
       gaps.push(...interleaved)
     }
 
+    let anchorSkipped = 0
     if (doQueue && gaps.length) {
       // Gate 1 spends up to 10s per candidate waiting on a dead OSM `website`
       // tag, and most tags are dead, so throughput here is almost entirely
@@ -334,12 +335,12 @@ let lastPackSlug = null
         while (true) {
           if (queuedTotal >= maxQueue) {
             // Count every remaining gap once, then stop this worker.
-            while (idx < gaps.length) { idx++; skippedByCap += 1 }
+            while (idx < gaps.length) { idx++; skippedByCap += 1; anchorSkipped += 1 }
             return
           }
           const g = gaps[idx++]
           if (!g) return
-          if (maxPerVertical && (queuedByVertical[g.vertical] || 0) >= maxPerVertical) { skippedByVerticalCap += 1; continue }
+          if (maxPerVertical && (queuedByVertical[g.vertical] || 0) >= maxPerVertical) { skippedByVerticalCap += 1; anchorSkipped += 1; continue }
           try {
             const result = await runPipeline(g, sb, { dryRun: false, verbose: false })
             if (result.inserted) {
@@ -354,7 +355,12 @@ let lastPackSlug = null
       }
       await Promise.all(Array.from({ length: PIPELINE_CONCURRENCY }, runOne))
     }
-    markCrawled(slug, anchor.name)
+    // Only record the anchor as done when every gap it produced was actually
+    // put through the pipeline. Marking it while a cap skipped some would
+    // silently strand those venues: the next run skips the anchor entirely and
+    // they are never seen again.
+    if (anchorSkipped === 0) markCrawled(slug, anchor.name)
+    else console.log(`  (not marking ${anchor.name} crawled — ${anchorSkipped} gap(s) skipped by a cap)`)
 
     // The --max cap bounds how many candidates we QUEUE, not how far we crawl.
     // Aborting the whole crawl here (the previous behaviour) silently truncated
