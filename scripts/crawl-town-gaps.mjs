@@ -273,7 +273,12 @@ let lastPackSlug = null
     // PIPELINE_CONCURRENCY stays low to remain polite to the sites being probed
     // and to the Gate-4 model budget.
     if (doQueue && gaps.length) {
-      const PIPELINE_CONCURRENCY = 5
+      // Gate 1 spends up to 10s per candidate waiting on a dead OSM `website`
+      // tag, and most tags are dead, so throughput here is almost entirely
+      // timeout latency rather than work. Every candidate in a batch is a
+      // different domain, so raising this does not concentrate load on any one
+      // site — it just stops us idling. 5 was not enough to finish 193 anchors.
+      const PIPELINE_CONCURRENCY = 12
       let idx = 0
       const runOne = async () => {
         while (true) {

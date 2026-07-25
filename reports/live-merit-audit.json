@@ -1,0 +1,34 @@
+{
+  "since": "2026-07-25T00:00:00Z",
+  "screened": 4,
+  "failures": [
+    {
+      "id": "5907f0fe-2293-4343-b223-e12f2bfb2d1d",
+      "name": "Haberfield Rowers Club & Restaurant",
+      "slug": "haberfield-rowers-club-restaurant",
+      "vertical": "table",
+      "region": "Sydney",
+      "state": "NSW",
+      "address": null,
+      "website": "https://haberfieldrowers.com.au/",
+      "status": "active",
+      "description": "The UTS Haberfield Rowers Club houses the Regatta Club kiosk, bar and restaurant, open for walk-ins and reservations. The club offers one and three-year memberships, which include a discount on food and drink at the Regatta Club and priority access to the venue.",
+      "votes": "chain:false visitable:false local:false",
+      "reason": "chain: Licensed sporting/rowing club with membership rewards and governance structure — an excluded community club, not an independent restaurant in its own right. | visitable: Membership-based rowers club whose restaurant is a separately-operated Regatta Club venue; the club itself is an excluded members' club. | local: A membership-based licensed rowing club whose restaurant is a separately operated tenant, falling under the excluded community/sporting club category."
+    },
+    {
+      "id": "831b0f6f-a370-40b4-9d41-e6809418742f",
+      "name": "The Camellia Hotel",
+      "slug": "the-camellia-hotel",
+      "vertical": "table",
+      "region": "Rosehill",
+      "state": "NSW",
+      "address": "132 James Ruse Drive, Rosehill, NSW",
+      "website": "https://www.camelliahotel.com.au/",
+      "status": "active",
+      "description": "A pub next to Rosehill Race Course, operating since 2021. The bistro serves lunch and dinner seven days a week, with bistro favourites, a menu described as a taste of Asia, and kids' meals. The sports bar shows sport across large TV walls, and there are cabanas along with indoor and outdoor dining spaces. Function areas and catering handle celebrations, and the hotel runs entertainment on race days.",
+      "votes": "chain:false visitable:false local:false",
+      "reason": "chain: Generic sports-bar pub whose draw is big-screen sports, bistro and gaming/racing proximity, not a distinctive independent offer. | visitable: Generic sports-bar pub whose draw is big-screen TVs, gaming and bistro specials, with no distinctive identity of its own. | local: Generic sports-bar pub with big-screen TVs and a bistro of 'favourites,' nothing distinctive to it."
+    }
+  ]
+}
