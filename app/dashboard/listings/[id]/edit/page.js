@@ -12,6 +12,7 @@ import { getCompleteness } from '@/lib/listing-completeness'
 import { PanelGroup, PanelGroupHeading, Panel, LockedNote, PanelActions } from './EditorPanel'
 import HighlightsEditor from './HighlightsEditor'
 import KeywordsEditor from './KeywordsEditor'
+import TradeReadinessEditor from './TradeReadinessEditor'
 import EventsSection from './EventsSection'
 import OffersSection from './OffersSection'
 import AwardsSection from './AwardsSection'
@@ -42,9 +43,12 @@ import PicksSection from './PicksSection'
  * (events, offers, awards, Q&A, picks, highlights, keywords) still save
  * themselves; the floating bar covers only the fields this page owns.
  *
- * Trade readiness deliberately does NOT live here: /dashboard/trade is the
- * canonical place for it. It used to render here unconditionally, which meant
- * free-claim operators saw an editable section whose save always 403'd.
+ * Trade readiness stays here because this is the only surface for the full
+ * Atlas Trade profile — notice period, coach access, languages, dietary and
+ * capacity notes, trade contact. /dashboard/trade covers only the boolean
+ * switches. It is now gated on canEdit: it used to render fully editable to
+ * everyone, so a free-claim operator could fill the entire form and only
+ * discover on save that the PATCH 403'd it.
  */
 
 // ── Day / vertical helpers ──────────────────────────────────
@@ -988,12 +992,21 @@ export default function EditListingPage() {
         <AwardsSection listingId={id} token={token} isPaid={isPaid} />
         <QnaSection listingId={id} token={token} isPaid={isPaid} />
         <PicksSection listingId={id} token={token} isPaid={isPaid} listing={listing} />
+        {/* Trade readiness owns the full Atlas Trade profile (notice period,
+            coach access, languages, trade contact) — /dashboard/trade only
+            covers the boolean switches, so this stays the home for the rest. */}
+        <TradeReadinessEditor
+          listingId={id}
+          token={token}
+          initial={listing}
+          accent={vertColor}
+          canEdit={canEditAll}
+        />
       </PanelGroup>
 
-      {/* Trade readiness lives on its own page — one place, one save. */}
       <p style={{ margin: '22px 0 0', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', textAlign: 'center', lineHeight: 1.6 }}>
-        Working with tour operators?{' '}
-        <Link href="/dashboard/trade" style={{ color: 'var(--color-sage)', fontWeight: 600, textDecoration: 'none' }}>Set up Travel Trade →</Link>
+        Want to see how the trade sees your venue?{' '}
+        <Link href="/dashboard/trade" style={{ color: 'var(--color-sage)', fontWeight: 600, textDecoration: 'none' }}>Open Travel Trade →</Link>
       </p>
 
       {/* ── Floating save bar ── */}

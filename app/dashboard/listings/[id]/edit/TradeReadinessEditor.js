@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from 'react'
 import { MAX_GROUP_SIZE, MAX_NOTICE_DAYS, normalizeTradeProfile } from '@/lib/trade-readiness/normalize'
+import { Panel, LockedNote, PanelActions } from './EditorPanel'
 
 /**
  * Trade readiness editor — the operator-authored Atlas Trade profile.
@@ -23,7 +24,7 @@ import { MAX_GROUP_SIZE, MAX_NOTICE_DAYS, normalizeTradeProfile } from '@/lib/tr
  *     server agree.
  *   - `trade_rates_available` is a yes/no only — Atlas never asks for the rate.
  */
-export default function TradeReadinessEditor({ listingId, token, initial, accent }) {
+export default function TradeReadinessEditor({ listingId, token, initial, accent, canEdit }) {
   const vertColor = accent || 'var(--color-sage)'
   const l = initial || {}
 
@@ -194,18 +195,34 @@ export default function TradeReadinessEditor({ listingId, token, initial, accent
     }
   }
 
+  // A free claim can't save any of these — `trade_readiness` and `trade_profile`
+  // aren't in the PATCH route's FREE_TIER_FIELDS. This section used to render
+  // fully editable regardless, so a free operator could fill the whole form and
+  // only discover on save that the request 403'd.
+  if (!canEdit) {
+    return (
+      <Panel id="trade" title="Trade readiness" status="locked" summary="Included with Standard">
+        <LockedNote>
+          Let tour operators and trip designers include your venue when they build itineraries —
+          on your terms, and off by default. Included with Standard.
+        </LockedNote>
+      </Panel>
+    )
+  }
+
   return (
-    <div style={{ marginTop: 36, paddingTop: 28, borderTop: '1px solid var(--color-border)' }}>
+    <Panel
+      id="trade"
+      title="Trade readiness"
+      status={welcome ? 'done' : 'empty'}
+      dirty={dirty}
+      summary={welcome ? 'Open to trade enquiries' : 'Not open to trade'}
+    >
       <style>{`
         .aa-tr-save:not(:disabled):hover { opacity: 0.9; }
         .aa-tr-size:focus { border-color: ${vertColor}; }
       `}</style>
 
-      <div style={{ marginBottom: 4 }}>
-        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)', margin: 0 }}>
-          Trade readiness
-        </h2>
-      </div>
       <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '0 0 20px', lineHeight: 1.5, maxWidth: 560 }}>
         Tour operators and trip designers can include claimed venues when building itineraries. You control
         whether, and how. Off by default.
@@ -341,7 +358,7 @@ export default function TradeReadinessEditor({ listingId, token, initial, accent
       )}
 
       {/* ── Save row ───────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 16, flexWrap: 'wrap' }}>
+      <PanelActions>
         <button
           type="button" className="aa-tr-save" onClick={handleSave} disabled={saving || !dirty}
           style={{
@@ -361,8 +378,8 @@ export default function TradeReadinessEditor({ listingId, token, initial, accent
         ) : dirty ? (
           <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)' }}>Unsaved trade changes</span>
         ) : null}
-      </div>
-    </div>
+      </PanelActions>
+    </Panel>
   )
 }
 
