@@ -6,7 +6,7 @@
  * state-wide sweeps never reach. This file targets the opposite blind spot: the
  * middle and outer suburbs of cities we already "cover".
  *
- * The ring audit (scripts/_suburb_ring_audit.mjs, 2026-07-25) measured Atlas
+ * The ring audit (scripts/audit-metro-ring-density.mjs, 2026-07-25) measured Atlas
  * density per 100 km² across the 15 largest urban centres:
  *
  *     0–5km  (CBD/inner)  177.40
@@ -27,7 +27,7 @@
  * courts, Footscray's markets, Fremantle's roasters, Norwood's parade.
  *
  * COORDINATES are suburb centres, machine-verified against Mapbox geocoding by
- * scripts/_verify_suburb_anchors.mjs — every anchor resolves to the named
+ * scripts/verify-suburb-anchors.mjs — every anchor resolves to the named
  * suburb in the named state, within tolerance. Do not hand-edit a coordinate
  * without re-running that verifier.
  *
