@@ -1,0 +1,29 @@
+{
+  "anchors": [
+    "sydney-inner-west/Marrickville",
+    "sydney-inner-west/Dulwich Hill",
+    "sydney-west/Parramatta",
+    "sydney-north/Chatswood",
+    "sydney-south/Cronulla",
+    "melbourne-north/Preston",
+    "melbourne-west/Footscray",
+    "melbourne-east/Box Hill",
+    "melbourne-south-east/Dandenong",
+    "brisbane-south/Sunnybank",
+    "brisbane-west-north/Indooroopilly",
+    "brisbane-bayside/Wynnum",
+    "perth-inner-ring/Leederville",
+    "perth-outer/Fremantle",
+    "adelaide-middle/Norwood",
+    "adelaide-outer/Port Adelaide",
+    "hobart-suburbs/Kingston",
+    "canberra-suburbs/Dickson",
+    "queanbeyan/Queanbeyan",
+    "darwin-suburbs/Parap",
+    "newcastle-suburbs/Hamilton",
+    "wollongong-illawarra/Thirroul",
+    "geelong-suburbs/Newtown",
+    "gold-coast-suburbs/Burleigh Heads",
+    "sunshine-coast-suburbs/Peregian Beach"
+  ]
+}

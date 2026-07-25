@@ -47,7 +47,7 @@
  *   --list          print the available packs and exit
  */
 import { createClient } from '@supabase/supabase-js'
-import { writeFileSync, mkdirSync } from 'fs'
+import { writeFileSync, mkdirSync, readFileSync } from 'fs'
 import { discoverAllVerticalsInBBox, bboxFromCenter } from '../lib/prospector/osm-overpass.js'
 import { buildDedupSets, normaliseDomain, haversineMeters, VERTICAL_NAMES } from '../lib/prospector/replenish.js'
 import { runPipeline } from '../lib/prospector/pipeline.js'
@@ -78,6 +78,12 @@ const defRadiusKm = parseFloat(arg('radius') || '12')
 const regionArg = arg('region')
 const runAll = has('all')
 const runMetro = has('metro')
+// Anchors already crawled are recorded so a later run resumes instead of
+// restarting. Re-crawling a harvested anchor is near-pure cost: dedup already
+// knows everything it found, so it re-runs the full gate pipeline over the
+// leftovers that failed last time and queues almost nothing. Finishing 193
+// anchors is only practical if each run picks up where the last stopped.
+const recrawl = has('recrawl')
 // Report wording: these anchors are suburbs in metro mode, towns otherwise.
 const placeNoun = runMetro ? 'suburb' : 'town'
 // Optional single-vertical focus (e.g. --vertical=rest). When set, only that
@@ -201,9 +207,19 @@ const startedAt = new Date().toISOString()
 let queuedTotal = 0
 let skippedByCap = 0
 let innerRingSkipped = 0
+let alreadyCrawled = 0
 // Manifest of what this run actually inserted, so a downstream describe/publish
 // step can act on exactly this run's candidates rather than guessing by timestamp.
 const queuedIds = []
+const crawledPath = new URL('../reports/suburb-crawl-state.json', import.meta.url)
+let crawled = { anchors: [] }
+try { crawled = JSON.parse(readFileSync(crawledPath, 'utf8')) } catch { crawled = { anchors: [] } }
+const crawledSet = new Set(recrawl ? [] : crawled.anchors)
+function markCrawled(slug, anchorName) {
+  const key = `${slug}/${anchorName}`
+  if (!crawled.anchors.includes(key)) crawled.anchors.push(key)
+  writeFileSync(crawledPath, JSON.stringify(crawled, null, 2))
+}
 const reportLines = []
 const grandGaps = {}   // vertical → count
 const perTown = []
@@ -225,11 +241,13 @@ if (packs.length > 1) {
   for (const [slug, pack] of packs) for (const anchor of pack.anchors) anchorTasks.push({ slug, pack, anchor })
 }
 console.log(`${anchorTasks.length} anchors across ${packs.length} pack(s)${packs.length > 1 ? ', interleaved' : ''}.`)
+if (crawledSet.size) console.log(`${crawledSet.size} anchors already crawled in a previous run — skipping (use --recrawl to redo).`)
 
 let lastPackSlug = null
 {
   for (const { slug, pack, anchor } of anchorTasks) {
     const isSuburbPack = SUBURB_PACK_SLUGS.has(slug)
+    if (crawledSet.has(`${slug}/${anchor.name}`)) { alreadyCrawled++; continue }
     if (slug !== lastPackSlug) { console.log(`\n── ${pack.name || slug} (${pack.state}) ──`); lastPackSlug = slug }
     const radiusKm = anchor.radiusKm || defRadiusKm
     const bbox = bboxFromCenter(anchor.lat, anchor.lng, radiusKm * 1000)
@@ -302,6 +320,8 @@ let lastPackSlug = null
       }
       await Promise.all(Array.from({ length: PIPELINE_CONCURRENCY }, runOne))
     }
+    markCrawled(slug, anchor.name)
+
     // The --max cap bounds how many candidates we QUEUE, not how far we crawl.
     // Aborting the whole crawl here (the previous behaviour) silently truncated
     // the gap report at the cap, so a capped run read as "this is all there is".
@@ -367,6 +387,7 @@ writeFileSync(new URL(outPath, import.meta.url), reportLines.join('\n'))
 console.log('\n\n=== SUMMARY ===')
 console.log(`${placeNoun[0].toUpperCase()+placeNoun.slice(1)}s crawled: ${perTown.length}`)
 console.log(`Net-new gaps: ${Object.values(grandGaps).reduce((a, b) => a + b, 0)}`)
+if (alreadyCrawled) console.log(`Anchors skipped as already crawled: ${alreadyCrawled}`)
 if (innerRingSkipped) console.log(`Skipped inside ${INNER_RING_KM}km of a CBD: ${innerRingSkipped}`)
 for (const [v, n] of Object.entries(grandGaps).sort((a, b) => b[1] - a[1])) console.log(`  ${(VERTICAL_NAMES[v] || v).padEnd(16)} ${n}`)
 if (doQueue) {
