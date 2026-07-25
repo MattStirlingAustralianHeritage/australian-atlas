@@ -1,0 +1,158 @@
+{
+  "09ee842d-31c2-402d-aba5-8f6258446258": {
+    "name": "China Bar",
+    "status": "no_merit",
+    "reason": "Chain with over 20 restaurants across multiple states, many in food courts and shopping centres; explicitly a multi-branch operation, not an independent single venue.",
+    "at": "2026-07-25T11:14:07.099Z"
+  },
+  "21239300-ca20-48a5-80ff-116223a076b9": {
+    "name": "Yorke Educational Centre",
+    "status": "identity_fail",
+    "reason": "Website address is Unit 13, 175 Lower Gibbes St, Chatswood NSW — not 7 Argyle Street, Parramatta. Location does not match.",
+    "at": "2026-07-25T11:14:07.100Z"
+  },
+  "46659e53-219b-41c8-972f-2490e33fa69a": {
+    "name": "Burgers on Broadway",
+    "status": "no_merit",
+    "reason": "Multi-location chain actively advertising franchise opportunities and new branches; explicitly disqualified as a franchise/chain outlet.",
+    "at": "2026-07-25T11:14:07.100Z"
+  },
+  "44c8a5bb-fb8d-40d2-8a89-8a22e63b57ad": {
+    "name": "Capital Eatery Brindabella",
+    "status": "identity_fail",
+    "reason": "Facts place venue in Queanbeyan NSW, but site lists Brindabella location at Canberra Airport ACT 2609 — location mismatch; also a multi-branch operation",
+    "at": "2026-07-25T11:14:07.100Z"
+  },
+  "5117814f-1dce-4467-a8d7-dbc430fac0b5": {
+    "name": "JA2 Concept",
+    "status": "no_merit",
+    "reason": "Generic online retail store selling a grab-bag of unrelated household and gift goods (chairs, blankets, hand warmers, laundry pods, honey); no distinct identity and no publicly visitable offer — a transactional e-commerce shop, not a place a visitor could go.",
+    "at": "2026-07-25T11:14:07.100Z"
+  },
+  "584333e3-7688-4a7c-a602-749bd96c725e": {
+    "name": "Enzo's Cucina",
+    "status": "identity_fail",
+    "reason": "Site is a multi-branch chain across NSW and QLD; no listing for 6 Campbell Street, Sydney location specifically",
+    "at": "2026-07-25T11:14:07.100Z"
+  },
+  "5d7fa33a-577f-41a3-97a3-6cf6f2c431dc": {
+    "name": "Swedish Restaurant",
+    "status": "no_merit",
+    "reason": "IKEA in-store restaurant is a chain/franchise outlet within a big-box retail store, not an independent venue with distinct identity.",
+    "at": "2026-07-25T11:14:07.100Z"
+  },
+  "4dc83c25-47be-4d37-81e4-339b435d386b": {
+    "name": "Daddy Rich Records",
+    "status": "identity_fail",
+    "reason": "Site belongs to Daddy Rich Records but the store has relocated to Balaclava, Melbourne; it explicitly thanks Dulwich Hill, Sydney as its former home. It is no longer a Sydney NSW venue as recorded.",
+    "at": "2026-07-25T11:14:07.100Z"
+  },
+  "650cd11d-9612-4b92-8874-de5bf67f966a": {
+    "name": "Airport Hotel",
+    "status": "no_merit",
+    "reason": "A generic airport hotel: 60 near-identical rooms whose entire offer is proximity to Sydney Airport and Arncliffe train station and a one-night pre-flight stay. No distinct identity, history or design point of view — the Atlas explicitly excludes airport hotels that are simply a supply of rooms near an airport.",
+    "at": "2026-07-25T11:14:07.100Z"
+  },
+  "7193e014-e68b-4be4-bf29-f109dd9e59f1": {
+    "name": "La Venezia Pizza",
+    "status": "no_merit",
+    "reason": "Site advertises two branches (Kingston and Lenah Valley); a multi-outlet takeaway pizza operation with no distinct identity reads as a small chain rather than a single independent venue worth going out of your way for.",
+    "at": "2026-07-25T11:14:07.100Z"
+  },
+  "60c567ae-e75c-4e0a-8d84-e5dd512bf989": {
+    "name": "Oriana Eatery",
+    "status": "no_merit",
+    "reason": "Generic all-day eatery located inside Westfield Parramatta shopping centre; interchangeable menu (pancakes, schnitzel, fish and chips) with no distinct identity — a shopping-centre food outlet, not a destination.",
+    "at": "2026-07-25T11:14:07.100Z"
+  },
+  "92ec3323-3a78-492c-a65c-3174ff7d3e53": {
+    "name": "Mikazuki",
+    "status": "no_merit",
+    "reason": "A chain of six near-identical Japanese restaurants across Sydney (Eastwood, Parramatta x2, Strathfield, Chatswood, Haymarket) — multiple branches make it a chain, not a distinctive independent venue.",
+    "at": "2026-07-25T11:14:07.100Z"
+  },
+  "93e2316d-4b89-44a9-a2b1-44d8a0d06c61": {
+    "name": "Peace Bakery",
+    "status": "no_merit",
+    "reason": "Wholesale industrial bakery/production facility supplying businesses locally, interstate and internationally; no publicly visitable shopfront or offer a visitor could go to.",
+    "at": "2026-07-25T11:14:07.100Z"
+  },
+  "7fbaa30d-7183-43f9-89d8-00a2f8cb9153": {
+    "name": "Amalfi",
+    "status": "no_merit",
+    "reason": "Multi-location pizza delivery chain with a 'Locations' list and a 'Partner Enquiry' (franchise) page; a transactional order-online outlet, not an independent distinctive venue.",
+    "at": "2026-07-25T11:14:07.100Z"
+  },
+  "9d9e765c-394a-493a-8ba3-4618bf31dec7": {
+    "name": "Fasta Pasta",
+    "status": "identity_fail",
+    "reason": "Page is a generic Fasta Pasta chain landing that says 'there are no restaurants available in this region yet' — no confirmation of a venue at 319 Commercial Road, Port Adelaide.",
+    "at": "2026-07-25T11:14:07.100Z"
+  },
+  "bcd4fefc-c28f-4036-9f75-507e4455e453": {
+    "name": "Dragon Hot Pot",
+    "status": "no_merit",
+    "reason": "Chain with multiple outlets across Melbourne and Perth and advertises franchise opportunities",
+    "at": "2026-07-25T11:14:07.100Z"
+  },
+  "b321ab57-7b78-4889-8cee-b32d78ea810f": {
+    "name": "Okami",
+    "status": "no_merit",
+    "reason": "50+ branch all-you-can-eat chain that advertises franchising; a corporate chain outlet, not an independent venue",
+    "at": "2026-07-25T11:14:07.100Z"
+  },
+  "c68ea4c9-6d5a-488b-acb5-df7bb1e266e8": {
+    "name": "Bourke St Bakery",
+    "status": "no_merit",
+    "reason": "Chain with multiple branches — the site's own text calls it the 'sixth addition to the Bourke Street Bakery family' with a Locations menu; a chain outlet, not an independent venue.",
+    "at": "2026-07-25T11:14:07.100Z"
+  },
+  "cdb10a0f-9490-45cc-806d-12b5e3428535": {
+    "name": "Stamford Plaza",
+    "status": "no_merit",
+    "reason": "Airport transit hotel and part of a multi-city chain (Sydney, Brisbane, Melbourne, Adelaide); generic supply of rooms near the airport with no distinctive independent identity.",
+    "at": "2026-07-25T11:14:07.100Z"
+  },
+  "cd29df13-5289-4a04-9a74-160c486270d7": {
+    "name": "Parkside Inn Motel",
+    "status": "no_merit",
+    "reason": "Generic roadside motel and conference centre — a supply of rooms opposite a university with no distinct identity, history or design point of view; the offer is parking, wifi and function rooms near a road.",
+    "at": "2026-07-25T11:14:07.100Z"
+  },
+  "dacbd3cd-7a60-4f08-b89c-5104c93d2277": {
+    "name": "Heinemann",
+    "status": "no_merit",
+    "reason": "Airport duty-free chain with multiple terminal outlets across Sydney and Gold Coast airports; transit-located, corporate retail with no distinct visitable identity.",
+    "at": "2026-07-25T11:14:07.100Z"
+  },
+  "dba426df-2b09-4c25-ad5b-6617f40c7f62": {
+    "name": "Bungaree Community Garden",
+    "status": "identity_fail",
+    "reason": "Website is a generic City of Parramatta council landing page about community participation groups; it never mentions Bungaree Community Garden. This is a council directory page, not the venue's own site.",
+    "at": "2026-07-25T11:14:07.100Z"
+  },
+  "ea37290e-dcf0-48c9-bba9-d2744dedfcd3": {
+    "name": "Bondi Pizza",
+    "status": "no_merit",
+    "reason": "Chain outlet — multiple branches (Macquarie Park and Parramatta); own site advertises multiple stores.",
+    "at": "2026-07-25T11:14:07.100Z"
+  },
+  "ead08a87-3c57-41b4-8947-a3c200a53bc3": {
+    "name": "Dosa Hut",
+    "status": "no_merit",
+    "reason": "Site advertises '25+ branches across Australia' and describes itself as the fastest growing Indian multi-cuisine restaurant chain; a chain outlet, excluded regardless of it being the first branch.",
+    "at": "2026-07-25T11:14:07.100Z"
+  },
+  "e41825fe-3ec4-45c6-8707-cdaea6c00eea": {
+    "name": "Centrestage Performing Arts School",
+    "status": "no_merit",
+    "reason": "A performing arts school/training institution with no publicly visitable offer — schools are explicitly out of scope for the Atlas.",
+    "at": "2026-07-25T11:14:07.100Z"
+  },
+  "fcefce84-d894-49c1-bc2f-2f4a8e7de936": {
+    "name": "Dandenong Club",
+    "status": "no_merit",
+    "reason": "large generic suburban community club with a betting sub-club; earlier batch rejected it and the strictest verdict stands",
+    "at": "2026-07-25T11:14:07.100Z"
+  }
+}

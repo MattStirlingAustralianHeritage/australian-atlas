@@ -83,6 +83,26 @@ function kmFromNearestCBD(lat, lng) {
   return best
 }
 
+// ── Sticky rejections ────────────────────────────────────────────────
+// A rejected candidate keeps description = null and status = pending, so a
+// later run picks it straight back up. Re-rolling costs tokens and, worse, the
+// judgement gates are not deterministic: Haberfield Hotel and Dandenong Club
+// were each rejected in one batch and passed in the next. Re-attempting until
+// something passes is a ratchet in the wrong direction — the strictest verdict
+// should win, not the luckiest.
+//
+// So verdicts that are about the VENUE rather than the prose (no_merit,
+// identity_fail) are recorded here and never re-attempted. Prose failures
+// (failed_gates) stay retryable, because a rewrite genuinely can fix those.
+const STICKY_STATUSES = new Set(['no_merit', 'identity_fail'])
+const rejectionsPath = new URL('../reports/suburb-rejections.json', import.meta.url)
+let rejections = {}
+try { rejections = JSON.parse(readFileSync(rejectionsPath, 'utf8')) } catch { rejections = {} }
+function recordRejection(r) {
+  if (!STICKY_STATUSES.has(r.status)) return
+  rejections[r.id] = { name: r.name, status: r.status, reason: r.reason, at: new Date().toISOString() }
+}
+
 let ids = []
 if (manifestPath) {
   const manifest = JSON.parse(readFileSync(new URL('../' + manifestPath.replace(/^\.\//, ''), import.meta.url), 'utf8'))
@@ -107,6 +127,9 @@ if (manifestPath) {
   console.log(`  dropped ${data.length - withCoords.length} without coordinates`)
   ids = onGoal.map(c => c.id)
 }
+const beforeSticky = ids.length
+ids = ids.filter(id => !rejections[id])
+if (beforeSticky !== ids.length) console.log(`  skipped ${beforeSticky - ids.length} previously rejected on venue grounds (sticky)`)
 if (limit) ids = ids.slice(0, limit)
 console.log(`Describing ${ids.length}${dryRun ? ' (DRY RUN)' : ''}\n`)
 
@@ -403,6 +426,7 @@ async function worker(n) {
     try {
       const r = await describe(c)
       results.push(r)
+      recordRejection(r)
       const tag = r.status === 'ok' ? '✓' : r.status === 'identity_fail' ? '⚠' : '✗'
       console.log(`${tag} [${i}/${rows.length}] ${c.name} [${c.vertical}] ${r.status}${r.reason ? ` — ${String(r.reason).slice(0, 120)}` : ''}`)
     } catch (err) {
@@ -418,6 +442,9 @@ const by = {}
 for (const r of results) by[r.status] = (by[r.status] || 0) + 1
 console.log('\n=== SUMMARY ===')
 for (const [k, v] of Object.entries(by).sort((a, b) => b[1] - a[1])) console.log(`  ${k.padEnd(16)} ${v}`)
+
+writeFileSync(rejectionsPath, JSON.stringify(rejections, null, 2))
+console.log(`Sticky rejections on file: ${Object.keys(rejections).length}`)
 
 const outPath = new URL(`../reports/suburb-descriptions-${new Date().toISOString().slice(0, 10)}.json`, import.meta.url)
 writeFileSync(outPath, JSON.stringify({ model: MODEL, dryRun, results }, null, 2))
