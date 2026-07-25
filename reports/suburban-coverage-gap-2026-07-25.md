@@ -147,11 +147,13 @@ deleting real detail.
 
 ## 4. Results
 
-**89 new listings are live**, verified rendering on both the portal
-(`/place/[slug]`) and their vertical's canonical URL.
+**119 new listings are live**, verified rendering on both the portal
+(`/place/[slug]`) and their vertical's canonical URL. Three more were published
+and then withdrawn on review (see §7).
 
-The crawl reached 22 of its 193 anchors before this session ended — roughly one
-anchor from every pack, because anchors are interleaved. That is a thin slice of
+The crawl reached 44 of its 193 anchors — roughly two anchors from every pack,
+because anchors are interleaved. It is now resumable, so the remaining 149
+continue from where it stopped rather than restarting. That is a thin slice of
 the plan and a wide slice of the country: NSW, VIC, QLD, WA, SA, TAS, ACT and NT
 were all sampled.
 
@@ -211,24 +213,26 @@ carrying a `website` tag have a dead or unreachable site.
 | Ring | Count |
 |---|---:|
 | 0–5km (inner — off-goal) | 1 |
-| 5–15km (middle) | 63 |
-| 15–30km (outer) | 26 |
+| 5–15km (middle) | 75 |
+| 15–30km (outer) | 43 |
 | 30km+ (fringe) | 0 |
 
-**89 of 90 sit outside the inner ring** — the single exception is PACT, published
+**118 of 119 sit outside the inner ring** — the single exception is PACT, published
 before the exclusion existed. Every listing has a description; none was left to
 the ungated fallback.
 
 | Nearest centre | Count | | Vertical | Count |
 |---|---:|---|---|---:|
-| Sydney | 45 | | Table | 76 |
-| Melbourne | 34 | | Culture | 8 |
-| Brisbane | 3 | | Corner | 3 |
-| Perth | 2 | | Rest | 2 |
-| Adelaide | 2 | | Small Batch | 1 |
-| Wollongong | 2 | | | |
-| Hobart | 1 | | | |
+| Sydney | 55 | | Table | 100 |
+| Melbourne | 45 | | Culture | 12 |
+| Brisbane | 4 | | Corner | 3 |
+| Gold Coast | 4 | | Small Batch | 2 |
+| Perth | 3 | | Field | 1 |
+| Wollongong | 2 | | Rest | 1 |
+| Adelaide | 2 | | | |
+| Hobart | 2 | | | |
 | Newcastle | 1 | | | |
+| Cairns | 1 | | | |
 
 A sample spanning all six cities and 3.9–22.4km from centre was checked live:
 16/16 returned HTTP 200 with a rendered page.
@@ -267,7 +271,7 @@ Takeaway (Wynnum), Bib and Tucker (Perth), antojitos (Mayfield, Newcastle), Bull
   re-attempted — so the strictest verdict wins rather than the luckiest. That
   makes the failure mode one-directional, but it does not make the judgement
   exact.
-- **171 of 193 anchors were never reached.** The crawl covers roughly one anchor
+- **149 of 193 anchors are still to crawl.** The crawl covers roughly one anchor
   per pack so far. Every remaining anchor is untouched work, and on this
   evidence — 315 gaps in 22 suburbs — the outstanding total is large.
 - **The result is Sydney- and Melbourne-heavy** (79 of 89) and

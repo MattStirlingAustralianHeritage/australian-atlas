@@ -1,0 +1,173 @@
+[
+  {
+    "name": "Il Lido",
+    "vertical": "table",
+    "website_url": "https://www.illido.com.au/",
+    "lat": -31.99587,
+    "lng": 115.752152,
+    "town": "Claremont",
+    "state": "WA"
+  },
+  {
+    "name": "Walter's River Cafe",
+    "vertical": "table",
+    "website_url": "https://www.waltersrivercafe.com.au/",
+    "lat": -32.0122766,
+    "lng": 115.7876907,
+    "town": "Claremont",
+    "state": "WA"
+  },
+  {
+    "name": "Lawleys",
+    "vertical": "table",
+    "website_url": "https://lawleys.com.au/",
+    "lat": -31.9779919,
+    "lng": 115.8109401,
+    "town": "Claremont",
+    "state": "WA"
+  },
+  {
+    "name": "The Other Side",
+    "vertical": "table",
+    "website_url": "https://www.theothersidecottesloe.net.au/",
+    "lat": -31.9835164,
+    "lng": 115.7700852,
+    "town": "Claremont",
+    "state": "WA"
+  },
+  {
+    "name": "The Tenth State",
+    "vertical": "table",
+    "website_url": "https://www.thetenthstate.com",
+    "lat": -31.9776613,
+    "lng": 115.8141103,
+    "town": "Claremont",
+    "state": "WA"
+  },
+  {
+    "name": "Lemon Tree Cafe",
+    "vertical": "table",
+    "website_url": "https://www.perthhpc.com.au/visit/cafe",
+    "lat": -31.9523306,
+    "lng": 115.7819253,
+    "town": "Claremont",
+    "state": "WA"
+  },
+  {
+    "name": "Amber Pizza",
+    "vertical": "table",
+    "website_url": "https://amberpizza.com.au",
+    "lat": -31.9560861,
+    "lng": 115.8041146,
+    "town": "Claremont",
+    "state": "WA"
+  },
+  {
+    "name": "居酒屋炭",
+    "vertical": "table",
+    "website_url": "https://www.izakayasumi.com.au",
+    "lat": -31.9831123,
+    "lng": 115.7809376,
+    "town": "Claremont",
+    "state": "WA"
+  },
+  {
+    "name": "Mosmans Restaurant",
+    "vertical": "table",
+    "website_url": "https://www.mosmans.com.au/",
+    "lat": -32.0071185,
+    "lng": 115.7716196,
+    "town": "Claremont",
+    "state": "WA"
+  },
+  {
+    "name": "John's Street Cafe",
+    "vertical": "table",
+    "website_url": "https://www.johnstreetcafe.com.au/",
+    "lat": -31.9951833,
+    "lng": 115.7552457,
+    "town": "Claremont",
+    "state": "WA"
+  },
+  {
+    "name": "Freshwaters",
+    "vertical": "table",
+    "website_url": "https://freshwaters.com.au/",
+    "lat": -32.0020539,
+    "lng": 115.7721228,
+    "town": "Claremont",
+    "state": "WA"
+  },
+  {
+    "name": "Tiamo",
+    "vertical": "table",
+    "website_url": "https://www.tiamocafe.com.au/",
+    "lat": -31.9746482,
+    "lng": 115.8132195,
+    "town": "Claremont",
+    "state": "WA"
+  },
+  {
+    "name": "Friends with Florence",
+    "vertical": "table",
+    "website_url": "https://friendswithflorence.square.site/",
+    "lat": -34.9810228,
+    "lng": 138.5786894,
+    "town": "Unley",
+    "state": "SA"
+  },
+  {
+    "name": "Yeah Nah Yeah",
+    "vertical": "table",
+    "website_url": "https://www.ynyadl.com.au/",
+    "lat": -34.9743219,
+    "lng": 138.6094238,
+    "town": "Unley",
+    "state": "SA"
+  },
+  {
+    "name": "Grain & Bean Bakery Cafe",
+    "vertical": "table",
+    "website_url": "https://grainandbean.com/",
+    "lat": -34.8603313,
+    "lng": 138.489192,
+    "town": "Semaphore",
+    "state": "SA"
+  },
+  {
+    "name": "The Pear",
+    "vertical": "table",
+    "website_url": "https://neighbourhoodnode.com.au/",
+    "lat": -34.8584241,
+    "lng": 138.5179267,
+    "town": "Semaphore",
+    "state": "SA"
+  },
+  {
+    "name": "Palais Hotel",
+    "vertical": "table",
+    "website_url": "https://palais.com.au/",
+    "lat": -34.8363908,
+    "lng": 138.4805666,
+    "town": "Semaphore",
+    "state": "SA"
+  },
+  {
+    "name": "Mixed Creative",
+    "vertical": "table",
+    "website_url": "https://www.mixedcreative.com.au/",
+    "lat": -34.8439464,
+    "lng": 138.5042695,
+    "town": "Semaphore",
+    "state": "SA"
+  },
+  {
+    "name": "The Red Mill Bakehouse",
+    "vertical": "table",
+    "website_url": "https://www.theredmillbakehouse.com.au/",
+    "lat": -34.8512045,
+    "lng": 138.4889852,
+    "town": "Semaphore",
+    "state": "SA"
+  }
+]

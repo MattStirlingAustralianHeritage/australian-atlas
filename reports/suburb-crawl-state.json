@@ -37,6 +37,14 @@
     "brisbane-south/Mount Gravatt",
     "brisbane-west-north/Toowong",
     "brisbane-bayside/Manly",
-    "perth-inner-ring/Mount Lawley"
-  ]
+    "perth-inner-ring/Mount Lawley",
+    "perth-outer/Claremont",
+    "adelaide-middle/Unley",
+    "adelaide-outer/Semaphore",
+    "hobart-suburbs/Glenorchy",
+    "canberra-suburbs/Kingston",
+    "darwin-suburbs/Nightcliff",
+    "newcastle-suburbs/Merewether"
+  ],
+  "startedAt": "2026-07-25T00:00:00Z"
 }

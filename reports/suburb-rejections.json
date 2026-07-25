@@ -232,5 +232,83 @@
     "status": "no_merit",
     "reason": "chain: Generic high-rise holiday apartment complex, part of the multi-property Coast Breakz Properties group, with no distinctive identity. | visitable: Generic beachfront apartment complex offering a supply of self-contained holiday rooms with no distinctive identity, heritage or owner-operator character. | local: Generic beachfront apartment high-rise offering a supply of self-contained rooms with pools and views, no distinct identity of its own.",
     "at": "2026-07-25T22:19:38.251Z"
+  },
+  "0f45f4f9-3ddd-489f-be6e-5f703cb3055d": {
+    "name": "300 Grams",
+    "status": "no_merit",
+    "reason": "chain: Multi-location burger chain with outlets in Coburg, Richmond, Northcote and Prahran. | visitable: Multi-location burger chain with branches in Coburg, Richmond, Northcote and Prahran. | local: Multi-location burger chain with branches in Northcote, Coburg, Richmond and Prahran—a franchise-style operation, not a single distinctive venue.",
+    "at": "2026-07-25T22:21:55.942Z"
+  },
+  "1438886f-6c8b-49ac-8e76-c988d1e5be0b": {
+    "name": "Miranda Community Garden",
+    "status": "no_merit",
+    "reason": "chain: A members-only community garden run by a church, not a publicly visitable destination worth going out of your way for. | visitable: Membership-based community garden requiring an agreement and fee, not a public-facing visitable venue. | local: A members-only church community garden with no publicly visitable offer; not a destination a visitor could meaningfully go.",
+    "at": "2026-07-25T22:21:59.136Z"
+  },
+  "20688317-5aa1-45f1-be7d-307b73ea1f6d": {
+    "name": "SV Kirrawee Community Garden",
+    "status": "no_merit",
+    "reason": "chain: A shopping-centre community garden feature, not an independent visitable venue of its own standing. | visitable: A shopping-centre community garden tended by school students is a promotional amenity, not a distinct visitable destination. | local: A shopping-centre community garden tended by school students, not an independently visitable venue with distinctive offer.",
+    "at": "2026-07-25T22:22:01.162Z"
+  },
+  "6d821d1f-d3d9-42c2-9e60-712e4aa9a8c0": {
+    "name": "Hornsby Railway Hotel",
+    "status": "no_merit",
+    "reason": "chain: Rest Atlas entry offering only weekly boarding-house rentals with shared bathrooms, plus a TAB sports bar and bottle shop — no distinctive visitor accommodation. | visitable: A pub whose draw is TAB, nightclub and bottle shop, with weekly boarding-house-style room rentals rather than genuine visitable accommodation. | local: Generic pub with TAB sports bar, nightclub and weekly boarding-house rooms; no distinctive food, identity or visitable offer.",
+    "at": "2026-07-25T22:22:23.017Z"
+  },
+  "70ff388b-a457-471f-ba6f-aae98146dbf6": {
+    "name": "Fred & Co",
+    "status": "no_merit",
+    "reason": "chain: This is a bespoke interior design studio and trade service, not a publicly visitable venue. | visitable: Bespoke interior design studio and online shop, a service business with no publicly visitable retail destination. | local: An interior design studio and trade service, not a publicly visitable venue.",
+    "at": "2026-07-25T22:22:24.519Z"
+  },
+  "c551c838-67fa-4905-8811-16ac6214a95d": {
+    "name": "Como West Community Garden",
+    "status": "no_merit",
+    "reason": "chain: A members' community garden with weekly working bees and a hall for hire, not a distinct visitable destination. | visitable: A membership-based community garden with weekly members' sessions and a hall for hire, not a public-facing destination. | local: A members' community garden with weekly sessions and hall hire, not a publicly visitable destination with a distinct offer.",
+    "at": "2026-07-25T22:22:38.779Z"
+  },
+  "e0e8bd65-29e8-4db7-96a0-22ec3dfe11c1": {
+    "name": "St Malo Bakery",
+    "status": "no_merit",
+    "reason": "chain: A wholesale artisan bakery whose offer is supplying other venues and factory pickups, not a visitable retail bakery or café. | visitable: Wholesale artisan bakery with factory pickup only, not a visitable retail venue. | local: Wholesale bakery operating from a factory unit with pickups only; no visitable retail offer for a visitor.",
+    "at": "2026-07-25T22:22:41.045Z"
+  },
+  "5abb31ea-f296-456e-969d-77d427d3394f": {
+    "name": "Racecourse Hotel",
+    "status": "no_merit",
+    "reason": "chain: Draw is a sports bar with TAB and full sports betting facilities, making it a gaming/wagering pub excluded by the binding rules. | visitable: Generic suburban pub whose draw is TAB, sports betting and gaming, not a distinctive dining or heritage offer. | local: Generic suburban pub whose draw is a TAB, sports betting and standard bistro fare, with no distinctive food or identity.",
+    "at": "2026-07-25T22:24:36.118Z"
+  },
+  "a9310eea-47c0-4fee-b5da-5d2c9f6a8c76": {
+    "name": "Laurent Bakery",
+    "status": "no_merit",
+    "reason": "chain: Laurent is a multi-location bakery chain with wholesale operations and numerous branches, not an independent single venue. | visitable: Laurent is a multi-location bakery chain, not an independent single venue. | local: Laurent is a multi-branch bakery chain with numerous locations and wholesale operations, excluded as a chain.",
+    "at": "2026-07-25T22:24:39.827Z"
+  },
+  "ec923a4d-9c6f-45eb-a126-7a06b2c9357e": {
+    "name": "Cookhouse Burgers",
+    "status": "no_merit",
+    "reason": "chain: Cookhouse Burgers operates multiple locations (Pascoe Vale, Essendon, Diamond Creek), making it a small chain rather than a single independent venue. | visitable: Small chain with three locations (Pascoe Vale, Essendon, Diamond Creek), excluded as a multi-branch outlet. | local: Multi-location burger chain (Pascoe Vale, Essendon, Diamond Creek) with generic gourmet-burger offer; falls under chain-outlet exclusion.",
+    "at": "2026-07-25T22:24:56.616Z"
+  },
+  "55f470ce-26f6-427c-be1a-a4da9d2015ab": {
+    "name": "General Public",
+    "status": "no_merit",
+    "reason": "chain: Multi-location entertainment chain (references to 'all locations'/'all GP venues') offering generic bowling-arcade-dining, not an independent venue. | visitable: Chain entertainment complex with multiple locations, generic bowling/arcade franchise with no distinct independent identity. | local: Multi-location entertainment chain of bowling and arcade venues with generic food specials, not a distinctive independent table.",
+    "at": "2026-07-25T22:36:08.707Z"
+  },
+  "6a11a518-0395-48fd-81b8-d1ac2b113a77": {
+    "name": "Podium Cafe",
+    "status": "no_merit",
+    "reason": "chain: Generic corporate/office catering café with no distinctive identity or public destination draw. | visitable: Generic catering-focused café in an office district with no distinct identity worth going out of your way for. | local: Generic catering-focused café with no distinctive identity, cuisine, or specialty beyond standard corporate catering.",
+    "at": "2026-07-25T22:36:11.771Z"
+  },
+  "e4899cca-2bf3-429e-8af5-fd1daba2cb19": {
+    "name": "Sushi Train",
+    "status": "no_merit",
+    "reason": "chain: National franchise chain with 49+ locations, franchise opportunities and a loyalty app — explicitly excluded. | visitable: National chain/franchise with 49+ locations actively offering franchise opportunities. | local: National franchise chain with 49+ locations openly advertising franchise opportunities—excluded as a chain.",
+    "at": "2026-07-25T22:36:22.206Z"
   }
 }
