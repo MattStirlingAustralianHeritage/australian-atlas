@@ -221,18 +221,40 @@ let skippedByCap = 0
 let innerRingSkipped = 0
 let alreadyCrawled = 0
 let skippedByVerticalCap = 0
-const queuedByVertical = {}
 // Manifest of what this run actually inserted, so a downstream describe/publish
 // step can act on exactly this run's candidates rather than guessing by timestamp.
 const queuedIds = []
 const crawledPath = new URL('../reports/suburb-crawl-state.json', import.meta.url)
 let crawled = { anchors: [] }
 try { crawled = JSON.parse(readFileSync(crawledPath, 'utf8')) } catch { crawled = { anchors: [] } }
+// Anchor the per-vertical seed window to when this crawl began, so the cap
+// counts this exercise's own candidates and not the whole historical table.
+if (!crawled.startedAt) crawled.startedAt = new Date().toISOString().slice(0, 10) + 'T00:00:00Z'
 const crawledSet = new Set(recrawl ? [] : crawled.anchors)
 function markCrawled(slug, anchorName) {
   const key = `${slug}/${anchorName}`
   if (!crawled.anchors.includes(key)) crawled.anchors.push(key)
   writeFileSync(crawledPath, JSON.stringify(crawled, null, 2))
+}
+// Seeded from what this crawl has ALREADY queued, not reset per run. A per-run
+// counter made --max-per-vertical useless across the many runs it takes to work
+// 193 anchors: `table` simply re-earned its allowance each time and still
+// reached 93 of 112 published. Counting the standing total makes the flag a real
+// ceiling on the corpus rather than on one sitting.
+const queuedByVertical = {}
+if (maxPerVertical) {
+  const { data: priorRows, error: priorErr } = await sb
+    .from('listing_candidates')
+    .select('vertical')
+    .like('source_detail', 'OpenStreetMap%')
+    .gte('created_at', crawled.startedAt || '2026-07-25T00:00:00Z')
+  if (priorErr) {
+    console.error(`Could not read prior per-vertical counts (${priorErr.message}) — treating the cap as per-run.`)
+  } else {
+    for (const r of priorRows || []) queuedByVertical[r.vertical] = (queuedByVertical[r.vertical] || 0) + 1
+    const shown = Object.entries(queuedByVertical).sort((a, b) => b[1] - a[1]).map(([v, n]) => `${v}=${n}`).join(' ')
+    console.log(`Per-vertical cap ${maxPerVertical}; already queued: ${shown || 'none'}\n`)
+  }
 }
 const reportLines = []
 const grandGaps = {}   // vertical → count

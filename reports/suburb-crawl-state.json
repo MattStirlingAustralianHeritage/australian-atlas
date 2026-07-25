@@ -29,6 +29,14 @@
     "townsville-suburbs/Aitkenvale",
     "sydney-west/Granville",
     "sydney-north/Hornsby",
-    "sydney-south/Sutherland"
+    "sydney-south/Sutherland",
+    "melbourne-north/Coburg",
+    "melbourne-west/Yarraville",
+    "melbourne-east/Camberwell",
+    "melbourne-south-east/Springvale",
+    "brisbane-south/Mount Gravatt",
+    "brisbane-west-north/Toowong",
+    "brisbane-bayside/Manly",
+    "perth-inner-ring/Mount Lawley"
   ]
 }
