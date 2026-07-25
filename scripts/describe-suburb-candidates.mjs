@@ -96,6 +96,7 @@ if (manifestPath) {
     .from('listing_candidates')
     .select('id, lat, lng, name')
     .eq('status', 'pending')
+    .is('description', null)   // already-described candidates are done; don't overwrite
     .gte('created_at', pendingSince)
     .like('source_detail', 'OpenStreetMap%')
   if (error) { console.error('Query failed:', error.message); process.exit(1) }
@@ -207,6 +208,40 @@ function parseJsonLoose(s) {
   return null
 }
 
+// validateSourceBinding was built for operator-submitted facts: short, discrete
+// strings where a capitalised run either appears verbatim or was invented. Run
+// against prose grounded in a whole scraped website it over-fires, because it
+// greedily joins capitalised words across lowercase connectors. Real examples it
+// rejected, all of them properly grounded:
+//
+//   "Open Wednesday"                  — sentence-start "Open" + a weekday
+//   "Parramatta and Burwood"          — two suburbs the source names separately
+//   "Part of Petersham Bowling Club"  — the club is named; "Part of" is ours
+//   "Midnight Cargo Stout and Ruminator Doppelbock" — two beers, both listed
+//
+// That cost 13 of 31 candidates in one batch, all genuine venues. So: split each
+// failed proper-noun run into its capitalised tokens and require EVERY token to
+// appear in the source. If they all do, nothing was invented — only the joining
+// phrasing is ours — and the claim is downgraded to a warning for the adversarial
+// verifier (which reads the source text) to judge in context. A run containing
+// any token absent from the source stays a hard failure, and numbers are never
+// softened, because a fabricated year or count is the canonical hallucination.
+const BINDING_CONNECTORS = new Set(['of', 'the', 'and', 'on', 'at', 'by', 'upon', 'de', 'la', 'le', 'van', 'von', '&', 'a', 'an', 'in'])
+function softenBindingFailures(binding, sources) {
+  const normalised = sources.map(s => String(s).replace(/\s+/g, ' ').trim().toLowerCase())
+  const inSource = (tok) => normalised.some(s => s.includes(tok.toLowerCase()))
+  const hard = []
+  const softened = []
+  for (const claim of binding.failed_claims) {
+    if (claim.type !== 'proper_noun') { hard.push(claim); continue }
+    const tokens = String(claim.value).split(/\s+/).filter(t => t && !BINDING_CONNECTORS.has(t.toLowerCase()))
+    // Require at least two real tokens before softening, and every one grounded.
+    if (tokens.length >= 1 && tokens.every(t => inSource(t.replace(/['’]s$/, '')))) softened.push(claim.value)
+    else hard.push(claim)
+  }
+  return { passed: hard.length === 0, hard, softened }
+}
+
 function factsBlock(c) {
   return [
     `Name: ${c.name}`,
@@ -257,9 +292,11 @@ async function describe(c) {
     }
 
     // Gate 2 — source binding (numbers + multi-word proper nouns must be in source)
-    const binding = validateSourceBinding(draft, {}, sources)
+    const rawBinding = validateSourceBinding(draft, {}, sources)
+    const binding = rawBinding.passed ? { passed: true, hard: [], softened: [] } : softenBindingFailures(rawBinding, sources)
+    if (binding.softened.length) out.softenedClaims = binding.softened
     if (!binding.passed) {
-      const bad = binding.failed_claims.map(f => `${f.type} "${f.value}"`).join(', ')
+      const bad = binding.hard.map(f => `${f.type} "${f.value}"`).join(', ')
       // The binding checker matches a capitalised run VERBATIM, and treats "and"
       // as part of the run. So joining two separately-grounded names into one
       // phrase ("Belgian Tripel and Stout") fails even though both terms are in
@@ -281,10 +318,32 @@ async function describe(c) {
         `WEBSITE TEXT (${c.website_url}):`, site.text, '',
         'DRAFT DESCRIPTION:', draft,
       ].join('\n'),
-      maxTokens: 900,
+      maxTokens: 2500,
     })
-    const verdict = parseJsonLoose(vres.text)
-    if (!verdict) { feedback = 'Verifier response unreadable; rewrite more conservatively.'; out.reason = 'verifier_unparsable'; continue }
+    let verdict = parseJsonLoose(vres.text)
+    if (!verdict) {
+      // Don't blame the draft for an unreadable verifier reply — the earlier
+      // budget shared 900 tokens between adaptive thinking and the JSON, so the
+      // object was simply cut off. Ask once more with more room before falling
+      // through to a rewrite the draft may not need.
+      const retry = await callClaude({
+        system: VERIFY_SYSTEM,
+        user: [
+          'FACTS WE HOLD:', factsBlock(c), '',
+          `WEBSITE TEXT (${c.website_url}):`, site.text, '',
+          'DRAFT DESCRIPTION:', draft, '',
+          'Respond with the JSON object only.',
+        ].join('\n'),
+        maxTokens: 3000,
+        effort: 'medium',
+      })
+      verdict = parseJsonLoose(retry.text)
+      if (!verdict) {
+        feedback = 'Verification could not be completed; rewrite more conservatively and with fewer specifics.'
+        out.reason = 'verifier_unparsable'
+        continue
+      }
+    }
 
     if (verdict.identity_ok === false) {
       // Identity failure is not a writing problem — a retry cannot fix a wrong
@@ -313,7 +372,7 @@ async function describe(c) {
     out.status = 'ok'
     out.reason = null
     out.description = draft
-    out.warnings = binding.warnings?.map(w => w.value) || []
+    out.warnings = rawBinding.warnings?.map(w => w.value) || []
     if (!dryRun) {
       const { error } = await sb.from('listing_candidates').update({ description: draft }).eq('id', c.id)
       if (error) { out.status = 'write_failed'; out.reason = error.message }

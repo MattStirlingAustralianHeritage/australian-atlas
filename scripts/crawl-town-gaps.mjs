@@ -264,20 +264,38 @@ let lastPackSlug = null
     perTown.push({ town: anchor.name, state: pack.state, osm: raw.length, atlas: atlasNearby, gaps: gaps.length, byVert })
 
     // Queue the gaps through the pipeline (quality-gated) if requested.
+    //
+    // Bounded concurrency, not serial. Gate 1 fetches each candidate's website
+    // and most OSM `website` tags are dead, so the loop spent nearly all its
+    // wall-clock waiting on connection timeouts — about ten minutes per dense
+    // anchor, which does not finish 193 of them. Candidates are independent
+    // (separate domains, separate rows), so running a few at a time is safe;
+    // PIPELINE_CONCURRENCY stays low to remain polite to the sites being probed
+    // and to the Gate-4 model budget.
     if (doQueue && gaps.length) {
-      for (const g of gaps) {
-        if (queuedTotal >= maxQueue) { skippedByCap += 1; continue }
-        try {
-          const result = await runPipeline(g, sb, { dryRun: false, verbose: false })
-          if (result.inserted) {
-            queuedTotal++
-            queuedIds.push({ id: result.candidateId, name: g.name, vertical: g.vertical, town: anchor.name, state: pack.state, score: result.score })
-            console.log(`     ✓ QUEUED ${g.name} [${g.vertical}] score ${result.score}`)
+      const PIPELINE_CONCURRENCY = 5
+      let idx = 0
+      const runOne = async () => {
+        while (true) {
+          if (queuedTotal >= maxQueue) {
+            // Count every remaining gap once, then stop this worker.
+            while (idx < gaps.length) { idx++; skippedByCap += 1 }
+            return
           }
-          else if (result.failedGate != null) console.log(`     ✗ ${g.name} [${g.vertical}] gate${result.failedGate}`)
-        } catch (err) { console.log(`     ! ${g.name}: ${err.message}`) }
-        await new Promise(r => setTimeout(r, 800))
+          const g = gaps[idx++]
+          if (!g) return
+          try {
+            const result = await runPipeline(g, sb, { dryRun: false, verbose: false })
+            if (result.inserted) {
+              queuedTotal++
+              queuedIds.push({ id: result.candidateId, name: g.name, vertical: g.vertical, town: anchor.name, state: pack.state, score: result.score })
+              console.log(`     ✓ QUEUED ${g.name} [${g.vertical}] score ${result.score}`)
+            }
+            else if (result.failedGate != null) console.log(`     ✗ ${g.name} [${g.vertical}] gate${result.failedGate}`)
+          } catch (err) { console.log(`     ! ${g.name}: ${err.message}`) }
+        }
       }
+      await Promise.all(Array.from({ length: PIPELINE_CONCURRENCY }, runOne))
     }
     // The --max cap bounds how many candidates we QUEUE, not how far we crawl.
     // Aborting the whole crawl here (the previous behaviour) silently truncated
