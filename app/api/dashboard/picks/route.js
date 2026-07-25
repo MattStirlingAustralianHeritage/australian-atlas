@@ -10,6 +10,7 @@ import {
   deletePick,
   hydrateListings,
 } from '@/lib/picks/producerPicks'
+import { logListingActivity, ACTIVITY_ACTIONS } from '@/lib/activity/logListingActivity'
 import { revalidatePlacePages } from '@/lib/picks/revalidate'
 import { isListingPaid } from '@/lib/listing-gallery'
 import { pickRecommendationEmail, sendPicksEmail } from '@/lib/email/picksEmails'
@@ -223,6 +224,24 @@ export async function POST(request) {
     console.error('[picks] reciprocity loop failed:', err?.message || err)
   })
 
+  const { data: pickPair } = await admin
+    .from('listings')
+    .select('id, name, slug, vertical')
+    .in('id', [curatorListingId, pickedListingId])
+  const curator = pickPair?.find(l => l.id === curatorListingId)
+  const picked = pickPair?.find(l => l.id === pickedListingId)
+  await logListingActivity(
+    admin,
+    { id: curatorListingId, name: curator?.name, slug: curator?.slug, vertical: curator?.vertical },
+    { id: user.id, email: user.email, role: 'operator' },
+    {
+      action: ACTIVITY_ACTIONS.PICK_ADDED,
+      field: 'picks',
+      summary: `Recommended ${picked?.name || 'another venue'} as a Producer’s Pick`,
+      details: { picked_listing_id: pickedListingId, picked_name: picked?.name || null, note: note || null },
+    }
+  )
+
   await revalidatePlacePages(admin, [curatorListingId, pickedListingId])
   await reciprocity
   return NextResponse.json({ pick: result.pick })
@@ -255,6 +274,20 @@ export async function DELETE(request) {
 
   const result = await deletePick(admin, { id })
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 })
+  const { data: curatorRow } = await admin
+    .from('listings').select('id, name, slug, vertical').eq('id', rel.listing_id_a).maybeSingle()
+  await logListingActivity(
+    admin,
+    { id: rel.listing_id_a, name: curatorRow?.name, slug: curatorRow?.slug, vertical: curatorRow?.vertical },
+    { id: user.id, email: user.email, role: 'operator' },
+    {
+      action: ACTIVITY_ACTIONS.PICK_REMOVED,
+      field: 'picks',
+      summary: 'Removed one of their Producer’s Picks',
+      details: { pick_id: id, picked_listing_id: rel.listing_id_b },
+    }
+  )
+
   await revalidatePlacePages(admin, [rel.listing_id_a, rel.listing_id_b])
   return NextResponse.json({ success: true, deletedId: id })
 }

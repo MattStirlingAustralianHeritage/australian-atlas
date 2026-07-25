@@ -62,6 +62,17 @@ export default async function ListingsPage() {
         <p style={{ fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: 14, color: 'var(--color-muted)' }}>
           Browse and edit live listings across the Atlas Network.
         </p>
+        <div style={{ marginTop: 12 }}>
+          <a
+            href="/admin/activity"
+            style={{
+              fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-accent, #C4603A)',
+              textDecoration: 'none', borderBottom: '1px solid rgba(196,96,58,0.35)', paddingBottom: 2,
+            }}
+          >
+            See what operators are doing →
+          </a>
+        </div>
       </div>
 
       <ListingEditor initialListings={listings} initialTotal={total} regions={regions} />

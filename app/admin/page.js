@@ -487,6 +487,7 @@ function ListingsZone({ stats, loading }) {
     { label: 'Candidates', description: 'Listing acquisition pipeline', href: '/admin/candidates' },
     { label: 'Claims', description: 'Vendor claim requests', href: '/admin/claims' },
     { label: 'Listings Editor', description: 'Browse and edit all listings', href: '/admin/listings' },
+    { label: 'Operator Activity', description: 'What operators are doing to their listings', href: '/admin/activity' },
     { label: 'Growth Engine', description: '5-stage venue discovery pipeline', href: '/admin/growth' },
     { label: 'Regions', description: 'View and manage regions', href: '/regions' },
   ]

@@ -6,6 +6,7 @@ import { verifySharedToken } from '@/lib/shared-auth'
 import { isApprovedImageSource } from '@/lib/image-utils'
 import { isListingPaid } from '@/lib/listing-gallery'
 import { listEventsForListing, createEvent, updateEvent, deleteEvent, MAX_EVENTS_PER_LISTING } from '@/lib/events'
+import { logListingActivity, ACTIVITY_ACTIONS } from '@/lib/activity/logListingActivity'
 
 /**
  * /api/dashboard/events — operator self-service events for a claimed listing.
@@ -83,6 +84,16 @@ function revalidateEvent(listingSlug, eventSlug) {
   } catch { /* best-effort cache busting */ }
 }
 
+// One place to record an operator's event work in the activity log (migration 260).
+function logEventActivity(auth, action, summary, details) {
+  return logListingActivity(
+    auth.sb,
+    { id: auth.listing.id, name: auth.listing.name, slug: auth.listing.slug, vertical: auth.listing.vertical },
+    { id: auth.user.id, email: auth.user.email, role: auth.user.role === 'admin' ? 'admin' : 'operator' },
+    { action, field: 'events', summary, details }
+  )
+}
+
 export async function GET(request) {
   const { searchParams } = new URL(request.url)
   const listingId = searchParams.get('listing_id')
@@ -137,6 +148,12 @@ export async function POST(request) {
   if (!result.ok) {
     return NextResponse.json({ error: result.error, code: result.code }, { status: result.code === 'duplicate' ? 409 : 400 })
   }
+  await logEventActivity(
+    auth,
+    ACTIVITY_ACTIONS.EVENT_CREATED,
+    `Listed an event: ${result.event.title || 'untitled'}${result.event.published ? '' : ' (draft)'}`,
+    { event_id: result.event.id, title: result.event.title || null, start_date: result.event.start_date || null, published: !!result.event.published }
+  )
   revalidateEvent(auth.listing.slug, result.event.slug)
   return NextResponse.json({ event: result.event })
 }
@@ -162,6 +179,12 @@ export async function PATCH(request) {
   if (!result.ok) {
     return NextResponse.json({ error: result.error, code: result.code }, { status: result.code === 'not_found' ? 404 : 400 })
   }
+  await logEventActivity(
+    auth,
+    ACTIVITY_ACTIONS.EVENT_UPDATED,
+    `Edited their event: ${result.event.title || 'untitled'}`,
+    { event_id: result.event.id, title: result.event.title || null, fields: Object.keys(fields) }
+  )
   revalidateEvent(auth.listing.slug, result.event.slug)
   return NextResponse.json({ event: result.event })
 }
@@ -182,6 +205,7 @@ export async function DELETE(request) {
   if (!result.ok) {
     return NextResponse.json({ error: result.error, code: result.code }, { status: result.code === 'not_found' ? 404 : 400 })
   }
+  await logEventActivity(auth, ACTIVITY_ACTIONS.EVENT_DELETED, 'Removed one of their events', { event_id: result.deletedId })
   revalidateEvent(auth.listing.slug, result.slug)
   return NextResponse.json({ success: true, deletedId: result.deletedId })
 }

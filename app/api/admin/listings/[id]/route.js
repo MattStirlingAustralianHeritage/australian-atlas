@@ -5,6 +5,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
 import { updateListing } from '@/lib/admin/updateListing'
 import { deleteListingEverywhere } from '@/lib/listings/deleteListing'
+import { logListingActivity } from '@/lib/activity/logListingActivity'
 
 const EXTENSION_TABLES = {
   sba: 'sba_meta', collection: 'collection_meta', craft: 'craft_meta',
@@ -138,6 +139,29 @@ export async function PATCH(request, { params }) {
     if (!result.success) {
       const status = result.error?.includes('not found') ? 404 : 400
       return NextResponse.json({ error: result.error }, { status })
+    }
+
+    // Record the admin edit alongside operator activity so /admin/activity shows
+    // one honest timeline per listing — an operator's change and a staff change
+    // are the same kind of fact, distinguished by actor_role.
+    const editedFields = Object.keys(listingFields).filter(k => k !== 'updated_at')
+    if (editedFields.length > 0) {
+      await logListingActivity(
+        getSupabaseAdmin(),
+        {
+          id,
+          name: result.listing?.name,
+          slug: result.listing?.slug,
+          vertical: result.listing?.vertical,
+        },
+        { id: null, email: null, role: 'admin' },
+        {
+          action: 'admin_edit',
+          field: editedFields.join(', '),
+          summary: `Admin edited ${editedFields.length} ${editedFields.length === 1 ? 'field' : 'fields'}: ${editedFields.slice(0, 6).join(', ')}`,
+          details: { fields: editedFields, meta_saved: !!metaResult?.success },
+        }
+      )
     }
 
     // Bust the ISR cache for this listing's public page

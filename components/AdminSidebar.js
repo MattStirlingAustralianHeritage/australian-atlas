@@ -13,6 +13,7 @@ const SECTIONS = [
     title: 'Listings',
     links: [
       ['/admin/listings', 'Listing editor'],
+      ['/admin/activity', 'Operator activity'],
       ['/admin/candidates', 'Candidates'],
       ['/admin/listings-review', 'Listings review'],
       ['/admin/gate-review', 'Gate review'],

@@ -6,6 +6,7 @@ import { generateDescription } from '@/lib/operator-intake/generate.mjs'
 import { STORY_QUESTIONS, draftAuthorship, bannedPhraseCheck, OWNER_TEXT_LIMITS } from '@/lib/operator-intake/voice.mjs'
 import { isListingPaid } from '@/lib/listing-gallery'
 import { sendAgentEmail } from '@/lib/agents/email'
+import { logListingActivity, ACTIVITY_ACTIONS } from '@/lib/activity/logListingActivity'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Operator-fed description intake — two authorship paths, one review gate.
@@ -222,6 +223,27 @@ export async function PUT(request) {
     }
   }
 
+  const factCount = FACT_KEYS.filter(k => facts[k]).length
+  const { data: factListing } = await admin
+    .from('listings').select('id, name, slug, vertical').eq('id', listingId).maybeSingle()
+  await logListingActivity(
+    admin,
+    { id: listingId, name: factListing?.name, slug: factListing?.slug, vertical: factListing?.vertical },
+    { id: user.id, email: user.email, role: 'operator' },
+    {
+      action: ACTIVITY_ACTIONS.FACTS_UPDATED,
+      field: 'operator_facts',
+      summary: storyAnswers !== undefined
+        ? `Answered the interview questions and saved ${factCount} ${factCount === 1 ? 'fact' : 'facts'} about their venue`
+        : `Saved ${factCount} ${factCount === 1 ? 'fact' : 'facts'} about their venue`,
+      details: {
+        facts_filled: factCount,
+        keys: FACT_KEYS.filter(k => facts[k]),
+        story_answers: storyAnswers !== undefined ? Object.keys(storyAnswers || {}).length : null,
+      },
+    }
+  )
+
   return NextResponse.json({ facts: data, ...(storyAnswers !== undefined ? { storyAnswers } : {}) })
 }
 
@@ -246,7 +268,7 @@ export async function POST(request) {
     if (await editingLocked(admin, listingId, user.id)) {
       return NextResponse.json({ error: 'Generating a description is a Standard-plan feature. Complete your payment to unlock editing.', code: 'payment_required' }, { status: 402 })
     }
-    return handleGenerate(admin, listingId)
+    return handleGenerate(admin, listingId, user)
   }
   if (action === 'submit_own') {
     if (await editingLocked(admin, listingId, user.id)) {
@@ -255,7 +277,7 @@ export async function POST(request) {
     return handleOwnerSubmit(admin, listingId, user, body)
   }
   if (action === 'flag_error' || action === 'request_changes') {
-    return handleOperatorFlag(admin, listingId, action, body)
+    return handleOperatorFlag(admin, listingId, action, body, user)
   }
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
 }
@@ -283,7 +305,7 @@ async function handleOwnerSubmit(admin, listingId, user, body) {
   }
 
   const { data: listing } = await admin
-    .from('listings').select('id, name, slug').eq('id', listingId).maybeSingle()
+    .from('listings').select('id, name, slug, vertical').eq('id', listingId).maybeSingle()
 
   const { data: top } = await admin
     .from('operator_description_drafts')
@@ -326,6 +348,18 @@ async function handleOwnerSubmit(admin, listingId, user, body) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  await logListingActivity(
+    admin,
+    { id: listingId, name: listing?.name, slug: listing?.slug, vertical: listing?.vertical },
+    { id: user.id, email: user.email, role: 'operator' },
+    {
+      action: ACTIVITY_ACTIONS.DESCRIPTION_SUBMITTED,
+      field: 'description',
+      summary: `Wrote their own description (v${nextVersion}, ${text.length} characters) — waiting on review`,
+      details: { version: nextVersion, chars: text.length, authorship: 'owner', banned_phrase_passed: banned.passed },
+    }
+  )
+
   await sendAgentEmail({
     subject: `Owner-written description submitted — ${listing?.name || listingId}`,
     html: `<p><strong>${escapeHtml(listing?.name || listingId)}</strong> submitted their own description (v${nextVersion}, verbatim — review tone and claims).</p>`
@@ -335,7 +369,7 @@ async function handleOwnerSubmit(admin, listingId, user, body) {
   return NextResponse.json({ draft: { ...draft, authorship: 'owner' } })
 }
 
-async function handleGenerate(admin, listingId) {
+async function handleGenerate(admin, listingId, user) {
   const { data: facts } = await admin
     .from('operator_facts')
     .select('*')
@@ -347,7 +381,7 @@ async function handleGenerate(admin, listingId) {
   }
 
   const [{ data: listing }, storyAnswers] = await Promise.all([
-    admin.from('listings').select('id, name, slug').eq('id', listingId).maybeSingle(),
+    admin.from('listings').select('id, name, slug, vertical').eq('id', listingId).maybeSingle(),
     loadStoryAnswers(admin, listingId),
   ])
 
@@ -408,6 +442,25 @@ async function handleGenerate(admin, listingId) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  await logListingActivity(
+    admin,
+    { id: listingId, name: listing?.name, slug: listing?.slug, vertical: listing?.vertical },
+    { id: user?.id, email: user?.email, role: 'operator' },
+    {
+      action: nextVersion > 1 ? ACTIVITY_ACTIONS.DESCRIPTION_REWRITE_REQUESTED : ACTIVITY_ACTIONS.DESCRIPTION_GENERATED,
+      field: 'description',
+      summary: nextVersion > 1
+        ? `Asked for a rewrite — generated description v${nextVersion}${result.ok ? '' : ' (gate flags raised)'}`
+        : `Generated a description from their facts${result.ok ? '' : ' (gate flags raised)'}`,
+      details: {
+        version: nextVersion,
+        authorship: 'atlas',
+        gates_passed: result.ok,
+        coverage_request: facts.coverage_request || null,
+      },
+    }
+  )
+
   // A generate IS a rewrite request — tell the admin without waiting on the queue.
   const gates = result.ok ? 'both gates passed' : 'needs a look — gate flags raised'
   await sendAgentEmail({
@@ -422,7 +475,7 @@ async function handleGenerate(admin, listingId) {
 
 // Bounded operator affordance: attach a flag/note to a draft. This is a SIGNAL
 // for the admin — it never changes status to approved or touches published text.
-async function handleOperatorFlag(admin, listingId, action, body) {
+async function handleOperatorFlag(admin, listingId, action, body, user) {
   const { draftId, note } = body || {}
   if (!draftId) return NextResponse.json({ error: 'Missing draftId' }, { status: 400 })
 
@@ -459,9 +512,24 @@ async function handleOperatorFlag(admin, listingId, action, body) {
   // surface it immediately rather than waiting for a queue visit.
   const { data: listing } = await admin
     .from('listings')
-    .select('name')
+    .select('name, slug, vertical')
     .eq('id', listingId)
     .maybeSingle()
+
+  await logListingActivity(
+    admin,
+    { id: listingId, name: listing?.name, slug: listing?.slug, vertical: listing?.vertical },
+    { id: user?.id, email: user?.email, role: 'operator' },
+    {
+      action: operator_action === 'flagged_error' ? 'description_error_flagged' : ACTIVITY_ACTIONS.DESCRIPTION_REWRITE_REQUESTED,
+      field: 'description',
+      summary: operator_action === 'flagged_error'
+        ? `Flagged an error in their description${cleanNote ? `: “${cleanNote.slice(0, 140)}”` : ''}`
+        : `Asked for changes to their description${cleanNote ? `: “${cleanNote.slice(0, 140)}”` : ''}`,
+      details: { draft_version: updated.version, operator_action, note: cleanNote },
+    }
+  )
+
   await sendAgentEmail({
     subject: `Operator ${operator_action === 'flagged_error' ? 'flagged an error' : 'requested changes'} — ${listing?.name || listingId}`,
     html: `<p><strong>${escapeHtml(listing?.name || listingId)}</strong> on draft v${updated.version}.</p>`

@@ -12,6 +12,7 @@ import { parseVideoUrl } from '@/lib/video-embed'
 import { upsertTradeProfile } from '@/lib/trade/profile'
 import { regenerateListingEmbedding } from '@/lib/embeddings/regenerateOne'
 import { moderateImageUrl } from '@/lib/moderation/imageModeration'
+import { activityCollector, ACTIVITY_ACTIONS } from '@/lib/activity/logListingActivity'
 
 /**
  * PATCH /api/dashboard/listing — operator self-service edit of a claimed listing.
@@ -105,9 +106,13 @@ export async function PATCH(request) {
   //    listing they own — an active listing_claims row whose claimed_by is the
   //    authenticated user (across whatever verticals they own). Vertical
   //    membership no longer grants edit rights. Admins bypass the check. ──
+  // name/slug and the pre-edit values of the editable fields come along for the
+  // activity log (migration 260): the log snapshots the listing's identity so
+  // history survives deletion, and diffs before→after so the feed can say
+  // "added 3 photos" rather than "saved the form".
   const { data: owned, error: ownErr } = await sb
     .from('listings')
-    .select('id, vertical, sub_type, sub_types, is_claimed, hero_image_url')
+    .select('id, name, slug, vertical, sub_type, sub_types, is_claimed, hero_image_url, website, phone, hours, video_url')
     .eq('id', listingId)
     .single()
 
@@ -157,6 +162,11 @@ export async function PATCH(request) {
     }
   }
 
+  // Activity events accumulate here as each field is handled, and are flushed
+  // in one insert at the end (migration 260). Logging is fail-soft: it never
+  // affects the response.
+  const activity = activityCollector()
+
   // ── Base fields → canonical updateListing (master write + vertical sync-back) ──
   // hero_image_url is handled SEPARATELY below — a NEW operator upload is moderated
   // before it can become eligible for public display or be pushed to the vertical
@@ -172,6 +182,21 @@ export async function PATCH(request) {
       return NextResponse.json({ error: result.error || 'Update failed' }, { status: 400 })
     }
     verticalSync = result.verticalSync
+
+    if ('website' in baseUpdates && (baseUpdates.website || null) !== (owned.website || null)) {
+      activity.add(
+        ACTIVITY_ACTIONS.WEBSITE_UPDATED,
+        baseUpdates.website ? `Set the website to ${baseUpdates.website}` : 'Removed the website',
+        { field: 'website', details: { from: owned.website || null, to: baseUpdates.website || null } }
+      )
+    }
+    if ('phone' in baseUpdates && (baseUpdates.phone || null) !== (owned.phone || null)) {
+      activity.add(
+        ACTIVITY_ACTIONS.PHONE_UPDATED,
+        baseUpdates.phone ? `Set the phone number to ${baseUpdates.phone}` : 'Removed the phone number',
+        { field: 'phone', details: { from: owned.phone || null, to: baseUpdates.phone || null } }
+      )
+    }
   }
 
   // ── hero_image_url → AI-moderated write + gated sync ────────────────────────
@@ -204,6 +229,12 @@ export async function PATCH(request) {
         if (error && error.code !== '42703') console.warn('[dashboard] moderation reset failed:', error.message)
       })
       imageModeration = { status: 'pending' }
+      if (currentHero) {
+        activity.add(ACTIVITY_ACTIONS.HERO_REMOVED, 'Removed the main photo', {
+          field: 'hero_image_url',
+          details: { from: currentHero },
+        })
+      }
     } else if (newHero === currentHero) {
       // Unchanged — keep the existing verdict, re-affirm the value (sync is gated
       // centrally on the stored status, so a held image still won't propagate).
@@ -252,6 +283,25 @@ export async function PATCH(request) {
         return NextResponse.json({ error: `Failed to record image moderation: ${modErr.message}` }, { status: 400 })
       }
       imageModeration = { status: verdict.status, category: verdict.category || null, reason: verdict.reason || null }
+
+      // The signal that matters in the feed: a new photo arrived, and whether
+      // moderation let it through. A held hero is the one an admin needs to see.
+      activity.add(
+        currentHero ? ACTIVITY_ACTIONS.HERO_REPLACED : ACTIVITY_ACTIONS.HERO_ADDED,
+        blocked
+          ? `${currentHero ? 'Changed' : 'Added'} the main photo — held by moderation (${verdict.category || verdict.status})`
+          : `${currentHero ? 'Changed' : 'Added'} the main photo`,
+        {
+          field: 'hero_image_url',
+          details: {
+            from: currentHero,
+            to: newHero,
+            moderation_status: verdict.status,
+            moderation_category: verdict.category || null,
+            blocked,
+          },
+        }
+      )
     }
   }
 
@@ -267,6 +317,20 @@ export async function PATCH(request) {
       .eq('id', listingId)
     if (hoursErr) {
       return NextResponse.json({ error: `Failed to save hours: ${hoursErr.message}` }, { status: 400 })
+    }
+
+    // Only log a real change — the dashboard posts the whole form on every save,
+    // so an untouched hours object arrives on saves that were about something else.
+    const beforeHours = owned.hours || null
+    if (JSON.stringify(beforeHours) !== JSON.stringify(norm.hours)) {
+      const openDays = norm.hours ? Object.keys(norm.hours).length : 0
+      activity.add(
+        ACTIVITY_ACTIONS.HOURS_UPDATED,
+        norm.hours
+          ? `Set opening hours — open ${openDays} ${openDays === 1 ? 'day' : 'days'} a week`
+          : 'Cleared the opening hours',
+        { field: 'hours', details: { open_days: openDays, had_hours_before: !!beforeHours } }
+      )
     }
   }
 
@@ -339,6 +403,34 @@ export async function PATCH(request) {
       held: saved.filter(e => e.status === 'held').length,
       hidden: saved.filter(e => e.status !== 'clean').length,
     }
+
+    // Photo churn is the headline signal for the admin feed — "3 photos added"
+    // is what "what are people doing?" actually means in practice.
+    const priorUrls = prior.map(e => e.url)
+    const added = urls.filter(u => !priorUrls.includes(u))
+    const removed = priorUrls.filter(u => !urls.includes(u))
+    if (added.length) {
+      const held = saved.filter(e => added.includes(e.url) && e.status !== 'clean').length
+      activity.add(
+        ACTIVITY_ACTIONS.PHOTOS_ADDED,
+        `Added ${added.length} ${added.length === 1 ? 'photo' : 'photos'} to the gallery` +
+          (held ? ` — ${held} held by moderation` : ''),
+        { field: 'gallery_image_urls', details: { added: added.length, held, urls: added, gallery_size: urls.length } }
+      )
+    }
+    if (removed.length) {
+      activity.add(
+        ACTIVITY_ACTIONS.PHOTOS_REMOVED,
+        `Removed ${removed.length} ${removed.length === 1 ? 'photo' : 'photos'} from the gallery`,
+        { field: 'gallery_image_urls', details: { removed: removed.length, urls: removed, gallery_size: urls.length } }
+      )
+    }
+    if (!added.length && !removed.length && priorUrls.length && priorUrls.join('|') !== urls.join('|')) {
+      activity.add(ACTIVITY_ACTIONS.PHOTOS_REORDERED, 'Reordered the gallery photos', {
+        field: 'gallery_image_urls',
+        details: { gallery_size: urls.length },
+      })
+    }
   }
 
   // ── operator_highlights → master-only write (never synced; sync-safe by
@@ -369,6 +461,14 @@ export async function PATCH(request) {
       return NextResponse.json({ error: `Failed to save highlights: ${hErr.message}` }, { status: 400 })
     }
     savedHighlights = norm.value
+    const filled = Object.keys(norm.value?.fields || {}).length
+    activity.add(
+      ACTIVITY_ACTIONS.HIGHLIGHTS_UPDATED,
+      filled
+        ? `Updated their highlights — ${filled} ${filled === 1 ? 'field' : 'fields'} filled in`
+        : 'Cleared their highlights',
+      { field: 'operator_highlights', details: { fields_filled: filled, keys: Object.keys(norm.value?.fields || {}) } }
+    )
   }
 
   // ── search_keywords → master-only write (search-only: never rendered, never
@@ -403,6 +503,13 @@ export async function PATCH(request) {
       console.warn(`[dashboard] inline re-embed deferred for ${listingId}: ${e.message}`)
     }
     savedKeywords = norm.value
+    activity.add(
+      ACTIVITY_ACTIONS.KEYWORDS_UPDATED,
+      norm.value.length
+        ? `Set ${norm.value.length} search ${norm.value.length === 1 ? 'keyword' : 'keywords'}: ${norm.value.slice(0, 6).join(', ')}`
+        : 'Cleared their search keywords',
+      { field: 'search_keywords', details: { count: norm.value.length, keywords: norm.value } }
+    )
   }
 
   // ── video_url → master-only write (paid perk, migration 225). One featured
@@ -440,6 +547,13 @@ export async function PATCH(request) {
       return NextResponse.json({ error: `Failed to save video: ${vErr.message}` }, { status: 400 })
     }
     savedVideo = canonical
+    if ((owned.video_url || null) !== canonical) {
+      activity.add(
+        canonical ? ACTIVITY_ACTIONS.VIDEO_ADDED : ACTIVITY_ACTIONS.VIDEO_REMOVED,
+        canonical ? `Added a video: ${canonical}` : 'Removed their video',
+        { field: 'video_url', details: { from: owned.video_url || null, to: canonical } }
+      )
+    }
   }
 
   // ── trade_readiness → master-only write (Atlas Trade operator profile).
@@ -466,6 +580,11 @@ export async function PATCH(request) {
       return NextResponse.json({ error: `Failed to save trade readiness: ${tErr.message}` }, { status: 400 })
     }
     savedTrade = norm.value
+    activity.add(
+      ACTIVITY_ACTIONS.TRADE_READINESS_UPDATED,
+      norm.value.trade_welcome ? 'Opened up to trade bookings' : 'Updated their trade readiness',
+      { field: 'trade_readiness', details: norm.value }
+    )
   }
 
   // ── trade_profile → listing_trade_profiles upsert (migration 204).
@@ -488,7 +607,18 @@ export async function PATCH(request) {
       return NextResponse.json({ error: `Failed to save trade profile: ${result.error}` }, { status: 400 })
     }
     savedProfile = norm.value
+    activity.add(ACTIVITY_ACTIONS.TRADE_PROFILE_UPDATED, 'Updated their trade fact sheet', {
+      field: 'trade_profile',
+      details: { keys: Object.keys(norm.value || {}) },
+    })
   }
+
+  // ── Flush the activity log (fail-soft; never blocks the response) ──────────
+  await activity.flush(
+    sb,
+    { id: listingId, name: owned.name, slug: owned.slug, vertical: owned.vertical },
+    { id: user.id, email: user.email, role: user.role === 'admin' ? 'admin' : 'operator' }
+  )
 
   const { data: fresh } = await sb
     .from('listings')
