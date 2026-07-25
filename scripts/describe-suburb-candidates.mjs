@@ -403,8 +403,20 @@ async function describe(c) {
     out.description = draft
     out.warnings = rawBinding.warnings?.map(w => w.value) || []
     if (!dryRun) {
-      const { error } = await sb.from('listing_candidates').update({ description: draft }).eq('id', c.id)
-      if (error) { out.status = 'write_failed'; out.reason = error.message }
+      // Transient socket failures ("TypeError: fetch failed") do happen over a
+      // long run. Losing the write means the whole generate-and-gate cycle is
+      // repeated next time for a description we already have, so retry briefly
+      // before giving up.
+      let writeErr = null
+      for (let a = 0; a < 3; a++) {
+        try {
+          const { error } = await sb.from('listing_candidates').update({ description: draft }).eq('id', c.id)
+          if (!error) { writeErr = null; break }
+          writeErr = error.message
+        } catch (err) { writeErr = err.message }
+        await new Promise(r => setTimeout(r, 1500 * (a + 1)))
+      }
+      if (writeErr) { out.status = 'write_failed'; out.reason = writeErr }
     }
     return out
   }
