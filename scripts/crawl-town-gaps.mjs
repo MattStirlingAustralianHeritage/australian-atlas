@@ -208,11 +208,29 @@ const reportLines = []
 const grandGaps = {}   // vertical → count
 const perTown = []
 
-packLoop:
-for (const [slug, pack] of packs) {
-  const isSuburbPack = SUBURB_PACK_SLUGS.has(slug)
-  console.log(`\n══════ ${pack.name || slug} (${pack.state}) ══════`)
-  for (const anchor of pack.anchors) {
+// Flatten to one work list. When more than one pack is in play we INTERLEAVE
+// them — first anchor of every pack, then the second of every pack, and so on —
+// so that a --max cap spreads across the country instead of being spent entirely
+// inside the first city. Depth-first ordering exhausted a 130 cap in Sydney
+// before Brisbane or Perth were reached, which is the opposite of a broad sweep.
+const anchorTasks = []
+if (packs.length > 1) {
+  const deepest = Math.max(...packs.map(([, p]) => p.anchors.length))
+  for (let i = 0; i < deepest; i++) {
+    for (const [slug, pack] of packs) {
+      if (pack.anchors[i]) anchorTasks.push({ slug, pack, anchor: pack.anchors[i] })
+    }
+  }
+} else {
+  for (const [slug, pack] of packs) for (const anchor of pack.anchors) anchorTasks.push({ slug, pack, anchor })
+}
+console.log(`${anchorTasks.length} anchors across ${packs.length} pack(s)${packs.length > 1 ? ', interleaved' : ''}.`)
+
+let lastPackSlug = null
+{
+  for (const { slug, pack, anchor } of anchorTasks) {
+    const isSuburbPack = SUBURB_PACK_SLUGS.has(slug)
+    if (slug !== lastPackSlug) { console.log(`\n── ${pack.name || slug} (${pack.state}) ──`); lastPackSlug = slug }
     const radiusKm = anchor.radiusKm || defRadiusKm
     const bbox = bboxFromCenter(anchor.lat, anchor.lng, radiusKm * 1000)
     process.stdout.write(`  ${anchor.name} (r=${radiusKm}km) … `)
