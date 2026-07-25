@@ -44,7 +44,19 @@
     "hobart-suburbs/Glenorchy",
     "canberra-suburbs/Kingston",
     "darwin-suburbs/Nightcliff",
-    "newcastle-suburbs/Merewether"
+    "newcastle-suburbs/Merewether",
+    "wollongong-illawarra/Austinmer",
+    "geelong-suburbs/Geelong West",
+    "gold-coast-suburbs/Palm Beach",
+    "sunshine-coast-suburbs/Coolum Beach",
+    "cairns-suburbs/Redlynch",
+    "townsville-suburbs/Kirwan",
+    "sydney-inner-west/Leichhardt",
+    "sydney-west/Auburn",
+    "sydney-north/Manly",
+    "sydney-south/Hurstville",
+    "melbourne-north/Thornbury",
+    "melbourne-west/Williamstown"
   ],
   "startedAt": "2026-07-25T00:00:00Z"
 }
