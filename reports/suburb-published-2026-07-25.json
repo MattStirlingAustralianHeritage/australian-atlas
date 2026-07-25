@@ -1,0 +1,57 @@
+{
+  "base": "https://www.australianatlas.com.au",
+  "published": [
+    {
+      "id": "020b8db4-df10-4586-afa7-e462fbda65ce",
+      "name": "Altitude 1148",
+      "vertical": "table",
+      "region": "Illawarra",
+      "state": "NSW",
+      "status": "ok",
+      "reason": null,
+      "description": "At Bulli Tops, in the Southern Gateway Centre off the M1 Princes Motorway, this contemporary restaurant, café and function centre looks out over panoramic views of the Illawarra. The kitchen combines authentic traditional Indian cuisine with seafood dishes and a modern Australian menu, and the venue is 100% halal certified, with gluten-free and vegetarian options. The adjoining café serves barista-made coffee alongside lighter meals, from cakes to burgers.",
+      "attempts": 1,
+      "via": "direct",
+      "softenedClaims": [
+        "At Bulli Tops"
+      ],
+      "warnings": [],
+      "listingId": "66f833f9-038d-4c03-8f0f-7633a92333dd",
+      "slug": "altitude-1148",
+      "secs": "8.6"
+    },
+    {
+      "id": "430d037f-45b9-4565-8f00-f23367382894",
+      "name": "antojitos - Mayfield",
+      "vertical": "table",
+      "region": "Newcastle",
+      "state": "NSW",
+      "status": "ok",
+      "reason": null,
+      "description": "A casual California/Mexican street food restaurant serving burritos, tacos, nachos and more. The kitchen keeps things simple, affordable and fresh, with an emphasis on flavour, whether you dine in or take away. This is the Mayfield shop on Maitland Road, one of two Newcastle locations.",
+      "attempts": 1,
+      "via": "direct",
+      "warnings": [],
+      "listingId": "b5c41050-a9f0-4c1c-bb25-661cf44538c4",
+      "slug": "antojitos-mayfield",
+      "secs": "3.9"
+    },
+    {
+      "id": "cbd910c3-1bd7-4fea-bfc0-b6b860eef0bb",
+      "name": "Bulli Beach Cafe",
+      "vertical": "table",
+      "region": "Bulli",
+      "state": "NSW",
+      "status": "ok",
+      "reason": null,
+      "description": "A relaxed cafe just steps from Bulli Beach, serving breakfast, lunch and dinner with an outlook over the water. Coffee comes from Seven Miles Coffee Roasters, made to order across flat whites, long blacks and iced coffees. From Friday to Sunday the kitchen shifts to dinner, with wood-fired pizzas, pastas, salads and mains, alongside beer, wine and cocktails. There's a grazing antipasto platter of charcuterie, cheeses, olives, bread and dips, and a kids menu of pizza, pasta, fish and chips. Outdoor seating is dog friendly, and much of the menu is available for takeaway.",
+      "attempts": 1,
+      "via": "direct",
+      "warnings": [],
+      "listingId": "3b545c03-77fc-4791-94d9-7db20fae3209",
+      "slug": "bulli-beach-cafe",
+      "secs": "3.0"
+    }
+  ],
+  "failed": []
+}

@@ -154,5 +154,17 @@
     "status": "no_merit",
     "reason": "large generic suburban community club with a betting sub-club; earlier batch rejected it and the strictest verdict stands",
     "at": "2026-07-25T11:14:07.100Z"
+  },
+  "f6b952a7-c70d-42ab-b6d6-51c65a8ac770": {
+    "name": "Chickita",
+    "status": "no_merit",
+    "reason": "Multi-outlet chain 'concept' with locations in three shopping centres, a loyalty program and franchise-style branding — corporate and transactional, not an independent place worth going out of your way for.",
+    "at": "2026-07-25T11:17:35.540Z"
+  },
+  "9320068e-7c97-43ea-99e3-861efffb53ed": {
+    "name": "Grevillea Park",
+    "status": "identity_fail",
+    "reason": "Website is a Texas septic tank installation company (Conroe, Montgomery County, TX), not a green space/park in Illawarra NSW.",
+    "at": "2026-07-25T11:17:45.445Z"
   }
 }

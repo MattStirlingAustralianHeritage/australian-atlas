@@ -1,0 +1,148 @@
+{
+  "model": "claude-opus-4-8",
+  "dryRun": false,
+  "results": [
+    {
+      "id": "020b8db4-df10-4586-afa7-e462fbda65ce",
+      "name": "Altitude 1148",
+      "vertical": "table",
+      "region": "Illawarra",
+      "state": "NSW",
+      "status": "ok",
+      "reason": null,
+      "description": "At Bulli Tops, in the Southern Gateway Centre off the M1 Princes Motorway, this contemporary restaurant, café and function centre looks out over panoramic views of the Illawarra. The kitchen combines authentic traditional Indian cuisine with seafood dishes and a modern Australian menu, and the venue is 100% halal certified, with gluten-free and vegetarian options. The adjoining café serves barista-made coffee alongside lighter meals, from cakes to burgers.",
+      "attempts": 1,
+      "via": "direct",
+      "softenedClaims": [
+        "At Bulli Tops"
+      ],
+      "warnings": []
+    },
+    {
+      "id": "2e2d39d5-f9b8-4854-b629-89065425b04b",
+      "name": "Frame Today",
+      "vertical": "corner",
+      "region": "Sydney",
+      "state": "NSW",
+      "status": "failed_gates",
+      "reason": "binding:proper_noun \"Part of Frame Today\", proper_noun \"NSW and Queensland\"",
+      "description": null,
+      "attempts": 2,
+      "via": "direct",
+      "softenedClaims": [
+        "O'Riordan Street and Doody Street"
+      ]
+    },
+    {
+      "id": "430d037f-45b9-4565-8f00-f23367382894",
+      "name": "antojitos - Mayfield",
+      "vertical": "table",
+      "region": "Newcastle",
+      "state": "NSW",
+      "status": "ok",
+      "reason": null,
+      "description": "A casual California/Mexican street food restaurant serving burritos, tacos, nachos and more. The kitchen keeps things simple, affordable and fresh, with an emphasis on flavour, whether you dine in or take away. This is the Mayfield shop on Maitland Road, one of two Newcastle locations.",
+      "attempts": 1,
+      "via": "direct",
+      "warnings": []
+    },
+    {
+      "id": "0869a3ed-19c8-4257-b0cd-f6651540f0d4",
+      "name": "Sinjeon",
+      "vertical": "table",
+      "region": "Melbourne",
+      "state": "VIC",
+      "status": "failed_gates",
+      "reason": "binding:proper_noun \"New South Wales and Queensland\"",
+      "description": null,
+      "attempts": 2,
+      "via": "direct"
+    },
+    {
+      "id": "85dfba53-685d-4191-b5db-ece37e0c4672",
+      "name": "The Esplanade Hotel",
+      "vertical": "rest",
+      "region": "Perth",
+      "state": "WA",
+      "status": "no_site_text",
+      "reason": "site unreadable (http 403)",
+      "description": null,
+      "attempts": 0
+    },
+    {
+      "id": "c94fde32-82b2-4902-8bb7-ae4559d30f7d",
+      "name": "Headlands Hotel",
+      "vertical": "table",
+      "region": "Illawarra",
+      "state": "NSW",
+      "status": "no_site_text",
+      "reason": "site unreadable (http 403)",
+      "description": null,
+      "attempts": 0
+    },
+    {
+      "id": "8d98dd1d-5d08-4e15-b5a7-a4a699253c9b",
+      "name": "Kusuka Corner",
+      "vertical": "table",
+      "region": "Sunnybank",
+      "state": "QLD",
+      "status": "failed_gates",
+      "reason": "binding:proper_noun \"An Indonesian-inspired\"",
+      "description": null,
+      "attempts": 2,
+      "via": "direct",
+      "softenedClaims": [
+        "Friday and Saturday"
+      ]
+    },
+    {
+      "id": "a79f3764-cb42-4597-990b-8cc420f9fc76",
+      "name": "Panorama House",
+      "vertical": "table",
+      "region": "Illawarra",
+      "state": "NSW",
+      "status": "failed_gates",
+      "reason": "binding:proper_noun \"Sitting on Bulli Tops\"",
+      "description": null,
+      "attempts": 2,
+      "via": "direct"
+    },
+    {
+      "id": "cbd910c3-1bd7-4fea-bfc0-b6b860eef0bb",
+      "name": "Bulli Beach Cafe",
+      "vertical": "table",
+      "region": "Bulli",
+      "state": "NSW",
+      "status": "ok",
+      "reason": null,
+      "description": "A relaxed cafe just steps from Bulli Beach, serving breakfast, lunch and dinner with an outlook over the water. Coffee comes from Seven Miles Coffee Roasters, made to order across flat whites, long blacks and iced coffees. From Friday to Sunday the kitchen shifts to dinner, with wood-fired pizzas, pastas, salads and mains, alongside beer, wine and cocktails. There's a grazing antipasto platter of charcuterie, cheeses, olives, bread and dips, and a kids menu of pizza, pasta, fish and chips. Outdoor seating is dog friendly, and much of the menu is available for takeaway.",
+      "attempts": 1,
+      "via": "direct",
+      "warnings": []
+    },
+    {
+      "id": "f6b952a7-c70d-42ab-b6d6-51c65a8ac770",
+      "name": "Chickita",
+      "vertical": "table",
+      "region": "Melbourne",
+      "state": "VIC",
+      "status": "no_merit",
+      "reason": "Multi-outlet chain 'concept' with locations in three shopping centres, a loyalty program and franchise-style branding — corporate and transactional, not an independent place worth going out of your way for.",
+      "description": null,
+      "attempts": 1,
+      "via": "direct"
+    },
+    {
+      "id": "9320068e-7c97-43ea-99e3-861efffb53ed",
+      "name": "Grevillea Park",
+      "vertical": "field",
+      "region": "Illawarra",
+      "state": "NSW",
+      "status": "identity_fail",
+      "reason": "Website is a Texas septic tank installation company (Conroe, Montgomery County, TX), not a green space/park in Illawarra NSW.",
+      "description": null,
+      "attempts": 2,
+      "via": "direct"
+    }
+  ]
+}
