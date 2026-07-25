@@ -42,6 +42,10 @@
  *   --metro         run every metro suburb pack
  *   --queue         actually run the pipeline + insert candidates (default: report only)
  *   --max=N         cap candidates QUEUED this run across all towns (default 25)
+ *   --max-per-vertical=N  additionally cap per vertical, so `table` does not
+ *                   consume the whole budget (OSM tags restaurants far more
+ *                   thoroughly than makers, shops or accommodation)
+ *   --recrawl       redo anchors already recorded as crawled
  *   --radius=KM     default anchor radius in km (default 12; suburb anchors
  *                   carry their own tighter radiusKm and ignore this)
  *   --list          print the available packs and exit
@@ -84,6 +88,14 @@ const runMetro = has('metro')
 // leftovers that failed last time and queues almost nothing. Finishing 193
 // anchors is only practical if each run picks up where the last stopped.
 const recrawl = has('recrawl')
+// Per-vertical ceiling on QUEUEING. OSM's two most-used tags in existence are
+// amenity=restaurant and amenity=cafe, so `table` dominates every gap pool it is
+// in — 115 of the first 150 queued candidates, and 76 of 89 published. The other
+// verticals' selectors are deliberately narrow (see OSM_SELECTORS), so this is
+// mostly a real discovery ceiling rather than a bug. What is fixable is letting
+// table eat the whole --max budget: with a per-vertical cap, a run spends its
+// remaining capacity on the thin verticals instead of a 40th restaurant.
+const maxPerVertical = parseInt(arg('max-per-vertical') || '0', 10) || null
 // Report wording: these anchors are suburbs in metro mode, towns otherwise.
 const placeNoun = runMetro ? 'suburb' : 'town'
 // Optional single-vertical focus (e.g. --vertical=rest). When set, only that
@@ -208,6 +220,8 @@ let queuedTotal = 0
 let skippedByCap = 0
 let innerRingSkipped = 0
 let alreadyCrawled = 0
+let skippedByVerticalCap = 0
+const queuedByVertical = {}
 // Manifest of what this run actually inserted, so a downstream describe/publish
 // step can act on exactly this run's candidates rather than guessing by timestamp.
 const queuedIds = []
@@ -290,6 +304,24 @@ let lastPackSlug = null
     // (separate domains, separate rows), so running a few at a time is safe;
     // PIPELINE_CONCURRENCY stays low to remain polite to the sites being probed
     // and to the Gate-4 model budget.
+    // Interleave the anchor's gaps by vertical before queueing. Otherwise the
+    // pipeline works through them in discovery order, which is table-first, and
+    // a cap reached mid-anchor takes only restaurants.
+    if (gaps.length) {
+      const byVertical = new Map()
+      for (const g of gaps) {
+        if (!byVertical.has(g.vertical)) byVertical.set(g.vertical, [])
+        byVertical.get(g.vertical).push(g)
+      }
+      const queues = [...byVertical.values()]
+      const interleaved = []
+      for (let i = 0; queues.some(q => q.length > i); i++) {
+        for (const q of queues) if (q[i]) interleaved.push(q[i])
+      }
+      gaps.length = 0
+      gaps.push(...interleaved)
+    }
+
     if (doQueue && gaps.length) {
       // Gate 1 spends up to 10s per candidate waiting on a dead OSM `website`
       // tag, and most tags are dead, so throughput here is almost entirely
@@ -307,10 +339,12 @@ let lastPackSlug = null
           }
           const g = gaps[idx++]
           if (!g) return
+          if (maxPerVertical && (queuedByVertical[g.vertical] || 0) >= maxPerVertical) { skippedByVerticalCap += 1; continue }
           try {
             const result = await runPipeline(g, sb, { dryRun: false, verbose: false })
             if (result.inserted) {
               queuedTotal++
+              queuedByVertical[g.vertical] = (queuedByVertical[g.vertical] || 0) + 1
               queuedIds.push({ id: result.candidateId, name: g.name, vertical: g.vertical, town: anchor.name, state: pack.state, score: result.score })
               console.log(`     ✓ QUEUED ${g.name} [${g.vertical}] score ${result.score}`)
             }
@@ -388,6 +422,8 @@ console.log('\n\n=== SUMMARY ===')
 console.log(`${placeNoun[0].toUpperCase()+placeNoun.slice(1)}s crawled: ${perTown.length}`)
 console.log(`Net-new gaps: ${Object.values(grandGaps).reduce((a, b) => a + b, 0)}`)
 if (alreadyCrawled) console.log(`Anchors skipped as already crawled: ${alreadyCrawled}`)
+if (skippedByVerticalCap) console.log(`Not queued (hit --max-per-vertical=${maxPerVertical}): ${skippedByVerticalCap}`)
+if (doQueue) { console.log('Queued by vertical:'); for (const [v, n] of Object.entries(queuedByVertical).sort((a, b) => b[1] - a[1])) console.log(`  ${(VERTICAL_NAMES[v] || v).padEnd(18)} ${n}`) }
 if (innerRingSkipped) console.log(`Skipped inside ${INNER_RING_KM}km of a CBD: ${innerRingSkipped}`)
 for (const [v, n] of Object.entries(grandGaps).sort((a, b) => b[1] - a[1])) console.log(`  ${(VERTICAL_NAMES[v] || v).padEnd(16)} ${n}`)
 if (doQueue) {
