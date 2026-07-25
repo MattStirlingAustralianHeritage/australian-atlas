@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import ConfirmDialog from '@/components/ConfirmDialog'
 import { uploadOperatorImage } from '@/lib/uploadOperatorImage'
+import { Panel, LockedNote, PanelActions } from './EditorPanel'
 
 /**
  * Events manager for the listing editor (paid perk).
@@ -10,7 +11,7 @@ import { uploadOperatorImage } from '@/lib/uploadOperatorImage'
  * Loads, creates, edits and deletes events for one listing via
  * /api/dashboard/events (Bearer). A published event surfaces on the listing's
  * public page and the Atlas /events index; a draft stays private to this editor.
- * Mirrors the photo-gallery perk pattern: a lock card when the listing isn't paid.
+ * Renders as a Panel in the editor's shared shell — locked state included.
  */
 
 const ICONS = {
@@ -148,23 +149,35 @@ export default function EventsSection({ listingId, token, isPaid, listingSlug })
   // ── Non-paid lock card ──
   if (!isPaid) {
     return (
-      <Section>
-        <div style={lockCard}>
-          <span style={{ display: 'inline-flex', color: 'var(--color-sage)', flexShrink: 0 }}>{ICONS.calendar}</span>
-          <div>
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600, color: 'var(--color-ink)', margin: 0 }}>Host your own events</p>
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '4px 0 0', lineHeight: 1.5 }}>
-              Events are part of a paid listing. Publish tastings, markets and pop-ups to your page and the Atlas events calendar.
-            </p>
-            <a href="/dashboard/subscription" style={{ display: 'inline-block', marginTop: 10, fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600, color: 'var(--color-sage)', textDecoration: 'none' }}>View subscription options →</a>
-          </div>
-        </div>
-      </Section>
+      <Panel id="events" title="Events" status="locked" summary="Included with Standard">
+        <LockedNote>
+          List tastings, markets, dinners and pop-ups. Published events appear on your public listing and on the Atlas events page. Included with Standard.
+        </LockedNote>
+      </Panel>
     )
   }
 
+  // ── Panel header state: published/draft split reads better than a bare count ──
+  const publishedCount = events.filter(ev => ev.published).length
+  const draftCount = events.length - publishedCount
+  const summary = loading
+    ? 'Loading…'
+    : events.length === 0
+      ? 'No events yet'
+      : [
+          publishedCount ? `${publishedCount} published` : null,
+          draftCount ? `${draftCount} draft${draftCount === 1 ? '' : 's'}` : null,
+        ].filter(Boolean).join(', ')
+
   return (
-    <Section count={events.length} max={maxEvents}>
+    <Panel
+      id="events"
+      title="Events"
+      status={events.length ? 'done' : 'empty'}
+      meta={`${events.length} / ${maxEvents}`}
+      summary={summary}
+    >
+      <style>{`.aa-evt-add:hover { border-color: var(--color-sage) !important; color: var(--color-sage) !important; background: rgba(122,143,107,0.06) !important; }`}</style>
       <ConfirmDialog
         open={!!pendingDelete}
         title="Delete this event?"
@@ -295,31 +308,13 @@ export default function EventsSection({ listingId, token, isPaid, listingSlug })
             </label>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
-            <button type="button" onClick={() => { setForm(null); setFormError(null) }} disabled={saving} style={cancelBtn}>Cancel</button>
+          <PanelActions>
             <button type="button" onClick={save} disabled={saving || uploading} style={saveBtn}>{saving ? 'Saving…' : (form.id ? 'Save event' : 'Add event')}</button>
-          </div>
+            <button type="button" onClick={() => { setForm(null); setFormError(null) }} disabled={saving} style={cancelBtn}>Cancel</button>
+          </PanelActions>
         </div>
       )}
-    </Section>
-  )
-}
-
-// ── Layout shell (matches the gallery section header) ──
-function Section({ children, count, max }) {
-  return (
-    <div style={{ marginTop: 36, paddingTop: 28, borderTop: '1px solid var(--color-border)' }}>
-      <style>{`.aa-evt-add:hover { border-color: var(--color-sage) !important; color: var(--color-sage) !important; background: rgba(122,143,107,0.06) !important; }`}</style>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 4, flexWrap: 'wrap' }}>
-        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)', margin: 0 }}>Events</h2>
-        {typeof count === 'number' && count > 0 && (
-          <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-muted)' }}>
-            {max ? `${count} / ${max} events` : `${count} event${count === 1 ? '' : 's'}`}
-          </span>
-        )}
-      </div>
-      {children}
-    </div>
+    </Panel>
   )
 }
 
@@ -336,7 +331,6 @@ function Field({ label, hint, children, style }) {
 // ── styles ──
 const helpText = { fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '0 0 16px', lineHeight: 1.5 }
 const errBox = { marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', fontFamily: 'var(--font-body)', fontSize: 13 }
-const lockCard = { display: 'flex', gap: 14, alignItems: 'flex-start', padding: 18, borderRadius: 12, border: '1px solid var(--color-border)', background: 'var(--color-card-bg)' }
 const eventRow = { display: 'flex', alignItems: 'center', gap: 14, padding: 12, borderRadius: 12, border: '1px solid var(--color-border)', background: '#fff' }
 const thumb = { width: 64, height: 64, borderRadius: 10, overflow: 'hidden', flexShrink: 0, background: 'var(--color-cream)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--color-border)' }
 const typePill = { display: 'inline-block', padding: '1px 8px', borderRadius: 100, background: '#F1EFE8', color: '#5F5E5A', fontSize: 11, textTransform: 'capitalize' }

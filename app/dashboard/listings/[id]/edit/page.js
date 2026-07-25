@@ -8,9 +8,10 @@ import { uploadOperatorImage } from '@/lib/uploadOperatorImage'
 import { getListingRegion } from '@/lib/regions'
 import { getVerticalLabel, getVerticalBrandColour } from '@/lib/verticalUrl'
 import { parseVideoUrl, VIDEO_PROVIDER_LABELS } from '@/lib/video-embed'
+import { getCompleteness } from '@/lib/listing-completeness'
+import { PanelGroup, PanelGroupHeading, Panel, LockedNote, PanelActions } from './EditorPanel'
 import HighlightsEditor from './HighlightsEditor'
 import KeywordsEditor from './KeywordsEditor'
-import TradeReadinessEditor from './TradeReadinessEditor'
 import EventsSection from './EventsSection'
 import OffersSection from './OffersSection'
 import AwardsSection from './AwardsSection'
@@ -18,23 +19,32 @@ import QnaSection from './QnaSection'
 import PicksSection from './PicksSection'
 
 /**
- * WYSIWYG operator listing editor.
+ * Operator listing editor.
  *
- * Renders the listing the way visitors see it on /place/[slug] — hero band,
- * editorial description, and a meta sidebar — and lets the operator edit the
- * four owner-controllable fields inline: hero image, website, phone and
- * opening hours. Everything else (name, category, location, description) is a
- * read-only preview so the operator sees their page as it will appear.
+ * Shape of the page: a live preview of the listing's hero at the top, a
+ * "what's left to do" strip, then the editable surface as a set of collapsed
+ * panels (see EditorPanel.js). Only one panel is open at a time, so the
+ * operator is never looking at more than one decision.
+ *
+ * This replaced a single endless page that rendered all thirteen sections
+ * expanded at once. The panels are grouped into "The essentials" — the four
+ * things that actually make a listing usable, all editable on a free claim —
+ * and "Make it richer", which is everything optional.
  *
  * Tiering ("keeper of the facts"): a FREE claim keeps the facts editable —
- * website, phone and opening hours only. Photos, highlights, keywords, events
- * and picks render in their locked/upgrade presentation until the claim is
- * Standard (the PATCH route enforces the same field set server-side). Paid
- * claims and admins get the full editor.
+ * website, phone and opening hours only. Photos, video, highlights, keywords,
+ * events and picks show their locked presentation until the claim is Standard
+ * (the PATCH route enforces the same field set server-side). Paid claims and
+ * admins get everything.
  *
  * Saves through PATCH /api/dashboard/listing (master write + vertical
- * sync-back), the same contract as the previous form-based editor. A floating
- * action bar surfaces only when there are unsaved changes.
+ * sync-back) — unchanged from before. Panels that own their own endpoint
+ * (events, offers, awards, Q&A, picks, highlights, keywords) still save
+ * themselves; the floating bar covers only the fields this page owns.
+ *
+ * Trade readiness deliberately does NOT live here: /dashboard/trade is the
+ * canonical place for it. It used to render here unconditionally, which meant
+ * free-claim operators saw an editable section whose save always 403'd.
  */
 
 // ── Day / vertical helpers ──────────────────────────────────
@@ -121,163 +131,91 @@ function groupHours(hours) {
 function groupLabel(g) {
   return g.startDay === g.endDay ? DAY_SHORT[g.startDay] : `${DAY_SHORT[g.startDay]}–${DAY_SHORT[g.endDay]}`
 }
-function getCurrentDay() {
-  return ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][new Date().getDay()]
-}
-function isOpenNow(hours) {
-  const th = hours?.[getCurrentDay()]
-  if (!th) return false
-  const now = new Date()
-  const cm = now.getHours() * 60 + now.getMinutes()
-  const [oh, om] = th.open.split(':').map(Number)
-  const [ch, cm2] = th.close.split(':').map(Number)
-  return cm >= oh * 60 + om && cm < ch * 60 + cm2
+/** "Mon–Fri 9am–5pm, Sat 10am–2pm" — the collapsed panel's hours line. */
+function hoursSummary(hours) {
+  if (!hours) return null
+  const open = groupHours(hours).filter(g => !g.closed)
+  if (!open.length) return null
+  const shown = open.slice(0, 2).map(g => `${groupLabel(g)} ${formatTime(g.open)}–${formatTime(g.close)}`)
+  return shown.join(', ') + (open.length > 2 ? '…' : '')
 }
 
 // ── Icons ────────────────────────────────────────────────────
 const ICONS = {
-  pin: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
-  globe: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" /></svg>,
-  phone: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" /></svg>,
-  map: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4zM8 2v16M16 6v16" /></svg>,
-  clock: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>,
-  pencil: <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M10.5 1.5L12.5 3.5L4.5 11.5L1.5 12.5L2.5 9.5L10.5 1.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" /></svg>,
-  camera: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" /><circle cx="12" cy="13" r="4" /></svg>,
+  globe: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a15 15 0 014 9 15 15 0 01-4 9 15 15 0 01-4-9 15 15 0 014-9z" /></svg>,
+  phone: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" /></svg>,
+  clock: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><polyline points="12 7 12 12 15.5 14" /></svg>,
+  camera: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" /><circle cx="12" cy="13" r="4" /></svg>,
   external: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>,
   trash: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" /><path d="M10 11v6M14 11v6" /></svg>,
-  lock: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>,
   check: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>,
-  play: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polygon points="10 8 16 12 10 16 10 8" /></svg>,
 }
 
-// ── Shared styles for inline-edit primitives ─────────────────
-const dtLabel = { fontFamily: 'var(--font-body)', color: 'var(--color-muted)', letterSpacing: '0.08em', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', marginBottom: 3 }
-const metaStatic = { fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--color-ink)', lineHeight: 1.45 }
-const editTriggerStyle = { display: 'inline-flex', alignItems: 'center', gap: 6, maxWidth: '100%', background: 'none', border: 'none', padding: '3px 6px', margin: '-3px -6px', borderRadius: 6, cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: 1.45, textAlign: 'left' }
-const inlineInputStyle = { width: '100%', padding: '6px 8px', border: '1px solid var(--color-sage)', borderRadius: 6, fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--color-ink)', background: '#fff', outline: 'none', boxSizing: 'border-box' }
-const timeInput = { padding: '5px 7px', borderRadius: 6, border: '1px solid var(--color-border)', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-ink)', background: '#fff' }
-const editToggle = { background: 'none', border: 'none', color: 'var(--color-sage)', fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 600, cursor: 'pointer', padding: 0 }
+// ── Shared field primitives ──────────────────────────────────
+const fieldLabel = { display: 'flex', alignItems: 'center', gap: 7, fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 600, letterSpacing: '0.02em', color: 'var(--color-ink)', marginBottom: 6 }
+const fieldHint = { fontFamily: 'var(--font-body)', fontSize: 12.5, color: 'var(--color-muted)', margin: '5px 0 0', lineHeight: 1.5 }
+const textInput = { width: '100%', padding: '11px 13px', borderRadius: 9, border: '1px solid var(--color-border)', background: '#fff', fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--color-ink)', outline: 'none', boxSizing: 'border-box' }
+const timeInput = { padding: '6px 8px', borderRadius: 7, border: '1px solid var(--color-border)', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-ink)', background: '#fff' }
+const errBox = { marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', fontFamily: 'var(--font-body)', fontSize: 13 }
 
-// ── Inline click-to-edit text value ──────────────────────────
-function EditableValue({ value, onChange, placeholder, inputType = 'text', inputMode, format, color }) {
-  const [editing, setEditing] = useState(false)
-  const startRef = useRef('')
-  const inputRef = useRef(null)
-
-  useEffect(() => {
-    if (editing && inputRef.current) {
-      inputRef.current.focus()
-      inputRef.current.select()
-    }
-  }, [editing])
-
-  if (editing) {
-    return (
-      <input
-        ref={inputRef}
-        type={inputType}
-        inputMode={inputMode}
-        value={value}
-        placeholder={placeholder}
-        onChange={e => onChange(e.target.value)}
-        onKeyDown={e => {
-          if (e.key === 'Enter') { e.preventDefault(); setEditing(false) }
-          else if (e.key === 'Escape') { onChange(startRef.current); setEditing(false) }
-        }}
-        onBlur={() => setEditing(false)}
-        style={inlineInputStyle}
-      />
-    )
-  }
-
-  const has = !!(value && value.trim())
+/** Labelled text field — the one input pattern the whole editor uses. */
+function Field({ icon, label, hint, children }) {
   return (
-    <button
-      type="button"
-      className="aa-edit"
-      onClick={() => { startRef.current = value || ''; setEditing(true) }}
-      style={{ ...editTriggerStyle, color: has ? (color || 'var(--color-ink)') : 'var(--color-muted)' }}
-    >
-      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontStyle: has ? 'normal' : 'italic' }}>
-        {has ? (format ? format(value) : value) : placeholder}
-      </span>
-      <span className="aa-pencil" style={{ flexShrink: 0, display: 'inline-flex' }}>{ICONS.pencil}</span>
-    </button>
-  )
-}
-
-// ── Meta row (icon + label + value), matches the public sidebar ──
-function MetaRow({ icon, label, children }) {
-  return (
-    <div style={{ display: 'flex', gap: 12 }}>
-      <span style={{ color: 'var(--color-accent)', flexShrink: 0, marginTop: 2 }}>{ICONS[icon]}</span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={dtLabel}>{label}</div>
-        {children}
-      </div>
+    <div>
+      <label style={fieldLabel}>
+        {icon && <span style={{ color: 'var(--color-accent)', display: 'inline-flex' }}>{ICONS[icon]}</span>}
+        {label}
+      </label>
+      {children}
+      {hint && <p style={fieldHint}>{hint}</p>}
     </div>
   )
 }
 
-// ── Opening-hours block: grouped display ↔ inline day editor ──
-function HoursBlock({ days, setDay, editing, setEditing, mounted }) {
-  const hours = daysToHours(days)
-  const groups = hours ? groupHours(hours) : []
-  const openNow = mounted && hours ? isOpenNow(hours) : null
+// ── Opening-hours editor ─────────────────────────────────────
+function HoursEditor({ days, setDay }) {
+  // "Same every day" is how most venues actually work; copying Monday down is
+  // far quicker than setting seven pairs of times by hand.
+  function copyMondayDown() {
+    const src = days.monday
+    for (const d of DAY_KEYS) {
+      if (d !== 'monday') setDay(d, { enabled: src.enabled, open: src.open, close: src.close })
+    }
+  }
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: (editing || hours) ? 12 : 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ color: 'var(--color-muted)', display: 'inline-flex' }}>{ICONS.clock}</span>
-          <span style={dtLabel}>Opening hours</span>
-        </div>
-        <button type="button" onClick={() => setEditing(!editing)} style={editToggle}>
-          {editing ? 'Done' : (hours ? 'Edit' : null)}
-        </button>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+        {DAY_KEYS.map(day => (
+          <div key={day} style={{ display: 'flex', alignItems: 'center', gap: 12, minHeight: 32 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, width: 118, cursor: 'pointer', flexShrink: 0 }}>
+              <input
+                type="checkbox"
+                checked={days[day].enabled}
+                onChange={e => setDay(day, { enabled: e.target.checked })}
+                style={{ accentColor: 'var(--color-sage)', width: 15, height: 15 }}
+              />
+              <span style={{ fontFamily: 'var(--font-body)', fontSize: 13.5, color: 'var(--color-ink)' }}>{DAY_FULL[day]}</span>
+            </label>
+            {days[day].enabled ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                <input type="time" value={days[day].open} onChange={e => setDay(day, { open: e.target.value })} style={timeInput} />
+                <span style={{ fontSize: 12, color: 'var(--color-muted)' }}>to</span>
+                <input type="time" value={days[day].close} onChange={e => setDay(day, { close: e.target.value })} style={timeInput} />
+              </div>
+            ) : (
+              <span style={{ fontSize: 13, color: 'var(--color-muted)', fontFamily: 'var(--font-body)' }}>Closed</span>
+            )}
+          </div>
+        ))}
       </div>
-
-      {editing ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {DAY_KEYS.map(day => (
-            <div key={day} style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 30 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 7, width: 104, cursor: 'pointer' }}>
-                <input type="checkbox" checked={days[day].enabled} onChange={e => setDay(day, { enabled: e.target.checked })} style={{ accentColor: 'var(--color-sage)' }} />
-                <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-ink)' }}>{DAY_FULL[day]}</span>
-              </label>
-              {days[day].enabled ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <input type="time" value={days[day].open} onChange={e => setDay(day, { open: e.target.value })} style={timeInput} />
-                  <span style={{ fontSize: 12, color: 'var(--color-muted)' }}>to</span>
-                  <input type="time" value={days[day].close} onChange={e => setDay(day, { close: e.target.value })} style={timeInput} />
-                </div>
-              ) : (
-                <span style={{ fontSize: 12, color: 'var(--color-muted)', fontFamily: 'var(--font-body)' }}>Closed</span>
-              )}
-            </div>
-          ))}
-        </div>
-      ) : hours ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {groups.map(g => (
-            <div key={g.startDay} style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)' }}>
-              <span>{groupLabel(g)}</span>
-              <span>{g.closed ? 'Closed' : `${formatTime(g.open)}–${formatTime(g.close)}`}</span>
-            </div>
-          ))}
-          {openNow !== null && (
-            <div style={{ marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontFamily: 'var(--font-body)', color: openNow ? '#3a7d44' : 'var(--color-muted)' }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: openNow ? '#3a7d44' : 'var(--color-muted)' }} />
-              {openNow ? 'Open now' : 'Closed now'}
-            </div>
-          )}
-        </div>
-      ) : (
-        <button type="button" onClick={() => setEditing(true)} style={{ ...editTriggerStyle, color: 'var(--color-muted)', fontStyle: 'italic' }}>
-          Add opening hours
-          <span className="aa-pencil" style={{ display: 'inline-flex' }}>{ICONS.pencil}</span>
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={copyMondayDown}
+        style={{ marginTop: 12, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600, color: 'var(--color-sage)' }}
+      >
+        Apply Monday’s hours to every day
+      </button>
     </div>
   )
 }
@@ -291,11 +229,9 @@ export default function EditListingPage() {
   const [listing, setListing] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [mounted, setMounted] = useState(false)
 
   // Paid-tier gate: the FULL editor is unlocked by an active standard claim
-  // (listing.paid) or for admins. Free-tier operators keep the facts editable
-  // (website, phone, hours) and see an upgrade banner + locked sections instead.
+  // (listing.paid) or for admins.
   const [upgrading, setUpgrading] = useState(false)
   const [upgradeError, setUpgradeError] = useState(null)
   const [justUpgraded, setJustUpgraded] = useState(false)
@@ -306,7 +242,6 @@ export default function EditListingPage() {
   const [gallery, setGallery] = useState([])
   const [videoUrl, setVideoUrl] = useState('')
   const [days, setDays] = useState(defaultDays)
-  const [hoursEditing, setHoursEditing] = useState(false)
 
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState(null)
@@ -321,13 +256,30 @@ export default function EditListingPage() {
   const [pollTimedOut, setPollTimedOut] = useState(false)
   const [pollNonce, setPollNonce] = useState(0)
 
+  // Which panel is expanded. Lifted out of PanelGroup so the "what's left"
+  // chips can open the panel that fixes a given gap and scroll to it.
+  const [openPanel, setOpenPanel] = useState('basics')
+
+  function openAndScroll(panelId) {
+    setOpenPanel(panelId)
+    requestAnimationFrame(() => {
+      document.getElementById(`panel-${panelId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }
+
   const baselineRef = useRef({ website: '', phone: '', heroImageUrl: '', hoursKey: 'null', galleryKey: '[]', videoUrl: '' })
 
   const setBaseline = useCallback((w, p, h, d, g, v) => {
     baselineRef.current = { website: w, phone: p, heroImageUrl: h, hoursKey: JSON.stringify(daysToHours(d)), galleryKey: JSON.stringify(g || []), videoUrl: v || '' }
   }, [])
 
-  useEffect(() => { setMounted(true) }, [])
+  // Deep link from the Overview's "what's left" chips (#panel-cover, …) —
+  // open that panel instead of the default one. Runs once on mount; the
+  // scroll happens after the listing loads so the panel actually exists.
+  useEffect(() => {
+    const hash = typeof window !== 'undefined' ? window.location.hash : ''
+    if (hash.startsWith('#panel-')) setOpenPanel(hash.slice('#panel-'.length))
+  }, [])
 
   // Returning from a successful upgrade checkout (?upgraded=1). The webhook may
   // take a moment to flip the claim to standard, so we flag it and let the
@@ -438,11 +390,7 @@ export default function EditListingPage() {
     setUploadError(null)
     setUploading(true)
     try {
-      const url = await uploadOperatorImage(file, {
-        token,
-        listingId: id,
-        assetKind: 'hero',
-      })
+      const url = await uploadOperatorImage(file, { token, listingId: id, assetKind: 'hero' })
       setHeroImageUrl(url)
     } catch (err) {
       setUploadError(err?.message || 'Upload failed')
@@ -467,11 +415,7 @@ export default function EditListingPage() {
     setGalleryUploading(n => n + toUpload.length)
     for (const file of toUpload) {
       try {
-        const url = await uploadOperatorImage(file, {
-          token,
-          listingId: id,
-          assetKind: 'gallery',
-        })
+        const url = await uploadOperatorImage(file, { token, listingId: id, assetKind: 'gallery' })
         setGallery(prev => (prev.length < MAX_GALLERY && !prev.includes(url) ? [...prev, url] : prev))
       } catch (err) {
         setGalleryError(err?.message || 'Some photos failed to upload')
@@ -503,7 +447,6 @@ export default function EditListingPage() {
     setGallery(JSON.parse(b.galleryKey))
     setVideoUrl(b.videoUrl)
     setDays(hoursToDays(JSON.parse(b.hoursKey)))
-    setHoursEditing(false)
     setSaveError(null)
     setGalleryError(null)
   }
@@ -568,7 +511,6 @@ export default function EditListingPage() {
         if (gmod && Array.isArray(gmod.statuses)) {
           setGalleryStatus(Object.fromEntries(gmod.statuses.map(s => [s.url, { status: s.status, reason: s.reason }])))
         }
-        setHoursEditing(false)
         setJustSaved(true)
         setLastSavedAt(new Date())
         setTimeout(() => setJustSaved(false), 2500)
@@ -582,14 +524,21 @@ export default function EditListingPage() {
 
   // ── Loading / auth / error states ──
   if (loading) {
-    return <p style={{ fontFamily: 'var(--font-body)', color: 'var(--color-muted)' }}>Loading…</p>
+    return (
+      <div style={{ maxWidth: 780, margin: '0 auto' }}>
+        <div className="aa-skeleton" style={{ height: 200, borderRadius: 14, marginBottom: 16 }} />
+        <div className="aa-skeleton" style={{ height: 64, borderRadius: 14, marginBottom: 10 }} />
+        <div className="aa-skeleton" style={{ height: 64, borderRadius: 14, marginBottom: 10 }} />
+        <div className="aa-skeleton" style={{ height: 64, borderRadius: 14 }} />
+      </div>
+    )
   }
   if (!token) {
     return (
       <div style={{ maxWidth: 520 }}>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '1.6rem', fontWeight: 600, color: 'var(--color-ink)', margin: 0 }}>Sign in required</h1>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '1.6rem', fontWeight: 400, color: 'var(--color-ink)', margin: 0 }}>Sign in required</h1>
         <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--color-muted)', margin: '8px 0 16px' }}>You need to be signed in to edit a listing.</p>
-        <Link href="/login" style={{ display: 'inline-block', padding: '12px 24px', borderRadius: 8, background: 'var(--color-ink)', color: '#fff', fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500, textDecoration: 'none' }}>Sign in</Link>
+        <Link href="/login" className="btn btn-primary">Sign in</Link>
       </div>
     )
   }
@@ -597,35 +546,30 @@ export default function EditListingPage() {
     return (
       <div style={{ maxWidth: 520 }}>
         <Link href="/dashboard/listings" style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', textDecoration: 'none' }}>← Back to my listings</Link>
-        <div style={{ marginTop: 16, padding: '12px 16px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', fontFamily: 'var(--font-body)', fontSize: 14 }}>{error}</div>
+        <div style={{ marginTop: 16, ...errBox, marginBottom: 0 }}>{error}</div>
       </div>
     )
   }
 
-  // ── Derived preview values ──
+  // ── Derived values ──
   const vertColor = getVerticalBrandColour(listing.vertical) || 'var(--color-sage)'
   const categoryLabel = VERTICAL_CATEGORY_LABELS[listing.vertical] || 'Place'
   const region = getListingRegion(listing)
   const location = [region?.name, listing.state].filter(Boolean).join(', ')
-  const hasCoords = listing.lat && listing.lng
-  const websiteUrl = website?.trim() ? (website.startsWith('http') ? website : `https://${website}`) : null
 
   const isPaid = !!listing.paid
-  // ── Tier flag ("keeper of the facts") ───────────────────────
   // A free claim keeps the FACTS editable — website, phone and opening hours
   // (the PATCH route enforces the same field set server-side). canEditAll
-  // unlocks the rest: photos, highlights, keywords, events and picks. Free
-  // operators see those sections in their locked/upgrade presentation, plus an
-  // upgrade banner (which also hosts the post-checkout finalising states).
+  // unlocks everything else.
   const canEditAll = isPaid || isAdmin
 
-  const dirty =
-    website !== baselineRef.current.website ||
-    phone !== baselineRef.current.phone ||
-    heroImageUrl !== baselineRef.current.heroImageUrl ||
-    JSON.stringify(daysToHours(days)) !== baselineRef.current.hoursKey ||
-    JSON.stringify(gallery) !== baselineRef.current.galleryKey ||
-    videoUrl !== baselineRef.current.videoUrl
+  const hours = daysToHours(days)
+
+  const basicsDirty = website !== baselineRef.current.website || phone !== baselineRef.current.phone || JSON.stringify(hours) !== baselineRef.current.hoursKey
+  const coverDirty = heroImageUrl !== baselineRef.current.heroImageUrl
+  const galleryDirty = JSON.stringify(gallery) !== baselineRef.current.galleryKey
+  const videoDirty = videoUrl !== baselineRef.current.videoUrl
+  const dirty = basicsDirty || coverDirty || galleryDirty || videoDirty
 
   const showBar = dirty || saving || justSaved || saveError
 
@@ -633,34 +577,33 @@ export default function EditListingPage() {
   // YouTube / TikTok / Instagram video) — drives the inline preview + notice.
   const videoParsed = parseVideoUrl(videoUrl)
 
+  // ── "What's left" strip ──
+  // Scored from the shared definition the Overview card also uses, so the two
+  // surfaces can't disagree — but against the LIVE form values, so the meter
+  // moves as the operator types rather than only after a save.
+  const completeness = getCompleteness(listing, {
+    website, phone, hours, hero_image_url: heroImageUrl,
+  })
+
   return (
-    <>
+    <div style={{ maxWidth: 780, margin: '0 auto' }}>
       <style>{`
-        .aa-edit { transition: background 0.12s ease; }
-        .aa-edit:hover { background: rgba(28,26,23,0.05); }
-        .aa-edit .aa-pencil { opacity: 0; transition: opacity 0.12s ease; }
-        .aa-edit:hover .aa-pencil { opacity: 0.45; }
         .aa-hero-btn { transition: background 0.12s ease; }
-        .aa-hero-btn:hover { background: rgba(28,26,23,0.8) !important; }
+        .aa-hero-btn:hover { background: rgba(28,26,23,0.82) !important; }
         .aa-gtile .aa-gtile-bar { opacity: 0; transition: opacity 0.12s ease; }
         .aa-gtile:hover .aa-gtile-bar, .aa-gtile:focus-within .aa-gtile-bar { opacity: 1; }
-        .aa-gadd:hover { border-color: var(--color-sage) !important; color: var(--color-sage) !important; background: rgba(122,143,107,0.06) !important; }
+        .aa-gadd:hover { border-color: var(--color-sage) !important; color: var(--color-sage) !important; background: rgba(95,138,126,0.06) !important; }
+        .aa-todo:hover { border-color: var(--color-sage) !important; color: var(--color-ink) !important; }
+        .aa-input:focus { border-color: var(--color-sage) !important; box-shadow: 0 0 0 3px rgba(95,138,126,0.14); }
       `}</style>
 
       {/* ── Toolbar ── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, maxWidth: 900, margin: '0 auto 16px', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
         <Link href="/dashboard/listings" style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', textDecoration: 'none' }}>← Back to my listings</Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          {/* Live document status: unsaved → saving → saved-at-time. */}
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: dirty ? 'var(--color-gold)' : 'var(--color-sage)' }}>
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: dirty ? 'var(--color-gold)' : 'var(--color-sage)' }} />
-            {saving
-              ? 'Saving…'
-              : dirty
-                ? 'Unsaved changes'
-                : lastSavedAt
-                  ? `Saved ${lastSavedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
-                  : 'Editing'}
+            {saving ? 'Saving…' : dirty ? 'Unsaved changes' : lastSavedAt ? `Saved ${lastSavedAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : 'All saved'}
           </span>
           {listing.slug && (
             <a href={`/place/${listing.slug}`} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500, color: 'var(--color-muted)', textDecoration: 'none' }}>
@@ -670,295 +613,268 @@ export default function EditListingPage() {
         </div>
       </div>
 
-      {/* ── Listing canvas ── */}
-      <div style={{ maxWidth: 900, margin: '0 auto', background: '#fff', border: '1px solid var(--color-border)', borderRadius: 16, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 10px 34px rgba(0,0,0,0.06)' }}>
-
-        {/* Hero */}
-        <div style={{ position: 'relative', width: '100%', minHeight: 'clamp(280px, 30vw, 380px)', overflow: 'hidden', background: heroImageUrl ? '#1C1A17' : 'linear-gradient(135deg, #2b2823, #3c352c)' }}>
-          {heroImageUrl && (
-            <img src={heroImageUrl} alt={listing.name} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+      {/* ── Hero preview — how the listing reads to a visitor right now ── */}
+      <div style={{ position: 'relative', borderRadius: 14, overflow: 'hidden', height: 190, background: heroImageUrl ? '#1C1A17' : 'linear-gradient(135deg, #2b2823, #3c352c)', marginBottom: 16 }}>
+        {heroImageUrl && (
+          <img src={heroImageUrl} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+        )}
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(28,26,23,0.78) 0%, rgba(28,26,23,0.2) 55%, transparent 85%)' }} />
+        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: '18px 22px' }}>
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: 9.5, fontWeight: 500, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.62)', margin: '0 0 7px' }}>
+            {getVerticalLabel(listing.vertical)} &middot; {categoryLabel}
+          </p>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 'clamp(1.4rem, 3.4vw, 2rem)', lineHeight: 1.15, color: '#fff', margin: 0 }}>
+            {listing.name}
+          </h1>
+          {location && (
+            <p style={{ fontFamily: 'var(--font-body)', fontSize: 13.5, fontWeight: 300, color: 'rgba(255,255,255,0.74)', margin: '5px 0 0' }}>{location}</p>
           )}
-          <div style={{ position: 'absolute', inset: 0, background: heroImageUrl ? 'linear-gradient(to top, rgba(28,26,23,0.66) 0%, rgba(28,26,23,0.16) 45%, transparent 72%)' : 'linear-gradient(to top, rgba(20,18,15,0.5), transparent 68%)' }} />
-
-          {/* Empty-state prompt (upper area, doesn't collide with title) */}
-          {!heroImageUrl && !uploading && (
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '60%', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-              <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.72)' }}>
-                <span style={{ display: 'inline-flex' }}>{ICONS.camera}</span>
-                <div style={{ marginTop: 8, fontSize: 13, fontFamily: 'var(--font-body)' }}>
-                  {!canEditAll
-                    ? 'A cover photo is part of the Standard plan'
-                    : 'Add a cover photo to bring your listing to life'}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Image controls — photos are a Standard-plan feature */}
-          {canEditAll && (
-            <div style={{ position: 'absolute', top: 14, right: 14, display: 'flex', gap: 8, zIndex: 3 }}>
-              <label className="aa-hero-btn" style={heroBtn}>
-                {uploading ? 'Uploading…' : (heroImageUrl ? 'Replace photo' : 'Add cover photo')}
-                <input type="file" accept="image/*" onChange={handlePhotoChange} disabled={uploading} style={{ display: 'none' }} />
-              </label>
-              {heroImageUrl && (
-                <button type="button" className="aa-hero-btn" onClick={() => setHeroImageUrl('')} style={heroBtn}>Remove</button>
-              )}
-            </div>
-          )}
-
-          {/* Overlay title */}
-          <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: 'clamp(20px, 4vw, 36px)', zIndex: 2 }}>
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 500, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.6)', margin: '0 0 12px' }}>
-              {getVerticalLabel(listing.vertical)} &middot; {categoryLabel}
-            </p>
-            <h1 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 'clamp(1.7rem, 4vw, 3rem)', lineHeight: 1.1, color: '#fff', margin: 0 }}>
-              {listing.name}
-            </h1>
-            {location && (
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: 15, fontWeight: 300, color: 'rgba(255,255,255,0.72)', margin: '8px 0 0' }}>{location}</p>
-            )}
-          </div>
         </div>
+      </div>
 
-        {/* Body */}
-        <div style={{ padding: 'clamp(20px, 4vw, 40px)' }}>
-          {/* ── Free-tier upgrade banner ──
-              Facts (website, phone, hours) stay editable below; this banner
-              carries the upgrade CTA and, after checkout, the finalising poll
-              states. It disappears once listing.paid flips true. */}
-          {!canEditAll && (
-            <div style={{ marginBottom: 24, padding: '16px 18px', borderRadius: 12, border: '1px solid var(--color-border)', background: 'var(--color-cream)' }}>
-              {justUpgraded ? (
-                pollTimedOut ? (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14, justifyContent: 'space-between' }}>
-                    <div style={{ flex: 1, minWidth: 260 }}>
-                      <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600, color: 'var(--color-ink)', margin: 0 }}>Payment confirmed — still finalising</p>
-                      <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '4px 0 0', lineHeight: 1.55 }}>
-                        Stripe has your payment, but our system is taking longer than usual to unlock the
-                        full editor. This resolves itself within a few minutes — you won’t be charged twice.
-                      </p>
-                    </div>
-                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                      <button
-                        type="button"
-                        className="btn btn-primary btn-sm"
-                        onClick={() => { setPollTimedOut(false); setPollNonce(n => n + 1) }}
-                      >
-                        Check again
-                      </button>
-                      <a className="btn btn-secondary btn-sm" href="mailto:listings@australianatlas.com.au?subject=Upgrade%20not%20unlocking">
-                        Email support
-                      </a>
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                    <div style={{ width: 26, height: 26, flexShrink: 0, borderRadius: '50%', border: '3px solid var(--color-border)', borderTopColor: 'var(--color-sage)', animation: 'aa-spin 0.8s linear infinite' }} />
-                    <div>
-                      <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600, color: 'var(--color-ink)', margin: 0 }}>Payment received — finalising your upgrade</p>
-                      <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '4px 0 0', lineHeight: 1.55 }}>
-                        This usually takes a few seconds — your full editor will unlock automatically. If it doesn’t, refresh this page in a moment.
-                      </p>
-                    </div>
-                    <style>{`@keyframes aa-spin { to { transform: rotate(360deg) } }`}</style>
-                  </div>
-                )
-              ) : (
-                <>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14, justifyContent: 'space-between' }}>
-                    <div style={{ flex: 1, minWidth: 260 }}>
-                      <p style={{ display: 'flex', alignItems: 'center', gap: 7, fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600, color: 'var(--color-ink)', margin: 0 }}>
-                        <span style={{ display: 'inline-flex', color: 'var(--color-sage)' }}>{ICONS.check}</span>
-                        Facts are free to keep current.
-                      </p>
-                      <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '4px 0 0', lineHeight: 1.55 }}>
-                        Update your opening hours, phone and website below, any time. Standard unlocks your story, photos, events and insights.
-                      </p>
-                    </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
-                      <button type="button" onClick={handleUpgrade} disabled={upgrading} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'var(--color-ink)', color: '#fff', border: 'none', borderRadius: 100, padding: '11px 22px', fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600, cursor: upgrading ? 'wait' : 'pointer', opacity: upgrading ? 0.7 : 1 }}>
-                        {upgrading ? 'Starting secure checkout…' : 'Upgrade to Standard — $295/yr'}
-                      </button>
-                      <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-muted)' }}>Secure payment via Stripe &middot; cancel anytime</span>
-                    </div>
-                  </div>
-                  {upgradeError && (
-                    <div style={{ marginTop: 12, padding: '10px 14px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', fontFamily: 'var(--font-body)', fontSize: 13 }}>{upgradeError}</div>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-
-          {uploadError && (
-            <div style={{ marginBottom: 16, padding: '10px 14px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', fontFamily: 'var(--font-body)', fontSize: 13 }}>{uploadError}</div>
-          )}
-          {imageNotice && (
-            <div style={{
-              marginBottom: 16, padding: '10px 14px', borderRadius: 8, fontFamily: 'var(--font-body)', fontSize: 13,
-              background: imageNotice.tone === 'error' ? '#fef2f2' : '#fffbeb',
-              border: `1px solid ${imageNotice.tone === 'error' ? '#fecaca' : '#fde68a'}`,
-              color: imageNotice.tone === 'error' ? '#991b1b' : '#92400e',
-            }}>{imageNotice.text}</div>
-          )}
-          {listing.is_featured && (
-            <div style={{ marginBottom: 20 }}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', padding: '6px 12px', borderRadius: 100, fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500, color: '#fff', background: 'var(--color-accent)' }}>Featured</span>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 lg:grid-cols-5" style={{ gap: 40 }}>
-            {/* Editorial column (read-only preview) */}
-            <div className="lg:col-span-3">
-              {listing.description ? (
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 400, lineHeight: 1.75, color: 'var(--color-ink)' }}>
-                  {listing.description.split('\n').map((p, i) => (p.trim() ? <p key={i} style={{ margin: i > 0 ? '1.25em 0 0' : 0 }}>{p}</p> : null))}
+      {/* ── Free-tier upgrade banner ── */}
+      {!canEditAll && (
+        <div style={{ marginBottom: 16, padding: '16px 18px', borderRadius: 14, border: '1px solid var(--color-border)', background: 'var(--color-card-bg)' }}>
+          {justUpgraded ? (
+            pollTimedOut ? (
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14, justifyContent: 'space-between' }}>
+                <div style={{ flex: 1, minWidth: 260 }}>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600, color: 'var(--color-ink)', margin: 0 }}>Payment confirmed — still finalising</p>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '4px 0 0', lineHeight: 1.55 }}>
+                    Stripe has your payment, but our system is taking longer than usual to unlock the
+                    full editor. This resolves itself within a few minutes — you won’t be charged twice.
+                  </p>
                 </div>
-              ) : (
-                <div style={{ fontFamily: 'var(--font-body)', fontSize: 15, color: 'var(--color-muted)', lineHeight: 1.7, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <p style={{ margin: 0 }}>Your story appears here for visitors to read.</p>
-                  <Link href="/dashboard/description" style={{ color: vertColor, fontWeight: 600, textDecoration: 'none' }}>Write your description →</Link>
-                </div>
-              )}
-
-              {/* CTA preview — reflects the website you set, just like the live page */}
-              <div style={{ marginTop: 32, display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center' }}>
-                {websiteUrl && (
-                  <a href={websiteUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'var(--color-accent)', color: '#fff', borderRadius: 100, padding: '12px 22px', fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500, textDecoration: 'none' }}>
-                    Visit Website {ICONS.external}
-                  </a>
-                )}
-                {hasCoords && (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, color: 'var(--color-muted)', fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500 }}>
-                    <span style={{ color: 'var(--color-accent)', display: 'inline-flex' }}>{ICONS.pin}</span>
-                    Get Directions
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Meta sidebar — the inline editing surface */}
-            <div className="lg:col-span-2">
-              <div style={{ borderRadius: 12, border: '1px solid var(--color-border)', background: 'var(--color-card-bg)', padding: 20 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-                  {listing.address && (
-                    <MetaRow icon="pin" label="Address">
-                      <span style={metaStatic}>{listing.address}</span>
-                    </MetaRow>
-                  )}
-                  <MetaRow icon="globe" label="Website">
-                    <EditableValue value={website} onChange={setWebsite} placeholder="Add website" inputMode="url" format={cleanWebsite} color={vertColor} />
-                  </MetaRow>
-                  <MetaRow icon="phone" label="Phone">
-                    <EditableValue value={phone} onChange={setPhone} placeholder="Add phone number" inputType="tel" inputMode="tel" color={vertColor} />
-                  </MetaRow>
-                  {region?.name && (
-                    <MetaRow icon="map" label="Region">
-                      <span style={{ ...metaStatic, color: vertColor }}>{region.name}</span>
-                    </MetaRow>
-                  )}
-                </div>
-
-                <div style={{ marginTop: 18, borderTop: '1px solid var(--color-border)', paddingTop: 16 }}>
-                  <HoursBlock days={days} setDay={setDay} editing={hoursEditing} setEditing={setHoursEditing} mounted={mounted} />
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <button type="button" className="btn btn-primary btn-sm" onClick={() => { setPollTimedOut(false); setPollNonce(n => n + 1) }}>Check again</button>
+                  <a className="btn btn-secondary btn-sm" href="mailto:listings@australianatlas.com.au?subject=Upgrade%20not%20unlocking">Email support</a>
                 </div>
               </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <div style={{ width: 26, height: 26, flexShrink: 0, borderRadius: '50%', border: '3px solid var(--color-border)', borderTopColor: 'var(--color-sage)', animation: 'aa-spin 0.8s linear infinite' }} />
+                <div>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600, color: 'var(--color-ink)', margin: 0 }}>Payment received — finalising your upgrade</p>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '4px 0 0', lineHeight: 1.55 }}>
+                    This usually takes a few seconds — your full editor will unlock automatically. If it doesn’t, refresh this page in a moment.
+                  </p>
+                </div>
+                <style>{`@keyframes aa-spin { to { transform: rotate(360deg) } }`}</style>
+              </div>
+            )
+          ) : (
+            <>
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14, justifyContent: 'space-between' }}>
+                <div style={{ flex: 1, minWidth: 250 }}>
+                  <p style={{ display: 'flex', alignItems: 'center', gap: 7, fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600, color: 'var(--color-ink)', margin: 0 }}>
+                    <span style={{ display: 'inline-flex', color: 'var(--color-sage)' }}>{ICONS.check}</span>
+                    Your facts are free to keep current
+                  </p>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '4px 0 0', lineHeight: 1.55 }}>
+                    Website, phone and opening hours, any time. Standard adds your photos, story, events and insights.
+                  </p>
+                </div>
+                <button type="button" onClick={handleUpgrade} disabled={upgrading} className="btn btn-primary btn-sm">
+                  {upgrading ? 'Starting checkout…' : 'Upgrade — $295/yr'}
+                </button>
+              </div>
+              {upgradeError && <div style={{ ...errBox, marginTop: 12, marginBottom: 0 }}>{upgradeError}</div>}
+            </>
+          )}
+        </div>
+      )}
 
-              <p style={{ marginTop: 12, fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-muted)', lineHeight: 1.5 }}>
-                {canEditAll
-                  ? 'Click any underlined detail to edit it. Changes appear across the Atlas network once saved.'
-                  : 'Facts are free to keep current. Standard unlocks your story, photos, events and insights.'}
-              </p>
-            </div>
+      {/* ── What's left to do ── */}
+      <div style={{ marginBottom: 20, padding: '15px 18px', borderRadius: 14, border: '1px solid var(--color-border)', background: 'var(--color-card-bg)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: completeness.allComplete ? 0 : 12 }}>
+          <div style={{ flex: 1, height: 5, borderRadius: 3, background: 'var(--color-border)', overflow: 'hidden' }}>
+            <div style={{ width: `${(completeness.complete / completeness.total) * 100}%`, height: '100%', background: 'var(--color-sage)', borderRadius: 3, transition: 'width 0.3s ease' }} />
           </div>
+          <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 600, color: 'var(--color-muted)', flexShrink: 0 }}>
+            {completeness.complete} of {completeness.total}
+          </span>
+        </div>
+        {!completeness.allComplete ? (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {completeness.remaining.map(t => (
+              <button
+                key={t.field}
+                type="button"
+                onClick={() => openAndScroll(t.panel)}
+                title={t.hint}
+                className="aa-todo"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px',
+                  minHeight: 0, borderRadius: 100, border: '1px dashed var(--color-border)',
+                  background: 'none', cursor: 'pointer',
+                  fontFamily: 'var(--font-body)', fontSize: 12.5, color: 'var(--color-muted)',
+                  transition: 'all 0.14s ease',
+                }}
+              >
+                {t.action}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-sage)', margin: 0, fontWeight: 600 }}>
+            Your listing has everything visitors look for.
+          </p>
+        )}
+      </div>
 
-          {/* ── Highlights — operator-authored "right now" + hiring (paid perk) ── */}
-          {canEditAll ? (
-            <HighlightsEditor
-              listingId={id}
-              vertical={listing.vertical}
-              subType={listing.sub_type || (Array.isArray(listing.sub_types) && listing.sub_types[0]) || null}
-              token={token}
-              initialHighlights={listing.operator_highlights}
-              accent={vertColor}
-            />
-          ) : (
-            <div style={{ marginTop: 36, paddingTop: 28, borderTop: '1px solid var(--color-border)' }}>
-              <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)', margin: '0 0 16px' }}>Highlights</h2>
-              <div style={galleryLockCard}>
-                <span style={{ display: 'inline-flex', color: 'var(--color-sage)', flexShrink: 0 }}>{ICONS.pencil}</span>
-                <div>
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600, color: 'var(--color-ink)', margin: 0 }}>Tell visitors what’s happening right now</p>
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '4px 0 0', lineHeight: 1.5 }}>
-                    Highlights are part of a paid listing. Share what’s new — in your own words, shown on your public page.
-                  </p>
-                  <Link href="/dashboard/subscription" style={{ display: 'inline-block', marginTop: 10, fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600, color: 'var(--color-sage)', textDecoration: 'none' }}>View subscription options →</Link>
-                </div>
+      {uploadError && <div style={errBox}>{uploadError}</div>}
+      {imageNotice && (
+        <div style={{
+          marginBottom: 16, padding: '10px 14px', borderRadius: 8, fontFamily: 'var(--font-body)', fontSize: 13,
+          background: imageNotice.tone === 'error' ? '#fef2f2' : '#fffbeb',
+          border: `1px solid ${imageNotice.tone === 'error' ? '#fecaca' : '#fde68a'}`,
+          color: imageNotice.tone === 'error' ? '#991b1b' : '#92400e',
+        }}>{imageNotice.text}</div>
+      )}
+
+      {/* ── The editable surface ── */}
+      <PanelGroup open={openPanel} onOpenChange={setOpenPanel}>
+        <PanelGroupHeading title="The essentials" note="The three things visitors ask for most. Free to keep current, always." />
+
+        <Panel
+          id="basics"
+          title="Contact & hours"
+          status={website.trim() && phone.trim() && hours ? 'done' : 'empty'}
+          dirty={basicsDirty}
+          summary={hoursSummary(hours) || (website.trim() || phone.trim() ? 'No opening hours yet' : 'Nothing added yet')}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            <Field icon="globe" label="Website" hint="Where visitors can find you. Include the full address, e.g. yourvenue.com.au">
+              <input
+                className="aa-input"
+                type="url"
+                inputMode="url"
+                value={website}
+                onChange={e => setWebsite(e.target.value)}
+                placeholder="yourvenue.com.au"
+                style={textInput}
+              />
+            </Field>
+
+            <Field icon="phone" label="Phone" hint="Shown on your public page so visitors can call ahead.">
+              <input
+                className="aa-input"
+                type="tel"
+                inputMode="tel"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                placeholder="(03) 9000 0000"
+                style={textInput}
+              />
+            </Field>
+
+            <div>
+              <label style={fieldLabel}>
+                <span style={{ color: 'var(--color-accent)', display: 'inline-flex' }}>{ICONS.clock}</span>
+                Opening hours
+              </label>
+              <HoursEditor days={days} setDay={setDay} />
+            </div>
+
+            {listing.address && (
+              <div>
+                <p style={{ ...fieldLabel, marginBottom: 4 }}>Address</p>
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--color-ink)', margin: 0 }}>{listing.address}</p>
+                <p style={fieldHint}>
+                  Address and location are managed by the Atlas.{' '}
+                  <a href="mailto:listings@australianatlas.com.au?subject=Address%20correction" style={{ color: 'var(--color-sage)', fontWeight: 600 }}>Tell us if it’s wrong</a>.
+                </p>
               </div>
-            </div>
-          )}
-
-          {/* ── Search keywords — operator-authored, search-only, never public (paid perk) ── */}
-          {canEditAll ? (
-            <KeywordsEditor
-              listingId={id}
-              token={token}
-              initialKeywords={listing.search_keywords}
-              accent={vertColor}
-            />
-          ) : (
-            <div style={{ marginTop: 36, paddingTop: 28, borderTop: '1px solid var(--color-border)' }}>
-              <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)', margin: '0 0 16px' }}>Search keywords</h2>
-              <div style={galleryLockCard}>
-                <span style={{ display: 'inline-flex', color: 'var(--color-sage)', flexShrink: 0 }}>{ICONS.lock}</span>
-                <div>
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600, color: 'var(--color-ink)', margin: 0 }}>Help the right visitors find you</p>
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '4px 0 0', lineHeight: 1.5 }}>
-                    Search keywords are part of a paid listing. Add the terms your visitors search for — they’re never shown publicly.
-                  </p>
-                  <Link href="/dashboard/subscription" style={{ display: 'inline-block', marginTop: 10, fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600, color: 'var(--color-sage)', textDecoration: 'none' }}>View subscription options →</Link>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ── Trade readiness — operator-authored Atlas Trade profile (not public) ── */}
-          <TradeReadinessEditor
-            listingId={id}
-            token={token}
-            initial={listing}
-            accent={vertColor}
-          />
-
-          {/* ── Photo gallery (paid perk) ── */}
-          <div style={{ marginTop: 36, paddingTop: 28, borderTop: '1px solid var(--color-border)' }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 4, flexWrap: 'wrap' }}>
-              <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)', margin: 0 }}>Photo gallery</h2>
-              {isPaid && (
-                <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-muted)' }}>{gallery.length} / {MAX_GALLERY}</span>
-              )}
-            </div>
-            {isPaid && (
-              <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '0 0 16px', lineHeight: 1.5 }}>
-                Up to {MAX_GALLERY} photos, shown as a gallery on your public listing. Hover a photo to reorder or remove it.
-              </p>
             )}
+          </div>
+        </Panel>
 
-            {isPaid ? (
-              <>
-                {galleryError && <div style={errBox}>{galleryError}</div>}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 12 }}>
-                  {gallery.map((url, i) => {
-                    const gst = galleryStatus[url]?.status
-                    const blocked = gst === 'flagged' || gst === 'held'
-                    return (
+        <Panel
+          id="cover"
+          title="Cover photo"
+          status={!canEditAll ? 'locked' : heroImageUrl ? 'done' : 'empty'}
+          dirty={coverDirty}
+          summary={!canEditAll ? 'Included with Standard' : heroImageUrl ? 'Cover photo set' : 'The first thing visitors see'}
+        >
+          {canEditAll ? (
+            <div>
+              <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', height: 200, background: heroImageUrl ? '#1C1A17' : 'var(--color-cream)', border: '1px solid var(--color-border)' }}>
+                {heroImageUrl ? (
+                  <img src={heroImageUrl} alt="Cover" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                ) : (
+                  <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--color-muted)' }}>
+                    <span style={{ display: 'inline-flex' }}>{ICONS.camera}</span>
+                    <span style={{ marginTop: 8, fontFamily: 'var(--font-body)', fontSize: 13 }}>No cover photo yet</span>
+                  </div>
+                )}
+              </div>
+              <PanelActions note="Landscape photos work best. Wide shots of your space beat close-ups of product.">
+                <label className="btn btn-primary btn-sm" style={{ cursor: uploading ? 'wait' : 'pointer' }}>
+                  {uploading ? 'Uploading…' : heroImageUrl ? 'Replace photo' : 'Choose a photo'}
+                  <input type="file" accept="image/*" onChange={handlePhotoChange} disabled={uploading} style={{ display: 'none' }} />
+                </label>
+                {heroImageUrl && (
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => setHeroImageUrl('')}>Remove</button>
+                )}
+              </PanelActions>
+            </div>
+          ) : (
+            <LockedNote>A cover photo is the single biggest difference between a listing people scroll past and one they click. It’s included with Standard.</LockedNote>
+          )}
+        </Panel>
+
+        <Panel
+          id="story"
+          title="Your description"
+          status={listing.description ? 'done' : 'empty'}
+          summary={listing.description ? `${listing.description.trim().split(/\s+/).length} words` : 'Not written yet'}
+        >
+          {listing.description ? (
+            <>
+              <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, lineHeight: 1.75, color: 'var(--color-ink)' }}>
+                {listing.description.split('\n').map((p, i) => (p.trim() ? <p key={i} style={{ margin: i > 0 ? '1em 0 0' : 0 }}>{p}</p> : null))}
+              </div>
+              <PanelActions>
+                <Link href="/dashboard/description" className="btn btn-secondary btn-sm">Edit your description</Link>
+              </PanelActions>
+            </>
+          ) : (
+            <>
+              <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--color-muted)', margin: 0, lineHeight: 1.65 }}>
+                Your description is the paragraph visitors read before deciding to come. We’ll ask you a
+                few questions about your place and write a first draft you can edit.
+              </p>
+              <PanelActions>
+                <Link href="/dashboard/description" className="btn btn-primary btn-sm">Write your description</Link>
+              </PanelActions>
+            </>
+          )}
+        </Panel>
+
+        <PanelGroupHeading title="Make it richer" note="Optional. Add these whenever you have a moment — nothing here is required." />
+
+        <Panel
+          id="gallery"
+          title="Photo gallery"
+          status={!isPaid ? 'locked' : gallery.length ? 'done' : 'empty'}
+          meta={isPaid ? `${gallery.length} / ${MAX_GALLERY}` : null}
+          dirty={galleryDirty}
+          summary={!isPaid ? 'Included with Standard' : gallery.length ? `${gallery.length} photo${gallery.length === 1 ? '' : 's'}` : 'No photos yet'}
+        >
+          {isPaid ? (
+            <>
+              {galleryError && <div style={errBox}>{galleryError}</div>}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
+                {gallery.map((url, i) => {
+                  const gst = galleryStatus[url]?.status
+                  const blocked = gst === 'flagged' || gst === 'held'
+                  return (
                     <div key={url} className="aa-gtile" style={galleryTile}>
                       <img src={url} alt={`Photo ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: blocked ? 0.5 : 1 }} />
                       {blocked && (
                         <span title={galleryStatus[url]?.reason || ''} style={{
                           position: 'absolute', top: 8, left: 8, zIndex: 2,
-                          fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 600, letterSpacing: '0.03em',
+                          fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 600,
                           padding: '3px 8px', borderRadius: 100, color: '#fff',
                           background: gst === 'flagged' ? 'rgba(220,38,38,0.92)' : 'rgba(180,83,9,0.92)',
                         }}>
@@ -972,109 +888,113 @@ export default function EditListingPage() {
                         <button type="button" onClick={() => moveGallery(i, 1)} disabled={i === gallery.length - 1} aria-label="Move later" title="Move later" style={{ ...gBtn, opacity: i === gallery.length - 1 ? 0.4 : 1, cursor: i === gallery.length - 1 ? 'default' : 'pointer' }}>&rsaquo;</button>
                       </div>
                     </div>
-                    )
-                  })}
-                  {Array.from({ length: galleryUploading }).map((_, k) => (
-                    <div key={`up-${k}`} style={{ ...galleryTile, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-muted)' }}>Uploading…</span>
-                    </div>
-                  ))}
-                  {gallery.length + galleryUploading < MAX_GALLERY && (
-                    <label className="aa-gadd" style={galleryAddTile}>
-                      <span style={{ display: 'inline-flex' }}>{ICONS.camera}</span>
-                      <span style={{ marginTop: 6, fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500 }}>Add photos</span>
-                      <input type="file" accept="image/*" multiple onChange={handleGalleryAdd} style={{ display: 'none' }} />
-                    </label>
-                  )}
-                </div>
-              </>
-            ) : (
-              <div style={galleryLockCard}>
-                <span style={{ display: 'inline-flex', color: 'var(--color-sage)', flexShrink: 0 }}>{ICONS.camera}</span>
-                <div>
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600, color: 'var(--color-ink)', margin: 0 }}>Showcase up to {MAX_GALLERY} photos</p>
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '4px 0 0', lineHeight: 1.5 }}>
-                    A photo gallery is part of a paid listing. Upgrade to bring your space to life with a full set of images.
-                  </p>
-                  <Link href="/dashboard/subscription" style={{ display: 'inline-block', marginTop: 10, fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600, color: 'var(--color-sage)', textDecoration: 'none' }}>View subscription options →</Link>
-                </div>
+                  )
+                })}
+                {Array.from({ length: galleryUploading }).map((_, k) => (
+                  <div key={`up-${k}`} style={{ ...galleryTile, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-muted)' }}>Uploading…</span>
+                  </div>
+                ))}
+                {gallery.length + galleryUploading < MAX_GALLERY && (
+                  <label className="aa-gadd" style={galleryAddTile}>
+                    <span style={{ display: 'inline-flex' }}>{ICONS.camera}</span>
+                    <span style={{ marginTop: 6, fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 500 }}>Add photos</span>
+                    <input type="file" accept="image/*" multiple onChange={handleGalleryAdd} style={{ display: 'none' }} />
+                  </label>
+                )}
               </div>
-            )}
-          </div>
+              <p style={{ ...fieldHint, marginTop: 12 }}>Hover a photo to reorder or remove it. The first photo leads the gallery.</p>
+            </>
+          ) : (
+            <LockedNote>Show your space from more than one angle — up to {MAX_GALLERY} photos on your public listing. Included with Standard.</LockedNote>
+          )}
+        </Panel>
 
-          {/* ── Video (paid perk, migration 225) — one featured YouTube /
-              TikTok / Instagram embed. Saved through the main save bar; the
-              PATCH route allowlist-validates and stores the canonical watch
-              URL. canEditAll (not isPaid) so admins can stage on any listing,
-              matching what handleSave sends. ── */}
-          <div style={{ marginTop: 36, paddingTop: 28, borderTop: '1px solid var(--color-border)' }}>
-            <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)', margin: '0 0 4px' }}>Video</h2>
-            {canEditAll ? (
-              <>
-                <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '0 0 14px', lineHeight: 1.5 }}>
-                  Feature one video on your public listing — paste the link to a YouTube, TikTok or Instagram video and it plays right on your page.
+        <Panel
+          id="video"
+          title="Video"
+          status={!canEditAll ? 'locked' : videoUrl.trim() ? 'done' : 'empty'}
+          dirty={videoDirty}
+          summary={!canEditAll ? 'Included with Standard' : videoParsed ? `${VIDEO_PROVIDER_LABELS[videoParsed.provider]} video` : videoUrl.trim() ? 'Link not recognised' : 'No video yet'}
+        >
+          {canEditAll ? (
+            <>
+              <Field label="Video link" hint="Paste the link to a YouTube, TikTok or Instagram video and it plays right on your page.">
+                <input
+                  className="aa-input"
+                  type="url"
+                  value={videoUrl}
+                  onChange={e => setVideoUrl(e.target.value)}
+                  placeholder="https://www.youtube.com/watch?v=…"
+                  style={textInput}
+                />
+              </Field>
+              {videoParsed ? (
+                <div style={{ marginTop: 14 }}>
+                  <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600, color: 'var(--color-sage)', margin: '0 0 10px' }}>
+                    <span style={{ display: 'inline-flex' }}>{ICONS.check}</span>
+                    {VIDEO_PROVIDER_LABELS[videoParsed.provider]} video — this is how it will appear
+                  </p>
+                  <div style={videoParsed.provider === 'youtube'
+                    ? { position: 'relative', width: '100%', maxWidth: 480, aspectRatio: '16 / 9' }
+                    : { width: videoParsed.provider === 'tiktok' ? 325 : 400, maxWidth: '100%', height: videoParsed.provider === 'tiktok' ? 578 : 480 }}
+                  >
+                    <iframe
+                      key={videoParsed.embedUrl}
+                      src={videoParsed.embedUrl}
+                      title="Video preview"
+                      loading="lazy"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                      referrerPolicy="strict-origin-when-cross-origin"
+                      style={{ width: '100%', height: '100%', border: '1px solid var(--color-border)', borderRadius: 10, background: '#000', display: 'block' }}
+                    />
+                  </div>
+                  <PanelActions>
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => setVideoUrl('')}>Remove video</button>
+                  </PanelActions>
+                </div>
+              ) : videoUrl.trim() ? (
+                <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: '#92400e', margin: '10px 0 0' }}>
+                  That doesn’t look like a YouTube, TikTok or Instagram video link yet — paste the video’s own page URL.
                 </p>
-                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-                  <input
-                    type="url"
-                    value={videoUrl}
-                    onChange={e => setVideoUrl(e.target.value)}
-                    placeholder="e.g. https://www.youtube.com/watch?v=… or https://www.tiktok.com/@you/video/…"
-                    style={videoInput}
-                  />
-                  {videoUrl && (
-                    <button type="button" onClick={() => setVideoUrl('')} style={videoClearBtn}>Remove</button>
-                  )}
-                </div>
-                {videoParsed ? (
-                  <>
-                    <p style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600, color: 'var(--color-sage)', margin: '10px 0 0' }}>
-                      <span style={{ display: 'inline-flex' }}>{ICONS.check}</span>
-                      {VIDEO_PROVIDER_LABELS[videoParsed.provider]} video — this is how it will appear.
-                    </p>
-                    <div style={{ marginTop: 12, ...(videoParsed.provider === 'youtube'
-                      ? { position: 'relative', width: '100%', maxWidth: 560, aspectRatio: '16 / 9' }
-                      : { width: videoParsed.provider === 'tiktok' ? 325 : 400, maxWidth: '100%', height: videoParsed.provider === 'tiktok' ? 578 : 480 }) }}>
-                      <iframe
-                        key={videoParsed.embedUrl}
-                        src={videoParsed.embedUrl}
-                        title="Video preview"
-                        loading="lazy"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                        allowFullScreen
-                        referrerPolicy="strict-origin-when-cross-origin"
-                        style={{ width: '100%', height: '100%', border: '1px solid var(--color-border)', borderRadius: 10, background: '#000', display: 'block' }}
-                      />
-                    </div>
-                  </>
-                ) : videoUrl.trim() ? (
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: '#92400e', margin: '10px 0 0' }}>
-                    That doesn’t look like a YouTube, TikTok or Instagram video link yet — paste the video’s own page URL.
-                  </p>
-                ) : null}
-              </>
-            ) : (
-              <div style={{ ...galleryLockCard, marginTop: 12 }}>
-                <span style={{ display: 'inline-flex', color: 'var(--color-sage)', flexShrink: 0 }}>{ICONS.play}</span>
-                <div>
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600, color: 'var(--color-ink)', margin: 0 }}>Show your place in motion</p>
-                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '4px 0 0', lineHeight: 1.5 }}>
-                    A featured video is part of a paid listing. Embed a YouTube, TikTok or Instagram video on your public page.
-                  </p>
-                  <Link href="/dashboard/subscription" style={{ display: 'inline-block', marginTop: 10, fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600, color: 'var(--color-sage)', textDecoration: 'none' }}>View subscription options →</Link>
-                </div>
-              </div>
-            )}
-          </div>
+              ) : null}
+            </>
+          ) : (
+            <LockedNote>Feature one video on your public page — a walkthrough, a making-of, whatever shows your place in motion. Included with Standard.</LockedNote>
+          )}
+        </Panel>
 
-          <EventsSection listingId={id} token={token} isPaid={isPaid} listingSlug={listing.slug} />
-          {/* ── Offers & Recognition (paid perks, migration 208) ── */}
-          <OffersSection listingId={id} token={token} isPaid={isPaid} />
-          <AwardsSection listingId={id} token={token} isPaid={isPaid} />
-          <QnaSection listingId={id} token={token} isPaid={isPaid} />
-          <PicksSection listingId={id} token={token} isPaid={isPaid} listing={listing} />
-        </div>
-      </div>
+        {/* Sections that own their own endpoint and save button. Each renders
+            its own Panel so its summary/counter reflects its live state. */}
+        <HighlightsEditor
+          listingId={id}
+          vertical={listing.vertical}
+          subType={listing.sub_type || (Array.isArray(listing.sub_types) && listing.sub_types[0]) || null}
+          token={token}
+          initialHighlights={listing.operator_highlights}
+          accent={vertColor}
+          canEdit={canEditAll}
+        />
+        <KeywordsEditor
+          listingId={id}
+          token={token}
+          initialKeywords={listing.search_keywords}
+          accent={vertColor}
+          canEdit={canEditAll}
+        />
+        <EventsSection listingId={id} token={token} isPaid={isPaid} listingSlug={listing.slug} />
+        <OffersSection listingId={id} token={token} isPaid={isPaid} />
+        <AwardsSection listingId={id} token={token} isPaid={isPaid} />
+        <QnaSection listingId={id} token={token} isPaid={isPaid} />
+        <PicksSection listingId={id} token={token} isPaid={isPaid} listing={listing} />
+      </PanelGroup>
+
+      {/* Trade readiness lives on its own page — one place, one save. */}
+      <p style={{ margin: '22px 0 0', fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', textAlign: 'center', lineHeight: 1.6 }}>
+        Working with tour operators?{' '}
+        <Link href="/dashboard/trade" style={{ color: 'var(--color-sage)', fontWeight: 600, textDecoration: 'none' }}>Set up Travel Trade →</Link>
+      </p>
 
       {/* ── Floating save bar ── */}
       {showBar && (
@@ -1090,28 +1010,19 @@ export default function EditListingPage() {
           )}
           {(dirty || saveError) && !saving && (
             <>
-              <button onClick={handleDiscard} style={{ padding: '9px 14px', borderRadius: 8, border: '1px solid var(--color-border)', background: '#fff', color: 'var(--color-muted)', fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>Discard</button>
-              <button onClick={handleSave} style={{ padding: '9px 18px', borderRadius: 8, border: 'none', background: 'var(--color-ink)', color: '#fff', fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Save changes</button>
+              <button onClick={handleDiscard} className="btn btn-secondary btn-sm">Discard</button>
+              <button onClick={handleSave} className="btn btn-primary btn-sm">Save changes</button>
             </>
           )}
         </div>
       )}
-    </>
+    </div>
   )
 }
 
-// Hero overlay control button (shared by Add / Replace / Remove).
-const heroBtn = { display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(28,26,23,0.58)', color: '#fff', border: '1px solid rgba(255,255,255,0.22)', borderRadius: 8, padding: '7px 12px', fontFamily: 'var(--font-body)', fontSize: 12, fontWeight: 600, cursor: 'pointer', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }
-
 // ── Gallery styles ──
-const errBox = { marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', fontFamily: 'var(--font-body)', fontSize: 13 }
 const galleryTile = { position: 'relative', aspectRatio: '4 / 3', borderRadius: 10, overflow: 'hidden', border: '1px solid var(--color-border)', background: 'var(--color-cream)' }
 const galleryTileBar = { position: 'absolute', left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, padding: 6, background: 'linear-gradient(to top, rgba(28,26,23,0.72), transparent)' }
-const gBtn = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 6, border: '1px solid rgba(255,255,255,0.25)', background: 'rgba(28,26,23,0.55)', color: '#fff', fontSize: 16, lineHeight: 1, padding: 0, cursor: 'pointer', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)' }
+const gBtn = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, minHeight: 26, borderRadius: 6, border: '1px solid rgba(255,255,255,0.25)', background: 'rgba(28,26,23,0.55)', color: '#fff', fontSize: 16, lineHeight: 1, padding: 0, cursor: 'pointer', backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)' }
 const galleryIndex = { position: 'absolute', top: 6, left: 6, minWidth: 18, height: 18, padding: '0 5px', borderRadius: 9, background: 'rgba(28,26,23,0.62)', color: '#fff', fontFamily: 'var(--font-body)', fontSize: 11, fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }
 const galleryAddTile = { aspectRatio: '4 / 3', borderRadius: 10, border: '1.5px dashed var(--color-border)', background: 'transparent', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--color-muted)', transition: 'all 0.12s ease' }
-const galleryLockCard = { display: 'flex', gap: 14, alignItems: 'flex-start', padding: 18, borderRadius: 12, border: '1px solid var(--color-border)', background: 'var(--color-card-bg)' }
-
-// ── Video styles ──
-const videoInput = { flex: 1, minWidth: 260, maxWidth: 560, padding: '10px 14px', borderRadius: 8, border: '1px solid var(--color-border)', background: '#fff', fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--color-ink)', outline: 'none' }
-const videoClearBtn = { padding: '9px 14px', borderRadius: 8, border: '1px solid var(--color-border)', background: '#fff', color: 'var(--color-muted)', fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500, cursor: 'pointer' }

@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { getListingRegion } from '@/lib/regions'
 import { getVerticalUrl, getVerticalBadge } from '@/lib/verticalUrl'
+import { getCompleteness } from '@/lib/listing-completeness'
 import { useAuth } from './layout'
 import DualListingPopup from './DualListingPopup'
 import UpgradeBanner from './UpgradeBanner'
@@ -42,44 +43,18 @@ function TrendChip({ current, previous }) {
   )
 }
 
+/**
+ * "What's left" meter for a listing card.
+ *
+ * This used to be a column of red ✗ "Website missing" / "Phone number missing"
+ * rows — an operator whose listing was simply new was met with a wall of
+ * failures. Same five checks (now from the shared definition the editor also
+ * reads), presented as progress plus a couple of things worth doing next, each
+ * deep-linking to the editor panel that fixes it.
+ */
 function CompletenessChecklist({ listing }) {
   const editUrl = getEditUrl(listing.id)
-
-  const checks = [
-    {
-      field: 'description',
-      label: 'Description',
-      complete: !!listing.description,
-      hint: 'Listings with descriptions get 3x more engagement',
-    },
-    {
-      field: 'hours',
-      label: 'Opening hours',
-      complete: !!listing.hours,
-      hint: 'Listings with hours get seen 40% more',
-    },
-    {
-      field: 'hero_image_url',
-      label: 'Hero image',
-      complete: !!listing.hero_image_url,
-      hint: 'Add a photo to stand out',
-    },
-    {
-      field: 'website',
-      label: 'Website',
-      complete: !!listing.website,
-      hint: 'Help visitors find your site',
-    },
-    {
-      field: 'phone',
-      label: 'Phone number',
-      complete: !!listing.phone,
-      hint: 'Help people find you',
-    },
-  ]
-
-  const completeCount = checks.filter(c => c.complete).length
-  const allComplete = completeCount === checks.length
+  const { complete, total, remaining, allComplete } = getCompleteness(listing)
 
   if (allComplete) return null
 
@@ -87,90 +62,46 @@ function CompletenessChecklist({ listing }) {
     <div style={{
       marginBottom: 16,
       padding: '12px 14px',
-      borderRadius: 8,
-      background: '#FFFDF7',
-      border: '1px solid #F0EBDF',
+      borderRadius: 10,
+      background: 'var(--color-cream)',
+      border: '1px solid var(--color-border)',
     }}>
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        marginBottom: 10,
-      }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+        <div style={{ flex: 1, height: 5, borderRadius: 3, background: 'var(--color-border)', overflow: 'hidden' }}>
+          <div style={{ width: `${(complete / total) * 100}%`, height: '100%', background: 'var(--color-sage)', borderRadius: 3 }} />
+        </div>
         <span style={{
-          fontFamily: 'var(--font-body, system-ui)',
-          fontSize: 11,
-          fontWeight: 600,
-          letterSpacing: '0.1em',
-          textTransform: 'uppercase',
-          color: 'var(--color-muted, #888)',
+          fontFamily: 'var(--font-body, system-ui)', fontSize: 11, fontWeight: 600,
+          color: 'var(--color-muted, #888)', flexShrink: 0,
         }}>
-          Listing completeness
-        </span>
-        <span style={{
-          fontFamily: 'var(--font-body, system-ui)',
-          fontSize: 11,
-          fontWeight: 500,
-          color: completeCount >= 4 ? 'var(--color-sage, #5f8a7e)' : 'var(--color-gold, #C4973B)',
-        }}>
-          {completeCount}/{checks.length}
+          {complete} of {total}
         </span>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {checks.map(check => (
-          <div key={check.field} style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 8,
-            padding: check.complete ? '0' : '4px 6px',
-            borderRadius: 4,
-            background: check.complete ? 'transparent' : '#FFF8EE',
-          }}>
-            <span style={{
-              fontSize: 13,
-              lineHeight: '18px',
-              flexShrink: 0,
-              color: check.complete ? '#16a34a' : '#dc2626',
-            }}>
-              {check.complete ? '✓' : '✗'}
-            </span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              {check.complete ? (
-                <span style={{
-                  fontFamily: 'var(--font-body, system-ui)',
-                  fontSize: 12,
-                  color: '#16a34a',
-                  fontWeight: 500,
-                }}>
-                  {check.label} added
-                </span>
-              ) : (
-                <Link
-                  href={editUrl}
-                  style={{
-                    fontFamily: 'var(--font-body, system-ui)',
-                    fontSize: 12,
-                    color: '#dc2626',
-                    fontWeight: 500,
-                    textDecoration: 'none',
-                    display: 'block',
-                    lineHeight: '18px',
-                  }}
-                >
-                  {check.label} missing
-                  <span style={{
-                    fontWeight: 400,
-                    color: 'var(--color-muted, #888)',
-                    fontSize: 11,
-                    marginLeft: 6,
-                  }}>
-                    &mdash; {check.hint}
-                  </span>
-                </Link>
-              )}
-            </div>
-          </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+        {remaining.slice(0, 3).map(check => (
+          <Link
+            key={check.field}
+            href={`${editUrl}#panel-${check.panel}`}
+            title={check.hint}
+            style={{
+              display: 'inline-flex', alignItems: 'center', padding: '5px 11px',
+              borderRadius: 100, border: '1px dashed var(--color-border)',
+              fontFamily: 'var(--font-body, system-ui)', fontSize: 12,
+              color: 'var(--color-muted, #888)', textDecoration: 'none',
+              minHeight: 0, lineHeight: 1.5,
+            }}
+          >
+            {check.action}
+          </Link>
         ))}
+        {remaining.length > 3 && (
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', padding: '5px 4px',
+            fontFamily: 'var(--font-body, system-ui)', fontSize: 12, color: 'var(--color-muted, #888)',
+          }}>
+            +{remaining.length - 3} more
+          </span>
+        )}
       </div>
     </div>
   )

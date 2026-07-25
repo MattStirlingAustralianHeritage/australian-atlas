@@ -1,0 +1,300 @@
+/**
+ * Dashboard shell — the Gmail-style navigation rail.
+ *
+ * The rail sits at a fixed 72px showing icons only, and expands to 252px on
+ * hover (or keyboard focus) as an OVERLAY: the main column's margin never
+ * changes while hovering, so nothing on the page reflows or jumps under the
+ * pointer. The hamburger pins it open, which is the one case where the content
+ * column does move over — a deliberate, clicked action rather than a hover.
+ *
+ * Icon geometry is chosen so the icons never move horizontally between the two
+ * states: the rail is 14 + 44 + 14 = 72px collapsed, and each nav item is a
+ * 44px-tall box inset 14px from each edge. Collapsed that box is a 44px circle
+ * centred on the icon; expanded it stretches into a pill with the label
+ * revealed beside it. Only the pill width and label opacity animate.
+ */
+
+.aa-shell {
+  --aa-rail: 72px;
+  --aa-rail-open: 252px;
+  min-height: 100vh;
+  background: var(--color-cream);
+}
+
+/* ── The rail ─────────────────────────────────────────────── */
+
+.aa-rail {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 60;
+  width: var(--aa-rail);
+  display: flex;
+  flex-direction: column;
+  background: var(--color-ink);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* Trailing delay = the rail lingers briefly before collapsing, so brushing
+     past it on the way to the content doesn't make it flicker shut. */
+  transition: width 0.17s cubic-bezier(0.4, 0, 0.2, 1) 0.16s,
+              box-shadow 0.17s ease 0.16s;
+}
+
+/* Hover/focus expansion — only while unpinned. */
+.aa-shell[data-pinned='false'] .aa-rail:hover,
+.aa-shell[data-pinned='false'] .aa-rail:focus-within {
+  width: var(--aa-rail-open);
+  box-shadow: 4px 0 28px rgba(0, 0, 0, 0.28);
+  /* Shorter delay opening than closing: responsive to intent, calm on exit. */
+  transition-delay: 0.1s;
+}
+
+.aa-shell[data-pinned='true'] .aa-rail {
+  width: var(--aa-rail-open);
+}
+
+/* Everything that should only be legible once the rail is wide. */
+.aa-rail-wide {
+  opacity: 0;
+  transition: opacity 0.1s ease;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.aa-shell[data-pinned='false'] .aa-rail:hover .aa-rail-wide,
+.aa-shell[data-pinned='false'] .aa-rail:focus-within .aa-rail-wide,
+.aa-shell[data-pinned='true'] .aa-rail-wide {
+  opacity: 1;
+  transition: opacity 0.16s ease 0.12s;
+  pointer-events: auto;
+}
+
+/* ── Nav items ────────────────────────────────────────────── */
+
+.aa-nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 44px;
+  margin: 2px 14px;
+  border-radius: 22px;
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  border: none;
+  background: transparent;
+  padding: 0;
+  width: calc(100% - 28px);
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.62);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  text-align: left;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+
+.aa-nav-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.aa-nav-item[data-active='true'] {
+  background: var(--color-sage);
+  color: #fff;
+  font-weight: 500;
+}
+
+.aa-nav-item[data-active='true']:hover {
+  background: var(--color-sage);
+}
+
+.aa-nav-icon {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.aa-nav-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Unseen-tool marker. Expanded it sits at the end of the pill; collapsed the
+   pill is a circle, so it rides the icon's top-right corner instead. */
+.aa-nav-dot {
+  position: absolute;
+  top: 9px;
+  left: 34px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-gold);
+  box-shadow: 0 0 0 2px var(--color-ink);
+  transition: opacity 0.12s ease;
+}
+
+.aa-shell[data-pinned='false'] .aa-rail:hover .aa-nav-dot,
+.aa-shell[data-pinned='false'] .aa-rail:focus-within .aa-nav-dot,
+.aa-shell[data-pinned='true'] .aa-nav-dot {
+  opacity: 0;
+}
+
+/* ── Section label between nav groups ─────────────────────── */
+
+.aa-nav-group {
+  margin: 14px 14px 6px;
+  font-family: var(--font-body);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.32);
+  height: 12px;
+}
+
+/* Collapsed, the group label would be an unreadable stub — show a hairline
+   divider in its place so the grouping still reads. */
+.aa-nav-rule {
+  height: 1px;
+  margin: 12px 22px;
+  background: rgba(255, 255, 255, 0.12);
+  transition: opacity 0.12s ease;
+}
+
+.aa-shell[data-pinned='false'] .aa-rail:hover .aa-nav-rule,
+.aa-shell[data-pinned='false'] .aa-rail:focus-within .aa-nav-rule,
+.aa-shell[data-pinned='true'] .aa-nav-rule {
+  opacity: 0;
+}
+
+/* ── Managed-venue block ──────────────────────────────────── */
+
+.aa-venue {
+  display: flex;
+  align-items: center;
+  margin: 2px 14px 10px;
+  border-radius: 22px;
+  padding: 0;
+  height: 44px;
+  text-decoration: none;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: background 0.14s ease;
+}
+
+.aa-venue:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.aa-venue-mark {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.aa-venue-mark span {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--color-sage);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+/* ── Main column ──────────────────────────────────────────── */
+
+.aa-main {
+  margin-left: var(--aa-rail);
+  min-height: 100vh;
+  transition: margin-left 0.17s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.aa-shell[data-pinned='true'] .aa-main {
+  margin-left: var(--aa-rail-open);
+}
+
+.aa-main-inner {
+  padding: 2rem;
+  max-width: 1100px;
+}
+
+/* ── Mobile: the rail becomes an off-canvas drawer ────────── */
+
+.aa-rail-scrim {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .aa-rail {
+    width: var(--aa-rail-open);
+    transform: translateX(-100%);
+    transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: none;
+  }
+
+  /* Hover expansion is meaningless on touch — the drawer state rules instead. */
+  .aa-shell[data-pinned='false'] .aa-rail:hover,
+  .aa-shell[data-pinned='false'] .aa-rail:focus-within,
+  .aa-shell[data-pinned='true'] .aa-rail {
+    width: var(--aa-rail-open);
+    box-shadow: none;
+  }
+
+  .aa-shell[data-drawer='true'] .aa-rail {
+    transform: translateX(0);
+    box-shadow: 4px 0 28px rgba(0, 0, 0, 0.32);
+  }
+
+  /* In the drawer everything is always legible. */
+  .aa-rail-wide {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .aa-nav-dot,
+  .aa-nav-rule {
+    opacity: 0;
+  }
+
+  .aa-main,
+  .aa-shell[data-pinned='true'] .aa-main {
+    margin-left: 0;
+  }
+
+  .aa-main-inner {
+    padding: 4.5rem 1.15rem 2rem;
+  }
+
+  .aa-shell[data-drawer='true'] .aa-rail-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    background: rgba(0, 0, 0, 0.42);
+  }
+}
+
+/* Respect reduced-motion: state still changes, it just doesn't slide. */
+@media (prefers-reduced-motion: reduce) {
+  .aa-rail,
+  .aa-main,
+  .aa-rail-wide,
+  .aa-nav-item {
+    transition: none !important;
+  }
+}

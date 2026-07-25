@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useRef, useState, useCallback } from 'react'
+import { Panel, LockedNote, PanelActions } from './EditorPanel'
 import {
   getHighlightDef,
   verticalSupportsHighlights,
@@ -13,9 +14,10 @@ import {
  *
  * Self-contained: loads from the listing's operator_highlights, tracks its own
  * dirty state, and saves through the same PATCH /api/dashboard/listing contract
- * as the rest of the page (master-only write). Lives as a section on the WYSIWYG
- * edit page, with its own inline Save so it doesn't entangle the page's
- * contact/gallery save flow.
+ * as the rest of the page (master-only write). Renders its own Panel on the
+ * WYSIWYG edit page, with its own inline Save so it doesn't entangle the page's
+ * contact/gallery save flow. `canEdit` false (free plan) swaps the whole form
+ * for the shared upgrade card — the parent no longer carries that lock copy.
  *
  * The field set is entirely config-driven (lib/operator-highlights/config) so a
  * roastery sees "On the roaster now", a studio sees "Classes & enrolments", a
@@ -68,7 +70,7 @@ function relativeTime(ms) {
   return years <= 1 ? 'a year ago' : `${years} years ago`
 }
 
-export default function HighlightsEditor({ listingId, vertical, subType, token, initialHighlights, accent }) {
+export default function HighlightsEditor({ listingId, vertical, subType, token, initialHighlights, accent, canEdit }) {
   const def = useMemo(() => getHighlightDef(vertical, subType), [vertical, subType])
   const vertColor = accent || 'var(--color-sage)'
 
@@ -154,23 +156,46 @@ export default function HighlightsEditor({ listingId, vertical, subType, token, 
     }
   }
 
+  // Free plan: the panel is the upgrade card and nothing else — no form state
+  // reaches the screen, no save button to disable.
+  if (!canEdit) {
+    return (
+      <Panel id="highlights" title="Highlights" status="locked" summary="Included with Standard">
+        <LockedNote>
+          Tell visitors what’s happening at your place right now — what’s pouring, what’s just landed,
+          whether you’re hiring. Included with Standard.
+        </LockedNote>
+      </Panel>
+    )
+  }
+
+  // Collapsed summary counts what's in the form right now; the header's state
+  // dot follows the last SAVED state, so an unsaved edit reads as the amber
+  // dirty marker rather than a premature tick.
+  const filledCount =
+    def.fields.filter(f => (fields[f.key] || '').trim() !== '').length +
+    (hiringOpen || hiringUrl.trim() || hiringNote.trim() ? 1 : 0)
+
   return (
-    <div style={{ marginTop: 36, paddingTop: 28, borderTop: '1px solid var(--color-border)' }}>
+    <Panel
+      id="highlights"
+      title="Highlights"
+      status={savedHasContent ? 'done' : 'empty'}
+      dirty={dirty}
+      summary={filledCount ? `${filledCount} highlight${filledCount === 1 ? '' : 's'}` : 'Nothing added yet'}
+    >
       <style>{`
         .aa-hl-input:focus, .aa-hl-textarea:focus { border-color: ${vertColor}; }
         .aa-hl-save:not(:disabled):hover { opacity: 0.9; }
       `}</style>
 
-      <div style={{ marginBottom: 4, display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)', margin: 0 }}>
-          Highlights
-        </h2>
-        {hasUpdated && (
-          <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: isStale ? '#b45309' : 'var(--color-muted)' }}>
-            Last updated {relativeTime(updatedMs)}
-          </span>
-        )}
-      </div>
+      {/* Freshness stamp — the panel header carries the summary, so this sits
+          inline above the intro rather than beside a heading. */}
+      {hasUpdated && (
+        <p style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: isStale ? '#b45309' : 'var(--color-muted)', margin: '0 0 6px' }}>
+          Last updated {relativeTime(updatedMs)}
+        </p>
+      )}
       <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: isStale ? '0 0 12px' : '0 0 20px', lineHeight: 1.5, maxWidth: 560 }}>
         Tell visitors what you’re doing right now — it shows on your public page. Keep it plain and specific;
         leave anything blank that doesn’t apply.
@@ -292,7 +317,7 @@ export default function HighlightsEditor({ listingId, vertical, subType, token, 
       )}
 
       {/* ── Save row ───────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 16, flexWrap: 'wrap' }}>
+      <PanelActions>
         <button
           type="button" className="aa-hl-save" onClick={handleSave} disabled={saving || !dirty}
           style={{
@@ -312,8 +337,8 @@ export default function HighlightsEditor({ listingId, vertical, subType, token, 
         ) : dirty ? (
           <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)' }}>Unsaved highlight changes</span>
         ) : null}
-      </div>
-    </div>
+      </PanelActions>
+    </Panel>
   )
 }
 

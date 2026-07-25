@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useRef, useState } from 'react'
+import { Panel, LockedNote, PanelActions } from './EditorPanel'
 import { inspectKeyword, cleanKeyword, MAX_KEYWORDS } from '@/lib/search-keywords/normalize'
 
 /**
@@ -11,17 +12,17 @@ import { inspectKeyword, cleanKeyword, MAX_KEYWORDS } from '@/lib/search-keyword
  * listing's embedding and the lexical search document on the server; they are
  * NEVER shown on the public page.
  *
- * Self-contained, mirroring HighlightsEditor: loads from listing.search_keywords,
- * tracks its own dirty state, and saves through the same PATCH
- * /api/dashboard/listing contract (master-only write, owner + paid gated
- * server-side). Client validation reuses lib/search-keywords/normalize so the
- * chip rules match the server exactly.
+ * Self-contained, mirroring HighlightsEditor: renders its own Panel, loads from
+ * listing.search_keywords, tracks its own dirty state, and saves through the
+ * same PATCH /api/dashboard/listing contract (master-only write, owner + paid
+ * gated server-side). Client validation reuses lib/search-keywords/normalize so
+ * the chip rules match the server exactly.
  *
- * The whole editor page is already gated to paid owners (an unpaid operator gets
- * the payment challenge instead of this section), and the PATCH route re-checks
- * ownership + active standard claim — so this section needs no gate of its own.
+ * `canEdit` false (free plan) swaps the chip box for the shared upgrade card —
+ * the parent no longer carries that lock copy. The PATCH route re-checks
+ * ownership + active standard claim regardless, so the gate here is presentation.
  */
-export default function KeywordsEditor({ listingId, token, initialKeywords, accent }) {
+export default function KeywordsEditor({ listingId, token, initialKeywords, accent, canEdit }) {
   const vertColor = accent || 'var(--color-sage)'
 
   const initial = Array.isArray(initialKeywords)
@@ -120,23 +121,39 @@ export default function KeywordsEditor({ listingId, token, initialKeywords, acce
     }
   }
 
+  // Free plan: the panel is the upgrade card and nothing else.
+  if (!canEdit) {
+    return (
+      <Panel id="keywords" title="Search keywords" status="locked" summary="Included with Standard">
+        <LockedNote>
+          Add the terms people actually search for when they’re looking for a place like yours. They’re
+          never shown publicly — they just help the right visitors find you. Included with Standard.
+        </LockedNote>
+      </Panel>
+    )
+  }
+
+  // Collapsed summary: the first few terms verbatim, since the keywords
+  // themselves are the only thing worth reading at a glance.
+  const summary = chips.length
+    ? chips.slice(0, 3).join(', ') + (chips.length > 3 ? ` +${chips.length - 3} more` : '')
+    : 'No keywords yet'
+
   return (
-    <div style={{ marginTop: 36, paddingTop: 28, borderTop: '1px solid var(--color-border)' }}>
+    <Panel
+      id="keywords"
+      title="Search keywords"
+      status={chips.length ? 'done' : 'empty'}
+      meta={`${chips.length} / ${MAX_KEYWORDS}`}
+      dirty={dirty}
+      summary={summary}
+    >
       <style>{`
         .aa-kw-box:focus-within { border-color: ${vertColor}; box-shadow: 0 0 0 3px ${vertColor}22; }
         .aa-kw-input::placeholder { color: var(--color-muted); }
         .aa-kw-save:not(:disabled):hover { opacity: 0.9; }
         .aa-kw-chip-x:hover { background: rgba(0,0,0,0.12); }
       `}</style>
-
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 4, flexWrap: 'wrap' }}>
-        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)', margin: 0 }}>
-          Search keywords
-        </h2>
-        <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: atMax ? '#b45309' : 'var(--color-muted)' }}>
-          {chips.length} / {MAX_KEYWORDS}
-        </span>
-      </div>
 
       <label htmlFor="aa-kw-input" style={{ display: 'block', fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600, color: 'var(--color-ink)', marginBottom: 4 }}>
         Also known for
@@ -194,7 +211,7 @@ export default function KeywordsEditor({ listingId, token, initialKeywords, acce
       </div>
 
       {/* ── Save row ─────────────────────────────────────────── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 16, flexWrap: 'wrap' }}>
+      <PanelActions>
         <button
           type="button"
           className="aa-kw-save"
@@ -217,8 +234,8 @@ export default function KeywordsEditor({ listingId, token, initialKeywords, acce
         ) : dirty ? (
           <span style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)' }}>Unsaved keyword changes</span>
         ) : null}
-      </div>
-    </div>
+      </PanelActions>
+    </Panel>
   )
 }
 

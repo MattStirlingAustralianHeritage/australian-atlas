@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import ConfirmDialog from '@/components/ConfirmDialog'
+import { Panel, LockedNote, PanelActions } from './EditorPanel'
 
 /**
  * "Questions & answers" manager for the listing editor (paid perk).
@@ -10,12 +11,11 @@ import ConfirmDialog from '@/components/ConfirmDialog'
  * /api/dashboard/qna (Bearer). Published entries render as an
  * operator-attributed block on the public page AND feed the listing's own
  * search text + the "Ask the Atlas" concierge — so the operator's own words
- * can answer a visitor's plain-language question. Mirrors the offers/awards
- * perk pattern: a lock card when the listing isn't paid.
+ * can answer a visitor's plain-language question. Renders as one collapsible
+ * Panel in the editor, locked when the listing isn't paid.
  */
 
 const ICONS = {
-  chat: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>,
   trash: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" /><path d="M10 11v6M14 11v6" /></svg>,
   plus: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>,
 }
@@ -84,26 +84,26 @@ export default function QnaSection({ listingId, token, isPaid }) {
     }
   }
 
-  // ── Non-paid lock card ──
+  // ── Non-paid lock ──
   if (!isPaid) {
     return (
-      <Section>
-        <div style={lockCard}>
-          <span style={{ display: 'inline-flex', color: 'var(--color-sage)', flexShrink: 0 }}>{ICONS.chat}</span>
-          <div>
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600, color: 'var(--color-ink)', margin: 0 }}>Answer the questions visitors ask</p>
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '4px 0 0', lineHeight: 1.5 }}>
-              Questions &amp; answers are part of a paid listing. Answer the things people actually ask — parking, walk-ins, dietary options — right on your public page.
-            </p>
-            <a href="/dashboard/subscription" style={{ display: 'inline-block', marginTop: 10, fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600, color: 'var(--color-sage)', textDecoration: 'none' }}>View subscription options →</a>
-          </div>
-        </div>
-      </Section>
+      <Panel id="qna" title="Questions & answers" status="locked" summary="Included with Standard">
+        <LockedNote>
+          Answer the questions visitors actually ask — parking, accessibility, whether to book. Included with Standard.
+        </LockedNote>
+      </Panel>
     )
   }
 
   return (
-    <Section count={qna.length} max={maxQna}>
+    <Panel
+      id="qna"
+      title="Questions & answers"
+      status={qna.length ? 'done' : 'empty'}
+      meta={`${qna.length} / ${maxQna}`}
+      summary={qna.length ? `${qna.length} question${qna.length === 1 ? '' : 's'} answered` : 'No questions yet'}
+    >
+      <style>{`.aa-qna-add:hover { border-color: var(--color-sage) !important; color: var(--color-sage) !important; background: rgba(122,143,107,0.06) !important; }`}</style>
       <ConfirmDialog
         open={!!pendingDelete}
         title="Remove this question?"
@@ -160,31 +160,13 @@ export default function QnaSection({ listingId, token, isPaid }) {
             </Field>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
-            <button type="button" onClick={() => { setForm(null); setFormError(null) }} disabled={saving} style={cancelBtn}>Cancel</button>
+          <PanelActions>
             <button type="button" onClick={save} disabled={saving} style={saveBtn}>{saving ? 'Saving…' : 'Add question'}</button>
-          </div>
+            <button type="button" onClick={() => { setForm(null); setFormError(null) }} disabled={saving} style={cancelBtn}>Cancel</button>
+          </PanelActions>
         </div>
       )}
-    </Section>
-  )
-}
-
-// ── Layout shell (matches the offers/awards section header) ──
-function Section({ children, count, max }) {
-  return (
-    <div style={{ marginTop: 36, paddingTop: 28, borderTop: '1px solid var(--color-border)' }}>
-      <style>{`.aa-qna-add:hover { border-color: var(--color-sage) !important; color: var(--color-sage) !important; background: rgba(122,143,107,0.06) !important; }`}</style>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 4, flexWrap: 'wrap' }}>
-        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)', margin: 0 }}>Questions &amp; answers</h2>
-        {typeof count === 'number' && count > 0 && (
-          <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-muted)' }}>
-            {max ? `${count} / ${max} questions` : `${count} question${count === 1 ? '' : 's'}`}
-          </span>
-        )}
-      </div>
-      {children}
-    </div>
+    </Panel>
   )
 }
 
@@ -201,7 +183,6 @@ function Field({ label, hint, children, style }) {
 // ── styles (mirror OffersSection/AwardsSection) ──
 const helpText = { fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '0 0 16px', lineHeight: 1.5 }
 const errBox = { marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', fontFamily: 'var(--font-body)', fontSize: 13 }
-const lockCard = { display: 'flex', gap: 14, alignItems: 'flex-start', padding: 18, borderRadius: 12, border: '1px solid var(--color-border)', background: 'var(--color-card-bg)' }
 const qnaRow = { display: 'flex', alignItems: 'flex-start', gap: 14, padding: '12px 14px', borderRadius: 12, border: '1px solid var(--color-border)', background: '#fff' }
 const addBtn = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 16px', borderRadius: 12, border: '1.5px dashed var(--color-border)', background: 'transparent', color: 'var(--color-muted)', fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500, cursor: 'pointer', transition: 'all 0.12s ease', alignSelf: 'flex-start' }
 const formCard = { marginTop: 14, padding: 18, borderRadius: 12, border: '1px solid var(--color-border)', background: 'var(--color-card-bg)' }

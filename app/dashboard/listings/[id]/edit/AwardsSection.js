@@ -2,18 +2,18 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import ConfirmDialog from '@/components/ConfirmDialog'
+import { Panel, LockedNote, PanelActions } from './EditorPanel'
 
 /**
  * "Recognition" (awards) manager for the listing editor (paid perk).
  *
  * Loads, creates and removes recognition entries for one listing via
  * /api/dashboard/awards (Bearer). Entries render as a compact,
- * operator-attributed list on the public page. Mirrors the events perk
- * pattern: a lock card when the listing isn't paid.
+ * operator-attributed list on the public page. Renders as one collapsible
+ * Panel in the editor, locked when the listing isn't paid.
  */
 
 const ICONS = {
-  award: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="6" /><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11" /></svg>,
   trash: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" /><path d="M10 11v6M14 11v6" /></svg>,
   external: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>,
   plus: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>,
@@ -88,26 +88,26 @@ export default function AwardsSection({ listingId, token, isPaid }) {
     }
   }
 
-  // ── Non-paid lock card ──
+  // ── Non-paid lock ──
   if (!isPaid) {
     return (
-      <Section>
-        <div style={lockCard}>
-          <span style={{ display: 'inline-flex', color: 'var(--color-sage)', flexShrink: 0 }}>{ICONS.award}</span>
-          <div>
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 600, color: 'var(--color-ink)', margin: 0 }}>Show off your recognition</p>
-            <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '4px 0 0', lineHeight: 1.5 }}>
-              Recognition is part of a paid listing. List the awards, hats and honours your venue has earned, right on your public page.
-            </p>
-            <a href="/dashboard/subscription" style={{ display: 'inline-block', marginTop: 10, fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 600, color: 'var(--color-sage)', textDecoration: 'none' }}>View subscription options →</a>
-          </div>
-        </div>
-      </Section>
+      <Panel id="awards" title="Recognition" status="locked" summary="Included with Standard">
+        <LockedNote>
+          Awards, hats, medals and honours — shown as a compact list on your public listing, clearly marked as supplied by you. Included with Standard.
+        </LockedNote>
+      </Panel>
     )
   }
 
   return (
-    <Section count={awards.length} max={maxAwards}>
+    <Panel
+      id="awards"
+      title="Recognition"
+      status={awards.length ? 'done' : 'empty'}
+      meta={`${awards.length} / ${maxAwards}`}
+      summary={awards.length ? `${awards.length} award${awards.length === 1 ? '' : 's'}` : 'Nothing added yet'}
+    >
+      <style>{`.aa-award-add:hover { border-color: var(--color-sage) !important; color: var(--color-sage) !important; background: rgba(122,143,107,0.06) !important; }`}</style>
       <ConfirmDialog
         open={!!pendingDelete}
         title="Remove this entry?"
@@ -180,31 +180,13 @@ export default function AwardsSection({ listingId, token, isPaid }) {
             </Field>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
-            <button type="button" onClick={() => { setForm(null); setFormError(null) }} disabled={saving} style={cancelBtn}>Cancel</button>
+          <PanelActions>
             <button type="button" onClick={save} disabled={saving} style={saveBtn}>{saving ? 'Saving…' : 'Add recognition'}</button>
-          </div>
+            <button type="button" onClick={() => { setForm(null); setFormError(null) }} disabled={saving} style={cancelBtn}>Cancel</button>
+          </PanelActions>
         </div>
       )}
-    </Section>
-  )
-}
-
-// ── Layout shell (matches the events section header) ──
-function Section({ children, count, max }) {
-  return (
-    <div style={{ marginTop: 36, paddingTop: 28, borderTop: '1px solid var(--color-border)' }}>
-      <style>{`.aa-award-add:hover { border-color: var(--color-sage) !important; color: var(--color-sage) !important; background: rgba(122,143,107,0.06) !important; }`}</style>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 4, flexWrap: 'wrap' }}>
-        <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 22, color: 'var(--color-ink)', margin: 0 }}>Recognition</h2>
-        {typeof count === 'number' && count > 0 && (
-          <span style={{ fontFamily: 'var(--font-body)', fontSize: 12, color: 'var(--color-muted)' }}>
-            {max ? `${count} / ${max} entries` : `${count} entr${count === 1 ? 'y' : 'ies'}`}
-          </span>
-        )}
-      </div>
-      {children}
-    </div>
+    </Panel>
   )
 }
 
@@ -221,7 +203,6 @@ function Field({ label, hint, children, style }) {
 // ── styles (mirror EventsSection) ──
 const helpText = { fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '0 0 16px', lineHeight: 1.5 }
 const errBox = { marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', fontFamily: 'var(--font-body)', fontSize: 13 }
-const lockCard = { display: 'flex', gap: 14, alignItems: 'flex-start', padding: 18, borderRadius: 12, border: '1px solid var(--color-border)', background: 'var(--color-card-bg)' }
 const awardRow = { display: 'flex', alignItems: 'center', gap: 14, padding: '12px 14px', borderRadius: 12, border: '1px solid var(--color-border)', background: '#fff' }
 const addBtn = { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 16px', borderRadius: 12, border: '1.5px dashed var(--color-border)', background: 'transparent', color: 'var(--color-muted)', fontFamily: 'var(--font-body)', fontSize: 14, fontWeight: 500, cursor: 'pointer', transition: 'all 0.12s ease', alignSelf: 'flex-start' }
 const formCard = { marginTop: 14, padding: 18, borderRadius: 12, border: '1px solid var(--color-border)', background: 'var(--color-card-bg)' }
