@@ -3,48 +3,17 @@
   "dryRun": false,
   "results": [
     {
-      "id": "020b8db4-df10-4586-afa7-e462fbda65ce",
-      "name": "Altitude 1148",
-      "vertical": "table",
-      "region": "Illawarra",
+      "id": "11438bad-e3df-4fe2-8563-6ebc8423fd8e",
+      "name": "Killara Hotel & Suites",
+      "vertical": "rest",
+      "region": "Killara",
       "state": "NSW",
-      "status": "ok",
-      "reason": null,
-      "description": "At Bulli Tops, in the Southern Gateway Centre off the M1 Princes Motorway, this contemporary restaurant, café and function centre looks out over panoramic views of the Illawarra. The kitchen combines authentic traditional Indian cuisine with seafood dishes and a modern Australian menu, and the venue is 100% halal certified, with gluten-free and vegetarian options. The adjoining café serves barista-made coffee alongside lighter meals, from cakes to burgers.",
-      "attempts": 1,
-      "via": "direct",
-      "softenedClaims": [
-        "At Bulli Tops"
-      ],
-      "warnings": []
-    },
-    {
-      "id": "2e2d39d5-f9b8-4854-b629-89065425b04b",
-      "name": "Frame Today",
-      "vertical": "corner",
-      "region": "Sydney",
-      "state": "NSW",
-      "status": "failed_gates",
-      "reason": "binding:proper_noun \"Part of Frame Today\", proper_noun \"NSW and Queensland\"",
+      "status": "no_merit",
+      "reason": "chain: Generic business-district hotel selling proximity to Macquarie Park and CBD with no distinctive identity beyond renovated rooms. | visitable: Generic business-district accommodation near Macquarie Park with no distinct identity beyond rooms and proximity to offices. | local: A renovated highway hotel pitched on proximity to business districts and function rooms, with no distinct identity beyond a supply of rooms near the Pacific Highway.",
       "description": null,
-      "attempts": 2,
+      "attempts": 0,
       "via": "direct",
-      "softenedClaims": [
-        "O'Riordan Street and Doody Street"
-      ]
-    },
-    {
-      "id": "430d037f-45b9-4565-8f00-f23367382894",
-      "name": "antojitos - Mayfield",
-      "vertical": "table",
-      "region": "Newcastle",
-      "state": "NSW",
-      "status": "ok",
-      "reason": null,
-      "description": "A casual California/Mexican street food restaurant serving burritos, tacos, nachos and more. The kitchen keeps things simple, affordable and fresh, with an emphasis on flavour, whether you dine in or take away. This is the Mayfield shop on Maitland Road, one of two Newcastle locations.",
-      "attempts": 1,
-      "via": "direct",
-      "warnings": []
+      "meritVotes": "chain:false visitable:false local:false"
     },
     {
       "id": "0869a3ed-19c8-4257-b0cd-f6651540f0d4",
@@ -52,11 +21,64 @@
       "vertical": "table",
       "region": "Melbourne",
       "state": "VIC",
-      "status": "failed_gates",
-      "reason": "binding:proper_noun \"New South Wales and Queensland\"",
+      "status": "no_merit",
+      "reason": "chain: Franchise chain with multiple stores across VIC, NSW and QLD. | visitable: Sinjeon is a multi-location Korean street food franchise with branches across several states, making it a chain outlet excluded by policy. | local: Multi-branch Korean street food chain with locations across VIC, NSW and QLD.",
       "description": null,
-      "attempts": 2,
-      "via": "direct"
+      "attempts": 0,
+      "via": "direct",
+      "meritVotes": "chain:false visitable:false local:false"
+    },
+    {
+      "id": "2e2d39d5-f9b8-4854-b629-89065425b04b",
+      "name": "Frame Today",
+      "vertical": "corner",
+      "region": "Sydney",
+      "state": "NSW",
+      "status": "no_merit",
+      "reason": "chain: Frame Today is a chain with fourteen stores across NSW and QLD, located in a homemaker centre. | visitable: Chain framing store (fourteen locations across NSW/QLD) inside a homemaker centre; a transactional service counter, not a visitable destination. | local: Chain with fourteen stores across NSW and QLD located in a homemaker shopping centre; excluded as a franchise/multi-branch outlet.",
+      "description": null,
+      "attempts": 0,
+      "via": "direct",
+      "meritVotes": "chain:false visitable:false local:false"
+    },
+    {
+      "id": "30eb6999-2949-43c5-b2eb-435db481b63c",
+      "name": "Mondrian",
+      "vertical": "rest",
+      "region": "Burleigh Heads",
+      "state": "QLD",
+      "status": "no_merit",
+      "reason": "chain: Mondrian is a global luxury hotel brand with locations worldwide (LA, Ibiza, Doha, Singapore, etc.), making this a chain outlet rather than an independent venue. | visitable: International Mondrian chain with locations worldwide, disqualified as a chain outlet. | local: Mondrian is a global luxury hotel chain with branches worldwide (Abu Dhabi, Cannes, Ibiza, LA, etc.), making this an excluded chain outlet rather than an independent, place-specific property.",
+      "description": null,
+      "attempts": 0,
+      "via": "direct",
+      "meritVotes": "chain:false visitable:false local:false"
+    },
+    {
+      "id": "3e62405b-6bf5-4ff0-b14f-658390471137",
+      "name": "Regency on the Beach",
+      "vertical": "rest",
+      "region": "Gold Coast",
+      "state": "QLD",
+      "status": "no_merit",
+      "reason": "chain: Generic beachfront holiday apartment block offering standard self-contained units without distinctive identity or heritage. | visitable: Generic beachfront apartment block offering self-contained rooms with no distinct identity, history or design point of view beyond supply of holiday units. | local: Generic beachfront holiday-apartment block with standard self-contained units and no distinct identity, design point of view or owner story.",
+      "description": null,
+      "attempts": 0,
+      "via": "direct",
+      "meritVotes": "chain:false visitable:false local:false"
+    },
+    {
+      "id": "5dd927e1-45a0-4656-88b3-e43a3d1ef7c6",
+      "name": "Holy Basil",
+      "vertical": "table",
+      "region": "Parramatta",
+      "state": "NSW",
+      "status": "no_merit",
+      "reason": "chain: Multi-location group with venues in Canley Heights, Parramatta and Darling Square. | visitable: Multi-location chain with branches in Canley Heights, Parramatta and Darling Square. | local: Multi-branch restaurant with locations in Canley Heights, Parramatta and Darling Square, functioning as a chain.",
+      "description": null,
+      "attempts": 0,
+      "via": "direct",
+      "meritVotes": "chain:false visitable:false local:false"
     },
     {
       "id": "85dfba53-685d-4191-b5db-ece37e0c4672",
@@ -64,6 +86,87 @@
       "vertical": "rest",
       "region": "Perth",
       "state": "WA",
+      "status": "no_site_text",
+      "reason": "site unreadable (http 403)",
+      "description": null,
+      "attempts": 0
+    },
+    {
+      "id": "2f8c2bf5-df70-4e4c-9cc6-e215195fd20a",
+      "name": "Little Itoshin",
+      "vertical": "table",
+      "region": "Gold Coast",
+      "state": "QLD",
+      "status": "ok",
+      "reason": null,
+      "description": "A Japanese dining bar and takeaway at shop 6, 110 Mountain View Ave in Miami. Dinner runs Tuesday to Saturday from 5:30pm, with the kitchen closed Sunday and Monday. Beyond the regular service, the team takes enquiries for private chef bookings, functions and catering.",
+      "attempts": 1,
+      "via": "direct",
+      "meritVotes": "chain:true visitable:true local:true",
+      "softenedClaims": [
+        "Sunday and Monday"
+      ],
+      "warnings": []
+    },
+    {
+      "id": "0fa51d64-b54f-42f7-9dd5-6cd474b13335",
+      "name": "Balboa Italian",
+      "vertical": "table",
+      "region": "Gold Coast",
+      "state": "QLD",
+      "status": "ok",
+      "reason": null,
+      "description": "An Italian restaurant on the Gold Coast Highway, serving the Gold Coast since 2016. The kitchen works from local and imported produce, cooking classically Italian dishes with a modern hand: signature plates include beef cheek gnocchi and pappardelle al ragù made in house. Cocktails and wine round out the menu, in a setting the team describe as both elegant and vibrant. Open for dinner through the week, with lunch added from Friday to Sunday.",
+      "attempts": 1,
+      "via": "direct",
+      "meritVotes": "chain:true visitable:true local:true",
+      "warnings": []
+    },
+    {
+      "id": "8d98dd1d-5d08-4e15-b5a7-a4a699253c9b",
+      "name": "Kusuka Corner",
+      "vertical": "table",
+      "region": "Sunnybank",
+      "state": "QLD",
+      "status": "no_merit",
+      "reason": "chain: Multi-location chain with several outlets across Sydney and Brisbane plus a loyalty ordering app, not a single independent venue. | visitable: A multi-location group operating across Sydney and Brisbane, so it reads as a chain outlet rather than a singular independent venue.",
+      "description": null,
+      "attempts": 0,
+      "via": "direct",
+      "meritVotes": "chain:false visitable:false local:true"
+    },
+    {
+      "id": "909d7fde-7cf4-4c0b-a694-8a2f611ffbde",
+      "name": "19th Avenue On The Beach",
+      "vertical": "rest",
+      "region": "Gold Coast",
+      "state": "QLD",
+      "status": "no_merit",
+      "reason": "chain: Generic beachfront holiday apartment block whose selling points are pool, gym, parking and proximity to airport, with no distinct identity or heritage. | visitable: Generic beachfront holiday apartment block offering self-contained rooms and resort facilities without distinct identity or history. | local: A generic beachfront holiday apartment block selling rooms and resort amenities, with no distinct identity, history or owner-operator character.",
+      "description": null,
+      "attempts": 0,
+      "via": "direct",
+      "meritVotes": "chain:false visitable:false local:false"
+    },
+    {
+      "id": "b5662741-e705-4e72-bf30-e8201c76b678",
+      "name": "Gemini Court",
+      "vertical": "rest",
+      "region": "Burleigh Heads",
+      "state": "QLD",
+      "status": "no_merit",
+      "reason": "chain: Generic beachfront holiday apartment block whose selling points are views, location and standard resort facilities, with no distinct identity of its own. | visitable: Generic beachfront holiday apartment block offering a supply of self-contained rooms with no distinct identity or history beyond its location and views. | local: A generic beachfront holiday-apartment block whose selling points are ocean views, location and standard resort facilities, with no distinct identity.",
+      "description": null,
+      "attempts": 0,
+      "via": "direct",
+      "meritVotes": "chain:false visitable:false local:false"
+    },
+    {
+      "id": "c53cc981-bd4d-431e-8a9c-46fe123caa23",
+      "name": "My Saigon Tuckshop",
+      "vertical": "table",
+      "region": "Gold Coast",
+      "state": "QLD",
       "status": "no_site_text",
       "reason": "site unreadable (http 403)",
       "description": null,
@@ -81,68 +184,79 @@
       "attempts": 0
     },
     {
-      "id": "8d98dd1d-5d08-4e15-b5a7-a4a699253c9b",
-      "name": "Kusuka Corner",
-      "vertical": "table",
-      "region": "Sunnybank",
-      "state": "QLD",
-      "status": "failed_gates",
-      "reason": "binding:proper_noun \"An Indonesian-inspired\"",
-      "description": null,
-      "attempts": 2,
-      "via": "direct",
-      "softenedClaims": [
-        "Friday and Saturday"
-      ]
-    },
-    {
       "id": "a79f3764-cb42-4597-990b-8cc420f9fc76",
       "name": "Panorama House",
       "vertical": "table",
       "region": "Illawarra",
       "state": "NSW",
-      "status": "failed_gates",
-      "reason": "binding:proper_noun \"Sitting on Bulli Tops\"",
+      "status": "no_merit",
+      "reason": "visitable: Primarily a wedding and function venue trading on its views and buffet events rather than a distinctive independent restaurant worth going out of your way for. | local: Generic function-and-buffet venue trading on its view, with no distinctive kitchen, cuisine or independent identity.",
       "description": null,
-      "attempts": 2,
-      "via": "direct"
+      "attempts": 0,
+      "via": "direct",
+      "meritVotes": "chain:true visitable:false local:false"
     },
     {
-      "id": "cbd910c3-1bd7-4fea-bfc0-b6b860eef0bb",
-      "name": "Bulli Beach Cafe",
+      "id": "a2cee676-8288-4f88-9899-251ca8196e00",
+      "name": "Palm's Indian Kitchen",
       "vertical": "table",
-      "region": "Bulli",
-      "state": "NSW",
+      "region": "Gold Coast",
+      "state": "QLD",
       "status": "ok",
       "reason": null,
-      "description": "A relaxed cafe just steps from Bulli Beach, serving breakfast, lunch and dinner with an outlook over the water. Coffee comes from Seven Miles Coffee Roasters, made to order across flat whites, long blacks and iced coffees. From Friday to Sunday the kitchen shifts to dinner, with wood-fired pizzas, pastas, salads and mains, alongside beer, wine and cocktails. There's a grazing antipasto platter of charcuterie, cheeses, olives, bread and dips, and a kids menu of pizza, pasta, fish and chips. Outdoor seating is dog friendly, and much of the menu is available for takeaway.",
+      "description": "A family-run Indian restaurant on the Gold Coast Highway at Palm Beach, open seven days. The menu moves from soups and appetisers through tandoor dishes to curries ranging from mild to spicy, served with rice and fresh-baked naan, and finishing with Indian desserts. Both vegetarian and non-vegetarian dishes are covered, each made to order. The full menu is also available for pickup.",
       "attempts": 1,
       "via": "direct",
+      "meritVotes": "chain:true visitable:true local:false",
+      "meritSplit": "local: Generic family Indian takeaway with no distinctive dishes, chef, or room identity beyond standard menu categories.",
+      "softenedClaims": [
+        "Gold Coast Highway at Palm Beach"
+      ],
       "warnings": []
     },
     {
-      "id": "f6b952a7-c70d-42ab-b6d6-51c65a8ac770",
-      "name": "Chickita",
-      "vertical": "table",
-      "region": "Melbourne",
-      "state": "VIC",
+      "id": "ed0d59c2-9f74-4bb1-ac53-9d504dc327aa",
+      "name": "Burleigh Surf",
+      "vertical": "rest",
+      "region": "Gold Coast",
+      "state": "QLD",
       "status": "no_merit",
-      "reason": "Multi-outlet chain 'concept' with locations in three shopping centres, a loyalty program and franchise-style branding — corporate and transactional, not an independent place worth going out of your way for.",
+      "reason": "chain: Generic high-rise holiday apartment complex, part of the multi-property Coast Breakz Properties group, with no distinctive identity. | visitable: Generic beachfront apartment complex offering a supply of self-contained holiday rooms with no distinctive identity, heritage or owner-operator character. | local: Generic beachfront apartment high-rise offering a supply of self-contained rooms with pools and views, no distinct identity of its own.",
       "description": null,
-      "attempts": 1,
-      "via": "direct"
+      "attempts": 0,
+      "via": "direct",
+      "meritVotes": "chain:false visitable:false local:false"
     },
     {
-      "id": "9320068e-7c97-43ea-99e3-861efffb53ed",
-      "name": "Grevillea Park",
-      "vertical": "field",
-      "region": "Illawarra",
-      "state": "NSW",
-      "status": "identity_fail",
-      "reason": "Website is a Texas septic tank installation company (Conroe, Montgomery County, TX), not a green space/park in Illawarra NSW.",
-      "description": null,
+      "id": "eeba607e-5715-438d-94ed-f546938221cb",
+      "name": "Farmers Market",
+      "vertical": "table",
+      "region": "Gold Coast",
+      "state": "QLD",
+      "status": "ok",
+      "reason": null,
+      "description": "A Saturday market held in the grounds of the Burleigh Heads State School, on the corner of Lower Gold Coast Hwy and West Burleigh Rd. It runs every Saturday from 7am to noon, rain, hail or shine, with free entry and parking on the school oval.\n\nStalls cover fresh farm produce, organic fruit and vegetables, gourmet and global foods, meat, fish and deli products, alongside flowers, plants, arts and crafts, antiques and collectibles. Coffee and bakery treats are always on hand. Live entertainment features local talent each week, and pre-lived rack sales run on the last Saturday of each month.",
       "attempts": 2,
-      "via": "direct"
+      "via": "direct",
+      "meritVotes": "chain:true visitable:true local:true",
+      "warnings": []
+    },
+    {
+      "id": "510e5548-d714-4e42-81d0-0b41205380be",
+      "name": "Palooka",
+      "vertical": "table",
+      "region": "Cairns",
+      "state": "QLD",
+      "status": "ok",
+      "reason": null,
+      "description": "Contemporary modern European dining in Stratford Village, Cairns. The kitchen runs a rotating set of weeknight offers: pasta with a choice of five options on Wednesdays, steak with house beer or wine on Thursdays, and a three-course bottomless lunch from Friday to Sunday. Seasonal cooking appears when it's available, including dishes built around fresh black truffle. Takeaway pizzas can also be ordered. The venue hosts events and guest pastry chefs alongside its regular service.",
+      "attempts": 2,
+      "via": "direct",
+      "meritVotes": "chain:true visitable:true local:true",
+      "warnings": [
+        "Wednesdays",
+        "Thursdays"
+      ]
     }
   ]
 }

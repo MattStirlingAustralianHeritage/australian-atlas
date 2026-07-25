@@ -166,5 +166,71 @@
     "status": "identity_fail",
     "reason": "Website is a Texas septic tank installation company (Conroe, Montgomery County, TX), not a green space/park in Illawarra NSW.",
     "at": "2026-07-25T11:17:45.445Z"
+  },
+  "11438bad-e3df-4fe2-8563-6ebc8423fd8e": {
+    "name": "Killara Hotel & Suites",
+    "status": "no_merit",
+    "reason": "chain: Generic business-district hotel selling proximity to Macquarie Park and CBD with no distinctive identity beyond renovated rooms. | visitable: Generic business-district accommodation near Macquarie Park with no distinct identity beyond rooms and proximity to offices. | local: A renovated highway hotel pitched on proximity to business districts and function rooms, with no distinct identity beyond a supply of rooms near the Pacific Highway.",
+    "at": "2026-07-25T22:19:17.128Z"
+  },
+  "0869a3ed-19c8-4257-b0cd-f6651540f0d4": {
+    "name": "Sinjeon",
+    "status": "no_merit",
+    "reason": "chain: Franchise chain with multiple stores across VIC, NSW and QLD. | visitable: Sinjeon is a multi-location Korean street food franchise with branches across several states, making it a chain outlet excluded by policy. | local: Multi-branch Korean street food chain with locations across VIC, NSW and QLD.",
+    "at": "2026-07-25T22:19:17.816Z"
+  },
+  "2e2d39d5-f9b8-4854-b629-89065425b04b": {
+    "name": "Frame Today",
+    "status": "no_merit",
+    "reason": "chain: Frame Today is a chain with fourteen stores across NSW and QLD, located in a homemaker centre. | visitable: Chain framing store (fourteen locations across NSW/QLD) inside a homemaker centre; a transactional service counter, not a visitable destination. | local: Chain with fourteen stores across NSW and QLD located in a homemaker shopping centre; excluded as a franchise/multi-branch outlet.",
+    "at": "2026-07-25T22:19:18.061Z"
+  },
+  "30eb6999-2949-43c5-b2eb-435db481b63c": {
+    "name": "Mondrian",
+    "status": "no_merit",
+    "reason": "chain: Mondrian is a global luxury hotel brand with locations worldwide (LA, Ibiza, Doha, Singapore, etc.), making this a chain outlet rather than an independent venue. | visitable: International Mondrian chain with locations worldwide, disqualified as a chain outlet. | local: Mondrian is a global luxury hotel chain with branches worldwide (Abu Dhabi, Cannes, Ibiza, LA, etc.), making this an excluded chain outlet rather than an independent, place-specific property.",
+    "at": "2026-07-25T22:19:22.066Z"
+  },
+  "3e62405b-6bf5-4ff0-b14f-658390471137": {
+    "name": "Regency on the Beach",
+    "status": "no_merit",
+    "reason": "chain: Generic beachfront holiday apartment block offering standard self-contained units without distinctive identity or heritage. | visitable: Generic beachfront apartment block offering self-contained rooms with no distinct identity, history or design point of view beyond supply of holiday units. | local: Generic beachfront holiday-apartment block with standard self-contained units and no distinct identity, design point of view or owner story.",
+    "at": "2026-07-25T22:19:22.902Z"
+  },
+  "5dd927e1-45a0-4656-88b3-e43a3d1ef7c6": {
+    "name": "Holy Basil",
+    "status": "no_merit",
+    "reason": "chain: Multi-location group with venues in Canley Heights, Parramatta and Darling Square. | visitable: Multi-location chain with branches in Canley Heights, Parramatta and Darling Square. | local: Multi-branch restaurant with locations in Canley Heights, Parramatta and Darling Square, functioning as a chain.",
+    "at": "2026-07-25T22:19:25.918Z"
+  },
+  "8d98dd1d-5d08-4e15-b5a7-a4a699253c9b": {
+    "name": "Kusuka Corner",
+    "status": "no_merit",
+    "reason": "chain: Multi-location chain with several outlets across Sydney and Brisbane plus a loyalty ordering app, not a single independent venue. | visitable: A multi-location group operating across Sydney and Brisbane, so it reads as a chain outlet rather than a singular independent venue.",
+    "at": "2026-07-25T22:19:30.920Z"
+  },
+  "909d7fde-7cf4-4c0b-a694-8a2f611ffbde": {
+    "name": "19th Avenue On The Beach",
+    "status": "no_merit",
+    "reason": "chain: Generic beachfront holiday apartment block whose selling points are pool, gym, parking and proximity to airport, with no distinct identity or heritage. | visitable: Generic beachfront holiday apartment block offering self-contained rooms and resort facilities without distinct identity or history. | local: A generic beachfront holiday apartment block selling rooms and resort amenities, with no distinct identity, history or owner-operator character.",
+    "at": "2026-07-25T22:19:31.399Z"
+  },
+  "b5662741-e705-4e72-bf30-e8201c76b678": {
+    "name": "Gemini Court",
+    "status": "no_merit",
+    "reason": "chain: Generic beachfront holiday apartment block whose selling points are views, location and standard resort facilities, with no distinct identity of its own. | visitable: Generic beachfront holiday apartment block offering a supply of self-contained rooms with no distinct identity or history beyond its location and views. | local: A generic beachfront holiday-apartment block whose selling points are ocean views, location and standard resort facilities, with no distinct identity.",
+    "at": "2026-07-25T22:19:33.819Z"
+  },
+  "a79f3764-cb42-4597-990b-8cc420f9fc76": {
+    "name": "Panorama House",
+    "status": "no_merit",
+    "reason": "visitable: Primarily a wedding and function venue trading on its views and buffet events rather than a distinctive independent restaurant worth going out of your way for. | local: Generic function-and-buffet venue trading on its view, with no distinctive kitchen, cuisine or independent identity.",
+    "at": "2026-07-25T22:19:36.391Z"
+  },
+  "ed0d59c2-9f74-4bb1-ac53-9d504dc327aa": {
+    "name": "Burleigh Surf",
+    "status": "no_merit",
+    "reason": "chain: Generic high-rise holiday apartment complex, part of the multi-property Coast Breakz Properties group, with no distinctive identity. | visitable: Generic beachfront apartment complex offering a supply of self-contained holiday rooms with no distinctive identity, heritage or owner-operator character. | local: Generic beachfront apartment high-rise offering a supply of self-contained rooms with pools and views, no distinct identity of its own.",
+    "at": "2026-07-25T22:19:38.251Z"
   }
 }

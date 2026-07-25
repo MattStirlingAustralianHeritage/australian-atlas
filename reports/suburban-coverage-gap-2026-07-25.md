@@ -111,7 +111,7 @@ Because it outranks the fallback, the ungated path never runs for these listings
 | banned-phrase | the existing operator-intake `BANNED_PHRASES` |
 | source-binding | every 3+ digit number and multi-word proper noun must appear **verbatim** in the venue's own site text |
 | identity | does this website actually belong to *this* venue in *this* suburb? |
-| merit | is this an Atlas-worthy place at all? |
+| merit | is this an Atlas-worthy place at all? — **three independent votes, majority required** |
 
 One corrective retry; then the candidate is left with `description = null` and
 reported rather than published. Silence beats a plausible invention.
