@@ -1,0 +1,338 @@
+#!/usr/bin/env node
+/**
+ * Town-by-town gap crawler — methodical, quota-free coverage discovery.
+ *
+ * WHY: the daily prospector and floor-seeder sweep whole-state bboxes with a
+ * result cap. Dense metros consume that cap first, so long-tail regional towns
+ * are systematically under-discovered. This crawler works one town at a time
+ * with a tight bbox, so it surfaces the venues those broad sweeps never reach.
+ *
+ * SOURCE: OpenStreetMap Overpass only — free, keyless, no quota. NO Google
+ * Places. Every candidate is a real, crowd-mapped POI with a website tag; the
+ * combined-bbox query already excludes brand/chain outlets. Survivors run
+ * through the EXACT SAME 5-gate pipeline as every other candidate, so the
+ * quality bar is unchanged — only the geography of discovery is finer.
+ *
+ * OUTPUT:
+ *   • a dated markdown gap report (always) — what OSM has that Atlas lacks,
+ *     per town, per vertical, with the current Atlas count nearby for contrast.
+ *   • queued candidates in listing_candidates (only with --queue) — gated,
+ *     ready for human review at /admin/candidates.
+ *
+ * TWO PACK FAMILIES:
+ *   REGION_PACKS (town-gap-packs.js)   — thin regional Atlas regions, by town.
+ *   SUBURB_PACKS (metro-suburb-packs.js) — the middle and outer suburbs of
+ *     cities we already "cover". The 2026-07-25 ring audit found Atlas density
+ *     falls 177 → 12.9 → 3.2 listings per 100 km² across the 0–5 / 5–15 / 15–30km
+ *     rings: a 14× cliff at 5km that real venue density cannot explain. Same
+ *     blind spot as the regional long tail, different geometry.
+ * Slugs are unique across both, so --region= accepts either.
+ *
+ * USAGE:
+ *   node --env-file=.env.local scripts/crawl-town-gaps.mjs --region=sapphire-coast
+ *   node --env-file=.env.local scripts/crawl-town-gaps.mjs --region=sapphire-coast --queue --max=20
+ *   node --env-file=.env.local scripts/crawl-town-gaps.mjs --list          # list every pack
+ *   node --env-file=.env.local scripts/crawl-town-gaps.mjs --all           # report every pack (no queue)
+ *   node --env-file=.env.local scripts/crawl-town-gaps.mjs --metro         # every SUBURB pack
+ *   node --env-file=.env.local scripts/crawl-town-gaps.mjs --metro --queue --max=150
+ *
+ * FLAGS:
+ *   --region=SLUG   run one built-in anchor pack (region OR suburb pack)
+ *   --all           run every pack, report only
+ *   --metro         run every metro suburb pack
+ *   --queue         actually run the pipeline + insert candidates (default: report only)
+ *   --max=N         cap candidates QUEUED this run across all towns (default 25)
+ *   --radius=KM     default anchor radius in km (default 12; suburb anchors
+ *                   carry their own tighter radiusKm and ignore this)
+ *   --list          print the available packs and exit
+ */
+import { createClient } from '@supabase/supabase-js'
+import { writeFileSync, mkdirSync } from 'fs'
+import { discoverAllVerticalsInBBox, bboxFromCenter } from '../lib/prospector/osm-overpass.js'
+import { buildDedupSets, normaliseDomain, haversineMeters, VERTICAL_NAMES } from '../lib/prospector/replenish.js'
+import { runPipeline } from '../lib/prospector/pipeline.js'
+import { trigramSimilarity } from '../lib/prospector/gates.js'
+import { REGION_PACKS } from './town-gap-packs.js'
+import { SUBURB_PACKS } from './metro-suburb-packs.js'
+
+// One flat registry — slugs are unique across both families.
+const ALL_PACKS = { ...REGION_PACKS, ...SUBURB_PACKS }
+// Suburb packs carry the inner-ring exclusion wherever they are run from, so
+// --region=sydney-inner-west behaves the same as --metro.
+const SUBURB_PACK_SLUGS = new Set(Object.keys(SUBURB_PACKS))
+
+const MASTER_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+const MASTER_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+if (!MASTER_URL || !MASTER_KEY) { console.error('Missing Supabase env'); process.exit(1) }
+const sb = createClient(MASTER_URL, MASTER_KEY, {
+  global: { fetch: (url, o = {}) => fetch(url, { ...o, cache: 'no-store' }) },
+})
+
+// ── CLI ──────────────────────────────────────────────────────────────
+const args = process.argv.slice(2)
+const arg = (name) => args.find(a => a.startsWith(`--${name}=`))?.split('=')[1]
+const has = (name) => args.includes(`--${name}`)
+const doQueue = has('queue')
+const maxQueue = parseInt(arg('max') || '25', 10)
+const defRadiusKm = parseFloat(arg('radius') || '12')
+const regionArg = arg('region')
+const runAll = has('all')
+const runMetro = has('metro')
+// Report wording: these anchors are suburbs in metro mode, towns otherwise.
+const placeNoun = runMetro ? 'suburb' : 'town'
+// Optional single-vertical focus (e.g. --vertical=rest). When set, only that
+// vertical's gaps are reported/queued and the "Atlas nearby" count is scoped to
+// it, so the report reads as a coverage audit for one vertical. Default: all.
+const verticalFilter = arg('vertical') || null
+
+if (has('list')) {
+  for (const [title, group] of [['Regional town packs', REGION_PACKS], ['Metro suburb packs', SUBURB_PACKS]]) {
+    console.log(`\n${title}:\n`)
+    for (const [slug, pack] of Object.entries(group)) {
+      console.log(`  ${slug.padEnd(24)} ${pack.state.padEnd(4)} — ${String(pack.anchors.length).padStart(2)}: ${pack.anchors.map(a => a.name).join(', ')}`)
+    }
+  }
+  process.exit(0)
+}
+
+// --region accepts one slug or a comma-separated list (thinnest-first targeting).
+const packs = runMetro ? Object.entries(SUBURB_PACKS)
+  : runAll ? Object.entries(ALL_PACKS)
+  : regionArg ? regionArg.split(',').map(s => s.trim()).filter(Boolean).map(s => [s, ALL_PACKS[s]])
+  : null
+if (!packs) { console.error('Pass --region=SLUG[,SLUG…], --all, --metro, or --list'); process.exit(1) }
+if (packs.some(([, p]) => !p)) {
+  const bad = packs.filter(([, p]) => !p).map(([s]) => s).join(', ')
+  console.error(`Unknown pack(s): ${bad}. Try --list`); process.exit(1)
+}
+
+// ── Dedup sets (existing listings + all candidates) ────────────────────
+console.log('Building dedup sets from live listings + candidates…')
+const dedup = await buildDedupSets(sb)
+console.log(`  ${dedup.existingNames.size} names, ${dedup.existingDomains.size} domains known.\n`)
+
+function isDupe(c) {
+  const nameLower = c.name.toLowerCase().trim()
+  if (dedup.existingNames.has(nameLower)) return 'exact-name'
+  for (const existing of dedup.existingNames) {
+    if (trigramSimilarity(nameLower, existing) > 0.85) return 'fuzzy-name'
+  }
+  if (c.website_url) {
+    const d = normaliseDomain(c.website_url)
+    if (d && dedup.existingDomains.has(d)) return 'domain'
+  }
+  if (c.lat && c.lng && dedup.existingCoords.some(e => haversineMeters(e.lat, e.lng, c.lat, c.lng) < 100)) return 'coords'
+  return null
+}
+function remember(c) {
+  dedup.existingNames.add(c.name.toLowerCase().trim())
+  if (c.website_url) dedup.existingDomains.add(normaliseDomain(c.website_url))
+  if (c.lat && c.lng) dedup.existingCoords.push({ lat: c.lat, lng: c.lng })
+}
+
+// Editorial precision filter — cheap source-side cuts so the report and the
+// gated queue stay high-signal (and we don't spend Gate-4 Claude calls on
+// obvious non-fits). Anything subtler is left to the pipeline's Gate 4.
+const CLUB_RE = /\b(rsl|r\.s\.l|bowling club|bowls club|golf club|leagues club|services club|workers club|workingmen|social club|country club|sports club|surf life saving|slsc|yacht club|football club|cricket club|sailing club|memorial club|citizens club|diggers club)\b|^club\s/i
+function passesPrecision(c) {
+  if (CLUB_RE.test(c.name)) return false
+  // Field without a website: Gate 1 falls back to slow URL-guessing that almost
+  // always fails, throttling the crawl for near-zero yield. Only surface websited
+  // field venues (private reserves, botanic/wildlife parks with operator sites).
+  // Parks without an operator site are better curated by hand and are already
+  // captured in the report-only landscape.
+  if (c.vertical === 'field' && !c.website_url) return false
+  return true
+}
+
+// ── Inner-ring exclusion (metro mode) ────────────────────────────────
+// The point of the suburb packs is the ring the sweeps never reach. But a
+// suburb anchor plus its radius can reach back toward the CBD: Marrickville
+// sits 7km out, and a 4km bbox around it takes in Newtown at 3.9km. A first run
+// queued 14 of 24 candidates inside 5km — i.e. mostly in the already-saturated
+// ring the packs exist to avoid. So in metro mode a gap must be at least
+// INNER_RING_KM from every major city centre to be surfaced at all.
+const INNER_RING_KM = 5
+const CITY_CENTRES = [
+  [-33.8688, 151.2093], // Sydney
+  [-37.8136, 144.9631], // Melbourne
+  [-27.4698, 153.0251], // Brisbane
+  [-31.9523, 115.8613], // Perth
+  [-34.9285, 138.6007], // Adelaide
+  [-42.8821, 147.3272], // Hobart
+  [-35.2809, 149.1300], // Canberra
+  [-12.4634, 130.8456], // Darwin
+  [-32.9283, 151.7817], // Newcastle
+  [-34.4278, 150.8931], // Wollongong
+  [-38.1499, 144.3617], // Geelong
+  [-27.9678, 153.4143], // Gold Coast
+  [-26.6580, 153.0920], // Sunshine Coast
+  [-16.9186, 145.7781], // Cairns
+  [-19.2590, 146.8169], // Townsville
+]
+function kmFromNearestCBD(lat, lng) {
+  let best = Infinity
+  for (const [cLat, cLng] of CITY_CENTRES) {
+    best = Math.min(best, haversineMeters(lat, lng, cLat, cLng) / 1000)
+  }
+  return best
+}
+
+// Full state names OSM uses as a coarse region fallback — treated as "no useful
+// region" so the pack's own label wins.
+const STATE_FULL_NAMES = new Set([
+  'New South Wales', 'Victoria', 'Queensland', 'South Australia',
+  'Western Australia', 'Tasmania', 'Australian Capital Territory', 'Northern Territory',
+])
+
+// Count Atlas listings inside an anchor bbox (rough "current coverage").
+// Scoped to `verticalFilter` when set, so a Rest crawl reports Rest-nearby.
+async function atlasCountInBBox(bbox) {
+  const [s, w, n, e] = bbox
+  let q = sb.from('listings').select('*', { count: 'exact', head: true })
+    .eq('status', 'active').gte('lat', s).lte('lat', n).gte('lng', w).lte('lng', e)
+  if (verticalFilter) q = q.eq('vertical', verticalFilter)
+  const { count } = await q
+  return count || 0
+}
+
+// ── Crawl ──────────────────────────────────────────────────────────────
+const startedAt = new Date().toISOString()
+let queuedTotal = 0
+let skippedByCap = 0
+let innerRingSkipped = 0
+// Manifest of what this run actually inserted, so a downstream describe/publish
+// step can act on exactly this run's candidates rather than guessing by timestamp.
+const queuedIds = []
+const reportLines = []
+const grandGaps = {}   // vertical → count
+const perTown = []
+
+packLoop:
+for (const [slug, pack] of packs) {
+  const isSuburbPack = SUBURB_PACK_SLUGS.has(slug)
+  console.log(`\n══════ ${pack.name || slug} (${pack.state}) ══════`)
+  for (const anchor of pack.anchors) {
+    const radiusKm = anchor.radiusKm || defRadiusKm
+    const bbox = bboxFromCenter(anchor.lat, anchor.lng, radiusKm * 1000)
+    process.stdout.write(`  ${anchor.name} (r=${radiusKm}km) … `)
+    let raw = []
+    try {
+      raw = await discoverAllVerticalsInBBox(bbox, { maxResults: 400, log: () => {} })
+    } catch (err) {
+      console.log(`ERROR ${err.message}`); continue
+    }
+    const atlasNearby = await atlasCountInBBox(bbox)
+
+    // Filter to genuine gaps.
+    const gaps = []
+    for (const c of raw) {
+      if (verticalFilter && c.vertical !== verticalFilter) continue
+      if (isSuburbPack && c.lat && c.lng && kmFromNearestCBD(c.lat, c.lng) < INNER_RING_KM) { innerRingSkipped++; continue }
+      if (isDupe(c)) continue
+      if (!passesPrecision(c)) continue
+      // OSM often only knows the state name (or nothing) for a POI's region.
+      // Prefer the pack's region label / town so reviewers see "Sapphire Coast"
+      // or "Bermagui", not "New South Wales".
+      if (!c.region || STATE_FULL_NAMES.has(c.region)) c.region = pack.regionLabel || anchor.name
+      if (!c.state) c.state = pack.state
+      gaps.push(c)
+      remember(c)   // avoid re-surfacing the same POI in overlapping anchors
+    }
+    console.log(`OSM ${raw.length} · Atlas nearby ${atlasNearby} · NEW gaps ${gaps.length}`)
+
+    const byVert = {}
+    for (const g of gaps) { (byVert[g.vertical] ||= []).push(g); grandGaps[g.vertical] = (grandGaps[g.vertical] || 0) + 1 }
+    perTown.push({ town: anchor.name, state: pack.state, osm: raw.length, atlas: atlasNearby, gaps: gaps.length, byVert })
+
+    // Queue the gaps through the pipeline (quality-gated) if requested.
+    if (doQueue && gaps.length) {
+      for (const g of gaps) {
+        if (queuedTotal >= maxQueue) { skippedByCap += 1; continue }
+        try {
+          const result = await runPipeline(g, sb, { dryRun: false, verbose: false })
+          if (result.inserted) {
+            queuedTotal++
+            queuedIds.push({ id: result.candidateId, name: g.name, vertical: g.vertical, town: anchor.name, state: pack.state, score: result.score })
+            console.log(`     ✓ QUEUED ${g.name} [${g.vertical}] score ${result.score}`)
+          }
+          else if (result.failedGate != null) console.log(`     ✗ ${g.name} [${g.vertical}] gate${result.failedGate}`)
+        } catch (err) { console.log(`     ! ${g.name}: ${err.message}`) }
+        await new Promise(r => setTimeout(r, 800))
+      }
+    }
+    // The --max cap bounds how many candidates we QUEUE, not how far we crawl.
+    // Aborting the whole crawl here (the previous behaviour) silently truncated
+    // the gap report at the cap, so a capped run read as "this is all there is".
+    // Keep crawling and reporting; just stop spending pipeline calls.
+    await new Promise(r => setTimeout(r, 1200)) // be kind to Overpass
+  }
+}
+
+// ── Report ──────────────────────────────────────────────────────────────
+const date = startedAt.slice(0, 10)
+reportLines.push(`# Town Gap Crawl — ${date}`)
+reportLines.push('')
+reportLines.push(`Source: OpenStreetMap Overpass (quota-free, no Google Places). Packs: ${packs.map(([s]) => s).join(', ')}.`)
+if (packs.some(([s2]) => SUBURB_PACK_SLUGS.has(s2))) reportLines.push(`Inner-ring exclusion: gaps within ${INNER_RING_KM}km of a major city centre were skipped (${innerRingSkipped} POIs) — that ring is already saturated and is not what these packs are for.`)
+if (verticalFilter) reportLines.push(`Vertical focus: ${VERTICAL_NAMES[verticalFilter] || verticalFilter} only. "Atlas nearby" counts are scoped to this vertical.`)
+reportLines.push(`Mode: ${doQueue ? `QUEUED up to ${maxQueue} candidates through the 5-gate pipeline` : 'REPORT ONLY (no writes)'}.`)
+if (doQueue && skippedByCap > 0) {
+  // Say out loud what the cap dropped — a silent truncation reads as full coverage.
+  reportLines.push('')
+  reportLines.push(`> **Cap reached.** ${queuedTotal} candidates were queued and **${skippedByCap} eligible gaps were NOT queued** because of \`--max=${maxQueue}\`. The landscape below is complete; the queue is not. Re-run with a higher \`--max\` to work the remainder.`)
+}
+reportLines.push('')
+reportLines.push('## Gaps by vertical (net-new, deduped vs Atlas)')
+reportLines.push('')
+reportLines.push('| Vertical | New gaps found |')
+reportLines.push('|---|---|')
+for (const [v, n] of Object.entries(grandGaps).sort((a, b) => b[1] - a[1])) {
+  reportLines.push(`| ${VERTICAL_NAMES[v] || v} | ${n} |`)
+}
+reportLines.push('')
+reportLines.push(`## By ${placeNoun}`)
+reportLines.push('')
+reportLines.push(`| ${placeNoun[0].toUpperCase()+placeNoun.slice(1)} | State | OSM POIs | Atlas nearby | New gaps |`)
+reportLines.push('|---|---|---|---|---|')
+for (const t of perTown) reportLines.push(`| ${t.town} | ${t.state} | ${t.osm} | ${t.atlas} | ${t.gaps} |`)
+reportLines.push('')
+reportLines.push(`## Detail — net-new candidates by ${placeNoun}`)
+for (const t of perTown) {
+  if (!t.gaps) continue
+  reportLines.push('')
+  reportLines.push(`### ${t.town}, ${t.state}  (${t.gaps} gaps)`)
+  for (const [v, list] of Object.entries(t.byVert)) {
+    reportLines.push('')
+    reportLines.push(`**${VERTICAL_NAMES[v] || v}**`)
+    for (const g of list) {
+      reportLines.push(`- ${g.name}${g.website_url ? ` — ${g.website_url}` : ''}  \`${g.source_detail?.replace('OpenStreetMap — ', '')}\``)
+    }
+  }
+}
+
+const vSuffix = verticalFilter ? '-' + verticalFilter : ''
+// A comma-list of regions makes an unwieldy filename; collapse to a short tag.
+const rSuffix = regionArg
+  ? (regionArg.includes(',') ? `-${packs.length}regions` : '-' + regionArg)
+  : runMetro ? '-metro-suburbs' : runAll ? '-all' : ''
+// Reports live in reports/. Metro runs get their own prefix so a suburb sweep
+// never overwrites a same-day regional town sweep.
+const prefix = runMetro ? 'suburb-gap-crawl' : 'town-gap-crawl'
+mkdirSync(new URL('../reports/', import.meta.url), { recursive: true })
+const outPath = `../reports/${prefix}-${date}${rSuffix}${vSuffix}.md`
+writeFileSync(new URL(outPath, import.meta.url), reportLines.join('\n'))
+
+console.log('\n\n=== SUMMARY ===')
+console.log(`${placeNoun[0].toUpperCase()+placeNoun.slice(1)}s crawled: ${perTown.length}`)
+console.log(`Net-new gaps: ${Object.values(grandGaps).reduce((a, b) => a + b, 0)}`)
+if (innerRingSkipped) console.log(`Skipped inside ${INNER_RING_KM}km of a CBD: ${innerRingSkipped}`)
+for (const [v, n] of Object.entries(grandGaps).sort((a, b) => b[1] - a[1])) console.log(`  ${(VERTICAL_NAMES[v] || v).padEnd(16)} ${n}`)
+if (doQueue) {
+  console.log(`Queued to candidate pipeline: ${queuedTotal}`)
+  if (skippedByCap) console.log(`NOT queued (hit --max=${maxQueue}): ${skippedByCap} eligible gaps`)
+  const manifestPath = new URL(`../reports/${prefix}-${date}${rSuffix}${vSuffix}.queued.json`, import.meta.url)
+  writeFileSync(manifestPath, JSON.stringify({ startedAt, maxQueue, queuedTotal, skippedByCap, candidates: queuedIds }, null, 2))
+  console.log(`Manifest: reports/${prefix}-${date}${rSuffix}${vSuffix}.queued.json`)
+}
+console.log(`Report: reports/${prefix}-${date}${rSuffix}${vSuffix}.md`)
