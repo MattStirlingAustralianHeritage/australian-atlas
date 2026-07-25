@@ -260,16 +260,9 @@ export default function DashboardLayout({ children }) {
             the rail is always visible as a 72px strip. */}
         <button
           type="button"
-          className="md:hidden"
+          className="aa-drawer-btn"
           onClick={() => setDrawer(true)}
           aria-label="Open dashboard menu"
-          style={{
-            position: 'fixed', top: '1rem', left: '1rem', zIndex: 50,
-            width: 42, height: 42, borderRadius: 10,
-            background: 'var(--color-ink)', border: 'none', color: '#fff',
-            display: drawer ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', boxShadow: '0 2px 10px rgba(0,0,0,0.18)',
-          }}
         >
           <NavIcon type="menu" size={20} />
         </button>

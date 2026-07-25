@@ -628,10 +628,10 @@ export const FEATURE_GUIDES = {
 export const FEATURE_GUIDE_KEYS = new Set(Object.keys(FEATURE_GUIDES))
 export function hasGuide(href) { return FEATURE_GUIDE_KEYS.has(href) }
 
-/* ── The pulsing "!" badge for unseen tools ───────────────────────────── */
-export function FeatureBadge() {
-  return <span className="fg-badge" aria-label="New — not opened yet" title="New — take a quick tour" />
-}
+/* The "unseen tool" marker now lives in the nav rail itself (.aa-nav-dot in
+   dashboard-shell.css), which has to render it two ways — a dot on the icon
+   when the rail is collapsed, a dot at the end of the pill when expanded — so
+   the old standalone FeatureBadge component no longer had a caller. */
 
 /* ── The three-slide walkthrough modal ────────────────────────────────── */
 export function FeatureGuideModal({ guideKey, onClose }) {

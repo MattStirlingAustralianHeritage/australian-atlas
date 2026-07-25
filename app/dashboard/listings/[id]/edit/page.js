@@ -96,16 +96,6 @@ function hoursToDays(hours) {
   }
   return out
 }
-function cleanWebsite(url) {
-  if (!url) return ''
-  try {
-    const u = new URL(url.startsWith('http') ? url : `https://${url}`)
-    return u.hostname + (u.pathname !== '/' ? u.pathname.replace(/\/$/, '') : '')
-  } catch {
-    return url.replace(/^https?:\/\//, '').replace(/\/$/, '')
-  }
-}
-
 // ── Hours display helpers (mirror components/OpeningHours.js) ──
 function formatTime(t) {
   if (!t) return ''
@@ -278,11 +268,17 @@ export default function EditListingPage() {
   }, [])
 
   // Deep link from the Overview's "what's left" chips (#panel-cover, …) —
-  // open that panel instead of the default one. Runs once on mount; the
-  // scroll happens after the listing loads so the panel actually exists.
+  // open that panel instead of the default one.
+  const pendingScrollRef = useRef(null)
   useEffect(() => {
     const hash = typeof window !== 'undefined' ? window.location.hash : ''
-    if (hash.startsWith('#panel-')) setOpenPanel(hash.slice('#panel-'.length))
+    if (!hash.startsWith('#panel-')) return
+    const target = hash.slice('#panel-'.length)
+    setOpenPanel(target)
+    // Native hash scrolling can't work here: #panel-cover doesn't exist in the
+    // DOM until the listing fetch resolves. Hold the target and scroll to it
+    // once the panels have actually rendered.
+    pendingScrollRef.current = target
   }, [])
 
   // Returning from a successful upgrade checkout (?upgraded=1). The webhook may
@@ -335,6 +331,22 @@ export default function EditListingPage() {
     })
     return () => { active = false }
   }, [id, setBaseline])
+
+  // The panels only exist once the listing has loaded, so a deep link's scroll
+  // waits for that. Fires once — the ref is cleared immediately.
+  //
+  // The delay is load-bearing: the App Router restores scroll position after
+  // hydration, which lands *after* a bare requestAnimationFrame and puts the
+  // page straight back at the top. Scrolling once that has settled sticks.
+  useEffect(() => {
+    if (loading || !listing || !pendingScrollRef.current) return
+    const target = pendingScrollRef.current
+    pendingScrollRef.current = null
+    const t = setTimeout(() => {
+      document.getElementById(`panel-${target}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 180)
+    return () => clearTimeout(t)
+  }, [loading, listing])
 
   // Finalising poll: after an upgrade, re-fetch the listing until the webhook has
   // flipped the claim to standard (listing.paid === true), then the editor unlocks.

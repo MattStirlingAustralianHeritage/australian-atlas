@@ -13,9 +13,14 @@ import Link from 'next/link'
  *
  * A Panel is one collapsed row: title, a one-line summary of what's currently
  * there, and a state dot. Opening one closes the others (PanelGroup), so there
- * is only ever a single thing on screen to think about. Panels mount lazily on
- * first open — a section the operator never touches never fires its fetch —
- * and stay mounted afterwards, so half-typed form state survives collapsing.
+ * is only ever a single thing on screen to think about.
+ *
+ * A panel's BODY mounts lazily on first open and stays mounted afterwards, so
+ * half-typed form state survives collapsing. Note this defers only the body's
+ * own render cost: the section components (EventsSection, OffersSection, …)
+ * render the Panel rather than living inside it, so their load effects still
+ * fire on page load exactly as before. Deferring those fetches too would mean
+ * gating each section's load effect on its panel being opened.
  */
 
 const PanelCtx = createContext(null)
@@ -89,9 +94,10 @@ export function Panel({ id, title, summary, status = 'empty', meta, dirty, child
   const { open, setOpen } = ctx
   const isOpen = open === id
 
-  // Lazy mount: don't pay for a section's fetch until it's first opened, but
-  // never unmount afterwards or in-progress edits would be thrown away.
-  const [mounted, setMounted] = useState(false)
+  // Lazy body mount: don't render a closed panel's contents, but never unmount
+  // afterwards or in-progress edits would be thrown away. Seeded from isOpen so
+  // the panel that starts open doesn't paint empty for a frame.
+  const [mounted, setMounted] = useState(() => isOpen)
   useEffect(() => { if (isOpen) setMounted(true) }, [isOpen])
 
   const locked = status === 'locked'
