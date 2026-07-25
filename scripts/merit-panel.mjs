@@ -93,6 +93,13 @@ export async function runMeritPanel({ callClaude, parseJsonLoose, factsText, sit
   }))
   const forCount = votes.filter(v => v.merit === true).length
   const against = votes.filter(v => v.merit === false)
-  // Majority of three. Abstentions never count toward listing.
-  return { votes, forCount, against, passed: forCount >= 2 }
+  const abstained = votes.filter(v => v.merit === null)
+  // Majority of three. Abstentions never count toward listing — but a panel that
+  // could not actually sit is NOT a verdict of "no merit". When the API is
+  // unreachable (rate limit, outage, exhausted credit) every vote abstains, and
+  // treating that 0/3 as a rejection blacklists a legitimate venue because of a
+  // billing problem. Callers must check `inconclusive` before recording anything
+  // sticky.
+  const inconclusive = against.length === 0 && forCount < 2
+  return { votes, forCount, against, abstained, inconclusive, passed: forCount >= 2 }
 }

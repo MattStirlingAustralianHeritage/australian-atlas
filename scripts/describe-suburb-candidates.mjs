@@ -300,8 +300,16 @@ async function describe(c) {
   })
   out.meritVotes = panel.votes.map(v => `${v.key}:${v.merit === null ? 'abstain' : v.merit}`).join(' ')
   if (!panel.passed) {
+    if (panel.inconclusive) {
+      // Nobody actually voted against it — the panel could not be run. Report it
+      // as an error so it is retried later, and never record it as a sticky
+      // venue rejection.
+      out.status = 'merit_inconclusive'
+      out.reason = `panel could not be run (${panel.abstained.map(v => `${v.key}: ${v.reason}`).join(' | ')})`
+      return out
+    }
     out.status = 'no_merit'
-    out.reason = panel.against.map(v => `${v.key}: ${v.reason}`).join(' | ') || 'merit panel did not reach a majority'
+    out.reason = panel.against.map(v => `${v.key}: ${v.reason}`).join(' | ')
     return out
   }
   // A split decision still publishes, but record it so it stays reviewable.

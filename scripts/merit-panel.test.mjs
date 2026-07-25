@@ -18,12 +18,17 @@
  *
  *   node --env-file=.env.local scripts/merit-panel.test.mjs
  *   node --env-file=.env.local scripts/merit-panel.test.mjs --rounds=3
+ *   node --env-file=.env.local scripts/merit-panel.test.mjs --offline   # unit checks only, no API
  */
 import Anthropic from '@anthropic-ai/sdk'
 import { fetchSiteText } from '../lib/scrape/fetchSiteText.js'
 import { runMeritPanel } from './merit-panel.mjs'
 
-const rounds = parseInt(process.argv.find(a => a.startsWith('--rounds='))?.split('=')[1] || '2', 10)
+// Minimum one round: with zero, `verdicts` is empty, `every()` is vacuously
+// true and `new Set([]).size === 1` is false, so every venue reported a
+// misleading "UNSTABLE" failure. Use --offline to run only the unit checks.
+const rounds = Math.max(1, parseInt(process.argv.find(a => a.startsWith('--rounds='))?.split('=')[1] || '2', 10))
+const offlineOnly = process.argv.includes('--offline')
 const claude = new Anthropic()
 
 // Fixed URLs rather than DB lookups: the test must keep working after the rows
@@ -94,6 +99,51 @@ function parseJsonLoose(s) {
   return null
 }
 
+// ── Offline unit checks (no API credit needed) ───────────────────────
+// The panel treats an unparseable vote as an abstention. That is right for
+// deciding whether to publish, but a panel that could not sit at all is NOT a
+// verdict of "no merit" — when the API is unreachable (outage, rate limit,
+// exhausted credit) all three abstain, and an earlier version recorded that 0/3
+// as a STICKY venue rejection. A billing failure blacklisted eight real venues
+// before this was caught. `inconclusive` is what callers must check.
+{
+  const dead = async () => { throw new Error('credit balance is too low') }
+  const panel = await runMeritPanel({
+    callClaude: dead, parseJsonLoose: () => null,
+    factsText: 'Name: Test Venue', siteText: 'some text', websiteUrl: 'https://example.com',
+  })
+  const ok = panel.inconclusive === true && panel.passed === false && panel.against.length === 0
+  console.log(`${ok ? 'PASS' : 'FAIL'}  all votes error → inconclusive, not a rejection`)
+  if (!ok) process.exitCode = 1
+
+  // A genuine unanimous rejection must still read as a rejection, not as
+  // inconclusive — otherwise the fix would disable sticky rejections entirely.
+  const rejecting = async () => ({ text: '{"merit": false, "reason": "chain"}' })
+  const panel2 = await runMeritPanel({
+    callClaude: rejecting, parseJsonLoose: (t) => JSON.parse(t),
+    factsText: 'Name: Test Venue', siteText: 'some text', websiteUrl: 'https://example.com',
+  })
+  const ok2 = panel2.inconclusive === false && panel2.passed === false && panel2.against.length === 3
+  console.log(`${ok2 ? 'PASS' : 'FAIL'}  unanimous no-merit still records as a rejection`)
+  if (!ok2) process.exitCode = 1
+
+  // One dead vote out of three must not sink a venue the other two back.
+  let n = 0
+  const flaky = async () => { n++; if (n === 1) throw new Error('transient'); return { text: '{"merit": true, "reason": "ok"}' } }
+  const panel3 = await runMeritPanel({
+    callClaude: flaky, parseJsonLoose: (t) => JSON.parse(t),
+    factsText: 'Name: Test Venue', siteText: 'some text', websiteUrl: 'https://example.com',
+  })
+  const ok3 = panel3.passed === true && panel3.inconclusive === false
+  console.log(`${ok3 ? 'PASS' : 'FAIL'}  one transient failure + two for → still passes\n`)
+  if (!ok3) process.exitCode = 1
+}
+
+if (offlineOnly) {
+  console.log(process.exitCode ? 'Offline checks FAILED.' : 'Offline checks passed.')
+  process.exit(process.exitCode || 0)
+}
+
 let failures = 0
 console.log(`Merit panel regression — ${CASES.length} venues × ${rounds} rounds\n`)
 
@@ -127,4 +177,5 @@ for (const c of CASES) {
 console.log(failures === 0
   ? `All ${CASES.length} venues held their expected verdict across ${rounds} rounds.`
   : `${failures} venue(s) failed.`)
-process.exit(failures === 0 ? 0 : 1)
+// Don't discard an offline-check failure recorded in process.exitCode.
+process.exit(failures === 0 && !process.exitCode ? 0 : 1)

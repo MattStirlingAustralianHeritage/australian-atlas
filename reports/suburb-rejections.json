@@ -310,5 +310,125 @@
     "status": "no_merit",
     "reason": "chain: National franchise chain with 49+ locations, franchise opportunities and a loyalty app — explicitly excluded. | visitable: National chain/franchise with 49+ locations actively offering franchise opportunities. | local: National franchise chain with 49+ locations openly advertising franchise opportunities—excluded as a chain.",
     "at": "2026-07-25T22:36:22.206Z"
+  },
+  "0fff3e9a-e1b1-4f96-bda9-3b39c76674f0": {
+    "name": "Hotel Rockdale",
+    "status": "no_merit",
+    "reason": "chain: Pub whose draw is a TAB sports bar with 18-screen wall and drive-through-style bottle shop, an excluded gaming/TAB venue. | visitable: Generic renovated pub whose draws are a TAB sports bar, bistro and bottle shop, with no distinctive independent identity. | local: Generic renovated pub whose draws are a TAB sports bar, bottle shop and standard pub-favourite bistro—transactional and interchangeable, not distinctive.",
+    "at": "2026-07-25T22:43:20.457Z"
+  },
+  "00f21099-495c-4302-93f7-fd0b986f9090": {
+    "name": "The Beachfront Restaurant",
+    "status": "no_merit",
+    "reason": "chain: This is the restaurant of Coolum Surf Club, a licensed community club with poker machine loyalty points and membership perks, which is a binding exclusion. | visitable: This is the restaurant of Coolum Surf Club, a licensed community club with poker machines and membership — excluded regardless of its bistro. | local: This is the bistro of Coolum Surf Club, a licensed community club with poker machines and membership perks — an excluded surf club venue.",
+    "at": "2026-07-25T22:43:21.500Z"
+  },
+  "0ad72968-4d05-41f2-adfb-025fd4ad165a": {
+    "name": "Coolum Caprice",
+    "status": "no_merit",
+    "reason": "chain: Generic beachside holiday-apartment block offering rooms and midweek specials, with no distinctive identity. | visitable: Generic beachside holiday apartment block with no distinct identity beyond supplying rooms near the beach. | local: Generic beachside holiday-apartment block with no distinct identity beyond supplying rooms near the beach.",
+    "at": "2026-07-25T22:43:22.032Z"
+  },
+  "1e6ba00c-9087-407e-a1cb-ee6cb9b9784a": {
+    "name": "Kogarah Clubhouse",
+    "status": "no_merit",
+    "reason": "chain: This is a licensed RSL/community club (formerly Kogarah RSL) with gaming, sports lounge and membership — an excluded club venue. | visitable: This is a licensed RSL/community club rebranded as a social precinct, an excluded category regardless of its dining options. | local: This is a rebranded RSL/licensed club with sports lounge, gaming and member sign-ups — an excluded community club, not a distinctive independent venue.",
+    "at": "2026-07-25T22:43:40.031Z"
+  },
+  "2a9906cd-d57f-4db4-9149-da96fa2f941b": {
+    "name": "500 Steakhouse",
+    "status": "no_merit",
+    "reason": "chain: Three-location Sydney steakhouse group with same centralised kitchen and shared branding — a chain by Atlas criteria. | visitable: Three-location Sydney chain running the same kitchen and menu across venues, disqualifying it as a chain outlet. | local: Three-location Sydney chain running the same kitchen and menu across branches, disqualifying it as a multi-branch operation.",
+    "at": "2026-07-25T22:43:58.928Z"
+  },
+  "29fb66e8-9e02-4d5f-b6d7-68393c53947c": {
+    "name": "Franky & Co.",
+    "status": "no_merit",
+    "reason": "chain: Multi-location chain with a Locations page inviting customers to find their closest store. | visitable: Multi-location donut/cake chain inviting customers to find their nearest branch, excluded as a chain. | local: A multi-location donut and cake chain inviting customers to 'find a Franky & Co near you', which falls under the chain-outlet exclusion.",
+    "at": "2026-07-25T22:43:59.146Z"
+  },
+  "31060fb2-6cbd-451e-877d-a136700b4d00": {
+    "name": "Golden Lotus",
+    "status": "no_merit",
+    "reason": "chain: This is the restaurant of Hurstville RSL, a licensed returned-services club with a rewards app and membership — a binding exclusion. | visitable: This is a restaurant inside Hurstville RSL, an excluded licensed returned-services club. | local: This is a restaurant inside Hurstville RSL, an excluded licensed returned-services club.",
+    "at": "2026-07-25T22:44:01.148Z"
+  },
+  "3388b670-f178-457a-9b45-73c6f6f07189": {
+    "name": "San Valentino",
+    "status": "no_merit",
+    "reason": "chain: Multi-location chain with three cafes including a Westfield food-court outlet. | visitable: Multi-location chain with three Sydney branches, disqualifying it as a chain outlet. | local: Multi-location chain with three Sydney cafes, disqualifying it as a franchise-style operation.",
+    "at": "2026-07-25T22:44:01.535Z"
+  },
+  "4e9f8dfe-009b-475f-bd9a-1b6fc15f409b": {
+    "name": "Ripples Little Manly",
+    "status": "no_merit",
+    "reason": "chain: Part of SRG Hospitality's large multi-venue group with numerous branches across Sydney, making it a chain outlet rather than an independent venue. | visitable: Part of SRG Hospitality's large multi-venue group, functioning as a chain outlet rather than an independent operator. | local: Generic all-day beachfront restaurant within the multi-venue SRG Hospitality group, with no distinctive independent identity.",
+    "at": "2026-07-25T22:44:04.988Z"
+  },
+  "40b8eaf0-f8bb-4099-8132-1d0fc2a5feb6": {
+    "name": "Hotpot City",
+    "status": "no_merit",
+    "reason": "visitable: Generic all-you-can-eat buffet restaurant with no distinct identity worth going out of your way for. | local: Generic all-you-can-eat hotpot buffet with no distinct identity, maker, or specific story.",
+    "at": "2026-07-25T22:44:05.931Z"
+  },
+  "5cdb7ecd-188e-4ed2-b86c-0962da45b853": {
+    "name": "Balmoral Beach House",
+    "status": "no_merit",
+    "reason": "visitable: This is an Airbnb-style room rental with shared amenities and no distinct identity, history or design point of view beyond proximity to the beach. | local: Generic guesthouse/room-share near the beach with no distinct identity, history, or design point of view—simply a supply of shared-amenity rooms.",
+    "at": "2026-07-25T22:44:11.469Z"
+  },
+  "657226ec-c613-4d97-aeea-806cc9948c31": {
+    "name": "Red Star Hotel",
+    "status": "no_merit",
+    "reason": "chain: Site advertises a multi-property 'Red Star Hotel Group' and offers a generic budget motel-style room supply with no distinctive identity. | visitable: A generic budget beachside motel with rooms whose only draw is location and price, part of a multi-property group and lacking any distinct identity. | local: A generic budget beachside motel/apartment block offering only rooms and a pool, part of a hotel group, with no distinct identity.",
+    "at": "2026-07-25T22:44:19.172Z"
+  },
+  "69e745bb-4275-44eb-848a-a8dbe6a61afb": {
+    "name": "Currumbin Sands",
+    "status": "no_merit",
+    "reason": "chain: Generic beachfront holiday-apartment block offering a supply of self-contained rooms without distinct identity or history. | visitable: Generic beachfront holiday apartment block offering self-contained rooms and pools, no distinct identity of its own. | local: Generic beachfront self-contained holiday apartment block whose selling points are location, pools and views, with no distinct identity of its own.",
+    "at": "2026-07-25T22:44:21.281Z"
+  },
+  "97082c43-343c-43f0-8020-b04ec53b9281": {
+    "name": "Kogarah Hotel",
+    "status": "no_merit",
+    "reason": "chain: Draw is TAB/Keno sports-bar gaming, a generic pub with no distinct independent identity. | visitable: Draw is TAB/Keno sports bar gaming, a generic pub with no distinctive identity. | local: Generic pub whose draw is TAB, Keno and sports screens, with no distinctive identity.",
+    "at": "2026-07-25T22:44:23.959Z"
+  },
+  "66bf94c4-acab-4185-be6e-740b40d84787": {
+    "name": "Manly Pavilion",
+    "status": "no_merit",
+    "reason": "chain: Part of the Boathouse Group with multiple venues, gift cards and centralised branding — a chain outlet, not an independent venue. | local: Part of the multi-venue Boathouse Group, a chain operation with generic Mediterranean bistro-and-cocktails offering trading on its view rather than a distinct independent identity.",
+    "at": "2026-07-25T22:44:24.613Z"
+  },
+  "9890e36f-43da-4d7a-8fce-113306aa42ff": {
+    "name": "La Bocca",
+    "status": "no_merit",
+    "reason": "chain: This is an outlet within Currumbin RSL, a licensed returned-services club, which is a binding exclusion. | visitable: This is an outlet within Currumbin RSL, a licensed returned-services club, which is a binding exclusion. | local: Pizza and bottleshop outlet inside Currumbin RSL — an excluded returned-services club venue.",
+    "at": "2026-07-25T22:44:26.637Z"
+  },
+  "9c636c67-9dc2-4330-928c-668e0bf61db2": {
+    "name": "Bsp'eria",
+    "status": "no_merit",
+    "reason": "chain: Bsp'eria operates three outlets (two Penshurst locations plus Maroubra), placing it in the small-chain category we exclude. | visitable: Operates multiple branches (Penshurst, Penshurst Station, Maroubra), triggering the multi-branch exclusion. | local: Own site advertises three branches (Penshurst, Penshurst Station, Maroubra), making it a multi-outlet operation rather than a single distinctive venue.",
+    "at": "2026-07-25T22:44:33.320Z"
+  },
+  "a8a5bb61-3b9b-4cfa-8cb2-2ceebb389e40": {
+    "name": "The Boathouse",
+    "status": "no_merit",
+    "reason": "chain: Part of the Boathouse Group with multiple venues, group gift cards and centralised branding—a chain, not an independent single venue. | visitable: Part of the multi-venue Boathouse Group with several branches, making it a chain outlet rather than a single independent venue. | local: Part of the multi-venue Boathouse Group chain, failing the chain-outlet exclusion despite the scenic location.",
+    "at": "2026-07-25T22:44:37.197Z"
+  },
+  "b60bccd2-fe25-47cb-bb69-221c83da3d12": {
+    "name": "Oceanside Cove Holiday Apartments",
+    "status": "no_merit",
+    "reason": "chain: Generic self-contained holiday apartment block whose selling points are beach proximity, pool and parking, with no distinct identity or history. | visitable: Generic self-contained holiday apartment block whose selling points are beach proximity and standard amenities, with no distinct identity. | local: Generic self-contained holiday apartments selling location and pool access, with no distinct identity, history or design point of view.",
+    "at": "2026-07-25T22:44:39.885Z"
+  },
+  "d5d3e409-f5bd-44a1-9f74-689a3bd5d91e": {
+    "name": "Above 8 Rooftop Bar & Lounge",
+    "status": "no_merit",
+    "reason": "chain: This is a hireable event/function space, not a walk-in venue with its own standing offer for visitors. | visitable: Exclusive-hire events venue with no walk-in public offer, functioning as a private function space rather than a visitable bar. | local: A generic hireable events/function space selling views and packages, with no distinct culinary or cultural identity of its own.",
+    "at": "2026-07-25T22:44:42.548Z"
   }
 }
