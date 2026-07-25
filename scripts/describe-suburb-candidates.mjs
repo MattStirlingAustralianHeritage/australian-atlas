@@ -15,7 +15,13 @@
  * Because `candidate.description` outranks the fallback, the ungated path never
  * runs for these listings.
  *
- * FOUR GATES, all must pass (one corrective retry allowed):
+ * GATES, all must pass (one corrective retry on the prose ones):
+ *   0. merit panel     — THREE independent votes on the venue itself, each with
+ *                        a different lens (chain? visitable? distinctive?), a
+ *                        majority required. Runs BEFORE the description is
+ *                        written, on facts + site text alone, so a venue we will
+ *                        not list costs three cheap votes rather than a full
+ *                        generate-and-verify cycle.
  *   1. banned-phrase   — lib/operator-intake/voice.mjs BANNED_PHRASES
  *   2. source-binding  — lib/operator-intake/source-binding.mjs; every 3+ digit
  *                        number and multi-word proper noun must appear verbatim
@@ -40,6 +46,7 @@ import { fetchSiteText } from '../lib/scrape/fetchSiteText.js'
 import { bannedPhraseCheck } from '../lib/operator-intake/voice.mjs'
 import { validateSourceBinding } from '../lib/operator-intake/source-binding.mjs'
 import { VERTICAL_NAMES } from '../lib/prospector/replenish.js'
+import { runMeritPanel } from './merit-panel.mjs'
 
 const MODEL = 'claude-opus-4-8'
 const CONCURRENCY = 4
@@ -171,20 +178,12 @@ Judge two things:
 
 2. GROUNDING — does every specific claim in the draft trace to the source text? Flag any claim that is invented, embellished, or generalised from outside knowledge: dates, founding years, owner or maker names, place names, products, processes, awards, materials, scale. Also flag promotional or review-derived language, and any statement about how good or popular the venue is.
 
-3. EDITORIAL MERIT — is this a place the Atlas should list at all? The Atlas covers independent Australian places worth going out of your way for. It is explicitly NOT a directory.
-
-   Reject as no merit: chain outlets and franchises (including any venue whose own site advertises multiple branches or invites franchisees); airport, motorway, highway and transit hotels; generic motels, conference hotels and serviced-apartment blocks; venues whose offer is primarily gaming machines, TAB or a bottle shop; gyms, salons, clinics, schools and trade services; car parks, service stations, shopping centres; aggregators, booking sites and directory pages; anything with no publicly visitable offer.
-
-   For accommodation specifically, apply this test: does the property have a distinct identity of its own — a building with a history, a design point of view, an owner-operator, a place it belongs to — or is it simply a supply of rooms near a road, an airport or a business district? A recently built hotel of dozens of near-identical rooms whose selling points are its floor count, its lift, its gym and its distance from the CBD has no merit here, regardless of how independent its ownership is. Size alone does not disqualify a genuinely distinctive hotel, and modesty does not disqualify a good small guesthouse or pub with rooms.
-
-   Keep as merit: independent operators with a specific identity — what they make, grow, cook, show, or stock. Humble is fine and good: a suburban Vietnamese bakery, a one-room ceramics studio, a family-run trattoria, a small suburban gallery, a farm gate, a neighbourhood roaster all have merit. Do NOT reject a place for being modest, cheap, or unfashionable. Reject only for being generic, corporate, transactional, or not a place a visitor could meaningfully go.
-
-Be strict on 1 and 2 and default to refusing: if you cannot verify a specific claim from the source text, it is unsupported. On 3, judge the venue, not the prose.
+Be strict on both and default to refusing: if you cannot verify a specific claim from the source text, it is unsupported.
 
 Respond with ONLY a JSON object, no other text:
-{"identity_ok": true|false, "identity_note": "<short reason if false, else empty>", "grounded": true|false, "unsupported": ["<the exact claim>", ...], "merit": true|false, "merit_note": "<short reason if false, else empty>", "verdict": "pass"|"fail"}
+{"identity_ok": true|false, "identity_note": "<short reason if false, else empty>", "grounded": true|false, "unsupported": ["<the exact claim>", ...], "verdict": "pass"|"fail"}
 
-verdict is "pass" only when identity_ok, grounded, and merit are ALL true.`
+verdict is "pass" only when identity_ok and grounded are BOTH true.`
 
 // ── Helpers ──────────────────────────────────────────────────────────
 function textOf(msg) {
@@ -294,6 +293,20 @@ async function describe(c) {
   out.via = site.via
   const sources = [site.text, c.name, c.region, c.state, c.address].filter(Boolean)
 
+  // ── Merit panel: three lenses, majority rules, judged before we write ──
+  const panel = await runMeritPanel({
+    callClaude, parseJsonLoose,
+    factsText: factsBlock(c), siteText: site.text, websiteUrl: c.website_url,
+  })
+  out.meritVotes = panel.votes.map(v => `${v.key}:${v.merit === null ? 'abstain' : v.merit}`).join(' ')
+  if (!panel.passed) {
+    out.status = 'no_merit'
+    out.reason = panel.against.map(v => `${v.key}: ${v.reason}`).join(' | ') || 'merit panel did not reach a majority'
+    return out
+  }
+  // A split decision still publishes, but record it so it stays reviewable.
+  if (panel.against.length) out.meritSplit = panel.against.map(v => `${v.key}: ${v.reason}`).join(' | ')
+
   let feedback = null
   for (let attempt = 1; attempt <= 2; attempt++) {
     out.attempts = attempt
@@ -375,15 +388,6 @@ async function describe(c) {
       // website. Stop and flag for human review.
       out.status = 'identity_fail'
       out.reason = verdict.identity_note || 'website does not belong to this venue'
-      return out
-    }
-    if (verdict.merit === false) {
-      // Also not a writing problem: the venue itself isn't an Atlas fit. Gate 4
-      // of the discovery pipeline checks fit for the VERTICAL (is this really
-      // accommodation?), not whether the place is worth going out of your way
-      // for. An airport transit hotel passes Gate 4 and fails here.
-      out.status = 'no_merit'
-      out.reason = verdict.merit_note || 'not an Atlas-worthy venue'
       return out
     }
     if (verdict.verdict !== 'pass' || verdict.grounded === false) {
