@@ -256,6 +256,9 @@ if (maxPerVertical) {
     console.log(`Per-vertical cap ${maxPerVertical}; already queued: ${shown || 'none'}\n`)
   }
 }
+const deferredPath = new URL('../reports/suburb-deferred.json', import.meta.url)
+let deferred = []
+try { deferred = JSON.parse(readFileSync(deferredPath, 'utf8')) } catch { deferred = [] }
 const reportLines = []
 const grandGaps = {}   // vertical → count
 const perTown = []
@@ -344,7 +347,8 @@ let lastPackSlug = null
       gaps.push(...interleaved)
     }
 
-    let anchorSkipped = 0
+    let anchorCutShort = 0      // ran out of total budget — anchor must be revisited
+    let anchorDeferred = []     // deliberately not queued (vertical cap) — recorded, not lost
     if (doQueue && gaps.length) {
       // Gate 1 spends up to 10s per candidate waiting on a dead OSM `website`
       // tag, and most tags are dead, so throughput here is almost entirely
@@ -357,12 +361,12 @@ let lastPackSlug = null
         while (true) {
           if (queuedTotal >= maxQueue) {
             // Count every remaining gap once, then stop this worker.
-            while (idx < gaps.length) { idx++; skippedByCap += 1; anchorSkipped += 1 }
+            while (idx < gaps.length) { idx++; skippedByCap += 1; anchorCutShort += 1 }
             return
           }
           const g = gaps[idx++]
           if (!g) return
-          if (maxPerVertical && (queuedByVertical[g.vertical] || 0) >= maxPerVertical) { skippedByVerticalCap += 1; anchorSkipped += 1; continue }
+          if (maxPerVertical && (queuedByVertical[g.vertical] || 0) >= maxPerVertical) { skippedByVerticalCap += 1; anchorDeferred.push({ name: g.name, vertical: g.vertical, website_url: g.website_url || null, lat: g.lat, lng: g.lng, town: anchor.name, state: pack.state }); continue }
           try {
             const result = await runPipeline(g, sb, { dryRun: false, verbose: false })
             if (result.inserted) {
@@ -377,12 +381,24 @@ let lastPackSlug = null
       }
       await Promise.all(Array.from({ length: PIPELINE_CONCURRENCY }, runOne))
     }
-    // Only record the anchor as done when every gap it produced was actually
-    // put through the pipeline. Marking it while a cap skipped some would
-    // silently strand those venues: the next run skips the anchor entirely and
-    // they are never seen again.
-    if (anchorSkipped === 0) markCrawled(slug, anchor.name)
-    else console.log(`  (not marking ${anchor.name} crawled — ${anchorSkipped} gap(s) skipped by a cap)`)
+    // Two different kinds of "skipped", and they must not be conflated.
+    //
+    // Cut short by --max: temporary. The anchor stays open so a later run with
+    // budget picks it up, otherwise those venues are stranded behind a "done"
+    // marker and never seen again.
+    //
+    // Deferred by --max-per-vertical: deliberate. Those venues are ones we have
+    // decided not to queue right now, and holding the anchor open for them would
+    // stall coverage completely — with `table` capped, nearly every anchor has
+    // deferrals, so no anchor would ever be recorded and the crawl could never
+    // finish its 193. They are appended to reports/suburb-deferred.json instead,
+    // so the decision is recorded and reversible rather than silent.
+    if (anchorDeferred.length) {
+      deferred.push(...anchorDeferred)
+      writeFileSync(deferredPath, JSON.stringify(deferred, null, 2))
+    }
+    if (anchorCutShort === 0) markCrawled(slug, anchor.name)
+    else console.log(`  (not marking ${anchor.name} crawled — ${anchorCutShort} gap(s) cut short by --max)`)
 
     // The --max cap bounds how many candidates we QUEUE, not how far we crawl.
     // Aborting the whole crawl here (the previous behaviour) silently truncated
@@ -450,7 +466,7 @@ console.log('\n\n=== SUMMARY ===')
 console.log(`${placeNoun[0].toUpperCase()+placeNoun.slice(1)}s crawled: ${perTown.length}`)
 console.log(`Net-new gaps: ${Object.values(grandGaps).reduce((a, b) => a + b, 0)}`)
 if (alreadyCrawled) console.log(`Anchors skipped as already crawled: ${alreadyCrawled}`)
-if (skippedByVerticalCap) console.log(`Not queued (hit --max-per-vertical=${maxPerVertical}): ${skippedByVerticalCap}`)
+if (skippedByVerticalCap) console.log(`Deferred by --max-per-vertical=${maxPerVertical}: ${skippedByVerticalCap} (recorded in reports/suburb-deferred.json)`)
 if (doQueue) { console.log('Queued by vertical:'); for (const [v, n] of Object.entries(queuedByVertical).sort((a, b) => b[1] - a[1])) console.log(`  ${(VERTICAL_NAMES[v] || v).padEnd(18)} ${n}`) }
 if (innerRingSkipped) console.log(`Skipped inside ${INNER_RING_KM}km of a CBD: ${innerRingSkipped}`)
 for (const [v, n] of Object.entries(grandGaps).sort((a, b) => b[1] - a[1])) console.log(`  ${(VERTICAL_NAMES[v] || v).padEnd(16)} ${n}`)
