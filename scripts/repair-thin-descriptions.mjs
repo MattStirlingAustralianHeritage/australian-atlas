@@ -58,6 +58,12 @@ const META_RE = /\b(source material|the source|source text|little (?:detail|info
 // enough to be genuinely contentless.
 const MIN_CHARS = 80
 
+// Trading hours and day names in a description are a staleness bug, not just a
+// voice preference: a venue that changes its hours silently makes our copy
+// wrong, and the platform already stores opening_hours separately and renders
+// them on the page. 47 of the first 168 published listings recited them.
+const HOURS_RE = /\b(open(?:s|ing)? (?:seven days|daily|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)|closed (?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)s?|(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday) (?:to|through) (?:Friday|Saturday|Sunday|Monday)|shorter hours|from \d{1,2}(?:[.:]\d{2})?\s?(?:am|pm)|trading hours|each (?:Sunday|Saturday|Tuesday)|on (?:Tuesday|Sunday|Monday|Saturday)s)\b/i
+
 const WRITE_SYSTEM = `You write venue descriptions for Australian Atlas, a curated guide to independent Australian places.
 
 You will be given facts about a venue and the text of its own website. Write its description.
@@ -128,12 +134,18 @@ const { data: listings, error } = await sb
   .gte('created_at', since)
 if (error) { console.error('Query failed:', error.message); process.exit(1) }
 
+// For a market or a pop-up the trading day IS the identity — "held each Saturday
+// morning" is what the thing is, not incidental logistics. Exempt those from the
+// hours trigger rather than rewriting the one fact that defines them.
+const MARKET_RE = /\b(market|markets|farmers'? market|pop-?up|night market)\b/i
 const suspect = listings.filter(l => {
   const d = (l.description || '').trim()
-  return d.length < MIN_CHARS || META_RE.test(d)
+  if (d.length < MIN_CHARS || META_RE.test(d)) return true
+  if (MARKET_RE.test(l.name)) return false
+  return HOURS_RE.test(d)
 })
 console.log(`${listings.length} active listings since ${since.slice(0, 10)}`)
-console.log(`${suspect.length} suspect (under ${MIN_CHARS} chars, or referring to the source)\n`)
+console.log(`${suspect.length} suspect (under ${MIN_CHARS} chars, referring to the source, or reciting hours)\n`)
 if (!suspect.length) process.exit(0)
 
 let cookie = null
@@ -149,7 +161,10 @@ if (apply) {
 const results = []
 for (const [i, l] of suspect.entries()) {
   const label = `[${i + 1}/${suspect.length}] ${l.name} [${l.vertical}]`
-  const why = (l.description || '').length < MIN_CHARS ? `only ${(l.description || '').length} chars` : 'refers to the source'
+  const d0 = (l.description || '')
+  const why = d0.length < MIN_CHARS ? `only ${d0.length} chars`
+    : META_RE.test(d0) ? 'refers to the source'
+    : `recites hours ("${d0.match(HOURS_RE)[0]}")`
   console.log(`\n${label} — ${why}`)
   console.log(`  old: ${(l.description || '').slice(0, 110)}…`)
 
@@ -165,11 +180,18 @@ for (const [i, l] of suspect.entries()) {
     l.state ? `State: ${l.state}` : null,
   ].filter(Boolean).join('\n')
 
-  const gen = await callClaude({
-    system: WRITE_SYSTEM,
-    user: ['FACTS WE HOLD:', facts, '', `WEBSITE TEXT (${l.website}):`, site.text, '', 'Write the description.'].join('\n'),
-  })
-  const draft = (gen.text || '').replace(/^["'\s]+|["'\s]+$/g, '')
+  let draft = ''
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const instruction = attempt === 1
+      ? 'Write the description.'
+      : `Your previous draft still stated trading hours or days ("${draft.match(HOURS_RE)?.[0] || ''}"). Remove every reference to when the venue is open — no day names, no "seven days", no "daily", no times. Describe only what the place is.`
+    const gen = await callClaude({
+      system: WRITE_SYSTEM,
+      user: ['FACTS WE HOLD:', facts, '', `WEBSITE TEXT (${l.website}):`, site.text, '', instruction].join('\n'),
+    })
+    draft = (gen.text || '').replace(/^["'\s]+|["'\s]+$/g, '')
+    if (!HOURS_RE.test(draft)) break
+  }
 
   if (/^NO_BASIS\b/i.test(draft) || !draft) {
     console.log('  ✗ writer declined (NO_BASIS) — source supports nothing substantive')
@@ -179,6 +201,7 @@ for (const [i, l] of suspect.entries()) {
   const banned = bannedPhraseCheck(draft)
   if (!banned.passed) { console.log(`  ✗ banned phrase: ${banned.violations.join(', ')}`); results.push({ ...l, outcome: 'banned' }); continue }
   if (META_RE.test(draft)) { console.log('  ✗ still refers to the source'); results.push({ ...l, outcome: 'meta' }); continue }
+  if (HOURS_RE.test(draft)) { console.log(`  ✗ still recites hours ("${draft.match(HOURS_RE)[0]}")`); results.push({ ...l, outcome: 'hours' }); continue }
   const binding = bindingPasses(draft, [site.text, l.name, l.region, l.state, l.address].filter(Boolean))
   if (!binding.passed) {
     console.log(`  ✗ ungrounded: ${binding.hard.map(f => f.value).join(', ')}`)
