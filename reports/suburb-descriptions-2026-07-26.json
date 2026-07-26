@@ -1,0 +1,242 @@
+{
+  "model": "claude-opus-4-8",
+  "dryRun": false,
+  "results": [
+    {
+      "id": "85dfba53-685d-4191-b5db-ece37e0c4672",
+      "name": "The Esplanade Hotel",
+      "vertical": "rest",
+      "region": "Perth",
+      "state": "WA",
+      "status": "no_site_text",
+      "reason": "site unreadable (http 403)",
+      "description": null,
+      "attempts": 0
+    },
+    {
+      "id": "51520373-caed-456c-bbd2-e70bf9559aaf",
+      "name": "Newport Railway Museum",
+      "vertical": "collection",
+      "region": "Newport",
+      "state": "VIC",
+      "status": "ok",
+      "reason": null,
+      "description": "A collection of steam, diesel and electric trains, along with other railway exhibits, held at Champion Road in Newport. The museum opens to the public every Saturday from noon to 5pm, and on selected Sundays through the year, including the third Sunday of each month and school holiday periods. Outside these hours it can open by appointment for group bookings, and it draws school excursions, car clubs, photography clubs, and RSL and Probus groups.",
+      "attempts": 1,
+      "via": "direct",
+      "meritVotes": "chain:true visitable:true local:true",
+      "warnings": []
+    },
+    {
+      "id": "c53cc981-bd4d-431e-8a9c-46fe123caa23",
+      "name": "My Saigon Tuckshop",
+      "vertical": "table",
+      "region": "Gold Coast",
+      "state": "QLD",
+      "status": "no_site_text",
+      "reason": "site unreadable (http 403)",
+      "description": null,
+      "attempts": 0
+    },
+    {
+      "id": "c94fde32-82b2-4902-8bb7-ae4559d30f7d",
+      "name": "Headlands Hotel",
+      "vertical": "table",
+      "region": "Illawarra",
+      "state": "NSW",
+      "status": "no_site_text",
+      "reason": "site unreadable (http 403)",
+      "description": null,
+      "attempts": 0
+    },
+    {
+      "id": "21f4c6fa-fe40-4305-8806-69b0a4746b30",
+      "name": "Hurstville Museum and Gallery",
+      "vertical": "collection",
+      "region": "Sydney",
+      "state": "NSW",
+      "status": "failed_gates",
+      "reason": "binding:number \"6000\"",
+      "description": null,
+      "attempts": 2,
+      "via": "direct",
+      "meritVotes": "chain:true visitable:true local:true",
+      "softenedClaims": [
+        "The Dragon's Lair Gallery"
+      ]
+    },
+    {
+      "id": "b9773b21-856b-4780-8063-47930b243d70",
+      "name": "Public Dining Room",
+      "vertical": "table",
+      "region": "Sydney",
+      "state": "NSW",
+      "status": "ok",
+      "reason": null,
+      "description": "Set on the shores of Balmoral Beach, this waterfront restaurant frames the view of the water and pitches itself as casual fine dining in a relaxed space. The seasonal menu leans on Australian produce and seafood, prepared simply with classic technique and clean flavours, reflecting the varied backgrounds of the kitchen team. An extensive wine list, curated by the head sommelier, spans local and international regions and vintages.\n\nIt is open seven days for lunch, with dinner Monday to Saturday. Boat moorings and a casual marina berth are available for those arriving by water. Smart casual dress; reservations recommended.",
+      "attempts": 1,
+      "via": "direct",
+      "meritVotes": "chain:true visitable:true local:true",
+      "warnings": []
+    },
+    {
+      "id": "9a7b5081-44d5-4c5b-8bcf-c4083b15e0db",
+      "name": "Ocean foods",
+      "vertical": "table",
+      "region": "Drummoyne",
+      "state": "NSW",
+      "status": "failed_gates",
+      "reason": "binding:proper_noun \"Lyons Road and Gipps Street\"",
+      "description": null,
+      "attempts": 2,
+      "via": "direct",
+      "meritVotes": "chain:true visitable:true local:true"
+    },
+    {
+      "id": "d0536d80-fd40-4be8-8457-6ad054184012",
+      "name": "Beirut Bites",
+      "vertical": "table",
+      "region": "Sydney",
+      "state": "NSW",
+      "status": "ok",
+      "reason": null,
+      "description": "A Lebanese restaurant on King Georges Road serving both multi-course meals and counter snacks. The menu runs across hot and cold mezza, salads, seafood, mains, banquet spreads, juices and desserts, with dishes such as lamb mansaf. The kitchen describes blending traditional and newer techniques using local, fresh ingredients, and the room is set up for casual dining as much as gatherings with family or colleagues.",
+      "attempts": 1,
+      "via": "direct",
+      "meritVotes": "chain:true visitable:true local:true",
+      "warnings": []
+    },
+    {
+      "id": "d9861f1f-2329-4ebb-87ed-786e90d06dd7",
+      "name": "Sushi Hakuba",
+      "vertical": "table",
+      "region": "Gold Coast",
+      "state": "QLD",
+      "status": "failed_gates",
+      "reason": "binding:proper_noun \"Open Monday\"",
+      "description": null,
+      "attempts": 2,
+      "via": "direct",
+      "meritVotes": "chain:true visitable:true local:true",
+      "softenedClaims": [
+        "The Pines Shopping Centre on Guineas Creek Road"
+      ]
+    },
+    {
+      "id": "dc3b3202-ce5f-4de4-98bd-e737769d0f20",
+      "name": "Tarboosh Lebanese Kitchen",
+      "vertical": "table",
+      "region": "Sydney",
+      "state": "NSW",
+      "status": "no_merit",
+      "reason": "chain: Multiple locations (Crows Nest, Hurstville, Manly) shown on their own site — a chain, not independent. | visitable: Multiple branches (Crows Nest, Hurstville, Manly) indicate a chain rather than a single independent venue. | local: Multi-branch operation (Crows Nest, Hurstville, Manly) functioning as a small chain, not a single distinctive independent venue.",
+      "description": null,
+      "attempts": 0,
+      "via": "direct",
+      "meritVotes": "chain:false visitable:false local:false"
+    },
+    {
+      "id": "d0c1357a-5cda-4556-bdfd-845491ee919e",
+      "name": "Bombay Grill",
+      "vertical": "table",
+      "region": "Sydney",
+      "state": "NSW",
+      "status": "ok",
+      "reason": null,
+      "description": "A traditional Indian restaurant on Morts Road, serving lunch and dinner with home delivery available in the evenings. The kitchen works across tandoori and curry cooking: tandoori chicken and mixed grills from the clay oven, meat curries such as butter chicken and mango chicken, korma, and vegetable dishes including palak paneer. Naan comes plain, garlic or stuffed with cheese, alongside basmati and saffron rice. Appetisers run to vegetable samosas, onion bhaji and aloo chops, and there's a chicken tikka roll wrapping tandoori bread around chicken, mashed potato and butter chicken sauce.",
+      "attempts": 1,
+      "via": "direct",
+      "meritVotes": "chain:true visitable:true local:false",
+      "meritSplit": "local: Generic suburban Indian takeaway with a standard menu and no distinctive identity, chef, or story to set it apart.",
+      "warnings": []
+    },
+    {
+      "id": "dbfcf1cc-c916-4275-996b-85246cead595",
+      "name": "Chim Thai Restaurant",
+      "vertical": "table",
+      "region": "Sydney",
+      "state": "NSW",
+      "status": "ok",
+      "reason": null,
+      "description": "A Thai kitchen on The Strand in Penshurst, serving lunch and dinner. Dishes are made with traditional cooking methods and ingredients handpicked daily, with vegetarian, vegan and gluten-free options. The chef's suggestions run to Gao Thai pork belly, crispy pork belly with mixed vegetables and Thai sweet sauce; Thai-style roasted duck with Chinese broccoli and cinnamon sauce; soft shell crab with garlic and black pepper; and baby clams stir-fried with chilli jam, carrot, broccoli and basil. The interior is small and suited to a relaxed meal, with takeaway and delivery also available.",
+      "attempts": 1,
+      "via": "direct",
+      "meritVotes": "chain:true visitable:true local:false",
+      "meritSplit": "local: Generic suburban Thai restaurant with standard menu and no distinctive identity, recipes, or story beyond typical neighbourhood takeaway offering.",
+      "warnings": []
+    },
+    {
+      "id": "e62379d5-6df1-4c44-b1f7-f394454a8672",
+      "name": "Penshurst Hotel",
+      "vertical": "rest",
+      "region": "Sydney",
+      "state": "NSW",
+      "status": "no_merit",
+      "reason": "chain: Generic refurbished sports pub whose draw is big screens and bistro, with no distinctive independent identity. | visitable: Generic refurbished suburban pub whose draw is big screens and bistro, with no distinctive identity. | local: Generic refurbished pub whose draw is big screens and bistro, with no distinctive identity.",
+      "description": null,
+      "attempts": 0,
+      "via": "direct",
+      "meritVotes": "chain:false visitable:false local:false"
+    },
+    {
+      "id": "dd4ead57-0318-481b-b85b-937dfe3eb6f7",
+      "name": "Four Frogs Creperie",
+      "vertical": "table",
+      "region": "Sydney",
+      "state": "NSW",
+      "status": "no_merit",
+      "reason": "chain: Multi-location chain with Circular Quay, Mosman, Randwick and Lane Cove outlets plus loyalty program and franchise-style hiring. | visitable: Multi-location chain with four Sydney branches, excluded as a chain outlet. | local: Multi-branch chain with four Sydney locations and franchise-style hiring, not an independent single venue.",
+      "description": null,
+      "attempts": 0,
+      "via": "direct",
+      "meritVotes": "chain:false visitable:false local:false"
+    },
+    {
+      "id": "fa03b28b-9c19-4314-8870-69afbb088d21",
+      "name": "Lahana",
+      "vertical": "table",
+      "region": "Sydney",
+      "state": "NSW",
+      "status": "ok",
+      "reason": null,
+      "description": "A Nepalese restaurant on Forest Road in Hurstville, serving lunch and dinner every day, with takeaway and catering alongside the dining room. The space is decorated in a Nepalese-inspired style. Catering runs to a range of set packages built around starters, mains and dessert, customisable by the plate for groups of ten or more.",
+      "attempts": 1,
+      "via": "direct",
+      "meritVotes": "chain:true visitable:true local:true",
+      "warnings": []
+    },
+    {
+      "id": "f17f5135-1b8a-48e3-92b4-d422419f88c5",
+      "name": "Little Venice Pizzeria",
+      "vertical": "table",
+      "region": "Drummoyne",
+      "state": "NSW",
+      "status": "ok",
+      "reason": null,
+      "description": "Run by Connie and Giuseppe, who come from Abruzzo in central Italy, this pizzeria works from family recipes carried through decades of gatherings. The kitchen turns out pizza and pasta, with dishes like mushroom risotto also on the menu. It's a small, cosy room, BYO, and open for dinner from Wednesday to Sunday. Bread arrives while you wait, and the owners set out to bring the fresh produce and cooking of their region to Drummoyne.",
+      "attempts": 1,
+      "via": "direct",
+      "meritVotes": "chain:true visitable:true local:true",
+      "softenedClaims": [
+        "Run by Connie and Giuseppe"
+      ],
+      "warnings": []
+    },
+    {
+      "id": "fad1447a-4416-425b-b59a-754cef09a4ef",
+      "name": "Melthouse Pizza",
+      "vertical": "table",
+      "region": "Sydney",
+      "state": "NSW",
+      "status": "failed_gates",
+      "reason": "binding:proper_noun \"Open Tuesday\"",
+      "description": null,
+      "attempts": 2,
+      "via": "direct",
+      "meritVotes": "chain:true visitable:true local:true",
+      "softenedClaims": [
+        "Kingsgrove and Campsie"
+      ]
+    }
+  ]
+}

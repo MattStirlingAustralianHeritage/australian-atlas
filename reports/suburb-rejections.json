@@ -430,5 +430,23 @@
     "status": "no_merit",
     "reason": "chain: This is a hireable event/function space, not a walk-in venue with its own standing offer for visitors. | visitable: Exclusive-hire events venue with no walk-in public offer, functioning as a private function space rather than a visitable bar. | local: A generic hireable events/function space selling views and packages, with no distinct culinary or cultural identity of its own.",
     "at": "2026-07-25T22:44:42.548Z"
+  },
+  "dc3b3202-ce5f-4de4-98bd-e737769d0f20": {
+    "name": "Tarboosh Lebanese Kitchen",
+    "status": "no_merit",
+    "reason": "chain: Multiple locations (Crows Nest, Hurstville, Manly) shown on their own site — a chain, not independent. | visitable: Multiple branches (Crows Nest, Hurstville, Manly) indicate a chain rather than a single independent venue. | local: Multi-branch operation (Crows Nest, Hurstville, Manly) functioning as a small chain, not a single distinctive independent venue.",
+    "at": "2026-07-26T04:18:36.031Z"
+  },
+  "e62379d5-6df1-4c44-b1f7-f394454a8672": {
+    "name": "Penshurst Hotel",
+    "status": "no_merit",
+    "reason": "chain: Generic refurbished sports pub whose draw is big screens and bistro, with no distinctive independent identity. | visitable: Generic refurbished suburban pub whose draw is big screens and bistro, with no distinctive identity. | local: Generic refurbished pub whose draw is big screens and bistro, with no distinctive identity.",
+    "at": "2026-07-26T04:18:38.307Z"
+  },
+  "dd4ead57-0318-481b-b85b-937dfe3eb6f7": {
+    "name": "Four Frogs Creperie",
+    "status": "no_merit",
+    "reason": "chain: Multi-location chain with Circular Quay, Mosman, Randwick and Lane Cove outlets plus loyalty program and franchise-style hiring. | visitable: Multi-location chain with four Sydney branches, excluded as a chain outlet. | local: Multi-branch chain with four Sydney locations and franchise-style hiring, not an independent single venue.",
+    "at": "2026-07-26T04:18:43.311Z"
   }
 }

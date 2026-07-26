@@ -56,7 +56,11 @@
     "sydney-north/Manly",
     "sydney-south/Hurstville",
     "melbourne-north/Thornbury",
-    "melbourne-west/Williamstown"
+    "melbourne-west/Williamstown",
+    "melbourne-east/Hawthorn",
+    "melbourne-south-east/Oakleigh",
+    "brisbane-south/Coorparoo",
+    "brisbane-west-north/Ashgrove"
   ],
   "startedAt": "2026-07-25T00:00:00Z"
 }
