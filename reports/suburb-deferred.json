@@ -3814,5 +3814,230 @@
     "lng": 115.7666632,
     "town": "Hillarys",
     "state": "WA"
+  },
+  {
+    "name": "Coromandel Valley Bake Bakery",
+    "vertical": "table",
+    "website_url": "https://bakebakery.com.au/",
+    "lat": -35.0413311,
+    "lng": 138.6259817,
+    "town": "Blackwood",
+    "state": "SA"
+  },
+  {
+    "name": "Artisan Cafe",
+    "vertical": "table",
+    "website_url": "https://www.theartisancafe.com.au",
+    "lat": -35.0206273,
+    "lng": 138.6158383,
+    "town": "Blackwood",
+    "state": "SA"
+  },
+  {
+    "name": "Sheoak Cafe",
+    "vertical": "table",
+    "website_url": "https://sheoakcafe.com",
+    "lat": -34.9972255,
+    "lng": 138.6302576,
+    "town": "Blackwood",
+    "state": "SA"
+  },
+  {
+    "name": "Mumbai Indian Restaurant",
+    "vertical": "table",
+    "website_url": "https://mumbaiindianrestaurant.com/",
+    "lat": -34.9983713,
+    "lng": 138.6224391,
+    "town": "Blackwood",
+    "state": "SA"
+  },
+  {
+    "name": "Ja & Jon Banh Mi ( Howrah )",
+    "vertical": "table",
+    "website_url": "https://jajonbanhmi.com.au/#/location/20769/Howrah",
+    "lat": -42.8789326,
+    "lng": 147.4007434,
+    "town": "Bellerive",
+    "state": "TAS"
+  },
+  {
+    "name": "Atmosfire",
+    "vertical": "table",
+    "website_url": "https://atmosfire.com.au/home-2/",
+    "lat": -42.8837024,
+    "lng": 147.4050634,
+    "town": "Bellerive",
+    "state": "TAS"
+  },
+  {
+    "name": "Joe's Thai Food",
+    "vertical": "table",
+    "website_url": "https://www.joesthaifood.com/",
+    "lat": -35.3907173,
+    "lng": 149.085459,
+    "town": "Tuggeranong",
+    "state": "ACT"
+  },
+  {
+    "name": "Indian Grill",
+    "vertical": "table",
+    "website_url": "https://indiangrillmenu.com.au/",
+    "lat": -35.4190734,
+    "lng": 149.0655159,
+    "town": "Tuggeranong",
+    "state": "ACT"
+  },
+  {
+    "name": "Lanyon Marketplace",
+    "vertical": "table",
+    "website_url": "https://www.lanyonmarketplacesc.com/",
+    "lat": -35.4575495,
+    "lng": 149.0925205,
+    "town": "Tuggeranong",
+    "state": "ACT"
+  },
+  {
+    "name": "EC Eats",
+    "vertical": "table",
+    "website_url": "https://www.bakewellshoppingcentre.com.au/store/ec-eats",
+    "lat": -12.4989754,
+    "lng": 130.986415,
+    "town": "Palmerston",
+    "state": "NT"
+  },
+  {
+    "name": "Primal Bar & Grill",
+    "vertical": "table",
+    "website_url": "https://www.primalbarandgrill.com.au/",
+    "lat": -12.4789494,
+    "lng": 130.9854002,
+    "town": "Palmerston",
+    "state": "NT"
+  },
+  {
+    "name": "The Diner",
+    "vertical": "table",
+    "website_url": "https://warnersbay.dullboys.com.au/eat/the-diner/",
+    "lat": -32.9666239,
+    "lng": 151.6556566,
+    "town": "Charlestown",
+    "state": "NSW"
+  },
+  {
+    "name": "XS Espresso",
+    "vertical": "table",
+    "website_url": "https://xsespresso.com.au",
+    "lat": -32.9945192,
+    "lng": 151.6867358,
+    "town": "Charlestown",
+    "state": "NSW"
+  },
+  {
+    "name": "Mama-P Wholefoods",
+    "vertical": "table",
+    "website_url": "https://www.mamap.com.au/",
+    "lat": -32.964678,
+    "lng": 151.6954234,
+    "town": "Charlestown",
+    "state": "NSW"
+  },
+  {
+    "name": "Thai Chef",
+    "vertical": "table",
+    "website_url": "https://thaichefonline.com.au",
+    "lat": -38.0230538,
+    "lng": 144.3957635,
+    "town": "Lara",
+    "state": "VIC"
+  },
+  {
+    "name": "Founders and Co",
+    "vertical": "table",
+    "website_url": "https://foundersandco.com.au",
+    "lat": -38.0236292,
+    "lng": 144.4075973,
+    "town": "Lara",
+    "state": "VIC"
+  },
+  {
+    "name": "Millar's Café",
+    "vertical": "table",
+    "website_url": "https://millarslara.com.au",
+    "lat": -38.0280731,
+    "lng": 144.385244,
+    "town": "Lara",
+    "state": "VIC"
+  },
+  {
+    "name": "The Peacock Inn",
+    "vertical": "table",
+    "website_url": "https://the-peacock-inn-chinese-restaurant.business.site/",
+    "lat": -28.0277016,
+    "lng": 153.4302928,
+    "town": "Mermaid Beach",
+    "state": "QLD"
+  },
+  {
+    "name": "Jamroc Jamaïcan Restaurant",
+    "vertical": "table",
+    "website_url": "https://www.jamroc.com.au/",
+    "lat": -28.0457994,
+    "lng": 153.407534,
+    "town": "Mermaid Beach",
+    "state": "QLD"
+  },
+  {
+    "name": "Verve restaurant",
+    "vertical": "table",
+    "website_url": "https://ververestaurant.com/",
+    "lat": -28.02798,
+    "lng": 153.424355,
+    "town": "Mermaid Beach",
+    "state": "QLD"
+  },
+  {
+    "name": "Hank Dining & bar",
+    "vertical": "table",
+    "website_url": "https://hankbroadbeach.com/",
+    "lat": -28.0288892,
+    "lng": 153.4324821,
+    "town": "Mermaid Beach",
+    "state": "QLD"
+  },
+  {
+    "name": "Horizon Sky Dining",
+    "vertical": "table",
+    "website_url": "https://www.crowneplazasurfersparadise.com.au/eat-and-drink/horizon-sky-dining/",
+    "lat": -28.017776,
+    "lng": 153.4298628,
+    "town": "Mermaid Beach",
+    "state": "QLD"
+  },
+  {
+    "name": "Broadbeach Art & Craft Beachfront Market",
+    "vertical": "table",
+    "website_url": "https://artandcraft.com.au/broadbeach/",
+    "lat": -28.0278026,
+    "lng": 153.4343744,
+    "town": "Mermaid Beach",
+    "state": "QLD"
+  },
+  {
+    "name": "Tower 28 Cafe",
+    "vertical": "table",
+    "website_url": "https://www.kurrawasurf.com.au/tower-28-cafe",
+    "lat": -28.0298418,
+    "lng": 153.4350579,
+    "town": "Mermaid Beach",
+    "state": "QLD"
+  },
+  {
+    "name": "Coffee Sisters",
+    "vertical": "table",
+    "website_url": "https://www.coffeesisterscafe.com.au/",
+    "lat": -28.0181041,
+    "lng": 153.4196551,
+    "town": "Mermaid Beach",
+    "state": "QLD"
   }
 ]

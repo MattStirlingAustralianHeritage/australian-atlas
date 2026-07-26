@@ -153,6 +153,8 @@ Absolute rules:
 - Use ONLY what is present in the supplied website text and facts. Every specific claim — a year, a name, a product, a process, a location detail — must be traceable to that source text.
 - Never fill a gap with general knowledge about the suburb, the city, the trade, or venues "like this one". If the source doesn't say it, it does not go in.
 - If the source text is thin, write less. Two accurate sentences are correct; five padded ones are not.
+- NEVER write about the source, the website, or how much information you had. Phrases like "the source material is thin", "little detail is available", "the website does not say", "beyond this, details are scarce" are meta-commentary about your own inputs and must never appear. Describe the place or say less about it.
+- If the source genuinely does not support even two substantive sentences about the place, output exactly NO_BASIS and nothing else. That is a correct answer and is preferred to padding or to writing about the absence of information.
 - Do not state the venue's own name — it appears as the page heading.
 - Do not mention Australian Atlas, this platform, claiming, or listings.
 - Do not use review-speak, superlatives, or promotional language. No "hidden gem", "iconic", "must-visit", "world-class", "boasts", "nestled".
@@ -299,7 +301,15 @@ async function describe(c) {
 
   if (!c.website_url) { out.status = 'no_website'; out.reason = 'no website to ground against'; return out }
 
-  const site = await fetchSiteText(c.website_url, { maxChars: 8000 })
+  // 20k, not 8k. On a venue that lives inside a big organisation's site — a
+  // council, a university, a shire — the first several thousand characters are
+  // entirely navigation, and the venue's own content sits well past an 8k cut.
+  // IndigiScapes shipped a contentless description for exactly this reason: the
+  // real text ("14.5 hectares of natural bushland", the native nursery, the
+  // nature tracks, the cafe) begins around offset 12,000. The prompt already
+  // tells the writer to ignore page furniture, so the extra text costs tokens
+  // rather than accuracy.
+  const site = await fetchSiteText(c.website_url, { maxChars: 20000 })
   if (!site.text || site.text.length < 200) {
     out.status = 'no_site_text'
     out.reason = `site unreadable (http ${site.status}${site.text ? `, ${site.text.length} chars` : ''})`
@@ -343,6 +353,27 @@ async function describe(c) {
     if (gen.refused) { out.status = 'refused'; out.reason = 'model declined'; return out }
     const draft = (gen.text || '').replace(/^["'\s]+|["'\s]+$/g, '')
     if (!draft) { feedback = 'You produced no text.'; continue }
+
+    // NO_BASIS is the writer's sanctioned way of declining. Treat it as a
+    // source problem, not a writing failure: no retry will conjure facts.
+    if (/^NO_BASIS\b/i.test(draft)) {
+      out.status = 'insufficient_source'
+      out.reason = 'source does not support two substantive sentences'
+      return out
+    }
+
+    // Gate 1a — meta-commentary about our own inputs. A model narrating the
+    // thinness of its source shipped live once ("The source material is thin on
+    // detail beyond its place on Redlands Coast"), which is both a non-description
+    // and a leak of the pipeline into the product. Deterministic, so it cannot be
+    // talked around.
+    const META_RE = /\b(source material|the source|source text|little (?:detail|information)|scarce|not stated on|website does not|site does not|no further detail|beyond (?:this|that), |information (?:is )?(?:limited|unavailable|not available)|thin on detail)\b/i
+    const metaHit = draft.match(META_RE)
+    if (metaHit) {
+      feedback = `The draft refers to the source material or the absence of information ("${metaHit[0]}"). Never write about your inputs — describe the place using what the source does state, or output NO_BASIS if it supports nothing.`
+      out.reason = `meta_commentary:${metaHit[0]}`
+      continue
+    }
 
     // Gate 1 — banned phrases
     const banned = bannedPhraseCheck(draft)

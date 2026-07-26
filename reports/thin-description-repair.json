@@ -1,0 +1,19 @@
+{
+  "since": "2026-07-25T00:00:00Z",
+  "suspect": 1,
+  "results": [
+    {
+      "id": "94be88a3-7f65-4156-ab76-f4400fb45384",
+      "name": "IndigiScapes",
+      "slug": "indigiscapes",
+      "vertical": "field",
+      "region": null,
+      "state": "QLD",
+      "address": "17 Runnymede Road, Capalaba, QLD, 4157, QLD",
+      "website": "https://indigiscapes.redland.qld.gov.au/",
+      "description": "Run by Redland City Council, this centre in Capalaba sits within the council's environment and sustainability programs, alongside its native gardening and wildlife work. The source material is thin on detail beyond its place on Redlands Coast.",
+      "outcome": "rewritten",
+      "draft": "Redland City Council's environment education centre sits on 14.5 hectares of bushland at Capalaba. Cultivated native landscapes give way to more than three kilometres of nature tracks, and a native nursery sells plants suited to the Redlands Coast. The Discovery Centre and a recycling station make up the Environment Centre, with IndigiCafé on the verandah serving food and drink with a bush tucker twist.\n\nThe gardens double as a working example of native planting, with ideas to take home for a backyard. Group tours can be booked, and the grounds are used for meetings and events."
+    }
+  ]
+}

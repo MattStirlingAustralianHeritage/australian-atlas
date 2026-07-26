@@ -113,7 +113,15 @@
     "brisbane-bayside/Redcliffe",
     "perth-inner-ring/Subiaco",
     "perth-outer/Hillarys",
-    "adelaide-middle/Burnside"
+    "adelaide-middle/Burnside",
+    "adelaide-outer/Blackwood",
+    "hobart-suburbs/Bellerive",
+    "canberra-suburbs/Tuggeranong",
+    "darwin-suburbs/Palmerston",
+    "newcastle-suburbs/Charlestown",
+    "wollongong-illawarra/Fairy Meadow",
+    "geelong-suburbs/Lara",
+    "gold-coast-suburbs/Mermaid Beach"
   ],
   "startedAt": "2026-07-25T00:00:00Z"
 }
