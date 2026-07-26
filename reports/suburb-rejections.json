@@ -484,5 +484,65 @@
     "status": "no_merit",
     "reason": "chain: Multi-location chain with at least five outlets including shopping-centre food-court presence at Chadstone and Knox. | visitable: Multi-location chain with seven-plus branches across Melbourne, excluded as a chain outlet. | local: Multi-location chain with numerous branches across Melbourne, disqualifying it as a franchise-style outlet.",
     "at": "2026-07-26T04:24:03.674Z"
+  },
+  "31de4c25-788e-4593-9652-3de90870af69": {
+    "name": "Sandstone Warehouse",
+    "status": "no_merit",
+    "reason": "chain: Sandstone supplier and stonemasonry trade business, not a publicly visitable place of interest. | visitable: Sandstone supplier and stonemasonry service with delivery focus, a transactional trade business, not a place to visit. | local: A sandstone supplier and stonemasonry trade service, not a place a visitor could meaningfully go.",
+    "at": "2026-07-26T04:50:03.247Z"
+  },
+  "3a66ab73-aeae-4df6-96ce-7b2a8131170a": {
+    "name": "Rochester Private Hotel",
+    "status": "no_merit",
+    "reason": "chain: This is a long-term boarding house renting rooms weekly to residents, not a distinctive visitable stay for travellers. | visitable: This is a boarding house offering weekly-rate long-term accommodation rooms, not a visitable venue with a distinct destination identity. | local: This is a budget boarding house offering long-term rooms by the week, not a distinctive visitable accommodation with its own identity as a place to go out of your way for.",
+    "at": "2026-07-26T04:50:08.005Z"
+  },
+  "64bc5b02-5565-43a6-8f9b-fd9dcabfc632": {
+    "name": "Splendido Resort Apartments",
+    "status": "no_merit",
+    "reason": "chain: Generic self-catering resort apartment block offering rooms near the highway with no distinctive identity. | visitable: Generic self-catering holiday apartment block with no distinct identity beyond location and convenience. | local: Generic self-catering resort apartments selling location and rates, with no distinct identity, history, or design point of view.",
+    "at": "2026-07-26T04:50:08.510Z"
+  },
+  "64e11261-fba8-4253-b0ae-aebb29515b24": {
+    "name": "Stan Cash",
+    "status": "no_merit",
+    "reason": "chain: Multi-location appliance retailer (Keilor East and Brooklyn stores) with e-commerce, a transactional big-box format with no distinct identity. | visitable: Multi-branch online appliance retailer, a transactional store with no distinctive visitable offer. | local: Multi-branch discount appliance retailer selling mass-market brands online, generic and transactional with no distinctive identity.",
+    "at": "2026-07-26T04:50:14.621Z"
+  },
+  "9a99e27c-1eaf-47dc-a1ba-f421d7c6bd62": {
+    "name": "Value Suites",
+    "status": "no_merit",
+    "reason": "chain: Value Suites is a multi-location serviced-apartment chain (Penrith, Surry Hills, Chippendale, Green Square) offering generic near-road rooms with no distinct identity. | visitable: Generic serviced-apartment chain with multiple locations, offering interchangeable rooms with no distinct identity. | local: A generic multi-branch serviced-apartment chain offering interchangeable rooms with no distinct identity.",
+    "at": "2026-07-26T04:50:36.681Z"
+  },
+  "ae9243dd-c284-4a56-9d59-edc822cde9a7": {
+    "name": "Present Story",
+    "status": "no_merit",
+    "reason": "chain: The venue is closing down permanently with its last trading day in January, leaving no publicly visitable offer. | visitable: The business is closing down permanently in January, so there is no visitable venue. | local: The business is closing down permanently, leaving no visitable venue.",
+    "at": "2026-07-26T04:50:39.035Z"
+  },
+  "d464f2a1-a8e9-49a6-9881-613b049a5585": {
+    "name": "Framing on a Budget",
+    "status": "no_merit",
+    "reason": "visitable: A custom framing service business, transactional and not a visitor destination. | local: A local custom framing service is a trade service without a distinctive visitable offer.",
+    "at": "2026-07-26T04:50:45.589Z"
+  },
+  "e403ced9-f877-4a17-80a2-ab5d722277c2": {
+    "name": "RACV Torquay Resort",
+    "status": "no_merit",
+    "reason": "chain: RACV Torquay is one of nine near-identical RACV Resorts across multiple states — a branded chain, not an independent venue. | visitable: RACV Resorts is a member-owned chain of nine near-identical resorts, a corporate branded operation rather than an independent place with its own identity. | local: RACV Resorts is a corporate chain of nine near-identical branded resorts, not an independent place with a distinct identity.",
+    "at": "2026-07-26T04:50:46.498Z"
+  },
+  "f907c231-d64f-4aac-9d10-f6d66977f4a8": {
+    "name": "Turtle Beach Resort",
+    "status": "no_merit",
+    "reason": "chain: Generic large family resort trading on facilities and location rather than a distinct identity, promotional discount codes throughout. | visitable: Generic large family holiday resort—a supply of self-contained apartments with waterslides, no distinct identity or heritage worth going out of your way for. | local: Generic large family resort with waterslides and self-contained apartments; a supply of holiday rooms with no distinct identity of its own.",
+    "at": "2026-07-26T04:50:50.316Z"
+  },
+  "ff508f86-1bd8-44e7-9370-fb648a8c6631": {
+    "name": "Hunters Hill Hotel",
+    "status": "no_merit",
+    "reason": "chain: A pub whose own site foregrounds gaming facilities, placing it in the excluded gaming-draw category. | visitable: Generic suburban pub promoting gaming facilities as a core draw, an excluded category. | local: Generic pub promoting gaming facilities and standard bistro; nothing distinctive or specific to seek out.",
+    "at": "2026-07-26T04:50:52.780Z"
   }
 }
