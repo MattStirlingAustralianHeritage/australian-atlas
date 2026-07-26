@@ -137,6 +137,12 @@ only the generic, corporate, and non-visitable.
 | Bungaree Community Garden | identity | Site is a City of Parramatta directory page about community groups; never mentions the garden |
 | Yorke Educational Centre | identity | Site's address is in Chatswood, the POI is in Parramatta |
 | Bourke St Bakery, Dosa Hut, Okami, Dragon Hot Pot, Bondi Pizza, Amalfi, Mikazuki | merit | Chains — each site advertises multiple branches or invites franchisees |
+| Brighton Savoy | merit | Its own site says it **"was"** a hotel and is now a digital-marketing blog — there is no venue left to visit |
+| Present Story | merit | **Closing permanently**, last trading day in January; no publicly visitable offer |
+| Mamo home | merit | Online store closed, and the site's address contradicts the listed location |
+| Mondrian | merit | A global luxury hotel brand (LA, Ibiza, Doha, Singapore) — the opposite of independent |
+| RACV Torquay Resort | merit | One of nine near-identical RACV resorts across several states |
+| Fasta Pasta | identity | Chain landing page reading "there are no restaurants available in this region yet" — nothing to confirm |
 
 One limitation surfaced and was mitigated rather than papered over: the
 source-binding checker matches a capitalised run *verbatim* and treats `and` as
@@ -147,17 +153,42 @@ deleting real detail.
 
 ## 4. Results
 
-**119 new listings are live**, verified rendering on both the portal
+**182 new listings are live**, verified rendering on both the portal
 (`/place/[slug]`) and their vertical's canonical URL. Three more were published
 and then withdrawn on review (see §7).
 
-The crawl reached 44 of its 193 anchors — roughly two anchors from every pack,
-because anchors are interleaved. It is now resumable, so the remaining 149
-continue from where it stopped rather than restarting. That is a thin slice of
-the plan and a wide slice of the country: NSW, VIC, QLD, WA, SA, TAS, ACT and NT
-were all sampled.
+**The sweep is complete: all 193 anchors crawled**, across NSW, VIC, QLD, WA, SA,
+TAS, ACT and NT. That was only practical once the crawl became resumable
+part-way through — `reports/suburb-crawl-state.json` records each finished
+anchor, so a run picks up where the last stopped instead of starting over.
 
-### What 22 suburbs contained
+### The full sweep
+
+| | |
+|---|---:|
+| Anchors crawled | **193 / 193** |
+| Net-new gaps found | **1,063** |
+| POIs skipped inside 5km of a CBD | **2,153** |
+| Queued through the 5 discovery gates | 317 |
+| Deferred by the per-vertical ceiling | 787 |
+| Published | 185 |
+| Withdrawn on review | 3 |
+| **Live** | **182** |
+
+The inner-ring exclusion is the number that most vindicates building it: **2,153
+POIs** fell within 5km of a city centre, 871 of them `table`. Without it, most of
+what the suburb anchors touched would have landed back in the saturated ring
+these packs exist to avoid — which is precisely what the first queueing run did,
+before the filter existed.
+
+Queued by vertical across the full sweep: Table 201, Rest 49, Culture 32,
+Corner 21, Field 11, Small Batch 3. The full per-suburb landscape for all 193
+anchors is in `reports/suburb-gap-crawl-2026-07-26-metro-suburbs.md`.
+
+### What the first 22 suburbs contained
+
+The sample below is from early in the sweep and is kept because the ratios are
+the clearest statement of the problem.
 
 | Suburb | OSM POIs | Atlas nearby | Net-new gaps |
 |---|---:|---:|---:|
@@ -184,7 +215,7 @@ were all sampled.
 | Bulli / Thirroul | — | — | 6 |
 | **Total (22 anchors)** | **1,882+** | **1,010+** | **315** |
 
-**315 net-new candidates in 22 suburbs**, after deduplication against the full
+**315 net-new candidates in the first 22 suburbs**, after deduplication against the full
 13,464-name corpus and after excluding everything inside 5km of a CBD.
 
 The distribution is as informative as the total. Parramatta had 107 mapped POIs
@@ -198,12 +229,11 @@ indiscriminately.
 
 | Stage | Count |
 |---|---:|
-| Net-new gaps found | 315 |
-| Queued through the 5-gate discovery pipeline | 97 |
-| Passed all four description gates | 90 |
-| Published | 90 |
-| Unpublished again on review | 1 |
-| **Live** | **89** |
+| Net-new gaps found | 1,063 |
+| Queued through the 5 discovery gates | 317 |
+| Cleared the description gates and published | 185 |
+| Withdrawn again on review | 3 |
+| **Live** | **182** |
 
 Gate 1 (web presence) is the dominant rejection at discovery: most OSM POIs
 carrying a `website` tag have a dead or unreachable site.
@@ -213,29 +243,34 @@ carrying a `website` tag have a dead or unreachable site.
 | Ring | Count |
 |---|---:|
 | 0–5km (inner — off-goal) | 1 |
-| 5–15km (middle) | 75 |
-| 15–30km (outer) | 43 |
+| 5–15km (middle) | 108 |
+| 15–30km (outer) | 73 |
 | 30km+ (fringe) | 0 |
 
-**118 of 119 sit outside the inner ring** — the single exception is PACT, published
+**181 of 182 sit outside the inner ring** — the single exception is PACT, published
 before the exclusion existed. Every listing has a description; none was left to
 the ungated fallback.
 
 | Nearest centre | Count | | Vertical | Count |
 |---|---:|---|---|---:|
-| Sydney | 55 | | Table | 100 |
-| Melbourne | 45 | | Culture | 12 |
-| Brisbane | 4 | | Corner | 3 |
-| Gold Coast | 4 | | Small Batch | 2 |
-| Perth | 3 | | Field | 1 |
-| Wollongong | 2 | | Rest | 1 |
-| Adelaide | 2 | | | |
+| Sydney | 81 | | Table | 134 |
+| Melbourne | 62 | | Culture | 27 |
+| Brisbane | 9 | | Corner | 7 |
+| Adelaide | 8 | | Rest | 6 |
+| Gold Coast | 6 | | Field | 5 |
+| Perth | 5 | | Small Batch | 3 |
+| Cairns | 3 | | | |
+| Newcastle | 3 | | | |
+| Wollongong | 2 | | | |
 | Hobart | 2 | | | |
-| Newcastle | 1 | | | |
-| Cairns | 1 | | | |
+| Geelong | 1 | | | |
 
-A sample spanning all six cities and 3.9–22.4km from centre was checked live:
-16/16 returned HTTP 200 with a rendered page.
+Non-`table` share rose from 15% to **26%** once gaps were interleaved by vertical
+and the per-vertical ceiling began to bind.
+
+Samples spanning every covered centre and 3.9–22.4km from the middle were checked
+live throughout; every one returned HTTP 200 with a rendered page, on the portal
+and on the vertical's own site.
 
 Representative finds — the kind of place the ring audit predicted was missing:
 Luke's Banh Mi (Preston), A1 Bakery (Fairfield VIC), Bluestone Church Arts Space
@@ -263,22 +298,27 @@ Takeaway (Wynnum), Bib and Tucker (Perth), antojitos (Mayfield, Newcastle), Bull
   unreachable site, so web presence is the dominant rejection reason. That is the
   intended bar, but it means OSM's suburban coverage is richer than the queue
   suggests.
-- **Merit is a model judgement, and it is not deterministic.** Haberfield Hotel
-  and Dandenong Club were each rejected in one batch and passed in the next.
-  Haberfield Hotel went live that way before being hidden again (master status
-  `hidden`, vertical row `draft`, portal URL now 404s). Venue-level verdicts are
-  now sticky — recorded in `reports/suburb-rejections.json` and never
-  re-attempted — so the strictest verdict wins rather than the luckiest. That
-  makes the failure mode one-directional, but it does not make the judgement
-  exact.
-- **149 of 193 anchors are still to crawl.** The crawl covers roughly one anchor
-  per pack so far. Every remaining anchor is untouched work, and on this
-  evidence — 315 gaps in 22 suburbs — the outstanding total is large.
-- **The result is Sydney- and Melbourne-heavy** (79 of 89) and
-  `table`-heavy (76 of 89). Both follow from where the crawl got to and from
-  OSM's own tagging density: restaurants are mapped far more thoroughly than
-  makers, shops or accommodation. A `--vertical=` focused pass would be a better
-  instrument for the thinner verticals than this general sweep.
+- **Merit is a model judgement.** The three-lens panel (§7) makes it
+  reproducible, not exact. Split 2/1 decisions still publish and are recorded as
+  splits. Haberfield Hotel went live on a single flaky verdict before the panel
+  existed, and was withdrawn.
+- **787 `table` gaps sit deferred** in `reports/suburb-deferred.json`, held back
+  by the per-vertical ceiling. That is a curation decision, not a discovery
+  failure — raising `--max-per-vertical` releases them. Whether the Atlas wants
+  another 787 suburban restaurants is a judgement for an editor, which is exactly
+  why they are recorded rather than silently dropped.
+- **The result is still Sydney- and Melbourne-heavy** (143 of 182) and
+  `table`-heavy (134 of 182), even after balancing lifted the non-`table` share
+  from 15% to 26%. Sydney and Melbourne simply have more suburbs in the packs,
+  and OSM maps restaurants far more thoroughly than makers, shops or
+  accommodation. The balancing reduced restaurants by *declining* them, not by
+  finding more makers — lifting the thin verticals genuinely would need a
+  different source, which this crawler deliberately avoids for quota reasons.
+- **Gate 1 and dead websites cap the yield.** 1,063 gaps produced 317 queued
+  candidates. Most OSM POIs carrying a `website` tag point at a dead, blocked or
+  403-ing site, and a handful (My Saigon Tuckshop, Headlands Hotel, The Esplanade
+  Hotel) resisted every attempt. OSM's suburban coverage is richer than the queue
+  suggests.
 - **One cosmetic data defect was found and not fixed here**: the place-page
   address line renders the state twice ("… Dulwich Hill, NSW, 2203, NSW") because
   the enrichment writes a full address including state while the renderer appends

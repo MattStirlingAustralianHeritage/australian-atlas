@@ -1,0 +1,624 @@
+{
+  "startedAt": "2026-07-26T04:18:07.760Z",
+  "maxQueue": 400,
+  "queuedTotal": 77,
+  "skippedByCap": 0,
+  "candidates": [
+    {
+      "id": "e5b487bb-9886-41a8-bac0-61409ad4d5c4",
+      "name": "Fonda Mexican",
+      "vertical": "table",
+      "town": "Hawthorn",
+      "state": "VIC",
+      "score": 70
+    },
+    {
+      "id": "45ca27e8-870d-4383-9f84-18501d334cfe",
+      "name": "Kuche",
+      "vertical": "table",
+      "town": "Hawthorn",
+      "state": "VIC",
+      "score": 70
+    },
+    {
+      "id": "1feeb635-63d9-4bbd-9dde-69897200942c",
+      "name": "The Burger Block",
+      "vertical": "table",
+      "town": "Hawthorn",
+      "state": "VIC",
+      "score": 70
+    },
+    {
+      "id": "224b9961-5491-4e7f-b6e2-94d16e13831a",
+      "name": "Chicci",
+      "vertical": "table",
+      "town": "Hawthorn",
+      "state": "VIC",
+      "score": 60
+    },
+    {
+      "id": "228aa6b3-8e3e-43df-9c15-fb5f74cc2db3",
+      "name": "Cafelito",
+      "vertical": "table",
+      "town": "Oakleigh",
+      "state": "VIC",
+      "score": 65
+    },
+    {
+      "id": "5520fc34-0c8b-495b-aa3b-f6b4b71dade7",
+      "name": "David's Hot Pot",
+      "vertical": "table",
+      "town": "Oakleigh",
+      "state": "VIC",
+      "score": 60
+    },
+    {
+      "id": "123db987-79d6-4c89-9d18-d2ba3932ab1c",
+      "name": "Sushi Jiro",
+      "vertical": "table",
+      "town": "Oakleigh",
+      "state": "VIC",
+      "score": 70
+    },
+    {
+      "id": "79b616ad-3ee0-4cc5-ab7f-0d3472bbd98f",
+      "name": "Remnscnt Cafe",
+      "vertical": "table",
+      "town": "Oakleigh",
+      "state": "VIC",
+      "score": 75
+    },
+    {
+      "id": "452deaaf-78b1-47be-9ce9-0e043337f7f0",
+      "name": "The Pancake Parlour",
+      "vertical": "table",
+      "town": "Oakleigh",
+      "state": "VIC",
+      "score": 60
+    },
+    {
+      "id": "3c177305-c90b-43d6-9a61-9a95c2e71e9b",
+      "name": "Piece of Cake Bakery",
+      "vertical": "table",
+      "town": "Oakleigh",
+      "state": "VIC",
+      "score": 60
+    },
+    {
+      "id": "09ca0af5-d4ab-496c-884b-2500f0131886",
+      "name": "Seven Stars",
+      "vertical": "table",
+      "town": "Oakleigh",
+      "state": "VIC",
+      "score": 75
+    },
+    {
+      "id": "d44627c0-a7cb-4d92-b002-5053622772b3",
+      "name": "Mamma Mia Trattoria Pizzeria",
+      "vertical": "table",
+      "town": "Cleveland",
+      "state": "QLD",
+      "score": 60
+    },
+    {
+      "id": "5cadb627-7ae2-475a-8f01-239b6d44af54",
+      "name": "Sails on Shore",
+      "vertical": "table",
+      "town": "Cleveland",
+      "state": "QLD",
+      "score": 85
+    },
+    {
+      "id": "2df6a877-79fa-48d7-92b2-286731dd342c",
+      "name": "IndigiScapes",
+      "vertical": "field",
+      "town": "Cleveland",
+      "state": "QLD",
+      "score": 70
+    },
+    {
+      "id": "45bfed28-c282-4a81-bf93-e4024d559499",
+      "name": "Il Lido",
+      "vertical": "table",
+      "town": "Cottesloe",
+      "state": "WA",
+      "score": 60
+    },
+    {
+      "id": "2a34e22c-4a4e-441b-b1e8-63989807f937",
+      "name": "Jibbi & Co",
+      "vertical": "table",
+      "town": "Prospect",
+      "state": "SA",
+      "score": 70
+    },
+    {
+      "id": "a61e3c0e-74a6-4f92-940f-44e56bf30e9d",
+      "name": "Alminas Kitchen",
+      "vertical": "table",
+      "town": "Prospect",
+      "state": "SA",
+      "score": 75
+    },
+    {
+      "id": "8451ca40-9ef5-4db6-b220-b3d464e3b491",
+      "name": "Bayside Bakery",
+      "vertical": "table",
+      "town": "Glenelg",
+      "state": "SA",
+      "score": 75
+    },
+    {
+      "id": "a5827808-f28c-4dd2-b35d-0bfba11d9f87",
+      "name": "Sekuwa Sansar",
+      "vertical": "table",
+      "town": "Glenelg",
+      "state": "SA",
+      "score": 75
+    },
+    {
+      "id": "85b3e3e1-3e5a-4b27-8965-e6434e337492",
+      "name": "Delhi Spice",
+      "vertical": "table",
+      "town": "Glenelg",
+      "state": "SA",
+      "score": 65
+    },
+    {
+      "id": "71062805-35ad-4444-aa47-02b034748e03",
+      "name": "The Australian Armour & Artillery Museum",
+      "vertical": "collection",
+      "town": "Smithfield",
+      "state": "QLD",
+      "score": 80
+    },
+    {
+      "id": "3a66ab73-aeae-4df6-96ce-7b2a8131170a",
+      "name": "Rochester Private Hotel",
+      "vertical": "rest",
+      "town": "Five Dock",
+      "state": "NSW",
+      "score": 70
+    },
+    {
+      "id": "ff508f86-1bd8-44e7-9370-fb648a8c6631",
+      "name": "Hunters Hill Hotel",
+      "vertical": "rest",
+      "town": "Five Dock",
+      "state": "NSW",
+      "score": 60
+    },
+    {
+      "id": "122c4be1-4fec-4c57-a011-4bd00a18eacd",
+      "name": "Bella Vista Farm Park",
+      "vertical": "field",
+      "town": "Blacktown",
+      "state": "NSW",
+      "score": 65
+    },
+    {
+      "id": "d464f2a1-a8e9-49a6-9881-613b049a5585",
+      "name": "Framing on a Budget",
+      "vertical": "corner",
+      "town": "Dee Why",
+      "state": "NSW",
+      "score": 70
+    },
+    {
+      "id": "ae9243dd-c284-4a56-9d59-edc822cde9a7",
+      "name": "Present Story",
+      "vertical": "corner",
+      "town": "Northcote",
+      "state": "VIC",
+      "score": 60
+    },
+    {
+      "id": "6c2b4243-ac14-41fb-ad09-95f4a37f56b3",
+      "name": "Amagoa Aboriginal & Modern Art Gallery Of Australia",
+      "vertical": "collection",
+      "town": "Cheltenham",
+      "state": "VIC",
+      "score": 75
+    },
+    {
+      "id": "0186e411-b071-40ed-b63d-0422ead67e89",
+      "name": "Twisted Science",
+      "vertical": "collection",
+      "town": "Cheltenham",
+      "state": "VIC",
+      "score": 65
+    },
+    {
+      "id": "72fe9f9b-f979-416f-8b52-63661a7e7798",
+      "name": "Brisbane Tramway Museum",
+      "vertical": "collection",
+      "town": "The Gap",
+      "state": "QLD",
+      "score": 75
+    },
+    {
+      "id": "70523977-e5bb-4119-83ca-bf303d6163e6",
+      "name": "Balmoral Hotel",
+      "vertical": "rest",
+      "town": "Victoria Park",
+      "state": "WA",
+      "score": 65
+    },
+    {
+      "id": "e403ced9-f877-4a17-80a2-ab5d722277c2",
+      "name": "RACV Torquay Resort",
+      "vertical": "rest",
+      "town": "Torquay",
+      "state": "VIC",
+      "score": 75
+    },
+    {
+      "id": "21079dc0-8d41-49e7-bc6e-655f4c5edbf4",
+      "name": "Torquay Books",
+      "vertical": "corner",
+      "town": "Torquay",
+      "state": "VIC",
+      "score": 70
+    },
+    {
+      "id": "f907c231-d64f-4aac-9d10-f6d66977f4a8",
+      "name": "Turtle Beach Resort",
+      "vertical": "rest",
+      "town": "Miami",
+      "state": "QLD",
+      "score": 70
+    },
+    {
+      "id": "64bc5b02-5565-43a6-8f9b-fd9dcabfc632",
+      "name": "Splendido Resort Apartments",
+      "vertical": "rest",
+      "town": "Miami",
+      "state": "QLD",
+      "score": 65
+    },
+    {
+      "id": "6efd541a-9651-4b00-9a9f-9287f8a12413",
+      "name": "The Reef Retreat",
+      "vertical": "rest",
+      "town": "Palm Cove",
+      "state": "QLD",
+      "score": 75
+    },
+    {
+      "id": "9a99e27c-1eaf-47dc-a1ba-f421d7c6bd62",
+      "name": "Value Suites",
+      "vertical": "rest",
+      "town": "Penrith",
+      "state": "NSW",
+      "score": 80
+    },
+    {
+      "id": "0c348283-374d-40e6-8ab9-e9f6462a29e3",
+      "name": "Museum of Printing",
+      "vertical": "collection",
+      "town": "Penrith",
+      "state": "NSW",
+      "score": 80
+    },
+    {
+      "id": "7b37ba06-5809-467d-a7fb-11c34f8d9154",
+      "name": "Home on Darley",
+      "vertical": "corner",
+      "town": "Mona Vale",
+      "state": "NSW",
+      "score": 65
+    },
+    {
+      "id": "31de4c25-788e-4593-9652-3de90870af69",
+      "name": "Sandstone Warehouse",
+      "vertical": "corner",
+      "town": "Bankstown",
+      "state": "NSW",
+      "score": 75
+    },
+    {
+      "id": "64e11261-fba8-4253-b0ae-aebb29515b24",
+      "name": "Stan Cash",
+      "vertical": "corner",
+      "town": "Sunshine",
+      "state": "VIC",
+      "score": 65
+    },
+    {
+      "id": "8bb179d0-d089-4b85-ba5e-bf88a3da5e0c",
+      "name": "Saint Felix",
+      "vertical": "sba",
+      "town": "Mentone",
+      "state": "VIC",
+      "score": 70
+    },
+    {
+      "id": "4742e471-ce87-4e58-92a9-00831d2b8f5b",
+      "name": "Aspley Carsel Motor Inn",
+      "vertical": "rest",
+      "town": "Chermside",
+      "state": "QLD",
+      "score": 75
+    },
+    {
+      "id": "9df90766-03bc-4409-8a11-3704891b6458",
+      "name": "Brisbane International Virginia",
+      "vertical": "rest",
+      "town": "Chermside",
+      "state": "QLD",
+      "score": 60
+    },
+    {
+      "id": "f5283ab0-e306-4054-be38-6580b985aaef",
+      "name": "Shoreline Hotel",
+      "vertical": "rest",
+      "town": "Bellerive",
+      "state": "TAS",
+      "score": 80
+    },
+    {
+      "id": "2f50c1d9-6acb-433c-8e8f-c84820d3f7dd",
+      "name": "Apollo International Hotel",
+      "vertical": "rest",
+      "town": "Charlestown",
+      "state": "NSW",
+      "score": 70
+    },
+    {
+      "id": "903d0f3f-25b2-4640-b729-67dc3412485e",
+      "name": "Surf Beach Motel Newcastle",
+      "vertical": "rest",
+      "town": "Charlestown",
+      "state": "NSW",
+      "score": 80
+    },
+    {
+      "id": "a092d7b3-7666-4350-85fa-d57a595f0c49",
+      "name": "Surfers Tradewinds",
+      "vertical": "rest",
+      "town": "Mermaid Beach",
+      "state": "QLD",
+      "score": 65
+    },
+    {
+      "id": "2d561fe0-1193-4e72-83c1-8ce9f50cd9cb",
+      "name": "Surf Parade Resort",
+      "vertical": "rest",
+      "town": "Mermaid Beach",
+      "state": "QLD",
+      "score": 70
+    },
+    {
+      "id": "1ad10428-4b7a-4fe7-92b0-1c10d078017d",
+      "name": "Watermark Resort Caloundra",
+      "vertical": "rest",
+      "town": "Caloundra",
+      "state": "QLD",
+      "score": 75
+    },
+    {
+      "id": "b159145c-8571-4a69-bd98-773a2f36f5ca",
+      "name": "Liverpool Picture Framing",
+      "vertical": "corner",
+      "town": "Liverpool",
+      "state": "NSW",
+      "score": 70
+    },
+    {
+      "id": "afbcbbd1-5f46-4ec9-aa4c-dfe59c196454",
+      "name": "Eastwood Furnished Apartments",
+      "vertical": "rest",
+      "town": "Ryde",
+      "state": "NSW",
+      "score": 60
+    },
+    {
+      "id": "8d6544fb-034f-4881-bea8-f2e6a8913228",
+      "name": "The Art Scene",
+      "vertical": "corner",
+      "town": "Ryde",
+      "state": "NSW",
+      "score": 65
+    },
+    {
+      "id": "04a06d32-bbb8-4da5-a4fe-84d14b2e7da2",
+      "name": "Essendon Motel",
+      "vertical": "rest",
+      "town": "Essendon",
+      "state": "VIC",
+      "score": 60
+    },
+    {
+      "id": "1a7d74fe-3434-48fd-ba0d-317d277aba8d",
+      "name": "Golden Pebble",
+      "vertical": "rest",
+      "town": "Ringwood",
+      "state": "VIC",
+      "score": 60
+    },
+    {
+      "id": "f917d020-4635-4f89-9b9e-a0ff082efa1d",
+      "name": "Mamo home",
+      "vertical": "corner",
+      "town": "Ringwood",
+      "state": "VIC",
+      "score": 60
+    },
+    {
+      "id": "57facb30-eddf-4d17-8dfc-d16fdb53b5c6",
+      "name": "Schwerkolt Cottage & Museum Complex",
+      "vertical": "collection",
+      "town": "Ringwood",
+      "state": "VIC",
+      "score": 75
+    },
+    {
+      "id": "d8f0522f-045a-4fa1-b797-55c5095dcab8",
+      "name": "Brighton Savoy",
+      "vertical": "rest",
+      "town": "Brighton",
+      "state": "VIC",
+      "score": 80
+    },
+    {
+      "id": "e8ef3fe9-00e3-4336-aef5-cae6ac2b765b",
+      "name": "Supply & Demand",
+      "vertical": "corner",
+      "town": "Brighton",
+      "state": "VIC",
+      "score": 65
+    },
+    {
+      "id": "070ba7cf-cff8-49fb-b540-0606afc848cb",
+      "name": "Swan River Hotel",
+      "vertical": "rest",
+      "town": "Bayswater",
+      "state": "WA",
+      "score": 75
+    },
+    {
+      "id": "392f7d45-1fcf-443d-add8-0027ffc96c84",
+      "name": "Joondalup Resort",
+      "vertical": "rest",
+      "town": "Joondalup",
+      "state": "WA",
+      "score": 75
+    },
+    {
+      "id": "dc4db1be-68a6-4604-b9de-6199627ca491",
+      "name": "Blue Gums Hotel",
+      "vertical": "rest",
+      "town": "Modbury",
+      "state": "SA",
+      "score": 75
+    },
+    {
+      "id": "de99a569-1675-4459-ac75-9c135fe15962",
+      "name": "Meridian Tower",
+      "vertical": "rest",
+      "town": "Coolangatta",
+      "state": "QLD",
+      "score": 65
+    },
+    {
+      "id": "133eb3d4-acf2-4315-80dc-7325d67ae270",
+      "name": "Musicians Avenue",
+      "vertical": "corner",
+      "town": "Cabramatta",
+      "state": "NSW",
+      "score": 65
+    },
+    {
+      "id": "66ba6d3b-49be-4b7d-aaef-b0e4b0052a4a",
+      "name": "B-24 Liberator Museum",
+      "vertical": "collection",
+      "town": "Werribee",
+      "state": "VIC",
+      "score": 85
+    },
+    {
+      "id": "e368fb62-097f-46fb-90df-2c9daf60348f",
+      "name": "Seaford Hotel",
+      "vertical": "rest",
+      "town": "Frankston",
+      "state": "VIC",
+      "score": 65
+    },
+    {
+      "id": "53c5c45a-5691-48b2-aafd-fdda71355da1",
+      "name": "Ballam Park Homestead",
+      "vertical": "collection",
+      "town": "Frankston",
+      "state": "VIC",
+      "score": 60
+    },
+    {
+      "id": "5bed9ef7-9943-4641-af0e-68d8f5e74eea",
+      "name": "Rocks Community Garden",
+      "vertical": "field",
+      "town": "Sherwood",
+      "state": "QLD",
+      "score": 75
+    },
+    {
+      "id": "2d9a73d2-a485-4d87-a2ed-fec498a41f13",
+      "name": "National Military Vehicle Museum",
+      "vertical": "collection",
+      "town": "Salisbury",
+      "state": "SA",
+      "score": 75
+    },
+    {
+      "id": "34923d9b-c253-460d-bbe8-2f4a1bff5308",
+      "name": "The Old Victoria",
+      "vertical": "rest",
+      "town": "Maitland",
+      "state": "NSW",
+      "score": 70
+    },
+    {
+      "id": "58ffa143-12f0-406d-956e-976602fc5552",
+      "name": "Maitland Regional Museum",
+      "vertical": "collection",
+      "town": "Maitland",
+      "state": "NSW",
+      "score": 80
+    },
+    {
+      "id": "675640f2-72af-4451-b2a1-a6451e9d6620",
+      "name": "Castle Hill Art Society",
+      "vertical": "collection",
+      "town": "Castle Hill",
+      "state": "NSW",
+      "score": 65
+    },
+    {
+      "id": "3d061394-8564-443d-8f22-4f6d20b14c76",
+      "name": "SECAN Art Gallery",
+      "vertical": "collection",
+      "town": "Berwick",
+      "state": "VIC",
+      "score": 60
+    },
+    {
+      "id": "f639b337-c0b6-4ed2-a91a-8fee64c7fd55",
+      "name": "Valley Walk",
+      "vertical": "field",
+      "town": "Campbelltown",
+      "state": "NSW",
+      "score": 65
+    },
+    {
+      "id": "9a6a2db4-bb1f-403c-b118-76ff459de052",
+      "name": "Nillumbik Historical Society",
+      "vertical": "collection",
+      "town": "Eltham",
+      "state": "VIC",
+      "score": 70
+    },
+    {
+      "id": "faf32ad2-d240-43af-ba7e-ae38ceced4b0",
+      "name": "Brooklands of Mornington",
+      "vertical": "rest",
+      "town": "Mornington",
+      "state": "VIC",
+      "score": 55
+    },
+    {
+      "id": "3430bd7f-1e50-4129-87e0-a3259eb4d82e",
+      "name": "Old Post Office Museum",
+      "vertical": "collection",
+      "town": "Mornington",
+      "state": "VIC",
+      "score": 70
+    },
+    {
+      "id": "09e61350-ee8f-4bdf-b18e-e43ebd59f26b",
+      "name": "Agnes Banks Nature Reserve",
+      "vertical": "field",
+      "town": "Richmond",
+      "state": "NSW",
+      "score": 75
+    }
+  ]
+}

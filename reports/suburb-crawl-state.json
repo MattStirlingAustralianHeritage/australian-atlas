@@ -175,7 +175,24 @@
     "brisbane-west-north/Samford",
     "perth-outer/Guildford",
     "adelaide-outer/Elizabeth",
-    "newcastle-suburbs/Raymond Terrace"
+    "newcastle-suburbs/Raymond Terrace",
+    "wollongong-illawarra/Kiama",
+    "gold-coast-suburbs/Robina",
+    "sydney-west/Campbelltown",
+    "sydney-north/Brookvale",
+    "melbourne-north/Eltham",
+    "melbourne-east/Balwyn",
+    "melbourne-south-east/Mornington",
+    "brisbane-south/Logan Central",
+    "brisbane-west-north/Ipswich",
+    "perth-outer/Armadale",
+    "adelaide-outer/Gawler",
+    "gold-coast-suburbs/Mudgeeraba",
+    "sydney-west/Camden",
+    "melbourne-north/Sunbury",
+    "perth-outer/Cannington",
+    "sydney-west/Richmond",
+    "perth-outer/Rockingham"
   ],
   "startedAt": "2026-07-25T00:00:00Z"
 }

@@ -2,41 +2,21 @@
   "base": "https://www.australianatlas.com.au",
   "published": [
     {
-      "id": "6c2b4243-ac14-41fb-ad09-95f4a37f56b3",
-      "name": "Amagoa Aboriginal & Modern Art Gallery Of Australia",
-      "vertical": "collection",
-      "region": "Sandringham",
-      "state": "VIC",
+      "id": "09e61350-ee8f-4bdf-b18e-e43ebd59f26b",
+      "name": "Agnes Banks Nature Reserve",
+      "vertical": "field",
+      "region": "Sydney",
+      "state": "NSW",
       "status": "ok",
       "reason": null,
-      "description": "A Sandringham gallery dealing in contemporary Aboriginal painting, trading since 2006. The collection is drawn from Central Desert and Western Desert artists, both emerging and established, ranging from small pieces priced from $150 to large statement works. Alongside the main space is a stockroom of discounted works. The gallery works with collectors, interior designers, businesses and first-time buyers, and can arrange home or office art trials so a piece can be seen in its intended setting. Viewings are by arrangement, with hours varying week to week.",
-      "attempts": 2,
+      "description": "Created in March 1982, this 123-hectare reserve protects part of the critically endangered Cumberland Plain Woodland. It is one of the few places in the world where the endangered nodding geebung, a shrub with yellow trumpet-like flowers, survives.",
+      "attempts": 1,
       "via": "direct",
       "meritVotes": "chain:true visitable:true local:true",
       "warnings": [],
-      "listingId": "caafdbd7-e016-4891-afe1-89afff1e2e01",
-      "slug": "amagoa-aboriginal-modern-art-gallery-of-australia",
-      "secs": "3.8"
-    },
-    {
-      "id": "8bb179d0-d089-4b85-ba5e-bf88a3da5e0c",
-      "name": "Saint Felix",
-      "vertical": "sba",
-      "region": "Melbourne",
-      "state": "VIC",
-      "status": "ok",
-      "reason": null,
-      "description": "A distillery in the bayside suburb of Mordialloc, working across a collection of stills to produce spirits drawn from fruits, spices and herbs. The core range spans a Limoncello inspired by Nonna Maria, a bitter citrus Aperitivo, Midnight Vodka, a Yuzu and Green Tea spirit inspired by Japan's Alpine bathing region, and Wild Forest Gin.\n\nThe cellar door runs Talk and Taste distillery tours and cocktail masterclasses. In Felix's Bar you can order cocktails built on the spirits, or a tasting paddle of the five core spirits with matching mixers. Food trucks are welcomed on Fridays, Saturdays and Sundays.",
-      "attempts": 2,
-      "via": "direct",
-      "meritVotes": "chain:true visitable:true local:true",
-      "softenedClaims": [
-        "Yuzu and Green Tea"
-      ],
-      "warnings": [],
-      "listingId": "d7a697c0-6075-4709-a223-99539776593d",
-      "slug": "saint-felix",
-      "secs": "3.5"
+      "listingId": "a1ca2895-37a0-4fad-ac25-5bbde66f407c",
+      "slug": "agnes-banks-nature-reserve",
+      "secs": "4.6"
     }
   ],
   "failed": []

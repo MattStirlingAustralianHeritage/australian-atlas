@@ -592,5 +592,95 @@
     "status": "no_merit",
     "reason": "chain: Draw is gaming machines, gambling and a bottleshop — a pub-club style venue excluded despite being a single location. | visitable: Generic suburban pub whose draws are gaming machines, a bottleshop and multiple eating areas, with only affordable rooms and no distinctive identity. | local: Generic pub-with-pokies whose draws are gaming machines, a bottleshop and a broad family bistro menu, with no distinctive identity.",
     "at": "2026-07-26T04:58:58.986Z"
+  },
+  "04a06d32-bbb8-4da5-a4fe-84d14b2e7da2": {
+    "name": "Essendon Motel",
+    "status": "no_merit",
+    "reason": "chain: Generic airport-adjacent motel whose selling points are proximity to freeways, airports and shopping, with no distinct identity. | visitable: Generic motel selling proximity to airport, CBD and shopping with no distinct identity of its own. | local: Generic roadside motel selling proximity to airport, CBD and freeways with no distinct identity.",
+    "at": "2026-07-26T05:26:20.572Z"
+  },
+  "133eb3d4-acf2-4315-80dc-7325d67ae270": {
+    "name": "Musicians Avenue",
+    "status": "no_merit",
+    "reason": "chain: Online musical-instrument retailer with a shopping cart, not a distinctive visitable place worth going out of your way for. | visitable: Online music retail store with a transactional shopping cart and 'call before you order' — a shop counter, not a destination worth going out of your way for. | local: Generic online music retailer selling standard branded instruments with no distinctive room, maker, or in-person destination identity.",
+    "at": "2026-07-26T05:26:20.942Z"
+  },
+  "1a7d74fe-3434-48fd-ba0d-317d277aba8d": {
+    "name": "Golden Pebble",
+    "status": "no_merit",
+    "reason": "chain: Generic suburban business/leisure hotel offering a supply of rooms with no distinctive identity or heritage. | visitable: Generic suburban business/leisure hotel with no distinct identity, history or design point of view — simply a supply of rooms east of Melbourne. | local: Generic comfortable business/leisure hotel in Wantirna with no distinct identity, history, or design point of view.",
+    "at": "2026-07-26T05:26:20.968Z"
+  },
+  "070ba7cf-cff8-49fb-b540-0606afc848cb": {
+    "name": "Swan River Hotel",
+    "status": "no_merit",
+    "reason": "chain: A generic 100-room value hotel marketed on airport/stadium proximity, lacking any distinct identity of its own. | visitable: Generic 100-room airport-convenience hotel marketed on proximity and value rather than any distinct identity or history. | local: Generic 100-room airport-convenience hotel selling proximity and value with no distinct identity or history.",
+    "at": "2026-07-26T05:26:21.233Z"
+  },
+  "392f7d45-1fcf-443d-add8-0027ffc96c84": {
+    "name": "Joondalup Resort",
+    "status": "no_merit",
+    "reason": "visitable: Generic golf resort with conference facilities and endota spa chain outlet; a supply of rooms and amenities without distinct heritage or identity. | local: Generic golf resort and conference/function complex — a supply of near-identical rooms and facilities without a distinct independent identity.",
+    "at": "2026-07-26T05:26:27.933Z"
+  },
+  "675640f2-72af-4451-b2a1-a6451e9d6620": {
+    "name": "Castle Hill Art Society",
+    "status": "no_merit",
+    "reason": "visitable: A membership-based art society meeting in a community centre with occasional exhibitions, not a permanently visitable venue with its own identity. | local: A members' art society running workshops and exhibitions from a community centre, not a publicly visitable venue with its own distinct offer.",
+    "at": "2026-07-26T05:26:55.008Z"
+  },
+  "b159145c-8571-4a69-bd98-773a2f36f5ca": {
+    "name": "Liverpool Picture Framing",
+    "status": "no_merit",
+    "reason": "visitable: A custom picture-framing service shop, essentially a transactional counter with no visitable public offer. | local: A local custom framing service shop — a trade service with no publicly visitable offer of distinctive identity.",
+    "at": "2026-07-26T05:27:14.943Z"
+  },
+  "dc4db1be-68a6-4604-b9de-6199627ca491": {
+    "name": "Blue Gums Hotel",
+    "status": "no_merit",
+    "reason": "chain: Generic suburban pub whose draws are a bistro, bottle shop and loyalty program, with rooms that are simply cheap accommodation above the bar lacking distinct identity. | visitable: Generic suburban pub with bistro, pokies-style loyalty program and bottle shop; no distinctive identity worth going out of your way for. | local: Generic suburban pub with bistro, bottle shop and pub-favourites menu, plus basic above-pub rooms — no distinctive identity worth going out of your way for.",
+    "at": "2026-07-26T05:27:15.609Z"
+  },
+  "de99a569-1675-4459-ac75-9c135fe15962": {
+    "name": "Meridian Tower",
+    "status": "no_merit",
+    "reason": "chain: Generic beachfront serviced-apartment block whose selling points are views, floor count and proximity to airport, lacking distinctive identity. | visitable: Generic beachfront serviced-apartment block with no distinct identity beyond ocean views and proximity to the airport. | local: Generic beachfront serviced-apartment block whose selling points are ocean views, star rating and proximity to the airport, with no distinct identity.",
+    "at": "2026-07-26T05:27:17.621Z"
+  },
+  "e8ef3fe9-00e3-4336-aef5-cae6ac2b765b": {
+    "name": "Supply & Demand",
+    "status": "no_merit",
+    "reason": "chain: Multi-location homewares retailer with two Melbourne outlet stores, a generic discount chain. | visitable: Generic homewares retailer with multiple outlet stores, a transactional shopping operation with no distinct visitable identity. | local: Generic discount homewares outlet with multiple branches, no distinctive identity or curation.",
+    "at": "2026-07-26T05:27:18.820Z"
+  },
+  "e368fb62-097f-46fb-90df-2c9daf60348f": {
+    "name": "Seaford Hotel",
+    "status": "no_merit",
+    "reason": "chain: Generic sports-bar pub with accommodation run by the Nightcap Hotels chain, transactional and not a distinctive destination. | visitable: Generic suburban sports pub with chain accommodation (Nightcap Hotels), no distinctive identity. | local: Generic suburban pub with sports bar, gaming-style offer and chain Nightcap Hotels accommodation; no distinctive identity.",
+    "at": "2026-07-26T05:27:19.206Z"
+  },
+  "d8f0522f-045a-4fa1-b797-55c5095dcab8": {
+    "name": "Brighton Savoy",
+    "status": "no_merit",
+    "reason": "chain: Its own site says it 'was' a hotel and is now merely a digital-marketing blog, so there is no publicly visitable operating offer. | visitable: Site itself states the hotel is now defunct and repurposed as a digital-marketing blog, offering no genuine visitable accommodation. | local: Text reveals it's now a marketing blog rather than an operating hotel, and even as described it was a generic 60-room 4-star function/conference venue without distinctive identity.",
+    "at": "2026-07-26T05:27:20.894Z"
+  },
+  "f917d020-4635-4f89-9b9e-a0ff082efa1d": {
+    "name": "Mamo home",
+    "status": "no_merit",
+    "reason": "visitable: Online store closed and address conflicts with listed location; effectively an online-only/transactional retail operation with no clear visitable identity. | local: Website is offline pending relaunch and an end-of-lease sale, with no publicly visitable offer at this address.",
+    "at": "2026-07-26T05:27:28.520Z"
+  },
+  "afbcbbd1-5f46-4ec9-aa4c-dfe59c196454": {
+    "name": "Eastwood Furnished Apartments",
+    "status": "no_merit",
+    "reason": "chain: Generic serviced-apartment block marketed on price and proximity to the station, with no distinct identity. | visitable: Generic serviced-apartment block near a railway station with no distinct identity, marketed purely as a budget hotel alternative. | local: Generic supply of furnished apartments near a railway station with no distinct identity, history, or design point of view.",
+    "at": "2026-07-26T05:36:26.734Z"
+  },
+  "f639b337-c0b6-4ed2-a91a-8fee64c7fd55": {
+    "name": "Valley Walk",
+    "status": "no_merit",
+    "reason": "chain: A generic suburban council reserve with no distinct identity, listed on a council directory page rather than a destination worth going out of your way for. | visitable: Generic council suburban reserve with no distinct identity or destination draw. | local: Generic council-maintained suburban reserve with no distinctive identity or specific draw.",
+    "at": "2026-07-26T05:36:26.831Z"
   }
 }
