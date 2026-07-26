@@ -1,19 +1,210 @@
 {
   "since": "2026-07-25T00:00:00Z",
-  "suspect": 1,
+  "suspect": 12,
   "results": [
     {
-      "id": "94be88a3-7f65-4156-ab76-f4400fb45384",
-      "name": "IndigiScapes",
-      "slug": "indigiscapes",
-      "vertical": "field",
+      "id": "1b5a80f7-f026-475c-9a38-4067d46b9bed",
+      "name": "Brisbane Tramway Museum",
+      "slug": "brisbane-tramway-museum",
+      "vertical": "collection",
       "region": null,
       "state": "QLD",
-      "address": "17 Runnymede Road, Capalaba, QLD, 4157, QLD",
-      "website": "https://indigiscapes.redland.qld.gov.au/",
-      "description": "Run by Redland City Council, this centre in Capalaba sits within the council's environment and sustainability programs, alongside its native gardening and wildlife work. The source material is thin on detail beyond its place on Redlands Coast.",
+      "address": "20 Tramway Street, Ferny Grove, QLD, 4055, QLD",
+      "website": "https://www.brisbanetramwaymuseum.org/",
+      "description": "Founded in 1968 and opened to the public in 1980, this volunteer-run museum preserves Brisbane's tramway history in a bushland setting at Ferny Grove, next to the Bowls Club. Six working trams dating from 1901 to 1962 carry visitors on rides each Sunday afternoon, weather permitting. Alongside the trams are depot stations, a signal cabin, historical photographs and a gift shop of tramway memorabilia. A Men's Shed operates within the grounds, meeting on Tuesdays. The museum runs as a not-for-profit and takes group bookings for schools, clubs and occasions.",
+      "defect": {
+        "severity": "cosmetic",
+        "why": "recites hours (\"each Sunday\")"
+      },
       "outcome": "rewritten",
-      "draft": "Redland City Council's environment education centre sits on 14.5 hectares of bushland at Capalaba. Cultivated native landscapes give way to more than three kilometres of nature tracks, and a native nursery sells plants suited to the Redlands Coast. The Discovery Centre and a recycling station make up the Environment Centre, with IndigiCafé on the verandah serving food and drink with a bush tucker twist.\n\nThe gardens double as a working example of native planting, with ideas to take home for a backyard. Group tours can be booked, and the grounds are used for meetings and events."
+      "draft": "Set in bushland at Ferny Grove, next to the Bowls Club, this volunteer-run museum preserves Brisbane's tramway history. Six working trams, dating from 1901 to 1962, carry visitors along the grounds, while depot stations, a signal cabin and photographs trace the network's story across the decades. A gift shop holds tramway memorabilia.\n\nFounded in 1968 and opened to the public in 1980, it runs as a not-for-profit driven by preservation and education. A Men's Shed operates within the grounds, and the museum takes group bookings for school visits, car clubs and other occasions."
+    },
+    {
+      "id": "d6acee72-aecb-4bcf-b26b-1808b772af95",
+      "name": "Home on Darley",
+      "slug": "home-on-darley",
+      "vertical": "corner",
+      "region": null,
+      "state": "NSW",
+      "address": "Darley Street, NSW",
+      "website": "https://www.homeondarley.com.au/",
+      "description": "A homewares and interiors shop at 3 Bungan Street, Mona Vale. The stock runs to French linen bedding and loungewear, quilts, sheets and pillows, jute and wool rugs, cushions, throws, brass homewares and bathroom accessories, along with soaps, candles and doormats. Kitchen and dining pieces include glassware, napkins, placemats and coasters. Staffed daily, with shorter hours on Sunday.",
+      "defect": {
+        "severity": "cosmetic",
+        "why": "recites hours (\"shorter hours\")"
+      },
+      "outcome": "ungrounded",
+      "severity": "cosmetic"
+    },
+    {
+      "id": "ad0a919b-1fee-4dbb-a814-73d1dd971f31",
+      "name": "My Aunt’s Handmade Noodles",
+      "slug": "my-aunt-s-handmade-noodles",
+      "vertical": "table",
+      "region": "Sydney",
+      "state": "NSW",
+      "address": null,
+      "website": "https://www.myauntsgroup.com.au/",
+      "description": "Northern Chinese noodles made by hand, served at 226 Burwood Rd in Burwood. The kitchen works from traditional recipes, drawing on more than 20 years of experience, and pulls noodles with a chewy texture. Portions are generous, with free extra noodles so no one leaves hungry, and free soy milk offered while you wait. Open daily from 11:00 to 22:00.",
+      "defect": {
+        "severity": "cosmetic",
+        "why": "recites hours (\"Open daily\")"
+      },
+      "outcome": "no_site_text",
+      "severity": "cosmetic"
+    },
+    {
+      "id": "666a83c9-bccf-4772-ac84-2f2bfbf39304",
+      "name": "Bosk",
+      "slug": "bosk",
+      "vertical": "table",
+      "region": "Sydney",
+      "state": "NSW",
+      "address": null,
+      "website": "https://bosk.com.au/restaurant/",
+      "description": "Named for a small wooded area, this restaurant sits among the trees of Clontarf Reserve, on the water in Sydney's suburbs. The menu shifts with the seasons to draw on the freshest produce, so listed ingredients read as a guide to the kitchen's style rather than fixed dishes. It is fully licensed, with seasonally updated cocktails alongside Australian and imported wines and beers.\n\nBreakfast runs Saturday and Sunday from 8am to 11am, and lunch Thursday to Sunday from midday. Group menus cater for gatherings of 10 to 30 adults, with an à la carte and kids menu for smaller tables.",
+      "defect": {
+        "severity": "cosmetic",
+        "why": "recites hours (\"from 8am\")"
+      },
+      "outcome": "no_site_text",
+      "severity": "cosmetic"
+    },
+    {
+      "id": "8f0c3934-cdc0-48f0-ad8c-568fefdf4b24",
+      "name": "Bar Doh",
+      "slug": "bar-doh",
+      "vertical": "table",
+      "region": "Melbourne",
+      "state": "VIC",
+      "address": "148 Springfield Road, VIC",
+      "website": "https://bardoh.com.au/",
+      "description": "A wood-fired pizza kitchen in Blackburn, run as a family business. Pizzas come from a wood oven, which chars the crust and cooks quickly at high heat. Chef David is a master baker who trained from the age of 16 in baking and pastry, and holds a Master Baker Award from 2013. Toppings run from an Italian Margherita to San Daniel prosciutto with house-made pesto, potato with roasted peppers and goat cheese, hot sopressa salami, and porcini mushrooms with fior di latte, using ingredients like fresh mozzarella, tomatoes and basil. Open evenings Tuesday to Saturday.",
+      "defect": {
+        "severity": "cosmetic",
+        "why": "recites hours (\"Tuesday to Saturday\")"
+      },
+      "outcome": "ungrounded",
+      "severity": "cosmetic"
+    },
+    {
+      "id": "d22c97c8-7f91-4506-aa87-8ebc291d1e15",
+      "name": "Lugarno Seafood Restaurant",
+      "slug": "lugarno-seafood-restaurant",
+      "vertical": "table",
+      "region": "Lugarno",
+      "state": "NSW",
+      "address": "1220 Forest Road, Lugarno, 2210, NSW",
+      "website": "https://www.lugarnoseafood.com/",
+      "description": "Serving seafood since 1993, this Lugarno restaurant works to a simple formula: market-fresh local seafood delivered daily, prepared with an eye to the seasons. It sits above the Georges River, and the water views set the scene for the meal. Open Monday to Saturday from midday to 10pm, and Sunday until 9pm.",
+      "defect": {
+        "severity": "cosmetic",
+        "why": "recites hours (\"Open Monday\")"
+      },
+      "outcome": "rewritten",
+      "draft": "A seafood restaurant on the Georges River at Lugarno, serving since 1993. The kitchen works with market-fresh local seafood delivered daily, with a menu that changes by season. The cooking is kept simple and refined rather than elaborate, and the riverside setting frames the meal."
+    },
+    {
+      "id": "a9de5d58-2f3a-49dc-9c7d-5e6890cee0bd",
+      "name": "Cafe Lyon",
+      "slug": "cafe-lyon",
+      "vertical": "table",
+      "region": "Sydney",
+      "state": "NSW",
+      "address": "366 Pacific Highway, NSW, 2070, NSW",
+      "website": "https://www.cafelyon.com.au/",
+      "description": "A French bistro on the Pacific Highway at Lindfield, serving dinner Tuesday to Saturday and lunch on Thursdays and Fridays. The kitchen cooks French food, and the calendar runs to occasional wine dinners, such as a five-course McLaren Vale Grenache evening matched with award-winning wines.",
+      "defect": {
+        "severity": "cosmetic",
+        "why": "recites hours (\"Tuesday to Saturday\")"
+      },
+      "outcome": "rewritten",
+      "draft": "A French bistro on the Pacific Highway in Lindfield, serving French food for lunch and dinner. The kitchen turns out classic bistro cooking, and there's a leaning towards regional wine, with dinners built around specific producers such as Grenache from McLaren Vale, paired across several courses. A neighbourhood dining room rather than a special-occasion destination, though it works for both."
+    },
+    {
+      "id": "200805b2-2baa-45c1-a4c7-98d470317458",
+      "name": "Little Itoshin",
+      "slug": "little-itoshin",
+      "vertical": "table",
+      "region": "Gold Coast",
+      "state": "QLD",
+      "address": null,
+      "website": "https://www.litoshin.com/",
+      "description": "A Japanese dining bar and takeaway at shop 6, 110 Mountain View Ave in Miami. Dinner runs Tuesday to Saturday from 5:30pm, with the kitchen closed Sunday and Monday. Beyond the regular service, the team takes enquiries for private chef bookings, functions and catering.",
+      "defect": {
+        "severity": "cosmetic",
+        "why": "recites hours (\"Tuesday to Saturday\")"
+      },
+      "outcome": "ungrounded",
+      "severity": "cosmetic"
+    },
+    {
+      "id": "b18cd93f-428c-4c14-9bf8-e553d38a2918",
+      "name": "Balboa Italian",
+      "slug": "balboa-italian",
+      "vertical": "table",
+      "region": "Gold Coast",
+      "state": "QLD",
+      "address": "1069 Gold Coast Highway, QLD",
+      "website": "https://balboaitalian.com.au/",
+      "description": "An Italian restaurant on the Gold Coast Highway, serving the Gold Coast since 2016. The kitchen works from local and imported produce, cooking classically Italian dishes with a modern hand: signature plates include beef cheek gnocchi and pappardelle al ragù made in house. Cocktails and wine round out the menu, in a setting the team describe as both elegant and vibrant. Open for dinner through the week, with lunch added from Friday to Sunday.",
+      "defect": {
+        "severity": "cosmetic",
+        "why": "recites hours (\"Friday to Sunday\")"
+      },
+      "outcome": "rewritten",
+      "draft": "An Italian restaurant on the Gold Coast Highway, serving food classically Italian in inspiration but modern in execution. The menu draws on local and imported produce, with dishes such as beef cheek gnocchi and pappardelle al ragu made by hand. Alongside the food are cocktails and wine.\n\nThe setting is both elegant and vibrant, with an inclusive atmosphere that channels an Italian sense of family and togetherness. It has been running on the Gold Coast since 2016."
+    },
+    {
+      "id": "b9e1aa50-b51d-4a3d-9a0b-53cdd4ebfd8d",
+      "name": "Jaam e Jam Restaurant",
+      "slug": "jaam-e-jam-restaurant",
+      "vertical": "table",
+      "region": "Sydney",
+      "state": "NSW",
+      "address": null,
+      "website": "https://jaamejam.com.au/",
+      "description": "A traditional Persian restaurant in Hornsby, serving the cuisine of Iran across kababs, stews and rice dishes. Skewers of koobideh (minced lamb), joojeh (saffron- and lemon-marinated chicken), barg and lamb cutlets come on saffron rice with a BBQ tomato, alongside slow-cooked stews such as ghormeh sabzi, simmered over six hours, and fesenjan with walnut and pomegranate. Dizi, a lamb, chickpea and white bean stew, is served in a traditional stone crock. Starters run to yoghurt dips and Persian herb quiche, with saffron and pistachio ice cream and phaloodeh to finish.\n\nOn weekends, breakfast from 9am includes kaleh pacheh and halim. Licensed and BYO.",
+      "defect": {
+        "severity": "cosmetic",
+        "why": "recites hours (\"from 9am\")"
+      },
+      "outcome": "no_site_text",
+      "severity": "cosmetic"
+    },
+    {
+      "id": "a12decfb-8dbc-44c8-a571-09e773672968",
+      "name": "Shark Island",
+      "slug": "shark-island",
+      "vertical": "sba",
+      "region": "Kirrawee",
+      "state": "NSW",
+      "address": "29-33 Waratah Street, Kirrawee, NSW, 2232, NSW",
+      "website": "https://www.sharkislandbrewing.com.au/",
+      "description": "A brewery in Kirrawee, brewing beer in the Shire. The cellar door is open Friday through Sunday afternoons and into the evening, pouring a core range alongside limited release beers, with food trucks rotating through. Tables can be booked.",
+      "defect": {
+        "severity": "cosmetic",
+        "why": "recites hours (\"open Friday\")"
+      },
+      "outcome": "no_site_text",
+      "severity": "cosmetic"
+    },
+    {
+      "id": "6811fcf1-deb8-45ba-a07b-f8515a931a4b",
+      "name": "Koala Park",
+      "slug": "koala-park",
+      "vertical": "field",
+      "region": "Sydney",
+      "state": "NSW",
+      "address": null,
+      "website": null,
+      "description": "A wildlife sanctuary in West Pennant Hills, running since 1930 across ten acres of rainforest and eucalypt groves. It is home to koalas, kangaroos, wombats, dingoes and other Australian native animals, with free animal encounters held throughout the day. Open daily from 9am to 5pm, every day of the year except Christmas Day.",
+      "defect": {
+        "severity": "cosmetic",
+        "why": "recites hours (\"Open daily\")"
+      },
+      "outcome": "no_website",
+      "severity": "cosmetic"
     }
   ]
 }

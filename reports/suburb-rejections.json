@@ -544,5 +544,53 @@
     "status": "no_merit",
     "reason": "chain: A pub whose own site foregrounds gaming facilities, placing it in the excluded gaming-draw category. | visitable: Generic suburban pub promoting gaming facilities as a core draw, an excluded category. | local: Generic pub promoting gaming facilities and standard bistro; nothing distinctive or specific to seek out.",
     "at": "2026-07-26T04:50:52.780Z"
+  },
+  "2d561fe0-1193-4e72-83c1-8ce9f50cd9cb": {
+    "name": "Surf Parade Resort",
+    "status": "no_merit",
+    "reason": "chain: Generic self-contained holiday apartment block in Surfers Paradise—a supply of rooms near the beach with no distinctive identity. | visitable: Generic self-contained apartment resort with no distinct identity beyond location and standard facilities. | local: Generic self-contained apartment resort selling location and standard facilities, with no distinct identity, history, or design point of view.",
+    "at": "2026-07-26T04:58:21.336Z"
+  },
+  "1ad10428-4b7a-4fe7-92b0-1c10d078017d": {
+    "name": "Watermark Resort Caloundra",
+    "status": "no_merit",
+    "reason": "chain: Generic waterfront apartment resort offering a supply of rooms with pool and parking, lacking distinctive identity or history. | visitable: Generic waterfront apartment resort with no distinct identity beyond views and location — a supply of rooms, not a destination. | local: Generic waterfront apartment resort selling rooms and views with no distinct identity, history, or owner-operator character.",
+    "at": "2026-07-26T04:58:22.095Z"
+  },
+  "2f50c1d9-6acb-433c-8e8f-c84820d3f7dd": {
+    "name": "Apollo International Hotel",
+    "status": "no_merit",
+    "reason": "chain: This is a generic 95-room highway hotel (formerly Best Western) whose selling points are room size, parking and location near shopping and CBD, with no distinctive independent identity. | visitable: A 95-room 4.5-star Best Western-affiliated highway hotel selling proximity to CBD, shops and beaches — a generic supply of rooms without distinct identity. | local: A newly renovated 95-room 4.5-star hotel selling oversized rooms, parking, pool and gym near shopping — a generic supply of rooms near a highway with no distinct identity.",
+    "at": "2026-07-26T04:58:24.719Z"
+  },
+  "4742e471-ce87-4e58-92a9-00831d2b8f5b": {
+    "name": "Aspley Carsel Motor Inn",
+    "status": "no_merit",
+    "reason": "chain: Generic roadside motor inn on Gympie Road with no distinct identity, an excluded highway/motel supply of rooms. | visitable: Generic roadside motel on Gympie Road with no distinct identity, explicitly excluded. | local: Generic roadside motor inn on Gympie Road with standard rooms and no distinct identity.",
+    "at": "2026-07-26T04:58:29.522Z"
+  },
+  "903d0f3f-25b2-4640-b729-67dc3412485e": {
+    "name": "Surf Beach Motel Newcastle",
+    "status": "no_merit",
+    "reason": "chain: Self-described limited-service budget stopover motel on the Pacific Highway with no distinct identity of its own. | visitable: Self-described limited service budget motel on the Pacific Highway with no distinct identity beyond rooms near a road. | local: Self-described limited-service budget stopover motel on the Pacific Highway with generic rooms and no distinctive identity.",
+    "at": "2026-07-26T04:58:34.451Z"
+  },
+  "9df90766-03bc-4409-8a11-3704891b6458": {
+    "name": "Brisbane International Virginia",
+    "status": "no_merit",
+    "reason": "chain: Generic 4-star business/conference hotel selling rooms, parking and function facilities with no distinctive identity. | visitable: Generic 70-room business/family hotel with no distinctive identity, offering rooms near the road plus standard bar and conference facilities. | local: Generic 70-room 4-star business/family hotel with standard facilities and no distinct identity.",
+    "at": "2026-07-26T04:58:51.008Z"
+  },
+  "a092d7b3-7666-4350-85fa-d57a595f0c49": {
+    "name": "Surfers Tradewinds",
+    "status": "no_merit",
+    "reason": "chain: Generic 42-unit holiday apartment block with no distinctive identity, just a supply of rooms near the beach. | visitable: Generic 42-unit holiday apartment block with no distinct identity beyond location near beaches and shops. | local: Generic supply of holiday apartments with no distinct identity, history, or design point of view.",
+    "at": "2026-07-26T04:58:53.448Z"
+  },
+  "f5283ab0-e306-4054-be38-6580b985aaef": {
+    "name": "Shoreline Hotel",
+    "status": "no_merit",
+    "reason": "chain: Draw is gaming machines, gambling and a bottleshop — a pub-club style venue excluded despite being a single location. | visitable: Generic suburban pub whose draws are gaming machines, a bottleshop and multiple eating areas, with only affordable rooms and no distinctive identity. | local: Generic pub-with-pokies whose draws are gaming machines, a bottleshop and a broad family bistro menu, with no distinctive identity.",
+    "at": "2026-07-26T04:58:58.986Z"
   }
 }

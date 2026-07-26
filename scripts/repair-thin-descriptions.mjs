@@ -138,12 +138,21 @@ if (error) { console.error('Query failed:', error.message); process.exit(1) }
 // morning" is what the thing is, not incidental logistics. Exempt those from the
 // hours trigger rather than rewriting the one fact that defines them.
 const MARKET_RE = /\b(market|markets|farmers'? market|pop-?up|night market)\b/i
-const suspect = listings.filter(l => {
+// Severity matters for what happens when a REWRITE fails, and conflating the two
+// nearly hid twelve good listings. A description that is meta-commentary or
+// contentless is BLOCKING — it should not be public, so if it cannot be rewritten
+// the listing should come down. A description that merely recites trading hours is
+// COSMETIC — the existing text is accurate and readable, so a failed rewrite must
+// leave it exactly as it is and never trigger a withdrawal.
+function defectOf(l) {
   const d = (l.description || '').trim()
-  if (d.length < MIN_CHARS || META_RE.test(d)) return true
-  if (MARKET_RE.test(l.name)) return false
-  return HOURS_RE.test(d)
-})
+  if (d.length < MIN_CHARS) return { severity: 'blocking', why: `only ${d.length} chars` }
+  if (META_RE.test(d)) return { severity: 'blocking', why: 'refers to the source' }
+  if (MARKET_RE.test(l.name)) return null   // trading day is a market's identity
+  if (HOURS_RE.test(d)) return { severity: 'cosmetic', why: `recites hours ("${d.match(HOURS_RE)[0]}")` }
+  return null
+}
+const suspect = listings.map(l => ({ ...l, defect: defectOf(l) })).filter(l => l.defect)
 console.log(`${listings.length} active listings since ${since.slice(0, 10)}`)
 console.log(`${suspect.length} suspect (under ${MIN_CHARS} chars, referring to the source, or reciting hours)\n`)
 if (!suspect.length) process.exit(0)
@@ -161,16 +170,13 @@ if (apply) {
 const results = []
 for (const [i, l] of suspect.entries()) {
   const label = `[${i + 1}/${suspect.length}] ${l.name} [${l.vertical}]`
-  const d0 = (l.description || '')
-  const why = d0.length < MIN_CHARS ? `only ${d0.length} chars`
-    : META_RE.test(d0) ? 'refers to the source'
-    : `recites hours ("${d0.match(HOURS_RE)[0]}")`
+  const why = `${l.defect.why} [${l.defect.severity}]`
   console.log(`\n${label} — ${why}`)
   console.log(`  old: ${(l.description || '').slice(0, 110)}…`)
 
-  if (!l.website) { console.log('  ? no website on record'); results.push({ ...l, outcome: 'no_website' }); continue }
+  if (!l.website) { console.log('  ? no website on record'); results.push({ ...l, outcome: 'no_website', severity: l.defect.severity }); continue }
   const site = await fetchSiteText(l.website, { maxChars: 20000 })
-  if (!site.text) { console.log(`  ? site unreadable (http ${site.status})`); results.push({ ...l, outcome: 'no_site_text' }); continue }
+  if (!site.text) { console.log(`  ? site unreadable (http ${site.status})`); results.push({ ...l, outcome: 'no_site_text', severity: l.defect.severity }); continue }
 
   const facts = [
     `Name: ${l.name}`,
@@ -195,17 +201,17 @@ for (const [i, l] of suspect.entries()) {
 
   if (/^NO_BASIS\b/i.test(draft) || !draft) {
     console.log('  ✗ writer declined (NO_BASIS) — source supports nothing substantive')
-    results.push({ ...l, outcome: 'no_basis' })
+    results.push({ ...l, outcome: 'no_basis', severity: l.defect.severity })
     continue
   }
   const banned = bannedPhraseCheck(draft)
-  if (!banned.passed) { console.log(`  ✗ banned phrase: ${banned.violations.join(', ')}`); results.push({ ...l, outcome: 'banned' }); continue }
-  if (META_RE.test(draft)) { console.log('  ✗ still refers to the source'); results.push({ ...l, outcome: 'meta' }); continue }
-  if (HOURS_RE.test(draft)) { console.log(`  ✗ still recites hours ("${draft.match(HOURS_RE)[0]}")`); results.push({ ...l, outcome: 'hours' }); continue }
+  if (!banned.passed) { console.log(`  ✗ banned phrase: ${banned.violations.join(', ')}`); results.push({ ...l, outcome: 'banned', severity: l.defect.severity }); continue }
+  if (META_RE.test(draft)) { console.log('  ✗ still refers to the source'); results.push({ ...l, outcome: 'meta', severity: l.defect.severity }); continue }
+  if (HOURS_RE.test(draft)) { console.log(`  ✗ still recites hours ("${draft.match(HOURS_RE)[0]}")`); results.push({ ...l, outcome: 'hours', severity: l.defect.severity }); continue }
   const binding = bindingPasses(draft, [site.text, l.name, l.region, l.state, l.address].filter(Boolean))
   if (!binding.passed) {
     console.log(`  ✗ ungrounded: ${binding.hard.map(f => f.value).join(', ')}`)
-    results.push({ ...l, outcome: 'ungrounded' })
+    results.push({ ...l, outcome: 'ungrounded', severity: l.defect.severity })
     continue
   }
 
@@ -222,11 +228,21 @@ for (const [i, l] of suspect.entries()) {
 }
 
 // Anything still without a usable description should not stay public.
-const unfixable = results.filter(r => ['no_basis', 'no_site_text', 'no_website', 'meta', 'ungrounded', 'banned'].includes(r.outcome))
+const FAILED = ['no_basis', 'no_site_text', 'no_website', 'meta', 'ungrounded', 'banned', 'hours']
+// Withdrawal is ONLY for a listing whose EXISTING description is unpublishable
+// and could not be replaced. A cosmetic flag whose rewrite failed keeps the text
+// it already had — accurate, readable, just with hours in it — and is left alone.
+const unfixable = results.filter(r => FAILED.includes(r.outcome) && r.severity === 'blocking')
+const leftAsIs = results.filter(r => FAILED.includes(r.outcome) && r.severity === 'cosmetic')
 console.log('\n=== SUMMARY ===')
 const by = {}
 for (const r of results) by[r.outcome] = (by[r.outcome] || 0) + 1
 for (const [k, v] of Object.entries(by).sort((a, b) => b[1] - a[1])) console.log(`  ${k.padEnd(14)} ${v}`)
+
+if (leftAsIs.length) {
+  console.log(`\n${leftAsIs.length} rewrite(s) failed on a COSMETIC flag — existing description kept, nothing withdrawn:`)
+  for (const r of leftAsIs) console.log(`  ${r.name} (${r.outcome})`)
+}
 
 if (unfixable.length && apply && withdraw) {
   console.log('\nWithdrawing the ones still without a usable description…')
@@ -239,7 +255,7 @@ if (unfixable.length && apply && withdraw) {
     await new Promise(r2 => setTimeout(r2, 800))
   }
 } else if (unfixable.length) {
-  console.log(`\n${unfixable.length} still unusable — re-run with --apply --withdraw to hide them.`)
+  console.log(`\n${unfixable.length} listing(s) have an unpublishable description that could not be rewritten — re-run with --apply --withdraw to hide those.`)
 }
 
 writeFileSync(new URL('../reports/thin-description-repair.json', import.meta.url), JSON.stringify({ since, suspect: suspect.length, results }, null, 2))
