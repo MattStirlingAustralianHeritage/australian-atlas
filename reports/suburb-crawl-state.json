@@ -60,7 +60,12 @@
     "melbourne-east/Hawthorn",
     "melbourne-south-east/Oakleigh",
     "brisbane-south/Coorparoo",
-    "brisbane-west-north/Ashgrove"
+    "brisbane-west-north/Ashgrove",
+    "brisbane-bayside/Cleveland",
+    "perth-inner-ring/Maylands",
+    "perth-outer/Cottesloe",
+    "adelaide-middle/Prospect",
+    "adelaide-outer/Glenelg"
   ],
   "startedAt": "2026-07-25T00:00:00Z"
 }

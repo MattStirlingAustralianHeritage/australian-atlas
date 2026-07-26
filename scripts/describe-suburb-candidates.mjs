@@ -158,6 +158,7 @@ Absolute rules:
 - Do not use review-speak, superlatives, or promotional language. No "hidden gem", "iconic", "must-visit", "world-class", "boasts", "nestled".
 - Do not describe the venue's rating, popularity, or what reviewers say.
 - Do NOT inventory facilities, amenities, room types, packages, or prices. "Free WiFi, smart TV, tea and coffee making facilities" is booking-site copy, not a description. Distances to transport, parking arrangements and bed configurations are logistics, not character — leave them out.
+- Do NOT list opening days or trading hours. "Open Wednesday to Sunday", "closed Mondays", "dinner Tuesday through Sunday" are logistics too; the page shows them separately and they date badly. If a venue only opens for one meal or one season and that genuinely shapes what it is, say so in words rather than reciting a timetable.
 - Write what the place IS and what it is like to be there: what it makes or serves, how it works, what the room or building is like, who runs it. One concrete, specific detail is worth more than five generic ones.
 - The source is a scrape of the venue's website, so it carries navigation and page furniture. Describe the venue, never the website: no mention of news or blog sections, newsletters, social feeds, online shops, booking systems, membership portals, published statements, or what the site "features". If a detail only exists because it was a menu item on the page, it is not about the place.
 - Australian English. Concrete nouns over adjectives. Plain, exact sentences. No emoji.

@@ -448,5 +448,41 @@
     "status": "no_merit",
     "reason": "chain: Multi-location chain with Circular Quay, Mosman, Randwick and Lane Cove outlets plus loyalty program and franchise-style hiring. | visitable: Multi-location chain with four Sydney branches, excluded as a chain outlet. | local: Multi-branch chain with four Sydney locations and franchise-style hiring, not an independent single venue.",
     "at": "2026-07-26T04:18:43.311Z"
+  },
+  "123db987-79d6-4c89-9d18-d2ba3932ab1c": {
+    "name": "Sushi Jiro",
+    "status": "no_merit",
+    "reason": "chain: Large multi-state chain with dozens of outlets across shopping centres and food courts. | visitable: Large multi-location chain across several states with mall food-court and express counter outlets. | local: Large multi-state chain with dozens of shopping-centre and food-court outlets, explicitly not an independent single venue.",
+    "at": "2026-07-26T04:23:19.768Z"
+  },
+  "1feeb635-63d9-4bbd-9dde-69897200942c": {
+    "name": "The Burger Block",
+    "status": "no_merit",
+    "reason": "chain: Generic delivery-focused burger takeaway with no distinctive independent identity worth going out of your way for. | visitable: Generic delivery-focused burger shop with no distinctive visitable identity, centred on Uber Eats/Menulog/DoorDash ordering. | local: Generic delivery-focused burger takeaway with no distinctive identity, chef, or specific character beyond standard grill fare.",
+    "at": "2026-07-26T04:23:22.862Z"
+  },
+  "452deaaf-78b1-47be-9ce9-0e043337f7f0": {
+    "name": "The Pancake Parlour",
+    "status": "no_merit",
+    "reason": "chain: The Pancake Parlour is a multi-location chain with a loyalty app and franchise-style operations. | visitable: The Pancake Parlour is a multi-location Victorian chain, excluded as a franchise/chain outlet. | local: The Pancake Parlour is a multi-branch Victorian chain with loyalty apps and merch, not an independent distinctive venue.",
+    "at": "2026-07-26T04:23:38.583Z"
+  },
+  "5520fc34-0c8b-495b-aa3b-f6b4b71dade7": {
+    "name": "David's Hot Pot",
+    "status": "no_merit",
+    "reason": "chain: Advertises multiple locations across Australia and is part of a ten-brand management group — a chain, not an independent venue. | visitable: A multi-location chain under a management group with ten brands, explicitly a franchise operation. | local: Chain with locations across Australia under a ten-brand management group, not an independent single venue.",
+    "at": "2026-07-26T04:23:44.926Z"
+  },
+  "5cadb627-7ae2-475a-8f01-239b6d44af54": {
+    "name": "Sails on Shore",
+    "status": "no_merit",
+    "reason": "chain: This is the bistro of the Redlands RSL, an excluded returned-services club. | visitable: This is the RSL club bistro, an excluded licensed returned-services club venue with member pricing. | local: This is the bistro of Redlands RSL, an excluded returned-services club, with generic pub-classic dining and no distinct identity of its own.",
+    "at": "2026-07-26T04:23:47.249Z"
+  },
+  "e5b487bb-9886-41a8-bac0-61409ad4d5c4": {
+    "name": "Fonda Mexican",
+    "status": "no_merit",
+    "reason": "chain: Multi-location chain with at least five outlets including shopping-centre food-court presence at Chadstone and Knox. | visitable: Multi-location chain with seven-plus branches across Melbourne, excluded as a chain outlet. | local: Multi-location chain with numerous branches across Melbourne, disqualifying it as a franchise-style outlet.",
+    "at": "2026-07-26T04:24:03.674Z"
   }
 }
