@@ -127,12 +127,25 @@ function bindingPasses(draft, sources) {
   return { passed: hard.length === 0, hard }
 }
 
-const { data: listings, error } = await sb
-  .from('listings')
-  .select('id, name, slug, vertical, region, state, address, website, description')
-  .eq('status', 'active')
-  .gte('created_at', since)
-if (error) { console.error('Query failed:', error.message); process.exit(1) }
+// Retry the opening query: a transient "TypeError: fetch failed" aborted a whole
+// run once, and the same class of socket failure is already retried on the write
+// side of the describe step.
+let listings = null
+for (let attempt = 0; attempt < 3; attempt++) {
+  try {
+    const { data, error } = await sb
+      .from('listings')
+      .select('id, name, slug, vertical, region, state, address, website, description')
+      .eq('status', 'active')
+      .gte('created_at', since)
+    if (!error) { listings = data; break }
+    console.error(`Query attempt ${attempt + 1} failed: ${error.message}`)
+  } catch (err) {
+    console.error(`Query attempt ${attempt + 1} failed: ${err.message}`)
+  }
+  await new Promise(r => setTimeout(r, 2000 * (attempt + 1)))
+}
+if (!listings) { console.error('Could not read listings after 3 attempts.'); process.exit(1) }
 
 // For a market or a pop-up the trading day IS the identity — "held each Saturday
 // morning" is what the thing is, not incidental logistics. Exempt those from the

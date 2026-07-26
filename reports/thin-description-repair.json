@@ -1,24 +1,7 @@
 {
   "since": "2026-07-25T00:00:00Z",
-  "suspect": 12,
+  "suspect": 9,
   "results": [
-    {
-      "id": "1b5a80f7-f026-475c-9a38-4067d46b9bed",
-      "name": "Brisbane Tramway Museum",
-      "slug": "brisbane-tramway-museum",
-      "vertical": "collection",
-      "region": null,
-      "state": "QLD",
-      "address": "20 Tramway Street, Ferny Grove, QLD, 4055, QLD",
-      "website": "https://www.brisbanetramwaymuseum.org/",
-      "description": "Founded in 1968 and opened to the public in 1980, this volunteer-run museum preserves Brisbane's tramway history in a bushland setting at Ferny Grove, next to the Bowls Club. Six working trams dating from 1901 to 1962 carry visitors on rides each Sunday afternoon, weather permitting. Alongside the trams are depot stations, a signal cabin, historical photographs and a gift shop of tramway memorabilia. A Men's Shed operates within the grounds, meeting on Tuesdays. The museum runs as a not-for-profit and takes group bookings for schools, clubs and occasions.",
-      "defect": {
-        "severity": "cosmetic",
-        "why": "recites hours (\"each Sunday\")"
-      },
-      "outcome": "rewritten",
-      "draft": "Set in bushland at Ferny Grove, next to the Bowls Club, this volunteer-run museum preserves Brisbane's tramway history. Six working trams, dating from 1901 to 1962, carry visitors along the grounds, while depot stations, a signal cabin and photographs trace the network's story across the decades. A gift shop holds tramway memorabilia.\n\nFounded in 1968 and opened to the public in 1980, it runs as a not-for-profit driven by preservation and education. A Men's Shed operates within the grounds, and the museum takes group bookings for school visits, car clubs and other occasions."
-    },
     {
       "id": "d6acee72-aecb-4bcf-b26b-1808b772af95",
       "name": "Home on Darley",
@@ -33,8 +16,25 @@
         "severity": "cosmetic",
         "why": "recites hours (\"shorter hours\")"
       },
-      "outcome": "ungrounded",
-      "severity": "cosmetic"
+      "outcome": "rewritten",
+      "draft": "A home interiors shop in Mona Vale, stocking linen, bedding and manchester alongside rugs, throws, cushions and brass homewares. The shelves run to candles, soaps, washes and creams, plus glassware, placemats, napkins and doormats, with French linen and loungewear among the range.\n\nStaff work the floor to help customers find what they're after, in a shop set up as a place to browse for the home."
+    },
+    {
+      "id": "7276d16d-8870-439d-8e4d-da9a8c9e5275",
+      "name": "Ballam Park Homestead",
+      "slug": "ballam-park-homestead",
+      "vertical": "collection",
+      "region": null,
+      "state": "VIC",
+      "address": null,
+      "website": "https://www.frankstonhs.org.au/",
+      "description": "About 5km from Frankston, this homestead sits within Ballam Park, reached by a leafy drive off Cranbourne Road. Run by the Frankston Historical Society, it brings together a collection of farm machinery and implements, a blacksmith's shop, a museum and tea rooms. Guided tours through the house and museum run on Sundays, and the grounds are free to enter.",
+      "defect": {
+        "severity": "cosmetic",
+        "why": "recites hours (\"on Sundays\")"
+      },
+      "outcome": "rewritten",
+      "draft": "A colonial-era homestead set within Ballam Park, about 5km from central Frankston, reached along a leafy drive off Cranbourne Road. The grounds hold a collection of farm machinery and implements, a blacksmith's shop, a museum and tea rooms, run by the Frankston Historical Society.\n\nGuided tours lead through the house and museum, tracing the property's early rural past. The setting is quiet and green, with the sense of stepping into an older way of life. Admission to the grounds is free."
     },
     {
       "id": "ad0a919b-1fee-4dbb-a814-73d1dd971f31",
@@ -50,7 +50,7 @@
         "severity": "cosmetic",
         "why": "recites hours (\"Open daily\")"
       },
-      "outcome": "no_site_text",
+      "outcome": "ungrounded",
       "severity": "cosmetic"
     },
     {
@@ -84,42 +84,8 @@
         "severity": "cosmetic",
         "why": "recites hours (\"Tuesday to Saturday\")"
       },
-      "outcome": "ungrounded",
-      "severity": "cosmetic"
-    },
-    {
-      "id": "d22c97c8-7f91-4506-aa87-8ebc291d1e15",
-      "name": "Lugarno Seafood Restaurant",
-      "slug": "lugarno-seafood-restaurant",
-      "vertical": "table",
-      "region": "Lugarno",
-      "state": "NSW",
-      "address": "1220 Forest Road, Lugarno, 2210, NSW",
-      "website": "https://www.lugarnoseafood.com/",
-      "description": "Serving seafood since 1993, this Lugarno restaurant works to a simple formula: market-fresh local seafood delivered daily, prepared with an eye to the seasons. It sits above the Georges River, and the water views set the scene for the meal. Open Monday to Saturday from midday to 10pm, and Sunday until 9pm.",
-      "defect": {
-        "severity": "cosmetic",
-        "why": "recites hours (\"Open Monday\")"
-      },
       "outcome": "rewritten",
-      "draft": "A seafood restaurant on the Georges River at Lugarno, serving since 1993. The kitchen works with market-fresh local seafood delivered daily, with a menu that changes by season. The cooking is kept simple and refined rather than elaborate, and the riverside setting frames the meal."
-    },
-    {
-      "id": "a9de5d58-2f3a-49dc-9c7d-5e6890cee0bd",
-      "name": "Cafe Lyon",
-      "slug": "cafe-lyon",
-      "vertical": "table",
-      "region": "Sydney",
-      "state": "NSW",
-      "address": "366 Pacific Highway, NSW, 2070, NSW",
-      "website": "https://www.cafelyon.com.au/",
-      "description": "A French bistro on the Pacific Highway at Lindfield, serving dinner Tuesday to Saturday and lunch on Thursdays and Fridays. The kitchen cooks French food, and the calendar runs to occasional wine dinners, such as a five-course McLaren Vale Grenache evening matched with award-winning wines.",
-      "defect": {
-        "severity": "cosmetic",
-        "why": "recites hours (\"Tuesday to Saturday\")"
-      },
-      "outcome": "rewritten",
-      "draft": "A French bistro on the Pacific Highway in Lindfield, serving French food for lunch and dinner. The kitchen turns out classic bistro cooking, and there's a leaning towards regional wine, with dinners built around specific producers such as Grenache from McLaren Vale, paired across several courses. A neighbourhood dining room rather than a special-occasion destination, though it works for both."
+      "draft": "A wood-fired pizza place on Springfield Road in Blackburn, run as a family business. The oven's high heat gives the crust its char and crispness, and pizzas are built on fresh mozzarella, ripe tomatoes and basil, with locally sourced ingredients.\n\nChef David trained for four years in baking and pastry from the age of 16, and received a Master Baker Award in 2013. The menu runs to combinations like San Daniel prosciutto with home-made pesto, potato with roasted peppers and goat cheese, hot sopressa salami, and the Italian Margherita. Toppings and sauces can be customised."
     },
     {
       "id": "200805b2-2baa-45c1-a4c7-98d470317458",
@@ -135,25 +101,8 @@
         "severity": "cosmetic",
         "why": "recites hours (\"Tuesday to Saturday\")"
       },
-      "outcome": "ungrounded",
+      "outcome": "no_site_text",
       "severity": "cosmetic"
-    },
-    {
-      "id": "b18cd93f-428c-4c14-9bf8-e553d38a2918",
-      "name": "Balboa Italian",
-      "slug": "balboa-italian",
-      "vertical": "table",
-      "region": "Gold Coast",
-      "state": "QLD",
-      "address": "1069 Gold Coast Highway, QLD",
-      "website": "https://balboaitalian.com.au/",
-      "description": "An Italian restaurant on the Gold Coast Highway, serving the Gold Coast since 2016. The kitchen works from local and imported produce, cooking classically Italian dishes with a modern hand: signature plates include beef cheek gnocchi and pappardelle al ragù made in house. Cocktails and wine round out the menu, in a setting the team describe as both elegant and vibrant. Open for dinner through the week, with lunch added from Friday to Sunday.",
-      "defect": {
-        "severity": "cosmetic",
-        "why": "recites hours (\"Friday to Sunday\")"
-      },
-      "outcome": "rewritten",
-      "draft": "An Italian restaurant on the Gold Coast Highway, serving food classically Italian in inspiration but modern in execution. The menu draws on local and imported produce, with dishes such as beef cheek gnocchi and pappardelle al ragu made by hand. Alongside the food are cocktails and wine.\n\nThe setting is both elegant and vibrant, with an inclusive atmosphere that channels an Italian sense of family and togetherness. It has been running on the Gold Coast since 2016."
     },
     {
       "id": "b9e1aa50-b51d-4a3d-9a0b-53cdd4ebfd8d",
@@ -169,7 +118,7 @@
         "severity": "cosmetic",
         "why": "recites hours (\"from 9am\")"
       },
-      "outcome": "no_site_text",
+      "outcome": "ungrounded",
       "severity": "cosmetic"
     },
     {
@@ -186,7 +135,7 @@
         "severity": "cosmetic",
         "why": "recites hours (\"open Friday\")"
       },
-      "outcome": "no_site_text",
+      "outcome": "ungrounded",
       "severity": "cosmetic"
     },
     {
