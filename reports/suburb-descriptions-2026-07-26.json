@@ -3,167 +3,6 @@
   "dryRun": false,
   "results": [
     {
-      "id": "123db987-79d6-4c89-9d18-d2ba3932ab1c",
-      "name": "Sushi Jiro",
-      "vertical": "table",
-      "region": "Melbourne",
-      "state": "VIC",
-      "status": "no_merit",
-      "reason": "chain: Large multi-state chain with dozens of outlets across shopping centres and food courts. | visitable: Large multi-location chain across several states with mall food-court and express counter outlets. | local: Large multi-state chain with dozens of shopping-centre and food-court outlets, explicitly not an independent single venue.",
-      "description": null,
-      "attempts": 0,
-      "via": "direct",
-      "meritVotes": "chain:false visitable:false local:false"
-    },
-    {
-      "id": "1feeb635-63d9-4bbd-9dde-69897200942c",
-      "name": "The Burger Block",
-      "vertical": "table",
-      "region": "Kew",
-      "state": "VIC",
-      "status": "no_merit",
-      "reason": "chain: Generic delivery-focused burger takeaway with no distinctive independent identity worth going out of your way for. | visitable: Generic delivery-focused burger shop with no distinctive visitable identity, centred on Uber Eats/Menulog/DoorDash ordering. | local: Generic delivery-focused burger takeaway with no distinctive identity, chef, or specific character beyond standard grill fare.",
-      "description": null,
-      "attempts": 0,
-      "via": "direct",
-      "meritVotes": "chain:false visitable:false local:false"
-    },
-    {
-      "id": "09ca0af5-d4ab-496c-884b-2500f0131886",
-      "name": "Seven Stars",
-      "vertical": "table",
-      "region": "Melbourne",
-      "state": "VIC",
-      "status": "ok",
-      "reason": null,
-      "description": "A contemporary Chinese restaurant on Centre Road in Bentleigh East, running for 22 years as a family-oriented eatery. The menu is casual and affordable, served to families, friends and business diners alike in a quiet dining area. Take-away is available, along with a catering service for private functions. Lunch runs Tuesday to Saturday, with dinner Tuesday through Sunday; closed Mondays except on public holidays.",
-      "attempts": 1,
-      "via": "direct",
-      "meritVotes": "chain:true visitable:true local:false",
-      "meritSplit": "local: Generic contemporary Chinese restaurant with no specific dishes, chef or identity named beyond stock marketing language.",
-      "warnings": []
-    },
-    {
-      "id": "21f4c6fa-fe40-4305-8806-69b0a4746b30",
-      "name": "Hurstville Museum and Gallery",
-      "vertical": "collection",
-      "region": "Sydney",
-      "state": "NSW",
-      "status": "failed_gates",
-      "reason": "binding:number \"6000\"",
-      "description": null,
-      "attempts": 2,
-      "via": "direct",
-      "meritVotes": "chain:true visitable:true local:true",
-      "softenedClaims": [
-        "Run by Georges River Council",
-        "The Dragon's Lair Gallery"
-      ]
-    },
-    {
-      "id": "224b9961-5491-4e7f-b6e2-94d16e13831a",
-      "name": "Chicci",
-      "vertical": "table",
-      "region": "Kew",
-      "state": "VIC",
-      "status": "ok",
-      "reason": null,
-      "description": "A woodfire pizzeria and bar on Kew's High Street, trading as Chicci Cucina Woodfire Pizzeria Bar. Pizzas come from a wood-fired oven, giving a crisp crust with a smoky edge, alongside pastas, salads, antipasti and desserts drawn from seasonal produce. The kitchen leans on Italian cooking and local producers, and the bar keeps a relaxed setting for lunch, dinner or drinks.",
-      "attempts": 1,
-      "via": "direct",
-      "meritVotes": "chain:true visitable:true local:false",
-      "meritSplit": "local: Generic wood-fired pizzeria with boilerplate marketing copy and no distinctive identity, recipes, or named operator.",
-      "softenedClaims": [
-        "Kew's High Street"
-      ],
-      "warnings": []
-    },
-    {
-      "id": "3c177305-c90b-43d6-9a61-9a95c2e71e9b",
-      "name": "Piece of Cake Bakery",
-      "vertical": "table",
-      "region": "Oakleigh East",
-      "state": "VIC",
-      "status": "ok",
-      "reason": null,
-      "description": "A European patisserie in Oakleigh East, operated by Kun and Jenny, who work from original recipes and traditional methods. Everything is baked on-site from scratch: cakes, sourdough croissants and bread, puff pastry pies, New York baked cheesecakes and patisseries.",
-      "attempts": 1,
-      "via": "direct",
-      "meritVotes": "chain:true visitable:true local:true",
-      "warnings": []
-    },
-    {
-      "id": "228aa6b3-8e3e-43df-9c15-fb5f74cc2db3",
-      "name": "Cafelito",
-      "vertical": "table",
-      "region": "Clayton",
-      "state": "VIC",
-      "status": "ok",
-      "reason": null,
-      "description": "A coffee bar and catering kitchen in Clayton, trading as Cafelito under DAWANG Catering, serving Melbourne businesses and residents for over five years.\n\nThe breakfast menu runs to big brekkies with eggs, bacon, chorizo, mushrooms and sourdough, a vegetarian version with feta and avocado, and breakfast bruschetta with smashed avocado and poached eggs. A lunch menu uses locally sourced, seasonal produce. Alongside dine-in service, the kitchen handles custom catering for events, from intimate gatherings to corporate conferences.",
-      "attempts": 2,
-      "via": "direct",
-      "meritVotes": "chain:true visitable:true local:false",
-      "meritSplit": "local: Generic catering/coffee bar with standard cafe menu and no distinctive identity, produce, or maker to speak of.",
-      "warnings": []
-    },
-    {
-      "id": "452deaaf-78b1-47be-9ce9-0e043337f7f0",
-      "name": "The Pancake Parlour",
-      "vertical": "table",
-      "region": "Melbourne",
-      "state": "VIC",
-      "status": "no_merit",
-      "reason": "chain: The Pancake Parlour is a multi-location chain with a loyalty app and franchise-style operations. | visitable: The Pancake Parlour is a multi-location Victorian chain, excluded as a franchise/chain outlet. | local: The Pancake Parlour is a multi-branch Victorian chain with loyalty apps and merch, not an independent distinctive venue.",
-      "description": null,
-      "attempts": 0,
-      "via": "direct",
-      "meritVotes": "chain:false visitable:false local:false"
-    },
-    {
-      "id": "5520fc34-0c8b-495b-aa3b-f6b4b71dade7",
-      "name": "David's Hot Pot",
-      "vertical": "table",
-      "region": "Melbourne",
-      "state": "VIC",
-      "status": "no_merit",
-      "reason": "chain: Advertises multiple locations across Australia and is part of a ten-brand management group — a chain, not an independent venue. | visitable: A multi-location chain under a management group with ten brands, explicitly a franchise operation. | local: Chain with locations across Australia under a ten-brand management group, not an independent single venue.",
-      "description": null,
-      "attempts": 0,
-      "via": "direct",
-      "meritVotes": "chain:false visitable:false local:false"
-    },
-    {
-      "id": "45bfed28-c282-4a81-bf93-e4024d559499",
-      "name": "Il Lido",
-      "vertical": "table",
-      "region": "Cottesloe",
-      "state": "WA",
-      "status": "ok",
-      "reason": null,
-      "description": "Housed in what was once the 1930s art-deco Lido Cabaret hall on Cottesloe Beach, this Italian-inspired espresso bar and restaurant takes its name from the Italian for \"the beach\". The kitchen leans on cucina povera: pasta, pastries, aperitivo and espresso to grab and go. The wine list has drawn recognition, named Australia's Best Listing of Italian Wines and a finalist for Australia's Wine List of the Year. Bookings help, but walk-ins are welcome.",
-      "attempts": 1,
-      "via": "direct",
-      "meritVotes": "chain:true visitable:true local:true",
-      "softenedClaims": [
-        "Australia's Wine List"
-      ],
-      "warnings": []
-    },
-    {
-      "id": "5cadb627-7ae2-475a-8f01-239b6d44af54",
-      "name": "Sails on Shore",
-      "vertical": "table",
-      "region": "Cleveland",
-      "state": "QLD",
-      "status": "no_merit",
-      "reason": "chain: This is the bistro of the Redlands RSL, an excluded returned-services club. | visitable: This is the RSL club bistro, an excluded licensed returned-services club venue with member pricing. | local: This is the bistro of Redlands RSL, an excluded returned-services club, with generic pub-classic dining and no distinct identity of its own.",
-      "description": null,
-      "attempts": 0,
-      "via": "direct",
-      "meritVotes": "chain:false visitable:false local:false"
-    },
-    {
       "id": "85dfba53-685d-4191-b5db-ece37e0c4672",
       "name": "The Esplanade Hotel",
       "vertical": "rest",
@@ -173,23 +12,6 @@
       "reason": "site unreadable (http 403)",
       "description": null,
       "attempts": 0
-    },
-    {
-      "id": "2df6a877-79fa-48d7-92b2-286731dd342c",
-      "name": "IndigiScapes",
-      "vertical": "field",
-      "region": "Capalaba",
-      "state": "QLD",
-      "status": "ok",
-      "reason": null,
-      "description": "Run by Redland City Council, this centre in Capalaba sits within the council's environment and sustainability programs, alongside its native gardening and wildlife work. The source material is thin on detail beyond its place on Redlands Coast.",
-      "attempts": 1,
-      "via": "direct",
-      "meritVotes": "chain:true visitable:true local:true",
-      "softenedClaims": [
-        "Run by Redland City Council"
-      ],
-      "warnings": []
     },
     {
       "id": "c53cc981-bd4d-431e-8a9c-46fe123caa23",
@@ -214,52 +36,6 @@
       "attempts": 0
     },
     {
-      "id": "45ca27e8-870d-4383-9f84-18501d334cfe",
-      "name": "Kuche",
-      "vertical": "table",
-      "region": "Kew East",
-      "state": "VIC",
-      "status": "ok",
-      "reason": null,
-      "description": "A café on High Street in Kew East serving Seven Seeds specialty coffee alongside cakes and pastries. The kitchen caters to a range of dietary requirements, including gluten free, vegan, vegetarian, dairy free, nut free and low FODMAP, and offers savoury and sweet catering items for larger occasions. Open weekdays from early morning through the afternoon, with shorter hours on Saturdays and closed on public holidays.",
-      "attempts": 1,
-      "via": "direct",
-      "meritVotes": "chain:true visitable:true local:false",
-      "meritSplit": "local: Generic neighbourhood cafe serving third-party Seven Seeds coffee with no distinctive identity, house specialty or notable maker.",
-      "warnings": [
-        "Saturdays"
-      ]
-    },
-    {
-      "id": "d44627c0-a7cb-4d92-b002-5053622772b3",
-      "name": "Mamma Mia Trattoria Pizzeria",
-      "vertical": "table",
-      "region": "Cleveland",
-      "state": "QLD",
-      "status": "ok",
-      "reason": null,
-      "description": "A family-run restaurant on Shore Street in Cleveland, serving authentic Northern and Southern cuisine prepared with high-quality ingredients that reflect the family's Italian origins.",
-      "attempts": 2,
-      "via": "direct",
-      "meritVotes": "chain:true visitable:true local:true",
-      "warnings": []
-    },
-    {
-      "id": "79b616ad-3ee0-4cc5-ab7f-0d3472bbd98f",
-      "name": "Remnscnt Cafe",
-      "vertical": "table",
-      "region": "Melbourne",
-      "state": "VIC",
-      "status": "ok",
-      "reason": null,
-      "description": "A café and gift shop on Glen Huntly Road, combining a kitchen with a boutique of gifts, flowers, candles and jewellery. The menu runs to savoury items such as a ham and cheese panini, pesto pasta salad and the Chill Scramble, alongside waffles and croissants, with a sandwich and salad cabinet kept stocked through the afternoon. There is both indoor and outdoor seating. The kitchen serves Monday to Saturday from 7:30am and Sunday from 8:30am, closing at 2pm, with the cabinet available until close.",
-      "attempts": 1,
-      "via": "direct",
-      "meritVotes": "chain:true visitable:true local:false",
-      "meritSplit": "local: Generic café-with-gift-shop serving panini, pesto pasta salad and croissants with no distinctive food, maker or identity of its own.",
-      "warnings": []
-    },
-    {
       "id": "9a7b5081-44d5-4c5b-8bcf-c4083b15e0db",
       "name": "Ocean foods",
       "vertical": "table",
@@ -273,48 +49,21 @@
       "meritVotes": "chain:true visitable:true local:true"
     },
     {
-      "id": "e5b487bb-9886-41a8-bac0-61409ad4d5c4",
-      "name": "Fonda Mexican",
-      "vertical": "table",
-      "region": "Melbourne",
-      "state": "VIC",
-      "status": "no_merit",
-      "reason": "chain: Multi-location chain with at least five outlets including shopping-centre food-court presence at Chadstone and Knox. | visitable: Multi-location chain with seven-plus branches across Melbourne, excluded as a chain outlet. | local: Multi-location chain with numerous branches across Melbourne, disqualifying it as a franchise-style outlet.",
-      "description": null,
-      "attempts": 0,
-      "via": "direct",
-      "meritVotes": "chain:false visitable:false local:false"
-    },
-    {
-      "id": "fad1447a-4416-425b-b59a-754cef09a4ef",
-      "name": "Melthouse Pizza",
-      "vertical": "table",
+      "id": "21f4c6fa-fe40-4305-8806-69b0a4746b30",
+      "name": "Hurstville Museum and Gallery",
+      "vertical": "collection",
       "region": "Sydney",
       "state": "NSW",
-      "status": "failed_gates",
-      "reason": "binding:proper_noun \"Thursday and Friday\", proper_noun \"Sunday and Monday\"",
-      "description": null,
-      "attempts": 2,
-      "via": "direct",
-      "meritVotes": "chain:true visitable:true local:true",
-      "softenedClaims": [
-        "Kingsgrove and Campsie"
-      ]
-    },
-    {
-      "id": "d9861f1f-2329-4ebb-87ed-786e90d06dd7",
-      "name": "Sushi Hakuba",
-      "vertical": "table",
-      "region": "Gold Coast",
-      "state": "QLD",
       "status": "ok",
       "reason": null,
-      "description": "An independent sushi shop opened by operators who spent 18 years running a franchise conveyor belt restaurant. The kitchen works in the kaiten-zushi tradition, selecting fish each morning and building each piece by hand. The chefs aim for the flavours and dishes current in Japan today rather than a fixed idea of tradition.\n\nFound in The Pines Shopping Centre on Guineas Creek Road, Elanora, with takeaway available for pick up.",
+      "description": "Run by Georges River Council, this museum and gallery holds around 6,000 objects and artworks drawn from the local area. Its permanent exhibition, St George Stories, traces the history of the district, while a rotating schedule of exhibitions runs alongside talks, workshops and programs for children and school groups. The Dragon's Lair Gallery is a dedicated space for Georges River artists to show their work. Entry is free. The permanent gallery offers audio descriptions accessed by QR code and large print guides for Main Gallery exhibitions.",
       "attempts": 1,
       "via": "direct",
       "meritVotes": "chain:true visitable:true local:true",
       "softenedClaims": [
-        "The Pines Shopping Centre on Guineas Creek Road"
+        "6000",
+        "Run by Georges River Council",
+        "The Dragon's Lair Gallery"
       ],
       "warnings": []
     }

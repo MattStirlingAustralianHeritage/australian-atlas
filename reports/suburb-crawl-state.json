@@ -65,7 +65,15 @@
     "perth-inner-ring/Maylands",
     "perth-outer/Cottesloe",
     "adelaide-middle/Prospect",
-    "adelaide-outer/Glenelg"
+    "adelaide-outer/Glenelg",
+    "hobart-suburbs/Moonah",
+    "canberra-suburbs/Belconnen",
+    "darwin-suburbs/Fannie Bay",
+    "newcastle-suburbs/Mayfield",
+    "wollongong-illawarra/Bulli",
+    "geelong-suburbs/Belmont",
+    "gold-coast-suburbs/Currumbin",
+    "sunshine-coast-suburbs/Mooloolaba"
   ],
   "startedAt": "2026-07-25T00:00:00Z"
 }

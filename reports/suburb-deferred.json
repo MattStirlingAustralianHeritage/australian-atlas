@@ -484,5 +484,329 @@
     "lng": 144.8898944,
     "town": "Williamstown",
     "state": "VIC"
+  },
+  {
+    "name": "La Bella Pizza Derwent Park",
+    "vertical": "table",
+    "website_url": "https://labellapizza.com.au/",
+    "lat": -42.8376931,
+    "lng": 147.2887473,
+    "town": "Moonah",
+    "state": "TAS"
+  },
+  {
+    "name": "Banhmi Bites",
+    "vertical": "table",
+    "website_url": "https://banhmibites.com.au/",
+    "lat": -42.8408404,
+    "lng": 147.2892347,
+    "town": "Moonah",
+    "state": "TAS"
+  },
+  {
+    "name": "Ayuttahaya",
+    "vertical": "table",
+    "website_url": "https://www.thaibelconnen.com/",
+    "lat": -35.2375524,
+    "lng": 149.0718166,
+    "town": "Belconnen",
+    "state": "ACT"
+  },
+  {
+    "name": "Coffee Guru",
+    "vertical": "table",
+    "website_url": "https://coffeeguru.com.au/locations/jamison/",
+    "lat": -35.2530307,
+    "lng": 149.0707304,
+    "town": "Belconnen",
+    "state": "ACT"
+  },
+  {
+    "name": "Indian Dining Club",
+    "vertical": "table",
+    "website_url": "https://indiandiningclub.com.au/",
+    "lat": -35.236731,
+    "lng": 149.0711756,
+    "town": "Belconnen",
+    "state": "ACT"
+  },
+  {
+    "name": "Chompy's",
+    "vertical": "table",
+    "website_url": "https://www.thebasementcanberra.com.au/menu/",
+    "lat": -35.2402915,
+    "lng": 149.0593793,
+    "town": "Belconnen",
+    "state": "ACT"
+  },
+  {
+    "name": "54 Benjamin",
+    "vertical": "table",
+    "website_url": "https://www.54benjamin.com/",
+    "lat": -35.240446,
+    "lng": 149.0671533,
+    "town": "Belconnen",
+    "state": "ACT"
+  },
+  {
+    "name": "Pho Hub",
+    "vertical": "table",
+    "website_url": "https://www.phohub.com/",
+    "lat": -35.23952,
+    "lng": 149.0678152,
+    "town": "Belconnen",
+    "state": "ACT"
+  },
+  {
+    "name": "Taj Agra",
+    "vertical": "table",
+    "website_url": "https://belconnen.tajagra.com.au/",
+    "lat": -35.2366563,
+    "lng": 149.0597668,
+    "town": "Belconnen",
+    "state": "ACT"
+  },
+  {
+    "name": "Canberra Cafe and Burgers",
+    "vertical": "table",
+    "website_url": "https://www.canberracafeandburgers.com/",
+    "lat": -35.2384728,
+    "lng": 149.0709743,
+    "town": "Belconnen",
+    "state": "ACT"
+  },
+  {
+    "name": "Charnie's Noodles & Dumplings",
+    "vertical": "table",
+    "website_url": "https://charniesnoodleonline.com.au/",
+    "lat": -35.2050648,
+    "lng": 149.033474,
+    "town": "Belconnen",
+    "state": "ACT"
+  },
+  {
+    "name": "Olive",
+    "vertical": "table",
+    "website_url": "https://www.oliveathawker.com.au/",
+    "lat": -35.2434214,
+    "lng": 149.0433249,
+    "town": "Belconnen",
+    "state": "ACT"
+  },
+  {
+    "name": "Punjabi Junction",
+    "vertical": "table",
+    "website_url": "https://www.punjabijunction.com.au/",
+    "lat": -35.2423064,
+    "lng": 149.0678001,
+    "town": "Belconnen",
+    "state": "ACT"
+  },
+  {
+    "name": "Lahori Gate",
+    "vertical": "table",
+    "website_url": "https://lahorigate.com.au/",
+    "lat": -35.24907,
+    "lng": 149.0489695,
+    "town": "Belconnen",
+    "state": "ACT"
+  },
+  {
+    "name": "Delhi to Canberra",
+    "vertical": "table",
+    "website_url": "https://delhi-to-canberra.com.au/",
+    "lat": -35.2085031,
+    "lng": 149.0487981,
+    "town": "Belconnen",
+    "state": "ACT"
+  },
+  {
+    "name": "Asian Noodle House",
+    "vertical": "table",
+    "website_url": "https://www.menulog.com.au/restaurants-asian-noodle-house-belconnen/menu",
+    "lat": -35.2357171,
+    "lng": 149.0654768,
+    "town": "Belconnen",
+    "state": "ACT"
+  },
+  {
+    "name": "The Pandan Leaf",
+    "vertical": "table",
+    "website_url": "https://www.pandanleafcbr.com",
+    "lat": -35.2455852,
+    "lng": 149.065465,
+    "town": "Belconnen",
+    "state": "ACT"
+  },
+  {
+    "name": "Rashay's",
+    "vertical": "table",
+    "website_url": "https://www.rashays.com/find-us/restaurants/belconnen/",
+    "lat": -35.2384563,
+    "lng": 149.0654693,
+    "town": "Belconnen",
+    "state": "ACT"
+  },
+  {
+    "name": "Chong Co Thai Restaurant & Bar",
+    "vertical": "table",
+    "website_url": "https://chongcothai.com.au/belconnen.html",
+    "lat": -35.2376454,
+    "lng": 149.0632192,
+    "town": "Belconnen",
+    "state": "ACT"
+  },
+  {
+    "name": "The Bhakti Tree",
+    "vertical": "table",
+    "website_url": "https://thebhaktitree.org.au/",
+    "lat": -32.8930236,
+    "lng": 151.730461,
+    "town": "Mayfield",
+    "state": "NSW"
+  },
+  {
+    "name": "Onyx",
+    "vertical": "table",
+    "website_url": "https://www.onyxespressobar.com.au/",
+    "lat": -32.8969945,
+    "lng": 151.7363045,
+    "town": "Mayfield",
+    "state": "NSW"
+  },
+  {
+    "name": "Lizotte’s",
+    "vertical": "table",
+    "website_url": "https://www.lizottes.com.au/",
+    "lat": -32.9122303,
+    "lng": 151.7088084,
+    "town": "Mayfield",
+    "state": "NSW"
+  },
+  {
+    "name": "North Break Cafe",
+    "vertical": "table",
+    "website_url": "https://northbreakcafe.com.au",
+    "lat": -34.3501214,
+    "lng": 150.9187948,
+    "town": "Bulli",
+    "state": "NSW"
+  },
+  {
+    "name": "Bean Squeeze",
+    "vertical": "table",
+    "website_url": "https://beansqueeze.com",
+    "lat": -38.1880197,
+    "lng": 144.3285967,
+    "town": "Belmont",
+    "state": "VIC"
+  },
+  {
+    "name": "Routleys",
+    "vertical": "table",
+    "website_url": "https://routleysbakery.com.au",
+    "lat": -38.1939852,
+    "lng": 144.3432835,
+    "town": "Belmont",
+    "state": "VIC"
+  },
+  {
+    "name": "Sandstone & Co.",
+    "vertical": "table",
+    "website_url": "https://sandstoneandco.com.au",
+    "lat": -38.2065827,
+    "lng": 144.3405739,
+    "town": "Belmont",
+    "state": "VIC"
+  },
+  {
+    "name": "Maries Pizza",
+    "vertical": "table",
+    "website_url": "https://www.mariespizza.com.au/",
+    "lat": -28.105327,
+    "lng": 153.4641557,
+    "town": "Currumbin",
+    "state": "QLD"
+  },
+  {
+    "name": "Hanasaki",
+    "vertical": "table",
+    "website_url": "https://hanasakigc.com.au/",
+    "lat": -28.1366648,
+    "lng": 153.4775034,
+    "town": "Currumbin",
+    "state": "QLD"
+  },
+  {
+    "name": "Scott's Luncheonette & Bar",
+    "vertical": "table",
+    "website_url": "https://www.scottspalmbeach.com.au/",
+    "lat": -28.122005,
+    "lng": 153.4730718,
+    "town": "Currumbin",
+    "state": "QLD"
+  },
+  {
+    "name": "Cafe Caribou",
+    "vertical": "table",
+    "website_url": "https://caribou.edan.io/",
+    "lat": -28.1434252,
+    "lng": 153.4947744,
+    "town": "Currumbin",
+    "state": "QLD"
+  },
+  {
+    "name": "Tony's Chinese Restaurant",
+    "vertical": "table",
+    "website_url": "https://www.tugunleaguesclub.com.au/dining-functions/tonys-chinese-restaurant-menu/",
+    "lat": -28.1537398,
+    "lng": 153.496399,
+    "town": "Currumbin",
+    "state": "QLD"
+  },
+  {
+    "name": "Three Beans",
+    "vertical": "table",
+    "website_url": "https://www.threebeans.com.au/home",
+    "lat": -28.1199982,
+    "lng": 153.4522404,
+    "town": "Currumbin",
+    "state": "QLD"
+  },
+  {
+    "name": "Bread Social",
+    "vertical": "table",
+    "website_url": "https://breadsocial.com.au/pages/visit",
+    "lat": -28.1495618,
+    "lng": 153.4723219,
+    "town": "Currumbin",
+    "state": "QLD"
+  },
+  {
+    "name": "24 Thai Street",
+    "vertical": "table",
+    "website_url": "https://www.24thaistreet.com.au/",
+    "lat": -26.711182,
+    "lng": 153.1081857,
+    "town": "Mooloolaba",
+    "state": "QLD"
+  },
+  {
+    "name": "Green Zebra Restaurant & Bar",
+    "vertical": "table",
+    "website_url": "https://www.greenzebra.restaurant/",
+    "lat": -26.7112504,
+    "lng": 153.1240833,
+    "town": "Mooloolaba",
+    "state": "QLD"
+  },
+  {
+    "name": "Kawana Surf Lifesaving Club",
+    "vertical": "table",
+    "website_url": "https://www.kawanasurfclub.com.au/",
+    "lat": -26.7035334,
+    "lng": 153.1349891,
+    "town": "Mooloolaba",
+    "state": "QLD"
   }
 ]

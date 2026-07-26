@@ -254,10 +254,24 @@ function parseJsonLoose(s) {
 const BINDING_CONNECTORS = new Set(['of', 'the', 'and', 'on', 'at', 'by', 'upon', 'de', 'la', 'le', 'van', 'von', '&', 'a', 'an', 'in'])
 function softenBindingFailures(binding, sources) {
   const normalised = sources.map(s => String(s).replace(/\s+/g, ' ').trim().toLowerCase())
+  // Same digit-group stripping the checker applies to the DRAFT, applied to the
+  // SOURCE. extractNumbers turns the draft's "6,000" into "6000", but the source
+  // still reads "6,000", so the match could never succeed and a correctly
+  // grounded figure hard-failed. Hurstville Museum and Gallery failed twice on
+  // exactly this.
+  const deGrouped = normalised.map(s => s.replace(/(\d),(\d)/g, '$1$2'))
   const inSource = (tok) => normalised.some(s => s.includes(tok.toLowerCase()))
   const hard = []
   const softened = []
   for (const claim of binding.failed_claims) {
+    if (claim.type === 'number') {
+      // Only a formatting difference is forgiven. A number absent from the
+      // source in any form stays a hard failure — an invented year or count is
+      // the canonical hallucination.
+      if (deGrouped.some(s => s.includes(String(claim.value)))) softened.push(claim.value)
+      else hard.push(claim)
+      continue
+    }
     if (claim.type !== 'proper_noun') { hard.push(claim); continue }
     const tokens = String(claim.value).split(/\s+/).filter(t => t && !BINDING_CONNECTORS.has(t.toLowerCase()))
     // Require at least two real tokens before softening, and every one grounded.
