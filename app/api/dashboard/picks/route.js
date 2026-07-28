@@ -187,7 +187,10 @@ async function runPickReciprocity(admin, pick) {
 }
 
 // POST — create a pick. Body: { curatorListingId, pickedListingId, note? }.
-// The curator listing must be owned by the signed-in user.
+// The curator listing must be OWNED by the signed-in user and PAID (a live
+// standard claim). Picks are a Standard-tier perk: the editor has always
+// rendered the panel locked for a free claim, but until now nothing stopped a
+// free operator POSTing here directly with a valid token.
 export async function POST(request) {
   const user = await requireUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -202,6 +205,21 @@ export async function POST(request) {
     return NextResponse.json({ error: 'You can only add picks for a listing you own' }, { status: 403 })
   }
 
+  // Tier gate — the same isListingPaid signal as the gallery and the listing
+  // PATCH route, in the same 403 shape (app/api/dashboard/listing/route.js).
+  // createPick enforces this too; checking here as well keeps the operator-
+  // facing error and response shape in the route that owns the contract.
+  if (!(await isListingPaid(admin, curatorListingId))) {
+    return NextResponse.json(
+      {
+        error: 'Producer’s Picks are part of the Standard plan. Upgrade this listing to recommend other venues.',
+        code: 'payment_required',
+        upgrade: true,
+      },
+      { status: 403 }
+    )
+  }
+
   const result = await createPick(admin, {
     curatorId: curatorListingId,
     pickedId: pickedListingId,
@@ -211,7 +229,10 @@ export async function POST(request) {
   })
 
   if (!result.ok) {
-    const status = result.code === 'cap' ? 409 : result.code === 'duplicate' ? 409 : 400
+    const status =
+      result.code === 'payment_required' ? 403
+        : result.code === 'cap' || result.code === 'duplicate' ? 409
+          : 400
     return NextResponse.json({ error: result.error, code: result.code }, { status })
   }
 
