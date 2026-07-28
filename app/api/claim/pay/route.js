@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { LIVE_CLAIM_STATUSES } from '@/lib/claims/statuses'
+import { isCompLapsed } from '@/lib/claims/comp.mjs'
 
 // Stripe secret keys are always sk_… / rk_… (live or test). Validate the shape
 // up front so a present-but-malformed value fails explicitly (mirrors claim-checkout).
@@ -60,14 +61,19 @@ export async function GET(request) {
   // Already on Standard? Don't open a duplicate checkout — send them to manage
   // it. Live = active OR past_due: a dunning-window Standard claim still has a
   // subscription, and a second checkout here would double-bill the operator.
+  //
+  // A LAPSED comped Standard is excluded: its term has run out, so it is not on
+  // the plan no matter what the stored tier says until the sweep catches up.
+  // Bouncing them to /dashboard?already=standard would block the one thing they
+  // came here to do — start paying now the free run has ended.
   const { data: liveStandard } = await sb
     .from('listing_claims')
-    .select('id')
+    .select('id, tier, stripe_subscription_id, comp_expires_at')
     .eq('listing_id', claim.listing_id)
     .in('status', LIVE_CLAIM_STATUSES)
     .eq('tier', 'standard')
     .limit(1)
-  if (liveStandard?.length) return redirect('/dashboard?already=standard')
+  if ((liveStandard || []).some(r => !isCompLapsed(r))) return redirect('/dashboard?already=standard')
 
   try {
     const stripe = getStripe()

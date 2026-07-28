@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { LIVE_CLAIM_STATUSES } from '@/lib/claims/statuses'
+import { isCompLapsed } from '@/lib/claims/comp.mjs'
 import { verifySharedToken } from '@/lib/shared-auth'
 
 // Operator-initiated "unlock editing" payment for a listing already claimed on
@@ -79,7 +80,7 @@ export async function POST(request) {
     // the listing and should get the accurate answer below, not a 404.
     const { data: claimRows } = await sb
       .from('listing_claims')
-      .select('id, listing_id, vertical, tier, claimed_by, claimant_email')
+      .select('id, listing_id, vertical, tier, claimed_by, claimant_email, stripe_subscription_id, comp_expires_at')
       .eq('listing_id', listingId)
       .in('status', LIVE_CLAIM_STATUSES)
       .order('status', { ascending: true })
@@ -92,7 +93,11 @@ export async function POST(request) {
     if (user.role !== 'admin' && claim.claimed_by !== user.id) {
       return NextResponse.json({ error: 'You do not own this listing' }, { status: 403 })
     }
-    if (claim.tier === 'standard') {
+    // A comped Standard whose term has run out is NOT on the Standard plan, even
+    // if the stored tier still says so (the sweep reconciles that up to 6h
+    // later). Refusing checkout here would be the worst possible moment to get
+    // it wrong: the comp just ended and the operator is trying to start paying.
+    if (claim.tier === 'standard' && !isCompLapsed(claim)) {
       return NextResponse.json({ error: 'This listing is already on the Standard plan' }, { status: 409 })
     }
 
