@@ -261,6 +261,28 @@ An operator or user losing access to their account or listing is this platform's
 2. Fastest unblock is the magic sign-in link button (no password needed; auto-creates the account if missing). Google sign-in also bypasses password problems instantly.
 3. For ownership drift (trampled flag, hidden listing), see Ownership State Protection above; the repair pattern is `_repair_claim_state.mjs`.
 
+## Comped Standard Terms
+
+Standard is normally paid through Stripe. `grantClaim` hard-refuses `tier='standard'` without a subscription, so the only way to grant it unpaid is the admin side door on `/admin/claims` (`set_tier` in `app/api/admin/claims/route.js`) — used for payment taken outside Stripe (invoice, phone) and for genuine comps.
+
+Since migration 261 a comp carries a **term**: 1, 2, 3, 6, 12, 24 months, or in perpetuity. Before that every comp was implicitly perpetual, so "have a free year on us" became free forever.
+
+Column semantics on a row with `tier='standard'` and no `stripe_subscription_id`:
+
+| `comp_expires_at` | Meaning |
+|---|---|
+| `NULL` | In perpetuity (still an explicit, valid choice) |
+| future | Comp running |
+| past | **Lapsed** — the listing is Free again |
+
+A Stripe-billed row may never carry a comp term; a CHECK constraint enforces it, because a stray expiry on a paying operator would be a lockout.
+
+### Rules for new code
+
+- **Never decide paid access from the stored `tier` alone.** A lapsed comp still reads `tier='standard'` until the sweep runs (up to 6h). Use `isListingPaid` / `filterPaidListingIds` (`lib/listing-gallery.js`), or call `isCompLapsed` / `compStatus` from `lib/claims/comp.mjs` if you must read the row directly. Getting this wrong once already meant the Stripe checkout routes told operators "you're already on Standard" at the exact moment their comp ended and they tried to start paying.
+- Enforcement is **read-time**; `sweepExpiredComps` (`lib/claims/compSweep.js`, run by the `claim-integrity` cron) is reconciliation only — it writes the tier back to `free` and emails that the term ran out. Never make a benefit depend on the sweep having run.
+- `lib/claims/comp.mjs` is dependency-free on purpose so it stays unit-testable: `node --test lib/claims/comp.test.mjs`. Month arithmetic clamps rather than overflowing (31 Jan + 1 month = 28 Feb).
+
 ## Article Body Protection (CRITICAL)
 
 **No automated process, agent, cron job, script, or enrichment pipeline may write to the `body` or `content` field of any record in the `articles` table under any circumstances.**
