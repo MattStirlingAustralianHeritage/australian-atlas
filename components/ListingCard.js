@@ -3,6 +3,7 @@ import VerticalBadge from '@/components/VerticalBadge'
 import { isApprovedImageSource, isHeroDisplayable } from '@/lib/image-utils'
 import { getListingRegion } from '@/lib/regions'
 import { localizeVerticalKicker, localizeSubcategory } from '@/lib/i18n/listingLabels'
+import { formatPlaceLocation } from '@/lib/listings/formatLocation'
 
 // ============================================================
 // ListingCard — Bespoke typographic card replacing all photography
@@ -80,6 +81,7 @@ export function TypographicCard({
   vertical = 'portal',
   category,
   region,
+  suburb,
   state,
   size = 'card',
   aspectRatio = '4/5',
@@ -185,7 +187,13 @@ export function TypographicCard({
       : null
 
   const [line1, line2] = splitName(name)
-  const bottomLine = [region, state].filter(Boolean).join(', ').toUpperCase()
+  // Suburb is opt-in: the hero passes it so the line reads "BRISBANE, BANYO,
+  // QUEENSLAND". Grid cards omit it (and keep the state abbreviated) — there
+  // isn't room for three segments at card scale.
+  const bottomLine = (suburb
+    ? formatPlaceLocation({ region, suburb, state })
+    : [region, state].filter(Boolean).join(', ')
+  ).toUpperCase()
   // Mobile-venue marker word. Localized per locale; English ("Mobile") default.
   const mobileTag = { ko: '모바일', zh: '流动' }[locale] || 'Mobile'
 

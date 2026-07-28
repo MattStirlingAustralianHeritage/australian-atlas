@@ -32,6 +32,7 @@ import {
   WAY_PRESENCE_TYPE_LABELS,
 } from '@/lib/wayLabels'
 import ListingCard, { TypographicCard } from '@/components/ListingCard'
+import { formatPlaceLocation } from '@/lib/listings/formatLocation'
 import MoreInRow from '@/components/MoreInRow'
 import NearbyExplorer from '@/components/NearbyExplorer'
 import InlineListingEditor from '@/components/InlineListingEditor'
@@ -641,7 +642,11 @@ export async function generateMetadata({ params }) {
     || localizeVerticalCategory(listing.vertical, VERTICAL_CATEGORY_LABELS[listing.vertical], locale)
     || t('placeFallback')
   const region = getListingRegion(listing)
-  const location = [localizeRegionName(region?.name, locale), listing.state].filter(Boolean).join(', ')
+  const location = formatPlaceLocation({
+    region: localizeRegionName(region?.name, locale),
+    suburb: listing.suburb,
+    state: listing.state,
+  })
   const enUrl = `https://www.australianatlas.com.au/place/${slug}`
   const localizedUrl = `https://www.australianatlas.com.au${localizePath(`/place/${slug}`, locale)}`
   const title = location
@@ -867,7 +872,10 @@ export default async function PlacePage({ params }) {
   // a paying operator must never be asked to claim their own page.
   const canClaim = !listing.is_claimed && !isPaid && !isNationalPark
   const verticalUrl = getVerticalUrl(listing.vertical, listing.slug)
-  const location = [cleanRegion, listing.state].filter(Boolean).join(', ')
+  // "Brisbane, Banyo, Queensland" — region, then the suburb that places the
+  // venue inside it, then the state spelled out. Suburb is elided when the
+  // region name already carries it (see formatPlaceLocation).
+  const location = formatPlaceLocation({ region: cleanRegion, suburb: listing.suburb, state: listing.state })
   const hasCoords = listing.lat && listing.lng
   // Mobile venues (food trucks, carts, pop-ups) have no fixed location, so we
   // never show a precise pin, street address, or "Get Directions" — their
@@ -1034,6 +1042,7 @@ export default async function PlacePage({ params }) {
           vertical={listing.vertical}
           category={listing._subcategory || listing.sub_type}
           region={cleanRegion}
+          suburb={listing.suburb}
           state={listing.state}
           size="hero"
           showVerticalTag
