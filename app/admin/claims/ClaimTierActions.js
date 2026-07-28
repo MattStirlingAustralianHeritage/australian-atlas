@@ -2,18 +2,17 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { COMP_DURATIONS, DEFAULT_COMP_DURATION, compDurationLabel } from '@/lib/claims/comp.mjs'
+import CompTermDialog from './CompTermDialog'
 
 // Admin tier controls for a GRANTED claim. Upgrade is a COMPED grant —
 // Standard with no Stripe subscription — for payments taken outside Stripe or
 // genuine comps. Stripe-billed claims get no buttons here: their billing
 // changes happen in Stripe (the webhook deactivates the claim on cancel).
 //
-// The comp now carries a TERM, chosen here: one month through to in perpetuity
-// (migration 261). Perpetual is still on offer and is exactly what every comp
-// used to be by default — the difference is that it is now a decision rather
-// than an accident. A running comp can be re-termed at any time from the same
-// control: pick a new duration and it is recomputed from today.
+// The card carries ONE button. The term (1 month … in perpetuity, migration
+// 261) is chosen in CompTermDialog, not from a dropdown parked on every row —
+// the queue renders ~48 of these and a select on each turned the page into a
+// wall of form controls.
 //
 // Addressed by listingId where available (search results act on listings, which
 // need not have a moderation row), falling back to the claims_review id.
@@ -45,19 +44,16 @@ export default function ClaimTierActions({
   onChanged,
 }) {
   const router = useRouter()
+  const [dialog, setDialog] = useState(null) // null | 'grant' | 'downgrade'
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [duration, setDuration] = useState(DEFAULT_COMP_DURATION)
-  const [retermOpen, setRetermOpen] = useState(false)
 
   if (tier === 'standard' && hasStripeSubscription) return null
 
   const isComped = tier === 'standard'
   const remaining = daysUntil(compExpiresAt)
-  const venue = venueName || 'this listing'
 
-  async function submit({ targetTier, targetDuration, confirmMessage }) {
-    if (confirmMessage && !window.confirm(confirmMessage)) return
+  async function submit({ targetTier, duration, note }) {
     setLoading(true)
     setError(null)
 
@@ -70,7 +66,8 @@ export default function ClaimTierActions({
           listingId: listingId || null,
           action: 'set_tier',
           tier: targetTier,
-          duration: targetDuration || null,
+          duration: duration || null,
+          note: note || null,
         }),
       })
 
@@ -80,7 +77,7 @@ export default function ClaimTierActions({
         return
       }
 
-      setRetermOpen(false)
+      setDialog(null)
       if (onChanged) onChanged()
       else router.refresh()
     } catch {
@@ -90,28 +87,20 @@ export default function ClaimTierActions({
     }
   }
 
-  function grant(targetDuration) {
-    const label = compDurationLabel(targetDuration)
-    const term = targetDuration === 'perpetual'
-      ? 'It will NOT expire — Standard stays on until someone downgrades it here.'
-      : `It runs for ${label} and then drops back to Free automatically.`
-    return submit({
-      targetTier: 'standard',
-      targetDuration,
-      confirmMessage:
-        `Give ${venue} Standard for ${label}?\n\n` +
-        'This unlocks all paid dashboard features with no Stripe subscription — use it for payment taken outside Stripe, or as a comp. ' +
-        `${term}\n\nNo email is sent.`,
-    })
+  function closeDialog() {
+    setDialog(null)
+    setError(null)
   }
 
   return (
     <div style={{ marginTop: 10 }}>
-      {error && (
+      {/* Errors surface inside the dialog while it's open; this catches the
+          rare case where it closed before the failure was read. */}
+      {error && !dialog && (
         <p style={{
           fontFamily: 'var(--font-body, system-ui)',
           fontSize: 12,
-          color: '#c44',
+          color: '#b3453f',
           margin: '0 0 8px',
         }}>
           {error}
@@ -119,15 +108,10 @@ export default function ClaimTierActions({
       )}
 
       {!isComped ? (
-        // ── Free: pick a term, then grant ──
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <DurationSelect value={duration} onChange={setDuration} disabled={loading} />
-          <button onClick={() => grant(duration)} disabled={loading} style={primaryButton(loading)}>
-            {loading ? 'Granting…' : 'Grant Standard'}
-          </button>
-        </div>
+        <button onClick={() => setDialog('grant')} style={grantButton}>
+          Grant Standard
+        </button>
       ) : (
-        // ── Comped Standard: show the term, allow re-terming or downgrade ──
         <div style={{ display: 'grid', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <span style={{
@@ -162,104 +146,70 @@ export default function ClaimTierActions({
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            {retermOpen ? (
-              <>
-                <DurationSelect value={duration} onChange={setDuration} disabled={loading} />
-                <button onClick={() => grant(duration)} disabled={loading} style={primaryButton(loading)}>
-                  {loading ? 'Saving…' : 'Set term'}
-                </button>
-                <button onClick={() => setRetermOpen(false)} disabled={loading} style={linkButton(loading)}>
-                  Cancel
-                </button>
-              </>
-            ) : (
-              <>
-                <button onClick={() => setRetermOpen(true)} disabled={loading} style={secondaryButton(loading)}>
-                  Change term
-                </button>
-                <button
-                  onClick={() => submit({
-                    targetTier: 'free',
-                    confirmMessage: `Downgrade ${venue} back to Free?\n\nPaid dashboard features lock again immediately, and the comp term is cleared. No email is sent.`,
-                  })}
-                  disabled={loading}
-                  style={linkButton(loading)}
-                >
-                  {loading ? 'Working…' : 'Downgrade to Free'}
-                </button>
-              </>
-            )}
+            <button onClick={() => setDialog('grant')} style={secondaryButton}>
+              Change term
+            </button>
+            <button onClick={() => setDialog('downgrade')} style={linkButton}>
+              Downgrade to Free
+            </button>
           </div>
         </div>
+      )}
+
+      {dialog && (
+        <CompTermDialog
+          mode={dialog}
+          venueName={venueName}
+          currentExpiresAt={isComped ? compExpiresAt : null}
+          isRetermimg={isComped}
+          loading={loading}
+          error={error}
+          onCancel={closeDialog}
+          onConfirm={({ duration, note }) =>
+            submit(
+              dialog === 'downgrade'
+                ? { targetTier: 'free' }
+                : { targetTier: 'standard', duration, note }
+            )
+          }
+        />
       )}
     </div>
   )
 }
 
-function DurationSelect({ value, onChange, disabled }) {
-  return (
-    <select
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      disabled={disabled}
-      aria-label="Comp duration"
-      style={{
-        padding: '6px 10px',
-        borderRadius: 6,
-        border: '1px solid var(--color-border, #ddd)',
-        background: '#fff',
-        color: 'var(--color-ink, #222)',
-        fontFamily: 'var(--font-body, system-ui)',
-        fontSize: 12,
-        cursor: disabled ? 'not-allowed' : 'pointer',
-      }}
-    >
-      {COMP_DURATIONS.map(d => (
-        <option key={d.key} value={d.key}>{d.label}</option>
-      ))}
-    </select>
-  )
+// ─── Button styling ───────────────────────────────────────
+
+const grantButton = {
+  padding: '7px 16px',
+  borderRadius: 7,
+  border: '1px solid #4a7c59',
+  background: '#4a7c59',
+  color: '#fff',
+  fontFamily: 'var(--font-body, system-ui)',
+  fontSize: 12.5,
+  fontWeight: 500,
+  cursor: 'pointer',
 }
 
-// ─── Shared button styling ────────────────────────────────
-
-function primaryButton(loading) {
-  return {
-    padding: '6px 16px',
-    borderRadius: 6,
-    border: '1px solid #4a7c59',
-    background: loading ? '#e8e8e8' : '#fff',
-    color: loading ? '#888' : '#4a7c59',
-    fontFamily: 'var(--font-body, system-ui)',
-    fontSize: 12,
-    fontWeight: 500,
-    cursor: loading ? 'not-allowed' : 'pointer',
-  }
+const secondaryButton = {
+  padding: '6px 13px',
+  borderRadius: 7,
+  border: '1px solid var(--color-border, #ddd)',
+  background: '#fff',
+  color: 'var(--color-ink, #222)',
+  fontFamily: 'var(--font-body, system-ui)',
+  fontSize: 12,
+  cursor: 'pointer',
 }
 
-function secondaryButton(loading) {
-  return {
-    padding: '6px 12px',
-    borderRadius: 6,
-    border: '1px solid var(--color-border, #ddd)',
-    background: '#fff',
-    color: loading ? '#888' : 'var(--color-ink, #222)',
-    fontFamily: 'var(--font-body, system-ui)',
-    fontSize: 12,
-    cursor: loading ? 'not-allowed' : 'pointer',
-  }
-}
-
-function linkButton(loading) {
-  return {
-    padding: '6px 4px',
-    borderRadius: 6,
-    border: 'none',
-    background: 'transparent',
-    color: loading ? '#888' : 'var(--color-muted, #888)',
-    fontFamily: 'var(--font-body, system-ui)',
-    fontSize: 11,
-    cursor: loading ? 'not-allowed' : 'pointer',
-    textDecoration: 'underline',
-  }
+const linkButton = {
+  padding: '6px 4px',
+  border: 'none',
+  background: 'transparent',
+  color: 'var(--color-muted, #888)',
+  fontFamily: 'var(--font-body, system-ui)',
+  fontSize: 11,
+  cursor: 'pointer',
+  textDecoration: 'underline',
 }
