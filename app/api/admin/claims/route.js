@@ -3,6 +3,8 @@ import { cookies } from 'next/headers'
 import { getSupabaseAdmin, getVerticalClient, getVerticalClaimsTable } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
 import { grantClaim } from '@/lib/claims/grantClaim'
+import { LIVE_CLAIM_STATUSES } from '@/lib/claims/statuses'
+import { compExpiryFromDuration, isValidCompDuration, DEFAULT_COMP_DURATION } from '@/lib/claims/comp.mjs'
 
 // GET — return pending claims (for potential future API consumers)
 export async function GET() {
@@ -38,16 +40,23 @@ export async function POST(request) {
   try {
     const {
       claimId,
+      listingId,
       vertical,
       sourceClaimId,
       usingPortalTable,
       action,
       admin_notes,
       tier,
+      duration,
+      note,
     } = await request.json()
 
-    if (!claimId || !['approve', 'reject', 'set_tier'].includes(action)) {
-      return NextResponse.json({ error: 'Invalid request — need claimId and action' }, { status: 400 })
+    // set_tier may be addressed by listingId instead (search results act on
+    // listings, which don't always have a moderation row); approve/reject are
+    // moderation actions and always need the claims_review id.
+    const hasTarget = action === 'set_tier' ? (claimId || listingId) : claimId
+    if (!hasTarget || !['approve', 'reject', 'set_tier'].includes(action)) {
+      return NextResponse.json({ error: 'Invalid request — need a claim target and a valid action' }, { status: 400 })
     }
 
     if (action === 'approve') {
@@ -59,7 +68,7 @@ export async function POST(request) {
     }
 
     if (action === 'set_tier') {
-      return await handleSetTier({ claimId, tier })
+      return await handleSetTier({ claimId, listingId, tier, duration, note })
     }
   } catch (err) {
     console.error('[admin/claims] POST error:', err.message)
@@ -356,63 +365,120 @@ async function handleReject({ claimId, vertical, sourceClaimId, usingPortalTable
 
 // ─── Set tier (admin upgrade / downgrade) ─────────────────
 
-// Flips the GRANTED tier on the active listing_claims row — the single field
-// every paid gate reads (isListingPaid: status='active' AND tier='standard').
-// Upgrading here is a deliberate admin side door for payments taken outside
-// Stripe (invoice, phone) or comps: it sets tier='standard' with no Stripe
-// subscription, which grantClaim itself refuses to do. Such rows have no
-// billing portal (no stripe_customer_id) and won't renew or expire on their
-// own; downgrading them back to free is the admin's job, here.
-async function handleSetTier({ claimId, tier }) {
+// Flips the GRANTED tier on the live listing_claims row — the field every paid
+// gate reads (isListingPaid: live status AND tier='standard'). Upgrading here
+// is a deliberate admin side door for payments taken outside Stripe (invoice,
+// phone) or comps: it sets tier='standard' with no Stripe subscription, which
+// grantClaim itself refuses to do.
+//
+// A comp may now carry a TERM (`duration`, migration 261): one month through to
+// in perpetuity. The term is stored on the claim as comp_expires_at and enforced
+// at read time by filterPaidListingIds, with sweepExpiredComps reconciling the
+// stored tier when it runs out. 'perpetual' reproduces the old behaviour and is
+// still a real choice — it just has to be chosen now, rather than being what
+// every comp silently became.
+//
+// The target claim is addressed either by `claimId` (a claims_review row — how
+// the review cards call it) or by `listingId` (how search results call it, since
+// a listing can hold a granted claim with no moderation row behind it, e.g. one
+// granted through the Stripe webhook).
+async function handleSetTier({ claimId, listingId, tier, duration, note }) {
   const sb = getSupabaseAdmin()
 
   if (!['free', 'standard'].includes(tier)) {
     return NextResponse.json({ error: 'Invalid tier — must be free or standard' }, { status: 400 })
   }
-
-  // Resolve the listing from the moderation record
-  const { data: claimRecord } = await sb
-    .from('claims_review')
-    .select('id, listing_id, vertical, claimant_email')
-    .eq('id', claimId)
-    .maybeSingle()
-
-  if (!claimRecord?.listing_id) {
-    return NextResponse.json({ error: 'Claim not found in claims_review' }, { status: 404 })
+  if (!claimId && !listingId) {
+    return NextResponse.json({ error: 'Need a claimId or a listingId' }, { status: 400 })
   }
 
-  // The tier lives on the granted ownership row, so the claim must be approved first
-  const { data: active } = await sb
-    .from('listing_claims')
-    .select('id, tier, claimant_email, stripe_subscription_id')
-    .eq('listing_id', claimRecord.listing_id)
-    .eq('status', 'active')
-    .maybeSingle()
+  const compDuration = tier === 'standard' ? (duration || DEFAULT_COMP_DURATION) : null
+  if (compDuration && !isValidCompDuration(compDuration)) {
+    return NextResponse.json({ error: `Invalid duration '${compDuration}'` }, { status: 400 })
+  }
 
-  if (!active) {
+  // Resolve the listing — directly, or through the moderation record.
+  let targetListingId = listingId || null
+  let reviewId = claimId || null
+  if (!targetListingId) {
+    const { data: claimRecord } = await sb
+      .from('claims_review')
+      .select('id, listing_id, vertical, claimant_email')
+      .eq('id', claimId)
+      .maybeSingle()
+    if (!claimRecord?.listing_id) {
+      return NextResponse.json({ error: 'Claim not found in claims_review' }, { status: 404 })
+    }
+    targetListingId = claimRecord.listing_id
+  }
+
+  // The tier lives on the granted ownership row, so ownership must exist first.
+  // Read LIVE statuses, not 'active' alone: a claim in Stripe dunning is still
+  // owned, and reporting "no active claim" for it would be a lie (and, if the
+  // admin then re-granted, a duplicate-live-claim bug).
+  const { data: liveRows } = await sb
+    .from('listing_claims')
+    .select('id, tier, status, claimant_email, stripe_subscription_id, comp_expires_at, source_review_id')
+    .eq('listing_id', targetListingId)
+    .in('status', LIVE_CLAIM_STATUSES)
+    .order('status', { ascending: true }) // 'active' sorts before 'past_due'
+  const live = liveRows?.[0] || null
+
+  if (!live) {
     return NextResponse.json(
-      { error: 'No active granted claim for this listing — approve the claim first' },
+      { error: 'No granted claim for this listing — an operator has to claim it (and be approved) before a tier can be set' },
       { status: 409 }
     )
   }
-
-  if (active.tier === tier) {
-    return NextResponse.json({ success: true, action: 'set_tier', tier, unchanged: true })
-  }
+  if (!reviewId) reviewId = live.source_review_id || null
 
   // Never silently downgrade a live Stripe subscription — cancel it in Stripe
   // instead (the webhook then deactivates the claim and clears is_claimed).
-  if (tier === 'free' && active.stripe_subscription_id) {
+  if (live.stripe_subscription_id) {
+    if (tier === 'free') {
+      return NextResponse.json(
+        { error: 'This claim is billed through Stripe — cancel the subscription in Stripe instead of downgrading here' },
+        { status: 409 }
+      )
+    }
+    // Already Standard and paying. A comp term on top would be meaningless (and
+    // migration 261's CHECK constraint rejects it outright).
     return NextResponse.json(
-      { error: 'This claim is billed through Stripe — cancel the subscription in Stripe instead of downgrading here' },
+      { error: 'This claim is billed through Stripe — its Standard access is already paid for, so a comp term does not apply' },
       { status: 409 }
     )
   }
 
+  // Free → Free is genuinely a no-op. Standard → Standard is NOT: that is how a
+  // running comp gets extended, shortened, or converted to perpetual.
+  if (tier === 'free' && live.tier === 'free') {
+    return NextResponse.json({ success: true, action: 'set_tier', tier, unchanged: true })
+  }
+
+  const compExpiresAt = tier === 'standard' ? compExpiryFromDuration(compDuration) : null
+
+  const patch = tier === 'standard'
+    ? {
+        tier: 'standard',
+        comp_expires_at: compExpiresAt,
+        comp_granted_at: new Date().toISOString(),
+        comp_note: (note || '').trim() || null,
+        updated_at: new Date().toISOString(),
+      }
+    // Downgrading clears the term with the tier — a leftover expiry on a Free
+    // row would keep re-triggering the sweep and muddy the audit trail.
+    : {
+        tier: 'free',
+        comp_expires_at: null,
+        comp_granted_at: null,
+        comp_note: null,
+        updated_at: new Date().toISOString(),
+      }
+
   const { error: updateError } = await sb
     .from('listing_claims')
-    .update({ tier, updated_at: new Date().toISOString() })
-    .eq('id', active.id)
+    .update(patch)
+    .eq('id', live.id)
 
   if (updateError) {
     console.error('[admin/claims] set_tier update error:', updateError)
@@ -420,17 +486,27 @@ async function handleSetTier({ claimId, tier }) {
   }
 
   await sb.from('claim_audit_log').insert({
-    claim_id: claimId,
+    claim_id: reviewId,
     action: tier === 'standard' ? 'tier_upgraded' : 'tier_downgraded',
     actor: 'admin',
     details: {
-      listing_id: claimRecord.listing_id,
-      claimant_email: active.claimant_email,
-      from_tier: active.tier,
+      listing_id: targetListingId,
+      claimant_email: live.claimant_email,
+      from_tier: live.tier,
       to_tier: tier,
-      comped: tier === 'standard' && !active.stripe_subscription_id,
+      comped: tier === 'standard',
+      comp_duration: compDuration,
+      comp_expires_at: compExpiresAt,
+      previous_comp_expires_at: live.comp_expires_at || null,
+      note: (note || '').trim() || null,
     },
   }).then(null, err => console.error('[admin/claims] Audit log error:', err))
 
-  return NextResponse.json({ success: true, action: 'set_tier', tier })
+  return NextResponse.json({
+    success: true,
+    action: 'set_tier',
+    tier,
+    compExpiresAt,
+    compDuration,
+  })
 }

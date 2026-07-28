@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { startRun, completeRun } from '@/lib/agents/logRun'
 import { sendAgentEmail } from '@/lib/agents/email'
+import { sweepExpiredComps } from '@/lib/claims/compSweep'
 
 /**
  * GET /api/cron/claim-integrity
@@ -39,6 +40,14 @@ import { sendAgentEmail } from '@/lib/agents/email'
  * Checks 1–4 guard the listing side of the invariant; 5–6 guard the account
  * side — a live claim is worthless if its owner can't get in the front door.
  *
+ * Also runs the COMP EXPIRY SWEEP (migration 261) before the checks: comped
+ * Standard grants can carry a term, and when one runs out this writes the tier
+ * back to 'free' and emails the admin. That is reconciliation, not enforcement
+ * — filterPaidListingIds stops the benefits the instant the term ends, with or
+ * without this run. It lives here because the cadence (every 6h) and the domain
+ * (claim state) already match, and because this agent is in fleet-health's
+ * EXPECTED map, so the sweep inherits a deadman that would notice it dying.
+ *
  * Any violation → email Matt. ?dryRun=1 computes and returns JSON, no email.
  *
  * Auth: Bearer CRON_SECRET
@@ -61,6 +70,17 @@ export async function GET(request) {
   const violations = []
 
   try {
+    // ── Comp expiry sweep (reconciliation, runs before the checks) ──
+    // Comped Standard grants can carry a term (migration 261). The paid gates
+    // already treat a lapsed comp as Free at read time; this writes the stored
+    // tier back to 'free' so every other reader — this monitor included — sees
+    // the same truth. Done first so the checks below never reason about a claim
+    // whose Standard has quietly run out.
+    const compSweep = await sweepExpiredComps(sb, { dryRun })
+    for (const e of compSweep.errors) {
+      violations.push({ check: 'comp_sweep_failed', detail: `comp expiry sweep ${e.stage} error${e.claim_id ? ` on claim ${e.claim_id}` : ''}: ${e.error}` })
+    }
+
     // ── Live claims + their listings, one pass for checks 1, 2, 4 ──
     const { data: liveClaims, error: lcErr } = await sb
       .from('listing_claims')
@@ -144,6 +164,22 @@ export async function GET(request) {
       }
     }
 
+    // ── Notify: a comp ran out ──
+    // Not a violation — it is the term working as intended — but it IS a
+    // commercial event Matt offered personally, so it should never happen
+    // silently. Sent separately from the integrity alert so an expiry never
+    // reads as a lockout.
+    if (compSweep.downgraded.length > 0 && !dryRun) {
+      try {
+        await sendAgentEmail({
+          subject: `[Atlas] ${compSweep.downgraded.length} comped Standard listing${compSweep.downgraded.length === 1 ? '' : 's'} reverted to Free`,
+          html: `<p>The comped Standard term ran out on ${compSweep.downgraded.length} listing${compSweep.downgraded.length === 1 ? '' : 's'}. ${compSweep.downgraded.length === 1 ? 'It has' : 'They have'} dropped back to Free — the operator keeps the listing, just not the paid features.</p><ul>${
+            compSweep.downgraded.map(d => `<li><strong>${d.listing_name || d.listing_id}</strong> [${d.vertical}] — ${d.claimant_email}, term ended ${String(d.expired_at).slice(0, 10)}${d.note ? ` (${d.note})` : ''}</li>`).join('')
+          }</ul><p>To renew or extend, search the venue at <a href="https://www.australianatlas.com.au/admin/claims">/admin/claims</a> and grant a fresh term.</p>`,
+        })
+      } catch { /* best-effort — the run log below still records the sweep */ }
+    }
+
     // ── Alert ──
     if (violations.length > 0 && !dryRun) {
       try {
@@ -161,10 +197,11 @@ export async function GET(request) {
       approved_reviews: (approved || []).length,
       violations: violations.length,
       by_check: violations.reduce((m, v) => ({ ...m, [v.check]: (m[v.check] || 0) + 1 }), {}),
+      comps_expired: compSweep.downgraded.length,
       dry_run: dryRun,
     }
     await completeRun(runId, { status: violations.length ? 'partial' : 'success', summary })
-    return NextResponse.json({ success: true, dryRun, summary, violations })
+    return NextResponse.json({ success: true, dryRun, summary, violations, compSweep })
   } catch (err) {
     console.error('[claim-integrity] fatal:', err.message)
     await completeRun(runId, { status: 'error', error: err.message })

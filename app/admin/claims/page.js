@@ -1,6 +1,8 @@
 import { getSupabaseAdmin, getVerticalClient, VERTICAL_CONFIG, getVerticalClaimsTable } from '@/lib/supabase/clients'
 import ClaimsActions from './ClaimsActions'
 import ClaimTierActions from './ClaimTierActions'
+import ClaimsSearch from './ClaimsSearch'
+import { compStatus } from '@/lib/claims/comp.mjs'
 
 export const metadata = { title: 'Claims Review — Admin' }
 export const dynamic = 'force-dynamic'
@@ -53,7 +55,7 @@ export default async function ClaimsPage() {
     if (listingIds.length > 0) {
       const { data: grantedRows } = await sb
         .from('listing_claims')
-        .select('listing_id, tier, status, past_due_since, stripe_subscription_id')
+        .select('listing_id, tier, status, past_due_since, stripe_subscription_id, comp_expires_at, comp_granted_at, comp_note')
         .in('listing_id', listingIds)
         .in('status', ['active', 'past_due'])
       // Prefer the 'active' row if a listing somehow carries both.
@@ -111,6 +113,9 @@ export default async function ClaimsPage() {
         <StatCard count={rejectedThisMonth} label="Rejected (month)" bg="#F2D4D4" />
         <StatCard count={claims.length} label="Total" bg="#E8E3DA" />
       </div>
+
+      {/* Find any listing — not just the ones in the queue below */}
+      <ClaimsSearch />
 
       {/* Pending claims */}
       <SectionHeading label="pending" count={pending.length} />
@@ -223,12 +228,19 @@ function ClaimCard({ claim, showActions, usingPortalTable }) {
   const venueName = claim.venue_name || claim.listing_name || ''
   const createdAt = claim.created_at ? new Date(claim.created_at).toLocaleDateString() : ''
 
-  // Granted tier (active listing_claims row) beats the requested intake tier
+  // Granted tier (live listing_claims row) beats the requested intake tier.
+  // A comped Standard whose term has run out reads as Free everywhere the paid
+  // gates look (filterPaidListingIds), so it must read as Free here too — the
+  // sweep may not have rewritten the stored tier yet.
   const granted = claim.granted || null
   const requestedTier = claim.tier || claim.selected_tier || 'free'
-  const isPaidTier = granted?.tier === 'standard'
+  const comp = granted ? compStatus(granted) : null
+  const isPaidTier = !!comp?.paid
   const tierLabel = isPaidTier
-    ? (granted.stripe_subscription_id ? 'standard · paid' : 'standard · comped')
+    ? (granted.stripe_subscription_id
+        ? 'standard · paid'
+        : comp.perpetual ? 'standard · comped' : 'standard · comped term')
+    : comp?.lapsed ? 'free · comp lapsed'
     : (granted ? granted.tier : requestedTier)
 
   return (
@@ -367,9 +379,12 @@ function ClaimCard({ claim, showActions, usingPortalTable }) {
       {!showActions && claim.status === 'approved' && granted && (
         <ClaimTierActions
           claimId={claim.id}
+          listingId={claim.listing_id}
           venueName={venueName}
-          tier={granted.tier}
+          tier={comp?.lapsed ? 'free' : granted.tier}
           hasStripeSubscription={!!granted.stripe_subscription_id}
+          compExpiresAt={granted.comp_expires_at}
+          compNote={granted.comp_note}
         />
       )}
     </div>
