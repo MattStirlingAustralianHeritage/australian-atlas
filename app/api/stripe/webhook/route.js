@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
-import { grantClaim } from '@/lib/claims/grantClaim'
+import { finalizeClaim } from '@/lib/claims/grantClaim'
 
 function getStripe() {
   const Stripe = require('stripe')
@@ -524,7 +524,16 @@ async function handlePaidClaimAutoApprove(sb, {
   // failure it records failed_role_promotions for admin retry. This replaces
   // the former phantom listings write, the per-vertical commercial-row write,
   // and the separate promote-role call.
-  const grant = await grantClaim({
+  // finalizeClaim, not grantClaim: a completed Stripe Checkout IS the proof
+  // this flow gates on. The customer entered this address, a payment method was
+  // verified against it, and a receipt was delivered there. Routing paid claims
+  // through the email-verification gate instead would take the money and
+  // withhold the listing until an unrelated link got clicked — and worse, the
+  // verification path finalizes at tier 'free', which would silently downgrade
+  // someone who just paid. The bypass is recorded as proof:'stripe_payment' in
+  // listing_activity, so it is auditable rather than invisible.
+  const grant = await finalizeClaim({
+    skipVerificationCheck: true,
     listing_id: effectiveListingId,
     vertical: effectiveVertical,
     claimant_email: effectiveEmail,
@@ -642,7 +651,9 @@ async function handleUpgradeCheckout(sb, {
   // Upgrade the existing active claim in place (free → standard). grantClaim
   // resolves the owner by email, finds the active row, and attaches the Stripe
   // ids — it does not create a second claim.
-  const grant = await grantClaim({
+  // Same reasoning as the checkout path: the payment is the proof.
+  const grant = await finalizeClaim({
+    skipVerificationCheck: true,
     listing_id: listingId,
     vertical: effectiveVertical,
     claimant_email: customerEmail,

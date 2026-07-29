@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { startRun, completeRun } from '@/lib/agents/logRun'
 import { sendAgentEmail } from '@/lib/agents/email'
 import { sweepExpiredComps } from '@/lib/claims/compSweep'
+import { finalizePendingClaimsForUser } from '@/lib/claims/grantClaim'
 
 /**
  * GET /api/cron/claim-integrity
@@ -95,6 +96,40 @@ export async function GET(request) {
     const compSweep = await sweepExpiredComps(sb, { dryRun })
     for (const e of compSweep.errors) {
       violations.push({ check: 'comp_sweep_failed', detail: `comp expiry sweep ${e.stage} error${e.claim_id ? ` on claim ${e.claim_id}` : ''}: ${e.error}` })
+    }
+
+    // ── Verification backstop (reconciliation, before the checks) ──
+    // Ownership is created at /auth/callback the moment a claimed address
+    // proves itself. That call is fail-soft by design — an operator who has
+    // just signed in must land on their dashboard whether or not the
+    // bookkeeping behind them succeeded — so this catches anything the redirect
+    // dropped: a closed browser, a transient DB error, a claim that was
+    // approved after the operator had already verified. Without it, a claim
+    // could sit pending_verification forever behind an account that is, in
+    // fact, verified.
+    const settled = { finalized: 0, failed: 0, checked: 0 }
+    {
+      const { data: waiting } = await sb
+        .from('claims_review')
+        .select('claimant_email')
+        .eq('status', 'pending_verification')
+      const emails = [...new Set((waiting || []).map(w => w.claimant_email).filter(Boolean))]
+      settled.checked = emails.length
+      if (emails.length && !dryRun) {
+        const { data: userList } = await sb.auth.admin.listUsers({ perPage: 2000 })
+        const verifiedByEmail = new Map(
+          (userList?.users || [])
+            .filter(u => u.email_confirmed_at && u.email)
+            .map(u => [u.email.toLowerCase(), u])
+        )
+        for (const email of emails) {
+          const user = verifiedByEmail.get(email.toLowerCase())
+          if (!user) continue // genuinely still waiting — that's the normal state
+          const res = await finalizePendingClaimsForUser(user)
+          settled.finalized += res.finalized
+          settled.failed += res.failed
+        }
+      }
     }
 
     // ── Live claims + their listings, one pass for checks 1, 2, 4 ──
@@ -269,6 +304,9 @@ export async function GET(request) {
       live_claims: (liveClaims || []).length,
       approved_reviews: (approved || []).length,
       flagged_listings: (flagged || []).length,
+      awaiting_verification: settled.checked,
+      settled_on_sweep: settled.finalized,
+      settle_failures: settled.failed,
       violations: violations.length,
       by_check: violations.reduce((m, v) => ({ ...m, [v.check]: (m[v.check] || 0) + 1 }), {}),
       comps_expired: compSweep.downgraded.length,

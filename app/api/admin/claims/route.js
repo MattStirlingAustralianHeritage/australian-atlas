@@ -150,11 +150,16 @@ async function handleApprove({ claimId, vertical, sourceClaimId, usingPortalTabl
   }
 
   // ── 3. Record the approval on claims_review ──
+  // The status depends on whether the claimant has proven their address.
+  // Unverified → 'pending_verification': the admin has said yes, but nothing is
+  // owned yet and the listing stays claimable. Only the operator's own sign-in
+  // moves it to 'approved' (finalizeClaim does that). Overwriting it here would
+  // undo the gate this whole flow exists to enforce.
   {
     const { error } = await sb
       .from('claims_review')
       .update({
-        status: 'approved',
+        status: grant.pendingVerification ? 'pending_verification' : 'approved',
         admin_notes: mergeAdminNotes(claimRecord.admin_notes, admin_notes, 'on approval'),
         reviewed_at: new Date().toISOString(),
       })
@@ -200,9 +205,13 @@ async function handleApprove({ claimId, vertical, sourceClaimId, usingPortalTabl
         : `<p>Your listing is live on the <strong>Free tier</strong>. Want full editing, your photo gallery, opening hours and analytics? Upgrade to Standard anytime:</p>
            ${payButton('Upgrade to Standard — $295/year', 600)}`
 
-      const accessBlock = grant.provisioned
-        ? `<p>We've just sent a separate email to <strong>${email}</strong> with a secure sign-in link. Click it to finish setting up access and open your operator dashboard.</p>
-           <p style="color:#888;font-size:13px;">You can also sign in any time at <a href="${SITE_URL}/login">${SITE_URL.replace(/^https?:\/\//, '')}/login</a>.</p>`
+      // The claim is only finished once the address answers, so the copy must
+      // not imply otherwise. Telling an operator their "dashboard is ready"
+      // when ownership is still gated is exactly the mismatch that left people
+      // believing they were done while their listing sat unclaimed.
+      const accessBlock = grant.pendingVerification
+        ? `<p><strong>One step left.</strong> We've sent a separate email to <strong>${email}</strong> with a secure sign-in link. Opening it confirms this address is yours and completes the claim — until then the listing isn't assigned to anyone.</p>
+           <p style="color:#888;font-size:13px;">Can't find it? Go to <a href="${SITE_URL}/login">${SITE_URL.replace(/^https?:\/\//, '')}/login</a> and choose &ldquo;Use magic link instead&rdquo; to get a fresh one.</p>`
         : `<p><a href="${SITE_URL}/login" style="display:inline-block;padding:12px 28px;background:#5F8A7E;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Sign in to your dashboard</a></p>
            <p style="color:#888;font-size:13px;">Sign in to your Australian Atlas account (<strong>${email}</strong>) to manage your listing.</p>`
 
@@ -214,7 +223,7 @@ async function handleApprove({ claimId, vertical, sourceClaimId, usingPortalTabl
         html: `
           <h2>Claim approved</h2>
           <p>Hi ${claimantName || 'there'},</p>
-          <p>Great news! Your claim for <strong>${venueName}</strong> on <strong>${verticalName}</strong> has been approved, and your operator dashboard is ready.</p>
+          <p>Great news! Your claim for <strong>${venueName}</strong> on <strong>${verticalName}</strong> has been approved${grant.pendingVerification ? '' : ', and your operator dashboard is ready'}.</p>
           ${tierNote}
           ${accessBlock}
           <p>From your dashboard you can update your listing details, add photos, manage your subscription, and track page views.</p>
