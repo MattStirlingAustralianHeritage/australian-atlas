@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { createAuthServerClient } from '@/lib/supabase/auth-clients'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { createHash } from 'crypto'
 
@@ -24,6 +25,41 @@ export async function POST(request) {
     // Bots auto-fill it. Return 200 so bots think it worked.
     if (body.website) {
       return NextResponse.json({ success: true, claimId: 'ok' })
+    }
+
+    // ── Authenticated session required ────────────────────────
+    // Until 2026-07-29 this route took a typed email and nothing else: no
+    // session, no verification, no proof the submitter had any connection to
+    // the address. Approving such a claim handed over a listing on the
+    // strength of a string in a form field.
+    //
+    // A claim now starts from a real Atlas account, and the claimed address
+    // must be that account's own — you may claim as yourself, never on behalf
+    // of some other mailbox. That single rule is what makes the identity
+    // meaningful: the address on the claim is one the submitter has already
+    // signed in to.
+    //
+    // 401 + code 'auth_required' is a contract with ClaimForm, which uses it
+    // to show the sign-in step instead of an error. Returned BEFORE any write.
+    const authSb = await createAuthServerClient()
+    const { data: { user: sessionUser } } = await authSb.auth.getUser()
+    if (!sessionUser) {
+      return NextResponse.json(
+        { error: 'Please sign in to claim a listing.', code: 'auth_required' },
+        { status: 401 }
+      )
+    }
+
+    const sessionEmail = (sessionUser.email || '').toLowerCase().trim()
+    const claimedEmail = (email || '').toLowerCase().trim()
+    if (claimedEmail && claimedEmail !== sessionEmail) {
+      return NextResponse.json(
+        {
+          error: `You're signed in as ${sessionUser.email}. Claims have to be made from the account that owns the email address — sign in as ${email} and try again.`,
+          code: 'email_mismatch',
+        },
+        { status: 403 }
+      )
     }
 
     // ── DB-persisted rate limiting (5 claims/hour per IP) ────
@@ -110,7 +146,7 @@ export async function POST(request) {
       .from('claims_review')
       .select('id')
       .eq('listing_id', listingId)
-      .eq('claimant_email', email.trim())
+      .eq('claimant_email', sessionEmail)
       .eq('status', 'pending')
       .maybeSingle()
 
@@ -128,7 +164,11 @@ export async function POST(request) {
         listing_id: listingId,
         vertical: listing.vertical,
         claimant_name: name.trim(),
-        claimant_email: email.trim(),
+        // The SESSION's address, not the typed one. They were checked equal
+        // above; storing the session copy means the claim can never carry an
+        // address its submitter hasn't signed in to.
+        claimant_email: sessionEmail,
+        claimed_by: sessionUser.id,
         tier: ['free', 'standard'].includes(tier) ? tier : 'free',
         status: 'pending',
         admin_notes: `Role: ${role || 'not specified'}. Tier: ${tier || 'free'}. Domain: ${websiteDomain?.trim() || 'not provided'}`,
@@ -155,7 +195,7 @@ export async function POST(request) {
     sb.from('claim_audit_log').insert({
       claim_id: insertedClaim?.id,
       action: 'created',
-      actor: email.trim(),
+      actor: sessionEmail,
       details: { listing_id: listingId, tier: tier || 'free', vertical: listing.vertical },
     }).then(null, err => console.error('[claim] Audit log error:', err))
 
@@ -168,7 +208,7 @@ export async function POST(request) {
         // 1. Confirmation to claimant
         resend.emails.send({
           from: 'Australian Atlas <noreply@australianatlas.com.au>',
-          to: email.trim(),
+          to: sessionEmail,
           subject: `Claim received for ${listingName}`,
           html: `
             <h2>We've received your claim</h2>

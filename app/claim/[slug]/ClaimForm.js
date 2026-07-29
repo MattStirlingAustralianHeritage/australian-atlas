@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { getAuthSupabase } from '@/lib/supabase/auth-clients'
 
 const TIERS = [
   {
@@ -33,6 +34,46 @@ export default function ClaimForm({ listingId, listingName, slug, vertColor }) {
   const [submitted, setSubmitted] = useState(false)
   const [paymentPending, setPaymentPending] = useState(false)
   const [error, setError] = useState(null)
+  // Identity. A claim now starts from a signed-in account, so the email is
+  // something we already know rather than something the visitor asserts.
+  // `authChecked` keeps the form from flashing the wrong panel on first paint.
+  const [sessionEmail, setSessionEmail] = useState(null)
+  const [authChecked, setAuthChecked] = useState(false)
+  const [linkEmail, setLinkEmail] = useState('')
+  const [linkSent, setLinkSent] = useState(false)
+  const [sendingLink, setSendingLink] = useState(false)
+
+  useEffect(() => {
+    getAuthSupabase().auth.getUser()
+      .then(({ data: { user } }) => {
+        if (user?.email) { setSessionEmail(user.email); setEmail(user.email) }
+      })
+      .catch(() => { /* treat as signed out */ })
+      .finally(() => setAuthChecked(true))
+  }, [])
+
+  // Sign-in step: mail a magic link to the address being claimed, returning
+  // the operator to this exact claim page once they land. The address they
+  // verify here is the address the claim will carry — that is the whole point.
+  async function handleSendLink(e) {
+    e.preventDefault()
+    setError(null)
+    setSendingLink(true)
+    try {
+      const res = await fetch('/api/auth/email-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'magiclink', email: linkEmail.trim(), next: `/claim/${slug}` }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { setError(data.error || 'Could not send your sign-in link. Please try again.'); return }
+      setLinkSent(true)
+    } catch {
+      setError('Network error. Please check your connection and try again.')
+    } finally {
+      setSendingLink(false)
+    }
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -60,6 +101,15 @@ export default function ClaimForm({ listingId, listingName, slug, vertColor }) {
       const data = await res.json()
 
       if (!res.ok) {
+        // The session lapsed between page load and submit (or was never there).
+        // Drop back to the sign-in step rather than showing a dead error — the
+        // claim itself is still valid, it just needs an identity behind it.
+        if (data.code === 'auth_required') {
+          setSessionEmail(null)
+          setLinkEmail(email.trim())
+          setError('Please confirm your email address to continue — we\'ll send you a sign-in link.')
+          return
+        }
         setError(data.error || 'Something went wrong. Please try again.')
         return
       }
@@ -106,6 +156,80 @@ export default function ClaimForm({ listingId, listingName, slug, vertColor }) {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const panelStyle = { background: 'var(--color-cream)', border: '1px solid var(--color-border)' }
+  const headingStyle = {
+    fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '20px', color: 'var(--color-ink)',
+  }
+  const bodyStyle = {
+    fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 300,
+    color: 'var(--color-muted)', lineHeight: 1.5,
+  }
+
+  // Don't paint either branch until we know which one is right — a flash of
+  // "sign in" to an already-signed-in operator reads as being logged out.
+  if (!authChecked) {
+    return (
+      <div className="text-center py-10 px-5 rounded-xl" style={panelStyle}>
+        <p style={bodyStyle}>Loading…</p>
+      </div>
+    )
+  }
+
+  // ── Sign-in gate ──
+  // No account, no claim. Verifying the address here is what makes the claim
+  // mean something: by the time an admin sees it, the person has already
+  // proven they can read mail at the address they are claiming from.
+  if (!sessionEmail) {
+    if (linkSent) {
+      return (
+        <div className="text-center py-10 px-5 rounded-xl" style={panelStyle}>
+          <h3 className="mb-2" style={headingStyle}>Check your email</h3>
+          <p style={bodyStyle}>
+            We&rsquo;ve sent a sign-in link to <strong style={{ fontWeight: 500 }}>{linkEmail}</strong>.
+            Open it and you&rsquo;ll come straight back here to finish claiming{' '}
+            <strong style={{ fontWeight: 500 }}>{listingName}</strong>.
+          </p>
+        </div>
+      )
+    }
+    return (
+      <form onSubmit={handleSendLink} className="py-8 px-5 rounded-xl" style={panelStyle}>
+        <h3 className="mb-2" style={headingStyle}>First, confirm your email</h3>
+        <p className="mb-4" style={bodyStyle}>
+          To claim <strong style={{ fontWeight: 500 }}>{listingName}</strong> we need to know the claim is
+          really coming from you. Enter your email and we&rsquo;ll send a sign-in link — no password to set up.
+        </p>
+        <label htmlFor="claim-link-email" className="block mb-1" style={{ ...bodyStyle, color: 'var(--color-ink)' }}>
+          Your email address
+        </label>
+        <input
+          id="claim-link-email"
+          type="email"
+          required
+          value={linkEmail}
+          onChange={(e) => setLinkEmail(e.target.value)}
+          placeholder="you@yourvenue.com.au"
+          className="w-full px-3 py-2 rounded-lg mb-3"
+          style={{ border: '1px solid var(--color-border)', fontFamily: 'var(--font-body)', fontSize: '14px' }}
+        />
+        {error && (
+          <p className="mb-3" style={{ ...bodyStyle, color: '#b91c1c' }}>{error}</p>
+        )}
+        <button
+          type="submit"
+          disabled={sendingLink || !linkEmail.trim()}
+          className="w-full py-2.5 rounded-lg"
+          style={{
+            background: vertColor, color: '#fff', fontFamily: 'var(--font-body)',
+            fontSize: '14px', fontWeight: 500, opacity: sendingLink || !linkEmail.trim() ? 0.6 : 1,
+          }}
+        >
+          {sendingLink ? 'Sending…' : 'Send me a sign-in link'}
+        </button>
+      </form>
+    )
   }
 
   if (submitted) {
@@ -238,15 +362,20 @@ export default function ClaimForm({ listingId, listingName, slug, vertColor }) {
           <label htmlFor="claim-email" style={labelStyle}>
             Email <span style={{ color: vertColor }}>*</span>
           </label>
+          {/* Read-only: this is the verified session address, and the server
+              rejects any claim whose email differs from it. Leaving it editable
+              would only invite a 403 the operator can't act on. */}
           <input
             id="claim-email"
             type="email"
             required
+            readOnly
             value={email}
-            onChange={e => setEmail(e.target.value)}
-            placeholder="you@example.com"
-            style={inputStyle}
+            style={{ ...inputStyle, background: 'var(--color-cream)', cursor: 'not-allowed' }}
           />
+          <p style={{ fontFamily: 'var(--font-body)', fontSize: '12px', fontWeight: 300, color: 'var(--color-muted)', marginTop: 4 }}>
+            Signed in as {sessionEmail}. Your claim will be tied to this address.
+          </p>
         </div>
 
         {/* Role */}
