@@ -68,3 +68,8 @@ ko-review.html
 
 messages/.*.hash.json
 .next-map-cache/
+
+# Remediation output — contains operator email addresses, generated on demand
+_remediation/
+_rows.json
+_stripe_flagged.json
