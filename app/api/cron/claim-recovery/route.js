@@ -6,6 +6,7 @@ import { sendAgentEmail } from '@/lib/agents/email'
 import { claimRecoveryEmail } from '@/lib/email/claimRecoveryEmail'
 import { claimActivationEmail } from '@/lib/email/claimActivationEmail'
 import { LIVE_CLAIM_STATUSES } from '@/lib/claims/statuses'
+import { mintSignInUrl } from '@/lib/auth/signInLink'
 
 /**
  * GET /api/cron/claim-recovery
@@ -529,24 +530,3 @@ async function runVerificationNudge({ sb, resend, dryRun, nowMs }) {
   return out
 }
 
-/**
- * Mint a fresh, single-use sign-in URL for an existing operator account.
- *
- * Prefers a magic link. Falls back to re-issuing the invite, which is how these
- * accounts were created in the first place: an operator who never accepted is
- * still unconfirmed, and some GoTrue versions refuse magiclink for an
- * unconfirmed address. Both land on /auth/callback, which verifies the
- * token_hash and drops them straight into the dashboard.
- */
-async function mintSignInUrl(sb, email) {
-  const redirectTo = `${SITE_URL}/auth/callback?next=/dashboard`
-
-  for (const type of ['magiclink', 'invite']) {
-    const { data, error } = await sb.auth.admin.generateLink({ type, email, options: { redirectTo } })
-    const tokenHash = data?.properties?.hashed_token
-    if (!error && tokenHash) {
-      return `${SITE_URL}/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=${type}&next=/dashboard`
-    }
-  }
-  throw new Error(`could not mint a sign-in link for ${email}`)
-}
