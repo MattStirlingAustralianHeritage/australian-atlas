@@ -68,6 +68,11 @@ export const maxDuration = 120
 
 const AGENT_NAME = 'claim-integrity'
 
+// listings.hidden_reason value that marks a deliberate test fixture. Set by
+// hand, never by a pipeline, so it can only ever exempt something a human
+// chose to exempt. Check 2 skips these.
+const HIDDEN_REASON_FIXTURE = 'test_fixture'
+
 export async function GET(request) {
   const authHeader = request.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -95,12 +100,11 @@ export async function GET(request) {
     // ── Live claims + their listings, one pass for checks 1, 2, 4 ──
     const { data: liveClaims, error: lcErr } = await sb
       .from('listing_claims')
-      .select('id, listing_id, claimed_by, claimant_email, tier, status, listings(id, name, vertical, is_claimed, status)')
+      .select('id, listing_id, claimed_by, claimant_email, tier, status, listings(id, name, vertical, is_claimed, status, hidden_reason)')
       .in('status', ['active', 'past_due'])
     if (lcErr) throw lcErr
 
-    // Owner profiles, resolved up front: checks 5 and 6 need them, and check 2
-    // needs to know whether an owner is an admin before it decides to shout.
+    // Owner profiles for checks 5 and 6.
     const claimantIds = [...new Set((liveClaims || []).map(c => c.claimed_by).filter(Boolean))]
     const profileById = new Map()
     for (let i = 0; i < claimantIds.length; i += 100) {
@@ -127,16 +131,21 @@ export async function GET(request) {
       if (l.is_claimed !== true) {
         violations.push({ check: 'flag_trampled', detail: `${label}: is_claimed=${l.is_claimed} with live ${c.tier} claim (${c.claimant_email})`, email: c.claimant_email })
       }
-      // Check 2 exists to catch a real operator owning — or paying for — a page
-      // the public cannot see. An ADMIN-owned claim on a hidden listing is a
-      // test fixture, not a customer being harmed: "Admin Test Brewery" (auto-
-      // hidden by the no-website rule, claimed by Matt on a Stripe-less
-      // 'standard' row) made this fire on every 6-hourly run, so the agent
-      // reported 'partial' permanently and the alert stopped carrying
-      // information. That desensitisation is precisely how the missing
-      // flag_orphaned check stayed unnoticed. Exempting admins keeps the signal
-      // for every operator while retiring the standing false alarm.
-      if (l.status !== 'active' && profileById.get(c.claimed_by)?.role !== 'admin') {
+      // Check 2 exists to catch a REAL operator owning — or paying for — a page
+      // the public cannot see. Matt's own "Admin Test Brewery" fixture sits in
+      // exactly that shape (auto-hidden by the no-website rule, live 'standard'
+      // claim), so this fired on every 6-hourly run for weeks and the agent
+      // reported 'partial' permanently. An alert that is always red is an alert
+      // nobody reads — which is precisely how the missing flag_orphaned check
+      // above went unnoticed for so long.
+      //
+      // Exempt on an explicit marker rather than anything inferred. Owner role
+      // was the obvious candidate and is useless here: NO profile in this system
+      // has role='admin' (Matt's own profile is 'vendor' — admin access runs off
+      // the separate atlas_admin cookie), so a role-based exemption would never
+      // have fired. hidden_reason='test_fixture' is set deliberately by a human
+      // and no operator listing will ever carry it.
+      if (l.status !== 'active' && l.hidden_reason !== HIDDEN_REASON_FIXTURE) {
         violations.push({ check: 'listing_hidden', detail: `${label}: listing status='${l.status}' with live ${c.tier} claim (${c.claimant_email})`, email: c.claimant_email })
       }
       byListing.set(c.listing_id, (byListing.get(c.listing_id) || 0) + 1)

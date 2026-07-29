@@ -5,6 +5,7 @@ import { checkAdmin } from '@/lib/admin-auth'
 import { grantClaim } from '@/lib/claims/grantClaim'
 import { LIVE_CLAIM_STATUSES } from '@/lib/claims/statuses'
 import { compExpiryFromDuration, isValidCompDuration, DEFAULT_COMP_DURATION } from '@/lib/claims/comp.mjs'
+import { mergeAdminNotes } from '@/lib/claims/adminNotes.mjs'
 
 // GET — return pending claims (for potential future API consumers)
 export async function GET() {
@@ -90,32 +91,6 @@ const VERTICAL_NAMES = {
 // vertical /vendor/login surface. Sign-in is driven off the Supabase invite that
 // grantClaim sends; this is the fallback / existing-user sign-in base.
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.australianatlas.com.au'
-
-/**
- * Merge an admin's typed note onto the note already on the claim, instead of
- * replacing it.
- *
- * The stored note is the claim's provenance: "Synced from {vertical} vertical."
- * (from /api/internal/sync-claim) or "Role: … Tier: … Domain: …" (from the
- * public form). It records who the claimant said they were and which domain
- * they claimed to speak for — the evidence a grant rests on.
- *
- * Both review paths used to write `admin_notes || null`, so approving or
- * rejecting without typing anything silently deleted it. By 2026-07-29 that had
- * wiped the origin of all 52 approved claims, leaving no way to tell an
- * operator-initiated claim from an admin grant after the fact.
- *
- * @param {string|null} prior  note currently on the claims_review row
- * @param {string|null} typed  note the admin entered in this action (may be blank)
- * @param {string} occasion    'on approval' | 'on rejection'
- * @returns {string|null}
- */
-function mergeAdminNotes(prior, typed, occasion) {
-  const priorNote = (prior || '').trim()
-  const typedNote = (typed || '').trim()
-  if (priorNote && typedNote) return `${priorNote}\n— ${occasion}: ${typedNote}`
-  return typedNote || priorNote || null
-}
 
 // ─── Approve ──────────────────────────────────────────────
 
