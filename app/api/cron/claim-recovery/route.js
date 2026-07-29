@@ -65,6 +65,11 @@ const MATT_EMAIL = 'matt@australianatlas.com.au'
 const DAY_MS = 24 * 60 * 60 * 1000
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.australianatlas.com.au'
 
+// Resend's published limit is 2 requests/second. 600ms keeps a full cohort
+// comfortably under it; 24 operators cost ~14s, well inside maxDuration.
+const SEND_INTERVAL_MS = 600
+const sleep = (ms) => new Promise(r => setTimeout(r, ms))
+
 export async function GET(request) {
   const authHeader = request.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -237,6 +242,7 @@ export async function GET(request) {
 async function runActivationNudge({ sb, resend, dryRun, nowMs }) {
   const enabled = process.env.CLAIM_ACTIVATION_NUDGE_ENABLED === '1'
   const out = { enabled, eligible: 0, sent: 0, results: [], errors: [] }
+  let sentThisRun = 0
 
   // Grants younger than 48h are excluded: the operator may simply not have got
   // to their inbox yet, and the original invite is still fresh. Older than 90d
@@ -304,15 +310,23 @@ async function runActivationNudge({ sb, resend, dryRun, nowMs }) {
       continue
     }
 
+    // Resend allows ~2 requests/second. 24 sends in a tight loop trips that,
+    // and a 429 here is not a harmless retry-later: the stamp below is written
+    // first, so a rate-limited operator would be recorded as nudged and never
+    // mailed. Pace the loop under the limit rather than rely on the rollback.
+    if (sentThisRun > 0) await sleep(SEND_INTERVAL_MS)
+
+    let stamped = false
     try {
-      // Stamp BEFORE minting/sending. Worst case an operator misses one nudge;
-      // the alternative — a crash between send and stamp — mails them twice.
+      // Stamp BEFORE minting/sending: a crash between a successful send and the
+      // stamp would mail the operator twice, which is worse than a missed nudge.
       const { error: stampErr } = await sb
         .from('listing_claims')
         .update({ activation_nudge_sent_at: new Date().toISOString() })
         .eq('id', claim.id)
         .is('activation_nudge_sent_at', null)
       if (stampErr) throw stampErr
+      stamped = true
 
       const signInUrl = await mintSignInUrl(sb, claim.claimant_email)
       const message = claimActivationEmail({
@@ -325,11 +339,27 @@ async function runActivationNudge({ sb, resend, dryRun, nowMs }) {
       if (resend) {
         const { error: sendErr } = await resend.emails.send({ ...message, to: claim.claimant_email })
         if (sendErr) throw new Error(sendErr.message || 'resend send failed')
+        sentThisRun++
       }
       out.results.push({ ...row, status: resend ? 'sent' : 'skipped_no_resend' })
       if (resend) out.sent++
     } catch (e) {
-      out.errors.push({ claimId: claim.id, to: claim.claimant_email, error: e.message })
+      // The send failed, so the stamp is a lie — clear it and let tomorrow's run
+      // try again. Without this a transient 429 or a Resend blip would strand an
+      // operator permanently, which is the exact failure this whole phase exists
+      // to undo. The double-send window (send succeeded but threw) is far
+      // narrower than the drop-forever window it replaces.
+      if (stamped) {
+        const { error: rollbackErr } = await sb
+          .from('listing_claims')
+          .update({ activation_nudge_sent_at: null })
+          .eq('id', claim.id)
+        if (rollbackErr) {
+          out.errors.push({ claimId: claim.id, to: claim.claimant_email, error: `send failed (${e.message}) AND stamp rollback failed (${rollbackErr.message}) — this operator will not be retried automatically` })
+          continue
+        }
+      }
+      out.errors.push({ claimId: claim.id, to: claim.claimant_email, error: `${e.message} (stamp rolled back; will retry next run)` })
     }
   }
 
