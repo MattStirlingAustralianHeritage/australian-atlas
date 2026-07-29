@@ -91,6 +91,32 @@ const VERTICAL_NAMES = {
 // grantClaim sends; this is the fallback / existing-user sign-in base.
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.australianatlas.com.au'
 
+/**
+ * Merge an admin's typed note onto the note already on the claim, instead of
+ * replacing it.
+ *
+ * The stored note is the claim's provenance: "Synced from {vertical} vertical."
+ * (from /api/internal/sync-claim) or "Role: … Tier: … Domain: …" (from the
+ * public form). It records who the claimant said they were and which domain
+ * they claimed to speak for — the evidence a grant rests on.
+ *
+ * Both review paths used to write `admin_notes || null`, so approving or
+ * rejecting without typing anything silently deleted it. By 2026-07-29 that had
+ * wiped the origin of all 52 approved claims, leaving no way to tell an
+ * operator-initiated claim from an admin grant after the fact.
+ *
+ * @param {string|null} prior  note currently on the claims_review row
+ * @param {string|null} typed  note the admin entered in this action (may be blank)
+ * @param {string} occasion    'on approval' | 'on rejection'
+ * @returns {string|null}
+ */
+function mergeAdminNotes(prior, typed, occasion) {
+  const priorNote = (prior || '').trim()
+  const typedNote = (typed || '').trim()
+  if (priorNote && typedNote) return `${priorNote}\n— ${occasion}: ${typedNote}`
+  return typedNote || priorNote || null
+}
+
 // ─── Approve ──────────────────────────────────────────────
 
 async function handleApprove({ claimId, vertical, sourceClaimId, usingPortalTable, admin_notes }) {
@@ -154,7 +180,7 @@ async function handleApprove({ claimId, vertical, sourceClaimId, usingPortalTabl
       .from('claims_review')
       .update({
         status: 'approved',
-        admin_notes: admin_notes || null,
+        admin_notes: mergeAdminNotes(claimRecord.admin_notes, admin_notes, 'on approval'),
         reviewed_at: new Date().toISOString(),
       })
       .eq('id', claimId)
@@ -265,11 +291,19 @@ async function handleReject({ claimId, vertical, sourceClaimId, usingPortalTable
 
   // 1. Update portal claims_review table
   if (usingPortalTable) {
+    // Same provenance rule as approval — a rejection is exactly when you most
+    // want to keep what the claimant originally asserted about themselves.
+    const { data: prior } = await sb
+      .from('claims_review')
+      .select('admin_notes')
+      .eq('id', claimId)
+      .maybeSingle()
+
     const { error } = await sb
       .from('claims_review')
       .update({
         status: 'rejected',
-        admin_notes: admin_notes || null,
+        admin_notes: mergeAdminNotes(prior?.admin_notes, admin_notes, 'on rejection'),
         reviewed_at: new Date().toISOString(),
       })
       .eq('id', claimId)
