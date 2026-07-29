@@ -47,10 +47,16 @@ import { finalizePendingClaimsForUser } from '@/lib/claims/grantClaim'
  *                       is locked OUT of claiming while no account can reach
  *                       a dashboard. Found two live examples (Bindi Wine
  *                       Growers, 1813) that had sat silent indefinitely.
+ *   8. verification_stalled — a claim approved into 'pending_verification'
+ *                       (migration 265) whose address still hasn't answered
+ *                       after 14 days. Ownership correctly does not exist, but
+ *                       the operator asked, was told yes, and has nothing. The
+ *                       state is right; the silence is not.
  *
  * Checks 1–4 and 7 guard the listing side of the invariant; 5–6 guard the
- * account side — a live claim is worthless if its owner can't get in the
- * front door.
+ * account side — a live claim is worthless if its owner can't get in the front
+ * door. Check 8 guards the gap between the two: a claim that is correctly not
+ * yet owned, but has been waiting so long that nobody is coming.
  *
  * Also runs the COMP EXPIRY SWEEP (migration 261) before the checks: comped
  * Standard grants can carry a term, and when one runs out this writes the tier
@@ -255,6 +261,32 @@ export async function GET(request) {
       })
     }
 
+    // ── Check 8: approved, but stuck waiting for proof ──
+    // The settle sweep above finalizes anyone who has since verified, so what
+    // remains here has genuinely never answered. Sitting in that state for a
+    // fortnight means the operator asked for the listing, was told yes, and has
+    // nothing — the invite bounced, went to spam, or was never opened, and the
+    // nudge (claim-recovery phase 3) has already had its one attempt. Silence
+    // was how the original 33 accumulated; this is what makes the successor
+    // state audible instead.
+    const STALE_VERIFICATION_DAYS = 14
+    const staleBefore = new Date(Date.now() - STALE_VERIFICATION_DAYS * 24 * 60 * 60 * 1000).toISOString()
+    const { data: stalled, error: stErr } = await sb
+      .from('claims_review')
+      .select('id, claimant_email, reviewed_at, verification_nudge_sent_at, listings(name, vertical)')
+      .eq('status', 'pending_verification')
+      .lte('reviewed_at', staleBefore)
+    if (stErr) throw stErr
+
+    for (const c of stalled || []) {
+      const label = c.listings ? `${c.listings.name} [${c.listings.vertical}]` : `claim ${c.id}`
+      violations.push({
+        check: 'verification_stalled',
+        detail: `${label}: approved ${c.reviewed_at?.slice(0, 10)} for ${c.claimant_email} but never verified — ${c.verification_nudge_sent_at ? 'nudged, still nothing' : 'not yet nudged'}. The operator asked, was approved, and has no listing.`,
+        email: c.claimant_email,
+      })
+    }
+
     // ── Checks 5 & 6: the account side — can the owner actually get in? ──
     // (profileById was resolved above, before check 2 needed it.)
     for (const c of liveClaims || []) {
@@ -305,6 +337,7 @@ export async function GET(request) {
       approved_reviews: (approved || []).length,
       flagged_listings: (flagged || []).length,
       awaiting_verification: settled.checked,
+      verification_stalled: (stalled || []).length,
       settled_on_sweep: settled.finalized,
       settle_failures: settled.failed,
       violations: violations.length,

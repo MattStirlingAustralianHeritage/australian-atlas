@@ -10,8 +10,8 @@ import { LIVE_CLAIM_STATUSES } from '@/lib/claims/statuses'
 /**
  * GET /api/cron/claim-recovery
  *
- * Two phases, both about operators who fell out of the claim funnel and were
- * never chased. Runs daily 09:30 AEST (23:30 UTC).
+ * Three phases, each a different way an operator falls out of the claim funnel
+ * and is never chased. Runs daily 09:30 AEST (23:30 UTC).
  *
  * ── PHASE 1: abandoned checkout ──
  * A claims_review row (tier='standard', status='pending') is created before the
@@ -47,10 +47,30 @@ import { LIVE_CLAIM_STATUSES } from '@/lib/claims/statuses'
  *   - activation_nudge_sent_at IS NULL (migration 264)
  *   - the owning auth user has last_sign_in_at IS NULL — never once signed in
  *
- * Phase 2 sends only when CLAIM_ACTIVATION_NUDGE_ENABLED='1'. Default OFF, the
- * same posture as the outreach autopilots: a batch of mail to real operators is
- * not something a deploy should be able to trigger by itself. With the flag off
- * it computes the cohort and reports it, sending nothing.
+ * ── PHASE 3: approved, but the address never confirmed (added 2026-07-29) ──
+ * Migration 265 moved ownership behind proof, so an approved claim waits at
+ * claims_review 'pending_verification' with NO listing_claims row until the
+ * claimed address answers. That fixed the original fault and created a smaller
+ * one: phase 2 reads listing_claims, so a claim with no ownership row is
+ * invisible to it. A claimant who never opened their invite would sit unchased
+ * and unreported — the same silent stranding as the original 33, one table over.
+ *
+ * Eligible when:
+ *   - claims_review.status = 'pending_verification'
+ *   - reviewed_at between 48h and 90d ago
+ *   - verification_nudge_sent_at IS NULL (migration 266)
+ *   - the claimed address is still unverified
+ *
+ * Its copy differs from phase 2 for a reason that matters: these claimants do
+ * NOT own the listing yet, so they are told the claim is unfinished rather than
+ * that a dashboard is waiting for them.
+ *
+ * Phases 2 and 3 send only when CLAIM_ACTIVATION_NUDGE_ENABLED='1' — one switch
+ * for "may this agent mail operators", rather than two that can disagree.
+ * Default OFF, the same posture as the outreach autopilots: a batch of mail to
+ * real operators is not something a deploy should be able to trigger by itself.
+ * With the flag off both phases compute their cohort and report it, sending
+ * nothing.
  *
  * ?dryRun=1  compute + return JSON; nothing stamped, one sample mail to Matt.
  *
@@ -70,6 +90,13 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.australianatla
 const SEND_INTERVAL_MS = 600
 const sleep = (ms) => new Promise(r => setTimeout(r, ms))
 
+// Sends made so far in THIS invocation, shared by every phase that mails.
+// Phase-local counters would let phase 3's first send fire immediately after
+// phase 2's last one and burst through Resend's limit at the seam. Reset at the
+// top of GET, since a warm lambda keeps module state between invocations.
+let sendsThisRun = 0
+const paceSend = async () => { if (sendsThisRun > 0) await sleep(SEND_INTERVAL_MS) }
+
 export async function GET(request) {
   const authHeader = request.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -81,6 +108,7 @@ export async function GET(request) {
   const runId = await startRun(AGENT_NAME)
   const sb = getSupabaseAdmin()
   const nowMs = Date.now()
+  sendsThisRun = 0
   const results = []
   const errors = []
 
@@ -173,8 +201,11 @@ export async function GET(request) {
     // ── PHASE 2: granted, but the operator has never once signed in ──
     const activation = await runActivationNudge({ sb, resend, dryRun, nowMs })
 
+    // ── PHASE 3: approved, but the address never confirmed ──
+    const verification = await runVerificationNudge({ sb, resend, dryRun, nowMs })
+
     // ── 4. Admin summary ──
-    const totalSent = sent + activation.sent
+    const totalSent = sent + activation.sent + verification.sent
     if (!dryRun && totalSent > 0) {
       try {
         const phase1Block = sent > 0
@@ -187,9 +218,15 @@ export async function GET(request) {
             activation.results.filter(r => r.status === 'sent').map(r => `<li>${r.listing} — ${r.to}${r.paid ? ' <strong>(paying Standard)</strong>' : ''}</li>`).join('')
           }</ul>`
           : ''
+        const phase3Block = verification.sent > 0
+          ? `<p><strong>${verification.sent}</strong> approved claim${verification.sent === 1 ? '' : 's'} still unconfirmed were asked again to verify. These listings are NOT yet owned.</p><ul>${
+            verification.results.filter(r => r.status === 'sent').map(r => `<li>${r.listing} — ${r.to} (approved ${r.approved})</li>`).join('')
+          }</ul>`
+          : ''
+        const errCount = errors.length + activation.errors.length + verification.errors.length
         await sendAgentEmail({
           subject: `[Atlas] Claim recovery — ${totalSent} operator${totalSent === 1 ? '' : 's'} nudged`,
-          html: `${phase1Block}${phase2Block}${errors.length || activation.errors.length ? `<p>${errors.length + activation.errors.length} error(s).</p>` : ''}`,
+          html: `${phase1Block}${phase2Block}${phase3Block}${errCount ? `<p>${errCount} error(s).</p>` : ''}`,
         })
       } catch { /* best-effort */ }
     }
@@ -204,10 +241,13 @@ export async function GET(request) {
       activation_sent: activation.sent,
       activation_errors: activation.errors.length,
       activation_enabled: activation.enabled,
+      verification_eligible: verification.eligible,
+      verification_sent: verification.sent,
+      verification_errors: verification.errors.length,
       dry_run: dryRun,
     }
     await completeRun(runId, {
-      status: errors.length || activation.errors.length ? 'partial' : 'success',
+      status: errors.length || activation.errors.length || verification.errors.length ? 'partial' : 'success',
       summary,
     })
     return NextResponse.json({
@@ -217,6 +257,7 @@ export async function GET(request) {
       results,
       errors,
       activation,
+      verification,
     })
   } catch (err) {
     console.error('[claim-recovery] fatal:', err.message)
@@ -242,7 +283,6 @@ export async function GET(request) {
 async function runActivationNudge({ sb, resend, dryRun, nowMs }) {
   const enabled = process.env.CLAIM_ACTIVATION_NUDGE_ENABLED === '1'
   const out = { enabled, eligible: 0, sent: 0, results: [], errors: [] }
-  let sentThisRun = 0
 
   // Grants younger than 48h are excluded: the operator may simply not have got
   // to their inbox yet, and the original invite is still fresh. Older than 90d
@@ -314,7 +354,7 @@ async function runActivationNudge({ sb, resend, dryRun, nowMs }) {
     // and a 429 here is not a harmless retry-later: the stamp below is written
     // first, so a rate-limited operator would be recorded as nudged and never
     // mailed. Pace the loop under the limit rather than rely on the rollback.
-    if (sentThisRun > 0) await sleep(SEND_INTERVAL_MS)
+    await paceSend()
 
     let stamped = false
     try {
@@ -339,7 +379,7 @@ async function runActivationNudge({ sb, resend, dryRun, nowMs }) {
       if (resend) {
         const { error: sendErr } = await resend.emails.send({ ...message, to: claim.claimant_email })
         if (sendErr) throw new Error(sendErr.message || 'resend send failed')
-        sentThisRun++
+        sendsThisRun++
       }
       out.results.push({ ...row, status: resend ? 'sent' : 'skipped_no_resend' })
       if (resend) out.sent++
@@ -356,6 +396,129 @@ async function runActivationNudge({ sb, resend, dryRun, nowMs }) {
           .eq('id', claim.id)
         if (rollbackErr) {
           out.errors.push({ claimId: claim.id, to: claim.claimant_email, error: `send failed (${e.message}) AND stamp rollback failed (${rollbackErr.message}) — this operator will not be retried automatically` })
+          continue
+        }
+      }
+      out.errors.push({ claimId: claim.id, to: claim.claimant_email, error: `${e.message} (stamp rolled back; will retry next run)` })
+    }
+  }
+
+  return out
+}
+
+/**
+ * PHASE 3 — approved by an admin, but the claimed address never confirmed.
+ *
+ * Migration 265 put ownership behind proof, so an approved claim now waits at
+ * claims_review 'pending_verification' with NO listing_claims row. That closed
+ * the original fault and opened a smaller one: phase 2 reads listing_claims, so
+ * a claim with no ownership row is invisible to it. Without this phase a
+ * claimant who never opened their invite would sit unchased and unreported —
+ * the same silent stranding as the original 33, one table over.
+ *
+ * The copy differs from phase 2 for a reason that matters: these people do NOT
+ * own the listing yet, so they are told the claim is unfinished rather than
+ * that their dashboard is waiting.
+ *
+ * Shares CLAIM_ACTIVATION_NUDGE_ENABLED with phase 2 — one switch for "may this
+ * agent mail operators", rather than two that can disagree.
+ *
+ * @returns {{ enabled: boolean, eligible: number, sent: number, results: object[], errors: object[] }}
+ */
+async function runVerificationNudge({ sb, resend, dryRun, nowMs }) {
+  const enabled = process.env.CLAIM_ACTIVATION_NUDGE_ENABLED === '1'
+  const out = { enabled, eligible: 0, sent: 0, results: [], errors: [] }
+
+  // Younger than 48h and the original invite is still fresh in their inbox.
+  const notBefore = new Date(nowMs - 90 * DAY_MS).toISOString()
+  const notAfter = new Date(nowMs - 2 * DAY_MS).toISOString()
+
+  const { data: waiting, error } = await sb
+    .from('claims_review')
+    .select('id, listing_id, vertical, claimant_name, claimant_email, tier, reviewed_at, listings(name, slug)')
+    .eq('status', 'pending_verification')
+    .is('verification_nudge_sent_at', null)
+    .lte('reviewed_at', notAfter)
+    .gte('reviewed_at', notBefore)
+    .order('reviewed_at', { ascending: true })
+    .limit(200)
+  if (error) {
+    out.errors.push({ stage: 'query', error: error.message })
+    return out
+  }
+  if (!waiting?.length) return out
+
+  // Anyone who has since verified is not stalled — the claim-integrity sweep
+  // settles them. Mailing them "one step left" would be simply wrong.
+  const { data: userList, error: uErr } = await sb.auth.admin.listUsers({ perPage: 2000 })
+  if (uErr) {
+    out.errors.push({ stage: 'listUsers', error: uErr.message })
+    return out
+  }
+  const verifiedEmails = new Set(
+    (userList?.users || []).filter(u => u.email_confirmed_at && u.email).map(u => u.email.toLowerCase())
+  )
+
+  const stalled = waiting.filter(c => c.claimant_email && !verifiedEmails.has(c.claimant_email.toLowerCase()))
+  out.eligible = stalled.length
+  if (!stalled.length) return out
+
+  for (const claim of stalled) {
+    const row = {
+      claimId: claim.id,
+      listing: claim.listings?.name || claim.listing_id,
+      to: claim.claimant_email,
+      approved: claim.reviewed_at?.slice(0, 10),
+    }
+
+    if (!enabled || dryRun) {
+      out.results.push({ ...row, status: enabled ? 'dry-run' : 'disabled' })
+      continue
+    }
+
+    // Same pacing as phase 2, and the two phases share the counter so a run
+    // that mails in both does not burst through Resend's limit at the seam.
+    await paceSend()
+
+    let stamped = false
+    try {
+      // Stamp BEFORE minting/sending — a crash between send and stamp would
+      // mail them twice, which is worse than missing one nudge.
+      const { error: stampErr } = await sb
+        .from('claims_review')
+        .update({ verification_nudge_sent_at: new Date().toISOString() })
+        .eq('id', claim.id)
+        .is('verification_nudge_sent_at', null)
+      if (stampErr) throw stampErr
+      stamped = true
+
+      const signInUrl = await mintSignInUrl(sb, claim.claimant_email)
+      const message = claimActivationEmail({
+        listingName: claim.listings?.name,
+        claimantName: claim.claimant_name,
+        signInUrl,
+        listingUrl: claim.listings?.slug ? `${SITE_URL}/place/${claim.listings.slug}` : null,
+        pendingVerification: true,
+      })
+
+      if (resend) {
+        const { error: sendErr } = await resend.emails.send({ ...message, to: claim.claimant_email })
+        if (sendErr) throw new Error(sendErr.message || 'resend send failed')
+        sendsThisRun++
+      }
+      out.results.push({ ...row, status: resend ? 'sent' : 'skipped_no_resend' })
+      if (resend) out.sent++
+    } catch (e) {
+      // A failed send makes the stamp a lie. Clear it so tomorrow retries —
+      // otherwise a transient 429 strands the claimant permanently, which is
+      // precisely the failure this phase exists to prevent.
+      if (stamped) {
+        const { error: rollbackErr } = await sb
+          .from('claims_review')
+          .update({ verification_nudge_sent_at: null })
+          .eq('id', claim.id)
+        if (rollbackErr) {
+          out.errors.push({ claimId: claim.id, to: claim.claimant_email, error: `send failed (${e.message}) AND stamp rollback failed (${rollbackErr.message}) — this claimant will not be retried automatically` })
           continue
         }
       }
