@@ -112,6 +112,12 @@ try {
   check('verified_at still null', rev.verified_at === null)
   check('intake provenance preserved', /E2E verification-gate test/.test(rev.admin_notes || ''), rev.admin_notes)
 
+  // The share kit says "your listing is live" and links to the dashboard. At
+  // this point the claimant owns nothing and that dashboard would 403 them, so
+  // it must not have gone out alongside the "one step left" approval email.
+  const { data: kitAtApproval } = await sb.from('listings').select('share_kit_sent_at').eq('id', listing.id).single()
+  check('NO share kit sent while the claim is unverified', kitAtApproval.share_kit_sent_at === null, String(kitAtApproval.share_kit_sent_at))
+
   // ── 4. The listing is still claimable by someone else ───
   console.log('\n4. The listing has not been taken out of circulation')
   const { data: claimable } = await sb.from('listings').select('is_claimed, status').eq('id', listing.id).single()

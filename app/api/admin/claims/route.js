@@ -254,16 +254,17 @@ async function handleApprove({ claimId, vertical, sourceClaimId, usingPortalTabl
     },
   }).then(null, err => console.error('[admin/claims] Audit log error:', err))
 
-  // ── 5. Fire Operator Amplification Agent (non-blocking) ──
-  // Sends the operator a personalised share kit with social captions,
-  // newsletter paragraph, and their listing URL.
-  if (claimRecord?.claimant_email && claimRecord?.listing_id) {
-    import('@/lib/agents/operator-amplification-agent')
-      .then(({ sendShareKit }) => {
-        sendShareKit(claimRecord.listing_id, claimRecord.claimant_email, claimRecord.claimant_name)
-      })
-      .catch(err => console.error('[admin/claims] Operator amplification agent error:', err.message))
-  }
+  // ── 5. Share kit ──
+  // Deliberately NOT fired here any more. It congratulates the operator, says
+  // their listing is live, and links to the operator dashboard — none of which
+  // is true at approval under the migration-265 gate, where an approved claim
+  // owns nothing until the address answers. Sending it here handed a
+  // pending-verification claimant a dashboard link that 403s them, directly
+  // contradicting the "one step left" approval email in the same inbox.
+  //
+  // It now fires from finalizeClaim, at the moment ownership actually exists —
+  // so it still goes out for a claimant who was already verified (this route
+  // finalizes them in one pass), just from the place that knows it is true.
 
   return NextResponse.json({ success: true, action: 'approved' })
 }
