@@ -204,6 +204,70 @@ scripts/        — data sync, seeding, editorial generation
 - Generates multi-day itineraries pulling from the master `listings` table across all verticals
 - Anthropic API integration via server-side route (API key never exposed to client)
 
+## Claim Ownership — Verification Gate (CRITICAL)
+
+**A listing may never be marked as owned by an email address that has not proven it can receive mail.**
+
+This is the invariant. It was added on 2026-07-29 after an audit found 33 of 58
+live claims held by addresses nobody had ever verified: `is_claimed = true`,
+an active `listing_claims` row, and a `role='vendor'` profile, all created the
+moment an admin clicked approve. The claim form took a typed email and nothing
+else — no session, no confirmation — so approving a claim handed over a listing
+on the strength of a string in a form field.
+
+### The two halves
+
+`lib/claims/grantClaim.js` is split around the one event that proves anything:
+
+| | writes | when |
+|---|---|---|
+| `beginClaim()` | resolves/provisions the identity, sends the invite, sets `claims_review.status='pending_verification'` | admin approves |
+| `finalizeClaim()` | `promoteRole` → vendor, inserts `listing_claims`, `is_claimed=true`, `verified_at`, status → `approved` | the address answers |
+
+`grantClaim()` does begin-then-finalize-if-already-verified, so a claim from a
+signed-in account still completes in one pass.
+
+### Rules
+
+1. **`finalizeClaim` re-checks verification itself.** It does not trust callers.
+   It is the single line deciding whether a listing can be marked owned, and it
+   must not become possible to skip by calling a different function.
+2. **`POST /api/claim` requires an authenticated session**, and stores the
+   SESSION's email, not the posted one. Claiming on behalf of another mailbox
+   is refused (403 `email_mismatch`).
+3. **`pending_verification` is not `approved`.** claim-integrity's
+   `grant_fell_through` check reads approved-with-no-ownership-row as a failed
+   grant; the waiting state needs its own name or that alarm becomes noise.
+4. **Nothing may tell an operator their listing is live until ownership
+   exists.** The share kit fires from `finalizeClaim`, not on approval — at
+   approval the profile is not yet `vendor` and `/api/dashboard` 403s them.
+   Same reason the approval email branches on `pendingVerification`.
+5. **The Stripe paths bypass the gate deliberately** (`skipVerificationCheck`),
+   because a completed Checkout is itself proof and the verification path
+   finalizes at tier `free`, which would silently downgrade someone who just
+   paid. Bypasses are recorded as `proof:'stripe_payment'` in `listing_activity`.
+6. **A claim waiting on proof must not wait in silence.** claim-recovery phase 3
+   chases at 48h; claim-integrity check 8 (`verification_stalled`) reports at 14
+   days. A claim with no ownership row is invisible to anything that reads
+   `listing_claims` — that blind spot is how the original 33 accumulated.
+
+### Legacy cohort
+
+The pre-gate claims were NOT retroactively stripped — those operators may well
+be legitimate. They are listed at `/admin/claim-remediation` for case-by-case
+resolution, and `listing_claims.remediation_sent_at` records a human decision
+(distinct from the automated nudge stamps).
+
+### Standard tier is comped, not paid
+
+Every live `tier='standard'` claim is a manual comp with no Stripe subscription;
+Stripe has zero active subscriptions. The seven granted before migration 261
+(2026-07-28) carry no `comp_granted_at`/`comp_expires_at`, so they are perpetual
+comps with no record of why — the comp columns did not exist yet. Not a guard
+bypass: `grantClaim` refuses Standard without a subscription, and `handleSetTier`
+(the admin "Grant Standard" button) is the deliberate comp path, which now does
+record a term.
+
 ## Data Integrity Rules
 
 - Website URLs must never be AI-generated. They may only be populated from: Google Places API data, operator-submitted data, or manually verified sources. Any URL not from one of these sources must be nulled before publishing.
