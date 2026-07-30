@@ -270,10 +270,12 @@ export async function GET(request) {
 /**
  * PHASE 2 — operators whose claim was granted but who have never signed in.
  *
- * Mints a FRESH single-use sign-in link per operator and emails it. The
- * original invite is long gone: single-use, and these accounts have no password
- * to fall back on. Stamps listing_claims.activation_nudge_sent_at (migration
- * 264) before sending, so a retry or an overlapping run can never double-mail.
+ * Mints a FRESH single-use access link per operator and emails it — the link
+ * confirms their address and lands them on set-password, so they leave with
+ * credentials they can use again. The original invite is long gone: single-use,
+ * and these accounts were provisioned with no password to fall back on. Stamps
+ * listing_claims.activation_nudge_sent_at (migration 264) before sending, so a
+ * retry or an overlapping run can never double-mail.
  *
  * Gated on CLAIM_ACTIVATION_NUDGE_ENABLED='1'. With the flag unset it still
  * computes and reports the cohort — that visibility is the point — but sends
