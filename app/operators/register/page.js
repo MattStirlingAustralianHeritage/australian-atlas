@@ -46,6 +46,18 @@ export default function OperatorRegisterPage() {
       if (!res.ok) {
         setError(data.error || 'Registration failed. Please try again.')
       } else {
+        // The account is created server-side, which leaves this browser with no
+        // session — pushing straight to the dashboard bounced them to /operators
+        // /login to retype the password they just chose. Sign in first.
+        const { getAuthSupabase } = await import('@/lib/supabase/auth-clients')
+        const { error: signInError } = await getAuthSupabase().auth.signInWithPassword({
+          email: form.email.trim(),
+          password: form.password,
+        })
+        if (signInError) {
+          setError('Your account was created, but we could not sign you in. Please sign in with your email and password.')
+          return
+        }
         router.push('/operators/dashboard?registered=1')
       }
     } catch {

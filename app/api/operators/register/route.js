@@ -35,25 +35,48 @@ export async function POST(request) {
         { status: 400 }
       )
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).trim())) {
+      return NextResponse.json({ error: 'Please enter a valid email address' }, { status: 400 })
+    }
+    if (String(password).length < 6 || String(password).length > 72) {
+      return NextResponse.json({ error: 'Password must be between 6 and 72 characters' }, { status: 400 })
+    }
 
     const sb = getSupabaseAdmin()
+    const normalizedEmail = String(email).trim().toLowerCase()
 
-    // Create auth user via admin API (auto-confirms email)
-    const { data: authData, error: authError } = await sb.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
+    // Provision via generateLink, NOT admin.createUser. createUser 500s on this
+    // project (the signup trigger — see app/api/cron/auth-canary), which made
+    // every registration here a dead end; generateLink auto-creates the user and
+    // is the path the rest of the platform provisions through. The link itself
+    // is discarded: the password below is what this account signs in with.
+    const { data: linkData, error: linkError } = await sb.auth.admin.generateLink({
+      type: 'invite',
+      email: normalizedEmail,
+      options: { redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://www.australianatlas.com.au'}/auth/callback?next=/operators/dashboard` },
     })
 
-    if (authError) {
-      // Unique violation on email
-      if (authError.message?.includes('already been registered') || authError.status === 422) {
+    if (linkError || !linkData?.user) {
+      if (linkError?.message?.includes('already been registered') || linkError?.status === 422) {
         return NextResponse.json(
           { error: 'An account with this email already exists' },
           { status: 409 }
         )
       }
-      console.error('[operators/register] Auth error:', authError)
+      console.error('[operators/register] Provision error:', linkError)
+      return NextResponse.json({ error: 'Failed to create account' }, { status: 500 })
+    }
+
+    const authData = linkData
+
+    // Set the password they just chose and confirm the address, so the client
+    // can sign them straight in with it.
+    const { error: pwError } = await sb.auth.admin.updateUserById(authData.user.id, {
+      password,
+      email_confirm: true,
+    })
+    if (pwError) {
+      console.error('[operators/register] Password set error:', pwError)
       return NextResponse.json({ error: 'Failed to create account' }, { status: 500 })
     }
 

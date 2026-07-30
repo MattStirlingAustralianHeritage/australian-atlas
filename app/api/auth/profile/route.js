@@ -37,26 +37,46 @@ export async function GET(request) {
       .eq('id', user.id)
       .single()
 
-    if (profileError || !profile) {
-      // Profile doesn't exist yet — create one (handles race condition with trigger)
-      const { data: newProfile, error: insertError } = await admin
+    // Distinguish "no row" from "the read failed". This route runs on every
+    // page load for every signed-in user (components/Nav.js), and it used to
+    // treat ANY select error as row-missing and upsert role:'user' — so a
+    // single transient read failure could strip a vendor/council/admin of the
+    // role that gates their dashboard. A failed read must fail, not rewrite.
+    if (profileError && profileError.code !== 'PGRST116') {
+      console.error('Profile fetch error:', profileError)
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: CORS_HEADERS })
+    }
+
+    if (!profile) {
+      // Genuinely no row yet — create one (handles the race with the signup
+      // trigger). insert, not upsert: if a row appeared in the meantime it is
+      // more authoritative than this default, so let the conflict stand and
+      // re-read it rather than overwriting a role we'd be guessing at.
+      const { error: insertError } = await admin
         .from('profiles')
-        .upsert({
+        .insert({
           id: user.id,
           email: user.email,
           full_name: user.user_metadata?.full_name || user.user_metadata?.name || '',
           avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || '',
           role: 'user',
         })
-        .select()
-        .single()
-
-      if (insertError) {
+      if (insertError && insertError.code !== '23505') {
         console.error('Profile creation error:', insertError)
         return NextResponse.json({ error: 'Failed to create profile' }, { status: 500, headers: CORS_HEADERS })
       }
 
-      return NextResponse.json({ profile: newProfile }, { headers: CORS_HEADERS })
+      const { data: created, error: reReadError } = await admin
+        .from('profiles')
+        .select('id, email, full_name, avatar_url, role, vendor_verticals, council_id, interests, created_at')
+        .eq('id', user.id)
+        .single()
+      if (reReadError || !created) {
+        console.error('Profile re-read error:', reReadError)
+        return NextResponse.json({ error: 'Failed to create profile' }, { status: 500, headers: CORS_HEADERS })
+      }
+
+      return NextResponse.json({ profile: created }, { headers: CORS_HEADERS })
     }
 
     return NextResponse.json({ profile }, { headers: CORS_HEADERS })

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { signupConfirmationEmail } from '@/lib/email/authEmails'
 import { safeNextPath } from '@/lib/safe-redirect'
+import { UNPROVEN_CONFIRM_SOURCE } from '@/lib/claims/claimGate.mjs'
 
 // Public self-signup, Atlas-branded.
 //
@@ -78,13 +79,18 @@ export async function POST(request) {
   const confirmationUrl =
     `${origin}/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=signup&next=${encodeURIComponent(next)}`
 
-  // Try to send OUR branded confirmation email. If it can't be sent — most
-  // commonly because the Resend sending domain isn't verified yet (see
-  // docs/auth-email-setup.md) — we do NOT dead-end the signup. We fall back to
-  // confirming the account server-side so the person can sign in immediately
-  // (the client then signs them straight in). This is self-healing: the day the
-  // domain is verified the send succeeds and the proper click-to-confirm flow
-  // resumes automatically, with no code change.
+  // Send OUR branded confirmation email. If it can't be sent — most commonly
+  // because the Resend sending domain isn't verified yet (see
+  // docs/auth-email-setup.md) — we do NOT dead-end the signup: we confirm the
+  // account server-side so the person can sign in immediately.
+  //
+  // That fallback is stamped, and the stamp matters. email_confirmed_at is what
+  // lib/claims/grantClaim.js accepts as proof that the claimed mailbox belongs
+  // to the claimant, and an auto-confirm proves nothing about the mailbox. Left
+  // unmarked, a Resend outage would be a window in which anyone could sign up
+  // as a venue's public address and have a claim finalize on approval. The
+  // marker below keeps the account usable for browsing while isEmailVerified
+  // refuses to treat it as claim proof until a real link is opened.
   let emailSent = false
   if (process.env.RESEND_API_KEY) {
     try {
@@ -109,7 +115,14 @@ export async function POST(request) {
   // Fallback: confirm the just-created (still unconfirmed) user so signup never
   // dead-ends on a mail outage. The client signs them in with the password they
   // just chose (already proven to work end-to-end).
-  const { error: confirmErr } = await sb.auth.admin.updateUserById(userId, { email_confirm: true })
+  //
+  // email_confirm_source records that no mailbox was ever proven here, so the
+  // claim gate can tell this apart from a genuine click. Do not remove it
+  // without changing isEmailVerified in lib/claims/grantClaim.js.
+  const { error: confirmErr } = await sb.auth.admin.updateUserById(userId, {
+    email_confirm: true,
+    app_metadata: { email_confirm_source: UNPROVEN_CONFIRM_SOURCE },
+  })
   if (confirmErr) {
     console.error('[auth/signup] auto-confirm failed:', confirmErr.message)
     return NextResponse.json(
