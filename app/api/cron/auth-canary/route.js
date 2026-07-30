@@ -27,10 +27,13 @@ import { sendAgentEmail } from '@/lib/agents/email'
  *                        a session.
  *   4. update_password_page — /auth/update-password serves 200 and contains
  *                        the set-password copy (the page exists and deployed).
- *   5. invite_link     — generateLink(type 'invite') mints a token: the
- *                        operator-provisioning / break-glass path works
- *                        (invite links land on set-password via the callback).
- *                        The token is never followed; it just expires.
+ *   5. provision_link  — generateLink(type 'invite') mints a token for a
+ *                        FRESH address: the operator-provisioning path
+ *                        grantClaim uses (invite links land on set-password
+ *                        via the callback). Probed on a throwaway address
+ *                        because 'invite' refuses an address that already
+ *                        exists; the account is deleted straight away and the
+ *                        token is never sent or followed.
  *
  * The canary account's password is rotated to a fresh random value every run
  * so the account stays inert. No email is ever sent to it (generateLink does
@@ -143,18 +146,35 @@ export async function GET(request) {
       checks.push({ check: 'update_password_page', ok: false, detail: `fetch failed: ${e.message}` })
     }
 
-    // ── 5. Provisioning path: invite links can still be minted (operator
-    //       invites and access-doctor's unconfirmed-account fallback both
-    //       depend on this; the callback lands them on set-password) ──
-    const inviteRes = await sb.auth.admin.generateLink({
-      type: 'invite',
-      email: CANARY_EMAIL,
-      options: { redirectTo: `${SITE_URL}/auth/callback?next=%2Faccount` },
-    })
-    if (inviteRes.error || !inviteRes.data?.properties?.hashed_token) {
-      checks.push({ check: 'invite_link', ok: false, detail: inviteRes.error?.message || 'no hashed_token' })
-    } else {
-      checks.push({ check: 'invite_link', ok: true, detail: 'token minted (not followed)' })
+    // ── 5. Provisioning path: grantClaim creates an operator account by
+    //       minting an 'invite' link for an address GoTrue has never seen. That
+    //       must be probed on a FRESH address, not the canary: generateLink
+    //       'invite' refuses an address that already exists ("already
+    //       registered"), so pointing it at the long-lived canary user would
+    //       fail every single run and cry wolf daily. The user this creates is
+    //       deleted immediately; the link is never sent or followed. ──
+    {
+      const probeEmail = `auth-canary-provision+${globalThis.crypto.randomUUID()}@australianatlas.com.au`
+      const inviteRes = await sb.auth.admin.generateLink({
+        type: 'invite',
+        email: probeEmail,
+        options: { redirectTo: `${SITE_URL}/auth/callback?next=%2Faccount` },
+      })
+      const probeUserId = inviteRes.data?.user?.id || null
+      if (inviteRes.error || !inviteRes.data?.properties?.hashed_token) {
+        checks.push({ check: 'provision_link', ok: false, detail: inviteRes.error?.message || 'no hashed_token' })
+      } else {
+        checks.push({ check: 'provision_link', ok: true, detail: 'token minted for a fresh address (not sent)' })
+      }
+      // Clean up unconditionally — a probe must not leave accounts behind. A
+      // failure to delete is itself reported, so it cannot accumulate silently.
+      if (probeUserId) {
+        await sb.from('profiles').delete().eq('id', probeUserId).then(null, () => {})
+        const { error: delErr } = await sb.auth.admin.deleteUser(probeUserId)
+        if (delErr) {
+          checks.push({ check: 'provision_cleanup', ok: false, detail: `could not delete probe user ${probeUserId}: ${delErr.message}` })
+        }
+      }
     }
 
     // ── Rotate the canary password so the account stays inert ──
