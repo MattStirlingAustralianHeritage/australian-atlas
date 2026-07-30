@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { getAuthSupabase } from '@/lib/supabase/auth-clients'
 import Link from 'next/link'
+import { safeNextPath } from '@/lib/safe-redirect'
 
 export default function LoginPage() {
   const [mode, setMode] = useState('login') // login | signup | reset
@@ -13,6 +14,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [returnUrl, setReturnUrl] = useState(null)
   const [vertical, setVertical] = useState('')
+  const [nextPath, setNextPath] = useState('/account')
 
   const supabase = getAuthSupabase()
 
@@ -23,29 +25,31 @@ export default function LoginPage() {
     const v = params.get('vertical')
     if (ru) setReturnUrl(ru)
     if (v) setVertical(v)
+    // ?next= lets a flow that forced a sign-in (e.g. /claim/[slug]) get the
+    // person back to where they were. Sanitized against open redirects.
+    const n = params.get('next')
+    if (n) setNextPath(safeNextPath(n))
     // /auth/callback bounces here when an emailed link fails to verify —
     // without this the failure is silent and looks like a plain login page.
     if (params.get('error') === 'auth_callback_error') {
       setError('That email link was invalid or has expired — links can only be used once. Sign in below, or request a fresh link.')
     }
     if (params.get('mode') === 'reset') setMode('reset')
+    if (params.get('mode') === 'signup') setMode('signup')
   }, [])
 
-  // After login, redirect through shared auth endpoint if return_url exists
+  // After login: cross-vertical return_url wins, then ?next=, then /account.
   function getPostLoginRedirect() {
     if (returnUrl) {
       return `/api/auth/shared?return_url=${encodeURIComponent(returnUrl)}&vertical=${encodeURIComponent(vertical)}`
     }
-    return '/account'
+    return nextPath
   }
 
   async function handleGoogleLogin() {
     setError('')
     const origin = window.location.origin
-    // Build callback next param — if return_url exists, go through shared auth
-    const next = returnUrl
-      ? `/api/auth/shared?return_url=${encodeURIComponent(returnUrl)}&vertical=${encodeURIComponent(vertical)}`
-      : '/account'
+    const next = getPostLoginRedirect()
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -53,30 +57,6 @@ export default function LoginPage() {
       },
     })
     if (error) setError(error.message)
-  }
-
-  async function handleMagicLink() {
-    setError('')
-    setMessage('')
-    setLoading(true)
-    try {
-      const next = returnUrl
-        ? `/api/auth/shared?return_url=${encodeURIComponent(returnUrl)}&vertical=${encodeURIComponent(vertical)}`
-        : '/account'
-      // Atlas-branded magic link sent server-side via Resend (see app/api/auth/email-link).
-      const res = await fetch('/api/auth/email-link', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'magiclink', email, next }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(data.error || 'Could not send your sign-in link.')
-      setMessage('Check your email for a sign-in link.')
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
   }
 
   async function handleSubmit(e) {
@@ -91,9 +71,7 @@ export default function LoginPage() {
         if (error) throw error
         window.location.href = getPostLoginRedirect()
       } else if (mode === 'signup') {
-        const next = returnUrl
-          ? `/api/auth/shared?return_url=${encodeURIComponent(returnUrl)}&vertical=${encodeURIComponent(vertical)}`
-          : '/account'
+        const next = getPostLoginRedirect()
         // Atlas-branded confirmation email (sent server-side via Resend),
         // not GoTrue's default "Supabase Auth" mail. See app/api/auth/signup.
         const res = await fetch('/api/auth/signup', {
@@ -199,64 +177,6 @@ export default function LoginPage() {
             </>
           )}
 
-          {/* Magic Link Option */}
-          {mode === 'magic' && (
-            <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', fontFamily: 'var(--font-sans)', fontSize: '0.85rem', color: 'var(--color-muted)', marginBottom: '0.375rem' }}>
-                Email
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                placeholder="you@example.com"
-                style={{
-                  width: '100%',
-                  padding: '0.7rem 0.875rem',
-                  borderRadius: '8px',
-                  border: '1px solid var(--color-border)',
-                  fontFamily: 'var(--font-sans)',
-                  fontSize: '0.95rem',
-                  color: 'var(--color-ink)',
-                  background: '#fff',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                  marginBottom: '0.75rem',
-                }}
-              />
-              {error && (
-                <div style={{ padding: '0.625rem 0.875rem', borderRadius: '8px', background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', fontFamily: 'var(--font-sans)', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
-                  {error}
-                </div>
-              )}
-              {message && (
-                <div style={{ padding: '0.625rem 0.875rem', borderRadius: '8px', background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', fontFamily: 'var(--font-sans)', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
-                  {message}
-                </div>
-              )}
-              <button
-                onClick={handleMagicLink}
-                disabled={loading || !email}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem 1rem',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: 'var(--color-sage)',
-                  color: '#fff',
-                  fontFamily: 'var(--font-sans)',
-                  fontSize: '0.95rem',
-                  fontWeight: 500,
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  opacity: loading ? 0.7 : 1,
-                }}
-              >
-                {loading ? 'Sending...' : 'Send magic link'}
-              </button>
-            </div>
-          )}
-
           {/* Email/Password Form */}
           <form onSubmit={handleSubmit}>
             <div style={{ marginBottom: '1rem' }}>
@@ -360,10 +280,6 @@ export default function LoginPage() {
           <div style={{ marginTop: '1.25rem', textAlign: 'center', fontFamily: 'var(--font-sans)', fontSize: '0.85rem', color: 'var(--color-muted)' }}>
             {mode === 'login' && (
               <>
-                <button onClick={() => { setMode('magic'); setError(''); setMessage('') }} style={{ background: 'none', border: 'none', color: 'var(--color-sage)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'inherit' }}>
-                  Use magic link instead
-                </button>
-                <span style={{ margin: '0 0.5rem' }}>|</span>
                 <button onClick={() => { setMode('reset'); setError(''); setMessage('') }} style={{ background: 'none', border: 'none', color: 'var(--color-sage)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'inherit' }}>
                   Forgot password?
                 </button>
@@ -378,7 +294,7 @@ export default function LoginPage() {
                 Already have an account? Sign in
               </button>
             )}
-            {(mode === 'reset' || mode === 'magic') && (
+            {mode === 'reset' && (
               <button onClick={() => { setMode('login'); setError(''); setMessage('') }} style={{ background: 'none', border: 'none', color: 'var(--color-sage)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'inherit' }}>
                 Back to sign in
               </button>

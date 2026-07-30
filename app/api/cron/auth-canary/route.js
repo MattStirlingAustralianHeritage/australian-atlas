@@ -27,9 +27,10 @@ import { sendAgentEmail } from '@/lib/agents/email'
  *                        a session.
  *   4. update_password_page — /auth/update-password serves 200 and contains
  *                        the set-password copy (the page exists and deployed).
- *   5. magiclink       — generateLink(type 'magiclink') mints a token: the
- *                        break-glass no-password sign-in path works. The
- *                        token is never followed; it just expires.
+ *   5. invite_link     — generateLink(type 'invite') mints a token: the
+ *                        operator-provisioning / break-glass path works
+ *                        (invite links land on set-password via the callback).
+ *                        The token is never followed; it just expires.
  *
  * The canary account's password is rotated to a fresh random value every run
  * so the account stays inert. No email is ever sent to it (generateLink does
@@ -80,18 +81,18 @@ export async function GET(request) {
     })
     if (linkRes.error && (linkRes.error.status === 404 || /not found/i.test(linkRes.error.message || ''))) {
       // No canary user yet. admin.createUser 500s on this project (signup
-      // trigger), but generateLink(magiclink) auto-creates the user and is
+      // trigger), but generateLink(invite) auto-creates the user and is
       // the path verified to work — mint one (discarded), then retry recovery.
       const { data: seeded, error: seedErr } = await sb.auth.admin.generateLink({
-        type: 'magiclink',
+        type: 'invite',
         email: CANARY_EMAIL,
         options: { redirectTo: `${SITE_URL}/auth/callback?next=%2Faccount` },
       })
       if (seedErr) {
-        checks.push({ check: 'canary_user', ok: false, detail: `magiclink auto-create failed: ${seedErr.message}` })
+        checks.push({ check: 'canary_user', ok: false, detail: `invite auto-create failed: ${seedErr.message}` })
       } else {
         canaryUserId = seeded?.user?.id || null
-        checks.push({ check: 'canary_user', ok: true, detail: 'created on this run (magiclink auto-create)' })
+        checks.push({ check: 'canary_user', ok: true, detail: 'created on this run (invite auto-create)' })
         linkRes = await sb.auth.admin.generateLink({
           type: 'recovery',
           email: CANARY_EMAIL,
@@ -142,16 +143,18 @@ export async function GET(request) {
       checks.push({ check: 'update_password_page', ok: false, detail: `fetch failed: ${e.message}` })
     }
 
-    // ── 5. Break-glass path: magic links can still be minted ──
-    const magicRes = await sb.auth.admin.generateLink({
-      type: 'magiclink',
+    // ── 5. Provisioning path: invite links can still be minted (operator
+    //       invites and access-doctor's unconfirmed-account fallback both
+    //       depend on this; the callback lands them on set-password) ──
+    const inviteRes = await sb.auth.admin.generateLink({
+      type: 'invite',
       email: CANARY_EMAIL,
       options: { redirectTo: `${SITE_URL}/auth/callback?next=%2Faccount` },
     })
-    if (magicRes.error || !magicRes.data?.properties?.hashed_token) {
-      checks.push({ check: 'magiclink', ok: false, detail: magicRes.error?.message || 'no hashed_token' })
+    if (inviteRes.error || !inviteRes.data?.properties?.hashed_token) {
+      checks.push({ check: 'invite_link', ok: false, detail: inviteRes.error?.message || 'no hashed_token' })
     } else {
-      checks.push({ check: 'magiclink', ok: true, detail: 'token minted (not followed)' })
+      checks.push({ check: 'invite_link', ok: true, detail: 'token minted (not followed)' })
     }
 
     // ── Rotate the canary password so the account stays inert ──
@@ -166,7 +169,7 @@ export async function GET(request) {
           subject: `[Atlas] AUTH CANARY FAILING: ${failures.map(f => f.check).join(', ')} — account recovery may be broken`,
           html: `<p><strong>The daily auth canary failed ${failures.length} of ${checks.length} probes.</strong> If <em>callback_redirect</em> or <em>update_password_page</em> is failing, operators who reset their password are being stranded again — the 2026-07-21 lockout class.</p><ul>${
             checks.map(c => `<li>${c.ok ? '✅' : '❌'} <strong>${c.check}</strong>: ${c.detail}</li>`).join('')
-          }</ul><p>Runbook: "Lockout Prevention" in CLAUDE.md. Unblock any affected operator immediately via <a href="https://www.australianatlas.com.au/admin/access-doctor">/admin/access-doctor</a> (magic sign-in link — no password needed).</p>`,
+          }</ul><p>Runbook: "Lockout Prevention" in CLAUDE.md. Unblock any affected operator immediately via <a href="https://www.australianatlas.com.au/admin/access-doctor">/admin/access-doctor</a> (account-access link — has them set a password).</p>`,
         })
       } catch { /* best-effort — the run log below still records the failure */ }
     }

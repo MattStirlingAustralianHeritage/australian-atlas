@@ -31,17 +31,14 @@ export default function ClaimForm({ listingId, listingName, slug, vertColor }) {
   const [websiteDomain, setWebsiteDomain] = useState('')
   const [honeypot, setHoneypot] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [submitted, setSubmitted] = useState(false)
   const [paymentPending, setPaymentPending] = useState(false)
   const [error, setError] = useState(null)
-  // Identity. A claim now starts from a signed-in account, so the email is
-  // something we already know rather than something the visitor asserts.
-  // `authChecked` keeps the form from flashing the wrong panel on first paint.
+  // Identity. A claim starts from a signed-in, email-verified account, so the
+  // email is something we already know rather than something the visitor
+  // asserts. `authChecked` keeps the form from flashing the wrong panel on
+  // first paint.
   const [sessionEmail, setSessionEmail] = useState(null)
   const [authChecked, setAuthChecked] = useState(false)
-  const [linkEmail, setLinkEmail] = useState('')
-  const [linkSent, setLinkSent] = useState(false)
-  const [sendingLink, setSendingLink] = useState(false)
 
   useEffect(() => {
     getAuthSupabase().auth.getUser()
@@ -51,29 +48,6 @@ export default function ClaimForm({ listingId, listingName, slug, vertColor }) {
       .catch(() => { /* treat as signed out */ })
       .finally(() => setAuthChecked(true))
   }, [])
-
-  // Sign-in step: mail a magic link to the address being claimed, returning
-  // the operator to this exact claim page once they land. The address they
-  // verify here is the address the claim will carry — that is the whole point.
-  async function handleSendLink(e) {
-    e.preventDefault()
-    setError(null)
-    setSendingLink(true)
-    try {
-      const res = await fetch('/api/auth/email-link', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'magiclink', email: linkEmail.trim(), next: `/claim/${slug}` }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) { setError(data.error || 'Could not send your sign-in link. Please try again.'); return }
-      setLinkSent(true)
-    } catch {
-      setError('Network error. Please check your connection and try again.')
-    } finally {
-      setSendingLink(false)
-    }
-  }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -106,8 +80,7 @@ export default function ClaimForm({ listingId, listingName, slug, vertColor }) {
         // claim itself is still valid, it just needs an identity behind it.
         if (data.code === 'auth_required') {
           setSessionEmail(null)
-          setLinkEmail(email.trim())
-          setError('Please confirm your email address to continue — we\'ll send you a sign-in link.')
+          setError('Your session has expired — please sign in again to continue.')
           return
         }
         setError(data.error || 'Something went wrong. Please try again.')
@@ -177,90 +150,46 @@ export default function ClaimForm({ listingId, listingName, slug, vertColor }) {
     )
   }
 
-  // ── Sign-in gate ──
-  // No account, no claim. Verifying the address here is what makes the claim
-  // mean something: by the time an admin sees it, the person has already
-  // proven they can read mail at the address they are claiming from.
+  // ── Account gate ──
+  // No account, no claim. A claim must come from a signed-in Atlas account
+  // whose email address has been verified — by the time an admin sees it, the
+  // person has already proven they can read mail at the address the claim
+  // carries. Sign-in is email + password (or Google); /login brings them
+  // straight back here via ?next=.
   if (!sessionEmail) {
-    if (linkSent) {
-      return (
-        <div className="text-center py-10 px-5 rounded-xl" style={panelStyle}>
-          <h3 className="mb-2" style={headingStyle}>Check your email</h3>
-          <p style={bodyStyle}>
-            We&rsquo;ve sent a sign-in link to <strong style={{ fontWeight: 500 }}>{linkEmail}</strong>.
-            Open it and you&rsquo;ll come straight back here to finish claiming{' '}
-            <strong style={{ fontWeight: 500 }}>{listingName}</strong>.
-          </p>
-        </div>
-      )
-    }
+    const loginNext = encodeURIComponent(`/claim/${slug}`)
     return (
-      <form onSubmit={handleSendLink} className="py-8 px-5 rounded-xl" style={panelStyle}>
-        <h3 className="mb-2" style={headingStyle}>First, confirm your email</h3>
+      <div className="py-8 px-5 rounded-xl" style={panelStyle}>
+        <h3 className="mb-2" style={headingStyle}>First, sign in to your Atlas account</h3>
         <p className="mb-4" style={bodyStyle}>
           To claim <strong style={{ fontWeight: 500 }}>{listingName}</strong> we need to know the claim is
-          really coming from you. Enter your email and we&rsquo;ll send a sign-in link — no password to set up.
+          really coming from you. Create a free account with your business email — you&rsquo;ll confirm the
+          address and choose a password, then land straight back here to finish your claim.
         </p>
-        <label htmlFor="claim-link-email" className="block mb-1" style={{ ...bodyStyle, color: 'var(--color-ink)' }}>
-          Your email address
-        </label>
-        <input
-          id="claim-link-email"
-          type="email"
-          required
-          value={linkEmail}
-          onChange={(e) => setLinkEmail(e.target.value)}
-          placeholder="you@yourvenue.com.au"
-          className="w-full px-3 py-2 rounded-lg mb-3"
-          style={{ border: '1px solid var(--color-border)', fontFamily: 'var(--font-body)', fontSize: '14px' }}
-        />
         {error && (
           <p className="mb-3" style={{ ...bodyStyle, color: '#b91c1c' }}>{error}</p>
         )}
-        <button
-          type="submit"
-          disabled={sendingLink || !linkEmail.trim()}
-          className="w-full py-2.5 rounded-lg"
+        <a
+          href={`/login?mode=signup&next=${loginNext}`}
+          className="block w-full py-2.5 rounded-lg text-center"
           style={{
             background: vertColor, color: '#fff', fontFamily: 'var(--font-body)',
-            fontSize: '14px', fontWeight: 500, opacity: sendingLink || !linkEmail.trim() ? 0.6 : 1,
+            fontSize: '14px', fontWeight: 500, textDecoration: 'none',
           }}
         >
-          {sendingLink ? 'Sending…' : 'Send me a sign-in link'}
-        </button>
-      </form>
-    )
-  }
-
-  if (submitted) {
-    return (
-      <div
-        className="text-center py-10 px-5 rounded-xl"
-        style={{ background: 'var(--color-cream)', border: '1px solid var(--color-border)' }}
-      >
-        <div
-          className="inline-flex items-center justify-center w-12 h-12 rounded-full mb-4"
-          style={{ background: vertColor + '18' }}
-        >
-          <svg className="w-6 h-6" fill="none" stroke={vertColor} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-        </div>
-        <h3
-          className="mb-2"
+          Create a free account
+        </a>
+        <a
+          href={`/login?next=${loginNext}`}
+          className="block w-full py-2.5 rounded-lg text-center mt-2"
           style={{
-            fontFamily: 'var(--font-display)',
-            fontWeight: 400,
-            fontSize: '20px',
-            color: 'var(--color-ink)',
+            background: 'transparent', color: 'var(--color-ink)', fontFamily: 'var(--font-body)',
+            fontSize: '14px', fontWeight: 500, textDecoration: 'none',
+            border: '1px solid var(--color-border)',
           }}
         >
-          Claim submitted
-        </h3>
-        <p style={{ fontFamily: 'var(--font-body)', fontSize: '14px', fontWeight: 300, color: 'var(--color-muted)', lineHeight: 1.5 }}>
-          We'll review your claim and get back to you at <strong style={{ fontWeight: 500 }}>{email}</strong>.
-          This usually takes 1-2 business days.
-        </p>
+          I already have an account — sign in
+        </a>
       </div>
     )
   }

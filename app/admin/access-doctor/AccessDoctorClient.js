@@ -42,13 +42,13 @@ export default function AccessDoctorClient() {
 
   async function sendLink() {
     if (!result?.email) return
-    if (!window.confirm(`Email a magic sign-in link to ${result.email}?`)) return
+    if (!window.confirm(`Email an account-access link (sets a password) to ${result.email}?`)) return
     setLinkState('sending')
     try {
       const res = await fetch('/api/admin/access-doctor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: result.email, action: 'send_magic_link', next: '/account' }),
+        body: JSON.stringify({ email: result.email, action: 'send_access_link', next: '/account' }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
@@ -63,7 +63,7 @@ export default function AccessDoctorClient() {
       <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '1.6rem', marginBottom: '0.25rem' }}>Access Doctor</h1>
       <p style={{ color: 'var(--color-muted)', fontSize: '0.9rem', marginBottom: '1.25rem' }}>
         An operator says they can&apos;t get in? One search checks their login identity, profile role,
-        claims and listing state, and names the fix. The magic link unblocks without a password.
+        claims and listing state, and names the fix. The access link has them set a password and unblocks them.
       </p>
 
       <form onSubmit={diagnose} style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
@@ -111,7 +111,7 @@ export default function AccessDoctorClient() {
                 disabled={linkState === 'sending' || linkState === 'sent'}
                 style={{ padding: '0.55rem 1.1rem', borderRadius: '8px', border: 'none', background: 'var(--color-sage, #5F8A7E)', color: '#fff', cursor: 'pointer', fontSize: '0.9rem' }}
               >
-                {linkState === 'sending' ? 'Sending…' : linkState === 'sent' ? 'Magic link sent ✓' : 'Send magic sign-in link'}
+                {linkState === 'sending' ? 'Sending…' : linkState === 'sent' ? 'Access link sent ✓' : 'Send account-access link'}
               </button>
               {linkState && linkState !== 'sending' && linkState !== 'sent' && (
                 <span style={{ color: '#A33A2A', fontSize: '0.85rem' }}>{linkState}</span>

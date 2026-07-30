@@ -1,26 +1,34 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
-import { magicLinkEmail, recoveryEmail } from '@/lib/email/authEmails'
+import { recoveryEmail } from '@/lib/email/authEmails'
 import { safeNextPath } from '@/lib/safe-redirect'
+import { checkRateLimit } from '@/lib/rate-limit'
 
-// Atlas-branded magic-link sign-in + password-reset, sent APP-SIDE via Resend.
+// Atlas-branded password-reset email, sent APP-SIDE via Resend.
 //
-// Instead of the client calling supabase.auth.signInWithOtp() /
-// resetPasswordForEmail() (which make GoTrue send its own "Supabase Auth"
-// email), this route mints the link server-side with admin.generateLink() — no
-// GoTrue email — and sends OUR branded message via Resend. Same token_hash flow
-// as signup: the link points at /auth/callback which runs verifyOtp().
+// Instead of the client calling supabase.auth.resetPasswordForEmail() (which
+// makes GoTrue send its own "Supabase Auth" email), this route mints the link
+// server-side with admin.generateLink() — no GoTrue email — and sends OUR
+// branded message via Resend. The link points at /auth/callback which runs
+// verifyOtp() and lands on /auth/update-password.
 //
-//   type 'magiclink' → generateLink auto-creates the user if new (matches
-//                      signInWithOtp's default), so any email gets a link.
-//   type 'recovery'  → requires an existing user; a 404 is swallowed and we
-//                      still return success so we never reveal whether an
-//                      email is registered.
+// 'recovery' is the ONLY type this route mints. It used to offer 'magiclink'
+// too; that was removed deliberately — emailed links verify an address or
+// reset a password, they are not a way to sign in. Every account signs in
+// with email + password (or Google). Do not add magiclink back.
+//
+// 'recovery' requires an existing user; a 404 is swallowed and we still
+// return success so we never reveal whether an email is registered.
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const TYPES = { magiclink: magicLinkEmail, recovery: recoveryEmail }
+const TYPES = { recovery: recoveryEmail }
 
 export async function POST(request) {
+  // In-memory limiter: this endpoint sends mail to any address on request, so
+  // it must not be free to script (mail-bombing inboxes / burning Resend quota).
+  const rateLimited = checkRateLimit(request, { keyPrefix: 'email-link', maxRequests: 5 })
+  if (rateLimited) return rateLimited
+
   let body
   try {
     body = await request.json()
@@ -49,7 +57,7 @@ export async function POST(request) {
   if (error) {
     // Recovery for a non-existent email: stay silent (no account enumeration) —
     // the client shows the same "if an account exists…" message either way.
-    if (type === 'recovery' && (error.status === 404 || /not found/i.test(error.message || ''))) {
+    if (error.status === 404 || /not found/i.test(error.message || '')) {
       return NextResponse.json({ success: true }, { status: 200 })
     }
     console.error(`[auth/email-link] generateLink(${type}) error:`, error.message)
@@ -62,12 +70,8 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Could not send your email. Please try again.' }, { status: 500 })
   }
 
-  // The callback runs verifyOtp({ type }). A magiclink token — including one for
-  // a newly auto-created user — verifies as type 'email' (NOT 'magiclink', which
-  // only works for pre-existing users), so the link must carry the verify type.
-  const callbackType = type === 'magiclink' ? 'email' : type
   const url =
-    `${origin}/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=${callbackType}&next=${encodeURIComponent(next)}`
+    `${origin}/auth/callback?token_hash=${encodeURIComponent(tokenHash)}&type=${type}&next=${encodeURIComponent(next)}`
 
   if (!process.env.RESEND_API_KEY) {
     console.error('[auth/email-link] RESEND_API_KEY not set — cannot send')

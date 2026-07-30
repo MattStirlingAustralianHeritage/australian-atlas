@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic'
 
 // Break-glass console for "an operator says they can't get in". One search
 // runs the full diagnosis (auth identity → profile role → claims → listing
-// state) and names the fix; the magic-link button unblocks without a password.
+// state) and names the fix; the access-link button has them set a password.
 export default function AccessDoctorPage() {
   return <AccessDoctorClient />
 }

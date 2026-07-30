@@ -31,7 +31,7 @@ import { mintSignInUrl } from '@/lib/auth/signInLink'
  * The larger leak, and the one nothing covered. Access to a granted claim is
  * delivered as a SINGLE-USE Supabase invite link, and grantClaim provisions
  * these accounts with no password. Miss that one link and the only way back is
- * the "Use magic link instead" toggle on /login, which nothing tells the
+ * a fresh emailed access link, which nothing tells the
  * operator about. The audit that found this measured the cost: of the operators
  * who ever signed in, 20 of 22 did so within two hours of the grant, and 24 who
  * missed that window had never returned — including two paying Standard

@@ -5,8 +5,9 @@ import { diagnoseAccess, sendSignInLink } from '@/lib/admin/accessDoctor'
 
 // Admin break-glass console for operator lockout reports.
 //   GET  ?email=…                              → full access diagnosis
-//   POST { email, action: 'send_magic_link', next? } → email a branded magic
-//        sign-in link (auto-creates the account if none exists)
+//   POST { email, action: 'send_access_link', next? } → email a branded
+//        account-access link (auto-creates the account if none exists; the
+//        link lands on set-password — it is not a passwordless sign-in)
 // Auth: admin session cookie (atlas_admin JWT), same as every /api/admin route.
 
 export async function GET(request) {
@@ -31,7 +32,8 @@ export async function POST(request) {
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }
-  if (body?.action !== 'send_magic_link') {
+  // 'send_magic_link' accepted as a legacy alias for any stale admin tab.
+  if (body?.action !== 'send_access_link' && body?.action !== 'send_magic_link') {
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
   }
   const result = await sendSignInLink(body.email, body.next)
