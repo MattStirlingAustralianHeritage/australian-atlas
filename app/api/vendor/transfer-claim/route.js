@@ -96,31 +96,15 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Failed to update existing claim' }, { status: 500 })
     }
 
-    // ── Release the outgoing owner's ownership row ───────────
-    // Claim row inactive FIRST, then the display flag (migration 256 trigger).
-    if (liveClaim) {
-      const { error: releaseError } = await sb
-        .from('listing_claims')
-        .update({ status: 'inactive', updated_at: new Date().toISOString() })
-        .eq('id', liveClaim.id)
-      if (releaseError) {
-        console.error('[transfer-claim] Release error:', releaseError)
-        await sb.from('claims_review')
-          .update({ status: 'approved', reviewed_at: existingClaim.reviewed_at })
-          .eq('id', claimId)
-        return NextResponse.json({ error: 'Failed to release the current ownership' }, { status: 500 })
-      }
-      try {
-        const { updateListing } = await import('@/lib/admin/updateListing')
-        await updateListing(existingClaim.listing_id, { is_claimed: false }, { action: 'claim-transfer' })
-      } catch (e) {
-        // Ownership is already released; the flag is stale but recoverable, and
-        // approving the incoming claim re-stamps it anyway.
-        console.error('[transfer-claim] is_claimed clear failed (ownership released):', e.message)
-      }
-    }
-
-    // ── Create new pending claim for the new claimant ────────
+    // ── Create the new claimant's pending claim BEFORE releasing anything ──
+    // Order matters, and this is the safe order. Releasing first and inserting
+    // second means an insert failure leaves the previous owner genuinely
+    // stripped — no ownership row, is_claimed false, the listing re-claimable by
+    // a stranger — and a compensating rollback can fail too. Inserting first
+    // means the only failure left is "the new claim exists but ownership was not
+    // released", which strands nobody: the old owner keeps working, and
+    // approving the new claim trips grantClaim's different-owner guard loudly
+    // rather than silently.
     const { data: newClaim, error: insertError } = await sb
       .from('claims_review')
       .insert({
@@ -137,9 +121,40 @@ export async function POST(request) {
 
     if (insertError) {
       console.error('[transfer-claim] Insert error:', insertError)
-      // Rollback the status change
+      // Nothing has been released yet, so restoring the moderation row is a
+      // complete rollback.
       await sb.from('claims_review').update({ status: 'approved', reviewed_at: existingClaim.reviewed_at }).eq('id', claimId)
       return NextResponse.json({ error: 'Failed to create transfer claim' }, { status: 500 })
+    }
+
+    // ── Release the outgoing owner's ownership row ───────────
+    // Claim row inactive FIRST, then the display flag (migration 256 trigger).
+    if (liveClaim) {
+      const { error: releaseError } = await sb
+        .from('listing_claims')
+        .update({ status: 'inactive', updated_at: new Date().toISOString() })
+        .eq('id', liveClaim.id)
+      if (releaseError) {
+        // The new claim stands and the old owner is untouched — recoverable by
+        // re-running the transfer once the cause is fixed. Say so plainly
+        // instead of reporting a success that did not happen.
+        console.error('[transfer-claim] Release error:', releaseError)
+        return NextResponse.json(
+          {
+            error: 'The new claim was created but the current ownership could not be released, so the transfer is incomplete. The existing owner still has access. Re-run the transfer.',
+            newClaimId: newClaim?.id,
+          },
+          { status: 500 }
+        )
+      }
+      try {
+        const { updateListing } = await import('@/lib/admin/updateListing')
+        await updateListing(existingClaim.listing_id, { is_claimed: false }, { action: 'claim-transfer' })
+      } catch (e) {
+        // Ownership is already released; the flag is stale but recoverable, and
+        // approving the incoming claim re-stamps it anyway.
+        console.error('[transfer-claim] is_claimed clear failed (ownership released):', e.message)
+      }
     }
 
     // ── Audit log ────────────────────────────────────────────

@@ -43,6 +43,13 @@ export async function GET() {
     console.error('[account/claims] claims_review read failed:', reviews.error.message)
     return NextResponse.json({ error: 'Could not load your claims' }, { status: 500 })
   }
+  // Must fail loudly, not degrade. Treating an ownership-read failure as "owns
+  // nothing" would tell an operator who has full dashboard access that we are
+  // still "setting up" theirs — a worse answer than an honest error.
+  if (owned.error) {
+    console.error('[account/claims] listing_claims read failed:', owned.error.message)
+    return NextResponse.json({ error: 'Could not load your claims' }, { status: 500 })
+  }
 
   const ownedByListing = new Map((owned.data || []).map(r => [r.listing_id, r]))
 

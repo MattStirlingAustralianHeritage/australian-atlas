@@ -174,11 +174,39 @@ export async function POST(request) {
           .eq('id', claimRow.id)
         if (downgradeErr) {
           // Leave the event unprocessed so Stripe retries: silently keeping a
-          // cancelled subscription on Standard is a paid-perks leak.
+          // cancelled subscription on Standard is a paid-perks leak. Stripe's
+          // retries are finite, so alert too — otherwise the leak outlives them
+          // with nothing but a console line to show for it.
+          await alertPaidClaimProblem({
+            subject: `[Atlas] Cancelled subscription still on Standard — downgrade FAILED (claim ${claimRow.id})`,
+            detail: `customer.subscription.deleted fired but the claim could not be dropped to the free tier, so the operator keeps paid benefits they are no longer paying for. Stripe will retry, but not forever.`,
+            rows: { claim: claimRow.id, listing_id: claimRow.listing_id, subscription: subscription.id, error: downgradeErr.message },
+          })
           throw new Error(`claim downgrade failed for ${claimRow.id}: ${downgradeErr.message}`)
         }
 
         // is_claimed is deliberately NOT touched — ownership survives.
+
+        // Withdraw the paid opt-ins that were bought with Standard. The Atlas
+        // Trade pool (migration 170's trade_buildable_listings) selects on
+        // trade_welcome AND a live claim — it never looks at tier. While
+        // cancellation deactivated the claim, dropping out of that pool happened
+        // by accident; now that ownership survives, leaving trade_welcome set
+        // would keep a former subscriber in the trade pool permanently. The
+        // opt-in ended when the plan did.
+        // Written straight to listings, the way app/api/dashboard/trade does:
+        // trade_welcome is not in updateListing's ALLOWED_FIELDS, so routing it
+        // through there would silently drop the write.
+        {
+          const { error: tradeErr } = await sb
+            .from('listings')
+            .update({ trade_welcome: false, updated_at: new Date().toISOString() })
+            .eq('id', claimRow.listing_id)
+            .eq('trade_welcome', true)
+          if (tradeErr) {
+            console.error(`[stripe-webhook] could not withdraw trade opt-in for listing ${claimRow.listing_id}:`, tradeErr.message)
+          }
+        }
 
         try {
           const { sendBillingEmail, winBackEmail } = await import('@/lib/email/billingEmails')
@@ -652,13 +680,16 @@ async function handlePaidClaimAutoApprove(sb, {
       const verticalName = VERTICAL_NAMES[effectiveVertical] || effectiveVertical || 'Australian Atlas'
       const displayName = listingName || listingRecord?.name || 'your listing'
 
-      // Access is driven off the Supabase invite grantClaim sends to new operators
-      // (redirectTo → /account). No /vendor/login, no auto-link promise.
-      const accessBlock = grant.provisioned
-        ? `<p>We've just sent a separate email to <strong>${effectiveEmail}</strong> with a secure sign-in link. Click it to finish setting up access and open your operator dashboard.</p>
-           <p style="color:#888;font-size:13px;">You can also sign in any time at <a href="${SITE_URL}/login">${SITE_URL.replace(/^https?:\/\//, '')}/login</a>.</p>`
+      // Branch on grant.linkSent, not grant.provisioned. A payer whose account
+      // already existed but had never confirmed its address also gets a
+      // confirmation link from grantClaim, and telling that person to "sign in"
+      // is a dead end — GoTrue refuses password sign-in until the address is
+      // confirmed. linkSent is true in both cases where a link is waiting.
+      const accessBlock = grant.linkSent
+        ? `<p>We've just sent a separate email to <strong>${effectiveEmail}</strong> with a link to confirm this address and choose your password. Open it to finish setting up access and reach your operator dashboard.</p>
+           <p style="color:#888;font-size:13px;">Once that's done you can sign in any time at <a href="${SITE_URL}/login">${SITE_URL.replace(/^https?:\/\//, '')}/login</a>.</p>`
         : `<p><a href="${SITE_URL}/login" style="display:inline-block;padding:12px 28px;background:#5F8A7E;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Sign in to your dashboard</a></p>
-           <p style="color:#888;font-size:13px;">Sign in to your Australian Atlas account (<strong>${effectiveEmail}</strong>) to manage your listing.</p>`
+           <p style="color:#888;font-size:13px;">Sign in to your Australian Atlas account (<strong>${effectiveEmail}</strong>) with your email and password to manage your listing.</p>`
 
       await resend.emails.send({
         from: 'Australian Atlas <noreply@australianatlas.com.au>',

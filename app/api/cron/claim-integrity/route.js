@@ -4,6 +4,7 @@ import { startRun, completeRun } from '@/lib/agents/logRun'
 import { sendAgentEmail } from '@/lib/agents/email'
 import { sweepExpiredComps } from '@/lib/claims/compSweep'
 import { finalizePendingClaimsForUser } from '@/lib/claims/grantClaim'
+import { isConfirmationProof } from '@/lib/claims/claimGate.mjs'
 
 /**
  * GET /api/cron/claim-integrity
@@ -123,9 +124,15 @@ export async function GET(request) {
       settled.checked = emails.length
       if (emails.length && !dryRun) {
         const { data: userList } = await sb.auth.admin.listUsers({ perPage: 2000 })
+        // isConfirmationProof, not a bare email_confirmed_at check: it must
+        // agree with the gate inside finalizeClaim. An account auto-confirmed
+        // during a Resend outage carries a timestamp but proved nothing, so
+        // the looser test would nominate it here every six hours, finalizeClaim
+        // would refuse it, and the retry would re-send an invite and log a
+        // failure — forever, to exactly the operator this flow protects.
         const verifiedByEmail = new Map(
           (userList?.users || [])
-            .filter(u => u.email_confirmed_at && u.email)
+            .filter(u => u.email && isConfirmationProof(u))
             .map(u => [u.email.toLowerCase(), u])
         )
         for (const email of emails) {

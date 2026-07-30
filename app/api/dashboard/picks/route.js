@@ -202,6 +202,19 @@ export async function POST(request) {
     return NextResponse.json({ error: 'You can only add picks for a listing you own' }, { status: 403 })
   }
 
+  // Producer's Picks is a Standard feature (/for-venues, and the tier card on
+  // the claim form both say so). Ownership alone was the only check here, and
+  // that used to be masked by cancellation deactivating the claim outright —
+  // now that cancelling only drops the tier, a former subscriber would keep
+  // authoring picks forever. Ownership answers "whose listing is this"; tier
+  // answers "is this feature theirs".
+  if (!(await isListingPaid(admin, curatorListingId))) {
+    return NextResponse.json(
+      { error: "Producer's Picks is part of the Standard plan.", code: 'upgrade_required' },
+      { status: 403 }
+    )
+  }
+
   const result = await createPick(admin, {
     curatorId: curatorListingId,
     pickedId: pickedListingId,

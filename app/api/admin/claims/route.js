@@ -583,7 +583,33 @@ async function handleRevoke({ claimId, listingId, admin_notes }) {
     console.error('[admin/claims] revoke: claim read failed:', readErr.message)
     return NextResponse.json({ error: 'Could not read the ownership record' }, { status: 500 })
   }
-  const live = liveRows?.[0]
+  let live = liveRows?.[0]
+
+  // Resuming a half-finished revoke. If a previous run deactivated the claim
+  // but failed to clear is_claimed, there is no LIVE claim left to find — so
+  // the plain lookup above would 409 and the "re-run the revoke" advice this
+  // handler gives would be impossible to follow. Recognise that state and
+  // finish the job instead.
+  let resuming = false
+  if (!live) {
+    const { data: listing } = await sb
+      .from('listings')
+      .select('is_claimed')
+      .eq('id', targetListingId)
+      .maybeSingle()
+    if (listing?.is_claimed) {
+      const { data: strandedRows } = await sb
+        .from('listing_claims')
+        .select('id, claimant_email, tier, status, stripe_subscription_id')
+        .eq('listing_id', targetListingId)
+        .eq('status', 'inactive')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+      live = strandedRows?.[0]
+      resuming = !!live
+    }
+  }
+
   if (!live) {
     return NextResponse.json({ error: 'This listing has no live claim to revoke.' }, { status: 409 })
   }
@@ -595,13 +621,16 @@ async function handleRevoke({ claimId, listingId, admin_notes }) {
   }
 
   // 1. Ownership row goes inactive FIRST (see the trigger note above).
-  const { error: deactivateErr } = await sb
-    .from('listing_claims')
-    .update({ status: 'inactive', updated_at: new Date().toISOString() })
-    .eq('id', live.id)
-  if (deactivateErr) {
-    console.error('[admin/claims] revoke: deactivate failed:', deactivateErr.message)
-    return NextResponse.json({ error: 'Could not deactivate the claim' }, { status: 500 })
+  //    Skipped when resuming — it is already inactive.
+  if (!resuming) {
+    const { error: deactivateErr } = await sb
+      .from('listing_claims')
+      .update({ status: 'inactive', updated_at: new Date().toISOString() })
+      .eq('id', live.id)
+    if (deactivateErr) {
+      console.error('[admin/claims] revoke: deactivate failed:', deactivateErr.message)
+      return NextResponse.json({ error: 'Could not deactivate the claim' }, { status: 500 })
+    }
   }
 
   // 2. Only now will the display flag actually clear. updateListing carries it
@@ -609,11 +638,11 @@ async function handleRevoke({ claimId, listingId, admin_notes }) {
   const { updateListing } = await import('@/lib/admin/updateListing')
   const upd = await updateListing(targetListingId, { is_claimed: false }, { action: 'claim-revoke' })
   if (!upd.success) {
-    // The claim is already inactive, so ownership is gone; the flag is stale.
-    // Report it rather than pretending the revoke was clean.
+    // Ownership is gone but the flag is stale. Re-running this action resumes
+    // from exactly here (see the resume branch above), so the advice is real.
     console.error('[admin/claims] revoke: is_claimed clear failed:', upd.error)
     return NextResponse.json(
-      { error: `Claim deactivated, but clearing is_claimed failed: ${upd.error}. Re-run the revoke.` },
+      { error: `Ownership was removed, but clearing the claimed flag failed: ${upd.error}. Run Revoke again to finish.` },
       { status: 500 }
     )
   }
