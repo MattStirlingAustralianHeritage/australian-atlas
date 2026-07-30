@@ -90,6 +90,24 @@
   font-weight: 500;
 }
 
+/* Unseen-activity count. Sits in the flex row's spare space on the right —
+   .admin-nav-link is already space-between, so no positioning needed. */
+.admin-nav-badge {
+  flex: none;
+  min-width: 17px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #C4452F;
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 17px;
+  letter-spacing: 0.01em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
 .admin-sidebar-foot {
   margin-top: auto;
   padding: 12px 10px 16px;

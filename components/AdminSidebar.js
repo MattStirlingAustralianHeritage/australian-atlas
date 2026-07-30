@@ -84,12 +84,67 @@ const SECTIONS = [
   },
 ]
 
+// The one link that carries an unseen counter, and where the browser remembers
+// how far you'd read. Bump the key if the meaning of "seen" ever changes.
+const ACTIVITY_HREF = '/admin/activity'
+const SEEN_KEY = 'aa:admin:activity-seen-at'
+const POLL_MS = 120000
+
 export default function AdminSidebar() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
+  const [unseen, setUnseen] = useState(0)
 
   // Close the mobile drawer on navigation.
   useEffect(() => { setOpen(false) }, [pathname])
+
+  // Unseen-activity badge. "Seen" is a timestamp in localStorage, restamped
+  // every time the console lands on the activity page itself — so the number is
+  // "what's happened since you last looked", not a running total you can never
+  // clear. Server clock, not the browser's: see the count route.
+  const onActivity = pathname === ACTIVITY_HREF
+  useEffect(() => {
+    if (pathname === '/admin/login') return
+
+    let cancelled = false
+
+    async function poll() {
+      // Don't spend a query on a background tab.
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+
+      let since = null
+      try { since = window.localStorage.getItem(SEEN_KEY) } catch { /* private mode */ }
+
+      try {
+        const res = await fetch(
+          `/api/admin/activity/count${since ? `?since=${encodeURIComponent(since)}` : ''}`,
+          { cache: 'no-store', credentials: 'same-origin' },
+        )
+        if (!res.ok || cancelled) return
+        const json = await res.json()
+        if (cancelled) return
+
+        if (onActivity) {
+          // You're reading the feed right now — that IS the badge.
+          if (json.now) { try { window.localStorage.setItem(SEEN_KEY, json.now) } catch { /* private mode */ } }
+          setUnseen(0)
+        } else {
+          setUnseen(Number(json.count) || 0)
+        }
+      } catch {
+        // The console works fine without a badge — never break the nav over it.
+      }
+    }
+
+    poll()
+    const timer = setInterval(poll, POLL_MS)
+    document.addEventListener('visibilitychange', poll)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+      document.removeEventListener('visibilitychange', poll)
+    }
+  }, [pathname, onActivity])
 
   if (pathname === '/admin/login') return null
 
@@ -137,6 +192,14 @@ export default function AdminSidebar() {
                   aria-current={isActive(href) ? 'page' : undefined}
                 >
                   {label}
+                  {href === ACTIVITY_HREF && unseen > 0 && (
+                    <span
+                      className="admin-nav-badge"
+                      aria-label={`${unseen} new since you last looked`}
+                    >
+                      {unseen > 99 ? '99+' : unseen}
+                    </span>
+                  )}
                 </Link>
               ))}
             </div>
