@@ -3,7 +3,11 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-export default function ClaimsActions({ claimId, vertical, sourceClaimId, usingPortalTable }) {
+// `rejectOnly` is for a claim already approved and waiting on its address:
+// approving again is meaningless (the grant already happened), but rejecting it
+// must be possible — otherwise a claimant who never verifies is un-actionable
+// and alarms the integrity cron forever.
+export default function ClaimsActions({ claimId, vertical, sourceClaimId, usingPortalTable, rejectOnly = false }) {
   const router = useRouter()
   const [loading, setLoading] = useState(null) // 'approve' | 'reject' | null
   const [notes, setNotes] = useState('')
@@ -79,23 +83,25 @@ export default function ClaimsActions({ claimId, vertical, sourceClaimId, usingP
       )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <button
-          onClick={() => handleAction('approve')}
-          disabled={loading !== null}
-          style={{
-            padding: '6px 16px',
-            borderRadius: 6,
-            border: '1px solid #4a7c59',
-            background: loading === 'approve' ? '#e8e8e8' : '#4a7c59',
-            color: loading === 'approve' ? '#888' : '#fff',
-            fontFamily: 'var(--font-body, system-ui)',
-            fontSize: 12,
-            fontWeight: 500,
-            cursor: loading ? 'not-allowed' : 'pointer',
-          }}
-        >
-          {loading === 'approve' ? 'Approving...' : 'Approve'}
-        </button>
+        {!rejectOnly && (
+          <button
+            onClick={() => handleAction('approve')}
+            disabled={loading !== null}
+            style={{
+              padding: '6px 16px',
+              borderRadius: 6,
+              border: '1px solid #4a7c59',
+              background: loading === 'approve' ? '#e8e8e8' : '#4a7c59',
+              color: loading === 'approve' ? '#888' : '#fff',
+              fontFamily: 'var(--font-body, system-ui)',
+              fontSize: 12,
+              fontWeight: 500,
+              cursor: loading ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {loading === 'approve' ? 'Approving...' : 'Approve'}
+          </button>
+        )}
 
         <button
           onClick={() => {

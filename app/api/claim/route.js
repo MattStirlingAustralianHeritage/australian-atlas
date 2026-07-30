@@ -141,18 +141,30 @@ export async function POST(request) {
       )
     }
 
-    // ── Check for duplicate pending claim ─────────────────────
-    const { data: existing } = await sb
+    // ── Check for a claim already in flight on this listing ───
+    // Listing-wide, and covering pending_verification as well as pending. A
+    // claim we have approved but that is still waiting on its address writes no
+    // ownership and leaves is_claimed=false, so the guards above do not see it:
+    // without this, a second claimant (or the same one twice) could stack
+    // another claim on a listing that is already promised to someone.
+    const { data: inFlight } = await sb
       .from('claims_review')
-      .select('id')
+      .select('id, claimant_email, status')
       .eq('listing_id', listingId)
-      .eq('claimant_email', sessionEmail)
-      .eq('status', 'pending')
-      .maybeSingle()
+      .in('status', ['pending', 'pending_verification'])
+      .limit(1)
 
-    if (existing) {
+    const blocking = inFlight?.[0]
+    if (blocking) {
+      const mine = blocking.claimant_email === sessionEmail
       return NextResponse.json(
-        { error: 'You already have a pending claim for this listing.' },
+        {
+          error: mine
+            ? (blocking.status === 'pending_verification'
+                ? 'Your claim for this listing is approved and waiting on you to confirm your email address. Check your inbox for the link.'
+                : 'You already have a pending claim for this listing.')
+            : 'Another claim for this listing is already being reviewed. Please contact us if you believe it is not legitimate.',
+        },
         { status: 409 }
       )
     }

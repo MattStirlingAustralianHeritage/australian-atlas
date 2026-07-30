@@ -31,7 +31,7 @@ export async function GET() {
   }
 }
 
-// POST — approve, reject, or set the granted tier of a claim
+// POST — approve, reject, set the granted tier of, or revoke a claim
 export async function POST(request) {
   const cookieStore = await cookies()
   if (!(await checkAdmin(cookieStore))) {
@@ -52,11 +52,11 @@ export async function POST(request) {
       note,
     } = await request.json()
 
-    // set_tier may be addressed by listingId instead (search results act on
-    // listings, which don't always have a moderation row); approve/reject are
-    // moderation actions and always need the claims_review id.
-    const hasTarget = action === 'set_tier' ? (claimId || listingId) : claimId
-    if (!hasTarget || !['approve', 'reject', 'set_tier'].includes(action)) {
+    // set_tier and revoke may be addressed by listingId instead (search results
+    // act on listings, which don't always have a moderation row);
+    // approve/reject are moderation actions and always need the claims_review id.
+    const hasTarget = (action === 'set_tier' || action === 'revoke') ? (claimId || listingId) : claimId
+    if (!hasTarget || !['approve', 'reject', 'set_tier', 'revoke'].includes(action)) {
       return NextResponse.json({ error: 'Invalid request — need a claim target and a valid action' }, { status: 400 })
     }
 
@@ -70,6 +70,10 @@ export async function POST(request) {
 
     if (action === 'set_tier') {
       return await handleSetTier({ claimId, listingId, tier, duration, note })
+    }
+
+    if (action === 'revoke') {
+      return await handleRevoke({ claimId, listingId, admin_notes })
     }
   } catch (err) {
     console.error('[admin/claims] POST error:', err.message)
@@ -172,11 +176,12 @@ async function handleApprove({ claimId, vertical, sourceClaimId, usingPortalTabl
   }
 
   // ── 4. Send approval email — access is driven off the Supabase invite ──
-  // grantClaim provisions the auth user and emails a secure magic sign-in link
-  // (redirectTo → /account) whenever the operator is new (grant.provisioned).
-  // This message confirms the approval and points at that link / the portal
-  // /login — never a vertical /vendor/login, and it promises no auto-linking
-  // that no code performs (the claim is already linked server-side).
+  // grantClaim emails a single-use invite link (confirm address → set password
+  // → /account) whenever the operator's address is not already verified, and
+  // reports whether that send succeeded as grant.linkSent. This message
+  // confirms the approval and points at that link / the portal /login — never a
+  // vertical /vendor/login, and it promises no auto-linking that no code
+  // performs (the claim is already linked server-side).
   try {
     const email = claimRecord?.claimant_email
     const claimantName = claimRecord?.claimant_name
@@ -209,11 +214,16 @@ async function handleApprove({ claimId, vertical, sourceClaimId, usingPortalTabl
       // not imply otherwise. Telling an operator their "dashboard is ready"
       // when ownership is still gated is exactly the mismatch that left people
       // believing they were done while their listing sat unclaimed.
+      // Only claim a link was sent when one actually was (grant.linkSent).
+      // Promising mail that never went out is what left operators waiting on
+      // an email that did not exist.
       const accessBlock = grant.pendingVerification
-        ? `<p><strong>One step left.</strong> We've sent a separate email to <strong>${email}</strong> with a secure sign-in link. Opening it confirms this address is yours and completes the claim — until then the listing isn't assigned to anyone.</p>
-           <p style="color:#888;font-size:13px;">Can't find it? Go to <a href="${SITE_URL}/login">${SITE_URL.replace(/^https?:\/\//, '')}/login</a> and choose &ldquo;Use magic link instead&rdquo; to get a fresh one.</p>`
+        ? (grant.linkSent
+            ? `<p><strong>One step left.</strong> We've sent a separate email to <strong>${email}</strong> with a link to confirm this address and choose your password. Opening it completes the claim — until then the listing isn't assigned to anyone.</p>
+           <p style="color:#888;font-size:13px;">Can't find it? Go to <a href="${SITE_URL}/login">${SITE_URL.replace(/^https?:\/\//, '')}/login</a> and use &ldquo;Forgot password?&rdquo; to get a fresh link.</p>`
+            : `<p><strong>One step left.</strong> We need to confirm that <strong>${email}</strong> is yours before the listing is assigned to anyone. Go to <a href="${SITE_URL}/login">${SITE_URL.replace(/^https?:\/\//, '')}/login</a> and use &ldquo;Forgot password?&rdquo; — we'll email you a link to confirm the address and set your password.</p>`)
         : `<p><a href="${SITE_URL}/login" style="display:inline-block;padding:12px 28px;background:#5F8A7E;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">Sign in to your dashboard</a></p>
-           <p style="color:#888;font-size:13px;">Sign in to your Australian Atlas account (<strong>${email}</strong>) to manage your listing.</p>`
+           <p style="color:#888;font-size:13px;">Sign in to your Australian Atlas account (<strong>${email}</strong>) with your email and password to manage your listing.</p>`
 
       await resend.emails.send({
         from: 'Australian Atlas <noreply@australianatlas.com.au>',
@@ -527,5 +537,123 @@ async function handleSetTier({ claimId, listingId, tier, duration, note }) {
     tier,
     compExpiresAt,
     compDuration,
+  })
+}
+
+// ─── Revoke ownership ─────────────────────────────────────
+//
+// The claim was granted to the wrong person — a claim approved before the
+// verification gate existed, an operator who sold up, a mistaken grant. Until
+// now there was no way to undo one: the only code in the whole platform that
+// deactivated a listing_claims row was the Stripe cancellation webhook, so
+// every wrongly-granted free claim needed hand-written SQL.
+//
+// ORDER MATTERS, and it is the whole reason this lives in one place. Migration
+// 256's trigger silently coerces listings.is_claimed back to true while a live
+// claim exists, so clearing the flag first looks like it worked and doesn't.
+// The claim row must go inactive FIRST; only then does the flag clear stick.
+//
+// Stripe-billed claims are refused outright: deactivating the ownership row
+// while the subscription keeps charging would bill someone for a listing they
+// no longer hold. Cancel in Stripe and let the webhook downgrade them.
+async function handleRevoke({ claimId, listingId, admin_notes }) {
+  const sb = getSupabaseAdmin()
+
+  // Resolve the listing, whether we were handed a moderation row or a listing.
+  let targetListingId = listingId || null
+  if (!targetListingId && claimId) {
+    const { data: review } = await sb
+      .from('claims_review')
+      .select('listing_id')
+      .eq('id', claimId)
+      .maybeSingle()
+    targetListingId = review?.listing_id || null
+  }
+  if (!targetListingId) {
+    return NextResponse.json({ error: 'Could not resolve a listing to revoke' }, { status: 404 })
+  }
+
+  const { data: liveRows, error: readErr } = await sb
+    .from('listing_claims')
+    .select('id, claimant_email, tier, status, stripe_subscription_id')
+    .eq('listing_id', targetListingId)
+    .in('status', LIVE_CLAIM_STATUSES)
+    .limit(1)
+  if (readErr) {
+    console.error('[admin/claims] revoke: claim read failed:', readErr.message)
+    return NextResponse.json({ error: 'Could not read the ownership record' }, { status: 500 })
+  }
+  const live = liveRows?.[0]
+  if (!live) {
+    return NextResponse.json({ error: 'This listing has no live claim to revoke.' }, { status: 409 })
+  }
+  if (live.stripe_subscription_id) {
+    return NextResponse.json(
+      { error: 'This claim is billed through Stripe. Cancel the subscription in Stripe first — the webhook will downgrade it — then revoke if still needed.' },
+      { status: 409 }
+    )
+  }
+
+  // 1. Ownership row goes inactive FIRST (see the trigger note above).
+  const { error: deactivateErr } = await sb
+    .from('listing_claims')
+    .update({ status: 'inactive', updated_at: new Date().toISOString() })
+    .eq('id', live.id)
+  if (deactivateErr) {
+    console.error('[admin/claims] revoke: deactivate failed:', deactivateErr.message)
+    return NextResponse.json({ error: 'Could not deactivate the claim' }, { status: 500 })
+  }
+
+  // 2. Only now will the display flag actually clear. updateListing carries it
+  //    outbound to the vertical, which is where the claimed badge is rendered.
+  const { updateListing } = await import('@/lib/admin/updateListing')
+  const upd = await updateListing(targetListingId, { is_claimed: false }, { action: 'claim-revoke' })
+  if (!upd.success) {
+    // The claim is already inactive, so ownership is gone; the flag is stale.
+    // Report it rather than pretending the revoke was clean.
+    console.error('[admin/claims] revoke: is_claimed clear failed:', upd.error)
+    return NextResponse.json(
+      { error: `Claim deactivated, but clearing is_claimed failed: ${upd.error}. Re-run the revoke.` },
+      { status: 500 }
+    )
+  }
+
+  // 3. The moderation row should not still read 'approved' for ownership that
+  //    no longer exists — claim-integrity reads that as a failed grant.
+  if (claimId) {
+    const { data: prior } = await sb
+      .from('claims_review')
+      .select('admin_notes')
+      .eq('id', claimId)
+      .maybeSingle()
+    await sb
+      .from('claims_review')
+      .update({
+        status: 'rejected',
+        admin_notes: mergeAdminNotes(prior?.admin_notes, admin_notes, 'on revocation'),
+        reviewed_at: new Date().toISOString(),
+      })
+      .eq('id', claimId)
+      .then(null, err => console.error('[admin/claims] revoke: claims_review update failed:', err.message))
+  }
+
+  await sb.from('claim_audit_log').insert({
+    claim_id: claimId || null,
+    action: 'revoked',
+    actor: 'admin',
+    details: {
+      listing_id: targetListingId,
+      listing_claim_id: live.id,
+      previous_email: live.claimant_email,
+      previous_tier: live.tier,
+      admin_notes: admin_notes || null,
+    },
+  }).then(null, err => console.error('[admin/claims] Audit log error:', err))
+
+  return NextResponse.json({
+    success: true,
+    action: 'revoked',
+    listingId: targetListingId,
+    previousOwner: live.claimant_email,
   })
 }

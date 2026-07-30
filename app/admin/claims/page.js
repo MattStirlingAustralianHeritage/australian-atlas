@@ -1,5 +1,6 @@
 import { getSupabaseAdmin, getVerticalClient, VERTICAL_CONFIG, getVerticalClaimsTable } from '@/lib/supabase/clients'
 import ClaimsActions from './ClaimsActions'
+import RevokeClaimAction from './RevokeClaimAction'
 import ClaimTierActions from './ClaimTierActions'
 import ClaimsSearch from './ClaimsSearch'
 import { compStatus } from '@/lib/claims/comp.mjs'
@@ -55,7 +56,7 @@ export default async function ClaimsPage() {
     if (listingIds.length > 0) {
       const { data: grantedRows } = await sb
         .from('listing_claims')
-        .select('listing_id, tier, status, past_due_since, stripe_subscription_id, comp_expires_at, comp_granted_at, comp_note')
+        .select('listing_id, claimant_email, tier, status, past_due_since, stripe_subscription_id, comp_expires_at, comp_granted_at, comp_note')
         .in('listing_id', listingIds)
         .in('status', ['active', 'past_due'])
       // Prefer the 'active' row if a listing somehow carries both.
@@ -377,14 +378,36 @@ function ClaimCard({ claim, showActions, usingPortalTable }) {
       )}
 
       {!showActions && claim.status === 'approved' && granted && (
-        <ClaimTierActions
+        <>
+          <ClaimTierActions
+            claimId={claim.id}
+            listingId={claim.listing_id}
+            venueName={venueName}
+            tier={comp?.lapsed ? 'free' : granted.tier}
+            hasStripeSubscription={!!granted.stripe_subscription_id}
+            compExpiresAt={granted.comp_expires_at}
+            compNote={granted.comp_note}
+          />
+          <RevokeClaimAction
+            claimId={claim.id}
+            listingId={claim.listing_id}
+            venueName={venueName}
+            ownerEmail={granted.claimant_email || claim.claimant_email}
+            hasStripeSubscription={!!granted.stripe_subscription_id}
+          />
+        </>
+      )}
+
+      {/* A claim approved but still awaiting its address can be rejected —
+          it was previously actionless, so a claimant who never verified sat
+          in the queue forever with nothing an admin could do about it. */}
+      {!showActions && claim.status === 'pending_verification' && (
+        <ClaimsActions
           claimId={claim.id}
-          listingId={claim.listing_id}
-          venueName={venueName}
-          tier={comp?.lapsed ? 'free' : granted.tier}
-          hasStripeSubscription={!!granted.stripe_subscription_id}
-          compExpiresAt={granted.comp_expires_at}
-          compNote={granted.comp_note}
+          vertical={claim.vertical}
+          sourceClaimId={claim.source_claim_id || claim.id}
+          usingPortalTable={usingPortalTable}
+          rejectOnly
         />
       )}
     </div>
