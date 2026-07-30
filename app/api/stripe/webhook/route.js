@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { finalizeClaim } from '@/lib/claims/grantClaim'
+import { isClaimPayable, PAYABLE_CLAIM_STATUSES } from '@/lib/claims/claimGate.mjs'
 
 function getStripe() {
   const Stripe = require('stripe')
@@ -134,15 +135,21 @@ export async function POST(request) {
         }
 
         // Listing (vendor claim) subscription cancellation.
-        // Commercial state lives in listing_claims (never on listings), so we
-        // resolve the ownership row by Stripe subscription id, deactivate it,
-        // and clear the display flag via updateListing. No phantom listings
-        // columns. 'past_due' is included: that's the dunning grace state
+        //
+        // Cancelling a subscription ends the PLAN, not the ownership. This used
+        // to set the claim 'inactive' and clear is_claimed, which deleted the
+        // operator's free-tier claim as well: they lost the dashboard, and the
+        // listing dropped back into the claimable pool for a stranger to take —
+        // over a cancelled $295 upgrade. So this downgrades to Free instead,
+        // exactly as a lapsed comp does (migration 261's stated model), and the
+        // operator keeps everything Free includes.
+        //
+        // 'past_due' is included: that's the dunning grace state
         // (invoice.payment_failed below) and Stripe fires this event when the
         // retries exhaust — the grace must end here too.
         const { data: claimRow } = await sb
           .from('listing_claims')
-          .select('id, listing_id')
+          .select('id, listing_id, claimant_email')
           .eq('stripe_subscription_id', subscription.id)
           .in('status', ['active', 'past_due'])
           .order('status', { ascending: true }) // prefer the 'active' row if both exist
@@ -154,19 +161,44 @@ export async function POST(request) {
           break
         }
 
-        await sb
+        const { error: downgradeErr } = await sb
           .from('listing_claims')
-          .update({ status: 'inactive', past_due_since: null, updated_at: new Date().toISOString() })
+          .update({
+            tier: 'free',
+            status: 'active',
+            stripe_subscription_id: null,
+            past_due_since: null,
+            billing_cycle_end: null,
+            updated_at: new Date().toISOString(),
+          })
           .eq('id', claimRow.id)
-
-        try {
-          const { updateListing } = await import('@/lib/admin/updateListing')
-          await updateListing(claimRow.listing_id, { is_claimed: false }, { action: 'claim-cancel' })
-        } catch (e) {
-          console.error(`[stripe-webhook] Failed to clear is_claimed for listing ${claimRow.listing_id}:`, e.message)
+        if (downgradeErr) {
+          // Leave the event unprocessed so Stripe retries: silently keeping a
+          // cancelled subscription on Standard is a paid-perks leak.
+          throw new Error(`claim downgrade failed for ${claimRow.id}: ${downgradeErr.message}`)
         }
 
-        console.log(`[stripe-webhook] Deactivated claim ${claimRow.id} (listing ${claimRow.listing_id}) for cancelled subscription ${subscription.id}`)
+        // is_claimed is deliberately NOT touched — ownership survives.
+
+        try {
+          const { sendBillingEmail, winBackEmail } = await import('@/lib/email/billingEmails')
+          const { data: listing } = await sb
+            .from('listings')
+            .select('name, vertical')
+            .eq('id', claimRow.listing_id)
+            .maybeSingle()
+          await sendBillingEmail(
+            claimRow.claimant_email,
+            winBackEmail({
+              listingName: listing?.name,
+              verticalName: VERTICAL_NAMES[listing?.vertical] || listing?.vertical,
+            })
+          )
+        } catch (e) {
+          console.error(`[stripe-webhook] cancellation email failed for claim ${claimRow.id} (downgrade stands):`, e.message)
+        }
+
+        console.log(`[stripe-webhook] Downgraded claim ${claimRow.id} (listing ${claimRow.listing_id}) to free after subscription ${subscription.id} was cancelled`)
         break
       }
 
@@ -451,6 +483,25 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.australianatla
 
 // ─── Paid claim auto-approve ─────────────────────────────────────────────────
 
+/**
+ * A payment succeeded but something downstream is wrong. Always alert a human:
+ * every one of these means real money was taken. Best-effort by design — the
+ * caller's throw (or deliberate return) is what controls Stripe's retry.
+ */
+async function alertPaidClaimProblem({ subject, detail, rows }) {
+  try {
+    const { sendAgentEmail } = await import('@/lib/agents/email')
+    await sendAgentEmail({
+      subject,
+      html: `<p>${detail}</p><ul>${
+        Object.entries(rows || {}).map(([k, v]) => `<li><strong>${k}:</strong> ${v ?? '—'}</li>`).join('')
+      }</ul>`,
+    })
+  } catch (err) {
+    console.error('[stripe-webhook] paid-claim alert failed to send:', err.message)
+  }
+}
+
 async function handlePaidClaimAutoApprove(sb, {
   claimId, listingId, subscriptionId, customerId, customerEmail, customerName,
   vertical, listingName, listingSlug,
@@ -459,32 +510,62 @@ async function handlePaidClaimAutoApprove(sb, {
   let resolvedClaimId = claimId
 
   if (!resolvedClaimId && listingId && customerEmail) {
+    // Any claim still in flight, not just 'pending': a claim approved and
+    // awaiting verification (or already approved on the free tier) is exactly
+    // the one an operator pays to upgrade, and filtering to 'pending' sent
+    // those to the silent-skip branch below with the money already taken.
     const { data: claims } = await sb
       .from('claims_review')
       .select('id')
       .eq('listing_id', listingId)
       .eq('claimant_email', customerEmail)
-      .eq('status', 'pending')
+      .in('status', PAYABLE_CLAIM_STATUSES)
       .order('created_at', { ascending: false })
       .limit(1)
 
     resolvedClaimId = claims?.[0]?.id
   }
 
+  // A payment has succeeded. Every failure from here on must ALERT and THROW,
+  // never return quietly: returning marks the event processed, so Stripe never
+  // retries and a charged customer is left with nothing granted and no signal.
   if (!resolvedClaimId) {
-    console.error('[stripe-webhook] Auto-approve failed: no claim found for', { listingId, customerEmail })
-    return
+    await alertPaidClaimProblem({
+      subject: `[Atlas] URGENT — payment received, NO CLAIM FOUND (${listingName || listingId})`,
+      detail: `A checkout completed but no claims_review row could be resolved, so nothing was granted. The customer has paid. Stripe will retry this webhook.`,
+      rows: { listing_id: listingId, email: customerEmail, subscription: subscriptionId },
+    })
+    throw new Error(`paid claim auto-approve: no claim found for listing ${listingId} / ${customerEmail}`)
   }
 
   // ── 2. Fetch the full claim + listing ──────────────────────────────────────
   const { data: claimRecord } = await sb
     .from('claims_review')
-    .select('id, listing_id, vertical, claimant_email, claimant_name, admin_notes')
+    .select('id, listing_id, vertical, claimant_email, claimant_name, admin_notes, status')
     .eq('id', resolvedClaimId)
     .single()
 
   if (!claimRecord) {
-    console.error(`[stripe-webhook] Claim ${resolvedClaimId} not found`)
+    await alertPaidClaimProblem({
+      subject: `[Atlas] URGENT — payment received, claim row missing (${resolvedClaimId})`,
+      detail: `checkout.session.completed carried claim ${resolvedClaimId} but no such claims_review row exists. The customer has paid and nothing was granted.`,
+      rows: { claim: resolvedClaimId, listing_id: listingId, email: customerEmail, subscription: subscriptionId },
+    })
+    throw new Error(`paid claim auto-approve: claim ${resolvedClaimId} not found`)
+  }
+
+  // A rejected (or transfer-superseded) claim must never be paid back into
+  // ownership. The pay link is durable and sits in an old email, so this is
+  // re-checked here as well as in /api/claim/pay: this is the write that would
+  // overwrite 'rejected' with 'approved' and hand over the listing.
+  if (!isClaimPayable(claimRecord.status)) {
+    await alertPaidClaimProblem({
+      subject: `[Atlas] URGENT — payment received for a ${claimRecord.status} claim — REFUND NEEDED`,
+      detail: `A Stripe checkout completed against claim ${resolvedClaimId}, which is in status '${claimRecord.status}'. Ownership was NOT granted (correct), so this payment must be refunded manually in Stripe.`,
+      rows: { claim: resolvedClaimId, status: claimRecord.status, email: claimRecord.claimant_email, subscription: subscriptionId },
+    })
+    // Deliberately no throw: retrying cannot make a rejected claim payable, so
+    // let the event settle and leave the refund to the human the alert reaches.
     return
   }
 
@@ -631,8 +712,14 @@ async function handleUpgradeCheckout(sb, {
   listingId, subscriptionId, customerId, customerEmail, customerName, vertical, listingName,
 }) {
   if (!listingId || !customerEmail) {
-    console.error('[stripe-webhook] Upgrade checkout missing listing_id or contact_email', { listingId })
-    return
+    // The operator has paid. Returning here would mark the event processed and
+    // end the story silently, so alert and throw for a retry instead.
+    await alertPaidClaimProblem({
+      subject: `[Atlas] URGENT — paid upgrade with incomplete metadata (listing ${listingId || 'unknown'})`,
+      detail: `atlas_upgrade_checkout completed but the session metadata was missing listing_id or contact_email, so nothing could be upgraded. The operator has paid. Stripe will retry this webhook.`,
+      rows: { listing_id: listingId, email: customerEmail, subscription: subscriptionId },
+    })
+    throw new Error(`upgrade checkout missing listing_id or contact_email (listing ${listingId})`)
   }
 
   // Resolve the vertical if the session metadata didn't carry it (grantClaim needs it).

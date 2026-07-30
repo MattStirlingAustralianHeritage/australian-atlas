@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { LIVE_CLAIM_STATUSES } from '@/lib/claims/statuses'
 import { isCompLapsed } from '@/lib/claims/comp.mjs'
+import { isClaimPayable } from '@/lib/claims/claimGate.mjs'
 
 // Stripe secret keys are always sk_… / rk_… (live or test). Validate the shape
 // up front so a present-but-malformed value fails explicitly (mirrors claim-checkout).
@@ -47,10 +48,20 @@ export async function GET(request) {
   const sb = getSupabaseAdmin()
   const { data: claim } = await sb
     .from('claims_review')
-    .select('id, listing_id, vertical, claimant_name, claimant_email')
+    .select('id, listing_id, vertical, claimant_name, claimant_email, status')
     .eq('id', claimId)
     .maybeSingle()
   if (!claim?.listing_id || !claim?.claimant_email) return redirect('/for-venues')
+
+  // A pay link lives in an emailed approval and never expires, so the claim's
+  // standing has to be re-checked at click time. A claim we have since REJECTED
+  // (or handed to a transfer) must not be payable back into ownership: the
+  // webhook force-writes 'approved' and finalizes with the payment as proof, so
+  // without this a rejected claimant could buy the listing after the fact.
+  if (!isClaimPayable(claim.status)) {
+    console.error(`[claim/pay] refusing checkout for claim ${claim.id} in status '${claim.status}'`)
+    return redirect('/for-venues?pay=unavailable')
+  }
 
   const { data: listing } = await sb
     .from('listings')
