@@ -36,13 +36,28 @@
 -- NOT NULL DEFAULT false is the fail-closed default: any future caller that
 -- forgets the column produces a gated pick, never an exempt one.
 
-ALTER TABLE listing_relationships
-  ADD COLUMN IF NOT EXISTS grandfathered boolean NOT NULL DEFAULT false;
+-- The backfill means "everything that existed the moment this column was
+-- added", so it must run EXACTLY ONCE — on a second run it would sweep up
+-- operator picks written after the gate shipped, which are deliberately false,
+-- and silently exempt them from the very gate this migration exists to enforce.
+-- ADD COLUMN IF NOT EXISTS is re-runnable; a bare UPDATE is not. Guarding both
+-- on "did the column already exist" makes the whole file safe to re-apply,
+-- which matters because it already has been applied in production.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'listing_relationships'
+       AND column_name = 'grandfathered'
+  ) THEN
+    ALTER TABLE listing_relationships
+      ADD COLUMN grandfathered boolean NOT NULL DEFAULT false;
 
--- Backfill: everything that already exists is grandfathered.
-UPDATE listing_relationships
-   SET grandfathered = true
- WHERE grandfathered = false;
+    -- Backfill: everything that already exists is grandfathered.
+    UPDATE listing_relationships SET grandfathered = true;
+  END IF;
+END $$;
 
 COMMENT ON COLUMN listing_relationships.grandfathered IS
   'Producer picks only: true = exempt from the paid-curator render gate (pre-dates the gate, or admin editorial). false = renders only while the curator holds a live standard claim.';
