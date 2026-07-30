@@ -59,6 +59,7 @@ export default function AccountPage() {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [interests, setInterests] = useState({ verticals: [], activities: [], regions: [], dietary: [] })
+  const [claims, setClaims] = useState([])
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const router = useRouter()
@@ -82,6 +83,18 @@ export default function AccountPage() {
         }
       } catch (err) {
         console.error('Failed to fetch profile:', err)
+      }
+
+      // Claims this person has going. Never block the page on it — a claim
+      // list that fails to load must not cost them their account page.
+      try {
+        const res = await fetch('/api/account/claims')
+        if (res.ok) {
+          const data = await res.json()
+          setClaims(data.claims || [])
+        }
+      } catch (err) {
+        console.error('Failed to fetch claims:', err)
       }
 
       // Fetch preferences
@@ -199,6 +212,27 @@ export default function AccountPage() {
               </span>
             )}
           </div>
+
+          {/* Claims in flight. Shown above everything else because someone who
+              has claimed a venue came here to find out where it stands. */}
+          {claims.length > 0 && (
+            <div style={{ marginBottom: '2rem' }}>
+              <h2 style={{
+                fontFamily: 'var(--font-body)',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                color: 'var(--color-muted)',
+                margin: '0 0 0.75rem',
+              }}>
+                Your listings
+              </h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+                {claims.map(claim => <ClaimStatusRow key={claim.id} claim={claim} />)}
+              </div>
+            </div>
+          )}
 
           {/* Role-specific actions */}
           <div style={{
@@ -412,6 +446,115 @@ function ChipGrid({ options, selected, onToggle }) {
           </button>
         )
       })}
+    </div>
+  )
+}
+
+// One line per claim, saying what is true right now and what to do next.
+//
+// The states are the ones an operator can actually be in, and each says who
+// the ball is with. 'awaiting_email' is the one that most needed saying out
+// loud: the claim is approved but the listing belongs to nobody until they
+// open the link, and previously nothing anywhere told them that.
+const CLAIM_STATES = {
+  in_review: {
+    label: 'In review',
+    tone: { bg: '#fef3c7', fg: '#92400e' },
+    detail: 'We check claims by hand, usually within 48 hours.',
+  },
+  awaiting_email: {
+    label: 'Confirm your email',
+    tone: { bg: '#fed7aa', fg: '#9a3412' },
+    detail: 'Approved — but the listing is not yours until you open the link we emailed you. Use “Forgot password?” on the sign-in page if it has expired.',
+  },
+  approved_settling: {
+    label: 'Approved',
+    tone: { bg: '#dcfce7', fg: '#166534' },
+    detail: 'Setting up your access now. Refresh in a moment.',
+  },
+  owned: {
+    label: 'Yours',
+    tone: { bg: '#dcfce7', fg: '#166534' },
+    detail: null,
+  },
+  declined: {
+    label: 'Not approved',
+    tone: { bg: '#fee2e2', fg: '#991b1b' },
+    detail: 'We could not verify this claim. Reply to our email, or write to listings@australianatlas.com.au.',
+  },
+}
+
+function ClaimStatusRow({ claim }) {
+  const state = CLAIM_STATES[claim.state] || {
+    label: claim.state,
+    tone: { bg: '#f3f4f6', fg: '#374151' },
+    detail: null,
+  }
+  const detail = claim.state === 'owned' && claim.tier
+    ? `${claim.tier === 'standard' ? 'Standard' : 'Free'} listing`
+    : state.detail
+
+  return (
+    <div style={{
+      background: '#fff',
+      border: '1px solid var(--color-border)',
+      borderRadius: '10px',
+      padding: '0.875rem 1rem',
+      display: 'flex',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      gap: '1rem',
+    }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{
+          fontFamily: 'var(--font-body)',
+          fontSize: '0.95rem',
+          fontWeight: 500,
+          color: 'var(--color-ink)',
+          marginBottom: detail ? '0.25rem' : 0,
+        }}>
+          {claim.name || 'Your listing'}
+        </div>
+        {detail && (
+          <div style={{
+            fontFamily: 'var(--font-body)',
+            fontSize: '0.8rem',
+            fontWeight: 300,
+            color: 'var(--color-muted)',
+            lineHeight: 1.5,
+          }}>
+            {detail}
+          </div>
+        )}
+        {claim.dashboardUrl && (
+          <Link href={claim.dashboardUrl} style={{
+            display: 'inline-block',
+            marginTop: '0.4rem',
+            fontFamily: 'var(--font-body)',
+            fontSize: '0.8rem',
+            fontWeight: 500,
+            color: 'var(--color-sage)',
+            textDecoration: 'none',
+          }}>
+            Manage listing →
+          </Link>
+        )}
+      </div>
+      <span style={{
+        flexShrink: 0,
+        padding: '0.2rem 0.6rem',
+        borderRadius: '999px',
+        fontSize: '0.68rem',
+        fontFamily: 'var(--font-body)',
+        fontWeight: 600,
+        letterSpacing: '0.05em',
+        textTransform: 'uppercase',
+        background: state.tone.bg,
+        color: state.tone.fg,
+        whiteSpace: 'nowrap',
+      }}>
+        {state.label}
+      </span>
     </div>
   )
 }

@@ -14,8 +14,8 @@ export default async function ClaimSuccessPage({ searchParams }) {
   const eyebrow = paid ? 'Payment Received' : 'Claim Received'
   const heading = paid ? "You're all set" : "We'll be in touch"
   const message = paid
-    ? "Your payment is confirmed and your Standard listing is being unlocked now. We've emailed you a secure sign-in link so you can manage your listing straight away — it can take a minute to arrive."
-    : 'Your claim has been submitted. We review claims manually to ensure accuracy and will be in touch within 48 hours.'
+    ? "Your payment is confirmed and your Standard listing is being unlocked now. Sign in with your email and password to manage it — it can take a minute for everything to appear."
+    : 'Your claim has been submitted. We review claims manually to ensure accuracy and will be in touch within 48 hours. You can check where it is up to any time on your account.'
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--color-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
@@ -42,12 +42,14 @@ export default async function ClaimSuccessPage({ searchParams }) {
           {message}
         </p>
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Link href="/" style={{
+          {/* Their account is where the claim's status now lives, so send them
+              there rather than back to the homepage with nothing to check. */}
+          <Link href="/account" style={{
             display: 'inline-block', padding: '12px 28px', background: 'var(--color-sage)',
             color: '#fff', textDecoration: 'none', fontSize: 12, fontWeight: 600,
             letterSpacing: '0.08em', textTransform: 'uppercase', fontFamily: 'var(--font-body)', borderRadius: 4,
           }}>
-            Back to Atlas
+            {paid ? 'Go to my listing' : 'Check my claim'}
           </Link>
           <Link href="/for-venues" style={{
             display: 'inline-block', padding: '12px 28px', border: '1px solid var(--color-border)',
