@@ -783,12 +783,29 @@ export default async function PlacePage({ params }) {
   //   picksReceived = venues that have vouched for this place ("picked by")
   // Both are filtered to active venues so a pick never links to a hidden listing.
   const [picksGivenRaw, picksReceivedRaw, paidCuratorSet, upcomingEvents, offersRaw, awardsRaw, qnaRaw] = picks
-  const picksGiven = picksGivenRaw.filter(p => p.pickedStatus === 'active')
-  const picksReceived = picksReceivedRaw.filter(p => p.curatorStatus === 'active')
+  const picksGivenActive = picksGivenRaw.filter(p => p.pickedStatus === 'active')
+  const picksReceivedActive = picksReceivedRaw.filter(p => p.curatorStatus === 'active')
 
   // Paid = a live standard claim on listing_claims (the canonical signal —
   // listings.is_claimed can lag behind it, so it is never used for perk gates).
   const isPaid = paidCuratorSet.has(listing.id)
+
+  // Picks are a Standard-tier perk, gated at RENDER as well as at write
+  // (app/api/dashboard/picks/route.js), so a curator whose claim lapses stops
+  // vouching — the same fail-safe stance as the gallery, offers and awards
+  // below. Grandfathered rows render whatever tier their curator is on: picks
+  // published before the gate existed, and admin editorial ones (migration
+  // 263). Outgoing picks are vouched BY this listing, so its own paid state
+  // decides them; each incoming pick carries its own curator, resolved in one
+  // extra query — and only when a non-grandfathered incoming pick exists.
+  const gatedCuratorIds = [...new Set(
+    picksReceivedActive.filter(p => !p.grandfathered).map(p => p.curatorId).filter(Boolean)
+  )]
+  const paidIncomingCurators = gatedCuratorIds.length
+    ? await filterPaidListingIds(sbMem, gatedCuratorIds)
+    : new Set()
+  const picksGiven = picksGivenActive.filter(p => p.grandfathered || isPaid)
+  const picksReceived = picksReceivedActive.filter(p => p.grandfathered || paidIncomingCurators.has(p.curatorId))
 
   // Photo gallery — a paid perk, stored as a master-only storage manifest. Only
   // surfaced for paid (active standard) listings; each URL is host-validated.

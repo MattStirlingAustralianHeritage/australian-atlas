@@ -3,6 +3,7 @@ import { LIVE_CLAIM_STATUSES } from '@/lib/claims/statuses'
 import QRCode from 'qrcode'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { verifySharedToken } from '@/lib/shared-auth'
+import { isListingPaid } from '@/lib/listing-gallery'
 
 /**
  * GET /api/dashboard/share-kit/qr?listing_id=<uuid>[&token=<jwt>]
@@ -13,7 +14,8 @@ import { verifySharedToken } from '@/lib/shared-auth'
  * operator prints (or saves to PDF) from the browser.
  *
  * Auth matches the dashboard pattern (shared JWT, vendor/admin role, active
- * claim ownership; admins bypass). Because this is opened as a navigation
+ * claim ownership, and a PAID claim — isListingPaid, as the parent share-kit
+ * route requires for its resend; admins bypass). Because this is opened as a navigation
  * (window.open from the subscription page) rather than an XHR, the token may
  * arrive as a `token` query param instead of an Authorization header — same
  * verification either way.
@@ -75,6 +77,17 @@ export async function GET(request) {
         .maybeSingle()
       if (!claim) {
         return NextResponse.json({ error: 'Listing not found' }, { status: 404 })
+      }
+
+      // Paid perk: an active `standard` claim, the same signal the parent
+      // share-kit route gates its resend on (app/api/dashboard/share-kit/
+      // route.js). Ownership alone let a free claim print the card the
+      // Standard plan sells.
+      if (!(await isListingPaid(sb, listingId))) {
+        return NextResponse.json(
+          { error: 'The print card is part of the Standard tier. Upgrade to unlock it.' },
+          { status: 403 }
+        )
       }
     }
 

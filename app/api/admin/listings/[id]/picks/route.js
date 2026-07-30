@@ -47,6 +47,13 @@ export async function POST(request, { params }) {
     note,
     source: 'manual',
     createdBy: 'admin',
+    // Admin waiver of the Standard-tier gate createPick enforces by default:
+    // editorial curation is a deliberate network-staff act, matching the
+    // admin bypass on every other paid gate. `grandfathered` goes with it so
+    // the pick actually renders — a waived-but-gated row would insert and
+    // then be hidden by the place page's paid-curator filter (migration 263).
+    requirePaidCurator: false,
+    grandfathered: true,
   })
 
   if (!result.ok) {

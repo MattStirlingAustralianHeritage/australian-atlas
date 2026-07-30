@@ -23,30 +23,20 @@ import { getVerticalBrandColour, getVerticalLabel } from '@/lib/verticalUrl'
 
 const STANDARD_PRICE = '$295/year'
 
-// The concrete things a Standard listing unlocks. Kept honest and specific so
-// the value is obvious at a glance — no vague "premium" language, no placement.
-const BENEFITS = [
-  { icon: 'pencil', text: 'Edit your website, phone & opening hours' },
-  { icon: 'photo', text: 'Add a cover photo and full gallery' },
-  { icon: 'megaphone', text: 'Publish highlights & what’s on' },
-  { icon: 'chart', text: 'Listing Insights — views, searches & saves' },
-]
-
-function BenefitIcon({ type }) {
-  const p = { width: 15, height: 15, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round' }
-  switch (type) {
-    case 'pencil':
-      return <svg {...p}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-    case 'photo':
-      return <svg {...p}><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" /></svg>
-    case 'megaphone':
-      return <svg {...p}><path d="M3 11l18-5v12L3 14v-3z" /><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" /></svg>
-    case 'chart':
-      return <svg {...p}><path d="M3 3v18h18" /><rect x="7" y="12" width="3" height="6" /><rect x="12" y="8" width="3" height="10" /><rect x="17" y="5" width="3" height="13" /></svg>
-    default:
-      return null
-  }
-}
+// Every capability named in the pitch below is one an unpaid claim genuinely
+// cannot reach, each behind isListingPaid on the server:
+//   own photograph, gallery, video   → app/api/dashboard/listing/route.js
+//                                      (anything outside FREE_TIER_FIELDS),
+//                                      lib/listing-gallery.js
+//   your account of what you make    → app/api/dashboard/description/route.js
+//   offers and awards                → app/api/dashboard/offers|awards/route.js
+//   who is searching for you         → app/api/dashboard/demand/route.js
+//
+// Two claims that used to sit here were NOT paid features and have been cut:
+// editing website / phone / opening hours is FREE_TIER_FIELDS, and Listing
+// Insights (/api/dashboard/stats) has no paid gate at all. Selling what the
+// free claim already includes is worse than selling nothing. Anything added
+// here must be traceable to a gate in the list above.
 
 export default function UpgradeBanner({ listings, isAdmin }) {
   const [upgrading, setUpgrading] = useState(false)
@@ -120,31 +110,23 @@ export default function UpgradeBanner({ listings, isAdmin }) {
         </div>
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'clamp(16px, 3vw, 36px)', alignItems: 'flex-start' }}>
-          {/* Left: pitch + benefits */}
+          {/* Left: the pitch */}
           <div style={{ flex: '1 1 300px', minWidth: 260 }}>
             <h2 style={{
               fontFamily: 'var(--font-display, Georgia)', fontWeight: 400,
               fontSize: 'clamp(1.35rem, 2.6vw, 1.7rem)', lineHeight: 1.15,
               color: 'var(--color-ink, #2D2A26)', margin: '0 0 8px',
             }}>
-              Take charge of {many ? 'your listings' : target.name}
+              Your listing, in your words
             </h2>
             <p style={{
               fontFamily: 'var(--font-body, system-ui)', fontSize: 14, fontWeight: 300,
-              lineHeight: 1.55, color: 'var(--color-muted, #6f695f)', margin: '0 0 18px', maxWidth: 440,
+              lineHeight: 1.6, color: 'var(--color-muted, #6f695f)', margin: 0, maxWidth: 460,
             }}>
-              Your claim is verified and {many ? 'your listings are' : `${target.name} is`} live across the Atlas
-              network. Activate Standard to manage {many ? 'them' : 'it'} in full — and see who’s finding you.
+              A free claim keeps your facts right. Website, phone, opening hours. Standard is where the
+              listing becomes yours: your own photograph in place of the type card, a gallery and video,
+              your account of what you make, your offers and awards, and the data on who is searching for you.
             </p>
-
-            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '10px 18px' }}>
-              {BENEFITS.map((b) => (
-                <li key={b.text} style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
-                  <span style={{ color: accent, flexShrink: 0, marginTop: 1, display: 'inline-flex' }} aria-hidden><BenefitIcon type={b.icon} /></span>
-                  <span style={{ fontFamily: 'var(--font-body, system-ui)', fontSize: 13.5, lineHeight: 1.35, color: 'var(--color-ink, #2D2A26)' }}>{b.text}</span>
-                </li>
-              ))}
-            </ul>
           </div>
 
           {/* Right: action */}

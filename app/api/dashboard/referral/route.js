@@ -3,14 +3,16 @@ import { LIVE_CLAIM_STATUSES } from '@/lib/claims/statuses'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { verifySharedToken } from '@/lib/shared-auth'
 import { ensureReferralCode } from '@/lib/referrals'
+import { filterPaidListingIds } from '@/lib/listing-gallery'
 
 /**
  * GET /api/dashboard/referral
  *
- * Returns the referral codes for the caller's PAID claims (active `standard`
- * rows in listing_claims), lazily minting the Stripe promotion code on first
- * request (lib/referrals.js — coupon 'atlas-referral-20', 20% off a first
- * year). Free claims carry no code: the referral programme is a paid perk.
+ * Returns the referral codes for the caller's PAID claims (live standard rows
+ * in listing_claims, judged by filterPaidListingIds so a lapsed comp counts as
+ * free the moment its term ends), lazily minting the Stripe promotion code on
+ * first request (lib/referrals.js — coupon 'atlas-referral-20', 20% off a
+ * first year). Free claims carry no code: the referral programme is a paid perk.
  *
  * `code` is null when Stripe is unconfigured or minting failed — the
  * dashboard simply hides the block. Never influences any visitor-facing
@@ -38,16 +40,30 @@ export async function GET(request) {
   const sb = getSupabaseAdmin()
 
   try {
-    // Only the caller's own paid claims — ownership is the claimed_by filter.
-    const { data: claims, error: claimsErr } = await sb
+    // Only the caller's own claims — ownership is the claimed_by filter.
+    const { data: ownClaims, error: claimsErr } = await sb
       .from('listing_claims')
       .select('id, listing_id, referral_code')
       .eq('claimed_by', user.id)
       .in('status', LIVE_CLAIM_STATUSES)
-      .eq('tier', 'standard')
 
     if (claimsErr) throw claimsErr
-    if (!claims || claims.length === 0) {
+    if (!ownClaims || ownClaims.length === 0) {
+      return NextResponse.json({ referrals: [] })
+    }
+
+    // Which of those are PAID. This used to be a bare .eq('tier','standard'),
+    // which reads the stored tier and so would keep minting coupons for a
+    // comped Standard claim whose term had run out — until the 6h sweep wrote
+    // the row back to 'free'. filterPaidListingIds is the read-time authority
+    // on comp expiry (migration 261), so the coupon dies with the comp rather
+    // than with the sweep. No behaviour change while every comp is perpetual.
+    const paidListingIds = await filterPaidListingIds(
+      sb,
+      ownClaims.map(c => c.listing_id)
+    )
+    const claims = ownClaims.filter(c => paidListingIds.has(c.listing_id))
+    if (claims.length === 0) {
       return NextResponse.json({ referrals: [] })
     }
 
