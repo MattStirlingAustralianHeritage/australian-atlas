@@ -286,7 +286,11 @@ const getHomeDataCached = unstable_cache(
   // flag locked 26 of 65 claimed listings out of this surface) and the
   // claimed route bonus strengthened to -25 km so slot-level claimed
   // candidates win island-scale detours.
-  ['home-data-v12'],
+  // v13: slot eligibility became editorial (lib/home/daySlots.mjs) —
+  // no makers' workshops, nurseries, bottle shops or cinemas in the
+  // worked day. A fresh key so no cached day carrying one serves out
+  // its remaining hour.
+  ['home-data-v13'],
   { revalidate: 3600 }
 )
 
