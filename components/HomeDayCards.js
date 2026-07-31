@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { useTranslations, useLocale } from 'next-intl'
 import LocalizedLink from '@/components/LocalizedLink'
 import { subTypeLabel } from '@/lib/subTypeLabels'
@@ -9,6 +10,14 @@ import { localizeVerticalKicker } from '@/lib/i18n/listingLabels'
 import { Coffee, Wine, UtensilsCrossed, BedDouble, Mountain, Compass, Hammer, Landmark, ShoppingBag, Clock, BadgeCheck, Sunrise, Sun, SunMedium, SunDim, Sunset, Moon } from 'lucide-react'
 
 const GOLD = 'var(--color-gold)'
+
+// mapbox-gl is far too heavy to ship to every homepage visitor for a
+// map most won't open: the trail map loads as its own chunk, fetched
+// the first time someone asks to see the route.
+const TrailMap = dynamic(() => import('@/app/trails/[slug]/TrailMap'), {
+  ssr: false,
+  loading: () => <div className="day-map-loading" aria-hidden="true" />,
+})
 
 const VERTICAL_ICONS = {
   fine_grounds: Coffee, sba: Wine, table: UtensilsCrossed, rest: BedDouble,
@@ -42,6 +51,10 @@ export default function HomeDayCards({ day, regionsCount }) {
   // The rail and the grid light each other: pointing at a station
   // lifts its card, pointing at a card swells its station.
   const [litId, setLitId] = useState(null)
+  // The route map mounts on first open and stays mounted after —
+  // closing hides it, so reopening doesn't re-run the draw-in.
+  const [mapOpen, setMapOpen] = useState(false)
+  const [mapEverOpened, setMapEverOpened] = useState(false)
   const touchRef = useRef(false)
 
   useEffect(() => {
@@ -187,6 +200,55 @@ export default function HomeDayCards({ day, regionsCount }) {
           )
         })}
       </ol>
+
+      {/* ── The route, on demand: the day plotted on the trail map ── */}
+      {/* Closed by default so the section stays cards-first; one click
+          and the day's stops thread along real roads, the same drawn-in
+          route the trail pages carry. Geometry is the hourly cached
+          Directions line riding in the day payload, so the map opens
+          without a per-visitor API call. */}
+      <div style={{ marginTop: '26px' }}>
+        <button
+          type="button"
+          className="day-map-toggle"
+          aria-expanded={mapOpen}
+          aria-controls="day-route-map"
+          onClick={() => {
+            setMapOpen(o => !o)
+            if (!mapEverOpened) setMapEverOpened(true)
+          }}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M9 3 3.6 5.2a1 1 0 0 0-.6.9v13.4a.5.5 0 0 0 .7.5L9 18l6 3 5.4-2.2a1 1 0 0 0 .6-.9V4.5a.5.5 0 0 0-.7-.5L15 6 9 3Z" />
+            <path d="M9 3v15" />
+            <path d="M15 6v15" />
+          </svg>
+          {mapOpen ? t('dayMapHide') : t('dayMapShow')}
+          <svg
+            width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+            style={{ transform: mapOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.25s ease' }}
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </button>
+
+        {mapEverOpened && (
+          <div
+            id="day-route-map"
+            className="day-map-panel"
+            hidden={!mapOpen}
+          >
+            <TrailMap
+              stops={stops.map((s, i) => ({
+                venue_name: s.name, venue_lat: s.lat, venue_lng: s.lng,
+                vertical: s.vertical, position: i,
+              }))}
+              routeGeometry={day.routeGeometry || undefined}
+            />
+          </div>
+        )}
+      </div>
 
       {/* ── The close: build your own, see the region, the claim aside ── */}
       <div className="flex flex-wrap items-center justify-between" style={{ gap: '18px', marginTop: '30px' }}>

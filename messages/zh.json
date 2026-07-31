@@ -70,6 +70,8 @@
     "dayTitle": "在{region}的一天",
     "dayIntro": "从清晨咖啡到落脚过夜，一整天的真实站点按到访顺序排列，每次到访都换一个地区。将卡片翻面——悬停或轻点——即可读到每家店自己的介绍。",
     "dayIntroStrip": "从清晨咖啡到落脚过夜，一整天的真实站点按到访顺序排列，每次到访都换一个地区。悬停或轻点任意一站，即可展开阅读每家店自己的介绍。",
+    "dayMapShow": "在地图上查看这一天",
+    "dayMapHide": "收起地图",
     "dayClaimedChip": "店主管理",
     "dayViewListing": "查看条目",
     "dayOneOfMany": "{count} 个地区之一",

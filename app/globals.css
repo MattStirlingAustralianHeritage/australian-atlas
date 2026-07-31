@@ -1840,3 +1840,49 @@ nav a, .inline-link { min-height: unset; }
       0 0 40px rgba(196, 151, 59, 0.20);
   }
 }
+
+/* ── Homepage: the day's route map, opened on demand ── */
+.day-map-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  padding: 0;
+  min-height: 0;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--color-ink);
+  border-bottom: 1px solid var(--color-gold);
+  padding-bottom: 2px;
+  transition: opacity 0.2s ease;
+}
+.day-map-toggle:hover { opacity: 0.75; }
+.day-map-toggle:focus-visible { box-shadow: var(--focus-ring); outline: none; }
+.day-map-toggle svg:first-child { color: var(--color-gold); }
+
+.day-map-panel {
+  margin-top: 16px;
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  border: 1px solid rgba(28, 26, 23, 0.12);
+  box-shadow: 0 6px 18px rgba(82, 58, 30, 0.10);
+  animation: dayMapIn 0.45s ease both;
+}
+@keyframes dayMapIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+.day-map-loading {
+  height: 480px;
+  background: linear-gradient(100deg,
+    rgba(28, 26, 23, 0.06) 30%, rgba(28, 26, 23, 0.12) 50%, rgba(28, 26, 23, 0.06) 70%);
+  background-size: 200% 100%;
+  animation: nearYouShimmer 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .day-map-panel { animation: none; }
+  .day-map-loading { animation: none; }
+}

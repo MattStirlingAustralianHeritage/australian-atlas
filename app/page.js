@@ -276,14 +276,13 @@ const getHomeDataCached = unstable_cache(
     }
     return data
   },
-  // v9: the worked trip's map became flip cards, and the payload
-  // carries ONE day (`homeDay`, no road geometry — the cards ARE the
-  // visual; v8's multi-day `homeDays` hand lived only in review). A
-  // fresh key so no older entry with a different shape is served for
-  // its remaining hour. hourSeed is an argument, so each hour writes
-  // its own entry and the day and the random ticker turn over on the
-  // hour — a new region per visit, every second hour a showcase draw.
-  ['home-data-v9'],
+  // v10: the day payload regained `routeGeometry` (hourly Directions
+  // fetch) for the click-to-open route map. A fresh key so no v9 entry
+  // — without geometry — is served for its remaining hour. hourSeed is
+  // an argument, so each hour writes its own entry and the day and the
+  // random ticker turn over on the hour — a new region per visit,
+  // every second hour a showcase draw.
+  ['home-data-v10'],
   { revalidate: 3600 }
 )
 

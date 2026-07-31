@@ -70,6 +70,8 @@
     "dayTitle": "A day in {region}",
     "dayIntro": "One real day in visiting order — coffee through to where you'd sleep — dealt from a different region each time you visit. Turn a card over — hover, or tap — to read each listing's own words.",
     "dayIntroStrip": "One real day in visiting order — coffee through to where you'd sleep — dealt from a different region each time you visit. Hover a stop — or tap it — and it opens with the listing's own words.",
+    "dayMapShow": "See the day on the map",
+    "dayMapHide": "Hide the map",
     "dayClaimedChip": "Owner-managed",
     "dayViewListing": "See the listing",
     "dayOneOfMany": "One of {count} regions",
