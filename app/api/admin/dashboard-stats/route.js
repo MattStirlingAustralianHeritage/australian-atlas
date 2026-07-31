@@ -34,6 +34,7 @@ export async function GET() {
       tradeMembersRes,
       rewriteRequestsRes,
       rewriteChangeRequestsRes,
+      closureSignalsRes,
       verticalCountsRes,
     ] = await Promise.all([
       // Total listings
@@ -70,6 +71,8 @@ export async function GET() {
       sb.from('operator_description_drafts').select('id', { count: 'exact', head: true }).eq('status', 'pending_review'),
       // …of which the operator pushed back on a draft with a note
       sb.from('operator_description_drafts').select('id', { count: 'exact', head: true }).eq('status', 'pending_review').not('operator_action', 'is', null),
+      // Open closure signals awaiting a verdict (monthly closure sweep)
+      sb.from('closure_signals').select('id', { count: 'exact', head: true }).eq('status', 'open'),
       // Per-vertical active counts
       sb.from('listings').select('vertical').eq('status', 'active'),
     ])
@@ -101,6 +104,7 @@ export async function GET() {
       trade_members_active: tradeMembersRes.count || 0,
       rewrite_requests_pending: rewriteRequestsRes.count || 0,
       rewrite_change_requests: rewriteChangeRequestsRes.count || 0,
+      open_closure_signals: closureSignalsRes.count || 0,
       vertical_counts: verticalCounts,
     })
   } catch (err) {

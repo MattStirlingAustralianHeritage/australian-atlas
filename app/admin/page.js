@@ -576,6 +576,7 @@ function ListingsZone({ stats, loading }) {
 
 function ContentZone({ stats, loading }) {
   const contentLinks = [
+    { label: 'Closures', description: 'Venues flagged shut down or temporarily closed', href: '/admin/closures' },
     { label: 'Articles', description: 'Create and publish journal articles', href: '/admin/articles' },
     { label: 'Operator Descriptions', description: 'Rewrite requests and drafts awaiting review', href: '/admin/operator-descriptions' },
     { label: 'Listing Pitches', description: 'Story pitches submitted by operators', href: '/admin/listing-pitches' },
@@ -601,6 +602,12 @@ function ContentZone({ stats, loading }) {
           label="Published Trails"
           value={loading ? '--' : (stats?.published_trails ?? 0)}
         />
+        <ContentStat
+          label="Closure Signals"
+          value={loading ? '--' : (stats?.open_closure_signals ?? 0)}
+          accent={!loading && stats?.open_closure_signals > 0}
+          href="/admin/closures"
+        />
       </div>
 
       {/* Links */}
@@ -617,20 +624,31 @@ function ContentZone({ stats, loading }) {
   )
 }
 
-function ContentStat({ label, value }) {
+function ContentStat({ label, value, accent = false, href = null }) {
+  const Tag = href ? 'a' : 'div'
   return (
-    <div style={{
-      padding: '0.625rem 0.875rem',
-      background: 'var(--color-cream, #FAF8F5)',
-      borderRadius: '8px',
-      border: '1px solid var(--color-border, rgba(28,26,23,0.08))',
-      flex: '1 1 0',
-    }}>
+    <Tag
+      {...(href ? {
+        href,
+        onClick: (e) => { e.preventDefault(); window.location.href = href },
+      } : {})}
+      style={{
+        padding: '0.625rem 0.875rem',
+        background: 'var(--color-cream, #FAF8F5)',
+        borderRadius: '8px',
+        border: accent
+          ? '1px solid var(--color-accent, #C4603A)'
+          : '1px solid var(--color-border, rgba(28,26,23,0.08))',
+        flex: '1 1 0',
+        textDecoration: 'none',
+        cursor: href ? 'pointer' : 'default',
+      }}
+    >
       <span style={{
         fontFamily: 'var(--font-display, Georgia)',
         fontSize: '1.25rem',
         fontWeight: 600,
-        color: 'var(--color-ink, #2D2A26)',
+        color: accent ? 'var(--color-accent, #C4603A)' : 'var(--color-ink, #2D2A26)',
         display: 'block',
         lineHeight: 1.1,
         marginBottom: '0.2rem',
@@ -645,7 +663,7 @@ function ContentStat({ label, value }) {
       }}>
         {label}
       </span>
-    </div>
+    </Tag>
   )
 }
 

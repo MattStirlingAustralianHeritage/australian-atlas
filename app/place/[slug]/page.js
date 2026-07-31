@@ -156,7 +156,7 @@ const getListing = cache(async function getListing(slug, locale = 'en') {
   const hasVerticals = await relationHasVerticals(sb, 'listings')
   const { data, error } = await sb
     .from('listings')
-    .select(`id, vertical, name, slug, description, region, state, suburb, lat, lng, website, phone, address, address_on_request, visitable, presence_type, service_area, data_source, hero_image_url, video_url, is_featured, is_claimed, editors_pick, status, hours, opening_hours, verified, sub_type, sub_types, ${hasVerticals ? 'verticals, ' : ''}${LISTING_REGION_SELECT}`)
+    .select(`id, vertical, name, slug, description, region, state, suburb, lat, lng, website, phone, address, address_on_request, visitable, presence_type, service_area, data_source, hero_image_url, video_url, is_featured, is_claimed, editors_pick, status, closure_status, hours, opening_hours, verified, sub_type, sub_types, ${hasVerticals ? 'verticals, ' : ''}${LISTING_REGION_SELECT}`)
     .eq('slug', slug)
     .eq('status', 'active')
     // CLAUDE.md hard rule: needs_review=true venues 404 (never render publicly).
@@ -340,7 +340,7 @@ async function getMapNearbyListings(listing) {
     const lngDelta = FALLBACK_RADIUS_KM / (111 * Math.cos(listing.lat * Math.PI / 180))
     const { data } = await sb
       .from('listings')
-      .select('id, name, slug, vertical, verticals, region, state, lat, lng, hero_image_url, description, is_featured, is_claimed, editors_pick, sub_type, address_on_request')
+      .select('id, name, slug, vertical, verticals, region, state, lat, lng, hero_image_url, description, is_featured, is_claimed, editors_pick, closure_status, sub_type, address_on_request')
       .eq('status', 'active')
       .neq('id', listing.id)
       .or('address_on_request.eq.false,address_on_request.is.null')
@@ -1065,6 +1065,21 @@ export default async function PlacePage({ params }) {
           showVerticalTag
           locale={locale}
         />
+      )}
+
+      {/* ── Temporary closure notice — admin-confirmed via /admin/closures.
+          The venue stays listed (it is expected back) but visitors deserve
+          the heads-up before they drive out. ── */}
+      {listing.closure_status === 'temporarily_closed' && (
+        <div style={{
+          maxWidth: '1080px', margin: '16px auto 0', padding: '12px 20px',
+          background: 'rgba(212,160,57,0.12)', border: '1px solid rgba(212,160,57,0.45)',
+          borderRadius: '10px', fontFamily: 'var(--font-body)', fontSize: '14px',
+          color: 'var(--color-ink)',
+        }}>
+          <strong style={{ fontWeight: 600 }}>Temporarily closed.</strong>{' '}
+          This venue is on a break — check its website or socials for reopening news before visiting.
+        </div>
       )}
 
       {/* ── Claimed seal — the claimed page's quiet marker. A single centred

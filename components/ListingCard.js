@@ -464,8 +464,12 @@ export default function ListingCard({ listing, meta, linkToVertical = false, dis
     ? getVerticalUrl(listing.vertical, listing.slug, derivedMeta)
     : `/place/${listing.slug}`
 
-  const isAtlasSelect = listing.editors_pick
-  const showFeatured = !isAtlasSelect && listing.is_featured && listing.is_claimed
+  // Fail-safe: absent on queries that don't select closure_status. An admin-
+  // confirmed temporary closure takes the top-right badge slot — a paused
+  // venue shouldn't flaunt Featured/Atlas Select while its doors are shut.
+  const isTempClosed = listing.closure_status === 'temporarily_closed'
+  const isAtlasSelect = !isTempClosed && listing.editors_pick
+  const showFeatured = !isTempClosed && !isAtlasSelect && listing.is_featured && listing.is_claimed
   // Moderation gate is fail-open on absent field: a card whose query didn't
   // select image_moderation_status behaves exactly as before; only an explicit
   // flagged/held verdict swaps the photo for the typographic card.
@@ -583,6 +587,16 @@ export default function ListingCard({ listing, meta, linkToVertical = false, dis
         )}
 
         {/* Curation badges */}
+        {isTempClosed && (
+          <span style={{
+            position: 'absolute', top: 12, right: 12, zIndex: 3,
+            fontSize: '10px', fontWeight: 500, padding: '4px 10px',
+            borderRadius: 100, color: '#fff', background: 'rgba(45,42,38,0.78)',
+            backdropFilter: 'blur(4px)',
+          }}>
+            Temporarily closed
+          </span>
+        )}
         {isAtlasSelect && (
           <span style={{
             position: 'absolute', top: 12, right: 12, zIndex: 3,

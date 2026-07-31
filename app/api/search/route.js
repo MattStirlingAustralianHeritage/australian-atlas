@@ -210,7 +210,7 @@ async function fuzzyNameMatch(sb, q) {
 // NOTE: `address` is deliberately NOT selected — search must not leak street
 // addresses (esp. for address_on_request venues). The place page shows address
 // (gated on the privacy flag); search results never do.
-const SELECT_FIELDS = `id, vertical, name, slug, description, sub_type, suburb, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website, presence_type, visitable, address_on_request, ${LISTING_REGION_SELECT}`
+const SELECT_FIELDS = `id, vertical, name, slug, description, sub_type, suburb, region, state, lat, lng, hero_image_url, is_featured, is_claimed, editors_pick, website, presence_type, visitable, address_on_request, closure_status, ${LISTING_REGION_SELECT}`
 
 // Calibrated in Phase 7 (see report). Admits clearly-relevant semantic matches,
 // rejects off-topic queries. Overridable per request via ?floor=.

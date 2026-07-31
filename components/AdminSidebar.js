@@ -47,6 +47,7 @@ const SECTIONS = [
   {
     title: 'Content',
     links: [
+      ['/admin/closures', 'Closures'],
       ['/admin/articles', 'Articles'],
       ['/admin/listing-pitches', 'Listing pitches'],
       ['/admin/trails', 'Trails'],

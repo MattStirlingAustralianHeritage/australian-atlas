@@ -55,6 +55,7 @@ const EXPECTED = {
                                  // if THIS goes quiet the 2026-07-21 class is
                                  // invisible again, so it must never be unlisted
   'auth-canary': 30,             // daily — synthetic password-recovery probe
+  'closure-sweep': 30,           // daily continuation of the monthly deep sweep
   'backlink-builder': 800,       // monthly
   'user-reactivation': 800,      // monthly
   'listing-velocity': 800,       // monthly
