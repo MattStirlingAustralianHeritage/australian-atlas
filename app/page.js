@@ -290,7 +290,9 @@ const getHomeDataCached = unstable_cache(
   // no makers' workshops, nurseries, bottle shops or cinemas in the
   // worked day. A fresh key so no cached day carrying one serves out
   // its remaining hour.
-  ['home-data-v13'],
+  // v14: opening-hours awareness (lib/home/openHours.mjs) — a stop
+  // closed today or over its slot's window is never dealt.
+  ['home-data-v14'],
   { revalidate: 3600 }
 )
 
