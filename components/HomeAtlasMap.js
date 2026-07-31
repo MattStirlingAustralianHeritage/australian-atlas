@@ -1,6 +1,7 @@
 import LocalizedLink from '@/components/LocalizedLink'
 import { getTranslations, getLocale } from 'next-intl/server'
 import { localizeSubcategory } from '@/lib/i18n/listingLabels'
+import { VERTICAL_ACCENTS, getPublicVerticals } from '@/lib/verticalUrl'
 import { HOME_MAP, projectToImagePct } from '@/lib/map/homeAtlasProjection'
 
 // The homepage "atlas plate" — the living atlas as the hero's ground.
@@ -13,7 +14,8 @@ import { HOME_MAP, projectToImagePct } from '@/lib/map/homeAtlasProjection'
 //   · capital-city markers are real links that deep-link into the interactive
 //     map at that city (/map?lng&lat&zoom — MapClient reads those params)
 //   · the newest places pulse gold; hover names them, click opens the place
-//   · the legend keys the dot colours AND filters search by that category
+//   · the cartouche key gives every dot colour its kind and live count, and
+//     each row opens the map pre-filtered to it (/map?vertical=slug)
 //   · the base image itself remains one honest link to /map
 //
 // All overlay positions are server-projected through the same Web-Mercator
@@ -32,8 +34,17 @@ const CITIES = [
 ]
 const CITY_ZOOM = 10.5
 
-export default async function HomeAtlasMap({ listingCount, categoryCount, regionCount, freshListings = [], scopePins = [], typeCounter = null }) {
+// /map's URL-friendly vertical slugs (the same key→slug map MapClient and
+// MapCountRotator carry; app/map/page.js owns the inverse).
+const VERTICAL_MAP_SLUGS = {
+  sba: 'small-batch', collection: 'collections', craft: 'craft',
+  fine_grounds: 'fine-grounds', rest: 'rest', field: 'field',
+  corner: 'corner', found: 'found', table: 'table', way: 'way',
+}
+
+export default async function HomeAtlasMap({ listingCount, categoryCount, regionCount, freshListings = [], scopePins = [], typeCounter = null, verticalCounts = {} }) {
   const t = await getTranslations('home')
+  const tExplore = await getTranslations('explore')
   const locale = await getLocale()
   const count = typeof listingCount === 'number' && listingCount > 0
     ? listingCount.toLocaleString()
@@ -62,6 +73,24 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
   const scope = (scopePins || [])
     .filter(l => l && l.slug && Number.isFinite(parseFloat(l.lng)) && Number.isFinite(parseFloat(l.lat)))
     .slice(0, 32)
+
+  // The cartouche key: the dot colours are the chart's one encoded
+  // dimension, so the plate carries its own key — each row names a kind,
+  // shows its live count, and opens the map pre-filtered to it. Colours
+  // come from VERTICAL_ACCENTS, the same palette the generator plotted.
+  const keyRows = getPublicVerticals()
+    .map((key) => ({
+      key,
+      name: tExplore(`verticalName_${key}`),
+      count: Number(verticalCounts?.[key]) || 0,
+      colour: VERTICAL_ACCENTS[key],
+      slug: VERTICAL_MAP_SLUGS[key],
+    }))
+    .filter((r) => r.count > 0 && r.slug)
+
+  // Compass rose anchor — open water in the Great Australian Bight,
+  // south of the coastline, west of the Adelaide pin cluster.
+  const rosePos = projectToImagePct(124.8, -38.6)
 
   return (
     <section className="atlas-plate" aria-label={t('mapSectionAria')}>
@@ -110,6 +139,23 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
           </LocalizedLink>
         </div>
 
+        {keyRows.length > 0 && (
+          <nav className="atlas-key" aria-label={t('plateKeyAria')}>
+            <p className="atlas-key-title">{t('plateKeyTitle')}</p>
+            <ul className="atlas-key-grid">
+              {keyRows.map((r) => (
+                <li key={r.key}>
+                  <LocalizedLink href={`/map?vertical=${r.slug}`} className="atlas-key-row">
+                    <span className="atlas-key-dot" style={{ background: r.colour }} aria-hidden="true" />
+                    <span className="atlas-key-name">{r.name}</span>
+                    <span className="atlas-key-count">{r.count.toLocaleString(locale)}</span>
+                  </LocalizedLink>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        )}
+
         {showStats && (
           <p className="atlas-plate-stats">
             {t('plateStats', {
@@ -143,6 +189,33 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
               decoding="async"
             />
           </picture>
+
+          {/* Compass rose — pure ornament in the open Bight, under every
+              interactive layer and invisible to pointers and readers. */}
+          <svg
+            className="atlas-rose"
+            style={{ left: `${rosePos.leftPct.toFixed(3)}%`, top: `${rosePos.topPct.toFixed(3)}%` }}
+            viewBox="0 0 64 88"
+            aria-hidden="true"
+          >
+            <text x="32" y="11" textAnchor="middle" fontSize="11" fontFamily="var(--font-display), serif" fontStyle="italic" fill="#4A443B">N</text>
+            <g transform="translate(32, 52)" fill="#4A443B" stroke="#4A443B">
+              <circle r="18" fill="none" strokeWidth="0.75" opacity="0.7" />
+              <g strokeWidth="0" transform="rotate(45)" opacity="0.75">
+                <path d="M0,-15 L1.9,-4 L0,0 L-1.9,-4 Z" />
+                <path d="M0,15 L1.9,4 L0,0 L-1.9,4 Z" />
+                <path d="M-15,0 L-4,1.9 L0,0 L-4,-1.9 Z" />
+                <path d="M15,0 L4,1.9 L0,0 L4,-1.9 Z" />
+              </g>
+              <g strokeWidth="0">
+                <path d="M0,-28 L2.7,-5.5 L0,0 L-2.7,-5.5 Z" />
+                <path d="M0,24 L2.7,5.5 L0,0 L-2.7,5.5 Z" />
+                <path d="M-24,0 L-5.5,2.7 L0,0 L-5.5,-2.7 Z" />
+                <path d="M24,0 L5.5,2.7 L0,0 L5.5,-2.7 Z" />
+              </g>
+              <circle r="1.7" strokeWidth="0" />
+            </g>
+          </svg>
 
           {CITIES.map((c) => {
             const { leftPct, topPct } = projectToImagePct(c.lng, c.lat)
@@ -260,6 +333,23 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
           border: 1px solid rgba(28,26,23,0.10);
           box-shadow: var(--shadow-md, 0 10px 28px rgba(82,58,30,0.10));
           background: #F0EBE3;
+          transition: box-shadow 350ms ease;
+        }
+        /* Double-rule plate border — the fine inner rule antique atlas
+           plates carry. Ornament only; never intercepts a click. */
+        .atlas-plate-frame::after {
+          content: ""; position: absolute; inset: 9px; z-index: 2;
+          border: 1px solid rgba(28,26,23,0.12); border-radius: 12px;
+          pointer-events: none;
+          transition: border-color 350ms ease;
+        }
+        /* Whole-plate hover: the base link blankets the frame, so hovering
+           open water is hovering a link — say so, quietly. */
+        .atlas-plate-frame:has(.atlas-plate-baselink:hover) {
+          box-shadow: 0 14px 36px rgba(82,58,30,0.16);
+        }
+        .atlas-plate-frame:has(.atlas-plate-baselink:hover)::after {
+          border-color: rgba(28,26,23,0.24);
         }
         .atlas-plate-canvas { position: relative; width: 100%; pointer-events: none; }
         .atlas-plate-canvas img { display: block; width: 100%; height: auto; }
@@ -321,11 +411,16 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
           font-weight: 600; font-size: 1.1em; color: #96743C;
           font-variant-numeric: tabular-nums;
         }
+        /* Crossfade: each item holds until its successor's window opens
+           (8.33% = 3.2s), then dissolves WHILE the next fades in — the two
+           overlap in the shared grid cell, so the line is never empty. The
+           old schedule finished the fade-out before the fade-in began,
+           leaving "Among them:" trailing nothing for ~1s in every 3.2s. */
         @keyframes atlas-tc-cycle {
           0%    { opacity: 0; transform: translateY(7px); }
           1.2%  { opacity: 1; transform: none; }
-          7.1%  { opacity: 1; transform: none; }
-          8.33% { opacity: 0; transform: translateY(-7px); }
+          8.33% { opacity: 1; transform: none; }
+          9.5%  { opacity: 0; transform: translateY(-7px); }
           100%  { opacity: 0; transform: translateY(-7px); }
         }
 
@@ -348,10 +443,56 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
           transition: border-color 200ms ease;
         }
         .atlas-plate-cta-alt:hover { border-color: var(--color-ink, #1C1A17); }
+
+        /* ── the cartouche key ─────────────────────────────── */
+        /* The chart's one encoded dimension, keyed in a fine-ruled ledger:
+           colour dot · kind · live count, every row a link into the map
+           pre-filtered to that kind. */
+        .atlas-key { margin-top: 22px; width: 100%; max-width: 340px; }
+        .atlas-key-title {
+          font-family: var(--font-body); font-weight: 600; font-size: 10px;
+          letter-spacing: 0.18em; text-transform: uppercase; color: #96743C;
+          padding-bottom: 6px; margin-bottom: 5px;
+          border-bottom: 1px solid rgba(28,26,23,0.16);
+        }
+        .atlas-key-grid {
+          list-style: none; margin: 0; padding: 0;
+          display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+          column-gap: 22px;
+        }
+        .atlas-key-row {
+          display: flex; align-items: baseline; gap: 7px;
+          padding: 3px 0; text-decoration: none;
+          font-family: var(--font-body); font-size: 12.5px; line-height: 1.4;
+        }
+        .atlas-key-dot {
+          align-self: center; flex: none;
+          width: 7px; height: 7px; border-radius: 999px;
+          box-shadow: 0 0 0 1px rgba(251,248,242,0.9);
+        }
+        .atlas-key-name { color: var(--color-ink, #1C1A17); white-space: nowrap; }
+        .atlas-key-count {
+          margin-left: auto; color: var(--color-muted, #6B645A);
+          font-size: 11.5px; font-variant-numeric: tabular-nums;
+        }
+        .atlas-key-row:hover .atlas-key-name,
+        .atlas-key-row:focus-visible .atlas-key-name { text-decoration: underline; text-underline-offset: 2px; }
+        .atlas-key-row:hover .atlas-key-count { color: #96743C; }
+
+        /* The plate's imprint line — quiet small caps under the key. */
         .atlas-plate-stats {
           margin-top: 12px;
-          font-family: var(--font-body); font-weight: 400; font-size: 12.5px;
-          letter-spacing: 0.02em; color: var(--color-muted, #6B645A);
+          font-family: var(--font-body); font-weight: 500; font-size: 10.5px;
+          letter-spacing: 0.14em; text-transform: uppercase;
+          color: var(--color-muted, #6B645A);
+        }
+
+        /* ── compass rose ──────────────────────────────────── */
+        .atlas-rose {
+          position: absolute; z-index: 2;
+          width: clamp(46px, 5.2vw, 66px);
+          transform: translate(-50%, -50%);
+          opacity: 0.34; pointer-events: none;
         }
 
         /* ── city markers ──────────────────────────────────── */
@@ -435,6 +576,10 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
           .atlas-plate-frame {
             border-radius: 0; border: none; box-shadow: none;
           }
+          /* Edge-to-edge crop wears no frame — no inner rule either. */
+          .atlas-plate-frame::after { content: none; }
+          .atlas-key { max-width: 380px; }
+          .atlas-key-title { text-align: center; }
           .atlas-plate-copy {
             position: static; transform: none; max-width: none;
             padding: 34px 24px 6px; align-items: center; text-align: center;

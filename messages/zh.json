@@ -187,6 +187,8 @@
     "openMapAround": "打开{city}附近的地图",
     "newPlaceAria": "最新收录：{name}",
     "plateStats": "{categories} 个类别 · {regions} 个地区",
+    "plateKeyTitle": "每种颜色代表一类地点",
+    "plateKeyAria": "按类别浏览地图",
     "typeCounterLead": "其中：",
     "typeCounterItem": "<num>{count}</num> 个{label}",
     "typeCounterSr": "按类别统计：从酒庄、咖啡馆到冲浪学校和古着店，共 {kinds} 类独立经营场所。",

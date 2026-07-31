@@ -187,6 +187,8 @@
     "openMapAround": "{city} 주변 지도 열기",
     "newPlaceAria": "방금 추가됨: {name}",
     "plateStats": "{categories}개 카테고리 · {regions}개 지역",
+    "plateKeyTitle": "색은 장소의 종류를 나타냅니다",
+    "plateKeyAria": "종류별로 지도 탐색",
     "typeCounterLead": "그중에는",
     "typeCounterItem": "{label} <num>{count}</num>곳",
     "typeCounterSr": "종류별 집계: 와이너리와 카페부터 서핑 스쿨과 빈티지 상점까지, {kinds}가지 종류의 독립 운영 장소.",

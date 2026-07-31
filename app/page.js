@@ -511,6 +511,7 @@ export default async function Home() {
         regionCount={stats.regions}
         scopePins={scopePins}
         typeCounter={typeCounter}
+        verticalCounts={stats.verticalCounts}
       />
 
       {/* ── 3. The worked day: one region, dealt as cards ────────── */}

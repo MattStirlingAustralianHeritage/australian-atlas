@@ -187,6 +187,8 @@
     "openMapAround": "Open the map around {city}",
     "newPlaceAria": "Just added: {name}",
     "plateStats": "{categories} categories · {regions} regions",
+    "plateKeyTitle": "Every colour is a kind of place",
+    "plateKeyAria": "Browse the map by kind of place",
     "typeCounterLead": "Among them:",
     "typeCounterItem": "<num>{count}</num> {label}",
     "typeCounterSr": "Counted by kind: {kinds} kinds of independent place, from wineries and cafes to surf schools and op shops.",
