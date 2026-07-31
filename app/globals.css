@@ -1201,8 +1201,18 @@ nav a, .inline-link { min-height: unset; }
   grid-template-columns: 1fr;
   gap: 14px;
 }
-@media (min-width: 560px)  { .day-hand { grid-template-columns: repeat(2, 1fr); } }
-@media (min-width: 1024px) { .day-hand { grid-template-columns: repeat(3, 1fr); gap: 16px; } }
+@media (min-width: 560px) {
+  .day-hand { grid-template-columns: repeat(2, 1fr); }
+  /* Five stops in two columns: the odd card runs the full measure. */
+  .day-hand[data-count="5"] .day-flip-seat:last-child { grid-column: span 2; }
+}
+@media (min-width: 1024px) {
+  .day-hand { grid-template-columns: repeat(6, 1fr); gap: 16px; }
+  .day-flip-seat { grid-column: span 2; }
+  /* Five stops: 3 across, then 2 half-measures — no orphan hole. */
+  .day-hand[data-count="5"] .day-flip-seat:nth-child(4),
+  .day-hand[data-count="5"] .day-flip-seat:nth-child(5) { grid-column: span 3; }
+}
 
 
 /* ── The day rail: the grid's timeline, dawn-gold to night-navy ── */
@@ -1430,6 +1440,19 @@ nav a, .inline-link { min-height: unset; }
   line-height: 1.15;
   margin: 0 0 7px;
 }
+.day-flip-teaser {
+  font-family: var(--font-body);
+  font-weight: 300;
+  font-size: 12.5px;
+  line-height: 1.55;
+  opacity: 0.78;
+  margin: 0 0 9px;
+  max-width: 48ch;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 .day-flip-kind {
   display: flex;
   align-items: center;
@@ -1439,6 +1462,15 @@ nav a, .inline-link { min-height: unset; }
   font-size: 11.5px;
   opacity: 0.82;
   margin: 0;
+  min-width: 0;
+}
+.day-flip-kind svg { flex-shrink: 0; }
+.day-flip-next {
+  margin-left: auto;
+  padding-left: 10px;
+  white-space: nowrap;
+  opacity: 0.72;
+  font-variant-numeric: tabular-nums;
 }
 .day-flip-back-kicker {
   font-family: var(--font-body);
@@ -1846,25 +1878,28 @@ nav a, .inline-link { min-height: unset; }
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: none;
-  border: none;
-  padding: 0;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(28, 26, 23, 0.18);
+  border-radius: 999px;
+  padding: 10px 18px;
   min-height: 0;
   cursor: pointer;
   font-family: var(--font-body);
   font-weight: 500;
   font-size: 13px;
   color: var(--color-ink);
-  border-bottom: 1px solid var(--color-gold);
-  padding-bottom: 2px;
-  transition: opacity 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
-.day-map-toggle:hover { opacity: 0.75; }
+.day-map-toggle:hover {
+  background: #fff;
+  border-color: rgba(196, 151, 59, 0.6);
+  transform: translateY(-1px);
+}
 .day-map-toggle:focus-visible { box-shadow: var(--focus-ring); outline: none; }
 .day-map-toggle svg:first-child { color: var(--color-gold); }
 
 .day-map-panel {
-  margin-top: 16px;
+  margin-top: 20px;
   border-radius: var(--radius-card);
   overflow: hidden;
   border: 1px solid rgba(28, 26, 23, 0.12);
@@ -1907,8 +1942,8 @@ nav a, .inline-link { min-height: unset; }
   display: flex;
   align-items: stretch;
   width: 100%;
-  background: rgba(255, 255, 255, 0.65);
-  border: 1px solid rgba(28, 26, 23, 0.16);
+  background: rgba(250, 248, 244, 0.9);
+  border: 1px solid rgba(28, 26, 23, 0.18);
   border-radius: 999px;
   padding: 4px;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;

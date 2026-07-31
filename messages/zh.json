@@ -75,6 +75,7 @@
     "dayTryCta": "\u751f\u6210",
     "dayTryBusy": "\u6b63\u5728\u751f\u6210\u2026",
     "dayTryEmpty": "\u90a3\u91cc\u7684\u4e00\u5929\u8fd8\u6392\u4e0d\u51fa\u6765\u2014\u2014\u8bd5\u8bd5\u9644\u8fd1\u7684\u57ce\u9547\u6216\u5730\u533a\u540d\u3002",
+    "dayNextKm": "\u2192 {km} \u516c\u91cc",
     "dayMapShow": "在地图上查看这一天",
     "dayMapHide": "收起地图",
     "dayClaimedChip": "店主管理",

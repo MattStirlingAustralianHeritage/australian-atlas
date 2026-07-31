@@ -75,6 +75,7 @@
     "dayTryCta": "\ub9cc\ub4e4\uae30",
     "dayTryBusy": "\ud558\ub8e8\ub97c \ub9cc\ub4dc\ub294 \uc911\u2026",
     "dayTryEmpty": "\uc544\uc9c1 \uadf8\uacf3\uc758 \ud558\ub8e8\ub97c \ub9cc\ub4e4 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4 \u2014 \uac00\uae4c\uc6b4 \ub3c4\uc2dc\ub098 \uc9c0\uc5ed \uc774\ub984\uc744 \uc785\ub825\ud574 \ubcf4\uc138\uc694.",
+    "dayNextKm": "\u2192 {km} km",
     "dayMapShow": "지도에서 하루 보기",
     "dayMapHide": "지도 접기",
     "dayClaimedChip": "운영자 관리",

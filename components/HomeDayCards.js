@@ -37,6 +37,15 @@ const SLOT_TIME_ICONS = {
   stay: Moon,
 }
 
+// Straight-line km between consecutive stops, for the "to the next
+// stop" line on the cards — equirectangular is plenty at day scale.
+function kmToNext(a, b) {
+  const dLat = (parseFloat(a.lat) - parseFloat(b.lat)) * 111
+  const dLng = (parseFloat(a.lng) - parseFloat(b.lng)) * 111 *
+    Math.cos(((parseFloat(a.lat) + parseFloat(b.lat)) / 2) * Math.PI / 180)
+  return Math.hypot(dLat, dLng)
+}
+
 // ─────────────────────────────────────────────────────────────────
 // The worked day: "A day in {region}", six (or five) real stops
 // dealt as cards in visiting order. ONE day per visit — no carousel;
@@ -190,7 +199,10 @@ export default function HomeDayCards({ day: initialDay, regionsCount }) {
       </div>
 
       {/* ── The stops, dealt as flip cards in day order ── */}
-      <ol className={`day-hand${busy ? ' is-busy' : ''}`} style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+      {/* data-count lets the grid re-shape for a five-stop day (a thin
+          region) so the last row fills the measure instead of leaving
+          an orphan hole. */}
+      <ol className={`day-hand${busy ? ' is-busy' : ''}`} data-count={stops.length} style={{ listStyle: 'none', margin: 0, padding: 0 }}>
         {stops.map((stop, si) => {
           const tokens = VERTICAL_CARD_TOKENS[stop.vertical] || VERTICAL_CARD_TOKENS.portal
           const StopIcon = VERTICAL_ICONS[stop.vertical] || Compass
@@ -248,9 +260,24 @@ export default function HomeDayCards({ day: initialDay, regionsCount }) {
                     </div>
                     <div className="day-flip-front-foot">
                       <h3 className="day-flip-name">{stop.name}</h3>
+                      {/* A taste of the listing's own words on the front —
+                          the flip still carries the fuller passage. */}
+                      {stop.description && (
+                        <p className="day-flip-teaser">{stop.description}</p>
+                      )}
                       <p className="day-flip-kind">
                         <StopIcon size={12} strokeWidth={1.8} aria-hidden="true" />
                         {[kind, stop.suburb].filter(Boolean).join(' · ')}
+                        {si < stops.length - 1 && (
+                          <span className="day-flip-next">
+                            {t('dayNextKm', {
+                              km: (() => {
+                                const km = kmToNext(stop, stops[si + 1])
+                                return km < 1 ? '<1' : String(Math.round(km))
+                              })(),
+                            })}
+                          </span>
+                        )}
                       </p>
                     </div>
                   </div>
@@ -274,58 +301,6 @@ export default function HomeDayCards({ day: initialDay, regionsCount }) {
         })}
       </ol>
 
-      {/* ── The route, on demand: the day plotted on the trail map ── */}
-      {/* Closed by default so the section stays cards-first; one click
-          and the day's stops thread along real roads, the same drawn-in
-          route the trail pages carry. Geometry is the hourly cached
-          Directions line riding in the day payload, so the map opens
-          without a per-visitor API call. */}
-      <div style={{ marginTop: '26px' }}>
-        <button
-          type="button"
-          className="day-map-toggle"
-          aria-expanded={mapOpen}
-          aria-controls="day-route-map"
-          onClick={() => {
-            setMapOpen(o => !o)
-            if (!mapEverOpened) setMapEverOpened(true)
-          }}
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M9 3 3.6 5.2a1 1 0 0 0-.6.9v13.4a.5.5 0 0 0 .7.5L9 18l6 3 5.4-2.2a1 1 0 0 0 .6-.9V4.5a.5.5 0 0 0-.7-.5L15 6 9 3Z" />
-            <path d="M9 3v15" />
-            <path d="M15 6v15" />
-          </svg>
-          {mapOpen ? t('dayMapHide') : t('dayMapShow')}
-          <svg
-            width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
-            style={{ transform: mapOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.25s ease' }}
-          >
-            <path d="m6 9 6 6 6-6" />
-          </svg>
-        </button>
-
-        {mapEverOpened && (
-          <div
-            id="day-route-map"
-            className="day-map-panel"
-            hidden={!mapOpen}
-          >
-            {/* Keyed by the day's place: a typed rebuild swaps the whole
-                map instance, stops and route together. */}
-            <TrailMap
-              key={day.region}
-              stops={stops.map((s, i) => ({
-                venue_name: s.name, venue_lat: s.lat, venue_lng: s.lng,
-                vertical: s.vertical, position: i,
-              }))}
-              routeGeometry={day.routeGeometry || undefined}
-            />
-          </div>
-        )}
-      </div>
-
       {/* ── The close: build your own, see the region, the claim aside ── */}
       <div className="flex flex-wrap items-center justify-between" style={{ gap: '18px', marginTop: '30px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
@@ -346,6 +321,30 @@ export default function HomeDayCards({ day: initialDay, regionsCount }) {
               <path d="M12 5l7 7-7 7" />
             </svg>
           </LocalizedLink>
+          <button
+            type="button"
+            className="day-map-toggle"
+            aria-expanded={mapOpen}
+            aria-controls="day-route-map"
+            onClick={() => {
+              setMapOpen(o => !o)
+              if (!mapEverOpened) setMapEverOpened(true)
+            }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M9 3 3.6 5.2a1 1 0 0 0-.6.9v13.4a.5.5 0 0 0 .7.5L9 18l6 3 5.4-2.2a1 1 0 0 0 .6-.9V4.5a.5.5 0 0 0-.7-.5L15 6 9 3Z" />
+              <path d="M9 3v15" />
+              <path d="M15 6v15" />
+            </svg>
+            {mapOpen ? t('dayMapHide') : t('dayMapShow')}
+            <svg
+              width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+              style={{ transform: mapOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.25s ease' }}
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </button>
           {regionLinks.region && (
             <LocalizedLink href={regionLinks.region} className="hover:opacity-80 transition-opacity" style={{
               fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
@@ -369,6 +368,29 @@ export default function HomeDayCards({ day: initialDay, regionsCount }) {
           {t('dayClaimAside')}
         </LocalizedLink>
       </div>
+      {/* ── The route, on demand: the day plotted on the trail map ── */}
+      {/* Opens below the close row; the day's stops threaded along real
+          roads, the same drawn-in route the trail pages carry. Geometry
+          is the hourly cached Directions line riding in the day payload,
+          so the map opens without a per-visitor API call. */}
+      {mapEverOpened && (
+        <div
+          id="day-route-map"
+          className="day-map-panel"
+          hidden={!mapOpen}
+        >
+          {/* Keyed by the day's place: a typed rebuild swaps the whole
+              map instance, stops and route together. */}
+          <TrailMap
+            key={day.region}
+            stops={stops.map((s, i) => ({
+              venue_name: s.name, venue_lat: s.lat, venue_lng: s.lng,
+              vertical: s.vertical, position: i,
+            }))}
+            routeGeometry={day.routeGeometry || undefined}
+          />
+        </div>
+      )}
     </div>
   )
 }
