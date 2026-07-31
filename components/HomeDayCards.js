@@ -44,9 +44,15 @@ const SLOT_TIME_ICONS = {
 // Hovering (or focusing, or tapping on touch) a card flips it to the
 // listing's own writing, verbatim, with a link to its /place page.
 // ─────────────────────────────────────────────────────────────────
-export default function HomeDayCards({ day, regionsCount }) {
+export default function HomeDayCards({ day: initialDay, regionsCount }) {
   const t = useTranslations('home')
   const locale = useLocale()
+  // The day on display: the server's hourly deal until the reader
+  // types a place of their own, then whatever /api/home/day returns.
+  const [day, setDay] = useState(initialDay)
+  const [query, setQuery] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [notFound, setNotFound] = useState(false)
   const [flippedId, setFlippedId] = useState(null)
   // The rail and the grid light each other: pointing at a station
   // lifts its card, pointing at a card swells its station.
@@ -56,10 +62,40 @@ export default function HomeDayCards({ day, regionsCount }) {
   const [mapOpen, setMapOpen] = useState(false)
   const [mapEverOpened, setMapEverOpened] = useState(false)
   const touchRef = useRef(false)
+  const abortRef = useRef(null)
 
   useEffect(() => {
     touchRef.current = window.matchMedia('(hover: none)').matches
+    return () => abortRef.current?.abort()
   }, [])
+
+  // Type a place, get its day: the section rebuilds in place — cards,
+  // rail, title, and the route map all follow the new stops.
+  async function buildTypedDay(e) {
+    e.preventDefault()
+    const q = query.trim()
+    if (q.length < 2 || busy) return
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+    setBusy(true)
+    setNotFound(false)
+    try {
+      const res = await fetch(`/api/home/day?q=${encodeURIComponent(q)}`, { signal: controller.signal })
+      const data = res.ok ? await res.json() : null
+      if (data?.day && Array.isArray(data.day.stops) && data.day.stops.length >= 5) {
+        setDay(data.day)
+        setFlippedId(null)
+        setLitId(null)
+      } else {
+        setNotFound(true)
+      }
+    } catch (err) {
+      if (err?.name !== 'AbortError') setNotFound(true)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   if (!day) return null
   const stops = day.stops || []
@@ -71,24 +107,61 @@ export default function HomeDayCards({ day, regionsCount }) {
 
   return (
     <div>
-      {/* ── Masthead: the day's region, named ── */}
-      <div style={{ maxWidth: '640px', marginBottom: '34px' }}>
-        <p className="section-dateline" style={{ marginBottom: '14px' }}>
-          {t('dayKicker')}
-        </p>
-        <h2 style={{
-          fontFamily: 'var(--font-display)', fontWeight: 400,
-          fontSize: 'clamp(26px, 3.4vw, 44px)', color: 'var(--color-ink)', lineHeight: 1.1,
-          margin: 0,
-        }}>
-          {t('dayTitle', { region: day.region })}
-        </h2>
-        <p className="mt-3" style={{
-          fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15.5px',
-          color: 'var(--color-muted)', margin: '12px 0 0', lineHeight: 1.65, maxWidth: '58ch',
-        }}>
-          {t('dayIntro')}
-        </p>
+      {/* ── Masthead: the day's region named, the reader's place asked ── */}
+      <div className="flex flex-wrap items-end justify-between" style={{ gap: '20px', marginBottom: '34px' }}>
+        <div style={{ maxWidth: '640px' }}>
+          <p className="section-dateline" style={{ marginBottom: '14px' }}>
+            {t('dayKicker')}
+          </p>
+          <h2 aria-live="polite" style={{
+            fontFamily: 'var(--font-display)', fontWeight: 400,
+            fontSize: 'clamp(26px, 3.4vw, 44px)', color: 'var(--color-ink)', lineHeight: 1.1,
+            margin: 0,
+          }}>
+            {t('dayTitle', { region: day.region })}
+          </h2>
+          <p className="mt-3" style={{
+            fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15.5px',
+            color: 'var(--color-muted)', margin: '12px 0 0', lineHeight: 1.65, maxWidth: '58ch',
+          }}>
+            {t('dayIntro')}
+          </p>
+        </div>
+
+        {/* The typed day: name a place, the section rebuilds around it. */}
+        <form className="day-try" onSubmit={buildTypedDay}>
+          <label htmlFor="day-try-input" className="day-try-label">
+            {t('dayTryLabel')}
+          </label>
+          <div className="day-try-field">
+            <input
+              id="day-try-input"
+              type="text"
+              className="day-try-input"
+              placeholder={t('dayTryPlaceholder')}
+              value={query}
+              onChange={(e) => { setQuery(e.target.value); setNotFound(false) }}
+              maxLength={60}
+              disabled={busy}
+            />
+            <button type="submit" className="day-try-btn" disabled={busy || query.trim().length < 2}>
+              {busy ? (
+                <span className="day-try-spinner" role="status" aria-label={t('dayTryBusy')} />
+              ) : (
+                <>
+                  {t('dayTryCta')}
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M5 12h14" />
+                    <path d="M12 5l7 7-7 7" />
+                  </svg>
+                </>
+              )}
+            </button>
+          </div>
+          <p className="day-try-empty" aria-live="polite">
+            {notFound ? t('dayTryEmpty') : ' '}
+          </p>
+        </form>
       </div>
 
       {/* ── The day rail: dawn to night as one line ── */}
@@ -117,7 +190,7 @@ export default function HomeDayCards({ day, regionsCount }) {
       </div>
 
       {/* ── The stops, dealt as flip cards in day order ── */}
-      <ol className="day-hand" style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+      <ol className={`day-hand${busy ? ' is-busy' : ''}`} style={{ listStyle: 'none', margin: 0, padding: 0 }}>
         {stops.map((stop, si) => {
           const tokens = VERTICAL_CARD_TOKENS[stop.vertical] || VERTICAL_CARD_TOKENS.portal
           const StopIcon = VERTICAL_ICONS[stop.vertical] || Compass
@@ -239,7 +312,10 @@ export default function HomeDayCards({ day, regionsCount }) {
             className="day-map-panel"
             hidden={!mapOpen}
           >
+            {/* Keyed by the day's place: a typed rebuild swaps the whole
+                map instance, stops and route together. */}
             <TrailMap
+              key={day.region}
               stops={stops.map((s, i) => ({
                 venue_name: s.name, venue_lat: s.lat, venue_lng: s.lng,
                 vertical: s.vertical, position: i,
