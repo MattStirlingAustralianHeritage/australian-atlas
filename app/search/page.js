@@ -13,6 +13,7 @@ import { isApprovedImageSource } from '@/lib/image-utils'
 import { isStrongMatch } from '@/lib/search/relevanceFloor'
 import { detectVerticalIntent } from '@/lib/search/verticalIntent'
 import { isInquiryQuery } from '@/lib/search/inquiryIntent'
+import { isItineraryIntent } from '@/lib/search/itineraryIntent'
 import { VERTICAL_MUTED, isVerticalPublic } from '@/lib/verticalUrl'
 import { useLocation } from '@/components/LocationProvider'
 
@@ -35,46 +36,34 @@ function haversineKm(lat1, lng1, lat2, lng2) {
 // Popular categories for the zero-result recovery + empty-state nudges.
 const POPULAR_CATEGORIES = ['Breweries', 'Wineries', 'Chocolatiers', 'Cafés', 'Bookshops', 'Galleries']
 
+// Short-lived client-side cache of /api/search responses — toggling a facet
+// chip off and on, or backing out of a refine, replays the response instantly
+// instead of re-paying the whole server pipeline. Keyed by the request query
+// string; small and TTL'd so rankings never go visibly stale within a session.
+const SEARCH_RESPONSE_CACHE = new Map() // qs → { t, data }
+const SEARCH_CACHE_TTL_MS = 120_000
+const SEARCH_CACHE_MAX = 30
+function searchCacheGet(qs) {
+  const hit = SEARCH_RESPONSE_CACHE.get(qs)
+  if (hit && Date.now() - hit.t < SEARCH_CACHE_TTL_MS) return hit.data
+  if (hit) SEARCH_RESPONSE_CACHE.delete(qs)
+  return null
+}
+function searchCacheSet(qs, data) {
+  SEARCH_RESPONSE_CACHE.set(qs, { t: Date.now(), data })
+  if (SEARCH_RESPONSE_CACHE.size > SEARCH_CACHE_MAX) {
+    SEARCH_RESPONSE_CACHE.delete(SEARCH_RESPONSE_CACHE.keys().next().value)
+  }
+}
+
 // Humanise a sub_type key for the facet chips.
 function prettySubType(key) {
   return String(key || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-/**
- * Heuristic intent classifier: does the query look like an itinerary request?
- * Returns true if the query matches itinerary-like patterns.
- */
-function isItineraryIntent(query) {
-  if (!query || query.trim().length < 5) return false
-  const q = query.toLowerCase().trim()
-
-  // Multi-word phrases (check first, most specific)
-  const phrases = [
-    'day trip', 'road trip', 'weekend away', 'weekend in', 'weekend trip',
-    'long weekend', '2 nights', '3 nights', '2 days', '3 days', '4 days', '5 days',
-    'build me', 'build a', 'plan a', 'plan my', 'plan me', 'build a trail', 'create a trail',
-    'overnight in', 'overnight trip', 'nights in', 'days in',
-  ]
-  for (const p of phrases) {
-    if (q.includes(p)) return true
-  }
-
-  // Single keywords that strongly signal itinerary intent
-  const keywords = [
-    'itinerary', 'trail', 'route', 'overnight', 'tour',
-  ]
-  for (const kw of keywords) {
-    if (q.includes(kw)) return true
-  }
-
-  // Pattern: number + duration word (e.g. "2 night", "3 day")
-  if (/\d+\s*(night|day|nights|days)/.test(q)) return true
-
-  // Pattern: word numbers + duration (e.g. "three day", "two nights")
-  if (/\b(one|two|three|four|five|six|seven)\s*(night|day|nights|days)\b/.test(q)) return true
-
-  return false
-}
+// Itinerary intent lives in lib/search/itineraryIntent (word-boundary matching
+// — the old inline substring version hijacked venue searches like "brewery
+// tours in the yarra valley" off to /itinerary on submit).
 
 const VERTICALS = [
   { key: '', label: 'All', atlas: '' },
@@ -398,8 +387,8 @@ function SearchPageInner() {
   const [nameMatch, setNameMatch] = useState(null)     // fuzzy full-listing match on zero/weak results
   const [brief, setBrief] = useState(null)             // post-search concierge write-up { loading, answer, reasonById }
   const [facets, setFacets] = useState({ subTypes: [], regions: [] })
-  const [subType, setSubType] = useState('')           // sub_type facet refine
-  const [facetRegion, setFacetRegion] = useState('')   // region facet refine
+  const [subType, setSubType] = useState(searchParams.get('sub_type') || '')           // sub_type facet refine
+  const [facetRegion, setFacetRegion] = useState(searchParams.get('facet_region') || '')   // region facet refine
   const [sortBy, setSortBy] = useState('relevance')    // relevance | az | nearest
   const [trending, setTrending] = useState([])         // popular recent queries (discovery)
   const [askAnswer, setAskAnswer] = useState(null)     // concierge reply for a plain-language inquiry
@@ -450,13 +439,21 @@ function SearchPageInner() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  // Sync URL when filters change (debounced alongside search)
+  // Sync URL when filters change (debounced alongside search). Facet refines
+  // ride refs (like view) so a refined search survives reload/share — the old
+  // rebuild dropped sub_type/facet_region and the link lied about the results.
+  const subTypeRef = useRef(subType)
+  subTypeRef.current = subType
+  const facetRegionRef = useRef(facetRegion)
+  facetRegionRef.current = facetRegion
   const updateUrl = useCallback((q, v, s, r) => {
     const params = new URLSearchParams()
     if (q) params.set('q', q)
     if (v) params.set('vertical', v)
     if (s) params.set('state', s)
     if (r) params.set('region', r)
+    if (subTypeRef.current) params.set('sub_type', subTypeRef.current)
+    if (facetRegionRef.current) params.set('facet_region', facetRegionRef.current)
     if (viewRef.current !== 'grid') params.set('view', viewRef.current)
     const qs = params.toString()
     router.replace(qs ? `/search?${qs}` : '/search', { scroll: false })
@@ -533,8 +530,14 @@ function SearchPageInner() {
       params.set('page', p.toString())
       params.set('limit', '24')
 
-      const res = await fetch(`/api/search?${params}`)
-      const data = await res.json()
+      const qs = params.toString()
+      const cachedData = searchCacheGet(qs)
+      let data = cachedData
+      if (!data) {
+        const res = await fetch(`/api/search?${qs}`)
+        data = await res.json()
+        if (res.ok) searchCacheSet(qs, data)
+      }
       if (append) {
         // Accumulate below the already-loaded results; merge pins by id (query
         // mode returns the same pool each page, browse mode grows page-by-page).
@@ -620,8 +623,13 @@ function SearchPageInner() {
   // A fresh query re-enables atlas auto-detection: broadening ("All") applied to
   // one query shouldn't silently suppress the focus for the next, unrelated one.
   // It also re-arms the concierge and clears facet refines that belonged to the
-  // previous query's pool.
-  useEffect(() => { setNoVerticalBind(false); setForceExact(false); setSubType(''); setFacetRegion('') }, [query])
+  // previous query's pool. Skipped on mount — the URL may carry a shared
+  // sub_type/facet_region refine that must survive the first render.
+  const queryEffectMounted = useRef(false)
+  useEffect(() => {
+    if (!queryEffectMounted.current) { queryEffectMounted.current = true; return }
+    setNoVerticalBind(false); setForceExact(false); setSubType(''); setFacetRegion('')
+  }, [query])
 
   // Check for itinerary intent on initial load (from homepage submission)
   useEffect(() => {
@@ -635,10 +643,20 @@ function SearchPageInner() {
   // Idle-debounced search + URL sync. The itinerary redirect is NOT fired here
   // (it used to hijack any query containing "tour"/"day"/"trail" mid-typing) —
   // it only fires on explicit submit (handleSubmit) now.
+  //
+  // The FIRST run fires immediately: a landing from the home bar or a shared
+  // link used to sit on skeletons for the full debounce before the request was
+  // even issued. Debounce only applies to subsequent typing/filter changes.
+  const firstSearchRef = useRef(true)
   useEffect(() => {
+    const first = firstSearchRef.current
+    firstSearchRef.current = false
+    // Mount with an itinerary-shaped URL query → the redirect effect below is
+    // about to leave this page; don't waste a search request on the way out.
+    if (first && query && isItineraryIntent(query)) return
     // A concierge (inquiry) run costs two Claude calls, so give it a longer
     // idle window than a plain keyword search before firing.
-    const delay = query && isInquiryQuery(query) && !isItineraryIntent(query) ? 900 : 600
+    const delay = first ? 0 : (query && isInquiryQuery(query) && !isItineraryIntent(query) ? 900 : 600)
     const timer = setTimeout(() => {
       updateUrl(query, vertical, state, region)
       search(1)

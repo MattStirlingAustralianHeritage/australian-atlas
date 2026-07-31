@@ -4,6 +4,10 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTranslations } from 'next-intl'
 import { isInquiryQuery } from '@/lib/search/inquiryIntent'
 
+// Session-scoped prefix → suggestions cache (module scope survives remounts).
+const prefixCache = new Map()
+const PREFIX_CACHE_MAX = 80
+
 // Sparkle mark for the "Ask the Atlas" affordance — signals the field just
 // switched from name-lookup to answering a plain-language request.
 function AskIcon() {
@@ -110,6 +114,18 @@ export default function SearchAutocomplete({ value, onChange, onSelect, placehol
       return
     }
 
+    // Session cache: backspacing to an already-typed prefix replays instantly
+    // instead of re-fetching the whole suggestion pipeline.
+    const key = query.trim().toLowerCase()
+    const cached = prefixCache.get(key)
+    if (cached) {
+      setResults(cached)
+      setIsOpen(touchedRef.current && cached.length > 0)
+      setActiveIndex(-1)
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     const controller = new AbortController()
     abortRef.current = controller
@@ -119,8 +135,11 @@ export default function SearchAutocomplete({ value, onChange, onSelect, placehol
     })
       .then(res => res.json())
       .then(data => {
-        setResults(data.results || [])
-        setIsOpen(touchedRef.current && (data.results || []).length > 0)
+        const rows = data.results || []
+        prefixCache.set(key, rows)
+        if (prefixCache.size > PREFIX_CACHE_MAX) prefixCache.delete(prefixCache.keys().next().value)
+        setResults(rows)
+        setIsOpen(touchedRef.current && rows.length > 0)
         setActiveIndex(-1)
         setLoading(false)
       })
