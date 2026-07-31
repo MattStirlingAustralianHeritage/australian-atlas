@@ -73,7 +73,6 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
         <h2 className="atlas-plate-headline">
           {count ? t('plateScopeHeadline', { count }) : t('everyPlaceMapped')}
         </h2>
-        <p className="atlas-plate-sub">{t('plateScopeSub')}</p>
 
         {typeEntries && (
           <p className="atlas-plate-typecount">
@@ -297,22 +296,18 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
           letter-spacing: -0.012em; color: var(--color-ink, #1C1A17);
           max-width: 11em; text-wrap: balance;
         }
-        .atlas-plate-sub {
-          margin-top: 11px;
-          font-family: var(--font-body); font-weight: 300; font-size: 14px;
-          line-height: 1.55; color: var(--color-muted, #6B645A); max-width: 38ch;
-        }
-
         /* ── rotating type counter ─────────────────────────── */
         /* Twelve entries share one grid cell; each one's keyframe delay
            staggers it into its own twelfth of a 38.4s cycle (12 × 3.2s),
            so exactly one is on stage at a time and the twelfth hands
            back to the first. The stack sizes itself to the longest
            entry, so the line never reflows as counts swap. */
-        .atlas-plate-typecount { margin-top: 13px; }
+        /* The plate's only supporting line since the descriptive sub went —
+           sized up to carry the copy column on its own. */
+        .atlas-plate-typecount { margin-top: 14px; }
         .atlas-tc-line {
-          display: inline-flex; align-items: baseline; gap: 7px;
-          font-family: var(--font-body); font-weight: 400; font-size: 13px;
+          display: inline-flex; align-items: baseline; gap: 8px;
+          font-family: var(--font-body); font-weight: 400; font-size: 16.5px;
           line-height: 1.5; color: var(--color-muted, #6B645A);
         }
         .atlas-tc-stack { display: inline-grid; }
@@ -323,7 +318,7 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
           animation: atlas-tc-cycle 38.4s infinite;
         }
         .atlas-tc-num {
-          font-weight: 600; color: #96743C;
+          font-weight: 600; font-size: 1.1em; color: #96743C;
           font-variant-numeric: tabular-nums;
         }
         @keyframes atlas-tc-cycle {
@@ -432,9 +427,6 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
         .atlas-scope:hover .atlas-fresh-dot,
         .atlas-scope:focus-visible .atlas-fresh-dot { background: #1C1A17; }
         /* ── responsive ────────────────────────────────────── */
-        @media (max-width: 1280px) {
-          .atlas-plate-sub { display: none; }
-        }
         /* Stacked layout — phones and tablets: copy in flow above the chart,
            the chart cropped to Australia (ocean band trimmed) and anchored
            right so the continent fills the viewport. */
@@ -448,7 +440,6 @@ export default async function HomeAtlasMap({ listingCount, categoryCount, region
             padding: 34px 24px 6px; align-items: center; text-align: center;
           }
           .atlas-plate-headline { max-width: none; }
-          .atlas-plate-sub { display: block; }
           .atlas-plate-actions { justify-content: center; margin-top: 20px; }
           .atlas-plate-stats { margin-top: 10px; }
           .atlas-plate-typecount { margin-top: 10px; }
