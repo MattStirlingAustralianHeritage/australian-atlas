@@ -6,20 +6,21 @@ import { localizePath, PREFIXED_LOCALES } from '@/lib/i18n/config'
 import { overlayListingTranslations } from '@/lib/i18n/overlayListings'
 import { localizeVerticalKicker } from '@/lib/i18n/listingLabels'
 import { getSupabaseAdmin } from '@/lib/supabase/clients'
+import { createAuthServerClient } from '@/lib/supabase/auth-clients'
 import HomeSearchBar from '@/components/HomeSearchBar'
 import HeroAtlasBackground from '@/components/HeroAtlasBackground'
 import HomeAtlasMap from '@/components/HomeAtlasMap'
+import HomeDayCards from '@/components/HomeDayCards'
+import HomeDayStrip from '@/components/HomeDayStrip'
+import HomeNearYou from '@/components/HomeNearYou'
 import NewsletterSignup from '@/components/NewsletterSignup'
 import ScrollReveal from '@/components/ScrollReveal'
 import DiscoverDeck from '@/components/discover/DiscoverDeck'
-import TrailMap from '@/app/trails/[slug]/TrailMap'
-import { resolveRegionParam } from '@/lib/regions'
 import { buildContours } from '@/lib/discover/contours'
-import { getPublicVerticals, getVerticalBadge, getVerticalTagline, VERTICAL_ACCENTS, VERTICAL_CARD_TOKENS } from '@/lib/verticalUrl'
+import { getPublicVerticals, getVerticalBadge, VERTICAL_ACCENTS, VERTICAL_CARD_TOKENS } from '@/lib/verticalUrl'
 import { filterByVertical, relationHasVerticals } from '@/lib/listings/verticalFilter'
-import { subTypeLabel } from '@/lib/subTypeLabels'
 import { buildTypeCounterEntries } from '@/lib/home/typeCounter'
-import { Coffee, Wine, UtensilsCrossed, BedDouble, Mountain, Compass, Hammer, Landmark, ShoppingBag, Clock } from 'lucide-react'
+import { buildHomeDay, seededShuffle, pinWorthy } from '@/lib/home/dayBuilder'
 
 export const revalidate = 1800
 
@@ -38,92 +39,22 @@ export async function generateMetadata() {
 
 const GOLD = 'var(--color-gold)'
 
-// ─────────────────────────────────────────────────────────────────
-// The worked-trip hero. A new hypothetical day is drawn every hour:
-// the hour picks a region from the pool below, and seeds the shuffle
-// that fills its slots, so returning visitors see a different real
-// day each hour. A region that can't fill five slots is skipped and
-// the next in the pool takes its hour.
-// Pool from the density query 2026-07-12 (active listings w/
-// description+coords), regional first for the trip framing, capitals
-// as depth: Melbourne 435 / Sydney 367 / Perth 360 / Adelaide 358 /
-// Margaret River 166 / Hobart & Sthn Tas 162 / Cairns & TN 140 /
-// Yarra Valley 128 / Canberra District 124 / Bendigo 117 /
-// Hobart City 105 / Byron Bay 105.
-// MATT: set HERO_REGION_OVERRIDE to a region name to pin one region
-// (stops still reshuffle hourly); edit the pool freely.
-// ─────────────────────────────────────────────────────────────────
-const HERO_REGION_OVERRIDE = null
-const HERO_REGION_POOL = [
-  'Margaret River',
-  'Hobart & Southern Tasmania',
-  'Yarra Valley',
-  'Byron Bay',
-  'Cairns & Tropical North',
-  'Bendigo',
-  'Canberra District',
-  'Hobart City',
-  'Melbourne',
-  'Sydney',
-  'Perth',
-  'Adelaide',
-  'Brisbane',
-]
+// MATT: how the worked day renders — 'grid' is the 2-row flip-card
+// layout, 'strip' the single-row expand-on-hover accordion. Both
+// consume the same day payload; flip this one constant to switch.
+const DAY_SECTION_VARIANT = 'grid'
 
 // One value per hour, computed outside the cache and passed in, so it
 // participates in the cache key and the whole payload turns over on
-// the hour.
+// the hour. The worked day itself is assembled in
+// lib/home/dayBuilder.js and rendered as flip cards by HomeDayCards.
 function getHourSeed() {
   return Math.floor(Date.now() / (60 * 60 * 1000))
 }
 
-// Deterministic shuffle (same LCG the old weekly picks used): the
-// same hour always draws the same day, so the cache and the page
-// agree on what "this hour's route" is.
-function seededShuffle(arr, seed) {
-  const shuffled = [...arr]
-  let s = seed
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    s = (s * 1103515245 + 12345) & 0x7fffffff
-    const j = s % (i + 1)
-    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
-  }
-  return shuffled
-}
-
-// Day order for the worked trip: coffee, an activity before lunch,
-// lunch, then ONE main activity for the afternoon, a tasting, a bed.
-// Each slot takes the first vertical that still has an unused,
-// well-described candidate, so the trip degrades gracefully if the
-// region thins out. A vertical is never used twice in one day, so
-// the mid-morning stop and the afternoon's main activity can't both
-// be galleries. Labels are time-of-day, from the existing translated
-// clusterStop* keys wherever one fits.
-const HERO_TRIP_SLOTS = [
-  { slot: 'morning',    labelKey: 'clusterStopMorning',   prefs: [['fine_grounds'], ['table', ['bakery', 'market', 'providore']]] },
-  { slot: 'midmorning', labelKey: 'tripStopMidMorning',   prefs: [['corner'], ['found'], ['collection'], ['craft'], ['field']] },
-  { slot: 'midday',     labelKey: 'clusterStopMidday',    prefs: [['table', ['restaurant', 'cafe', 'bistro', 'pub', 'bakery']], ['table'], ['corner']] },
-  // Way Atlas listings are deliberately left out of the worked-trip
-  // example (the afternoon reaches for the outdoors, then craft/culture
-  // instead). The exclusion is also enforced at the query in
-  // assembleRegionDay so no Way venue can slip into a stop.
-  { slot: 'afternoon',  labelKey: 'clusterStopAfternoon', prefs: [['field'], ['craft'], ['collection']] },
-  { slot: 'tasting',    labelKey: 'tripStopTasting',      prefs: [['sba'], ['fine_grounds']] },
-  { slot: 'stay',       labelKey: 'clusterStopStay',      prefs: [['rest']] },
-]
-
-// Fallback icon per vertical for the trip stops and the ingredients
-// grid. Same assignments the rest of the site uses.
-const VERTICAL_ICONS = {
-  fine_grounds: Coffee, sba: Wine, table: UtensilsCrossed, rest: BedDouble,
-  field: Mountain, way: Compass, craft: Hammer, collection: Landmark,
-  corner: ShoppingBag, found: Clock,
-}
-
-// Ingredients order: the shape of a day, then the shape of a week.
-// Names and taglines come from lib/verticalUrl.js (the network's
-// single source of truth for what each vertical covers), counts from
-// the live index. Per-vertical microcopy is left to Matt below.
+// Spectrum order: the shape of a day, then the shape of a week.
+// Names come from lib/verticalUrl.js (the network's single source of
+// truth for what each vertical covers), counts from the live index.
 const INGREDIENT_ORDER = ['fine_grounds', 'table', 'sba', 'rest', 'field', 'way', 'craft', 'collection', 'corner', 'found']
 
 // All eight states and territories: the scope proof. Three real pins
@@ -140,35 +71,6 @@ const EXAMPLE_SEARCHES = [
   'a gift for my niece that’s made in Australia',
   'galleries in Hobart',
 ]
-
-function toFinite(n) {
-  const v = parseFloat(n)
-  return Number.isFinite(v) ? v : null
-}
-
-function pinWorthy(l) {
-  return Boolean(l && l.slug && toFinite(l.lat) !== null && toFinite(l.lng) !== null &&
-    l.visitable !== false && l.address_on_request !== true)
-}
-
-// Some older descriptions open with a street address before the prose
-// starts. Preferring rows that open with prose is selection, not
-// editing: whatever is picked still renders verbatim.
-function descOpensWithAddress(d) {
-  const head = String(d || '').slice(0, 90)
-  return /\b\d{4}\b/.test(head) || /\bLot \d/i.test(head)
-}
-
-// Equirectangular distance, fine at region scale. Used to keep the
-// worked trip drivable: region resolution can reach a fair way out
-// (the Margaret River region row includes Bunbury), and a "day" whose
-// stops sit 80 km apart stops reading as one day.
-function kmBetween(aLat, aLng, bLat, bLng) {
-  const dLat = (aLat - bLat) * 111
-  const dLng = (aLng - bLng) * 111 * Math.cos(((aLat + bLat) / 2) * Math.PI / 180)
-  return Math.hypot(dLat, dLng)
-}
-const TRIP_MAX_KM_FROM_CENTRE = 60
 
 async function getStats(publicVerticals) {
   try {
@@ -318,161 +220,13 @@ async function getRandomListings() {
   }
 }
 
-// Server-side Directions fetch, mirroring app/api/mapbox/directions.
-// Fetched once per hour alongside the trip and cached with it, so
-// visitors never each hit the Directions API. TrailMap falls back to
-// its own client fetch (then straight lines) when this returns null.
-async function fetchDrivingGeometry(coordinates) {
-  try {
-    const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || process.env.MAPBOX_TOKEN
-    if (!token || coordinates.length < 2 || coordinates.length > 25) return null
-    const path = coordinates.map(c => c.join(',')).join(';')
-    const res = await fetch(
-      `https://api.mapbox.com/directions/v5/mapbox/driving/${path}?geometries=geojson&overview=full&access_token=${token}`,
-      { signal: AbortSignal.timeout(8000) }
-    )
-    if (!res.ok) return null
-    const data = await res.json()
-    return data.routes?.[0]?.geometry ?? null
-  } catch {
-    return null
-  }
-}
-
-// One region's attempt at a day, filled slot by slot from its live
-// listings. Descriptions render verbatim on the page, so a stop only
-// qualifies when the portal row carries real writing (not just a
-// name), real coordinates, and a live /place page. The seed shuffles
-// the candidate pool, so the same region deals a different day each
-// hour without ever loosening those gates.
-async function assembleRegionDay(sb, regionName, seed) {
-  const { region: resolved } = await resolveRegionParam(regionName)
-  const fromTable = resolved ? 'listings_with_region' : 'listings'
-  let query = sb
-    .from(fromTable)
-    .select('id, name, slug, vertical, sub_type, suburb, lat, lng, description, hero_image_url, visitable, address_on_request, trail_suitable')
-    .eq('status', 'active')
-    // Way Atlas experiences never appear in the worked-trip example.
-    .neq('vertical', 'way')
-    // A worked-trip stop must be trail-suitable: not a direct-sale producer,
-    // appointment-only studio maker, or no-premises vendor (all visitable, but
-    // not spontaneous stops). Accommodation (rest) is exempt — it fills the
-    // overnight 'stay' slot, where trail_suitable=false is expected.
-    .or('vertical.eq.rest,trail_suitable.eq.true,trail_suitable.is.null')
-    .not('description', 'is', null)
-    .not('slug', 'is', null)
-    .not('lat', 'is', null)
-    .not('lng', 'is', null)
-    .not('name', 'ilike', '\\_%')
-    .limit(240)
-  if (resolved) {
-    query = query.eq('region_id', resolved.id)
-  } else {
-    query = query.eq('region', regionName)
-  }
-  const { data } = await query
-  const usable = seededShuffle(
-    (data || []).filter(l => pinWorthy(l) && String(l.description || '').trim().length > 80),
-    seed
-  )
-  if (!usable.length) return null
-
-  // The region's centre of gravity: where its listings actually are.
-  // Group fall-through measures "in range" against this, so a slot
-  // never reaches for a far corridor town while the core has options.
-  const core = {
-    lat: usable.reduce((s, l) => s + parseFloat(l.lat), 0) / usable.length,
-    lng: usable.reduce((s, l) => s + parseFloat(l.lng), 0) / usable.length,
-  }
-
-  // Phase 1: resolve each slot to a small candidate pool. Distance
-  // beats preference order: an earlier pref only wins with a candidate
-  // inside driving range of the region core; only the slot's last
-  // resort may reach further, so a thin region still fills its slots.
-  const usedVerticals = new Set()
-  const layers = []
-  for (const { slot, labelKey, prefs } of HERO_TRIP_SLOTS) {
-    for (let pi = 0; pi < prefs.length; pi++) {
-      const [v, subTypes] = prefs[pi]
-      if (usedVerticals.has(v)) continue
-      let candidates = usable.filter(l =>
-        l.vertical === v && (!subTypes || subTypes.includes(l.sub_type))
-      )
-      if (!candidates.length) continue
-      const near = candidates.filter(l =>
-        kmBetween(parseFloat(l.lat), parseFloat(l.lng), core.lat, core.lng) <= TRIP_MAX_KM_FROM_CENTRE
-      )
-      if (!near.length && pi < prefs.length - 1) continue
-      if (near.length) candidates = near
-      usedVerticals.add(v)
-      // Pools stay vertical-disjoint (usedVerticals), so no venue can
-      // serve two slots. Cap for the route search below; the seeded
-      // shuffle above is what varies the pool hour to hour.
-      layers.push({ slot, labelKey, pool: candidates.slice(0, 10) })
-      break
-    }
-  }
-  if (layers.length < 5) return null
-
-  // Phase 2: the day visits its slots in time order, so the only way
-  // to avoid the route doubling back on itself is choosing WHICH
-  // venue serves each slot. Pick the combination with the shortest
-  // slot-ordered chain (one venue per layer, shortest-path over the
-  // layered graph): backtracking is wasted distance, so the minimal
-  // chain doubles back only when the region leaves no alternative.
-  // Address-fronted descriptions carry a phantom-distance penalty so
-  // the prose-first preference survives inside the route search.
-  const qualityPenaltyKm = (l) => (descOpensWithAddress(l.description) ? 12 : 0)
-  const dist = layers.map(() => [])
-  const back = layers.map(() => [])
-  layers[0].pool.forEach((l, j) => { dist[0][j] = qualityPenaltyKm(l); back[0][j] = -1 })
-  for (let i = 1; i < layers.length; i++) {
-    layers[i].pool.forEach((cand, j) => {
-      let best = Infinity
-      let bestPrev = 0
-      layers[i - 1].pool.forEach((prev, k) => {
-        const d = dist[i - 1][k] + kmBetween(
-          parseFloat(prev.lat), parseFloat(prev.lng),
-          parseFloat(cand.lat), parseFloat(cand.lng)
-        )
-        if (d < best) { best = d; bestPrev = k }
-      })
-      dist[i][j] = best + qualityPenaltyKm(cand)
-      back[i][j] = bestPrev
-    })
-  }
-  const last = layers.length - 1
-  let j = dist[last].indexOf(Math.min(...dist[last]))
-  const picks = []
-  for (let i = last; i >= 0; i--) {
-    picks[i] = layers[i].pool[j]
-    j = back[i][j]
-  }
-  const stops = layers.map((layer, i) => ({ ...picks[i], slot: layer.slot, labelKey: layer.labelKey }))
-  return {
-    region: regionName,
-    regionSlug: resolved?.slug || null,
-    stops,
-  }
-}
-
-// The worked trip for this hour: the hour indexes the region pool,
-// and the first region from that point that can fill a day wins. The
-// road geometry rides along in the cached payload.
-async function getHeroTrip(hourSeed) {
+// The worked day for this hour — one region, assembled in
+// lib/home/dayBuilder.js. Rides in the hourly cached payload; the
+// client (HomeDayCards) renders it as flip cards, no carousel.
+async function getHomeDay(hourSeed) {
   try {
     const sb = getSupabaseAdmin()
-    const pool = HERO_REGION_OVERRIDE ? [HERO_REGION_OVERRIDE] : HERO_REGION_POOL
-    for (let i = 0; i < pool.length; i++) {
-      const regionName = pool[(hourSeed + i) % pool.length]
-      const day = await assembleRegionDay(sb, regionName, hourSeed)
-      if (!day) continue
-      const routeGeometry = await fetchDrivingGeometry(
-        day.stops.map(s => [parseFloat(s.lng), parseFloat(s.lat)])
-      )
-      return { ...day, routeGeometry }
-    }
-    return null
+    return await buildHomeDay(sb, hourSeed)
   } catch {
     return null
   }
@@ -501,10 +255,10 @@ async function getLatestArticles() {
 }
 
 async function assembleHomeData(publicVerticals, hourSeed) {
-  const [stats, scopePins, heroTrip, articles, randomListings, typeCounts] = await Promise.all([
-    getStats(publicVerticals), getScopePins(), getHeroTrip(hourSeed), getLatestArticles(), getRandomListings(), getTypeCounts(publicVerticals),
+  const [stats, scopePins, homeDay, articles, randomListings, typeCounts] = await Promise.all([
+    getStats(publicVerticals), getScopePins(), getHomeDay(hourSeed), getLatestArticles(), getRandomListings(), getTypeCounts(publicVerticals),
   ])
-  return { stats, scopePins, heroTrip, articles, randomListings, typeCounts }
+  return { stats, scopePins, homeDay, articles, randomListings, typeCounts }
 }
 
 // The root layout reads auth cookies, so this route renders per-request
@@ -522,13 +276,14 @@ const getHomeDataCached = unstable_cache(
     }
     return data
   },
-  // v7: the ticker's feed became a random sample of the atlas
-  // (`randomListings`), replacing v6's newest-first `recentListings`.
-  // A fresh key so no v6 entry — with the old field name and freshness
-  // ordering — is served for its remaining hour. hourSeed is an
-  // argument, so each hour writes its own entry and both the worked
-  // trip and the random ticker turn over on the hour.
-  ['home-data-v7'],
+  // v9: the worked trip's map became flip cards, and the payload
+  // carries ONE day (`homeDay`, no road geometry — the cards ARE the
+  // visual; v8's multi-day `homeDays` hand lived only in review). A
+  // fresh key so no older entry with a different shape is served for
+  // its remaining hour. hourSeed is an argument, so each hour writes
+  // its own entry and the day and the random ticker turn over on the
+  // hour — a new region per visit, every second hour a showcase draw.
+  ['home-data-v9'],
   { revalidate: 3600 }
 )
 
@@ -550,10 +305,26 @@ export default async function Home() {
   const restArticles = (articles || []).filter(a => a !== featuredArticle).slice(0, 2)
   const randomListings = await overlayListingTranslations(homeData.randomListings || [], locale)
   const scopePins = await overlayListingTranslations(homeData.scopePins, locale)
-  const heroTrip = homeData.heroTrip
-    ? { ...homeData.heroTrip, stops: await overlayListingTranslations(homeData.heroTrip.stops, locale) }
+  const homeDay = homeData.homeDay
+    ? { ...homeData.homeDay, stops: await overlayListingTranslations(homeData.homeDay.stops, locale) }
     : null
   const regionsCount = stats.regions > 0 ? stats.regions : null
+
+  // The "Near you" shelf renders for signed-in readers only: the shelf
+  // is a perk of having an account, and the location it works from can
+  // come straight off the profile. The auth read is per-request (the
+  // root layout already reads these cookies, so the route renders
+  // per-request regardless); AA_DEV_MOCK is the established dev-only
+  // escape hatch for verifying auth-gated UI locally.
+  let isSignedIn = false
+  try {
+    const supabase = await createAuthServerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    isSignedIn = Boolean(user)
+  } catch {}
+  if (process.env.NODE_ENV !== 'production' && process.env.AA_DEV_MOCK === '1') {
+    isSignedIn = true
+  }
 
   // The plate's rotating type counter: twelve kinds per hour, drawn
   // from the full curated vocabulary by the same seed that deals the
@@ -739,12 +510,14 @@ export default async function Home() {
         typeCounter={typeCounter}
       />
 
-      {/* ── 3. The worked trip: one region, threaded ────────────── */}
-      {/* The dish before the ingredients. Six real stops from
-          HERO_REGION on the reused trail map, each carrying its own
-          listing text verbatim. The copy frames the region as an
-          example of what any region gives you, never as the subject. */}
-      {heroTrip && heroTrip.stops.length >= 5 && (
+      {/* ── 3. The worked day: one region, dealt as cards ────────── */}
+      {/* The dish before the ingredients. One real day in stop order,
+          each stop a card that flips on hover to the listing's own
+          writing. A different region takes the section every hour —
+          regional areas lead the pool — and every second hour draws a
+          region holding an operator-managed (Standard) listing, which
+          arrives gold-ringed: the claim pitch, made by showing. */}
+      {homeDay && (
         <ScrollReveal as="section" style={{
           paddingBlock: 'clamp(60px, 8vw, 100px)',
           background: 'var(--color-bg)',
@@ -752,10 +525,9 @@ export default async function Home() {
           {/* Set against a framed plate — the same "exhibit in the page"
               treatment the Living Atlas map wears: a hairline frame and a
               soft shadow on warm parchment, floating on the page's stone
-              ground. The day reads as one worked example held up for
-              inspection, not a full-bleed band. */}
+              ground. */}
           <div className="max-w-6xl mx-auto px-6 sm:px-12">
-            <div className="day-plate" style={{
+            <div className="day-plate reveal" style={{
               position: 'relative',
               overflow: 'hidden',
               borderRadius: 'var(--radius-lg)',
@@ -764,9 +536,8 @@ export default async function Home() {
               background: 'var(--color-kraft)',
               padding: 'clamp(26px, 4.5vw, 56px)',
             }}>
-              {/* The seeded-contour terrain the taste-deck cards wear, now a
-                  faint cartographic ground clipped inside the plate — the
-                  atlas-as-paper motif the Living Atlas frame also carries. */}
+              {/* The seeded-contour terrain the taste-deck cards wear, a
+                  faint cartographic ground clipped inside the plate. */}
               <svg
                 aria-hidden="true"
                 viewBox="0 0 420 460"
@@ -782,152 +553,9 @@ export default async function Home() {
                 ))}
               </svg>
               <div style={{ position: 'relative' }}>
-            <div className="reveal" style={{ maxWidth: '640px', marginBottom: '36px' }}>
-              <p className="section-dateline" style={{ marginBottom: '14px' }}>
-                {t('tripKicker')}
-              </p>
-              <h2 style={{
-                fontFamily: 'var(--font-display)', fontWeight: 400,
-                fontSize: 'clamp(23px, 2.7vw, 33px)', color: 'var(--color-ink)', lineHeight: 1.12,
-              }}>
-                {t('tripTitle')}
-              </h2>
-              <p className="mt-3" style={{
-                fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15.5px',
-                color: 'var(--color-muted)', margin: '12px 0 0', lineHeight: 1.65, maxWidth: '58ch',
-              }}>
-                {t('tripIntro', { region: heroTrip.region })}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.9fr)] gap-8 lg:gap-12 items-start">
-              {/* The stops, in day order, each with its listing's own line. */}
-              <ol className="reveal" data-reveal-index={1} style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-                {heroTrip.stops.map((stop, si) => {
-                  const StopIcon = VERTICAL_ICONS[stop.vertical] || Compass
-                  const ground = (VERTICAL_CARD_TOKENS[stop.vertical] || {}).bg || '#333'
-                  const kind = subTypeLabel(stop.vertical, stop.sub_type) ||
-                    localizeVerticalKicker(stop.vertical, getVerticalBadge(stop.vertical), locale)
-                  const isLast = si === heroTrip.stops.length - 1
-                  return (
-                    <li key={stop.id} style={{ position: 'relative', paddingLeft: '52px', paddingBottom: isLast ? 0 : '26px' }}>
-                      {/* the thread: hairline between numbered markers */}
-                      {!isLast && (
-                        <span aria-hidden="true" style={{
-                          position: 'absolute', left: '15px', top: '34px', bottom: '2px',
-                          width: '1px', background: 'rgba(184,134,43,0.4)',
-                        }} />
-                      )}
-                      <span aria-hidden="true" style={{
-                        position: 'absolute', left: 0, top: 0,
-                        width: '31px', height: '31px', borderRadius: '999px',
-                        background: ground, color: '#FAF8F4',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '13px',
-                        border: '2px solid rgba(250,248,244,0.9)',
-                        boxShadow: '0 1px 4px rgba(28,26,23,0.25)',
-                      }}>
-                        {si + 1}
-                      </span>
-                      <p style={{
-                        fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 600,
-                        letterSpacing: '0.15em', textTransform: 'uppercase',
-                        color: GOLD, margin: '0 0 3px',
-                      }}>
-                        {t(stop.labelKey)}
-                      </p>
-                      <h3 style={{ margin: 0, lineHeight: 1.2 }}>
-                        <LocalizedLink href={`/place/${stop.slug}`} className="hover:underline underline-offset-4" style={{
-                          fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '20px',
-                          color: 'var(--color-ink)',
-                        }}>
-                          {stop.name}
-                        </LocalizedLink>
-                      </h3>
-                      <p style={{
-                        fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '11.5px',
-                        color: 'var(--color-muted)', margin: '3px 0 0',
-                        display: 'flex', alignItems: 'center', gap: '6px',
-                      }}>
-                        <StopIcon size={12} strokeWidth={1.8} style={{ color: VERTICAL_ACCENTS[stop.vertical] || GOLD }} aria-hidden="true" />
-                        {[kind, stop.suburb].filter(Boolean).join(' · ')}
-                      </p>
-                      {/* The listing's own writing, exactly as it appears on
-                          /place/[slug]. Clamped visually, never rewritten. */}
-                      <p style={{
-                        fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '14px',
-                        lineHeight: 1.6, color: 'var(--color-ink)', margin: '7px 0 0', maxWidth: '58ch',
-                        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                      }}>
-                        {stop.description}
-                      </p>
-                    </li>
-                  )
-                })}
-              </ol>
-
-              {/* The same six stops on the reused trail map: the route
-                  follows real roads (Directions geometry fetched hourly
-                  with the trip, never per visitor) and draws itself in,
-                  markers popping as the line reaches them. */}
-              <div className="reveal lg:sticky" data-reveal-index={2} style={{ top: '90px' }}>
-                <TrailMap
-                  stops={heroTrip.stops.map((s, i) => ({
-                    venue_name: s.name, venue_lat: s.lat, venue_lng: s.lng,
-                    vertical: s.vertical, position: i,
-                  }))}
-                  routeGeometry={heroTrip.routeGeometry || undefined}
-                />
-                <p style={{
-                  fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '13px',
-                  lineHeight: 1.55, color: 'var(--color-muted)', margin: '12px 2px 0',
-                }}>
-                  {regionsCount
-                    ? t('tripOneOfMany', { region: heroTrip.region, count: regionsCount })
-                    : t('tripOneOfManyNoCount', { region: heroTrip.region })}
-                </p>
-                {/* The day above is one we assembled; readers can compose
-                    their own with the Itinerary Engine — seeded with this
-                    region so the first question is already answered. The
-                    ink pill wears the trip's own motif; the region links
-                    stay quiet. */}
-                <div style={{ marginTop: '16px' }}>
-                  <LocalizedLink href={heroTrip.regionSlug ? `/itinerary?region=${heroTrip.regionSlug}` : '/itinerary'} className="trail-cta">
-                    <svg className="trail-cta-route" width="23" height="23" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                      <circle cx="4.6" cy="19.2" r="2" fill="#C49A3C" opacity="0.85" />
-                      <path
-                        className="trail-cta-line"
-                        d="M6.4 17.4 C 10.8 13.6, 8.2 10.2, 12.6 8.2 C 15.6 6.8, 17.2 8.6, 18.4 5.8"
-                        stroke="#C49A3C" strokeWidth="1.6" strokeLinecap="round"
-                      />
-                      <circle cx="19" cy="4.4" r="2.7" fill="#C49A3C" />
-                      <circle cx="19" cy="4.4" r="1" fill="#1C1A17" />
-                    </svg>
-                    {t('tripBuildYourOwn')}
-                    <svg className="trail-cta-arrow" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M5 12h14" />
-                      <path d="M12 5l7 7-7 7" />
-                    </svg>
-                  </LocalizedLink>
-                </div>
-                <div style={{ display: 'flex', gap: '18px', flexWrap: 'wrap', marginTop: '16px' }}>
-                  {heroTrip.regionSlug && (
-                    <LocalizedLink href={`/regions/${heroTrip.regionSlug}`} className="hover:opacity-80 transition-opacity" style={{
-                      fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
-                      color: 'var(--color-ink)', borderBottom: '1px solid var(--color-gold)', paddingBottom: 1,
-                    }}>
-                      {t('clusterSeeRegion')} <span style={{ color: GOLD }}>&rarr;</span>
-                    </LocalizedLink>
-                  )}
-                  <LocalizedLink href="/regions" className="hover:opacity-80 transition-opacity" style={{
-                    fontFamily: 'var(--font-body)', fontWeight: 500, fontSize: '13px',
-                    color: 'var(--color-ink)', borderBottom: '1px solid var(--color-gold)', paddingBottom: 1,
-                  }}>
-                    {t('clusterAllRegions')} <span style={{ color: GOLD }}>&rarr;</span>
-                  </LocalizedLink>
-                </div>
-              </div>
-            </div>
+                {DAY_SECTION_VARIANT === 'strip'
+                  ? <HomeDayStrip day={homeDay} regionsCount={regionsCount} />
+                  : <HomeDayCards day={homeDay} regionsCount={regionsCount} />}
               </div>
             </div>
           </div>
@@ -1102,78 +730,19 @@ export default async function Home() {
         </ScrollReveal>
       )}
 
-      {/* ── 5. The ingredients: ten kinds of place ──────────────── */}
-      {/* Not a menu of sites: the kinds of stop a trip is built from.
-          Names and taglines are the network's own vertical metadata;
-          counts are live. */}
-      <ScrollReveal as="section" style={{ paddingBlock: '84px' }}>
-        <div className="max-w-6xl mx-auto px-6 sm:px-12">
-          <div className="reveal" style={{ maxWidth: '620px', marginBottom: '34px' }}>
-            <p className="section-dateline" style={{ marginBottom: '14px' }}>
-              {t('ingredientsKicker')}
-            </p>
-            <h2 style={{
-              fontFamily: 'var(--font-display)', fontWeight: 400,
-              fontSize: 'clamp(28px, 3.6vw, 46px)', color: 'var(--color-ink)', lineHeight: 1.1,
-            }}>
-              {t('ingredientsTitle')}
-            </h2>
-            <p className="mt-3" style={{
-              fontFamily: 'var(--font-body)', fontWeight: 300, fontSize: '15.5px',
-              color: 'var(--color-muted)', margin: '12px 0 0', lineHeight: 1.65,
-            }}>
-              {t('ingredientsIntro')}
-            </p>
+      {/* ── 5. Near you: the signed-in shelf ────────────────────── */}
+      {/* Replaced the ingredients ledger. Renders only with a session:
+          the closest good coffee, food, culture and stays around the
+          reader, from /api/nearby (adaptive radius, per-vertical caps,
+          featured/managed venues first). The ten kinds still have their
+          labelled front-door presence in the spectrum spine above. */}
+      {isSignedIn && (
+        <ScrollReveal as="section" style={{ paddingBlock: '84px' }}>
+          <div className="max-w-6xl mx-auto px-6 sm:px-12">
+            <HomeNearYou />
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            {INGREDIENT_ORDER.filter(k => publicVerticals.includes(k)).map((k, ki) => {
-              const Icon = VERTICAL_ICONS[k] || Compass
-              const accent = VERTICAL_ACCENTS[k] || GOLD
-              const count = stats.verticalCounts[k]
-              const name = localizeVerticalKicker(k, getVerticalBadge(k), locale)
-              return (
-                <LocalizedLink
-                  key={k}
-                  href={`/search?vertical=${k}`}
-                  className="reveal group listing-card block"
-                  data-reveal-index={(ki % 5) + 1}
-                  style={{
-                    background: '#fff', border: '1px solid var(--color-border)',
-                    borderRadius: 'var(--radius-card)', padding: '18px 17px 16px',
-                  }}
-                >
-                  <Icon size={18} strokeWidth={1.6} style={{ color: accent }} aria-hidden="true" />
-                  <h3 style={{
-                    fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: '18px',
-                    color: 'var(--color-ink)', lineHeight: 1.2, margin: '10px 0 3px',
-                  }}>
-                    {name}
-                  </h3>
-                  <p style={{
-                    fontFamily: 'var(--font-body)', fontWeight: 400, fontSize: '12px',
-                    lineHeight: 1.5, color: 'var(--color-muted)', margin: 0,
-                  }}>
-                    {getVerticalTagline(k)}
-                  </p>
-                  {/* MATT: one line per vertical on what this ingredient is
-                      to a trip (the morning, the long lunch, the bed).
-                      Same gate as listings. Add as home.ingredient_{key}
-                      in messages and render it here. */}
-                  {count > 0 && (
-                    <p style={{
-                      fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '12px',
-                      color: GOLD, margin: '10px 0 0',
-                    }}>
-                      {t('countPlaces', { count: count.toLocaleString() })}
-                    </p>
-                  )}
-                </LocalizedLink>
-              )
-            })}
-          </div>
-        </div>
-      </ScrollReveal>
+        </ScrollReveal>
+      )}
 
       {/* ── 6. Make it yours: the taste deck ────────────────────── */}
       {/* Reinstated per Matt: masthead left, the live swipeable deck

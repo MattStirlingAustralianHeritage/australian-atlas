@@ -225,8 +225,10 @@ export async function GET(request) {
     })
   }
 
-  // Clean helper: strip internal fields before returning (keep lat/lng for trail suggestions)
-  const cleanListing = ({ hero_image_url, is_featured, is_claimed, ...rest }) => rest
+  // Clean helper: strip internal fields before returning (keep lat/lng for
+  // trail suggestions, and is_claimed — it drives the public owner-managed
+  // badge on the homepage "Near you" shelf, same as it does on ListingCard)
+  const cleanListing = ({ hero_image_url, is_featured, ...rest }) => rest
 
   // Grouped-by-vertical response
   if (groupByVertical) {
