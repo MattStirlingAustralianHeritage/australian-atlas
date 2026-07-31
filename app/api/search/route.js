@@ -14,6 +14,7 @@ import { parseQueryLocation } from '@/lib/search/parseQuery'
 import { resolveQueryRegion } from '@/lib/search/resolveQueryRegion'
 import { resolveQueryPlace, geocodePlace, looksLikePlaceQuery } from '@/lib/search/resolveQueryPlace'
 import { detectVerticalIntent } from '@/lib/search/verticalIntent'
+import { findNameMatchPins, applyLeadOrder } from '@/lib/search/leadOrder'
 import { relevanceFloorFor } from '@/lib/search/relevanceFloor'
 import { rerankSearchResults } from '@/lib/search/rerank'
 import { looksDescriptive, expandDescriptiveQuery } from '@/lib/search/vibeExpand'
@@ -122,16 +123,6 @@ function dedupeBySlug(rows) {
   return out
 }
 
-/** Stable re-rank that LEADS with the detected atlas: rows of `vertical` first
- *  (in their existing relevance order), then everything else (likewise). Cross-
- *  atlas matches are kept, not dropped — they just follow the obvious atlas. */
-function leadWithVertical(rows, vertical) {
-  if (!vertical) return rows
-  const lead = [], rest = []
-  for (const r of rows) (r.vertical === vertical ? lead : rest).push(r)
-  return lead.concat(rest)
-}
-
 /** Sub_type facet counts over the ranked pool, most common first (top 12). When
  *  a `leadVertical` is set, its sub_types sort ahead of the rest so the type bar
  *  leads with the obvious atlas ("Boutique Hotel · Cottage · Bnb …") rather than
@@ -192,17 +183,26 @@ function buildPins(rows) {
 /** On a zero/weak-result query, fuzzy-match the raw text (no filters) to find
  *  the venue a typo'd query was reaching for. Returns the full public row so
  *  the UI can show the venue itself (a card straight to the place) instead of
- *  a "did you mean?" link that just re-runs the search. */
+ *  a "did you mean?" link that just re-runs the search. Uses the single-index
+ *  suggest_listings RPC (migration 270) — the old path re-ran the full
+ *  three-arm hybrid RPC just to fish out one name. */
 async function fuzzyNameMatch(sb, q) {
   if (!q || q.length < 3) return null
   try {
-    const { data } = await sb.rpc('search_listings_hybrid', {
-      query_embedding: null, query_text: q, match_count: 1,
-      include_way: isVerticalPublic('way'),
+    const { data } = await sb.rpc('suggest_listings', {
+      query: q, max_results: 5, include_way: isVerticalPublic('way'),
     })
     const hit = (data || []).find((r) => isPublicListing(r) && isVerticalPublic(r.vertical))
     if (!hit) return null
-    const { fused_score, address, ...rest } = hit
+    // Suggest rows are skinny (no description/region/lat/lng) — fetch the full
+    // public card row for the one venue we surface.
+    const { data: full } = await sb
+      .from('listings_with_region')
+      .select(SELECT_FIELDS)
+      .eq('id', hit.id)
+      .maybeSingle()
+    if (!full || !isPublicListing(full)) return null
+    const { address, ...rest } = full
     return { ...rest, also_in: [] }
   } catch { return null }
 }
@@ -327,6 +327,15 @@ export async function GET(request) {
       let placePivot = false               // bare town → distance-ordered proximity browse
       let cleaned
 
+      // Kick the query embedding off NOW, in parallel with region/place
+      // resolution — for most queries the location-stripped text is exactly
+      // parseQueryLocation's, so by the time the resolvers settle the Voyage
+      // round-trip (the single longest external call) is already in flight.
+      // The rare paths whose cleaned text differs (a named region/gazetteer
+      // town) re-embed below; the write-through cache absorbs the overlap.
+      const earlyCleaned = parseQueryLocation(q).cleaned
+      const earlyEmbedPromise = embedQueryCached(sb, earlyCleaned)
+
       // `bind=0` (the user dismissed the "in <place>" chip) skips auto-binding
       // anything named in the query, so results broaden back out.
       const qr = (effectiveRegion || noBind) ? null : await resolveQueryRegion(sb, q)
@@ -403,6 +412,7 @@ export async function GET(request) {
       const includeWay = isVerticalPublic('way') || vertical === 'way'
       let queryEmbedding = null
       let voyageError = null
+      let broadened = false   // place/region had no category matches → showing the place itself
       let all
 
       if (placePivot && detectedPlace) {
@@ -415,7 +425,9 @@ export async function GET(request) {
         })
       } else {
         // ── Text query → hybrid retrieval (optionally boxed to a town) ───────
-        const embedded = await embedQueryCached(sb, cleaned)
+        const embedded = cleaned === earlyCleaned
+          ? await earlyEmbedPromise
+          : await embedQueryCached(sb, cleaned)
         queryEmbedding = embedded.lit
         voyageError = embedded.error
 
@@ -465,6 +477,37 @@ export async function GET(request) {
           if (wideData && wideData.length > all.length) all = wideData
         }
 
+        // ── Region-scoped zero → show the region instead of a dead end ───────
+        // "brewery in flinders island": the query bound to a region (or a
+        // gazetteer town) whose venues simply don't match the category term in
+        // any arm — the island holds a distillery, not a brewery. The suburb
+        // retry and box-widen above don't cover the region path, so this was a
+        // hard zero. Degrade to the place's venues (browse order for a region,
+        // nearest-first around a town) with `broadened` set so the UI can say
+        // "no <term> matches here — this is what's in <place>".
+        if (all.length === 0) {
+          if (effectiveRegion) {
+            const { data: regionRows } = await excludeNeedsReview(excludeTestListings(
+              sb.from('listings_with_region')
+                .select(SELECT_FIELDS)
+                .eq('status', 'active')
+                .eq('region_id', effectiveRegion)
+                .in('vertical', publicVerticals)
+            ))
+              .order('is_claimed', { ascending: false })
+              .order('is_featured', { ascending: false })
+              .order('quality_score', { ascending: false, nullsFirst: false })
+              .limit(RESULT_POOL)
+            if (regionRows && regionRows.length) { all = regionRows; broadened = true }
+          } else if (geoBox && detectedPlace) {
+            const near = await proximityRows(sb, {
+              lat: detectedPlace.lat, lng: detectedPlace.lng,
+              radiusKm: VIBE_RADIUS_KM, vertical,
+            })
+            if (near.length) { all = near; broadened = true }
+          }
+        }
+
         // ── Tier C: geocoder fallback for a town we hold NO venues in ────────
         // Only when NOTHING bound the query to a location (no region/state/
         // suburb/gazetteer place), the query looks like a bare place, AND
@@ -492,6 +535,16 @@ export async function GET(request) {
       // then collapse the same venue cross-listed across verticals to one card.
       all = dedupeBySlug(all.filter(isPublicListing))
 
+      // Proximity/broadened pools are distance- or browse-ordered — no text
+      // score to rerank, and never "weak" (weakness is a relevance concept).
+      const proximityResult = placePivot || broadened || (detectedPlace && detectedPlace.source === 'geocoded')
+
+      // Speculative "did you mean" — when the pool already looks weak on the
+      // bi-encoder signal, start the fuzzy name lookup NOW so it overlaps the
+      // rerank round-trip instead of following it. Awaited only if still needed.
+      const preWeak = !proximityResult && (all.length === 0 || !all.some(isStrongRow))
+      const speculativeFuzzy = (preWeak && q.length >= 3) ? fuzzyNameMatch(sb, q) : null
+
       // ── Precision rerank (cross-encoder) ─────────────────────────────────
       // Reorder the recall pool by TRUE relevance to the query vibe. RRF ranks
       // by arm POSITION, and the lexical arm's position swings on exactly which
@@ -501,7 +554,6 @@ export async function GET(request) {
       // robust, so paraphrases of one intent converge. Skipped for proximity
       // browses (distance-ordered — no text vibe to score) and fully fail-open:
       // any error/disabled/over-budget keeps the fused order (see lib/search/rerank).
-      const proximityResult = placePivot || (detectedPlace && detectedPlace.source === 'geocoded')
       let reranked = false
       if (!proximityResult && cleaned) {
         const rr = await rerankSearchResults(sb, cleaned, all, { topN: RERANK_TOP_N })
@@ -562,8 +614,13 @@ export async function GET(request) {
       }
       // Soft vertical boost: lead the pool with the detected atlas (cross-atlas
       // matches kept, just below). Applied AFTER dedupe so a venue cross-listed
-      // in the detected atlas is collapsed to the right card first.
-      all = leadWithVertical(all, detectedVertical)
+      // in the detected atlas is collapsed to the right card first. Rows whose
+      // NAME matches the query are pinned ahead of the lead — a person who
+      // typed a venue's name gets that venue first, category intent or not
+      // (the "Feather and Lawry Gallery" bug: fused #1, buried by the
+      // collection lead below page 1).
+      const namePins = findNameMatchPins(all, q)
+      all = applyLeadOrder(all, detectedVertical, namePins)
       const capped = all.length >= RESULT_POOL     // pool full → there may be more ("120+")
       // Facet counts over the full ranked pool (before the sub_type refine),
       // leading with the detected atlas's types when one was detected.
@@ -581,8 +638,10 @@ export async function GET(request) {
 
       // Korean launch: overlay Korean name/description on the results the client
       // renders (cards + map pins). No-op for 'en'; fail-open inside the helper.
-      listings = await overlayListingTranslations(listings, locale, sb)
-      pins = await overlayListingTranslations(pins, locale, sb)
+      ;[listings, pins] = await Promise.all([
+        overlayListingTranslations(listings, locale, sb),
+        overlayListingTranslations(pins, locale, sb),
+      ])
 
       // Effective hero: a PAID claimed venue with no operator hero on
       // hero_image_url still renders its first clean gallery photo everywhere
@@ -598,7 +657,9 @@ export async function GET(request) {
       // directly; `didYouMean` (the bare name) is kept for the vertical
       // search proxies that still read it.
       const weakPool = !proximityResult && all.length > 0 && !all.some((r) => r.strong)
-      let nameMatch = (total === 0 || weakPool) ? await fuzzyNameMatch(sb, q) : null
+      let nameMatch = (total === 0 || weakPool)
+        ? await (speculativeFuzzy || fuzzyNameMatch(sb, q))
+        : null
       // Already on the first page → the card is right there; don't repeat it.
       if (nameMatch && listings.some((l) => l.id === nameMatch.id)) nameMatch = null
       if (nameMatch) [nameMatch] = await overlayListingTranslations([nameMatch], locale, sb)
@@ -618,7 +679,7 @@ export async function GET(request) {
       })
 
       return NextResponse.json({
-        listings, total, capped, facets, subType, facetRegion, didYouMean, nameMatch, page, limit, reranked, expanded, pins,
+        listings, total, capped, facets, subType, facetRegion, didYouMean, nameMatch, page, limit, reranked, expanded, broadened, pins,
         totalPages: Math.ceil(total / limit),
         detectedVertical, detectedState: detectedState || null, detectedRegion, detectedSuburb,
         // Place-aware search: the resolved town/suburb the results are scoped to
@@ -630,6 +691,12 @@ export async function GET(request) {
           : null,
         // Events are a secondary lane — never let a slow events query block results.
         events: await withTimeout(eventsPromise, 1200, []),
+      }, {
+        // Edge cache: identical query URLs within a minute (retypes, back-nav,
+        // shared links going mildly viral) are served from the CDN without
+        // re-paying Voyage + the RPC. Short on purpose — rankings and events
+        // must stay fresh; SWR keeps the hit instant while revalidating.
+        headers: { 'Cache-Control': 's-maxage=60, stale-while-revalidate=300' },
       })
     }
 
@@ -683,6 +750,9 @@ export async function GET(request) {
       // accumulates them across "show more" loads).
       pins: browsePins,
       events: await withTimeout(eventsPromise, 1200, []),
+    }, {
+      // Browse responses are filter-shaped (no free text) and change slowly.
+      headers: { 'Cache-Control': 's-maxage=300, stale-while-revalidate=900' },
     })
   } catch (err) {
     console.error('[search] Fatal error:', err)

@@ -73,13 +73,13 @@ export async function GET(request) {
           .eq('status', 'active')
           .in('vertical', publicVerticals)
           .not('suburb', 'is', null)
-          .ilike('suburb', `${prefix}%`)
+          .ilike('suburb', `${safe}%`)
       ))
         .limit(20),
 
       sb.from('regions')
         .select('name, state, slug')
-        .ilike('name', `${prefix}%`)
+        .ilike('name', `${safe}%`)
         .limit(5),
 
       // Category suggestions: a typed term that appears in a category's synonym
@@ -119,16 +119,17 @@ export async function GET(request) {
       suburb: l.suburb,
     }))
 
-    // Typo-tolerant fallback: when the prefix match is thin, reuse the hybrid
-    // RPC's trigram fuzzy arm so a misspelt name ("Breww") still suggests venues.
-    // Its lexical arm is OR-recall, so each candidate must ALSO pass the
-    // all-tokens name gate — otherwise "australiana themed earrings" pads the
-    // dropdown with single-token flukes (Australiana Pioneer Village, a Theme
-    // Park…) that read as name matches. No genuine match → no Places section.
+    // Typo-tolerant fallback: when the prefix match is thin, ask the dedicated
+    // suggest_listings RPC (migration 270 — one trigram-index scan, skinny
+    // rows) so a misspelt name ("Breww") still suggests venues. The old path
+    // ran the full three-arm hybrid RPC on the typeahead's critical path.
+    // Trigram matching is looser than a name match, so each candidate must
+    // ALSO pass the all-tokens name gate — otherwise "australiana themed
+    // earrings" pads the dropdown with single-token flukes that read as name
+    // matches. No genuine match → no Places section.
     if (places.length < 3) {
-      const { data: fuzzy } = await sb.rpc('search_listings_hybrid', {
-        query_embedding: null, query_text: safe, match_count: 6,
-        include_way: isVerticalPublic('way'),
+      const { data: fuzzy } = await sb.rpc('suggest_listings', {
+        query: safe, max_results: 8, include_way: isVerticalPublic('way'),
       })
       const seen = new Set(places.map(p => p.id))
       for (const l of (fuzzy || [])) {
@@ -205,6 +206,10 @@ export async function GET(request) {
     // place name; categories and venues follow).
     return NextResponse.json({
       results: [...regions, ...suburbs, ...categories, ...places],
+    }, {
+      // Edge cache per prefix: every visitor typing "bre…" shares one backend
+      // hit for 5 minutes. Suggestions change on listing edits — slowly.
+      headers: { 'Cache-Control': 's-maxage=300, stale-while-revalidate=1800' },
     })
   } catch (err) {
     console.error('[autocomplete] Error:', err)
