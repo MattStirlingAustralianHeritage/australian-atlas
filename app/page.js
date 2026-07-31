@@ -282,9 +282,11 @@ const getHomeDataCached = unstable_cache(
   // an argument, so each hour writes its own entry and the day and the
   // random ticker turn over on the hour — a new region per visit,
   // every second hour a showcase draw.
-  // v11: day assembly now weights claimed venues into every build
-  // (pool seats + route bonus), not just showcase hours.
-  ['home-data-v11'],
+  // v12: claimed venues bypass the trail-suitable gate (the heuristic
+  // flag locked 26 of 65 claimed listings out of this surface) and the
+  // claimed route bonus strengthened to -25 km so slot-level claimed
+  // candidates win island-scale detours.
+  ['home-data-v12'],
   { revalidate: 3600 }
 )
 
