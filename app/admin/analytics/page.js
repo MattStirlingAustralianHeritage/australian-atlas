@@ -3,6 +3,7 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { VERTICAL_ACCENTS, getVerticalBadge } from '@/lib/verticalUrl'
+import CrawlerIntelligence from '@/components/analytics/CrawlerIntelligence'
 
 const VERTICALS = [
   ...['sba', 'collection', 'craft', 'fine_grounds', 'rest', 'field', 'corner', 'found', 'table']
@@ -17,12 +18,33 @@ const RANGES = [
   { key: '1y', label: '1 year' },
 ]
 
+// The crawler view reports on a different traffic stream (server-side bot hits,
+// not client-side pageviews) and is bursty enough to be worth a 24h window that
+// the human-traffic view has no use for.
+const CRAWLER_RANGES = [
+  { key: '24h', label: '24 hours' },
+  ...RANGES,
+]
+
+const TABS = [
+  { key: 'audience', label: 'Audience' },
+  { key: 'crawlers', label: 'Bots & AI Crawlers' },
+]
+
 export default function AnalyticsDashboard() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [range, setRange] = useState('30d')
   const [vertical, setVertical] = useState(null)
   const [search, setSearch] = useState(null)
+  const [tab, setTab] = useState('audience')
+  const [crawlers, setCrawlers] = useState(null)
+  const [crawlersLoading, setCrawlersLoading] = useState(false)
+  const [crawlerBot, setCrawlerBot] = useState(null)
+  // Kept separate from `range` so switching tabs never re-fires the other
+  // tab's fetch, and so the crawler-only 24h window cannot leak into the
+  // audience query (which would silently fall back to 30d).
+  const [crawlerRange, setCrawlerRange] = useState('30d')
   const mapRef = useRef(null)
   const mapInstance = useRef(null)
 
@@ -64,6 +86,33 @@ export default function AnalyticsDashboard() {
     })()
     return () => { cancelled = true }
   }, [range])
+
+  // Crawler intelligence — fetched lazily the first time the tab is opened, and
+  // on every subsequent range/bot change. The aggregation runs over ~180k rows
+  // in Postgres, so it is not worth paying for on a page load that never leaves
+  // the Audience tab.
+  useEffect(() => {
+    if (tab !== 'crawlers') return
+    let cancelled = false
+    setCrawlersLoading(true)
+    ;(async () => {
+      try {
+        const params = new URLSearchParams({ range: crawlerRange })
+        if (crawlerBot) params.set('bot', crawlerBot)
+        const res = await fetch(`/api/analytics/crawlers?${params}`)
+        const json = res.ok ? await res.json() : null
+        if (!cancelled) {
+          if (!json) console.error('Crawler analytics returned', res.status)
+          setCrawlers(json)
+        }
+      } catch (err) {
+        console.error('Failed to fetch crawler analytics:', err)
+        if (!cancelled) setCrawlers(null)
+      }
+      if (!cancelled) setCrawlersLoading(false)
+    })()
+    return () => { cancelled = true }
+  }, [tab, crawlerRange, crawlerBot])
 
   // Animated map with Mapbox
   useEffect(() => {
@@ -200,29 +249,68 @@ export default function AnalyticsDashboard() {
           </h1>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          {RANGES.map(r => (
-            <button
-              key={r.key}
-              onClick={() => setRange(r.key)}
-              style={{
-                padding: '0.4rem 0.8rem',
-                borderRadius: '6px',
-                border: '1px solid var(--color-border, #E5E0D8)',
-                background: range === r.key ? 'var(--color-ink, #2D2A26)' : 'transparent',
-                color: range === r.key ? '#fff' : 'var(--color-muted, #8B8578)',
-                fontSize: '0.8rem',
-                fontWeight: 500,
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-              }}
-            >
-              {r.label}
-            </button>
-          ))}
+          {(tab === 'crawlers' ? CRAWLER_RANGES : RANGES).map(r => {
+            const active = tab === 'crawlers' ? crawlerRange === r.key : range === r.key
+            return (
+              <button
+                key={r.key}
+                onClick={() => (tab === 'crawlers' ? setCrawlerRange(r.key) : setRange(r.key))}
+                style={{
+                  padding: '0.4rem 0.8rem',
+                  borderRadius: '6px',
+                  border: '1px solid var(--color-border, #E5E0D8)',
+                  background: active ? 'var(--color-ink, #2D2A26)' : 'transparent',
+                  color: active ? '#fff' : 'var(--color-muted, #8B8578)',
+                  fontSize: '0.8rem',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                {r.label}
+              </button>
+            )
+          })}
         </div>
       </div>
 
-      {loading && !data ? (
+      {/* Tabs — Audience reports the client-side pageview stream; Bots & AI
+          Crawlers reports the server-side middleware log. They are separate
+          traffic streams entirely: crawlers never execute page JS, so they are
+          invisible to the Audience numbers, and vice versa. */}
+      <div style={{ display: 'flex', gap: '0.25rem', padding: '0 2rem', borderBottom: '1px solid var(--color-border, #E5E0D8)' }}>
+        {TABS.map(t => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            style={{
+              padding: '0.7rem 1rem',
+              background: 'none',
+              border: 'none',
+              borderBottom: tab === t.key ? '2px solid var(--color-ink, #2D2A26)' : '2px solid transparent',
+              color: tab === t.key ? 'var(--color-ink, #2D2A26)' : 'var(--color-muted, #8B8578)',
+              fontSize: '0.85rem',
+              fontWeight: tab === t.key ? 600 : 500,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              marginBottom: '-1px',
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'crawlers' ? (
+        <div style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
+          <CrawlerIntelligence
+            data={crawlers}
+            loading={crawlersLoading}
+            selectedBot={crawlerBot}
+            onSelectBot={setCrawlerBot}
+          />
+        </div>
+      ) : loading && !data ? (
         <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--color-muted)' }}>
           Loading analytics...
         </div>
