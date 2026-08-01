@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import { jwtVerify } from 'jose'
-import { CRAWLER_RE, logCrawlerHit } from '@/lib/crawler-log'
+import { classifyRequest, logCrawlerHit } from '@/lib/crawler-log'
 import { splitLocale, localizePath, defaultLocale, LOCALE_HEADER, isLocale, PREFIXED_LOCALES } from '@/lib/i18n/config'
 
 // hreflang alternates delivered as HTTP Link headers — a Google-supported,
@@ -19,14 +19,20 @@ function hreflangLinkHeader(origin, basePath) {
 }
 
 export async function middleware(request, event) {
-  // ── AI-crawler access logging — FIRST, before any auth/Supabase work ──
-  // Pure in-memory regex gate: a human / non-crawler UA misses here and falls
-  // straight through with zero added network or latency. Only a crawler match
+  // ── Crawler access logging — FIRST, before any auth/Supabase work ──
+  // Pure in-memory regex gate: a human browser UA misses here and falls
+  // straight through with zero added network or latency. Only a bot match
   // registers a fire-and-forget REST insert via event.waitUntil(), so it runs
   // after the response is sent and can never block rendering or auth. The whole
   // write is error-isolated inside logCrawlerHit() — a logging failure is silent.
+  //
+  // The gate classifies rather than filters: known crawlers resolve against the
+  // catalogue in lib/bots/registry.js, and any other plainly non-browser client
+  // is still recorded as unknown, so new crawlers show up in the dashboard the
+  // day they arrive instead of the day somebody adds them to a token list.
   const ua = request.headers.get('user-agent') || ''
-  if (event && CRAWLER_RE.test(ua)) {
+  const bot = event ? classifyRequest(ua) : null
+  if (bot) {
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
       || request.headers.get('x-real-ip')
       || request.ip
@@ -34,9 +40,13 @@ export async function middleware(request, event) {
     event.waitUntil(
       logCrawlerHit({
         userAgent: ua,
+        bot,
         path: request.nextUrl.pathname,
         host: request.headers.get('host'),
         ip,
+        method: request.method,
+        referer: request.headers.get('referer'),
+        headers: request.headers,
       })
     )
   }
