@@ -8,6 +8,7 @@ import ListingCard, { TypographicCard, VERTICAL_TOKENS } from '@/components/List
 import SearchAutocomplete from '@/components/SearchAutocomplete'
 import SearchAssistant from '@/components/SearchAssistant'
 import SearchResultCard, { queryTerms, buildSnippet, highlightTerms } from '@/components/SearchResultCard'
+import ClaimedTick from '@/components/ClaimedTick'
 import { getListingRegion } from '@/lib/regions'
 import { isApprovedImageSource } from '@/lib/image-utils'
 import { isStrongMatch } from '@/lib/search/relevanceFloor'
@@ -299,6 +300,7 @@ function SearchEventCard({ event }) {
 // above it carries ONE quiet kicker; the cards themselves stay unbadged
 // (three per-card "TOP RESULT" stamps read as advertising, not guidance).
 function FeaturedCard({ listing, query, onClick, onHover, active }) {
+  const t = useTranslations('search')
   const region = getListingRegion(listing)
   const tokens = VERTICAL_TOKENS[listing.vertical] || VERTICAL_TOKENS.portal
   const hasImg = listing.hero_image_url && isApprovedImageSource(listing.hero_image_url)
@@ -331,6 +333,13 @@ function FeaturedCard({ listing, query, onClick, onHover, active }) {
         ) : (
           <TypographicCard name={listing.name} vertical={listing.vertical} category={listing.sub_type}
             region={region?.name} state={listing.state} aspectRatio="4/3" showVerticalTag={true} />
+        )}
+        {/* The band carries no curation badges by design — the claimed seal is
+            not one: it marks authorship, not editorial or paid placement. */}
+        {listing.is_claimed && (
+          <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 3 }}>
+            <ClaimedTick label={t('claimedByOperator')} />
+          </div>
         )}
       </div>
 
@@ -1502,6 +1511,8 @@ function SearchPageInner() {
                 listing={listing}
                 distanceKm={listing.distanceKm}
                 onClick={() => trackSearchClick(listing, idx + 1)}
+                showClaimed
+                claimedLabel={t('claimedByOperator')}
               />
               {listing.reason && <ReasonLine text={listing.reason} />}
             </div>

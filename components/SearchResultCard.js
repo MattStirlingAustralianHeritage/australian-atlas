@@ -3,6 +3,7 @@
 import { useTranslations, useLocale } from 'next-intl'
 import { TypographicCard, VERTICAL_TOKENS } from '@/components/ListingCard'
 import VerticalBadge, { VERTICAL_STYLES } from '@/components/VerticalBadge'
+import ClaimedTick from '@/components/ClaimedTick'
 import { isApprovedImageSource, isHeroDisplayable } from '@/lib/image-utils'
 import { getListingRegion } from '@/lib/regions'
 import { VERTICAL_MUTED } from '@/lib/verticalUrl'
@@ -184,14 +185,17 @@ function ThumbSquare({ listing, size = 76 }) {
   )
 }
 
-function CurationBadge({ listing, overlay = false }) {
+function hasCurationBadge(listing) {
+  return Boolean(listing.editors_pick || (listing.is_featured && listing.is_claimed))
+}
+
+function CurationBadge({ listing }) {
   const t = useTranslations('search')
   const isSelect = listing.editors_pick
   const isFeat = !isSelect && listing.is_featured && listing.is_claimed
   if (!isSelect && !isFeat) return null
   return (
     <span style={{
-      ...(overlay ? { position: 'absolute', top: 10, right: 10, zIndex: 3 } : {}),
       fontFamily: 'var(--font-body)', fontSize: '10px', fontWeight: 500,
       padding: '3px 9px', borderRadius: 100, color: '#fff', whiteSpace: 'nowrap',
       background: isSelect ? 'var(--color-ink)' : 'var(--color-accent)',
@@ -199,6 +203,14 @@ function CurationBadge({ listing, overlay = false }) {
       {isSelect ? t('atlasSelect') : t('featured')}
     </span>
   )
+}
+
+// The claimed seal — shown for every operator-claimed result, which in
+// practice is mostly free-tier claims (a paid Featured venue carries its own
+// badge, and the seal sits beside it rather than competing for the corner).
+function ClaimedSeal({ size = 18 }) {
+  const t = useTranslations('search')
+  return <ClaimedTick size={size} label={t('claimedByOperator')} />
 }
 
 /**
@@ -272,6 +284,9 @@ export default function SearchResultCard({
               {listing.name}
             </h3>
             <CurationBadge listing={listing} />
+            {/* Compact rows have no right-hand column, so the seal rides
+                alongside the name instead of the row corner. */}
+            {compact && listing.is_claimed && <ClaimedSeal size={14} />}
           </div>
           {(category || loc) && (
             <p style={{
@@ -302,6 +317,7 @@ export default function SearchResultCard({
         </div>
         {!compact && (
           <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, paddingTop: 4 }}>
+            {listing.is_claimed && <ClaimedSeal size={16} />}
             <VerticalBadge vertical={listing.vertical} size="sm" />
             <DistanceChip km={distanceKm} inline />
           </div>
@@ -351,7 +367,15 @@ export default function SearchResultCard({
             locale={locale}
           />
         )}
-        <CurationBadge listing={listing} overlay />
+        {(hasCurationBadge(listing) || listing.is_claimed) && (
+          <div style={{
+            position: 'absolute', top: 10, right: 10, zIndex: 3,
+            display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            <CurationBadge listing={listing} />
+            {listing.is_claimed && <ClaimedSeal />}
+          </div>
+        )}
         <div style={{ position: 'absolute', bottom: 10, left: 10, zIndex: 3 }}>
           <VerticalBadge vertical={listing.vertical} size="sm" />
         </div>

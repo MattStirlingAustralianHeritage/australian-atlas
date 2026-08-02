@@ -399,6 +399,7 @@
     "distanceAway": "{distance} away",
     "atlasSelect": "Atlas Select",
     "featured": "Featured",
+    "claimedByOperator": "Owner-managed",
     "acRegions": "Regions",
     "acSuburbs": "Suburbs",
     "acCategories": "Categories",

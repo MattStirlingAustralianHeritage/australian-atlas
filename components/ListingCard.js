@@ -1,5 +1,6 @@
 import { getVerticalUrl, VERTICAL_CARD_TOKENS } from '@/lib/verticalUrl'
 import VerticalBadge from '@/components/VerticalBadge'
+import ClaimedTick from '@/components/ClaimedTick'
 import { isApprovedImageSource, isHeroDisplayable } from '@/lib/image-utils'
 import { getListingRegion } from '@/lib/regions'
 import { localizeVerticalKicker, localizeSubcategory } from '@/lib/i18n/listingLabels'
@@ -453,7 +454,13 @@ function formatDistance(km) {
   return `${Math.round(km)} km`
 }
 
-export default function ListingCard({ listing, meta, linkToVertical = false, distanceKm = null, onClick, locale }) {
+export default function ListingCard({
+  listing, meta, linkToVertical = false, distanceKm = null, onClick, locale,
+  // Opt-in: the gold claimed seal in the top-right corner. Search surfaces
+  // turn it on so a claimed venue is legible in a ranked list; the rest of
+  // the network keeps the card a pure visual tile.
+  showClaimed = false, claimedLabel = 'Owner-managed',
+}) {
   const derivedMeta = meta || {}
   if (!derivedMeta.entity_type && listing.vertical === 'fine_grounds' && listing.source_id) {
     if (listing.source_id.startsWith('cafe_')) derivedMeta.entity_type = 'cafe'
@@ -586,36 +593,44 @@ export default function ListingCard({ listing, meta, linkToVertical = false, dis
           </div>
         )}
 
-        {/* Curation badges */}
-        {isTempClosed && (
-          <span style={{
+        {/* Curation badges — one corner stack so the claimed seal sits beside
+            whichever badge (if any) the venue has earned rather than under it. */}
+        {(isTempClosed || isAtlasSelect || showFeatured || (showClaimed && listing.is_claimed)) && (
+          <div style={{
             position: 'absolute', top: 12, right: 12, zIndex: 3,
-            fontSize: '10px', fontWeight: 500, padding: '4px 10px',
-            borderRadius: 100, color: '#fff', background: 'rgba(45,42,38,0.78)',
-            backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', gap: 6,
           }}>
-            Temporarily closed
-          </span>
-        )}
-        {isAtlasSelect && (
-          <span style={{
-            position: 'absolute', top: 12, right: 12, zIndex: 3,
-            fontSize: '10px', fontWeight: 500, padding: '4px 10px',
-            borderRadius: 100, color: '#fff', background: 'var(--color-ink)',
-            backdropFilter: 'blur(4px)',
-          }}>
-            Atlas Select
-          </span>
-        )}
-        {showFeatured && (
-          <span style={{
-            position: 'absolute', top: 12, right: 12, zIndex: 3,
-            fontSize: '10px', fontWeight: 500, padding: '4px 10px',
-            borderRadius: 100, color: '#fff', background: 'var(--color-accent)',
-            backdropFilter: 'blur(4px)',
-          }}>
-            Featured
-          </span>
+            {isTempClosed && (
+              <span style={{
+                fontSize: '10px', fontWeight: 500, padding: '4px 10px',
+                borderRadius: 100, color: '#fff', background: 'rgba(45,42,38,0.78)',
+                backdropFilter: 'blur(4px)',
+              }}>
+                Temporarily closed
+              </span>
+            )}
+            {isAtlasSelect && (
+              <span style={{
+                fontSize: '10px', fontWeight: 500, padding: '4px 10px',
+                borderRadius: 100, color: '#fff', background: 'var(--color-ink)',
+                backdropFilter: 'blur(4px)',
+              }}>
+                Atlas Select
+              </span>
+            )}
+            {showFeatured && (
+              <span style={{
+                fontSize: '10px', fontWeight: 500, padding: '4px 10px',
+                borderRadius: 100, color: '#fff', background: 'var(--color-accent)',
+                backdropFilter: 'blur(4px)',
+              }}>
+                Featured
+              </span>
+            )}
+            {showClaimed && listing.is_claimed && (
+              <ClaimedTick label={claimedLabel} />
+            )}
+          </div>
         )}
       </div>
     </a>
