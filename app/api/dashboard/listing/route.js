@@ -13,6 +13,8 @@ import { upsertTradeProfile } from '@/lib/trade/profile'
 import { regenerateListingEmbedding } from '@/lib/embeddings/regenerateOne'
 import { moderateImageUrl } from '@/lib/moderation/imageModeration'
 import { activityCollector, ACTIVITY_ACTIONS } from '@/lib/activity/logListingActivity'
+import { isByAppointment, setByAppointment } from '@/lib/listings/presence'
+import { writeOffersClasses } from '@/lib/listings/craftClasses'
 
 /**
  * PATCH /api/dashboard/listing — operator self-service edit of a claimed listing.
@@ -22,11 +24,12 @@ import { activityCollector, ACTIVITY_ACTIONS } from '@/lib/activity/logListingAc
  * user. Vertical membership no longer grants edit rights (that let any vendor in
  * a vertical edit every claimed listing in it). Admins bypass the ownership check.
  *
- * Body: { listing_id, website?, phone?, hours?, hero_image_url?, gallery_image_urls?, video_url? }
+ * Body: { listing_id, website?, phone?, hours?, by_appointment?, address_on_request?,
+ *         offers_classes?, hero_image_url?, gallery_image_urls?, video_url? }
  *
  * Tiering ("keeper of the facts"): a FREE claim verifies ownership and lets the
- * owner keep the facts current — ONLY website, phone and hours (the
- * FREE_TIER_FIELDS set). Any other field on a free claim → 403. A paid claim
+ * owner keep the facts current — website, phone, hours and the visiting
+ * switches (the FREE_TIER_FIELDS set). Any other field on a free claim → 403. A paid claim
  * (active or past_due standard — isListingPaid) unlocks everything. Admins
  * bypass the tier gate entirely.
  *
@@ -47,7 +50,15 @@ const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/ // 24h HH:MM — matches OpeningHour
 
 // The facts a FREE claim may keep current. Everything else in the body is a
 // Standard-plan feature (photos, gallery, highlights, search keywords).
-const FREE_TIER_FIELDS = ['website', 'phone', 'hours']
+//
+// The visiting switches sit here deliberately. "Open by appointment", "don't
+// publish my street address" and "I run classes" are the same class of fact as
+// opening hours — they are how a visitor gets in the door, and the operator is
+// the only person who actually knows them. A by-appointment studio that can't
+// say so is a listing that reads as closed; that is not a thing to sell back to
+// its owner. by_appointment maps onto the presence pair (see setByAppointment)
+// and offers_classes onto craft_meta, so neither is a plain listings column.
+const FREE_TIER_FIELDS = ['website', 'phone', 'hours', 'by_appointment', 'address_on_request', 'offers_classes']
 
 /**
  * Normalise an incoming hours object into the shape the public renderer expects:
@@ -112,7 +123,7 @@ export async function PATCH(request) {
   // "added 3 photos" rather than "saved the form".
   const { data: owned, error: ownErr } = await sb
     .from('listings')
-    .select('id, name, slug, vertical, sub_type, sub_types, is_claimed, hero_image_url, website, phone, hours, video_url')
+    .select('id, name, slug, vertical, sub_type, sub_types, is_claimed, hero_image_url, website, phone, hours, video_url, presence_type, presence_types, address_on_request')
     .eq('id', listingId)
     .single()
 
@@ -152,7 +163,7 @@ export async function PATCH(request) {
     if (lockedFields.length > 0) {
       return NextResponse.json(
         {
-          error: 'On a free claim you can keep the facts current — opening hours, phone and website. Photos, highlights and keywords are Standard-plan features. Upgrade to unlock the rest of your listing.',
+          error: 'On a free claim you can keep the facts current — opening hours, how visitors get in, phone and website. Photos, highlights and keywords are Standard-plan features. Upgrade to unlock the rest of your listing.',
           code: 'payment_required',
           upgrade: true,
           locked_fields: lockedFields,
@@ -330,6 +341,72 @@ export async function PATCH(request) {
           ? `Set opening hours — open ${openDays} ${openDays === 1 ? 'day' : 'days'} a week`
           : 'Cleared the opening hours',
         { field: 'hours', details: { open_days: openDays, had_hours_before: !!beforeHours } }
+      )
+    }
+  }
+
+  // ── visiting switches → presence pair + craft classes flag ──────────────────
+  // by_appointment and address_on_request are listings columns, so they go
+  // through the canonical updateListing (master write + vertical sync-back) in
+  // ONE call — two calls would push the vertical twice for a single save.
+  // setByAppointment owns how the scalar and the array move together, so a
+  // maker who also sells at markets keeps that mode when they switch visits on.
+  const wantsAppointment = 'by_appointment' in body
+  const wantsAor = 'address_on_request' in body
+  if (wantsAppointment || wantsAor) {
+    const visitUpdates = {}
+    if (wantsAppointment) Object.assign(visitUpdates, setByAppointment(!!body.by_appointment, owned))
+    if (wantsAor) visitUpdates.address_on_request = !!body.address_on_request
+
+    const visitRes = await updateListing(listingId, visitUpdates, { action: 'operator-edit' })
+    if (!visitRes.success) {
+      return NextResponse.json({ error: visitRes.error || 'Update failed' }, { status: 400 })
+    }
+    verticalSync = visitRes.verticalSync || verticalSync
+
+    // The editor posts the whole form on every save, so log only real moves.
+    const changes = []
+    if (wantsAppointment && !!body.by_appointment !== isByAppointment(owned)) {
+      changes.push(body.by_appointment ? 'open by appointment' : 'no longer by appointment')
+    }
+    if (wantsAor && !!body.address_on_request !== !!owned.address_on_request) {
+      changes.push(body.address_on_request ? 'street address hidden' : 'street address shown')
+    }
+    if (changes.length) {
+      activity.add(ACTIVITY_ACTIONS.VISITING_UPDATED, `Visiting: ${changes.join(', ')}`, {
+        field: 'presence',
+        details: {
+          by_appointment: wantsAppointment ? !!body.by_appointment : isByAppointment(owned),
+          address_on_request: wantsAor ? !!body.address_on_request : !!owned.address_on_request,
+        },
+      })
+    }
+  }
+
+  // offers_classes lives on craft_meta (migration 089), not on listings, and
+  // only craft has the column — a post from any other vertical is a no-op
+  // rather than an error, the same contract readOffersClassesMap uses.
+  let savedClasses
+  if ('offers_classes' in body && owned.vertical === 'craft') {
+    // Read first so the activity line reflects a real change — the editor posts
+    // the whole form on every save.
+    const { data: beforeRow } = await sb
+      .from('craft_meta')
+      .select('offers_classes')
+      .eq('listing_id', listingId)
+      .maybeSingle()
+
+    const { ok, error: classesErr } = await writeOffersClasses(sb, listingId, body.offers_classes)
+    if (!ok) {
+      return NextResponse.json({ error: `Failed to save classes: ${classesErr}` }, { status: 400 })
+    }
+    savedClasses = !!body.offers_classes
+
+    if (!!body.offers_classes !== !!beforeRow?.offers_classes) {
+      activity.add(
+        ACTIVITY_ACTIONS.VISITING_UPDATED,
+        body.offers_classes ? 'Visiting: runs classes and workshops' : 'Visiting: no longer runs classes',
+        { field: 'offers_classes', details: { offers_classes: !!body.offers_classes } }
       )
     }
   }
@@ -622,7 +699,7 @@ export async function PATCH(request) {
 
   const { data: fresh } = await sb
     .from('listings')
-    .select('id, name, slug, vertical, website, phone, hours, hero_image_url, description, is_claimed, status, search_keywords, trade_welcome, trade_bespoke, trade_group, trade_group_size_max, trade_contact_before_booking, trade_rates_available')
+    .select('id, name, slug, vertical, website, phone, hours, hero_image_url, description, is_claimed, status, presence_type, presence_types, address_on_request, search_keywords, trade_welcome, trade_bespoke, trade_group, trade_group_size_max, trade_contact_before_booking, trade_rates_available')
     .eq('id', listingId)
     .single()
 
@@ -632,6 +709,7 @@ export async function PATCH(request) {
   if (fresh && savedKeywords !== undefined) fresh.search_keywords = savedKeywords
   if (fresh && savedTrade !== undefined) Object.assign(fresh, savedTrade)
   if (fresh && savedProfile !== undefined) fresh.trade_profile = savedProfile
+  if (fresh && savedClasses !== undefined) fresh.offers_classes = savedClasses
 
   return NextResponse.json({ success: true, listing: fresh, verticalSync, imageModeration, galleryModeration })
 }

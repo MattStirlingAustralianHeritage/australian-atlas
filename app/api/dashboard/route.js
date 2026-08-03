@@ -6,6 +6,7 @@ import { LISTING_REGION_SELECT } from '@/lib/regions'
 import { readGalleryEntries, filterPaidListingIds } from '@/lib/listing-gallery'
 import { readHighlightsMap } from '@/lib/operator-highlights/read'
 import { getTradeProfiles } from '@/lib/trade/profile'
+import { readOffersClassesMap } from '@/lib/listings/craftClasses'
 
 /**
  * GET /api/dashboard — Fetch dashboard data for the operator's OWNED listings.
@@ -21,7 +22,8 @@ import { getTradeProfiles } from '@/lib/trade/profile'
  */
 
 // Columns the dashboard renders per listing (+ resolved region fields).
-const LISTING_SELECT = `id, name, slug, vertical, sub_type, sub_types, region, state, lat, lng, website, phone, address, hero_image_url, video_url, is_claimed, is_featured, status, description, hours, search_keywords, trade_welcome, trade_bespoke, trade_group, trade_group_size_max, trade_contact_before_booking, trade_rates_available, created_at, updated_at, ${LISTING_REGION_SELECT}`
+// The presence trio backs the operator's "How visitors get in" switches.
+const LISTING_SELECT = `id, name, slug, vertical, sub_type, sub_types, region, state, lat, lng, website, phone, address, hero_image_url, video_url, is_claimed, is_featured, status, description, hours, presence_type, presence_types, address_on_request, search_keywords, trade_welcome, trade_bespoke, trade_group, trade_group_size_max, trade_contact_before_booking, trade_rates_available, created_at, updated_at, ${LISTING_REGION_SELECT}`
 
 // True if `userId` holds an active ownership claim on `listingId`.
 async function ownsListing(sb, listingId, userId) {
@@ -130,10 +132,13 @@ export async function GET(request) {
     // "right now" + hiring layer), extended trade profile (migration 204), and
     // the paid flag (one listing_claims query for the whole set — the old
     // per-listing isListingPaid calls cost a query each).
-    const [highlightsMap, tradeProfiles, paidIds] = await Promise.all([
+    const [highlightsMap, tradeProfiles, paidIds, classesMap] = await Promise.all([
       readHighlightsMap(sb, ids),
       getTradeProfiles(sb, ids),
       filterPaidListingIds(sb, ids),
+      // craft_meta.offers_classes — one query for the craft listings in the set,
+      // empty Map for everyone else (see lib/listings/craftClasses).
+      readOffersClassesMap(sb, listings),
     ])
 
     // Gallery manifests are one storage download per listing, and only the
@@ -180,6 +185,9 @@ export async function GET(request) {
         gallery_moderation: galleryEntries.map(e => ({ url: e.url, status: e.status, reason: e.reason })),
         operator_highlights: highlightsMap.get(listing.id) || null,
         trade_profile: tradeProfiles.get(listing.id) || null,
+        // undefined (not false) for non-craft listings, so the editor can tell
+        // "this vertical has no classes flag" from "classes are switched off".
+        offers_classes: classesMap.has(listing.id) ? classesMap.get(listing.id) : undefined,
         paid: paidIds.has(listing.id),
         stats: {
           search_appearances: searchCounts.get(listing.id) || 0,

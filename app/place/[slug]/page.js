@@ -17,7 +17,7 @@ import { draftAuthorship } from '@/lib/operator-intake/voice.mjs'
 import { isApprovedImageSource, isHeroDisplayable } from '@/lib/image-utils'
 import OptimizedImage from '@/components/OptimizedImage'
 import { getListingRegion, LISTING_REGION_SELECT } from '@/lib/regions'
-import { isMobileListing, hasPreciseLocation, mobileLocationLine, MOBILE_LABEL } from '@/lib/listings/presence'
+import { isMobileListing, hasPreciseLocation, mobileLocationLine, isByAppointment, MOBILE_LABEL } from '@/lib/listings/presence'
 import { stripTrackingParams } from '@/lib/urlHygiene'
 import { listOutgoing, listIncoming } from '@/lib/picks/producerPicks'
 import { readGallery, filterPaidListingIds } from '@/lib/listing-gallery'
@@ -156,7 +156,7 @@ const getListing = cache(async function getListing(slug, locale = 'en') {
   const hasVerticals = await relationHasVerticals(sb, 'listings')
   const { data, error } = await sb
     .from('listings')
-    .select(`id, vertical, name, slug, description, region, state, suburb, lat, lng, website, phone, address, address_on_request, visitable, presence_type, service_area, data_source, hero_image_url, video_url, is_featured, is_claimed, editors_pick, status, closure_status, hours, opening_hours, verified, sub_type, sub_types, ${hasVerticals ? 'verticals, ' : ''}${LISTING_REGION_SELECT}`)
+    .select(`id, vertical, name, slug, description, region, state, suburb, lat, lng, website, phone, address, address_on_request, visitable, presence_type, service_area, presence_types, data_source, hero_image_url, video_url, is_featured, is_claimed, editors_pick, status, closure_status, hours, opening_hours, verified, sub_type, sub_types, ${hasVerticals ? 'verticals, ' : ''}${LISTING_REGION_SELECT}`)
     .eq('slug', slug)
     .eq('status', 'active')
     // CLAUDE.md hard rule: needs_review=true venues 404 (never render publicly).
@@ -1245,6 +1245,12 @@ export default async function PlacePage({ params }) {
                       </a>
                     </DetailItem>
                   )}
+                  {/* A by-appointment venue has no weekly hours to show, so
+                      without this line the page reads as permanently shut.
+                      Operators set it themselves from the dashboard. */}
+                  {isByAppointment(listing) && (
+                    <DetailItem icon="clock" label={t('visiting')} value={t('byAppointment')} />
+                  )}
                   {cleanRegion && (
                     <DetailItem icon="map" label={t('regionLabel')}>
                       <Link
@@ -2011,6 +2017,14 @@ export default async function PlacePage({ params }) {
             is_featured: listing.is_featured,
             editors_pick: listing.editors_pick,
             is_claimed: listing.is_claimed,
+            // Presence — the editor renders toggles for all of these and posts
+            // its whole draft back. Without them the draft initialised to the
+            // defaults and every inline save silently reset a listing's
+            // address-on-request, mobile and by-appointment state.
+            address_on_request: listing.address_on_request,
+            presence_type: listing.presence_type,
+            presence_types: listing.presence_types || null,
+            service_area: listing.service_area,
             sub_type: listing.sub_type,
             sub_types: listing.sub_types || [],
           }} />
@@ -2087,6 +2101,7 @@ const DETAIL_ICONS = {
   globe: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" /></svg>,
   phone: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" /></svg>,
   map: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4zM8 2v16M16 6v16" /></svg>,
+  clock: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><polyline points="12 7 12 12 15.5 14" /></svg>,
 }
 
 function DetailItem({ label, value, children, icon }) {

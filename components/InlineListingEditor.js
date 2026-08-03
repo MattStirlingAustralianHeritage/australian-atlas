@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useLocale } from 'next-intl'
+import { isByAppointment, setByAppointment } from '@/lib/listings/presence'
 
 // ── Vertical-specific field definitions ─────────────────────
 // Must match CHECK constraints in DB and the admin ListingEditor exactly.
@@ -47,6 +48,7 @@ const VERTICAL_FIELDS = {
     ]},
     { key: 'commission_available', label: 'Commission Available', type: 'toggle' },
     { key: 'is_open_to_public', label: 'Studio Visits', type: 'toggle' },
+    { key: 'offers_classes', label: 'Classes', type: 'toggle' },
   ],
   fine_grounds: [
     { key: 'entity_type', label: 'Venue Type', type: 'select', options: [
@@ -342,6 +344,7 @@ export default function InlineListingEditor({ listing }) {
       editors_pick: listing.editors_pick || false,
       address_on_request: listing.address_on_request || false,
       presence_type: listing.presence_type || 'permanent',
+      presence_types: Array.isArray(listing.presence_types) ? listing.presence_types : null,
       service_area: listing.service_area || '',
     })
     setMetaDraft(listing.meta || {})
@@ -604,6 +607,23 @@ export default function InlineListingEditor({ listing }) {
                 </div>
               </div>
 
+              {/* By appointment — the studio maker who welcomes visits but
+                  doesn't keep shop hours. setByAppointment moves the scalar and
+                  the array together so another mode (markets, online) survives. */}
+              <div style={{ marginBottom: 16 }}>
+                <PanelToggle
+                  label="By appointment"
+                  value={isByAppointment(draft)}
+                  onChange={v => setDraft(prev => ({ ...prev, ...setByAppointment(v, prev) }))}
+                />
+                <div style={{
+                  fontFamily: 'var(--font-body, system-ui)', fontSize: 11,
+                  color: 'var(--color-muted, #6B6760)', marginTop: -4, paddingLeft: 24,
+                }}>
+                  Visits are booked or called ahead — shown instead of opening hours
+                </div>
+              </div>
+
               {/* Mobile venue — food trucks, carts, pop-ups. Keeps the listing
                   visitable & discoverable but suppresses the street address, map
                   pin, and Get Directions; sets presence_type accordingly. */}
@@ -611,7 +631,11 @@ export default function InlineListingEditor({ listing }) {
                 <PanelToggle
                   label="Mobile venue (no fixed address)"
                   value={draft.presence_type === 'mobile'}
-                  onChange={v => updateField('presence_type', v ? 'mobile' : 'permanent')}
+                  onChange={v => setDraft(prev => v
+                    ? { ...prev, presence_type: 'mobile', presence_types: null }
+                    // Switching mobile OFF must not silently drop a by-appointment
+                    // (or markets/online) mode the listing also carries.
+                    : { ...prev, presence_type: prev.presence_types?.[0] || 'permanent' })}
                 />
                 <div style={{
                   fontFamily: 'var(--font-body, system-ui)', fontSize: 11,

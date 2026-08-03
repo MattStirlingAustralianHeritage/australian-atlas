@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import WYSIWYGEditor from '@/components/admin/WYSIWYGEditor'
 import ListingPicksEditor from '@/components/admin/ListingPicksEditor'
 import { VERTICAL_ACCENTS } from '@/lib/verticalUrl'
+import { isByAppointment, setByAppointment } from '@/lib/listings/presence'
 
 const VERTICAL_NAMES = {
   sba: 'Small Batch', collection: 'Culture', craft: 'Craft',
@@ -63,6 +64,9 @@ const VERTICAL_FIELDS = {
     ]},
     { key: 'commission_available', label: 'Commission Available', type: 'toggle' },
     { key: 'is_open_to_public', label: 'Studio Visits', type: 'toggle' },
+    // craft_meta.offers_classes (migration 089) — the flag the place page's
+    // "Classes & Workshops" section reads. Same wording as /admin/candidates.
+    { key: 'offers_classes', label: 'Classes', type: 'toggle' },
   ],
   fine_grounds: [
     { key: 'entity_type', label: 'Venue Type', type: 'select', options: [
@@ -981,6 +985,37 @@ function ListingCard({ listing, isExpanded, onToggle, onUpdate, onRemove, region
             <Field toggle label="Claimed" value={draft.is_claimed} onChange={v => updateDraft('is_claimed', v)} />
             <Field toggle label="Featured" value={draft.is_featured} onChange={v => updateDraft('is_featured', v)} />
             <Field toggle label="Editor's Pick" value={draft.editors_pick} onChange={v => updateDraft('editors_pick', v)} />
+          </div>
+
+          {/* ── Visiting ──────────────────────────────────────────
+              How a visitor gets in the door. "By appointment" moves the
+              presence pair together (setByAppointment owns that rule) so a
+              maker who also sells at markets keeps that mode; the listing
+              stays visitable and trail-eligible either way. "Address on
+              request" is orthogonal — it only ever hides the street line and
+              the map pin, which is what a home-studio maker needs. */}
+          <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: 12, marginBottom: 16 }}>
+            <p style={{
+              fontFamily: 'var(--font-body)', fontSize: 10, fontWeight: 600,
+              letterSpacing: '0.08em', textTransform: 'uppercase',
+              color: 'var(--color-muted)', marginBottom: 10,
+            }}>
+              Visiting
+            </p>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              <Field
+                toggle
+                label="By Appointment"
+                value={isByAppointment(draft)}
+                onChange={v => setDraft(prev => ({ ...prev, ...setByAppointment(v, prev) }))}
+              />
+              <Field
+                toggle
+                label="Address on Request"
+                value={draft.address_on_request}
+                onChange={v => updateDraft('address_on_request', v)}
+              />
+            </div>
           </div>
 
           {/* Vertical-specific fields */}

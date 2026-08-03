@@ -4,7 +4,11 @@ import { getSupabaseAdmin } from '@/lib/supabase/clients'
 import { checkAdmin } from '@/lib/admin-auth'
 import { LISTING_REGION_SELECT, resolveRegionParam } from '@/lib/regions'
 
-const SELECT_COLS = `id, vertical, source_id, name, slug, description, region, state, lat, lng, website, phone, address, hero_image_url, is_claimed, is_featured, is_market, sub_type, sub_types, status, editors_pick, created_at, updated_at, ${LISTING_REGION_SELECT}`
+// presence_type / presence_types / address_on_request feed the editor's
+// "Visiting" switches. Safe through listings_with_region: migration 271
+// recreated the view AFTER 087/200 added them (the view snapshots its column
+// list at CREATE, which is what 500'd search browse on closure_status).
+const SELECT_COLS = `id, vertical, source_id, name, slug, description, region, state, lat, lng, website, phone, address, hero_image_url, is_claimed, is_featured, is_market, sub_type, sub_types, status, editors_pick, presence_type, presence_types, address_on_request, created_at, updated_at, ${LISTING_REGION_SELECT}`
 
 // Approximate bounding boxes per Australian state
 const STATE_BOUNDS = {

@@ -9,6 +9,7 @@ import { getListingRegion } from '@/lib/regions'
 import { getVerticalLabel, getVerticalBrandColour } from '@/lib/verticalUrl'
 import { parseVideoUrl, VIDEO_PROVIDER_LABELS } from '@/lib/video-embed'
 import { getCompleteness } from '@/lib/listing-completeness'
+import { isByAppointment } from '@/lib/listings/presence'
 import { PanelGroup, PanelGroupHeading, Panel, LockedNote, PanelActions } from './EditorPanel'
 import HighlightsEditor from './HighlightsEditor'
 import KeywordsEditor from './KeywordsEditor'
@@ -33,7 +34,8 @@ import PicksSection from './PicksSection'
  * and "Make it richer", which is everything optional.
  *
  * Tiering ("keeper of the facts"): a FREE claim keeps the facts editable —
- * website, phone and opening hours only. Photos, video, highlights, keywords,
+ * website, phone, opening hours and the visiting switches (by appointment,
+ * address on request, craft classes). Photos, video, highlights, keywords,
  * events and picks show their locked presentation until the claim is Standard
  * (the PATCH route enforces the same field set server-side). Paid claims and
  * admins get everything.
@@ -166,6 +168,24 @@ function Field({ icon, label, hint, children }) {
   )
 }
 
+/** Checkbox + label + hint, stacked. Used by the visiting switches. */
+function SwitchRow({ checked, onChange, label, hint }) {
+  return (
+    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={e => onChange(e.target.checked)}
+        style={{ accentColor: 'var(--color-sage)', width: 16, height: 16, marginTop: 2, flexShrink: 0 }}
+      />
+      <span>
+        <span style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--color-ink)' }}>{label}</span>
+        {hint && <span style={{ ...fieldHint, display: 'block', margin: '2px 0 0' }}>{hint}</span>}
+      </span>
+    </label>
+  )
+}
+
 // ── Opening-hours editor ─────────────────────────────────────
 function HoursEditor({ days, setDay }) {
   // "Same every day" is how most venues actually work; copying Monday down is
@@ -236,6 +256,10 @@ export default function EditListingPage() {
   const [gallery, setGallery] = useState([])
   const [videoUrl, setVideoUrl] = useState('')
   const [days, setDays] = useState(defaultDays)
+  // How visitors get in — free to keep current, like the hours above it.
+  const [byAppointment, setByAppointmentState] = useState(false)
+  const [addressOnRequest, setAddressOnRequest] = useState(false)
+  const [offersClasses, setOffersClasses] = useState(false)
 
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState(null)
@@ -261,10 +285,19 @@ export default function EditListingPage() {
     })
   }
 
-  const baselineRef = useRef({ website: '', phone: '', heroImageUrl: '', hoursKey: 'null', galleryKey: '[]', videoUrl: '' })
+  const baselineRef = useRef({
+    website: '', phone: '', heroImageUrl: '', hoursKey: 'null', galleryKey: '[]', videoUrl: '',
+    byAppointment: false, addressOnRequest: false, offersClasses: false,
+  })
 
-  const setBaseline = useCallback((w, p, h, d, g, v) => {
-    baselineRef.current = { website: w, phone: p, heroImageUrl: h, hoursKey: JSON.stringify(daysToHours(d)), galleryKey: JSON.stringify(g || []), videoUrl: v || '' }
+  const setBaseline = useCallback(({ website: w, phone: p, heroImageUrl: h, days: d, gallery: g, videoUrl: v, byAppointment: appt, addressOnRequest: aor, offersClasses: cls }) => {
+    baselineRef.current = {
+      website: w, phone: p, heroImageUrl: h,
+      hoursKey: JSON.stringify(daysToHours(d)),
+      galleryKey: JSON.stringify(g || []),
+      videoUrl: v || '',
+      byAppointment: !!appt, addressOnRequest: !!aor, offersClasses: !!cls,
+    }
   }, [])
 
   // Deep link from the Overview's "what's left" chips (#panel-cover, …) —
@@ -312,17 +345,23 @@ export default function EditListingPage() {
               const d = hoursToDays(l.hours)
               const g = Array.isArray(l.gallery_image_urls) ? l.gallery_image_urls : []
               const v = l.video_url || ''
+              const appt = isByAppointment(l)
+              const aor = !!l.address_on_request
+              const cls = !!l.offers_classes
               setListing(l)
               setWebsite(w)
               setPhone(p)
               setHeroImageUrl(h)
               setGallery(g)
               setVideoUrl(v)
+              setByAppointmentState(appt)
+              setAddressOnRequest(aor)
+              setOffersClasses(cls)
               if (Array.isArray(l.gallery_moderation)) {
                 setGalleryStatus(Object.fromEntries(l.gallery_moderation.map(s => [s.url, { status: s.status, reason: s.reason }])))
               }
               setDays(d)
-              setBaseline(w, p, h, d, g, v)
+              setBaseline({ website: w, phone: p, heroImageUrl: h, days: d, gallery: g, videoUrl: v, byAppointment: appt, addressOnRequest: aor, offersClasses: cls })
             }
           }
           setLoading(false)
@@ -463,6 +502,9 @@ export default function EditListingPage() {
     setGallery(JSON.parse(b.galleryKey))
     setVideoUrl(b.videoUrl)
     setDays(hoursToDays(JSON.parse(b.hoursKey)))
+    setByAppointmentState(b.byAppointment)
+    setAddressOnRequest(b.addressOnRequest)
+    setOffersClasses(b.offersClasses)
     setSaveError(null)
     setGalleryError(null)
   }
@@ -472,15 +514,21 @@ export default function EditListingPage() {
     setSaveError(null)
     setImageNotice(null)
     try {
-      // Free tier is "keeper of the facts": send ONLY website/phone/hours. The
-      // PATCH route 403s any other key on a free claim, so including the (locked,
-      // unchanged) hero/gallery would fail the whole save.
+      // Free tier is "keeper of the facts": send ONLY the FREE_TIER_FIELDS set
+      // — website, phone, hours and the visiting switches. The PATCH route 403s
+      // any other key on a free claim, so including the (locked, unchanged)
+      // hero/gallery would fail the whole save.
       const payload = {
         listing_id: id,
         website: website.trim() || null,
         phone: phone.trim() || null,
         hours: daysToHours(days),
+        by_appointment: byAppointment,
+        address_on_request: addressOnRequest,
       }
+      // craft_meta only — the route ignores it elsewhere, but there's no reason
+      // to post a flag this vertical doesn't have.
+      if (listing?.vertical === 'craft') payload.offers_classes = offersClasses
       if (listing?.paid || isAdmin) {
         payload.hero_image_url = heroImageUrl || null
         payload.gallery_image_urls = gallery
@@ -502,11 +550,17 @@ export default function EditListingPage() {
           // video_url rides the fresh listing only when it was part of the save
           // (the PATCH overlays savedVideo); otherwise keep the local value.
           const v = data.listing.video_url !== undefined ? (data.listing.video_url || '') : videoUrl
+          const appt = isByAppointment(data.listing)
+          const aor = !!data.listing.address_on_request
+          // offers_classes rides the fresh listing only when it was part of the
+          // save (the PATCH overlays savedClasses); otherwise keep the local value.
+          const cls = data.listing.offers_classes !== undefined ? !!data.listing.offers_classes : offersClasses
           setListing(prev => ({ ...prev, ...data.listing }))
           setWebsite(w); setPhone(p); setHeroImageUrl(h); setGallery(g); setVideoUrl(v); setDays(d)
-          setBaseline(w, p, h, d, g, v)
+          setByAppointmentState(appt); setAddressOnRequest(aor); setOffersClasses(cls)
+          setBaseline({ website: w, phone: p, heroImageUrl: h, days: d, gallery: g, videoUrl: v, byAppointment: appt, addressOnRequest: aor, offersClasses: cls })
         } else {
-          setBaseline(website, phone, heroImageUrl, days, gallery, videoUrl)
+          setBaseline({ website, phone, heroImageUrl, days, gallery, videoUrl, byAppointment, addressOnRequest, offersClasses })
         }
         // Image-moderation feedback for hero + gallery: anything flagged or held
         // won't appear publicly until it passes / an admin approves it.
@@ -581,7 +635,12 @@ export default function EditListingPage() {
 
   const hours = daysToHours(days)
 
-  const basicsDirty = website !== baselineRef.current.website || phone !== baselineRef.current.phone || JSON.stringify(hours) !== baselineRef.current.hoursKey
+  const basicsDirty = website !== baselineRef.current.website
+    || phone !== baselineRef.current.phone
+    || JSON.stringify(hours) !== baselineRef.current.hoursKey
+    || byAppointment !== baselineRef.current.byAppointment
+    || addressOnRequest !== baselineRef.current.addressOnRequest
+    || offersClasses !== baselineRef.current.offersClasses
   const coverDirty = heroImageUrl !== baselineRef.current.heroImageUrl
   const galleryDirty = JSON.stringify(gallery) !== baselineRef.current.galleryKey
   const videoDirty = videoUrl !== baselineRef.current.videoUrl
@@ -750,14 +809,19 @@ export default function EditListingPage() {
 
       {/* ── The editable surface ── */}
       <PanelGroup open={openPanel} onOpenChange={setOpenPanel}>
-        <PanelGroupHeading title="The essentials" note="The three things visitors ask for most. Free to keep current, always." />
+        <PanelGroupHeading title="The essentials" note="What visitors ask for most. Free to keep current, always." />
 
+        {/* "By appointment" is a complete answer to when you can visit, so a
+            studio that has it set isn't missing its hours. */}
         <Panel
           id="basics"
           title="Contact & hours"
-          status={website.trim() && phone.trim() && hours ? 'done' : 'empty'}
+          status={website.trim() && phone.trim() && (hours || byAppointment) ? 'done' : 'empty'}
           dirty={basicsDirty}
-          summary={hoursSummary(hours) || (website.trim() || phone.trim() ? 'No opening hours yet' : 'Nothing added yet')}
+          summary={
+            [hoursSummary(hours), byAppointment ? 'By appointment' : null].filter(Boolean).join(' · ')
+            || (website.trim() || phone.trim() ? 'No opening hours yet' : 'Nothing added yet')
+          }
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <Field icon="globe" label="Website" hint="Where visitors can find you. Include the full address, e.g. yourvenue.com.au">
@@ -790,6 +854,39 @@ export default function EditListingPage() {
                 Opening hours
               </label>
               <HoursEditor days={days} setDay={setDay} />
+            </div>
+
+            {/* ── How visitors get in ──────────────────────────
+                A studio that opens by arrangement has no weekly hours to
+                set, and without this it reads as permanently closed. These
+                are facts only the operator knows, so they stay free. */}
+            <div>
+              <label style={fieldLabel}>
+                <span style={{ color: 'var(--color-accent)', display: 'inline-flex' }}>{ICONS.check}</span>
+                How visitors get in
+              </label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <SwitchRow
+                  checked={byAppointment}
+                  onChange={setByAppointmentState}
+                  label="By appointment"
+                  hint="Visitors book or call ahead rather than dropping in. Shown on your page and used when we build trails and itineraries."
+                />
+                <SwitchRow
+                  checked={addressOnRequest}
+                  onChange={setAddressOnRequest}
+                  label="Don’t publish my street address"
+                  hint="For home studios. We keep your suburb and region, but hide the exact address and the map pin."
+                />
+                {listing.vertical === 'craft' && (
+                  <SwitchRow
+                    checked={offersClasses}
+                    onChange={setOffersClasses}
+                    label="I run classes or workshops"
+                    hint="Adds a Classes & Workshops note to your page."
+                  />
+                )}
+              </div>
             </div>
 
             {listing.address && (
