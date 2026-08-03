@@ -658,6 +658,10 @@ export default function EditListingPage() {
   // moves as the operator types rather than only after a save.
   const completeness = getCompleteness(listing, {
     website, phone, hours, hero_image_url: heroImageUrl,
+    // Live switch state, so ticking "by appointment" clears the hours prompt
+    // straight away rather than only after the save round-trips.
+    presence_type: byAppointment ? 'by_appointment' : 'permanent',
+    presence_types: byAppointment ? ['by_appointment'] : null,
   })
 
   return (
@@ -746,7 +750,7 @@ export default function EditListingPage() {
                     Your facts are free to keep current
                   </p>
                   <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-muted)', margin: '4px 0 0', lineHeight: 1.55 }}>
-                    Website, phone and opening hours, any time. Standard adds your photos, story, events and insights.
+                    Website, phone, opening hours and how visitors get in, any time. Standard adds your photos, story, events and insights.
                   </p>
                 </div>
                 <button type="button" onClick={handleUpgrade} disabled={upgrading} className="btn btn-primary btn-sm">
